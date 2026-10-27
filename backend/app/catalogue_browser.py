@@ -558,6 +558,17 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         "slab_search_bounded": slab_search and len(rows) > limit})
 
 
+BOOK_REFERENCE_IMAGE_SQL = '''select b.*,pr.identity_status as profile_status,
+    pr.release_date as profile_release_date
+  from tcg.comic_printing_details b
+  join tcg.catalogue_product_profiles pr on pr.catalogue_id=b.catalogue_id
+    and pr.system_code=b.system_code and pr.collectible_type='COMIC'
+  join tcg.catalogue_products p on p.id=b.catalogue_id and p.product_type='COMIC'
+  where p.id=$1 and b.system_code=$2 and p.language=$3
+    and (pr.release_date<=current_date or
+         (pr.release_date is null and b.release_year<extract(year from current_date)))'''
+
+
 @router.get('/reference-image')
 async def reference_image(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                           access: Annotated[dict, Depends(browser_access)],
@@ -575,14 +586,9 @@ async def reference_image(request: Request, user: Annotated[AuthenticatedUser, D
         if provider != 'Official Publisher':
             raise HTTPException(404, 'Reference artwork not available')
         async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
-            book = await connection.fetchrow('''select b.*,pr.identity_status as profile_status,
-                pr.release_date as profile_release_date
-              from tcg.comic_printing_details b
-              join tcg.catalogue_product_profiles pr on pr.catalogue_id=b.catalogue_id
-                and pr.system_code=b.system_code and pr.collectible_type='COMIC'
-              join tcg.catalogue_products p on p.id=b.catalogue_id and p.product_type='COMIC'
-              where p.id=$1 and b.system_code=$2 and p.language=$3
-                and pr.release_date<=current_date''',catalogue_id,system_code,language)
+            # Match the existing publisher guard: a known historical year does
+            # not require inventing an exact publication date.
+            book = await connection.fetchrow(BOOK_REFERENCE_IMAGE_SQL,catalogue_id,system_code,language)
         cover = book_cover_reference(dict(book), language) if book else None
         if not cover:
             raise HTTPException(404, 'Reference artwork not available')

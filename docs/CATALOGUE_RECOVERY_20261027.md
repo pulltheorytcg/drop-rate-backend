@@ -1,12 +1,49 @@
 # Catalogue recovery checkpoint — 27 October 2026
 
-## Card fixes deployed
+## Continuation after workspace recovery
+
+The previously interrupted workspace is readable again. All recovered code,
+workflow, tests and datasets match their recorded SHA-256 and byte length:
+20 of 21 files match exactly. The only difference is the monthly catalogue
+runbook, which gained the completed production and staging reconciliation
+receipts after the original manifest was written. The exact comparisons are in
+[evidence/book-recovery-file-integrity-20261027.json](evidence/book-recovery-file-integrity-20261027.json).
+The current recovery is being released through the existing PR #751; deployment
+verification will be appended after the release completes.
+
+The recovered immutable source snapshots, original subject audit, 57-entry exact
+hold registry and all 30 production receipts are now part of that release. The
+new offline integrity gate checks their hashes, full schema normalization,
+unique ISBN/source IDs, exact ordered 1,495-record cohort, original subject
+preservation and the 909-record deferred partition. Historical receipts are not
+presented as fresh production measurements.
+
+Two additional reviewed corrections accompany the recovery:
+
+- A reviewed book remains held when either its ISBN or its source edition ID
+  matches the registry. Older cached quality checks are rerun, and the connector
+  checks the current registry before generating SQL. The original 57 decisions
+  and historical snapshots remain immutable.
+- The comic image endpoint accepts a missing exact publication date only when
+  the stored publication year is strictly earlier than the current year. This
+  aligns the route with the existing exact publisher cover guard. The five
+  identified historical comic records were incorrectly filtered out before
+  that guard could run. Current/future years, identity, language, digest and
+  publisher evidence checks remain enforced.
+
+No completed production import is replayed. A focused review of the deferred
+records found six possible form conflicts involving drawing/technique titles,
+a journal compendium and role-playing subjects. Those findings support review
+holds, not conclusive reclassification; all 909 remain deferred. See the
+[deferred source review](evidence/book-deferred-review-20261027.json).
+
+## Earlier card release
 
 PR [#752](https://github.com/pulltheorytcg/drop-rate-backend/pull/752) merged as `7f98b9c803daec7bad8a404000f0ed2cac8e6f89`. All **four current-head workflows passed**, including **6,985 backend tests**, dashboard/browser checks and real PostgreSQL artwork/reference persistence checks.
 
 Railway deployment `ad845201-ebaf-4d56-aa9c-1953742c2ea8` is **SUCCESS**. Its normal predeploy suite also passed all **6,985 tests**. Application startup completed; the new runtime logged `GET /health/ready` **200 OK at 12:15:22 UTC**. This is runtime/hosted healthcheck evidence. The web-fetch helper could not access this API host, so a separate external HTTP probe is not claimed.
 
-No Railway configuration, provider quota, daily scheduler revision or one-off operator was changed. The social evidence probe reported SKIPPED under its existing configuration. The original book work remains in draft PR #751 pending recovery of its final local code and data.
+No Railway configuration, provider quota, daily scheduler revision or one-off operator was changed. The social evidence probe reported SKIPPED under its existing configuration. At that checkpoint, the original book work remained in draft PR #751 pending recovery of its final local code and data; the continuation above records that recovery.
 
 ## Verified live data
 
@@ -73,7 +110,7 @@ The isolated release passed its own current-head CI and normal Railway deploymen
 2. **Artwork and printing evidence.** 6,782 physical card URLs remain missing. Book cover/printing work is separate from the newly imported edition metadata. The last accepted publisher-cover audit was 47 references after the VIZ repair; it is not a claim of 47 newly approved media assets.
 3. **Free-source capacity.** Existing approved hourly jobs continue within the established 35-request hourly allocation and shared quota reserve. Refresh/write counts must not be described as newly covered cards.
 4. **R2 scope.** The previous verified checkpoint has 401 approved-media mirrors and zero eligible backlog, while broad reference-image mirroring remains source-permission gated. Current prices remain authoritative in Supabase. Adding R2 capacity alone does not create missing values, exact mappings or reproduction rights.
-5. **Workspace availability.** The final unuploaded book import safeguards and supporting datasets cannot be released until that execution workspace is recovered. GitHub, Supabase and Railway connections remain available.
+5. **Workspace recovery resolved.** Final code, datasets and receipts have been recovered and hash-checked. The continuation release must complete current-head CI and production verification; GitHub, Supabase and Railway access is working.
 
 TCGCSV remains disabled. The separate earlier Railway one-off preview was declined and has not been retried or bypassed. There is no need for new paid-feed authorization to release the reviewed card fixes.
 
@@ -85,6 +122,6 @@ Its proposed median-under-2-second and p95-under-4-second timings are targets, n
 
 ## Resume
 
-Read the next normal hourly pricing receipts after this release; attempted refreshes are not new covered references. Recover final book files without repeating applied batches. Then continue exact-source mapping, publisher cover review and book valuation evidence. Keep the scanner as a proposal until the user requests implementation.
+Read the next normal hourly pricing receipts after this release; attempted refreshes are not new covered references. Complete the recovered book release without repeating applied batches. Then continue exact-source mapping, publisher cover review, review of the deferred cohort and book valuation evidence. Keep the scanner as a proposal until the user requests implementation.
 
 Machine-readable production checkpoint: [catalogue-recovery-readback-20261027.json](evidence/catalogue-recovery-readback-20261027.json).

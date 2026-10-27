@@ -1,0 +1,892 @@
+{
+  "version": "BOOK_COVER_AUDIT_20261027",
+  "checked_at": "2026-10-27T11:02:34.385193+00:00",
+  "followup_visual_and_encoding_checked_at": "2026-10-27T11:14:56.573912+00:00",
+  "scope": "Read-only publisher edition-reference audit; no runtime, catalogue, DB or historical proof changes. No physical-copy or storefront-media approval.",
+  "counts": {
+    "eligible_cover_references": 46,
+    "loaded_and_decoded": 46,
+    "raw_hash_matches_historical": 41,
+    "historical_hash_reproduced_as_existing_app_thumbnail": 1,
+    "current_visual_match_historical_bytes_not_reproduced": 4,
+    "source_page_redirects_to_404_while_image_is_200": 1
+  },
+  "request_headers": {
+    "Accept": "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.5"
+  },
+  "thumbnail_recipe": {
+    "function": "app.catalogue_artwork.thumbnail",
+    "bounding_box": [
+      384,
+      540
+    ],
+    "resampling": "LANCZOS",
+    "format": "WEBP",
+    "quality": 78,
+    "method": 3,
+    "pillow_version": "11.3.0",
+    "webp_version": "1.5.0"
+  },
+  "input_snapshot_hashes": {
+    "drop-rate-book-covers-accepted-20261027.json": "44a819208b3c9e1156fba4cc37836dd1598dbbad181ac0424e0211496035e0ec",
+    "drop-rate-book-covers-live-check-20261027.json": "bd764d720182aeba6b9eca159b48db9bdc3b1a2dc9ccf9cd547cfe9d522e345b"
+  },
+  "static_evidence": {
+    "backend/data/book_reference_covers_20261017.json": "e593a5066ccdd91541a9c0b8364af3cb4f53124bd49f80c5b175de74911f3482",
+    "backend/data/book_catalogue_starter_20261016.json": "333a289a6b8376c6103a650e8457489dec35aceead9c97e2569ba6d5796c7758",
+    "backend/data/book_catalogue_expansion_20261021.json": "e437bb6d95440b070f73e29cc7a3270dc860ef2ef6efa200e5a4281637f43fe0",
+    "docs/evidence/book-queue-publisher-thumbnails-20261018.json": "fb46e658af5c6be5310eb039bcab6424badebffa340f3efb402c93c635c2ad32",
+    "backend/app/catalogue_artwork.py": "1d36469aacd501de3a3af4a5c27882d24ea460ea38ffa9a8d13335d87e613114"
+  },
+  "entries": [
+    {
+      "catalogue_id": "fd3f2195-e589-5bfa-9346-b64c587c190a",
+      "name": "Absolute Batman #1",
+      "source_url": "https://www.dc.com/comics/absolute-batman-2024/absolute-batman-1",
+      "image_url": "https://static.dc.com/2024-09/ABS_BM_Cv1_00111_DIGITAL.jpg?w=540",
+      "loaded": true,
+      "observed_historical_sha256": "e0b2934d462fe348e0bd71776837b491ff52de3fa8bf9a2d57e1192b4f98d6fc",
+      "live_raw_sha256": "85235b4dc7a3ed335fbda8e873f6f6baf9825e7fc2c473c06c895c81d9ef33ea",
+      "live_dimensions": [
+        540,
+        830
+      ],
+      "raw_hash_matches_historical": false,
+      "classification": "VISUALLY_CORRECT_CURRENT_PUBLISHER_COVER_HISTORICAL_BYTE_CAUSE_UNPROVED",
+      "historical_dimensions": [
+        540,
+        830
+      ],
+      "current_thumbnail_sha256": "7dddc54709e5eba9695e9af1485ef3e2aa0337838c173685351f203b2db450b1",
+      "thumbnail_hash_matches_historical": false,
+      "visual_check": "Expected title/issue and current cover visually reviewed; no wrong title or issue observed.",
+      "explanation": "Current publisher page links the same asset. Name/issue and cover were visually reviewed. CDN returns AVIF under app Accept and JPEG under JPEG Accept, both 540 × 830, but neither raw nor local thumbnail hash matches the historical hash. Old raster unavailable, so exact historical change mechanism is not proven.",
+      "representations": [
+        {
+          "accept": "app",
+          "status": 200,
+          "content_type": "image/avif",
+          "format": "AVIF",
+          "bytes": 68114,
+          "width": 540,
+          "height": 830,
+          "sha256": "85235b4dc7a3ed335fbda8e873f6f6baf9825e7fc2c473c06c895c81d9ef33ea",
+          "checked_at": "2026-10-27T11:13:59.169213+00:00"
+        },
+        {
+          "accept": "jpeg",
+          "status": 200,
+          "content_type": "image/jpeg",
+          "format": "JPEG",
+          "bytes": 140264,
+          "width": 540,
+          "height": 830,
+          "sha256": "181060d694adf50213d18e4c4679372a979cf29e1463153fe09344ea0b0420aa",
+          "checked_at": "2026-10-27T11:13:59.551701+00:00"
+        }
+      ]
+    },
+    {
+      "catalogue_id": "cedd1c3c-82c4-5980-a85a-4422a67cec35",
+      "name": "Absolute Batman #2",
+      "source_url": "https://www.dc.com/comics/absolute-batman-2024/absolute-batman-2",
+      "image_url": "https://static.dc.com/2024-11/ABS_BM_Cv2_00211_DIGITAL.jpg?w=540",
+      "loaded": true,
+      "observed_historical_sha256": "8ed3ddf54b250f952bcedf13a20a99eb734f282e826ebe870b6c7fcc5150535c",
+      "live_raw_sha256": "361ea33d8bcf83964214838e41c72d57dc669411a07ac0855f30e145c606af7e",
+      "live_dimensions": [
+        540,
+        830
+      ],
+      "raw_hash_matches_historical": false,
+      "classification": "VISUALLY_CORRECT_CURRENT_PUBLISHER_COVER_HISTORICAL_BYTE_CAUSE_UNPROVED",
+      "historical_dimensions": [
+        540,
+        830
+      ],
+      "current_thumbnail_sha256": "7f3d029e6f827d622b9ddf1d7c7518a5ddb62897484c0a55ac9e587c9854b6b6",
+      "thumbnail_hash_matches_historical": false,
+      "visual_check": "Expected title/issue and current cover visually reviewed; no wrong title or issue observed.",
+      "explanation": "Current publisher page links the same asset. Name/issue and cover were visually reviewed. CDN returns AVIF under app Accept and JPEG under JPEG Accept, both 540 × 830, but neither raw nor local thumbnail hash matches the historical hash. Old raster unavailable, so exact historical change mechanism is not proven.",
+      "representations": [
+        {
+          "accept": "app",
+          "status": 200,
+          "content_type": "image/avif",
+          "format": "AVIF",
+          "bytes": 54959,
+          "width": 540,
+          "height": 830,
+          "sha256": "361ea33d8bcf83964214838e41c72d57dc669411a07ac0855f30e145c606af7e",
+          "checked_at": "2026-10-27T11:13:59.710680+00:00"
+        },
+        {
+          "accept": "jpeg",
+          "status": 200,
+          "content_type": "image/jpeg",
+          "format": "JPEG",
+          "bytes": 116127,
+          "width": 540,
+          "height": 830,
+          "sha256": "5a2560e287a677bc5e44574a47c8c4632b1e56674dbe1294bf190f689d3c96d1",
+          "checked_at": "2026-10-27T11:13:59.888624+00:00"
+        }
+      ]
+    },
+    {
+      "catalogue_id": "9519d2f4-842c-5da4-ad05-383896f79728",
+      "name": "Absolute Superman #1",
+      "source_url": "https://www.dc.com/comics/absolute-superman-2024/absolute-superman-1",
+      "image_url": "https://static.dc.com/2024-10/ABS_SM_Cv1_00111_DIGITAL.jpg?w=540",
+      "loaded": true,
+      "observed_historical_sha256": "155e13360b7f6db94a57f98788851fe99706e6d424f4446dccea043edb7eb6b3",
+      "live_raw_sha256": "c93e0635f9c03b850ec9bf231e9f8cfe7f1cbaec9f02e4cb801f718ea9c86b7d",
+      "live_dimensions": [
+        540,
+        830
+      ],
+      "raw_hash_matches_historical": false,
+      "classification": "VISUALLY_CORRECT_CURRENT_PUBLISHER_COVER_HISTORICAL_BYTE_CAUSE_UNPROVED",
+      "historical_dimensions": [
+        540,
+        830
+      ],
+      "current_thumbnail_sha256": "46e0610e1ce32c0ff12f5e16676a0ad6c96b48af81c0094eba57a245a6014069",
+      "thumbnail_hash_matches_historical": false,
+      "visual_check": "Expected title/issue and current cover visually reviewed; no wrong title or issue observed.",
+      "explanation": "Current publisher page links the same asset. Name/issue and cover were visually reviewed. CDN returns AVIF under app Accept and JPEG under JPEG Accept, both 540 × 830, but neither raw nor local thumbnail hash matches the historical hash. Old raster unavailable, so exact historical change mechanism is not proven.",
+      "representations": [
+        {
+          "accept": "app",
+          "status": 200,
+          "content_type": "image/avif",
+          "format": "AVIF",
+          "bytes": 76780,
+          "width": 540,
+          "height": 830,
+          "sha256": "c93e0635f9c03b850ec9bf231e9f8cfe7f1cbaec9f02e4cb801f718ea9c86b7d",
+          "checked_at": "2026-10-27T11:13:59.979905+00:00"
+        },
+        {
+          "accept": "jpeg",
+          "status": 200,
+          "content_type": "image/jpeg",
+          "format": "JPEG",
+          "bytes": 143256,
+          "width": 540,
+          "height": 830,
+          "sha256": "435c6c8b1777b4b5ed026b83848928bd6386b1c3392a53905aa8c3dc0aa1b35f",
+          "checked_at": "2026-10-27T11:14:00.208325+00:00"
+        }
+      ]
+    },
+    {
+      "catalogue_id": "4eb42b1d-e39e-5ba9-8894-f0a5d0d33a9a",
+      "name": "Batman #463",
+      "source_url": "https://www.dcuniverseinfinite.com/comics/book/batman-1940-463/cd396b6b-50f5-4741-99df-16c0f1f26fa9",
+      "image_url": "https://imgix-media.wbdndc.net/ingest/book/preview/cd396b6b-50f5-4741-99df-16c0f1f26fa9/d5d88c05-af46-42cc-b3eb-e33a4faab49b/0.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "c2ef1e3e87f5ec744af4be243e0d43d7942f2fb3ba9e9241a31976128dda83f7",
+      "live_raw_sha256": "e6d48e74a74f5995511a750952e4ba4a67545c322d07873570e12c45f6504090",
+      "live_dimensions": [
+        1073,
+        1650
+      ],
+      "raw_hash_matches_historical": false,
+      "classification": "PROVED_RAW_VS_THUMBNAIL_COMPARISON",
+      "historical_dimensions": [
+        351,
+        540
+      ],
+      "current_thumbnail_sha256": "c2ef1e3e87f5ec744af4be243e0d43d7942f2fb3ba9e9241a31976128dda83f7",
+      "thumbnail_hash_matches_historical": true,
+      "visual_check": "Expected title/issue and current cover visually reviewed; no wrong title or issue observed.",
+      "explanation": "The current full AVIF passed through the unchanged catalogue_artwork.thumbnail helper reproduces the historical WebP hash exactly; no changed cover content is indicated.",
+      "representations": [
+        {
+          "accept": "app",
+          "status": 200,
+          "content_type": "image/avif",
+          "format": "AVIF",
+          "bytes": 297377,
+          "width": 1073,
+          "height": 1650,
+          "sha256": "e6d48e74a74f5995511a750952e4ba4a67545c322d07873570e12c45f6504090",
+          "checked_at": "2026-10-27T11:14:00.440091+00:00"
+        },
+        {
+          "accept": "jpeg",
+          "status": 200,
+          "content_type": "image/jpeg",
+          "format": "JPEG",
+          "bytes": 389491,
+          "width": 1073,
+          "height": 1650,
+          "sha256": "bda89b592f5fb810b01229172cc3df8c4e620f79bd2d7fe9da7a7bcc7ba3e209",
+          "checked_at": "2026-10-27T11:14:01.037458+00:00"
+        }
+      ]
+    },
+    {
+      "catalogue_id": "3cde415f-b8d4-54c3-bfa1-0cfc39d70295",
+      "name": "Death Note Volume 1",
+      "source_url": "https://www.viz.com/manga-books/manga/death-note-volume-1/product/513",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421501686.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "17b7f44f7a8b784fc7211b10100d552517454bd51432bee2303ed7f5344a47c4",
+      "live_raw_sha256": "17b7f44f7a8b784fc7211b10100d552517454bd51432bee2303ed7f5344a47c4",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "0aaf91b0-a0ad-54d9-b037-8168847005f5",
+      "name": "Death Note Volume 2",
+      "source_url": "https://www.viz.com/manga-books/manga/death-note-volume-2-0/product/514",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421501694.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "acc49e227a89888f332b422f5601a5aeab711f2896cefa82678c0e987058d4ed",
+      "live_raw_sha256": "acc49e227a89888f332b422f5601a5aeab711f2896cefa82678c0e987058d4ed",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "9d599c6d-465c-52b5-9343-e069dbd2ae9b",
+      "name": "Death Note Volume 3",
+      "source_url": "https://www.viz.com/manga-books/manga/death-note-volume-3-0/product/515",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421501708.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "5edd4a2fcb27d4d56d4618f61880b52eff9559b0a857981b4b014d8eb35627d9",
+      "live_raw_sha256": "5edd4a2fcb27d4d56d4618f61880b52eff9559b0a857981b4b014d8eb35627d9",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "4a6eecea-c734-5dbb-8017-0d789e074c02",
+      "name": "Death Note Volume 4",
+      "source_url": "https://www.viz.com/manga-books/manga/death-note-volume-4-0/product/765",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/142150331X.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "9f5a53335e996f5af95dbb821bb9ba761abbfa14ce394d3875b0f0c80b0cc530",
+      "live_raw_sha256": "9f5a53335e996f5af95dbb821bb9ba761abbfa14ce394d3875b0f0c80b0cc530",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "4bb8f5dd-3bde-50b2-ba31-f42d3d946732",
+      "name": "Death Note Volume 5",
+      "source_url": "https://www.viz.com/manga-books/manga/death-note-volume-5-0/product/766",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421506262.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "4b0a82aae3513f2bd3c518dd2d5aadb7d487dbfa5d5ec98eebbcc5ab971bfe7f",
+      "live_raw_sha256": "4b0a82aae3513f2bd3c518dd2d5aadb7d487dbfa5d5ec98eebbcc5ab971bfe7f",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "2ee80e4f-1d8c-5db2-90cc-1801c8b6f14d",
+      "name": "Death Note Volume 6",
+      "source_url": "https://www.viz.com/manga-books/manga/death-note-volume-6-0/product/767",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421506270.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "407e70726bab0a01041270238532a661c56795bdafc54226b8204c2e16692ee1",
+      "live_raw_sha256": "407e70726bab0a01041270238532a661c56795bdafc54226b8204c2e16692ee1",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "9ae62323-2c29-5aca-8b3a-11e09682be41",
+      "name": "Dragon Ball Z Volume 1",
+      "source_url": "https://www.viz.com/manga-books/manga/dragon-ball-z-volume-1-0/product/118",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1569319308.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "99706793dd86211b11e6e5c150a1756dc5eee1a6b05f31b5ec20c08b70d05f04",
+      "live_raw_sha256": "99706793dd86211b11e6e5c150a1756dc5eee1a6b05f31b5ec20c08b70d05f04",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "5b02491e-4333-592e-a3b4-1006267fc189",
+      "name": "Dragon Ball Z Volume 2",
+      "source_url": "https://www.viz.com/manga-books/manga/dragon-ball-z-volume-2-0/product/119",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1569319316.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "50fd64fa4bc1c43ad5c5b5cba29c6ed1a3c55b97e95bb87f35cd096c0d728b8d",
+      "live_raw_sha256": "50fd64fa4bc1c43ad5c5b5cba29c6ed1a3c55b97e95bb87f35cd096c0d728b8d",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "f349c9dc-8221-5d7a-a1bc-06dfd1e38835",
+      "name": "Dragon Ball Z Volume 3",
+      "source_url": "https://www.viz.com/manga-books/manga/dragon-ball-z-volume-3-0/product/120",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1569319324.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "a881cb5561d86597104ec2b394cc888a5e84ac2ee4e4b2af86a19227e3d34239",
+      "live_raw_sha256": "a881cb5561d86597104ec2b394cc888a5e84ac2ee4e4b2af86a19227e3d34239",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "41619a65-fffd-5253-93ff-e91397ba7910",
+      "name": "Dragon Ball Z Volume 4",
+      "source_url": "https://www.viz.com/manga-books/manga/dragon-ball-z-volume-4-0/product/121",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1569319332.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "d08e3d48dbd403206bf854ed972f5c475378f75a2c8352ca89a795bb4dee8eb1",
+      "live_raw_sha256": "d08e3d48dbd403206bf854ed972f5c475378f75a2c8352ca89a795bb4dee8eb1",
+      "live_dimensions": [
+        301,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "bd5f09ef-2f9d-51b2-a4ab-a60ee2658675",
+      "name": "Dragon Ball Z Volume 5",
+      "source_url": "https://www.viz.com/manga-books/manga/dragon-ball-z-volume-5-0/product/122",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1569319340.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "5b0c23934156b2fe39b27403d1cd49ff9012f60508c6847355793b8ea5211350",
+      "live_raw_sha256": "5b0c23934156b2fe39b27403d1cd49ff9012f60508c6847355793b8ea5211350",
+      "live_dimensions": [
+        301,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "fc853225-ae57-5a72-8d9e-c853752740f1",
+      "name": "Dragon Ball Z Volume 6",
+      "source_url": "https://www.viz.com/manga-books/manga/dragon-ball-z-volume-6-0/product/123",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1569319359.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "e4fb634f013bbf331ed62f37835d40d2f85a8ae0a4eb359a0bcc764c13099fd8",
+      "live_raw_sha256": "e4fb634f013bbf331ed62f37835d40d2f85a8ae0a4eb359a0bcc764c13099fd8",
+      "live_dimensions": [
+        301,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "db9d0172-0299-500f-acad-a5b5e2c12fe1",
+      "name": "Hunter x Hunter Volume 1",
+      "source_url": "https://www.viz.com/manga-books/manga/hunter-x-hunter-volume-1/product/339/paperback",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591167531.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "0b3a4da4670593cd279f5606b7fd6a375c9ace3cdbfaf91ff6ce7b4daa8c846b",
+      "live_raw_sha256": "0b3a4da4670593cd279f5606b7fd6a375c9ace3cdbfaf91ff6ce7b4daa8c846b",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "34af1921-ebdc-556a-b1c1-0cf0da00c910",
+      "name": "Hunter x Hunter Volume 2",
+      "source_url": "https://www.viz.com/manga-books/manga/hunter-x-hunter-volume-2-0/product/340",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/159116785X.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "9c4234db7c456d4a6e18a444d5313cd84e59a421cd569e57eae6906ca24107a6",
+      "live_raw_sha256": "9c4234db7c456d4a6e18a444d5313cd84e59a421cd569e57eae6906ca24107a6",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "b1d61e04-107b-51f8-9735-5ad0c8d3fd07",
+      "name": "Hunter x Hunter Volume 3",
+      "source_url": "https://www.viz.com/manga-books/manga/hunter-x-hunter-volume-3-0/product/529",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/159116849X.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "691e06c12f8b16edf7bc418c751e235579c29fadf7d8a8b3fce040b88b729ac2",
+      "live_raw_sha256": "691e06c12f8b16edf7bc418c751e235579c29fadf7d8a8b3fce040b88b729ac2",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "b2ccb10e-0158-5246-bb7f-7248cccb9aba",
+      "name": "Hunter x Hunter Volume 4",
+      "source_url": "https://www.viz.com/manga-books/manga/hunter-x-hunter-volume-4-0/product/530",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591169925.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "ff37bfcdaab5adfc63a3ea2f290411d0cc688b03cd1458d1f5892e7d4ba127cb",
+      "live_raw_sha256": "ff37bfcdaab5adfc63a3ea2f290411d0cc688b03cd1458d1f5892e7d4ba127cb",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "a66bede6-47c5-55c8-9dd7-7026e7858091",
+      "name": "Hunter x Hunter Volume 5",
+      "source_url": "https://www.viz.com/manga-books/manga/hunter-x-hunter-volume-5-0/product/531",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421501848.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "fc5325a435d5fdebb102c943581fb80810761d727848fb4dce79354da8663006",
+      "live_raw_sha256": "fc5325a435d5fdebb102c943581fb80810761d727848fb4dce79354da8663006",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "7fff68f9-96aa-5ed8-aec5-23579db67962",
+      "name": "Hunter x Hunter Volume 6",
+      "source_url": "https://www.viz.com/manga-books/manga/hunter-x-hunter-volume-6-0/product/532",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421501856.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "ca15c28f80cad3ff650b13c8e0d4f04626786336bab81c680f64528310a4554e",
+      "live_raw_sha256": "ca15c28f80cad3ff650b13c8e0d4f04626786336bab81c680f64528310a4554e",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "63c689f4-b85b-5db1-b129-4e8f98d262e6",
+      "name": "Jujutsu Kaisen Volume 1",
+      "source_url": "https://www.viz.com/manga-books/manga/jujutsu-kaisen-volume-1/product/6116",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1974710025.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "bf4a0a0042466e1267ee95daf22b85d3d5002aba15c684e56fd982a871274ba7",
+      "live_raw_sha256": "bf4a0a0042466e1267ee95daf22b85d3d5002aba15c684e56fd982a871274ba7",
+      "live_dimensions": [
+        320,
+        480
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "3e38de4e-79f1-5aa0-acd4-604463ba760c",
+      "name": "Jujutsu Kaisen Volume 2",
+      "source_url": "https://www.viz.com/manga-books/manga/jujutsu-kaisen-volume-2-0/product/6163",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1974710033.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "a6cb2113b4b7a3691c4a7c7acf3f64194a587ca037517a116ccdced173ffe9be",
+      "live_raw_sha256": "a6cb2113b4b7a3691c4a7c7acf3f64194a587ca037517a116ccdced173ffe9be",
+      "live_dimensions": [
+        320,
+        480
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "8f85de07-9458-5258-aac3-4bd168e06ea5",
+      "name": "Jujutsu Kaisen Volume 3",
+      "source_url": "https://www.viz.com/manga-books/manga/jujutsu-kaisen-volume-3-0/product/6227",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1974710041.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "9ac09df58e77469eac8b1726b53ed9a894b09d2b2b804cdc3612435890d8ff20",
+      "live_raw_sha256": "9ac09df58e77469eac8b1726b53ed9a894b09d2b2b804cdc3612435890d8ff20",
+      "live_dimensions": [
+        320,
+        480
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "7d0eac11-d7f7-540c-802a-ab26a28c606a",
+      "name": "Jujutsu Kaisen Volume 4",
+      "source_url": "https://www.viz.com/manga-books/manga/jujutsu-kaisen-volume-4-0/product/6291",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1974714802.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "1c85d991c17d101f47317df10deceb4f86120b908f45cf15ea5b4a87dfc988b9",
+      "live_raw_sha256": "1c85d991c17d101f47317df10deceb4f86120b908f45cf15ea5b4a87dfc988b9",
+      "live_dimensions": [
+        320,
+        480
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "d3e6fc35-15f6-579e-8a5a-468b4d543683",
+      "name": "Jujutsu Kaisen Volume 5",
+      "source_url": "https://www.viz.com/manga-books/manga/jujutsu-kaisen-volume-5-0/product/6364",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1974714810.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "2ffcfa3c882fc78bcd4aec41359eda4745eb5e65a750916c77d9bb6d585600c9",
+      "live_raw_sha256": "2ffcfa3c882fc78bcd4aec41359eda4745eb5e65a750916c77d9bb6d585600c9",
+      "live_dimensions": [
+        320,
+        480
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "f51c5f4d-4c4d-51fd-9ea3-78da1b3d5f1a",
+      "name": "Jujutsu Kaisen Volume 6",
+      "source_url": "https://www.viz.com/manga-books/manga/jujutsu-kaisen-volume-6-0/product/6422",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1974714829.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "65830a3a120ad25f8d30ead44fecacc55e7acbc6d260f613e6177da839ab5fda",
+      "live_raw_sha256": "65830a3a120ad25f8d30ead44fecacc55e7acbc6d260f613e6177da839ab5fda",
+      "live_dimensions": [
+        320,
+        480
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "9264f778-e6a2-5f59-b0d2-23e8d725f4e5",
+      "name": "Naruto Volume 1",
+      "source_url": "https://www.viz.com/manga-books/manga/naruto-volume-1-0/product/91",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1569319006.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "472cb9d61e300fadc9b1064640a3c002c74ea253baf81feac047768cac02aedb",
+      "live_raw_sha256": "472cb9d61e300fadc9b1064640a3c002c74ea253baf81feac047768cac02aedb",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "71dc10fa-574c-541e-90df-9690ab63a316",
+      "name": "Naruto Volume 2",
+      "source_url": "https://www.viz.com/manga-books/manga/naruto-volume-2-0/product/92",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591161789.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "e27c997145f83f247af14e4c0bd0c826d013ec83adaa721f16b6476c75393822",
+      "live_raw_sha256": "e27c997145f83f247af14e4c0bd0c826d013ec83adaa721f16b6476c75393822",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "a8e6a89a-a3b9-5ca4-9c9f-ec29b69c25b8",
+      "name": "Naruto Volume 3",
+      "source_url": "https://www.viz.com/manga-books/manga/naruto-volume-3-0/product/93",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591161878.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "db60bf2d0f5f39c8057a68082e90ee1937d44750073c0355ece8842d9bfb2942",
+      "live_raw_sha256": "db60bf2d0f5f39c8057a68082e90ee1937d44750073c0355ece8842d9bfb2942",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "1796876c-be98-5bab-95ad-2f6610c9286d",
+      "name": "Naruto Volume 4",
+      "source_url": "https://www.viz.com/manga-books/manga/naruto-volume-4-0/product/311",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591163587.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "b0aacd4ac196d5d5f937905f49b2357353896ec57e6850d4ca30ecbd63f37737",
+      "live_raw_sha256": "b0aacd4ac196d5d5f937905f49b2357353896ec57e6850d4ca30ecbd63f37737",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "4fd99755-2b6b-5c88-aa4a-869f56e3cb7f",
+      "name": "Naruto Volume 5",
+      "source_url": "https://www.viz.com/manga-books/manga/naruto-volume-5-0/product/312",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591163595.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "b26768e64324d939e37f1b6ba7c4d33031f1f6b77f52ce871f3c240ebb32b65f",
+      "live_raw_sha256": "b26768e64324d939e37f1b6ba7c4d33031f1f6b77f52ce871f3c240ebb32b65f",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "2877a237-c972-5d11-8081-49682131961d",
+      "name": "Naruto Volume 6",
+      "source_url": "https://www.viz.com/manga-books/manga/naruto-volume-6-0/product/313",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591167396.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "81fade3e7d2d1de24695ae4237098161b1d45c6cb0920cd2444466c78815bb1b",
+      "live_raw_sha256": "81fade3e7d2d1de24695ae4237098161b1d45c6cb0920cd2444466c78815bb1b",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "7e323fc9-2458-5e2f-a206-51c1262c31c2",
+      "name": "One Piece Volume 1",
+      "source_url": "https://www.viz.com/manga-books/manga/one-piece-volume-1/product/139",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1569319014.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "c212524837223a69fde017d6f03a2f473811ac063d400aabc1f4a5e11aec54da",
+      "live_raw_sha256": "c212524837223a69fde017d6f03a2f473811ac063d400aabc1f4a5e11aec54da",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "d67ed53e-1a65-567b-8f96-81a07c92caa7",
+      "name": "One Piece Volume 2",
+      "source_url": "https://www.viz.com/manga-books/manga/one-piece-volume-2-0/product/350",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/159116057X.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "d0e8ba8f547ffc1bb2a5d6f59592c0dfc9df3e6bcbf1a97fabdd48773992c885",
+      "live_raw_sha256": "d0e8ba8f547ffc1bb2a5d6f59592c0dfc9df3e6bcbf1a97fabdd48773992c885",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "ba3c8cf3-c594-587a-87a1-234e782e69c7",
+      "name": "One Piece Volume 3",
+      "source_url": "https://www.viz.com/manga-books/manga/one-piece-volume-3-0/product/140",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591161843.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "acb041a5c360167506f9800661f08e73e818730cfd32a2a3cf13b4f85cda8526",
+      "live_raw_sha256": "acb041a5c360167506f9800661f08e73e818730cfd32a2a3cf13b4f85cda8526",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "a6f9ad41-ddfc-50d6-823b-b9499e627587",
+      "name": "One Piece Volume 4",
+      "source_url": "https://www.viz.com/manga-books/manga/one-piece-volume-4-0/product/348",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591163374.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "7ab16e8fbcea734f42aacf88df541b62e51e9037d5cee363ccc3502972817227",
+      "live_raw_sha256": "7ab16e8fbcea734f42aacf88df541b62e51e9037d5cee363ccc3502972817227",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "1c4a7190-b199-591d-8fcf-a4eb3d5c4889",
+      "name": "One Piece Volume 5",
+      "source_url": "https://www.viz.com/manga-books/manga/one-piece-volume-5-0/product/349",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1591166152.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "a5a07276e009083ef0eee896dd380f84ca45ac7ffa4ed3b4764c1ce630d7ab24",
+      "live_raw_sha256": "a5a07276e009083ef0eee896dd380f84ca45ac7ffa4ed3b4764c1ce630d7ab24",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "53cbbb7a-b484-5308-b877-3ac8184ab768",
+      "name": "One Piece Volume 6",
+      "source_url": "https://www.viz.com/manga-books/manga/one-piece-volume-6-0/product/138",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/159116723X.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "d9f15344bd5d4e6dce09f2b96381420f2a1289dbea75d6593df400698216a34c",
+      "live_raw_sha256": "d9f15344bd5d4e6dce09f2b96381420f2a1289dbea75d6593df400698216a34c",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "1a9a1ef3-6ef2-5bcd-9ada-3bea4ac6968c",
+      "name": "Amazing Spider-Man #528",
+      "source_url": "https://www.marvel.com/comics/issue/3360/amazing_spider-man_1999_528",
+      "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/9/c0/57f806e1ce09d/portrait_uncanny.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "658ef6e2a0061c138d542e2c68d57b8099433f5973678a4d157eb42a14b227cf",
+      "live_raw_sha256": "658ef6e2a0061c138d542e2c68d57b8099433f5973678a4d157eb42a14b227cf",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "7a67a121-3759-553b-8096-379f50edc395",
+      "name": "Deadpool / Batman #1",
+      "source_url": "https://prhcomics.com/book/?isbn=75960621349800112",
+      "image_url": "https://images.penguinrandomhouse.com/cover/75960621349800112",
+      "loaded": true,
+      "observed_historical_sha256": "ad8914955482a170d1b2a26a7f02d0e36c8e6914801dce1f1a1189136500608b",
+      "live_raw_sha256": "75d44936a7b483acbf0b5316b00e797b6c13d1465b1e12a7d332979534101380",
+      "live_dimensions": [
+        293,
+        450
+      ],
+      "raw_hash_matches_historical": false,
+      "classification": "VISUALLY_CONSISTENT_EXACT_BARCODE_COVER_PRIMARY_PAGE_NOW_UNAVAILABLE",
+      "historical_dimensions": [
+        293,
+        450
+      ],
+      "current_thumbnail_sha256": "98f1df4dff6615aedfb2c4b3319df0d0440ab1da0846595ec0a4ab1f8393ae3a",
+      "thumbnail_hash_matches_historical": false,
+      "visual_check": "Expected title/issue and current cover visually reviewed; no wrong title or issue observed.",
+      "explanation": "Exact PRH barcode cover URL returns the Logo/Stegman-second-printing artwork matching recorded variant identity. Current JPEG 293 × 450 is identical under app and JPEG Accept; raw and app-thumbnail hashes do not match historical hash. PRH source page now redirects with HTTP 302 to https://prhcomics.com/404, so current publisher metadata verification is unavailable.",
+      "representations": [
+        {
+          "accept": "app",
+          "status": 200,
+          "content_type": "image/jpeg",
+          "format": "JPEG",
+          "bytes": 66530,
+          "width": 293,
+          "height": 450,
+          "sha256": "75d44936a7b483acbf0b5316b00e797b6c13d1465b1e12a7d332979534101380",
+          "checked_at": "2026-10-27T11:14:01.417710+00:00"
+        },
+        {
+          "accept": "jpeg",
+          "status": 200,
+          "content_type": "image/jpeg",
+          "format": "JPEG",
+          "bytes": 66530,
+          "width": 293,
+          "height": 450,
+          "sha256": "75d44936a7b483acbf0b5316b00e797b6c13d1465b1e12a7d332979534101380",
+          "checked_at": "2026-10-27T11:14:01.466729+00:00"
+        }
+      ]
+    },
+    {
+      "catalogue_id": "7379fb95-9f6d-56b1-abab-13d5b5c9a326",
+      "name": "Spectacular Spider-Man #11",
+      "source_url": "https://www.marvel.com/comics/issue/14554/peter_parker_the_spectacular_spider-man_1976_11",
+      "image_url": "https://i.annihil.us/u/prod/marvel/i/mg/6/10/5a06258c29ad2/clean.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "99db70a62f0424f63b0d2b78f1bb9609ccf27b3526c3e8b30cab94a1a59a2b8d",
+      "live_raw_sha256": "99db70a62f0424f63b0d2b78f1bb9609ccf27b3526c3e8b30cab94a1a59a2b8d",
+      "live_dimensions": [
+        1804,
+        2800
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "f16e96e4-450e-510d-b459-f6858546544f",
+      "name": "Spectacular Spider-Man #114",
+      "source_url": "https://www.marvel.com/comics/issue/14559/peter_parker_the_spectacular_spider-man_1976_114",
+      "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/1/10/5d3875108594e/clean.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "5bd03670022b1cbc887ee8652151fff7e1a51f18d6f71e6cf0f964ddae50588e",
+      "live_raw_sha256": "5bd03670022b1cbc887ee8652151fff7e1a51f18d6f71e6cf0f964ddae50588e",
+      "live_dimensions": [
+        397,
+        610
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "8c07ce2d-d030-56fb-9bd2-cdd29cd93a6c",
+      "name": "The Amazing Spider-Man #795",
+      "source_url": "https://www.marvel.com/comics/issue/66083/the_amazing_spider-man_2015_795",
+      "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/6/03/5a724221d7369/portrait_uncanny.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "5aacbc2d98c45f1bd8420a034b21d7ac5e49b5495e241f42f1f976d564ba39c7",
+      "live_raw_sha256": "5aacbc2d98c45f1bd8420a034b21d7ac5e49b5495e241f42f1f976d564ba39c7",
+      "live_dimensions": [
+        300,
+        450
+      ],
+      "raw_hash_matches_historical": true
+    },
+    {
+      "catalogue_id": "b91ec16a-6124-578a-9b28-e75c64275e9c",
+      "name": "Ultimate Spider-Man #1",
+      "source_url": "https://www.marvel.com/comics/issue/112985/ultimate_spider-man_2024",
+      "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/4/10/6596e0f7d0718/clean.jpg",
+      "loaded": true,
+      "observed_historical_sha256": "5ce31ca81cc54e9eb6f20be3dc947b2cb42ab9741118ad90d32f94077fc3c64f",
+      "live_raw_sha256": "5ce31ca81cc54e9eb6f20be3dc947b2cb42ab9741118ad90d32f94077fc3c64f",
+      "live_dimensions": [
+        1821,
+        2800
+      ],
+      "raw_hash_matches_historical": true
+    }
+  ],
+  "official_replacement_page_check": {
+    "started_at": "2026-10-27T11:19:58Z",
+    "finished_at": "2026-10-27T11:20:31Z",
+    "budget_seconds": 120,
+    "elapsed_seconds": 33,
+    "exact_barcode": "75960621349800112",
+    "result": "NO_OFFICIAL_REPLACEMENT_PAGE_VERIFIED",
+    "checks": [
+      {
+        "url": "https://www.penguinrandomhouseretail.com/book/?isbn=75960621349800112",
+        "status": 302,
+        "location": "https://www.penguinrandomhouseretail.com/404",
+        "bytes": 0,
+        "mentions_exact_barcode": false,
+        "mentions_stegman": false,
+        "mentions_second_printing": false,
+        "checked_at": "2026-10-27T11:20:23.421773+00:00"
+      },
+      {
+        "url": "https://prhcomics.com/?s=75960621349800112",
+        "status": 404,
+        "location": null,
+        "bytes": 201756,
+        "mentions_exact_barcode": true,
+        "mentions_stegman": false,
+        "mentions_second_printing": false,
+        "checked_at": "2026-10-27T11:20:24.454212+00:00"
+      }
+    ],
+    "original_source": {
+      "url": "https://prhcomics.com/book/?isbn=75960621349800112",
+      "status": 302,
+      "location": "https://prhcomics.com/404"
+    },
+    "available_image": "https://images.penguinrandomhouse.com/cover/75960621349800112",
+    "rejected_as_replacement": {
+      "url": "https://www.marvel.com/comics/issue/129606/marveldc_deadpoolbatman_1_2025_1",
+      "reason": "Official issue metadata is for different barcode 75960621349800111 and does not establish the exact second printing."
+    }
+  }
+}

@@ -1,0 +1,1627 @@
+{
+  "version": "openlibrary-reviewed-holds-v1",
+  "reviewed_on": "2026-10-27",
+  "source_snapshot": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+  "source_sha1": "c2b534d524ba7de1b7161574da00b3ffb51d2d69",
+  "review_scope": "Exact ISBN/source record holds from independent stratified samples and full-cohort suspicious-title review; no automatic relabelling or exhaustive genre certification.",
+  "independent_cohort_sha256": "9403aac98b304f431f92d53f8d6f7c019282c0578b68cd1331880d1d4bc097f1",
+  "records": [
+    {
+      "isbn": "9780613831758",
+      "source_id": "OL9486070M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_title": "Sailormoon Art Book Vol. 1",
+      "source_publisher": [
+        "Tandem Library"
+      ],
+      "normalized_series_title": "Sailormoon Art Book",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "Spanish",
+      "source_url": "https://openlibrary.org/books/OL9486070M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title explicitly names art book, sketchbook or pin-up collection; hold pending requested comic/manga scope and form confirmation. Keyword alone is not a universal exclusion: Zits-Sketchbook is a comic-strip collection.",
+      "source_json_sha256": "16878e82d6566ab29435a1acf2963f61b264b3dde7a6f923a02bd50346995b74",
+      "original_subjects": [
+        "Comics & Graphic Novels - General",
+        "Juvenile Fiction",
+        "Children's Baby - Fiction - General"
+      ],
+      "original_source_json_sha256": "16878e82d6566ab29435a1acf2963f61b264b3dde7a6f923a02bd50346995b74"
+    },
+    {
+      "isbn": "9780759531048",
+      "source_id": "OL26962634M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_title": "Spice and Wolf, Volume 1",
+      "source_publisher": [
+        "Yen On"
+      ],
+      "normalized_series_title": "Spice and Wolf",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL26962634M",
+      "proof_urls": [
+        "https://yenpress.com/titles/9780759531048-spice-and-wolf-vol-1-light-novel"
+      ],
+      "evidence_basis": "PRIMARY_PUBLISHER_PLUS_SOURCE_RECORD",
+      "review_note": "Explicit Novel title or suspect prose collection; exact edition requires form review. Spice and Wolf ISBN independently confirmed as light novel by publisher.",
+      "source_json_sha256": "d434e84795eb411bcd8f85795756683327ea47ae15680da051b66ac74fe654bd",
+      "original_subjects": [
+        "Werewolves",
+        "Merchants",
+        "Graphic novels",
+        "Comic books, strips"
+      ],
+      "original_source_json_sha256": "d434e84795eb411bcd8f85795756683327ea47ae15680da051b66ac74fe654bd"
+    },
+    {
+      "isbn": "9780785114642",
+      "source_id": "OL8098788M",
+      "reason": "MANGA_CLASSIFICATION_CONFLICT_REVIEW_REQUIRED",
+      "source_title": "Fantastic Four Visionaries - John Byrne, Vol. 2",
+      "source_publisher": [
+        "Marvel Comics"
+      ],
+      "normalized_series_title": "Fantastic Four Visionaries - John Byrne",
+      "issue_number": "2",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8098788M",
+      "proof_urls": [
+        "https://www.marvel.com/comics/collection/1290/fantastic_four_visionaries_john_byrne_vol_2_trade_paperback"
+      ],
+      "evidence_basis": "PRIMARY_PUBLISHER_PLUS_SOURCE_RECORD",
+      "review_note": "Classic Marvel superhero comic collection was placed in MANGA; hold for exact category evidence rather than automatically reclassifying.",
+      "source_json_sha256": "30c933aa5690ce7ab3a5bde11a6e779731d997b9d660fd9b66bcc47a8c99dac6",
+      "original_subjects": [
+        "Comic book & cartoon art",
+        "Graphic Novels",
+        "Graphic Novels - Superheroes",
+        "Juvenile Fiction",
+        "Children: Grades 4-6",
+        "Special Interest - Adventure",
+        "Comics & Graphic Novels / General",
+        "Comics & Graphic Novels - Manga"
+      ],
+      "original_source_json_sha256": "30c933aa5690ce7ab3a5bde11a6e779731d997b9d660fd9b66bcc47a8c99dac6"
+    },
+    {
+      "isbn": "9780785118657",
+      "source_id": "OL8099079M",
+      "reason": "MANGA_CLASSIFICATION_CONFLICT_REVIEW_REQUIRED",
+      "source_title": "Essential Spider-Man, Vol. 4",
+      "source_publisher": [
+        "Marvel Comics"
+      ],
+      "normalized_series_title": "Essential Spider-Man",
+      "issue_number": "4",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8099079M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Classic Marvel superhero comic collection was placed in MANGA; hold for exact category evidence rather than automatically reclassifying.",
+      "source_json_sha256": "172e83eee3021cf85f722b25a0767943fb2da1489480c61831cedb899a0ca54a",
+      "original_subjects": [
+        "Fantasy",
+        "Graphic novels",
+        "Graphic Novels-Manga",
+        "Graphic Novels - Fantasy",
+        "Comics & Graphic Novels",
+        "Graphic Novels - Manga",
+        "Comics & Graphic Novels / General",
+        "Graphic Novels - General"
+      ],
+      "original_source_json_sha256": "172e83eee3021cf85f722b25a0767943fb2da1489480c61831cedb899a0ca54a"
+    },
+    {
+      "isbn": "9780786907915",
+      "source_id": "OL8143980M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Wizard's Spell Compendium, Volume 3",
+      "source_publisher": [
+        "Wizards of the Coast"
+      ],
+      "normalized_series_title": "Wizard's Spell Compendium",
+      "issue_number": "3",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8143980M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title/publisher describes role-playing rules or sourcebook material; quarantine for form review, do not relabel automatically.",
+      "source_json_sha256": "d973610202d2f5cbbc1ada22f19e2f3fc439d5897b8271d7fe783c1daefde37f",
+      "original_subjects": [
+        "Graphic novels",
+        "Games",
+        "Games / Gamebooks / Crosswords",
+        "Games/Puzzles",
+        "Role Playing & Fantasy - Dungeons & Dragons",
+        "Non-Classifiable"
+      ],
+      "original_source_json_sha256": "d973610202d2f5cbbc1ada22f19e2f3fc439d5897b8271d7fe783c1daefde37f"
+    },
+    {
+      "isbn": "9780809572137",
+      "source_id": "OL11316003M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_title": "The Ultimate Collection Of 20th-Century Adventure Tales Volume 1",
+      "source_publisher": [
+        "Wildside Press"
+      ],
+      "normalized_series_title": "The Ultimate Collection Of 20th-Century Adventure Tales",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL11316003M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Explicit Novel title or suspect prose collection; exact edition requires form review. Spice and Wolf ISBN independently confirmed as light novel by publisher.",
+      "source_json_sha256": "b0d196e7ea618b475e7d6decd2f5289628fa22defd201c91bd6ae256c5615a4a",
+      "original_subjects": [
+        "Graphic novels",
+        "Short Story",
+        "Fiction",
+        "Fiction - General",
+        "Anthologies (multiple authors)",
+        "Fiction / Anthologies (multiple authors)",
+        "Action & Adventure",
+        "Adventure stories, American"
+      ],
+      "original_source_json_sha256": "b0d196e7ea618b475e7d6decd2f5289628fa22defd201c91bd6ae256c5615a4a"
+    },
+    {
+      "isbn": "9780865620032",
+      "source_id": "OL9334073M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Warrior Queens Vol 1",
+      "source_publisher": [
+        "SQP Inc."
+      ],
+      "normalized_series_title": "Warrior Queens",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL9334073M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "eb298196562686803e2dba5a009bca68474be896f99aae1e7b98163a67b82cfd",
+      "original_subjects": [
+        "Fantasy",
+        "Graphic Novels",
+        "Conceptual",
+        "General",
+        "Art",
+        "Drawing",
+        "Erotic art",
+        "Fantasy fiction",
+        "Illustrations",
+        "Comics & Graphic Novels / General",
+        "Art / Drawing",
+        "Fiction - General"
+      ],
+      "original_source_json_sha256": "eb298196562686803e2dba5a009bca68474be896f99aae1e7b98163a67b82cfd"
+    },
+    {
+      "isbn": "9780865620131",
+      "source_id": "OL9464142M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Rich Larson's Haunted House of Lingerie Volume 2",
+      "source_publisher": [
+        "SQP"
+      ],
+      "normalized_series_title": "Rich Larson's Haunted House of Lingerie",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL9464142M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "1eed1f8bb650405fb4c96832c8f7462b39c704ee302c46c7c20ea16bc41f8d14",
+      "original_subjects": [
+        "Erotic fiction",
+        "Graphic Novels",
+        "Conceptual",
+        "General",
+        "Fiction - General",
+        "Art",
+        "Erotic art",
+        "Erotica",
+        "Fiction",
+        "Graphic Arts",
+        "Horror",
+        "Comics & Graphic Novels / General",
+        "Art / Graphic Arts",
+        "Fiction / Erotica"
+      ],
+      "original_source_json_sha256": "1eed1f8bb650405fb4c96832c8f7462b39c704ee302c46c7c20ea16bc41f8d14"
+    },
+    {
+      "isbn": "9780865620247",
+      "source_id": "OL9445712M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Jungle Tails Vol 3",
+      "source_publisher": [
+        "SQP Inc."
+      ],
+      "normalized_series_title": "Jungle Tails",
+      "issue_number": "3",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL9445712M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "ee88cf188c5246d42ee18d3697fac117564bd44c85539edbd4bc3808b151edcf",
+      "original_subjects": [
+        "Graphic Novels",
+        "Modern fiction",
+        "Conceptual",
+        "Fiction - General",
+        "General",
+        "Art",
+        "Drawing",
+        "Erotic art",
+        "Fantasy fiction",
+        "Illustrations",
+        "Comics & Graphic Novels / General",
+        "Art / Drawing"
+      ],
+      "original_source_json_sha256": "ee88cf188c5246d42ee18d3697fac117564bd44c85539edbd4bc3808b151edcf"
+    },
+    {
+      "isbn": "9780865620353",
+      "source_id": "OL9798885M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Daughters of Darkness Vol 3",
+      "source_publisher": [
+        "SQP Inc."
+      ],
+      "normalized_series_title": "Daughters of Darkness",
+      "issue_number": "3",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL9798885M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "147a5086f4e46d46cbfa8a077ab047e75e53666e50fac31eadf703f1d7f40f92",
+      "original_subjects": [
+        "Fiction - General",
+        "Graphic Novels",
+        "Fiction",
+        "General",
+        "Art",
+        "Drawing",
+        "Erotic art",
+        "Fantasy fiction",
+        "Horror",
+        "Illustrations",
+        "Comics & Graphic Novels / General",
+        "Art / Drawing"
+      ],
+      "original_source_json_sha256": "147a5086f4e46d46cbfa8a077ab047e75e53666e50fac31eadf703f1d7f40f92"
+    },
+    {
+      "isbn": "9780865620452",
+      "source_id": "OL9335611M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Coven Vol 2",
+      "source_publisher": [
+        "SQP Inc."
+      ],
+      "normalized_series_title": "Coven",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL9335611M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "68355b71cf969ffd6bdecc11371bc39d8b32f372e3180460a2ef42fa83576ac3",
+      "original_subjects": [
+        "Fantasy",
+        "Graphic novels",
+        "Graphic Novels - General",
+        "Fiction",
+        "Comics & Graphic Novels",
+        "Fiction - Adult",
+        "Erotica - General",
+        "Art",
+        "Erotic art",
+        "Erotica",
+        "Graphic Arts",
+        "Horror",
+        "Comics & Graphic Novels / General",
+        "Art / Graphic Arts",
+        "Fiction / Erotica"
+      ],
+      "original_source_json_sha256": "68355b71cf969ffd6bdecc11371bc39d8b32f372e3180460a2ef42fa83576ac3"
+    },
+    {
+      "isbn": "9780865620483",
+      "source_id": "OL9463505M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Rich Larson's Haunted House of Lingerie Volume 3",
+      "source_publisher": [
+        "SQP"
+      ],
+      "normalized_series_title": "Rich Larson's Haunted House of Lingerie",
+      "issue_number": "3",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL9463505M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "163d50b6696a93498e1c9815d26a9421710ac9e73d2cd3e0bce75e283fb2964d",
+      "original_subjects": [
+        "Erotic fiction",
+        "Graphic Novels",
+        "Fiction - General",
+        "Fiction / Erotica",
+        "General",
+        "Art",
+        "Erotic art",
+        "Erotica",
+        "Fiction",
+        "Graphic Arts",
+        "Horror",
+        "Comics & Graphic Novels / General",
+        "Art / Graphic Arts"
+      ],
+      "original_source_json_sha256": "163d50b6696a93498e1c9815d26a9421710ac9e73d2cd3e0bce75e283fb2964d"
+    },
+    {
+      "isbn": "9780865620681",
+      "source_id": "OL8317836M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Alazar's Book of Bondage Vol 1",
+      "source_publisher": [
+        "SQP Inc."
+      ],
+      "normalized_series_title": "Alazar's Book of Bondage",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8317836M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "9858dabf28c353eefbc4565e4deb3e6a037c5d63121595dd2000d74775eeaa27",
+      "original_subjects": [
+        "Graphic Novels",
+        "Modern fiction",
+        "Fiction - General",
+        "Conceptual",
+        "General",
+        "Art",
+        "Bondage (Sexual behavior)",
+        "Erotic art",
+        "Erotica",
+        "Graphic Arts",
+        "Comics & Graphic Novels / General",
+        "Art / Graphic Arts"
+      ],
+      "original_source_json_sha256": "9858dabf28c353eefbc4565e4deb3e6a037c5d63121595dd2000d74775eeaa27"
+    },
+    {
+      "isbn": "9780865620773",
+      "source_id": "OL8317844M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Artcore, Vol. 2",
+      "source_publisher": [
+        "SQP Inc."
+      ],
+      "normalized_series_title": "Artcore",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8317844M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "5d9d37b3d6058ffc74de90e9f4b39468f4e5777d0967b839eb556f152ba2106a",
+      "original_subjects": [
+        "Graphic Novels",
+        "Modern fiction",
+        "Art",
+        "Photography / Subjects & Themes / Erotica",
+        "General",
+        "Erotic art",
+        "Erotica",
+        "Graphic Arts",
+        "Nudes & Erotic",
+        "Photography",
+        "Pinup art",
+        "Subjects & Themes - Erotica",
+        "Comics & Graphic Novels / General",
+        "Conceptual",
+        "Fiction - General"
+      ],
+      "original_source_json_sha256": "5d9d37b3d6058ffc74de90e9f4b39468f4e5777d0967b839eb556f152ba2106a"
+    },
+    {
+      "isbn": "9780865620797",
+      "source_id": "OL8317846M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Naked Justice Volume 1",
+      "source_publisher": [
+        "SQP"
+      ],
+      "normalized_series_title": "Naked Justice",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8317846M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "f57236e6d6719805015f10960d1ba725978dbc2326cacb76af72976a20b53d4b",
+      "original_subjects": [
+        "History Of Art / Art & Design Styles",
+        "Popular culture",
+        "Graphic Novels - General",
+        "Fiction - General",
+        "Art",
+        "Erotic art",
+        "Nudes & Erotic",
+        "Pin-up art",
+        "Subjects & Themes - Erotica",
+        "Comics & Graphic Novels / General",
+        "Comics & Graphic Novels / Graphic Novels / Erotica",
+        "Popular Culture - General"
+      ],
+      "original_source_json_sha256": "f57236e6d6719805015f10960d1ba725978dbc2326cacb76af72976a20b53d4b"
+    },
+    {
+      "isbn": "9780865620872",
+      "source_id": "OL8317852M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Alazar's Book of Bondage Vol 2",
+      "source_publisher": [
+        "SQP Inc."
+      ],
+      "normalized_series_title": "Alazar's Book of Bondage",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8317852M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "5ff5953253235312d112cd85b5c6699b81f14daab6052af6336f1ec9b69f6363",
+      "original_subjects": [
+        "Graphic novels",
+        "Modern fiction",
+        "Popular Culture - General",
+        "Fiction - Adult",
+        "Art",
+        "Graphic Novels - Erotica",
+        "Adult",
+        "Bondage (Sexual behavior)",
+        "Erotic art",
+        "Nudes & Erotic",
+        "Subjects & Themes - Erotica",
+        "Comics & Graphic Novels / General"
+      ],
+      "original_source_json_sha256": "5ff5953253235312d112cd85b5c6699b81f14daab6052af6336f1ec9b69f6363"
+    },
+    {
+      "isbn": "9780865620889",
+      "source_id": "OL8317853M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Artcore Volume 4",
+      "source_publisher": [
+        "SQP Inc."
+      ],
+      "normalized_series_title": "Artcore",
+      "issue_number": "4",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8317853M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "04796ccf6c03ecfe10fd5feef386527bda4b8d0a0a16a3687c279c2bfcf4605f",
+      "original_subjects": [
+        "Graphic Novels",
+        "Modern fiction",
+        "Subjects & Themes - Human Figure",
+        "Art",
+        "Subjects & Themes - General",
+        "General",
+        "Erotic art",
+        "Nudes & Erotic",
+        "Photography",
+        "Photography, Erotic",
+        "Pin-up art",
+        "Pinup art",
+        "Subjects & Themes - Erotica",
+        "Comics & Graphic Novels / General",
+        "Photography / Subjects & Themes / Erotica"
+      ],
+      "original_source_json_sha256": "04796ccf6c03ecfe10fd5feef386527bda4b8d0a0a16a3687c279c2bfcf4605f"
+    },
+    {
+      "isbn": "9780865621046",
+      "source_id": "OL8317865M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Fastner & Larson's Little Black Book, Vol. 2",
+      "source_publisher": [
+        "SQP"
+      ],
+      "normalized_series_title": "Fastner & Larson's Little Black Book",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8317865M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Exact edition has conflicting art/drawing/illustration/photography or pin-up subjects alongside broad graphic-novel labels. Quarantine pending narrative-comic versus art/photo-collection form review; this is not a determination that every book by the publisher is out of scope.",
+      "source_json_sha256": "8be0cfcddef3f7c066a03740fb7ff77053f3e6b085437224178d567429058bd2",
+      "original_subjects": [
+        "Graphic novels",
+        "Modern fiction",
+        "Popular Culture - General",
+        "Comics & Graphic Novels / Graphic Novels / Erotica",
+        "Fiction - Adult",
+        "Art",
+        "Erotica - General",
+        "Adult",
+        "Nudes & Erotic",
+        "Comics & Graphic Novels / General",
+        "Art / Popular Culture"
+      ],
+      "original_source_json_sha256": "8be0cfcddef3f7c066a03740fb7ff77053f3e6b085437224178d567429058bd2"
+    },
+    {
+      "isbn": "9780865621060",
+      "source_id": "OL8317866M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_title": "The Dave Nestler Sketchbook Volume 1",
+      "source_publisher": [
+        "SQP"
+      ],
+      "normalized_series_title": "The Dave Nestler Sketchbook",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8317866M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title explicitly names art book, sketchbook or pin-up collection; hold pending requested comic/manga scope and form confirmation. Keyword alone is not a universal exclusion: Zits-Sketchbook is a comic-strip collection.",
+      "source_json_sha256": "d7343c104adbaa8adbedba3f9a496b299a898437a5d865bebd12a24f9db076ac",
+      "original_subjects": [
+        "Graphic novels",
+        "Modern fiction",
+        "Nudes & Erotic",
+        "Art & Art Instruction",
+        "Art",
+        "Techniques - Painting - Specific Subjects",
+        "Comics & Graphic Novels / General",
+        "Individual Artist",
+        "Popular Culture - General"
+      ],
+      "original_source_json_sha256": "d7343c104adbaa8adbedba3f9a496b299a898437a5d865bebd12a24f9db076ac"
+    },
+    {
+      "isbn": "9780865621176",
+      "source_id": "OL11051577M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_title": "Alazar's Book Of Pin-Ups Volume 1",
+      "source_publisher": [
+        "SQP"
+      ],
+      "normalized_series_title": "Alazar's Book Of Pin-Ups",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL11051577M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title explicitly names art book, sketchbook or pin-up collection; hold pending requested comic/manga scope and form confirmation. Keyword alone is not a universal exclusion: Zits-Sketchbook is a comic-strip collection.",
+      "source_json_sha256": "5fc85091b5a9453abc6ea71163df0fdcb6d0fbac0dc552ca3095bd04522d9a06",
+      "original_subjects": [
+        "General",
+        "Comics & Graphic Novels / General",
+        "Fiction - General"
+      ],
+      "original_source_json_sha256": "5fc85091b5a9453abc6ea71163df0fdcb6d0fbac0dc552ca3095bd04522d9a06"
+    },
+    {
+      "isbn": "9780966358896",
+      "source_id": "OL11741024M",
+      "reason": "INSTRUCTION_BOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "How to Color Comics Volume 1",
+      "source_publisher": [
+        "Antarctic Press"
+      ],
+      "normalized_series_title": "How to Color Comics",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL11741024M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Instructional colouring book about creating comics, rather than an edition of comic narrative.",
+      "source_json_sha256": "b6017d16590e3d4ab5d65970c330d0167356a2bd135c1b95c1d450db780da163",
+      "original_subjects": [
+        "General",
+        "Techniques - Drawing - Specific Subjects",
+        "Comics & Graphic Novels / General",
+        "Comics & Graphic Novels",
+        "Fiction - General",
+        "Humor"
+      ],
+      "original_source_json_sha256": "b6017d16590e3d4ab5d65970c330d0167356a2bd135c1b95c1d450db780da163"
+    },
+    {
+      "isbn": "9780970678478",
+      "source_id": "OL8562066M",
+      "reason": "ESSAY_COLLECTION_FORM_REVIEW_REQUIRED",
+      "source_title": "From The Desk Of Warren Ellis Volume 1",
+      "source_publisher": [
+        "Avatar Press"
+      ],
+      "normalized_series_title": "From The Desk Of Warren Ellis",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8562066M",
+      "proof_urls": [
+        "https://www.avatarpress.com/graphicnovels/list/"
+      ],
+      "evidence_basis": "PRIMARY_PUBLISHER_PLUS_SOURCE_RECORD",
+      "review_note": "Publisher describes a collection of essays, columns, journals and lectures, not a comic narrative.",
+      "source_json_sha256": "7d81350a5570b38c1a799029dd891455acc1dc55331bd5534f059c7ad095f5da",
+      "original_subjects": [
+        "Nonfiction",
+        "Comics & Graphic Novels",
+        "Fiction",
+        "General",
+        "Comics & Graphic Novels / General",
+        "Graphic Novels - General"
+      ],
+      "original_source_json_sha256": "7d81350a5570b38c1a799029dd891455acc1dc55331bd5534f059c7ad095f5da"
+    },
+    {
+      "isbn": "9780977007141",
+      "source_id": "OL8589726M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Dragon Compendium Volume 1",
+      "source_publisher": [
+        "Paizo Publishing, LLC."
+      ],
+      "normalized_series_title": "Dragon Compendium",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8589726M",
+      "proof_urls": [
+        "https://paizo.com/download/catalog/Paizo2007SpringCatalog.pdf"
+      ],
+      "evidence_basis": "PRIMARY_PUBLISHER_PLUS_SOURCE_RECORD",
+      "review_note": "Title/publisher describes role-playing rules or sourcebook material; quarantine for form review, do not relabel automatically.",
+      "source_json_sha256": "9113b5f796e5018ddaae22fd6469335eaf675f3404ce6c097555e79b254879b4",
+      "original_subjects": [
+        "Fantasy",
+        "Role-playing & war games",
+        "Games",
+        "Graphic Novels",
+        "Role Playing Games",
+        "Games/Puzzles",
+        "General",
+        "Role Playing & Fantasy - General",
+        "Games / Role Playing & Fantasy"
+      ],
+      "original_source_json_sha256": "9113b5f796e5018ddaae22fd6469335eaf675f3404ce6c097555e79b254879b4"
+    },
+    {
+      "isbn": "9780978637200",
+      "source_id": "OL11837136M",
+      "reason": "COLORING_BOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Good and Evil Coloring Book #1",
+      "source_publisher": [
+        "No Greater Joy Ministries"
+      ],
+      "source_url": "https://openlibrary.org/books/OL11837136M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Exact source title explicitly identifies a coloring book; hold pending comic narrative form confirmation.",
+      "original_source_json_sha256": "f6586eb57454f735efb8a89c997ec4158d283a5086b1cbd4b6d3402de21d08c5",
+      "original_subjects": [
+        "General",
+        "Religion / General",
+        "Graphic Novels"
+      ]
+    },
+    {
+      "isbn": "9780978637217",
+      "source_id": "OL11837137M",
+      "reason": "COLORING_BOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Good and Evil Coloring Book #2",
+      "source_publisher": [
+        "No Greater Joy Ministries"
+      ],
+      "source_url": "https://openlibrary.org/books/OL11837137M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Exact source title explicitly identifies a coloring book; hold pending comic narrative form confirmation.",
+      "original_source_json_sha256": "e6fd1f3c6463c5ccba18f4d9e329c3fc6858bb7595a80cef3d2c253cd8178587",
+      "original_subjects": [
+        "General",
+        "Religion / General",
+        "Graphic Novels"
+      ]
+    },
+    {
+      "isbn": "9780978637224",
+      "source_id": "OL11837138M",
+      "reason": "COLORING_BOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Good and Evil Coloring Book #3",
+      "source_publisher": [
+        "No Greater Joy Ministries"
+      ],
+      "source_url": "https://openlibrary.org/books/OL11837138M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Exact source title explicitly identifies a coloring book; hold pending comic narrative form confirmation.",
+      "original_source_json_sha256": "d6e4736c2699694dc36bc45b7876890915dc3a4073270f8276c2817fa71592f5",
+      "original_subjects": [
+        "General",
+        "Religion / General",
+        "Graphic Novels"
+      ]
+    },
+    {
+      "isbn": "9780978637231",
+      "source_id": "OL11837139M",
+      "reason": "COLORING_BOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Good and Evil Coloring Book #4",
+      "source_publisher": [
+        "No Greater Joy Ministries"
+      ],
+      "source_url": "https://openlibrary.org/books/OL11837139M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Exact source title explicitly identifies a coloring book; hold pending comic narrative form confirmation.",
+      "original_source_json_sha256": "2041c705707eba091a90e4d92796bab46437b4c3ca890c65f33e46293ed87ff0",
+      "original_subjects": [
+        "General",
+        "Religion / General",
+        "Graphic Novels"
+      ]
+    },
+    {
+      "isbn": "9781413903652",
+      "source_id": "OL11725815M",
+      "reason": "FASHION_OR_PHOTO_BOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Everybody Cosplay Volume 1",
+      "source_publisher": [
+        "ADV Manga"
+      ],
+      "normalized_series_title": "Everybody Cosplay",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL11725815M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Everybody Cosplay title and original Art subject indicate photo/costume material; require form confirmation before comic/manga ingestion.",
+      "source_json_sha256": "3aaee74c24d8bad7969952c6e81346784d62c6a22003d4e10082941503177951",
+      "original_subjects": [
+        "Graphic Novels",
+        "Art",
+        "Crafts / Hobbies",
+        "General",
+        "Textile Arts - Costume",
+        "Comics & Graphic Novels / General",
+        "Fashion"
+      ],
+      "original_source_json_sha256": "3aaee74c24d8bad7969952c6e81346784d62c6a22003d4e10082941503177951"
+    },
+    {
+      "isbn": "9781427800336",
+      "source_id": "OL11882292M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_title": "Missing (Novel) Volume 2: Letter of Misfortune (Missing)",
+      "source_publisher": [
+        "TokyoPop"
+      ],
+      "normalized_series_title": "Missing (Novel): Letter of Misfortune (Missing)",
+      "issue_number": "2",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL11882292M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Explicit Novel title or suspect prose collection; exact edition requires form review. Spice and Wolf ISBN independently confirmed as light novel by publisher.",
+      "source_json_sha256": "509bcaef85a6e64db748eadbdba119f86f4ce06860b5fb57daf36e6857603e5b",
+      "original_subjects": [
+        "Graphic Novels - Manga",
+        "Manga - General",
+        "Comics & Graphic Novels / Graphic Novels / Manga",
+        "Comics & Graphic Novels",
+        "Graphic Novels-Manga",
+        "Fiction"
+      ],
+      "original_source_json_sha256": "509bcaef85a6e64db748eadbdba119f86f4ce06860b5fb57daf36e6857603e5b"
+    },
+    {
+      "isbn": "9781427800459",
+      "source_id": "OL8537259M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_title": "Good Witch of the West, The (Novel) Volume 1",
+      "source_publisher": [
+        "TokyoPop"
+      ],
+      "normalized_series_title": "Good Witch of the West, The (Novel)",
+      "issue_number": "1",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8537259M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Explicit Novel title or suspect prose collection; exact edition requires form review. Spice and Wolf ISBN independently confirmed as light novel by publisher.",
+      "source_json_sha256": "364c3fbab33911901210763258c0c08b5cf9d02b3bf05b74db7d8b79cae9eb52",
+      "original_subjects": [
+        "Fantasy - General",
+        "Comics & Graphic Novels / Graphic Novels / Manga",
+        "Graphic Novels - Manga",
+        "Comics & Graphic Novels",
+        "Fiction - Fantasy",
+        "Graphic Novels-Manga",
+        "Fairy tales",
+        "Fantasy",
+        "Fiction"
+      ],
+      "original_source_json_sha256": "364c3fbab33911901210763258c0c08b5cf9d02b3bf05b74db7d8b79cae9eb52"
+    },
+    {
+      "isbn": "9781427803481",
+      "source_id": "OL11882354M",
+      "reason": "FASHION_OR_PHOTO_BOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Gothic & Lolita Bible Volume 2",
+      "source_publisher": [
+        "TokyoPop"
+      ],
+      "normalized_series_title": "Gothic & Lolita Bible",
+      "issue_number": "2",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL11882354M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Gothic & Lolita Bible is a fashion/magazine title; original Art & Art Instruction subject. Hold for physical form confirmation.",
+      "source_json_sha256": "3a6ab1bf020337b6e46b41e28bda65f1c60dce548fcea99ce0158cd0ed02a015",
+      "original_subjects": [
+        "General",
+        "Manga - General",
+        "Comics & Graphic Novels / Graphic Novels / Manga",
+        "Comics & Graphic Novels",
+        "Art & Art Instruction"
+      ],
+      "original_source_json_sha256": "3a6ab1bf020337b6e46b41e28bda65f1c60dce548fcea99ce0158cd0ed02a015"
+    },
+    {
+      "isbn": "9781560974895",
+      "source_id": "OL8619134M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_title": "The R. Crumb Sketchbook, Vol. 9",
+      "source_publisher": [
+        "Fantagraphics Books"
+      ],
+      "normalized_series_title": "The R. Crumb Sketchbook",
+      "issue_number": "9",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8619134M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title explicitly names art book, sketchbook or pin-up collection; hold pending requested comic/manga scope and form confirmation. Keyword alone is not a universal exclusion: Zits-Sketchbook is a comic-strip collection.",
+      "source_json_sha256": "82c9cfdae79df838fcdbfd02ae4bb493ddc91f2fe7b7e23e8a6a19edee5edec4",
+      "original_subjects": [
+        "Comics & Graphic Novels",
+        "Art & Art Instruction",
+        "Humor",
+        "General",
+        "Graphic Novels - General"
+      ],
+      "original_source_json_sha256": "82c9cfdae79df838fcdbfd02ae4bb493ddc91f2fe7b7e23e8a6a19edee5edec4"
+    },
+    {
+      "isbn": "9781560974901",
+      "source_id": "OL8619135M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_title": "The R. Crumb Sketchbook, Vol. 9",
+      "source_publisher": [
+        "Fantagraphics Books"
+      ],
+      "normalized_series_title": "The R. Crumb Sketchbook",
+      "issue_number": "9",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8619135M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title explicitly names art book, sketchbook or pin-up collection; hold pending requested comic/manga scope and form confirmation. Keyword alone is not a universal exclusion: Zits-Sketchbook is a comic-strip collection.",
+      "source_json_sha256": "a71fb11f0dbdbb938317375f386435264e41d13c8b05db7d8ade15aad77fff1a",
+      "original_subjects": [
+        "Comic book & cartoon art",
+        "Graphic novels",
+        "Collections, Catalogs, Exhibitions - General",
+        "Commercial - Illustration",
+        "Art",
+        "Art & Art Instruction",
+        "Sketching",
+        "Techniques - Cartooning"
+      ],
+      "original_source_json_sha256": "a71fb11f0dbdbb938317375f386435264e41d13c8b05db7d8ade15aad77fff1a"
+    },
+    {
+      "isbn": "9781565042193",
+      "source_id": "OL8662823M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Chicago Chronicles Vol. 1: Chicago by Night 1st Edition and Succubus Club (Vampire: the Masquerade)",
+      "source_publisher": [
+        "White Wolf Pub"
+      ],
+      "normalized_series_title": "Chicago Chronicles: Chicago by Night 1st Edition and Succubus Club (Vampire: the Masquerade)",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8662823M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title/publisher describes role-playing rules or sourcebook material; quarantine for form review, do not relabel automatically.",
+      "source_json_sha256": "ed81adcc55305efc412dc4d219a6ca9ded720427735ccf2cf1a8b3e2acd5be3b",
+      "original_subjects": [
+        "Games",
+        "Games / Gamebooks / Crosswords",
+        "Fiction",
+        "Role Playing & Fantasy - Vampire",
+        "Graphic novels",
+        "Role-playing & war games"
+      ],
+      "original_source_json_sha256": "ed81adcc55305efc412dc4d219a6ca9ded720427735ccf2cf1a8b3e2acd5be3b"
+    },
+    {
+      "isbn": "9781565042209",
+      "source_id": "OL8662824M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Chicago Chronicles Vol. 2: Chicago by Night 2nd Edition and Under a Blood Red Moon (Vampire: the Masquerade)",
+      "source_publisher": [
+        "White Wolf Games Studio"
+      ],
+      "normalized_series_title": "Chicago Chronicles: Chicago by Night 2nd Edition and Under a Blood Red Moon (Vampire: the Masquerade)",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8662824M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title/publisher describes role-playing rules or sourcebook material; quarantine for form review, do not relabel automatically.",
+      "source_json_sha256": "811698f6603861015ff48507c28a4922d06e2418532f7a862c8c63bd28e5474c",
+      "original_subjects": [
+        "Role Playing & Fantasy - Vampire",
+        "Games / Gamebooks / Crosswords",
+        "Fiction",
+        "Graphic novels",
+        "Role-playing & war games"
+      ],
+      "original_source_json_sha256": "811698f6603861015ff48507c28a4922d06e2418532f7a862c8c63bd28e5474c"
+    },
+    {
+      "isbn": "9781565042216",
+      "source_id": "OL8662825M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Chicago Chronicles Vol. 3: Milwaukee by Night, Ashes to Ashes, and Blood Bond (Vampire: the Masquerade)",
+      "source_publisher": [
+        "White Wolf Games Studio"
+      ],
+      "normalized_series_title": "Chicago Chronicles: Milwaukee by Night, Ashes to Ashes, and Blood Bond (Vampire: the Masquerade)",
+      "issue_number": "3",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8662825M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title/publisher describes role-playing rules or sourcebook material; quarantine for form review, do not relabel automatically.",
+      "source_json_sha256": "4603eacd4a7160c78eed001a3a3f97cc059c63cf6b66b9882930aedde14a7e2e",
+      "original_subjects": [
+        "Role Playing & Fantasy - Vampire",
+        "Games/Puzzles",
+        "Games / Gamebooks / Crosswords",
+        "Graphic novels",
+        "Role-playing & war games"
+      ],
+      "original_source_json_sha256": "4603eacd4a7160c78eed001a3a3f97cc059c63cf6b66b9882930aedde14a7e2e"
+    },
+    {
+      "isbn": "9781565042346",
+      "source_id": "OL8662837M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Cities of Darkness Vol. 2: Berlin by Night and Los Angeles by Night (Vampire: the Masquerade)",
+      "source_publisher": [
+        "White Wolf Pub"
+      ],
+      "normalized_series_title": "Cities of Darkness: Berlin by Night and Los Angeles by Night (Vampire: the Masquerade)",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8662837M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Title/publisher describes role-playing rules or sourcebook material; quarantine for form review, do not relabel automatically.",
+      "source_json_sha256": "73a99ad0626ded41e742cea12d6aeac8444ad7687bc9c42976efab44ae4ebf59",
+      "original_subjects": [
+        "Role Playing & Fantasy - Vampire",
+        "Graphic novels",
+        "Games/Puzzles",
+        "Games / Gamebooks / Crosswords"
+      ],
+      "original_source_json_sha256": "73a99ad0626ded41e742cea12d6aeac8444ad7687bc9c42976efab44ae4ebf59"
+    },
+    {
+      "isbn": "9781582407142",
+      "source_id": "OL8787118M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "Drink And Draw Volume 1",
+      "source_publisher": [
+        "Image Comics"
+      ],
+      "normalized_series_title": "Drink And Draw",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8787118M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "Drink And Draw: original Drawing/Techniques-Drawing subjects and sketch-collection title conflict with narrative comic classification.",
+      "source_json_sha256": "4a30bb66711e9d25c7f1f0cb62a5afe6fcf17f2d593d1856f6b4a1e9810ba4b3",
+      "original_subjects": [
+        "Graphic Novels",
+        "Drawing",
+        "Popular Culture",
+        "Art",
+        "Graphic Novels - General",
+        "Comics & Graphic Novels / General",
+        "Popular Culture - General",
+        "Techniques - Drawing"
+      ],
+      "original_source_json_sha256": "4a30bb66711e9d25c7f1f0cb62a5afe6fcf17f2d593d1856f6b4a1e9810ba4b3"
+    },
+    {
+      "isbn": "9781588993120",
+      "source_id": "OL8831074M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_title": "Junk Force Novel Volume 1",
+      "source_publisher": [
+        "Dr. Master Productions Inc."
+      ],
+      "normalized_series_title": "Junk Force Novel",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8831074M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Explicit Novel title or suspect prose collection; exact edition requires form review. Spice and Wolf ISBN independently confirmed as light novel by publisher.",
+      "source_json_sha256": "1bfbc390c8ceb5157144a5da660c49d573224df238244acdc9c451195cb4298b",
+      "original_subjects": [
+        "Graphic Novels",
+        "Science fiction",
+        "Comics & Graphic Novels",
+        "Humor",
+        "General",
+        "Comics & Graphic Novels / General",
+        "Fiction - General"
+      ],
+      "original_source_json_sha256": "1bfbc390c8ceb5157144a5da660c49d573224df238244acdc9c451195cb4298b"
+    },
+    {
+      "isbn": "9781588993137",
+      "source_id": "OL12328298M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_title": "Junk Force Novel #2",
+      "source_publisher": [
+        "ComicsOne"
+      ],
+      "normalized_series_title": "Junk Force Novel",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL12328298M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Explicit Novel title or suspect prose collection; exact edition requires form review. Spice and Wolf ISBN independently confirmed as light novel by publisher.",
+      "source_json_sha256": "40afb31ec5918935d56abc457d33ea2f882f5f522d455dfe5c627cdb4b55b1ae",
+      "original_subjects": [
+        "Comics & Graphic Novels / General"
+      ],
+      "original_source_json_sha256": "40afb31ec5918935d56abc457d33ea2f882f5f522d455dfe5c627cdb4b55b1ae"
+    },
+    {
+      "isbn": "9781591820246",
+      "source_id": "OL8857395M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_title": "Shaolin Sisters Vol. 1",
+      "source_publisher": [
+        "Children"
+      ],
+      "normalized_series_title": "Shaolin Sisters",
+      "issue_number": "1",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8857395M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Adult/Children is an apparent audience placeholder, not a verified publisher identity. Do not silently replace with guessed publisher.",
+      "source_json_sha256": "84a2b99423f53e76d893ade25bdb51f88b211641b409c197d77796ad1903b9ca",
+      "original_subjects": [
+        "Juvenile Fiction",
+        "Supernatural",
+        "Fiction",
+        "Children's Books/Ages 9-12 Graphic Novels",
+        "Sisters",
+        "Children: Grades 4-6",
+        "Princesses",
+        "Graphic novels",
+        "Comics & Graphic Novels - Manga",
+        "Comics & Graphic Novels / Graphic Novels / Manga",
+        "Action & Adventure - General"
+      ],
+      "original_source_json_sha256": "84a2b99423f53e76d893ade25bdb51f88b211641b409c197d77796ad1903b9ca"
+    },
+    {
+      "isbn": "9781591820253",
+      "source_id": "OL8857396M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_title": "Shaolin Sisters Vol. 2",
+      "source_publisher": [
+        "Children"
+      ],
+      "normalized_series_title": "Shaolin Sisters",
+      "issue_number": "2",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8857396M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Adult/Children is an apparent audience placeholder, not a verified publisher identity. Do not silently replace with guessed publisher.",
+      "source_json_sha256": "622ce65c1a4298754be2d26f03aaa2762f05c0110ea8e0055070525ff2f83554",
+      "original_subjects": [
+        "Comics & Graphic Novels - Manga",
+        "Juvenile Fiction",
+        "Children's Books/Ages 9-12 Graphic Novels",
+        "Children: Grades 4-6",
+        "Comics & Graphic Novels / Graphic Novels / Manga"
+      ],
+      "original_source_json_sha256": "622ce65c1a4298754be2d26f03aaa2762f05c0110ea8e0055070525ff2f83554"
+    },
+    {
+      "isbn": "9781591820277",
+      "source_id": "OL8857398M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_title": "Shaolin Sisters, Vol. 4",
+      "source_publisher": [
+        "Children"
+      ],
+      "normalized_series_title": "Shaolin Sisters",
+      "issue_number": "4",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8857398M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Adult/Children is an apparent audience placeholder, not a verified publisher identity. Do not silently replace with guessed publisher.",
+      "source_json_sha256": "98409eeac186827b359bf47177ec5a363b16401990e5f2af16ff4458a23af660",
+      "original_subjects": [
+        "Science Fiction, Fantasy, & Magic",
+        "Juvenile Fiction",
+        "Children's Books/Ages 9-12 Graphic Novels",
+        "Children: Grades 4-6",
+        "Comics & Graphic Novels - Manga",
+        "Comics & Graphic Novels / Graphic Novels / Manga"
+      ],
+      "original_source_json_sha256": "98409eeac186827b359bf47177ec5a363b16401990e5f2af16ff4458a23af660"
+    },
+    {
+      "isbn": "9781591826941",
+      "source_id": "OL8857903M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_title": "Les Bijoux, Vol. 5",
+      "source_publisher": [
+        "Adult"
+      ],
+      "normalized_series_title": "Les Bijoux",
+      "issue_number": "5",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8857903M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Adult/Children is an apparent audience placeholder, not a verified publisher identity. Do not silently replace with guessed publisher.",
+      "source_json_sha256": "d4681b028c2e2b7a07e2b7dc66aa7577b068f663e1a8114342c01c91a6da1323",
+      "original_subjects": [
+        "Fantasy",
+        "Comics & Graphic Novels",
+        "Graphic Novels-Manga",
+        "Fiction",
+        "Graphic Novels - Manga",
+        "Comics & Graphic Novels / Graphic Novels / Manga"
+      ],
+      "original_source_json_sha256": "d4681b028c2e2b7a07e2b7dc66aa7577b068f663e1a8114342c01c91a6da1323"
+    },
+    {
+      "isbn": "9781591827092",
+      "source_id": "OL8857915M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_title": "Doll, Volume 1",
+      "source_publisher": [
+        "Adult"
+      ],
+      "normalized_series_title": "Doll",
+      "issue_number": "1",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8857915M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Adult/Children is an apparent audience placeholder, not a verified publisher identity. Do not silently replace with guessed publisher.",
+      "source_json_sha256": "7d6b452e48b3e9eda3e7cf2e486ebe921a7a6aa622f8562b0c499c7a2e28dc7a",
+      "original_subjects": [
+        "Graphic novels",
+        "Fiction",
+        "Comics & Graphic Novels",
+        "Graphic Novels-Manga",
+        "Graphic Novels - Manga",
+        "Comics & Graphic Novels / Graphic Novels / Manga"
+      ],
+      "original_source_json_sha256": "7d6b452e48b3e9eda3e7cf2e486ebe921a7a6aa622f8562b0c499c7a2e28dc7a"
+    },
+    {
+      "isbn": "9781591827863",
+      "source_id": "OL8857969M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_title": "Warriors of Tao, Vol. 1",
+      "source_publisher": [
+        "Adult"
+      ],
+      "normalized_series_title": "Warriors of Tao",
+      "issue_number": "1",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8857969M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Adult/Children is an apparent audience placeholder, not a verified publisher identity. Do not silently replace with guessed publisher.",
+      "source_json_sha256": "47605da054ee74ff5a5a45a8dd1bd9a5b5ad83fd7568773e75c83ba338cb70d7",
+      "original_subjects": [
+        "Graphic novels",
+        "Graphic Novels - Manga",
+        "Comics & Graphic Novels",
+        "Graphic Novels-Manga",
+        "Fiction",
+        "Graphic Novels - Fantasy",
+        "Comics & Graphic Novels / Graphic Novels / Manga"
+      ],
+      "original_source_json_sha256": "47605da054ee74ff5a5a45a8dd1bd9a5b5ad83fd7568773e75c83ba338cb70d7"
+    },
+    {
+      "isbn": "9781591827870",
+      "source_id": "OL8857970M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_title": "Warriors of Tao, Vol. 2",
+      "source_publisher": [
+        "Adult"
+      ],
+      "normalized_series_title": "Warriors of Tao",
+      "issue_number": "2",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8857970M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Adult/Children is an apparent audience placeholder, not a verified publisher identity. Do not silently replace with guessed publisher.",
+      "source_json_sha256": "a590f796f71aecd09be1a0c0430e8328a494b7a426f1c2ae54b7aadaaef1abb5",
+      "original_subjects": [
+        "Graphic novels",
+        "Graphic Novels - Science Fiction",
+        "Comics & Graphic Novels",
+        "Graphic Novels-Manga",
+        "Fantasy",
+        "Graphic Novels - Manga",
+        "Comics & Graphic Novels / Graphic Novels / Manga"
+      ],
+      "original_source_json_sha256": "a590f796f71aecd09be1a0c0430e8328a494b7a426f1c2ae54b7aadaaef1abb5"
+    },
+    {
+      "isbn": "9781591829645",
+      "source_id": "OL8858063M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_title": "Eternity, Vol. 3",
+      "source_publisher": [
+        "Adult"
+      ],
+      "normalized_series_title": "Eternity",
+      "issue_number": "3",
+      "system_code": "MANGA",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8858063M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Adult/Children is an apparent audience placeholder, not a verified publisher identity. Do not silently replace with guessed publisher.",
+      "source_json_sha256": "b67248b04d9e49585b9a60ff6e11501952226bcccc6f84e4794cca3892ed9188",
+      "original_subjects": [
+        "High school students",
+        "Graphic Novels - Manga",
+        "Comics & Graphic Novels",
+        "Graphic Novels-Manga",
+        "Fantasy",
+        "Fiction",
+        "Juvenile delinquents",
+        "Comics & Graphic Novels / Graphic Novels / Manga",
+        "Cartoons and comics"
+      ],
+      "original_source_json_sha256": "b67248b04d9e49585b9a60ff6e11501952226bcccc6f84e4794cca3892ed9188"
+    },
+    {
+      "isbn": "9781593073558",
+      "source_id": "OL8869877M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "The Jackson 500 Volume 1",
+      "source_publisher": [
+        "Dark Horse"
+      ],
+      "normalized_series_title": "The Jackson 500",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8869877M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "The Jackson 500 is a painter collection; original subjects include art, art instruction and fantasy in art. Exact edition form needs review.",
+      "source_json_sha256": "2856070804555d163937da91afdb21ee55b42e031512a5edb2353211e991d0d2",
+      "original_subjects": [
+        "Comic book & cartoon art",
+        "Graphic novels",
+        "Individual Painters - Contemporary",
+        "Popular Culture",
+        "Art",
+        "Art & Art Instruction",
+        "Commercial - Illustration",
+        "Individual Artist",
+        "Comics & Graphic Novels / General",
+        "Popular Culture - General",
+        "Fantasy in art",
+        "Miniature painting"
+      ],
+      "original_source_json_sha256": "2856070804555d163937da91afdb21ee55b42e031512a5edb2353211e991d0d2"
+    },
+    {
+      "isbn": "9781593075330",
+      "source_id": "OL8869997M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_title": "The Jackson 500 Volume 2",
+      "source_publisher": [
+        "Dark Horse"
+      ],
+      "normalized_series_title": "The Jackson 500",
+      "issue_number": "2",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8869997M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_AND_ORIGINAL_SUBJECT_FORM_REVIEW",
+      "review_note": "The Jackson 500 Volume 2: original Art subject plus companion volume art-collection conflict; hold for form confirmation.",
+      "source_json_sha256": "4b98fef21e9d78bd1f33c36e11d1deb9f558ea1fd88de5bd3bd878789f11656d",
+      "original_subjects": [
+        "Graphic Novels",
+        "Painting",
+        "Art",
+        "Techniques - Painting",
+        "Graphic Novels - General",
+        "Comics & Graphic Novels / General",
+        "Individual Artist"
+      ],
+      "original_source_json_sha256": "4b98fef21e9d78bd1f33c36e11d1deb9f558ea1fd88de5bd3bd878789f11656d"
+    },
+    {
+      "isbn": "9781593076252",
+      "source_id": "OL8870054M",
+      "reason": "INSTRUCTION_BOOK_FORM_REVIEW_REQUIRED",
+      "source_title": "Style School Volume 1",
+      "source_publisher": [
+        "Dark Horse"
+      ],
+      "normalized_series_title": "Style School",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL8870054M",
+      "proof_urls": [
+        "https://images.darkhorse.com/common/salestools/catalogs/DH_Manga_Guide.pdf"
+      ],
+      "evidence_basis": "PRIMARY_PUBLISHER_PLUS_SOURCE_RECORD",
+      "review_note": "Publisher manga guide describes art instruction and step-by-step illustrator tutorials.",
+      "source_json_sha256": "cdb7fe1a1d32c4425f5763643cbb083e71c5daf21a578bff18dfb2103ad262ae",
+      "original_subjects": [
+        "Graphic novels",
+        "Drawing Of Specific Subjects",
+        "Popular Culture",
+        "Art",
+        "Art & Art Instruction",
+        "Commercial - Illustration - Sci-Fi & Fantasy",
+        "Comics & Graphic Novels / General",
+        "Popular Culture - General",
+        "Techniques - Drawing",
+        "Graphic Novels - General"
+      ],
+      "original_source_json_sha256": "cdb7fe1a1d32c4425f5763643cbb083e71c5daf21a578bff18dfb2103ad262ae"
+    },
+    {
+      "isbn": "9781595821201",
+      "source_id": "OL9847467M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_title": "John Norman's Gor Omnibus Volume 1",
+      "source_publisher": [
+        "Dark Horse"
+      ],
+      "normalized_series_title": "John Norman's Gor Omnibus",
+      "issue_number": "1",
+      "system_code": "OTHER_COMICS",
+      "language": "English",
+      "source_url": "https://openlibrary.org/books/OL9847467M",
+      "proof_urls": [],
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "review_note": "Explicit Novel title or suspect prose collection; exact edition requires form review. Spice and Wolf ISBN independently confirmed as light novel by publisher.",
+      "source_json_sha256": "7d78d1140472adbc65187f1b9a6a81e0c8cbd99292969a3df89e71a44f6165cb",
+      "original_subjects": [
+        "Graphic Novels",
+        "Science Fiction And Fantasy",
+        "Fiction",
+        "Fiction - Science Fiction",
+        "Fantasy",
+        "Graphic Novels - Science Fiction",
+        "Science Fiction - General",
+        "Fiction / Science Fiction / General",
+        "Fantasy - Epic",
+        "Science Fiction - Adventure",
+        "Comic books, strips, etc.",
+        "Fantasy comic books, strips, etc",
+        "Gor (Imaginary place)"
+      ],
+      "original_source_json_sha256": "7d78d1140472adbc65187f1b9a6a81e0c8cbd99292969a3df89e71a44f6165cb"
+    },
+    {
+      "source_id": "OL12501935M",
+      "isbn": "9781599670935",
+      "reason": "AUCTION_CATALOGUE_FORM_REVIEW_REQUIRED",
+      "source_title": "Heritage Comics and Comic Art Auction Adventures #822",
+      "source_publisher": [
+        "Heritage Auctions, Inc."
+      ],
+      "normalized_series_title": "Heritage Comics and Comic Art Auction Adventures",
+      "issue_number": "822",
+      "source_url": "https://openlibrary.org/books/OL12501935M",
+      "proof_urls": [],
+      "source_json_sha256": "b17c4e4dbc1cfa9c2b9ae8649c682efaff4e9802b46129d9818d873f575eabb8",
+      "original_subjects": [
+        "Comics & Graphic Novels / General"
+      ],
+      "review_note": "Source title/publisher is a Heritage auction catalogue, not a narrative comic issue.",
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "original_source_json_sha256": "b17c4e4dbc1cfa9c2b9ae8649c682efaff4e9802b46129d9818d873f575eabb8"
+    },
+    {
+      "source_id": "OL12503067M",
+      "isbn": "9781600101953",
+      "reason": "VOLUME_DATE_RANGE_PARSE_REVIEW_REQUIRED",
+      "source_title": "The Complete Terry And The Pirates Volume 4-1941 - 1942",
+      "source_publisher": [
+        "IDW Publishing"
+      ],
+      "normalized_series_title": "The Complete Terry And The Pirates: 1942",
+      "issue_number": "4-1941",
+      "source_url": "https://openlibrary.org/books/OL12503067M",
+      "proof_urls": [],
+      "source_json_sha256": "cab5343d9d86d9423c6d6c1efd2aa42fa0ce874984ea222781f6b964c1e4f293",
+      "original_subjects": [
+        "Comics & Graphic Novels / Comics & Cartoons",
+        "Comics & Cartoons",
+        "Comics & Graphic Novels",
+        "Humor"
+      ],
+      "review_note": "Original title volume4/date-range1941–1942 was parsed as issue4-1941 and title suffix1942. Preserve source; quarantine until lossless exact-volume parsing or explicit review.",
+      "evidence_basis": "SOURCE_TITLE_PUBLISHER_FORM_REVIEW",
+      "original_source_json_sha256": "cab5343d9d86d9423c6d6c1efd2aa42fa0ce874984ea222781f6b964c1e4f293"
+    },
+    {
+      "source_id": "OL12558827M",
+      "isbn": "9781605490007",
+      "reason": "ART_INSTRUCTION_COLLECTION_REVIEW_REQUIRED",
+      "source_title": "Best Of Draw! Volume 4",
+      "source_publisher": [
+        "TwoMorrows Publishing"
+      ],
+      "normalized_series_title": "Best Of Draw!",
+      "issue_number": "4",
+      "source_url": "https://openlibrary.org/books/OL12558827M",
+      "proof_urls": [
+        "https://www.twomorrows.com/media/2013CatalogOnline.pdf"
+      ],
+      "source_json_sha256": "f6e790f269a4d69d740b8b241f76435c54e5052716b6beb1e73c8ff099fba511",
+      "original_subjects": [
+        "Comics & Graphic Novels / General",
+        "Art / General",
+        "General",
+        "Art"
+      ],
+      "review_note": "Best of Draw! collects art instruction material; hold for intended comic/manga scope.",
+      "evidence_basis": "PRIMARY_PUBLISHER_PLUS_SOURCE_RECORD",
+      "original_source_json_sha256": "f6e790f269a4d69d740b8b241f76435c54e5052716b6beb1e73c8ff099fba511"
+    },
+    {
+      "source_id": "OL12558829M",
+      "isbn": "9781605490021",
+      "reason": "HOBBY_MAGAZINE_FORM_REVIEW_REQUIRED",
+      "source_title": "BrickJournal Compendium Volume 2",
+      "source_publisher": [
+        "TwoMorrows Publishing"
+      ],
+      "normalized_series_title": "BrickJournal Compendium",
+      "issue_number": "2",
+      "source_url": "https://openlibrary.org/books/OL12558829M",
+      "proof_urls": [
+        "https://www.twomorrows.com/media/2013CatalogOnline.pdf"
+      ],
+      "source_json_sha256": "b64c8122c367d8a996ef4b75f0041d179ddb2ac1f9c88febf6b7b1f3629fe4fb",
+      "original_subjects": [
+        "Entertainment / Games",
+        "Comics & Graphic Novels / General",
+        "General",
+        "Comics & Graphic Novels",
+        "Humor"
+      ],
+      "review_note": "BrickJournal is a LEGO hobby magazine; publisher catalog confirms this exact ISBN compiles original digital issues4–5.",
+      "evidence_basis": "PRIMARY_PUBLISHER_PLUS_SOURCE_RECORD",
+      "original_source_json_sha256": "b64c8122c367d8a996ef4b75f0041d179ddb2ac1f9c88febf6b7b1f3629fe4fb"
+    },
+    {
+      "source_id": "OL12558830M",
+      "isbn": "9781605490038",
+      "reason": "ABOUT_COMICS_MAGAZINE_FORM_REVIEW_REQUIRED",
+      "source_title": "Collected Jack Kirby Collector Volume 6",
+      "source_publisher": [
+        "TwoMorrows Publishing"
+      ],
+      "normalized_series_title": "Collected Jack Kirby Collector",
+      "issue_number": "6",
+      "source_url": "https://openlibrary.org/books/OL12558830M",
+      "proof_urls": [
+        "https://www.twomorrows.com/media/2019CatalogOnline.pdf"
+      ],
+      "source_json_sha256": "61ef05d881fcc001be76a40c23830ff342d5e7c1b7846a6b0a3d3046cd519fbf",
+      "original_subjects": [
+        "Comics & Graphic Novels / General",
+        "General",
+        "Comics & Graphic Novels",
+        "Humor"
+      ],
+      "review_note": "Publisher catalog identifies compilation of JackKirbyCollector23–26 with art material; magazine about artist rather than verified narrative-comic edition.",
+      "evidence_basis": "PRIMARY_PUBLISHER_PLUS_SOURCE_RECORD",
+      "original_source_json_sha256": "61ef05d881fcc001be76a40c23830ff342d5e7c1b7846a6b0a3d3046cd519fbf"
+    }
+  ],
+  "independent_review_version": "INDEPENDENT_BOOK_COHORT_REVIEW_20261027_V2",
+  "independent_review_sha256": "9dc285a574e2aebecaa57892da40d3e7b3ec0f246097ea2e14e6ec5f651fb089",
+  "delta_review_sha256": "2d6af19331fee77ebc4e96b73701b76b81e1bd3b2f4cee236221104add99c4d3",
+  "reviewed_initial_cohort_sha256": "206cf8baadc0fd7734d5bc6b5e840419c819ca861359f8d5e7d4756ffaf66a37"
+}

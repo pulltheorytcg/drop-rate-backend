@@ -1,3 +1,26 @@
+## 27 October 2026 — Recovered book pipeline and historical comic image correction
+
+The interrupted final workspace is recovered: all code, workflow, tests and
+data match their saved checksums (20 of 21 manifest files; only the runbook had
+subsequent completion documentation). Existing PR #751 now carries the final
+book import safeguards, exact review registry, original subject audit, immutable
+snapshots and all 30 committed production receipts. No import is replayed.
+
+The continuation preserves a review hold by ISBN or source ID, rechecks old
+cached reviews, and adds an offline integrity gate over the already imported
+1,495-edition cohort. All 909 additional candidates remain deferred after a
+focused review found six possible form conflicts. The image route also stops
+rejecting the five identified historical publisher comic references merely
+because their exact release date is NULL; strict past-year and existing
+publisher/identity/digest checks still apply.
+
+Release state: current-head CI and Railway deployment verification pending.
+No provider, quota, scheduler revision, schema, inventory, ownership, market
+value or Store Price is changed by this code release. Auction scanning remains
+design only. See [recovered handover](docs/CATALOGUE_RECOVERY_20261027.md),
+[file integrity](docs/evidence/book-recovery-file-integrity-20261027.json) and
+[deferred review](docs/evidence/book-deferred-review-20261027.json).
+
 ## 27 October 2026 — Card fixes live; 1,495 book editions imported
 
 PR [#752](https://github.com/pulltheorytcg/drop-rate-backend/pull/752) is merged as
