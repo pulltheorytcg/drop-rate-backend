@@ -161,6 +161,31 @@ test('a stored source edit or additional imported workflow invalidates the dispo
   } finally { database.close(); }
 });
 
+test('failure diagnostics expose only bounded execution modes/statuses and fixed runtime signals', async () => {
+  const database = databaseFixture(true);
+  try {
+    database.prepare('INSERT INTO execution_entity VALUES (?,?,?,?,?)').run(1, canary.CANARY_ID, 'webhook', 'error', '2026-10-27');
+    database.prepare('INSERT INTO execution_entity VALUES (?,?,?,?,?)').run(2, canary.ERROR_ID, 'error', 'running', null);
+    database.prepare('INSERT INTO execution_entity VALUES (?,?,?,?,?)').run(3, privateValue, privateValue, privateValue, null);
+    const report = canary.diagnosticExecutionState(database);
+    assert.deepEqual(report, [
+      { workflow: 'CANARY', mode: 'webhook', status: 'error', stopped: true },
+      { workflow: 'DR90', mode: 'error', status: 'running', stopped: false },
+      { workflow: 'UNEXPECTED', mode: 'UNEXPECTED', status: 'UNEXPECTED', stopped: false },
+    ]);
+    assert.ok(!JSON.stringify(report).includes(privateValue));
+  } finally { database.close(); }
+  const state = canary.createTemporaryState();
+  try {
+    const child = canary.startChild(process.execPath,
+      ['-e', 'process.stderr.write("CANARY_NETWORK_BLOCKED " + ' + JSON.stringify(privateValue) + ')'],
+      { N8N_USER_FOLDER: state.root }, { timeout: 3000 });
+    await child.closed;
+    assert.equal(child.output, '');
+    assert.deepEqual([...child.signals], ['NETWORK_GUARD']);
+  } finally { assert.equal(canary.removeTemporaryState(state), true); }
+});
+
 test('cleanup requires the exact fresh directory inode and unmodified ownership marker', () => {
   const state = canary.createTemporaryState();
   try {

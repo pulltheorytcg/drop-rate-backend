@@ -28,6 +28,20 @@ const TEMP_PREFIX = '/tmp/drop-rate-n8n-error-canary-';
 const RECEIPT_PATH = '/isolated-control-receipt';
 const WEBHOOK_PATH = '/webhook/drop-rate-isolated-error-canary';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const SAFE_FAILURES = new Set(['SOURCE_INVALID', 'PORT_INVALID', 'CHILD_TERMINATION_FAILED',
+  'CHILD_TIMEOUT', 'CHILD_OUTPUT_LIMIT', 'CHILD_START_FAILED', 'CHILD_EXIT_FAILED',
+  'TEMP_DATABASE_INVALID', 'TEMP_WORKFLOW_COUNT_INVALID', 'TEMP_WORKFLOW_MISSING',
+  'TEMP_DEFINITION_CHANGED', 'TEMP_WORKFLOW_UNPUBLISHED', 'TEMP_PUBLISHED_DEFINITION_CHANGED',
+  'TEMP_IMPORT_NOT_INACTIVE', 'RECEIPT_INVALID', 'LOCAL_RESPONSE_LIMIT', 'LOCAL_REQUEST_TIMEOUT',
+  'CANARY_TIMEOUT', 'N8N_VERSION_MISMATCH', 'RUNTIME_UNAVAILABLE', 'RUNTIME_NOT_READY',
+  'WEBHOOK_NOT_READY', 'WEBHOOK_NOT_ACCEPTED', 'AUTOMATIC_ROUTING_NOT_VERIFIED']);
+const LOG_SIGNALS = [
+  ['NETWORK_GUARD', /CANARY_NETWORK_BLOCKED/],
+  ['SUBWORKFLOW_PERMISSION', /Error workflow execution blocked due to subworkflow settings/],
+  ['ERROR_HANDLER_UNPUBLISHED', /not active and cannot be executed/],
+  ['RUNNER_TIMEOUT', /Task request timed out|Task execution timed out|Task runner.*timed out/i],
+  ['PORT_CONFLICT', /EADDRINUSE/],
+];
 
 function failure(reason, stage = 'PREFLIGHT') {
   return { event: EVENT, schema_version: 1, status: 'UNAVAILABLE', reason, stage,
@@ -159,11 +173,11 @@ async function stopChild(record) {
 }
 
 function startChild(command, args, env, { timeout = 60000, capture = false } = {}) {
-  const record = { child: null, finished: false, failure: null, output: '', closed: null };
+  const record = { child: null, finished: false, failure: null, output: '', closed: null, signals: new Set() };
   record.child = spawn(command, args, {
     env, cwd: env.N8N_USER_FOLDER, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
   });
-  let bytes = 0;
+  let bytes = 0, signalTail = '';
   const timer = setTimeout(() => {
     record.failure = 'CHILD_TIMEOUT';
     signalGroup(record.child, 'SIGKILL');
@@ -171,6 +185,9 @@ function startChild(command, args, env, { timeout = 60000, capture = false } = {
   for (const stream of [record.child.stdout, record.child.stderr]) {
     stream.on('data', chunk => {
       bytes += chunk.length;
+      const diagnosticText = signalTail + chunk.toString('utf8');
+      for (const [name, pattern] of LOG_SIGNALS) if (pattern.test(diagnosticText)) record.signals.add(name);
+      signalTail = diagnosticText.slice(-160);
       if (bytes > MAX_OUTPUT_BYTES) {
         record.failure = 'CHILD_OUTPUT_LIMIT';
         signalGroup(record.child, 'SIGKILL');
@@ -249,6 +266,21 @@ function executionEvidence(rows, receiptExecutionId) {
     || !handler.stoppedAt || failed.id !== receiptExecutionId || failed.id === handler.id) return null;
   return { failed_execution_mode: 'webhook', handler_execution_mode: 'error',
     failed_execution_count: 1, handler_execution_count: 1 };
+}
+
+function diagnosticExecutionState(database) {
+  if (!database) return [];
+  try {
+    const modes = new Set(['webhook', 'error', 'manual', 'cli', 'trigger', 'integrated']);
+    const statuses = new Set(['new', 'running', 'success', 'error', 'canceled', 'crashed', 'waiting', 'unknown']);
+    return database.prepare(`SELECT workflowId,mode,status,stoppedAt FROM execution_entity
+      ORDER BY id LIMIT 5`).all().map(row => ({
+      workflow: row.workflowId === CANARY_ID ? 'CANARY' : row.workflowId === ERROR_ID ? 'DR90' : 'UNEXPECTED',
+      mode: modes.has(row.mode) ? row.mode : 'UNEXPECTED',
+      status: statuses.has(row.status) ? row.status : 'UNEXPECTED',
+      stopped: Boolean(row.stoppedAt),
+    }));
+  } catch { return []; }
 }
 
 function validateReceipt(body, headers, secret, rows, now = Date.now()) {
@@ -435,10 +467,14 @@ async function run(env = process.env) {
     result = { event: EVENT, schema_version: 1, status: 'AUTOMATIC_ROUTING_VERIFIED',
       n8n_version: VERSION, source_sha256: DR90_SHA256, fixture_sha256: CANARY_SHA256,
       ...evidence, verified_receipt_count: 1, production_backend_verified: false };
-  } catch {
+  } catch (error) {
     // Never emit child output, exception messages, workflow code, signatures,
     // encryption material or production environment values.
-    result = failure('ISOLATED_CANARY_FAILED', stage);
+    result = { ...failure('ISOLATED_CANARY_FAILED', stage),
+      cause: SAFE_FAILURES.has(error?.message) ? error.message : 'UNCLASSIFIED',
+      observations: { executions: diagnosticExecutionState(database),
+        accepted_receipts: receiptCount, rejected_receipts: rejectedReceipts,
+        runtime_signals: [...(runtime?.signals || [])].sort() } };
   } finally {
     let terminated = true;
     for (const child of children) {
@@ -467,4 +503,4 @@ if (require.main === module) {
 module.exports = { FLAG, EVENT, VERSION, ERROR_ID, CANARY_ID, CANARY_KEY, ERROR_MESSAGE,
   DR90_SHA256, CANARY_SHA256, readSources, childEnvironment, networkGuardSource,
   createTemporaryState, removeTemporaryState, startChild, stopChild, inspectTemporaryState,
-  executionEvidence, validateReceipt, run };
+  executionEvidence, diagnosticExecutionState, validateReceipt, run };
