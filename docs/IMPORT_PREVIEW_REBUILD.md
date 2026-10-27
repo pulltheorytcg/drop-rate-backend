@@ -163,9 +163,10 @@ Local verification on 27 October 2026 passed with PostgreSQL 17.6:
   startup settings checks. The native PG17 fixture also verified a 5,002-row
   preview whose two REVIEW rows occur beyond the 5,000-row display cap.
 
-The production migration and feature flag remain unapplied by this work.
+The production migration and feature flag remained unapplied at that
+implementation checkpoint. The resumed production activation is recorded below.
 
-## Production release and connector block
+## Production release and connector block before 19:22 UTC
 
 PR #760 is merged as `683979fb207016f4d1f562d082e5b0c32d2354d2`.
 API deployment `ebea8e5c-07d8-452e-bd8c-8d7e47106b21` succeeded at
@@ -179,9 +180,10 @@ tool after refreshing table metadata/advisors and confirming ledger absence.
 The connector returned JSON-RPC -32602, `Invalid or expired requestState`, with
 reason `invalid_request_state`. A subsequent migration-list read still returned
 135 entries and no `founder_import_preview_rebuild` migration. No successful
-installation is claimed. `TCG_IMPORT_PREVIEW_REBUILD_ENABLED` is explicitly
-false. Resolve the connector request-state error before another installation
-attempt, then verify live readiness before enabling the UI action.
+installation was established at that checkpoint.
+`TCG_IMPORT_PREVIEW_REBUILD_ENABLED` was explicitly false. The pending action
+was to resolve the connector request-state error, reconcile installation state,
+and verify live readiness before enabling the UI action.
 
 The earlier live metadata preflight on 27 October returned no result within 45
 seconds from `execute_sql`; that call queried only system catalogues and
@@ -191,9 +193,54 @@ migration is absent; `unified_founder_app_access` (20261002031304),
 `owner_incremental_import_intake` (20261011154138) and
 `reference_history_r2_archive` (20261026204421) are present. This verifies ledger
 presence only, not current function definitions, grants or policies. Live
-permission readiness therefore remains unverified until the retained read-only
-query in `docs/evidence/import-preview-rebuild-preflight-20261027.sql` succeeds.
+permission readiness was therefore still unverified at that checkpoint. The
+retained read-only query is
+`docs/evidence/import-preview-rebuild-preflight-20261027.sql`.
 
 Reference security guidance checked for this implementation:
 [Supabase database functions](https://supabase.com/docs/guides/database/functions#security-definer-vs-invoker)
 and [PostgreSQL 17 CREATE FUNCTION](https://www.postgresql.org/docs/17/sql-createfunction.html).
+
+## Production migration recovery and activation on 27 October
+
+The earlier connector block was resolved during the resumed work. A fresh
+19:22:07 UTC metadata read confirmed the function and migration entry were still
+absent before the exact reviewed migration was submitted through the governed
+Supabase migration tool. Installation succeeded as
+`20261027192257_founder_import_preview_rebuild`. The repository's original
+migration filename remains `20261027143430_founder_import_preview_rebuild.sql`;
+the applied ledger version records the governed connector's installation time.
+
+The 19:23:15 UTC post-installation preflight verifies unchanged role attributes,
+table and column ACLs, RLS, private-schema permissions, import policies and
+candidate audit trigger. The 19:23:30 function read verifies owner `postgres`,
+`SECURITY DEFINER`, `search_path=pg_catalog`, `lock_timeout=2s`, execution only
+for `postgres` and `tcg_api`, and the exact reviewed body SHA-256
+`2b4bc9cd72b3246992b7304befd58322ebbfdf4bd939493530904b3267b83db7`.
+Supabase advisor findings are unchanged. Source blob
+`062994241c20b19f7321082738e05473a26075c3` matches the reviewed PR #760 head,
+its merge, deployed API `fb19e7e` and current main `44b1a932`. All four original
+PR workflows passed, including the native PostgreSQL 17.6 fixture.
+
+`TCG_IMPORT_PREVIEW_REBUILD_ENABLED=true` is configured. The targeted API
+deployment `20131280-07c8-474e-8932-2a0df29baf71` uses the already successful
+code release `fb19e7e8477779577736d90e745ddc171374627a` and reached terminal
+SUCCESS at 19:26:37.659 UTC. Its normal predeploy suite passed 7,256 tests,
+18 skipped and one warning in 23.99 seconds at 19:25:56.352 UTC. The new
+runtime logged `GET /health/ready` HTTP 200 at 19:26:32.903 UTC. The capability
+is deployed and enabled; a live authenticated founder acceptance result is
+still outstanding.
+
+No production batch was rebuilt and no original import was replayed. The live
+authenticated founder screen has not been exercised because the originating
+browser session and exact original source file are unavailable in this session.
+The existing read-only `GET /api/v1/imports/{batch_id}` reports `rebuild_enabled`
+for the authenticated founder's own batch; public health endpoints do not expose
+feature flags. Successful deployment and public readiness must therefore remain
+separate from a real founder UI/rebuild acceptance result.
+
+The rollback for this activation is to set the rebuild flag false and deploy
+that configuration; keep the verified private function and its audit boundary.
+See [activation evidence](evidence/import-preview-rebuild-activation-20261027.json)
+for the exact pre/post readbacks, migration receipt and deployment outcome.
+
