@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from urllib.parse import urlencode, urlsplit
 
@@ -32,8 +33,12 @@ from .catalogue_display_prices import read_shared_prices, with_shared_price
 from .catalogue_price_history import add_reference_history
 from .book_catalogue import with_book_details
 from .r2_media import with_signed_mirror
+from .catalogue_r2_cache import (
+    delivery_enabled, read_reference_snapshot, reference_scope, source_cte_with_snapshot,
+)
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
+logger = logging.getLogger(__name__)
 GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
 # A browse family only: printing identities retain their original system.
 BROWSE_FAMILIES = {"NARUTO": ("NARUTO_KAYOU", "NARUTO_BANDAI_LEGACY"),
@@ -393,7 +398,7 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
 
 def product_query(*, owner_id, q="", system_code="", language="", set_id="", provider=None,
                   product_type="", owned="all", sort="newest", keys=None, limit=40, offset=0,
-                  shared_prices=None):
+                  shared_prices=None, reference_snapshot=None):
     params = [owner_id]
     where = []
     def bind(value):
@@ -458,6 +463,12 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
             order = f"case when {number_match} then 0 when lower(e.name)={exact_query} then 1 else 2 end," + order
     clause = " and ".join(where) or "true"
     source_cte, shared_join = SOURCE_CTE, ''
+    if reference_snapshot is not None:
+        scope = reference_scope(provider=provider, system_code=system_code, language=language,
+            set_id=set_id, product_type=product_type, owned=owned, sort=sort, q=q, keys=keys)
+        if scope is None or scope != reference_snapshot.scope:
+            raise ValueError('Reference snapshot does not cover this catalogue query')
+        source_cte = source_cte_with_snapshot(source_cte, bind(reference_snapshot.payload))
     if reference_number_filter:
         source_cte = source_cte.replace('where (s.release_date is null or s.release_date<=current_date)',
             'where (s.release_date is null or s.release_date<=current_date)' + reference_number_filter, 1)
@@ -530,14 +541,32 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     key_list = keys.split(",") if keys else ([] if keys is not None else None)
     if key_list is not None and len(key_list) > 100:
         raise HTTPException(422, "Watchlist is limited to 100 products")
-    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+    cache_scope = reference_scope(provider=provider, system_code=system_code, language=language,
+        set_id=set_id, product_type=product_type, owned=owned, sort=sort, q=q, keys=key_list,
+        slab_number=slab_number, slab_name=slab_name, slab_set=slab_set) if delivery_enabled() else None
+    connection_options = {'readonly_snapshot': True} if cache_scope is not None else {}
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id,
+                               **connection_options) as connection:
         # Value sorts include alias prices before pagination. Other searches
         # resolve only the missing values on their bounded visible page.
         shared = await read_shared_prices(connection) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
-        query, params = product_query(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
+        snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None else None
+        query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
             set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list,
             limit=limit, offset=offset, shared_prices=shared)
-        rows = await connection.fetch(query, *params)
+        if snapshot is not None:
+            try:
+                async with connection.transaction():
+                    query, params = product_query(**query_options, reference_snapshot=snapshot)
+                    rows = await connection.fetch(query, *params)
+            except Exception as exc:
+                # A query-shape change or failed typed input cast must leave the
+                # ordinary live query usable within this same authorized snapshot.
+                logger.warning('CATALOGUE_R2_QUERY_FALLBACK type=%s', type(exc).__name__)
+                snapshot = None
+        if snapshot is None:
+            query, params = product_query(**query_options)
+            rows = await connection.fetch(query, *params)
         if sort not in ('value_desc', 'value_asc'):
             missing = [dict(row) for row in rows[:limit] if row.get('market_value_minor') is None]
             shared = await read_shared_prices(connection, missing)

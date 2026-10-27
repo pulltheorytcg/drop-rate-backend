@@ -63,9 +63,12 @@ async def user_connection(
     pool: Pool,
     user_id: UUID,
     request_id: str,
+    *,
+    readonly_snapshot: bool = False,
 ) -> AsyncIterator[Connection]:
     async with pool.acquire() as connection:
-        async with connection.transaction():
+        options = {"isolation": "repeatable_read", "readonly": True} if readonly_snapshot else {}
+        async with connection.transaction(**options):
             await connection.execute(
                 "select set_config('tcg.user_id', $1, true)",
                 str(user_id),

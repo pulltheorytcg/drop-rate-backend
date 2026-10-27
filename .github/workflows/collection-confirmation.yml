@@ -68,13 +68,15 @@ jobs:
   browser-confirmation:
     runs-on: ubuntu-latest
     timeout-minutes: 7
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.57.0-noble
+      options: --ipc=host
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: python -m pip install playwright==1.57.0
-      - run: python -m playwright install --with-deps chromium webkit
       - name: Real scanner and selling controls with synthetic API data, no camera/production identity
         run: |
           python tests/ui/collection-simplicity.py

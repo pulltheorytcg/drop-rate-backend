@@ -86,13 +86,15 @@ jobs:
   browser-parity:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.57.0-noble
+      options: --ipc=host
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: python -m pip install playwright==1.57.0
-      - run: python -m playwright install --with-deps chromium webkit
       - name: Actual founder/seller display and recommendation controls, synthetic API responses
         run: |
           python tests/ui/shared-reference-display.py
