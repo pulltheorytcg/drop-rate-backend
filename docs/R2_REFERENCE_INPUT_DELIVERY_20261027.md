@@ -85,3 +85,13 @@ Local PGlite 0.5.9 identifies its engine as PostgreSQL 18.6. The dedicated CI jo
 runs native PostgreSQL 17.6, matching production's major version. Both results
 must be recorded separately. Current release/deployment evidence will be added
 after verification; these implementation notes alone are not a live receipt.
+
+PR #757's first native PostgreSQL 17.6 parity run passed, alongside its backend
+and persistence checks. Both existing browser jobs exhausted their seven/eight
+minute limits while fetching system packages from `azure.archive.ubuntu.com`;
+their browser assertions had not started. Those two jobs now use the official
+`mcr.microsoft.com/playwright/python:v1.57.0-noble` image, matching the unchanged
+Python Playwright 1.57.0 pin. The image supplies the browser binaries and system
+dependencies. All Chromium/WebKit test scripts and their time limits remain.
+See the [official image contract](https://playwright.dev/python/docs/docker).
+The updated browser checks must pass before release.
