@@ -73,7 +73,7 @@ test('normalization ignores generated state, preserves executable changes and ke
   assert.notEqual(inspector.definitionHash(codeChange), expected);
 });
 
-test('reads only approved credential metadata, keeps database read-only, and reports four exact IDs', () => {
+test('reads only approved credential metadata, keeps database read-only, and reports five exact IDs', () => {
   // The API pre-deploy Node runtime supports SQLite but not setAuthorizer.
   // A poison projection proves data-read denial on both runtimes. Exercise
   // that path explicitly even when the local runtime supplies the authorizer.
@@ -126,11 +126,11 @@ test('reads only approved credential metadata, keeps database read-only, and rep
 
 test('distinguishes stale stored settings and published history from the current draft', () => {
   const f = fixture();
-  const heartbeat = f.definitions[1];
+  const heartbeat = f.definitions.find(x => x.id === 'DR92RuntimeHeartbeatV1');
   f.db.prepare('UPDATE workflow_entity SET settings = ?, active = 1 WHERE id = ?').run(
     JSON.stringify({ executionOrder: 'v1' }), heartbeat.id,
   );
-  const storage = f.definitions[2];
+  const storage = f.definitions.find(x => x.id === 'DR93ObjectStorageHealthV1');
   const oldNodes = structuredClone(storage.nodes);
   oldNodes[0].parameters.rule.interval[0].hoursInterval = 2;
   f.db.prepare('INSERT INTO workflow_history VALUES (?, ?, ?, ?, ?)').run(
@@ -141,7 +141,8 @@ test('distinguishes stale stored settings and published history from the current
     'published-old-version', storage.id,
   );
   const report = inspector.inspectDatabase(f.db, SOURCES);
-  const h = report.workflows[1], s = report.workflows[2];
+  const h = report.workflows.find(x => x.id === heartbeat.id);
+  const s = report.workflows.find(x => x.id === storage.id);
   assert.equal(h.active, true);
   assert.equal(h.published, false); // Never infer publication from the legacy flag.
   assert.equal(h.errorWorkflow, null);
@@ -258,11 +259,28 @@ test('startup still reaches n8n after an inspector executable failure and hides 
 });
 
 test('DR92, DR93 and DR94 remain inactive and link DR90 in reviewed source only', () => {
-  for (const [, file] of inspector.WORKFLOWS.slice(1)) {
+  for (const [, file] of inspector.WORKFLOWS.filter(([id]) => /^DR9[234]/.test(id))) {
     const value = JSON.parse(fs.readFileSync(path.join(SOURCES, file), 'utf8'));
     assert.equal(value.active, false);
     assert.equal(value.settings.errorWorkflow, 'DR90GlobalErrorV1');
   }
   const error = JSON.parse(fs.readFileSync(path.join(SOURCES, inspector.WORKFLOWS[0][1]), 'utf8'));
   assert.notEqual(error.settings.errorWorkflow, error.id);
+});
+
+test('all five signed raw JSON requests consume streamed JSON responses without changing HMAC bytes', () => {
+  const bodies = { DR90GlobalErrorV1: 'receipt_body', DR91SuccessReceiptV1: 'receipt_body',
+    DR92RuntimeHeartbeatV1: 'heartbeat_body', DR93ObjectStorageHealthV1: 'health_body',
+    DR94R2ApprovedMediaMirrorV1: 'mirror_body' };
+  for (const [, file] of inspector.WORKFLOWS) {
+    const value = JSON.parse(fs.readFileSync(path.join(SOURCES, file), 'utf8'));
+    const requests = value.nodes.filter(node => node.type === 'n8n-nodes-base.httpRequest');
+    assert.equal(requests.length, 1);
+    const request = requests[0].parameters;
+    assert.equal(request.contentType, 'raw');
+    assert.equal(request.rawContentType, 'application/json');
+    assert.equal(request.body, '={{ $json.' + bodies[value.id] + ' }}');
+    assert.deepEqual(request.options.response.response,
+      { fullResponse: true, neverError: true, responseFormat: 'autodetect' });
+  }
 });

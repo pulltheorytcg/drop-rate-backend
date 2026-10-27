@@ -6,7 +6,7 @@ This directory makes production n8n workflows version-controlled and reproducibl
 
 - Base image is pinned in `Dockerfile.n8n`.
 - Workflow JSON contains no credentials or secrets.
-- Startup provisioning is additive: it imports a workflow only when its stable workflow ID is absent.
+- Default startup provisioning is additive: it imports a workflow only when its stable workflow ID is absent. The explicit guarded upgrade below handles the reviewed exception.
 - Startup must never delete/recreate the n8n SQLite database.
 - Existing persistent workflows are not silently overwritten.
 - Workflow publishing is a separate deliberate step after import/validation.
@@ -14,7 +14,7 @@ This directory makes production n8n workflows version-controlled and reproducibl
 
 ## Why additive first
 
-Blind re-imports can overwrite a workflow while an older execution is running or erase a manual emergency correction. V1 therefore bootstraps missing workflows only. A later deployment tool can perform explicit, version-aware updates with backup/rollback.
+Blind re-imports can overwrite a workflow while an older execution is running or erase a manual emergency correction. V1 therefore bootstraps missing workflows only. The guarded control-plane upgrade below adds an explicit version-aware update with a verified backup and separate recovery procedure.
 
 ## Production migration gates
 
@@ -77,7 +77,7 @@ The registry is source-controlled and tested. n8n UI state is never the authorit
 
 `DR90GlobalErrorV1` is the first control-plane workflow.
 
-It is imported **inactive** until the backend receipt endpoint and matching runtime secrets are deployed and a synthetic failure is proven end-to-end.
+It is imported **inactive**. Once the backend receipt endpoint and runtime configuration are deployed, verify the stored definition and publish DR90. n8n 2.32.6 loads only a published error handler. The staged health activation below proves live signed heartbeat/storage connectivity before approved-media scheduling. Live error-receipt fan-out and replay remain separate evidence gaps until observed; the isolated CI canary does not prove them.
 
 Flow:
 
@@ -93,15 +93,14 @@ Rules:
 - `DROP_RATE_AUTOMATION_COMMAND_SECRET` must match FastAPI `TCG_AUTOMATION_COMMAND_SECRET`;
 - `DROP_RATE_API_AUTOMATION_CONTROL_URL` points to the governed FastAPI receipt endpoint.
 
-Before activation:
+Production readiness sequence:
 1. deploy backend receipt endpoint;
 2. configure matching command secret;
 3. configure private/internal FastAPI control URL;
-4. import DR-90;
-5. trigger one synthetic failure;
-6. prove exactly one automation_run per founder and one deduped Action Required per founder;
-7. replay the same receipt and prove no duplicate state;
-8. only then set DR-90 as the error workflow for other workflows.
+4. verify the exact inactive stored DR90 definition and its isolated automatic-routing CI proof;
+5. publish DR90, then the diagnostic DR92/DR93 subset and observe actual signed health receipts;
+6. keep production error fan-out and duplicate-receipt proof explicitly unverified until a real error or separately reviewed technical check establishes one automation_run and one deduped Action Required item per founder;
+7. do not create a synthetic production failure merely to enable the diagnostic health schedules.
 
 
 ## Production source cutover safety
@@ -133,7 +132,7 @@ failure emits a fixed diagnostic and remains nonfatal to n8n startup.
 
 One JSON log event, `DROP_RATE_N8N_METADATA_INSPECTION`, reports:
 
-- Only `DR90GlobalErrorV1`, `DR92RuntimeHeartbeatV1`,
+- Only `DR90GlobalErrorV1`, `DR91SuccessReceiptV1`, `DR92RuntimeHeartbeatV1`,
   `DR93ObjectStorageHealthV1`, and `DR94R2ApprovedMediaMirrorV1`.
 - Normalized source, stored-draft and (when present) published-version SHA-256
   hashes, comparison results, source/stored `errorWorkflow`, and separate
@@ -170,19 +169,24 @@ mismatch is expected when their older stored definitions lack this setting.
 Inspect and review that difference before choosing an explicit versioned update.
 This inspection flag does not enable the existing DR94 publication switch.
 
-Activation still requires the DR90 error-routing and heartbeat gates. n8n's
-Error Trigger handler itself does not need publication, and manually running a
-workflow does not invoke its error workflow: prove routing with a controlled
-automatic failure before enabling the reviewed recurring jobs.
+The pinned n8n 2.32.6 implementation requires a published DR90 version: its
+`loadErrorWorkflowData()` returns without running an unpublished handler.
+This version-specific implementation takes precedence over the generic Error
+Trigger documentation. A manual execution does not prove automatic error
+routing. Publish the verified handler first, then enable only DR92/DR93 to
+establish real automatic health receipts. A heartbeat cannot prove scheduling
+before its schedule is published. The production error-receipt and fan-out
+proof remains explicitly separate from this diagnostic activation.
 
-Run the offline fixture tests with Node 24:
+Run the offline fixture tests with the API's Node 22.23.3 or the pinned n8n image's Node 24.18.0:
 
 ```sh
 node --no-warnings --test tests/n8n_stored_metadata.test.cjs
 ```
 
 The pytest wrapper includes these tests in the existing backend CI job. They use
-disposable SQLite databases, deny credential-data reads with a SQLite authorizer,
+disposable SQLite databases, deny credential-data reads with an erroring SQLite
+view and an authorizer when the runtime provides one,
 verify that the database file is unchanged, compare stored/published versions,
 exercise malformed and oversized data, and prove startup survives an inspector
 failure. They make no network calls.
@@ -194,7 +198,55 @@ Primary compatibility references:
 - [Pinned published workflow export behaviour](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/cli/src/commands/export/workflow.ts)
 - [Pinned n8n folder resolution](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/%40n8n/config/src/utils/utils.ts)
 - [Node SQLite read-only connection](https://nodejs.org/docs/latest-v24.x/api/sqlite.html)
-- [n8n Error Trigger testing and publication rules](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.errortrigger/)
+- [Pinned error-handler publication requirement](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/cli/src/workflows/workflow-execution.service.ts)
+- [n8n Error Trigger automatic execution testing](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.errortrigger/)
+
+## Guarded control-plane upgrade and publication
+
+The observed 27 October stored copies of DR90, DR92, DR93 and DR94 are inactive
+and unpublished. The explicit plan in `ops/control-plane-upgrade-20261027.json`
+pins both their observed and reviewed hashes. All four receive a response
+parser correction: n8n 2.32.6 streams responses to raw requests, so
+`responseFormat: autodetect` consumes the JSON response before the existing
+strict acceptance checks. Raw HMAC-signed request bytes stay unchanged. DR92,
+DR93 and DR94 also gain `settings.errorWorkflow = DR90GlobalErrorV1`.
+
+DR91 receives the same source parser correction and read-only inspection, but
+is excluded from this write/publication plan. Its old source hash is an expected
+definition, not an observed production state. Deploy first with both mutation
+flags false, collect fresh stored/publication metadata for all five workflows,
+and review it before enabling the four-ID repair. DR91 requires its own reviewed
+upgrade after its actual stored state is observed.
+
+`DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT=true` enables only this reviewed
+inactive update. Before the server starts, the helper verifies the exact
+runtime, source and stored hashes, confirms inactivity, takes a private,
+WAL-aware SQLite backup, rechecks the state, and imports the four definitions
+with `--activeState=false`. A retry with already-matching inactive definitions
+does not import again. A failed requested upgrade stops startup with a bounded,
+metadata-only diagnostic. The ordinary metadata inspector remains nonfatal.
+
+Publication is a later, separate operation. Disable the upgrade flag, then use
+`DROP_RATE_N8N_CONTROL_PLANE_PUBLISH_ON_BOOT=error-handler` to publish only the
+exact verified DR90. The `health-schedules` value publishes only DR92 and DR93
+and requires DR90 already published at the exact reviewed hash. Observe an
+actual durable heartbeat and successful signed read-only storage check before
+using `media-schedule` for DR94. The media phase also requires both health
+workflows already published at their exact reviewed hashes; the helper cannot
+infer their successful live execution from publication alone. The legacy DR94
+switch has the same publication prerequisites. Do not enable two mutation
+phases in the same startup.
+
+The pinned-image CI job exercises the real n8n importer and publication commands
+against disposable SQLite state, then runs an isolated automatic error-routing
+canary using the exact DR90 definition. The canary verifies one failed webhook
+execution, one successful error-handler execution and one signed local receipt.
+It does not use the production database, credentials or backend and explicitly
+reports `production_backend_verified: false`. It has no automatic production
+startup hook.
+
+See [the guarded rollout and recovery procedure](../../docs/N8N_GUARDED_CONTROL_PLANE_UPGRADE_20261027.md)
+for the phases, expected receipts, backup handling and remaining live gates.
 
 ## DR-91 durable success receipt
 
@@ -234,13 +286,17 @@ Rules:
 - when alerting is deliberately enabled, stale heartbeats create one deduped HIGH Action Required item per active founder and a healthy heartbeat resolves it;
 - no inventory, ownership, pricing, settlement or customer state is mutated.
 
-Activation gate:
+Staged activation:
 1. deploy and apply the heartbeat database contract;
-2. import DR-92 inactive;
-3. manually execute it once and verify a durable heartbeat row;
-4. replay the same execution and prove duplicate safety;
-5. prove the stale/healthy Action Required lifecycle;
-6. only then activate DR-92 and enable heartbeat alerts.
+2. verify the inactive source-matching DR92 definition and publish the exact DR90 handler;
+3. publish DR92/DR93 through the guarded `health-schedules` phase while heartbeat alerts remain disabled;
+4. verify the next automatic execution produces a fresh durable heartbeat row and the signed storage health request succeeds;
+5. observe continued heartbeat progression before declaring recurring execution healthy;
+6. test duplicate safety and the stale/healthy Action Required lifecycle before separately enabling heartbeat alerts. These alerting checks do not require holding the diagnostic heartbeat schedule unpublished.
+
+The pinned `n8n execute --id` CLI cannot start these schedule-only definitions:
+its start-node selector requires a manual/chat or execute-workflow trigger. Do
+not claim a CLI run of a modified wrapper is an exact scheduled execution.
 
 ## DR-00 V2 + DR-01 Shopify publication
 

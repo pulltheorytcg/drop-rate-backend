@@ -46,7 +46,7 @@
         "body": "={{ $json.health_body }}",
         "options": {
           "timeout": 15000,
-          "response": {"response": {"fullResponse": true, "neverError": true, "responseFormat": "json"}}
+          "response": {"response": {"fullResponse": true, "neverError": true, "responseFormat": "autodetect"}}
         }
       }
     },

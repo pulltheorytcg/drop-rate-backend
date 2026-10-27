@@ -42,7 +42,7 @@
         "body": "={{ $json.mirror_body }}",
         "options": {
           "timeout": 90000,
-          "response": {"response": {"fullResponse": true, "neverError": true, "responseFormat": "json"}}
+          "response": {"response": {"fullResponse": true, "neverError": true, "responseFormat": "autodetect"}}
         }
       }
     },

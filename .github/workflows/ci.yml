@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: "22.23.3"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -52,3 +52,14 @@ jobs:
         run: docker build --file Dockerfile.n8n --tag drop-rate-n8n:ci .
       - name: Verify pinned n8n version
         run: docker run --rm --entrypoint n8n drop-rate-n8n:ci --version | grep -Fx "2.32.6"
+      - name: Verify guarded inactive upgrade and exact publication in isolated pinned runtime
+        run: |
+          docker run --rm --network none --entrypoint node \
+            -e DROP_RATE_UPGRADE_CI_ISOLATED=true \
+            -v "$PWD/tests/n8n_control_plane_upgrade_smoke.cjs:/test/upgrade-smoke.cjs:ro" \
+            drop-rate-n8n:ci --no-warnings /test/upgrade-smoke.cjs
+      - name: Verify automatic error routing with exact DR90 in a disposable runtime
+        run: |
+          docker run --rm --network none --entrypoint node \
+            -e DROP_RATE_N8N_ERROR_CANARY_ON_BOOT=true \
+            drop-rate-n8n:ci --no-warnings /opt/drop-rate/ops/run-isolated-error-canary.cjs --smoke
