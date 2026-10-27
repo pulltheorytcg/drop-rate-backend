@@ -1,0 +1,852 @@
+{
+  "schema_version": 1,
+  "task": "resume_founder_import_preview_rebuild",
+  "date": "2026-10-27",
+  "repository": "pulltheorytcg/drop-rate-backend",
+  "reviewed_head": "e5c0f4e847953ab87345df2b8ed52634536f201e",
+  "deployed_code": "fb19e7e8477779577736d90e745ddc171374627a",
+  "source_path": "database/migrations/20261027143430_founder_import_preview_rebuild.sql",
+  "source_blob_sha": "062994241c20b19f7321082738e05473a26075c3",
+  "canonical_source_sha256": "ae3f42a305370cdd7898580dace5a114b7bb4f5f3341f5843a58ff4dd149fbeb",
+  "submitted_sql_sha256": "4b83d50caa05ce44d53e008e5198c4d49dd56cda789127a2ff919825a9478626",
+  "submitted_sql_difference": "One trailing newline after canonical source; all SQL including function body identical",
+  "initial_reconciliation": [
+    {
+      "checked_at": "2026-10-27 19:22:07.554036+00",
+      "current_user": "postgres",
+      "function_present": false,
+      "migration_count": 136,
+      "rebuild_migrations": []
+    }
+  ],
+  "migration_result": {
+    "success": true
+  },
+  "migration_ledger": [
+    {
+      "version": "20261027192257",
+      "name": "founder_import_preview_rebuild"
+    }
+  ],
+  "function_identity": [
+    {
+      "checked_at": "2026-10-27 19:23:30.277996+00",
+      "nspname": "tcg_private",
+      "proname": "replace_import_preview",
+      "identity_args": "p_actor_id uuid, p_owner_id uuid, p_batch_id uuid, p_expected_version integer, p_source_sha256 text, p_adapter text, p_source_rows integer, p_physical_units integer, p_warnings jsonb, p_candidates jsonb",
+      "owner": "postgres",
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=pg_catalog",
+        "lock_timeout=2s"
+      ],
+      "proacl": "{postgres=X/postgres,tcg_api=X/postgres}",
+      "body_sha256": "2b4bc9cd72b3246992b7304befd58322ebbfdf4bd939493530904b3267b83db7"
+    }
+  ],
+  "before": {
+    "roles": [
+      {
+        "name": "anon",
+        "can_login": false,
+        "superuser": false,
+        "bypass_rls": false
+      },
+      {
+        "name": "authenticated",
+        "can_login": false,
+        "superuser": false,
+        "bypass_rls": false
+      },
+      {
+        "name": "postgres",
+        "can_login": true,
+        "superuser": false,
+        "bypass_rls": true
+      },
+      {
+        "name": "tcg_api",
+        "can_login": true,
+        "superuser": false,
+        "bypass_rls": false
+      }
+    ],
+    "functions": [
+      {
+        "name": "audit_import_candidate_change",
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog"
+        ],
+        "schema": "tcg",
+        "definition": null,
+        "anon_execute": false,
+        "identity_args": "",
+        "runtime_execute": false,
+        "security_definer": true,
+        "authenticated_execute": false
+      },
+      {
+        "name": "current_user_id",
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog"
+        ],
+        "schema": "tcg",
+        "definition": "CREATE OR REPLACE FUNCTION tcg.current_user_id()\n RETURNS uuid\n LANGUAGE sql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\n    SELECT nullif(current_setting('tcg.user_id', true), '')::uuid\n$function$\n",
+        "anon_execute": false,
+        "identity_args": "",
+        "runtime_execute": true,
+        "security_definer": false,
+        "authenticated_execute": false
+      },
+      {
+        "name": "is_platform_admin",
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog"
+        ],
+        "schema": "tcg",
+        "definition": "CREATE OR REPLACE FUNCTION tcg.is_platform_admin()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\n  select exists (\n    select 1 from tcg.founder_app_accounts f\n    join tcg.owner_memberships m on m.user_id=f.user_id and m.owner_id=f.owner_id\n    join tcg.owners o on o.id=f.owner_id and o.founder_slot=f.founder_slot\n    where f.user_id=tcg.current_user_id() and f.active and m.active\n      and m.role='PLATFORM_ADMIN' and o.active and o.owner_type='FOUNDER'\n      and (select count(*) from tcg.owner_memberships other\n           where other.user_id=f.user_id and other.active)=1\n  )\n$function$\n",
+        "anon_execute": false,
+        "identity_args": "",
+        "runtime_execute": true,
+        "security_definer": true,
+        "authenticated_execute": false
+      }
+    ],
+    "relations": [
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "audit_events",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": false,
+        "runtime_select": false,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "founder_app_accounts",
+        "schema": "tcg",
+        "force_rls": false,
+        "runtime_delete": false,
+        "runtime_insert": false,
+        "runtime_select": false,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "import_batches",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": true,
+        "runtime_select": true,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "import_candidates",
+        "schema": "tcg",
+        "force_rls": false,
+        "runtime_delete": false,
+        "runtime_insert": true,
+        "runtime_select": true,
+        "runtime_update": true
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "inventory_items",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": true,
+        "runtime_select": true,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "owner_memberships",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": false,
+        "runtime_select": true,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "owners",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": false,
+        "runtime_select": true,
+        "runtime_update": false
+      }
+    ],
+    "measured_at": "2026-10-27T19:22:20.650804+00:00",
+    "batch_columns": [
+      {
+        "type": "uuid",
+        "column": "id",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "uuid",
+        "column": "owner_id",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "source",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "source_sha256",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "integer",
+        "column": "source_rows",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "integer",
+        "column": "physical_units",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "timestamp with time zone",
+        "column": "created_at",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "filename",
+        "not_null": false,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "adapter",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "status",
+        "not_null": true,
+        "runtime_update": true
+      },
+      {
+        "type": "jsonb",
+        "column": "warnings",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "integer",
+        "column": "version",
+        "not_null": true,
+        "runtime_update": true
+      },
+      {
+        "type": "timestamp with time zone",
+        "column": "committed_at",
+        "not_null": false,
+        "runtime_update": true
+      },
+      {
+        "type": "boolean",
+        "column": "automatic_intake",
+        "not_null": true,
+        "runtime_update": true
+      },
+      {
+        "type": "integer",
+        "column": "last_auto_apply_version",
+        "not_null": false,
+        "runtime_update": true
+      }
+    ],
+    "private_schema": {
+      "acl": "{postgres=UC/postgres,tcg_api=U/postgres}",
+      "owner": "postgres",
+      "anon_usage": false,
+      "runtime_usage": true,
+      "runtime_create": false,
+      "authenticated_usage": false
+    },
+    "server_version": "17.6",
+    "import_policies": [
+      {
+        "name": "admin_access",
+        "check": "true",
+        "roles": [
+          "postgres"
+        ],
+        "table": "import_batches",
+        "using": "true",
+        "command": "ALL"
+      },
+      {
+        "name": "own_records",
+        "check": "(owner_id IN ( SELECT owners.id\n   FROM tcg.owners))",
+        "roles": [
+          "tcg_api"
+        ],
+        "table": "import_batches",
+        "using": "(owner_id IN ( SELECT owners.id\n   FROM tcg.owners))",
+        "command": "ALL"
+      },
+      {
+        "name": "admin_access",
+        "check": "true",
+        "roles": [
+          "postgres"
+        ],
+        "table": "import_candidates",
+        "using": "true",
+        "command": "ALL"
+      },
+      {
+        "name": "own_records",
+        "check": "(owner_id IN ( SELECT owners.id\n   FROM tcg.owners))",
+        "roles": [
+          "tcg_api"
+        ],
+        "table": "import_candidates",
+        "using": "(owner_id IN ( SELECT owners.id\n   FROM tcg.owners))",
+        "command": "ALL"
+      }
+    ],
+    "migration_present": false,
+    "candidate_triggers": [
+      {
+        "name": "import_candidates_audit",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER import_candidates_audit AFTER INSERT OR DELETE OR UPDATE ON tcg.import_candidates FOR EACH ROW EXECUTE FUNCTION tcg.audit_import_candidate_change()"
+      }
+    ]
+  },
+  "after": {
+    "roles": [
+      {
+        "name": "anon",
+        "can_login": false,
+        "superuser": false,
+        "bypass_rls": false
+      },
+      {
+        "name": "authenticated",
+        "can_login": false,
+        "superuser": false,
+        "bypass_rls": false
+      },
+      {
+        "name": "postgres",
+        "can_login": true,
+        "superuser": false,
+        "bypass_rls": true
+      },
+      {
+        "name": "tcg_api",
+        "can_login": true,
+        "superuser": false,
+        "bypass_rls": false
+      }
+    ],
+    "functions": [
+      {
+        "name": "audit_import_candidate_change",
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog"
+        ],
+        "schema": "tcg",
+        "definition": null,
+        "anon_execute": false,
+        "identity_args": "",
+        "runtime_execute": false,
+        "security_definer": true,
+        "authenticated_execute": false
+      },
+      {
+        "name": "current_user_id",
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog"
+        ],
+        "schema": "tcg",
+        "definition": "CREATE OR REPLACE FUNCTION tcg.current_user_id()\n RETURNS uuid\n LANGUAGE sql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\n    SELECT nullif(current_setting('tcg.user_id', true), '')::uuid\n$function$\n",
+        "anon_execute": false,
+        "identity_args": "",
+        "runtime_execute": true,
+        "security_definer": false,
+        "authenticated_execute": false
+      },
+      {
+        "name": "is_platform_admin",
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog"
+        ],
+        "schema": "tcg",
+        "definition": "CREATE OR REPLACE FUNCTION tcg.is_platform_admin()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\n  select exists (\n    select 1 from tcg.founder_app_accounts f\n    join tcg.owner_memberships m on m.user_id=f.user_id and m.owner_id=f.owner_id\n    join tcg.owners o on o.id=f.owner_id and o.founder_slot=f.founder_slot\n    where f.user_id=tcg.current_user_id() and f.active and m.active\n      and m.role='PLATFORM_ADMIN' and o.active and o.owner_type='FOUNDER'\n      and (select count(*) from tcg.owner_memberships other\n           where other.user_id=f.user_id and other.active)=1\n  )\n$function$\n",
+        "anon_execute": false,
+        "identity_args": "",
+        "runtime_execute": true,
+        "security_definer": true,
+        "authenticated_execute": false
+      },
+      {
+        "name": "replace_import_preview",
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog",
+          "lock_timeout=2s"
+        ],
+        "schema": "tcg_private",
+        "definition": null,
+        "anon_execute": false,
+        "identity_args": "p_actor_id uuid, p_owner_id uuid, p_batch_id uuid, p_expected_version integer, p_source_sha256 text, p_adapter text, p_source_rows integer, p_physical_units integer, p_warnings jsonb, p_candidates jsonb",
+        "runtime_execute": true,
+        "security_definer": true,
+        "authenticated_execute": false
+      }
+    ],
+    "relations": [
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "audit_events",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": false,
+        "runtime_select": false,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "founder_app_accounts",
+        "schema": "tcg",
+        "force_rls": false,
+        "runtime_delete": false,
+        "runtime_insert": false,
+        "runtime_select": false,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "import_batches",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": true,
+        "runtime_select": true,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "import_candidates",
+        "schema": "tcg",
+        "force_rls": false,
+        "runtime_delete": false,
+        "runtime_insert": true,
+        "runtime_select": true,
+        "runtime_update": true
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "inventory_items",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": true,
+        "runtime_select": true,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "owner_memberships",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": false,
+        "runtime_select": true,
+        "runtime_update": false
+      },
+      {
+        "rls": true,
+        "owner": "postgres",
+        "table": "owners",
+        "schema": "tcg",
+        "force_rls": true,
+        "runtime_delete": false,
+        "runtime_insert": false,
+        "runtime_select": true,
+        "runtime_update": false
+      }
+    ],
+    "measured_at": "2026-10-27T19:23:15.424408+00:00",
+    "batch_columns": [
+      {
+        "type": "uuid",
+        "column": "id",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "uuid",
+        "column": "owner_id",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "source",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "source_sha256",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "integer",
+        "column": "source_rows",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "integer",
+        "column": "physical_units",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "timestamp with time zone",
+        "column": "created_at",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "filename",
+        "not_null": false,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "adapter",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "text",
+        "column": "status",
+        "not_null": true,
+        "runtime_update": true
+      },
+      {
+        "type": "jsonb",
+        "column": "warnings",
+        "not_null": true,
+        "runtime_update": false
+      },
+      {
+        "type": "integer",
+        "column": "version",
+        "not_null": true,
+        "runtime_update": true
+      },
+      {
+        "type": "timestamp with time zone",
+        "column": "committed_at",
+        "not_null": false,
+        "runtime_update": true
+      },
+      {
+        "type": "boolean",
+        "column": "automatic_intake",
+        "not_null": true,
+        "runtime_update": true
+      },
+      {
+        "type": "integer",
+        "column": "last_auto_apply_version",
+        "not_null": false,
+        "runtime_update": true
+      }
+    ],
+    "private_schema": {
+      "acl": "{postgres=UC/postgres,tcg_api=U/postgres}",
+      "owner": "postgres",
+      "anon_usage": false,
+      "runtime_usage": true,
+      "runtime_create": false,
+      "authenticated_usage": false
+    },
+    "server_version": "17.6",
+    "import_policies": [
+      {
+        "name": "admin_access",
+        "check": "true",
+        "roles": [
+          "postgres"
+        ],
+        "table": "import_batches",
+        "using": "true",
+        "command": "ALL"
+      },
+      {
+        "name": "own_records",
+        "check": "(owner_id IN ( SELECT owners.id\n   FROM tcg.owners))",
+        "roles": [
+          "tcg_api"
+        ],
+        "table": "import_batches",
+        "using": "(owner_id IN ( SELECT owners.id\n   FROM tcg.owners))",
+        "command": "ALL"
+      },
+      {
+        "name": "admin_access",
+        "check": "true",
+        "roles": [
+          "postgres"
+        ],
+        "table": "import_candidates",
+        "using": "true",
+        "command": "ALL"
+      },
+      {
+        "name": "own_records",
+        "check": "(owner_id IN ( SELECT owners.id\n   FROM tcg.owners))",
+        "roles": [
+          "tcg_api"
+        ],
+        "table": "import_candidates",
+        "using": "(owner_id IN ( SELECT owners.id\n   FROM tcg.owners))",
+        "command": "ALL"
+      }
+    ],
+    "migration_present": false,
+    "candidate_triggers": [
+      {
+        "name": "import_candidates_audit",
+        "enabled": "O",
+        "definition": "CREATE TRIGGER import_candidates_audit AFTER INSERT OR DELETE OR UPDATE ON tcg.import_candidates FOR EACH ROW EXECUTE FUNCTION tcg.audit_import_candidate_change()"
+      }
+    ]
+  },
+  "unchanged": {
+    "roles": true,
+    "relations": true,
+    "batch_columns": true,
+    "private_schema": true,
+    "import_policies": true,
+    "candidate_triggers": true,
+    "existing_function_definitions": true
+  },
+  "advisors": {
+    "security_before": [
+      {
+        "name": "rls_enabled_no_policy",
+        "count": 7,
+        "level": "INFO",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "count": 1,
+        "level": "WARN",
+        "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+      }
+    ],
+    "security_after": [
+      {
+        "name": "rls_enabled_no_policy",
+        "count": 7,
+        "level": "INFO",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "count": 1,
+        "level": "WARN",
+        "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+      }
+    ],
+    "performance_before": [
+      {
+        "name": "unindexed_foreign_keys",
+        "count": 12,
+        "level": "INFO",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys"
+      },
+      {
+        "name": "auth_rls_initplan",
+        "count": 4,
+        "level": "WARN",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0003_auth_rls_initplan"
+      },
+      {
+        "name": "unused_index",
+        "count": 94,
+        "level": "INFO",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index"
+      },
+      {
+        "name": "multiple_permissive_policies",
+        "count": 5,
+        "level": "WARN",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0006_multiple_permissive_policies"
+      }
+    ],
+    "performance_after": [
+      {
+        "name": "unindexed_foreign_keys",
+        "count": 12,
+        "level": "INFO",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys"
+      },
+      {
+        "name": "auth_rls_initplan",
+        "count": 4,
+        "level": "WARN",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0003_auth_rls_initplan"
+      },
+      {
+        "name": "unused_index",
+        "count": 94,
+        "level": "INFO",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index"
+      },
+      {
+        "name": "multiple_permissive_policies",
+        "count": 5,
+        "level": "WARN",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0006_multiple_permissive_policies"
+      }
+    ]
+  },
+  "flag_change": {
+    "environment": {
+      "id": "6f00816c-b630-4d0b-bcc1-26ac71fa712d",
+      "name": "production"
+    },
+    "serviceId": "6aa92310-153f-4fc9-9e22-dc338282605b",
+    "variableNames": [
+      "TCG_IMPORT_PREVIEW_REBUILD_ENABLED"
+    ],
+    "skippedDeploys": true,
+    "staged": null
+  },
+  "deployment_requested": {
+    "deployment": {
+      "id": "20131280-07c8-474e-8932-2a0df29baf71",
+      "status": "INITIALIZING",
+      "serviceId": "6aa92310-153f-4fc9-9e22-dc338282605b",
+      "environmentId": "6f00816c-b630-4d0b-bcc1-26ac71fa712d"
+    }
+  },
+  "live_founder_rebuild_performed": false,
+  "browser_check": {
+    "status": "UNAVAILABLE",
+    "reason": "Browser access requires the originating browser context"
+  },
+  "notes": [
+    "Existing imports were not replayed; no inventory, ownership or pricing business rows changed by this migration installation."
+  ],
+  "final_deployment": {
+    "id": "20131280-07c8-474e-8932-2a0df29baf71",
+    "status": "SUCCESS",
+    "createdAt": "2026-10-27T19:24:56.859Z",
+    "updatedAt": "2026-10-27T19:26:37.659Z",
+    "serviceId": "6aa92310-153f-4fc9-9e22-dc338282605b",
+    "environmentId": "6f00816c-b630-4d0b-bcc1-26ac71fa712d",
+    "url": null,
+    "snapshotId": "23e47b15-eff0-41ea-b368-5ff7dd732478",
+    "canRollback": true,
+    "canRedeploy": true,
+    "regions": [
+      "ams"
+    ],
+    "meta": {
+      "reason": "redeploy",
+      "commitMessage": "Repair heartbeat recording and signed automation receipts (#762)",
+      "commitHash": "fb19e7e8477779577736d90e745ddc171374627a",
+      "branch": "main"
+    }
+  },
+  "validation": {
+    "predeploy_tests": {
+      "scope": "deployment",
+      "deploymentId": "20131280-07c8-474e-8932-2a0df29baf71",
+      "serviceId": "6aa92310-153f-4fc9-9e22-dc338282605b",
+      "environmentId": "6f00816c-b630-4d0b-bcc1-26ac71fa712d",
+      "status": "SUCCESS",
+      "deploy": [
+        {
+          "timestamp": "2026-10-27T19:25:56.352039143Z",
+          "severity": "info",
+          "message": "7256 passed, 18 skipped, 1 warning in 23.99s",
+          "attributes": [
+            {
+              "key": "level",
+              "value": "\"info\""
+            }
+          ]
+        }
+      ]
+    },
+    "health_ready": {
+      "scope": "deployment",
+      "deploymentId": "20131280-07c8-474e-8932-2a0df29baf71",
+      "serviceId": "6aa92310-153f-4fc9-9e22-dc338282605b",
+      "environmentId": "6f00816c-b630-4d0b-bcc1-26ac71fa712d",
+      "status": "SUCCESS",
+      "deploy": [
+        {
+          "timestamp": "2026-10-27T19:26:32.903149902Z",
+          "severity": "info",
+          "message": "INFO:     100.64.0.1:60659 - \"GET /health/ready HTTP/1.1\" 200 OK",
+          "attributes": [
+            {
+              "key": "level",
+              "value": "\"info\""
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "operational_status": "MIGRATED_ENABLED_DEPLOYMENT_SUCCESS_READY_200",
+  "preflight_version_note": "The retained preflight query tests repository filename version 20261027143430. Its migration_present field remains false because the governed connector records installation as 20261027192257; the separate migration_ledger read verifies founder_import_preview_rebuild by name and installed function identity."
+}

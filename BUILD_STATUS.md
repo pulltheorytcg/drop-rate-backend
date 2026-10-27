@@ -1,3 +1,48 @@
+## 27 October 2026 — Founder import migration installed and rebuild enabled
+
+The import-specific connector blocker is resolved. After a fresh read confirmed
+the function and ledger entry were still absent, the exact reviewed migration
+from [PR #760](https://github.com/pulltheorytcg/drop-rate-backend/pull/760) was
+installed through the governed Supabase migration tool as
+`20261027192257_founder_import_preview_rebuild`. The 19:23:15 UTC preflight
+readback verifies unchanged role attributes, table and column privileges,
+RLS, private-schema permissions, import policies and candidate audit trigger.
+The function identity read at 19:23:30 UTC confirms the reviewed body SHA-256
+`2b4bc9cd72b3246992b7304befd58322ebbfdf4bd939493530904b3267b83db7`,
+owner `postgres`, fixed `search_path=pg_catalog`, two-second lock timeout and
+execution restricted to `postgres` and `tcg_api`. Advisor findings are unchanged.
+
+The migration blob is identical at the reviewed PR head, its merge, the deployed
+API release and current main. All four original PR workflows passed, including
+the native PostgreSQL 17.6 rebuild suite; no replacement migration or broader
+database permissions were introduced.
+
+`TCG_IMPORT_PREVIEW_REBUILD_ENABLED=true` is configured. Targeted API deployment
+`20131280-07c8-474e-8932-2a0df29baf71`, on the already successful release
+`fb19e7e8477779577736d90e745ddc171374627a`, reached **SUCCESS at
+19:26:37.659 UTC**. Its normal predeploy suite passed **7,256 tests, 18 skipped,
+1 warning** in 23.99 seconds at 19:25:56.352; the new runtime logged
+`GET /health/ready` **200 OK at 19:26:32.903 UTC**. This is a deployed and enabled
+capability, with authenticated founder acceptance still outstanding. No production
+batch was rebuilt, no historical import was replayed and no inventory copy was
+created. The live founder UI check needs the originating browser session and
+original source file; deployment readiness alone does not establish that result.
+
+The normal DR94 media command returned HTTP 200 at 19:00:04.503 UTC; storage
+health returned 200 at 19:00:24.483 and heartbeat at 19:00:34.195. This verifies
+the scheduled command response, not new image counts or durable receipt fanout.
+The current mirror registry still contains 401 verified entries; the latest
+mirror verification is dated 26 October at 23:18 UTC.
+The production eligibility query at 19:30:30 UTC returned zero approved assets
+awaiting mirrors. DR93/94 validate command responses without invoking DR91, so
+these successful schedules do not establish production receipt fanout. See the
+[runtime readback](docs/evidence/runtime-continuation-readback-20261027.json).
+The weekly Drive copy remains disabled pending its existing OAuth and bounded
+live-copy requirements. Catalogue coverage is not changed by this migration.
+
+See the [activation evidence](docs/evidence/import-preview-rebuild-activation-20261027.json)
+and [current completion sequence](docs/DROP_RATE_COMPLETION_PLAN_20261027.md).
+
 ## 27 October 2026 — Automation database repair and live heartbeat recovery
 
 Supabase SQL reads are responding again. The reviewed automation migration from
