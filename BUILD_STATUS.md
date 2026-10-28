@@ -1,5 +1,11 @@
 ## 28 October 2026 - Current-listing estimates and bounded backfill
 
+Recovery validation: all eight GitHub workflows passed on `999c6530`, including
+8,104 backend tests (18 skipped), dashboard UI and both native PostgreSQL
+contracts. The deployment tool applied `20261028224708_reference_asking_prices`;
+readback confirms forced RLS and no direct anon/authenticated access. Deployment
+and the first live batch remain pending; no new prices are claimed yet.
+
 The 22:04 UTC read-only audit measured **43,362 / 67,065 (64.66%)** supported
 references/labelled guides; **16,326** additional records are needed for the
 **59,688** threshold. No coverage gain is attributed to this implementation.

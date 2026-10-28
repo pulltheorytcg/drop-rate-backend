@@ -7,9 +7,11 @@ from at least three sellers. The application must still prove the exact
 printing, language, finish and condition before writing it. Database shape
 checks cannot prove a listing matched a card.
 
-The SQL proposal is `database/proposals/reference_asking_prices.sql` until the
-deployment tool assigns its migration version. Do not edit historical
-migrations or apply this proposal automatically on application startup.
+The deployment tool applied migration
+`database/migrations/20261028224708_reference_asking_prices.sql` on 28 October
+2026. Readback confirmed forced RLS on all three tables, denied direct client
+access and retained backend access. Do not edit historical migrations or apply
+this migration automatically on application startup.
 
 ## Write order
 
