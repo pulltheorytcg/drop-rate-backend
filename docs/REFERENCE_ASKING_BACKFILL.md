@@ -48,7 +48,7 @@ window, leaves headroom for existing features, and additionally caps this
 backfill at 2,000 Browse attempts per UTC day. An operator can request 1,000 or
 2,000 eligible card checks in one run. This is a maximum number of searches,
 not a promise of that many accepted prices. The worker scans up to 20,000
-candidate references in 100-row pages and checkpoints after each card.
+candidate references in 100-row pages and durably records each attempted card.
 
 Collection remains sequential at no more than one request per second. The
 worker refreshes provider quota every 100 attempts, preserves 500 requests of
@@ -165,3 +165,9 @@ Verify acceptance/rejection counts, persisted evidence and total catalogue
 coverage after the run. Larger batches do not weaken exact-printing, language,
 condition, shipping or seller-diversity requirements, and they do not modify
 physical inventory, Store Prices or ownership.
+
+Validation for PR #778 passed 8,169 backend tests (18 skipped) and the real
+PostgreSQL budget migration, concurrency and access-control checks. Applied
+migration `20261028235621_reference_asking_budget_2000.sql` retained all three
+existing runs and their 30 requests unchanged. The first larger live batch is
+pending an authenticated operator runner; no additional price gain is claimed.

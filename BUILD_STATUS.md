@@ -1,22 +1,31 @@
 ## 28 October 2026 — Larger reference-pricing batches
 
-Prepared support for 1,000–2,000 eligible eBay Browse checks per run, with a
+PR #778 implements 1,000–2,000 eligible eBay Browse checks per run, with a
 2,000-request global UTC-day budget. Candidate scans use 100-row pages and a
 20,000-reference ceiling. Quota is refreshed every 100 attempts; a durable
 reservation marker preserves the 500-request provider headroom across restarts
 and UTC-day changes. Collection remains sequential at one request per second
 and stops after 45 minutes with a resumable cursor.
 
-The additive database migration preserves prior usage, history, audits and RLS.
-Exact identity, language, shipping and seller requirements remain unchanged.
-Larger batches are search capacity, not a guarantee of accepted prices.
+Validation at commit `7fdd4fa41239aa0d2e2d60240c51933fb5bf49b9`: all three
+applicable workflows passed, including **8,169 backend tests** (18 skipped),
+dashboard/n8n checks, shared-inventory consistency and the real PostgreSQL
+500-to-2,000 migration/concurrency/permission contract. Independent review found
+stale quota reuse across invocations; the implementation now carries a global
+reservation anchor across runs and conservatively accounts for legacy receipts.
 
-The initial local change passed 213 focused tests. Independent review then
-identified and corrected stale provider-quota reuse across restarts. The local
-runtime disconnected during that review; the final reconstructed changes need
-GitHub CI and PostgreSQL contract verification before deployment. The planned
-first 1,000-check live batch has not started. Last verified catalogue coverage
-is **43,454/67,065 (64.79%)**, leaving **16,234** records to reach 89%.
+Applied `20261028235621_reference_asking_budget_2000.sql`. All three existing
+run records and 30 charged requests have the identical before/after ledger
+snapshot `e3e748c71f7561ad6371a27e7eb6fb03`; no asking prices were added.
+The migration preserves history, audits and RLS. Exact identity, language,
+shipping and seller requirements remain unchanged. Larger batches are search
+capacity, not a guarantee of accepted prices.
+
+The planned first 1,000-check live batch has **not started**. The local operator
+session disconnected; the cloud connector can manage deployment but does not
+provide an authenticated command runner. Inspect the durable run ledger before
+launching or resuming. Last verified catalogue coverage is
+**43,454/67,065 (64.79%)**, leaving **16,234** records to reach 89%.
 
 ## 28 October 2026 — Recovered pricing rollout and Black Bolt source matching
 
