@@ -1,7 +1,7 @@
 """Offline free-tier contract and exact Japanese-printing safety tests."""
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -17,7 +17,8 @@ def reference(**fields):
     row = dict(provider='TCGdex', system_code='POKEMON_TCG', language='Japanese',
         provider_id='SV11B-001', set_id='SV11B', card_number='001/086',
         name='ピカチュウ', set_name='ブラックボルト', rarity='Common',
-        has_detail_value=False, existing_catalogue_value=0, existing_source=None)
+        has_detail_value=False, existing_catalogue_value=0, existing_source=None,
+        existing_pricing_updated_at=None)
     row.update(fields)
     return row
 
@@ -84,6 +85,34 @@ def test_japanese_set_code_must_be_unique_across_provider_listing():
         pokemon.unique_japanese_sets({'data':[]})
 
 
+def test_own_source_refreshes_without_overwriting_other_adapters_or_dates():
+    old = reference(existing_catalogue_value=50, existing_source=pokemon.SOURCE,
+                    existing_pricing_updated_at=NOW-timedelta(days=8))
+    before = dict(old)
+    assert list(pokemon.reference_groups([old], NOW).values()) == [old]
+    assert old == before
+    assert not pokemon.reference_groups([old | {"has_detail_value": True}], NOW)
+    assert not pokemon.reference_groups([old | {"existing_source": "OTHER_ADAPTER"}], NOW)
+    assert not pokemon.reference_groups([old | {"existing_pricing_updated_at": NOW}], NOW)
+    assert not pokemon.reference_groups([old | {"existing_pricing_updated_at": None}], NOW)
+    assert not pokemon.reference_groups([old | {"existing_pricing_updated_at": NOW.replace(tzinfo=None)}], NOW)
+    assert not pokemon.reference_groups([old, old | {"existing_catalogue_value": 0}], NOW)
+
+
+@pytest.mark.parametrize("set_id", ["-4", "-188", "-9999999999", "1", "23599"])
+def test_documented_negative_cardmarket_set_ids_preserve_literal_identity(set_id):
+    row = sets()["data"][0] | {"set_id": set_id}
+    assert pokemon.unique_japanese_sets({"success": True, "data": [row]}) == {"sv11b": row}
+    competitor = row | {"set_id": "999" if set_id != "999" else "998"}
+    assert not pokemon.unique_japanese_sets({"success": True, "data": [row, competitor]})
+
+
+@pytest.mark.parametrize("set_id", ["-0", "0", "-01", "01", "+4", "-10000000000", "-4.0", "-4/188", " -4"])
+def test_malformed_numeric_set_ids_are_not_release_aliases(set_id):
+    row = sets()["data"][0] | {"set_id": set_id}
+    assert not pokemon.unique_japanese_sets({"success": True, "data": [row]})
+
+
 def test_card_printing_must_be_unique_within_entire_japanese_set():
     wanted=pokemon.reference_groups([reference()])
     details={}
@@ -143,6 +172,46 @@ def test_only_exact_public_cardmarket_guide_can_be_quoted():
     assert pokemon.guide_quote(reference(),card(cardmarket=holo),'23599',fx(),NOW)['finish']=='holo'
 
 
+@pytest.mark.parametrize("market,reason", [
+    (None, "CARDMARKET_ABSENT"),
+    ({"prices": {}}, "PRICE_ARRAY_INVALID"),
+    ({"prices": []}, "PRICE_ARRAY_EMPTY"),
+    ({"prices": [{"variant_type": "normal", "trend": 2}], "product_url": "https://invalid.example/private"},
+     "SINGLE_PRODUCT_URL_INVALID"),
+    (card()["cardmarket"] | {"prices": [{"variant_type": "normal", "trend": 0, "avg30": 3}]},
+     "POSITIVE_SUPPORTED_TREND_ABSENT"),
+    (card()["cardmarket"] | {"prices": [{"variant_type": "untrusted label pk_live_secret", "trend": 9}]},
+     "POSITIVE_SUPPORTED_TREND_ABSENT"),
+    (card()["cardmarket"] | {"prices": [{"variant_type": ["normal"], "trend": 9}]},
+     "POSITIVE_SUPPORTED_TREND_ABSENT"),
+    (card()["cardmarket"] | {"prices": [{"variant_type": {"normal": True}, "trend": 9}]},
+     "POSITIVE_SUPPORTED_TREND_ABSENT"),
+    (card()["cardmarket"] | {"prices": card()["cardmarket"]["prices"] * 2}, "DUPLICATE_FINISH_QUOTES"),
+])
+def test_quote_diagnostics_explain_missing_fields_without_promoting_another_price(market, reason):
+    diagnostics = {}
+    assert pokemon.guide_quote(reference(), card(cardmarket=market), "23599", fx(), NOW, diagnostics) is None
+    assert diagnostics["reason"] == reason
+    assert set(diagnostics) == {"reason", "source_shape"}
+    assert all(type(value) is int for value in diagnostics["source_shape"].values())
+    serialised = json.dumps(diagnostics)
+    assert "pk_live_secret" not in serialised and "https://" not in serialised
+    if market and market.get("prices") == [{"variant_type": "normal", "trend": 0, "avg30": 3}]:
+        assert diagnostics["source_shape"]["positive_avg30_rows"] == 1
+        assert diagnostics["source_shape"]["positive_trend_rows"] == 0
+
+
+@pytest.mark.parametrize("last_changed", ["2026-09-30T04:00:00Z", "2026-09-30T04:00:00.123456"])
+def test_provider_last_price_change_is_preserved_separately_from_observation(last_changed):
+    # Pokewallet documents daily checks even while updated_at remains old;
+    # a timezone-less literal must not be guessed into a UTC evidence date.
+    source = card()
+    source["cardmarket"]["prices"][0]["updated_at"] = last_changed
+    quote = pokemon.guide_quote(reference(), source, "23599", fx(), NOW)
+    assert quote["provider_updated_at"] == last_changed
+    assert quote["observed_at"] == NOW.isoformat()
+
+
 class Response:
     def __init__(self, data, status=200, headers=None):
         self.status_code=status
@@ -198,6 +267,73 @@ async def test_dry_run_then_guarded_apply_without_physical_repricing(monkeypatch
     assert applied['writes_attempted']==1
     assert len(captures)==1 and captures[0][0:4]==('TCGdex','POKEMON_TCG','Japanese','SV11B-001')
     assert captures[0][5]==100 and captures[0][-1]==pokemon.SOURCE
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["success", "empty_quote", "rate_limit"])
+async def test_old_own_guide_rechecks_source_and_failure_never_re_dates_it(monkeypatch, outcome):
+    old = reference(existing_catalogue_value=50, existing_source=pokemon.SOURCE,
+                    existing_pricing_updated_at=NOW-timedelta(days=8))
+    before = dict(old)
+    writes = []
+    class Connection:
+        async def fetch(self, _):
+            return [old]
+        async def executemany(self, _, rows):
+            writes.extend(rows)
+    @asynccontextmanager
+    async def context(*_):
+        yield Connection()
+    monkeypatch.setattr(pokemon, "user_connection", context)
+    class Fx:
+        async def quote(self, **_):
+            return fx()
+    item = card() if outcome == "success" else card(cardmarket=card()["cardmarket"] | {"prices": []})
+    report = await pokemon.refresh_pokewallet_pokemon(None, uuid4(), Fx(), "pk_live_test_fixture",
+        dry_run=False, http_client=FakeHttp(items=[item], status=429 if outcome == "rate_limit" else 200))
+    assert report["eligible_references"] == 1 and report["requests"] > 0
+    assert old == before
+    if outcome == "success":
+        assert report["writes_attempted"] == len(writes) == 1
+        quote = json.loads(writes[0][4])[0]
+        assert quote["provider_updated_at"] == card()["cardmarket"]["prices"][0]["updated_at"]
+        assert quote["observed_at"] == writes[0][7].isoformat()
+        assert quote["observed_at"] != before["existing_pricing_updated_at"].isoformat()
+    else:
+        assert report["writes_attempted"] == 0 and writes == []
+    if outcome == "empty_quote":
+        assert report["quote_rejections"] == {"PRICE_ARRAY_EMPTY": 1}
+        assert report["quote_rejection_samples"][0]["reference_id"] == old["provider_id"]
+
+
+@pytest.mark.asyncio
+async def test_quote_rejection_samples_are_bounded_without_losing_counts(monkeypatch):
+    refs = [reference(provider_id=f"SV11B-{n:03d}", card_number=f"{n:03d}/086") for n in range(1, 9)]
+    items = [card(id="pk_"+f"{n:064x}", card_info=card()["card_info"] | {"card_number": f"{n}/86"},
+                  cardmarket=card()["cardmarket"] | {"prices": []}) for n in range(1, 9)]
+    class Connection:
+        async def fetch(self, _):
+            return refs
+        async def executemany(self, *_):
+            raise AssertionError("Missing quotes must not rewrite old prices")
+    @asynccontextmanager
+    async def context(*_):
+        yield Connection()
+    monkeypatch.setattr(pokemon, "user_connection", context)
+    class Fx:
+        async def quote(self, **_):
+            return fx()
+    class CompleteHttp(FakeHttp):
+        async def get(self, url, params=None, headers=None):
+            result = await super().get(url, params=params, headers=headers)
+            if url.endswith("/sets"):
+                result.data["data"][0]["card_count"] = len(items)
+            return result
+    report = await pokemon.refresh_pokewallet_pokemon(None, uuid4(), Fx(), "pk_live_test_fixture",
+        dry_run=False, http_client=CompleteHttp(items=items))
+    assert report["quote_rejections"] == {"PRICE_ARRAY_EMPTY": 8}
+    assert len(report["quote_rejection_samples"]) == 5
+    assert report["eligible_quotes"] == report["writes_attempted"] == 0
 
 
 @pytest.mark.asyncio

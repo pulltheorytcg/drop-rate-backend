@@ -66,7 +66,8 @@ BASE_RARITY_PATHS = {
 
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,
  r.set_id,r.card_number,r.rarity,s.name as set_name,
- coalesce(p.market_value_minor,0)>0 as has_detail_value,
+ (coalesce(p.market_value_minor,0)>0 and
+  p.pricing_updated_at>=now()-interval '7 days') as has_detail_value,
  coalesce(b.market_value_minor,0) as existing_catalogue_value,
  b.quotes->0->>'source' as existing_source,
  b.pricing_updated_at as existing_pricing_updated_at
