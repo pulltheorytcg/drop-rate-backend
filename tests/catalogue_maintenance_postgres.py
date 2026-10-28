@@ -172,6 +172,60 @@ async def main():
         assert dict(await db.fetchrow(read_failure)) == fresh, 'Delayed failure rewrote newer success'
         assert await db.fetchval('select count(*) from tcg.inventory_items') == 0
         await db.execute('rollback')
+        # Execute the three free-source readers against dated positive caches.
+        # A value that expired is eligible for an independently verified guide;
+        # reading it must not advance the old evidence date or create history.
+        from app import pokewallet_one_piece_market as free_op
+        from app import pokewallet_dragon_ball_market as free_dbs
+        from app import pokewallet_pokemon_market as free_pokemon
+        await db.execute('begin')
+        await db.execute("""insert into tcg.collectible_systems values
+          ('ONE_PIECE_CARD_GAME'),('DRAGON_BALL_SUPER_FUSION_WORLD')""")
+        fixtures = [
+            (free_op, ('Bandai Official','ONE_PIECE_CARD_GAME','English','OP01-001'),
+             '569101', 'BOOSTER PACK -ROMANCE DAWN- [OP-01]', 'Roronoa Zoro', 'OP01-001', 'L'),
+            (free_dbs, ('Bandai Official','DRAGON_BALL_SUPER_FUSION_WORLD','English','583001:FB01-001'),
+             '583001', 'BOOSTER PACK -AWAKENED PULSE- [FB01]', 'Son Goku', 'FB01-001', 'Leader'),
+            (free_pokemon, ('TCGdex','POKEMON_TCG','Japanese','SV11B-001'),
+             'SV11B', 'ブラックボルト', 'ピカチュウ', '001/086', 'Common'),
+        ]
+        for adapter, identity, set_id, set_name, name, number, rarity in fixtures:
+            await db.execute("""insert into tcg.reference_sets(provider,system_code,language,set_id,name)
+              values($1,$2,$3,$4,$5)""", *identity[:3], set_id, set_name)
+            await db.execute("""insert into tcg.reference_cards
+              (provider,system_code,language,provider_id,set_id,name,card_number,rarity)
+              values($1,$2,$3,$4,$5,$6,$7,$8)""", *identity, set_id, name, number, rarity)
+            source_date = now-timedelta(days=8)
+            quote = {'source':'TCGDEX_CARDMARKET','price_gbp_minor':100,
+                     'observed_at':source_date.isoformat(),'reference_language':identity[2]}
+            await db.execute(CARD_PRICE_SQL, *identity, [quote], 100, 100, source_date,
+                             now-timedelta(hours=1), now-timedelta(minutes=1))
+            history_count = await db.fetchval('select count(*) from tcg.reference_market_history')
+            candidates = [dict(r) for r in await db.fetch(adapter.READ_SQL)
+                          if r['provider_id'] == identity[3] and r['system_code'] == identity[1]]
+            assert len(candidates) == 1 and candidates[0]['has_detail_value'] is False
+            if adapter is free_op:
+                assert adapter.collect_reference_groups(candidates, now)
+            elif adapter is free_dbs:
+                assert any(adapter.wanted_groups(candidates, now).values())
+            else:
+                assert adapter.reference_groups(candidates, now)
+            assert await db.fetchval("""select pricing_updated_at from tcg.reference_market_prices
+              where provider=$1 and system_code=$2 and language=$3 and provider_id=$4""", *identity) == source_date
+            assert await db.fetchval('select count(*) from tcg.reference_market_history') == history_count
+            current_quote = dict(quote, observed_at=now.isoformat())
+            await db.execute(CARD_PRICE_SQL, *identity, [current_quote], 100, 100, now,
+                             now, now+timedelta(days=1))
+            current = [dict(r) for r in await db.fetch(adapter.READ_SQL)
+                       if r['provider_id'] == identity[3] and r['system_code'] == identity[1]]
+            assert current[0]['has_detail_value'] is True
+            if adapter is free_op:
+                assert not adapter.collect_reference_groups(current, now)
+            elif adapter is free_dbs:
+                assert not adapter.wanted_groups(current, now)
+            else:
+                assert not adapter.reference_groups(current, now)
+        await db.execute('rollback')
         # Replay the phone search against real Postgres. A set name containing
         # EB04 must not make OP14-007 appear for the exact query EB04 007.
         await db.execute("insert into tcg.collectible_systems values('ONE_PIECE_CARD_GAME')")

@@ -36,7 +36,9 @@ PAGE_SIZE = 100
 MAX_REQUESTS_PER_HOUR = 7
 COLLECTOR = re.compile(r"0*([1-9]\d{0,3})/0*([1-9]\d{0,3})\Z")
 SET_CODE = re.compile(r"[a-zA-Z][a-zA-Z0-9]{0,17}\Z")
-NUMERIC_SET_ID = re.compile(r"\d{1,10}\Z")
+# Cardmarket-only releases use negative IDs in the documented /sets contract.
+# Keep the literal source ID; a sign is not a release or language alias.
+NUMERIC_SET_ID = re.compile(r"-?[1-9][0-9]{0,9}\Z")
 # Provider examples include a `pk_` TCGPlayer digest longer than 80 hex
 # characters; Cardmarket-only identifiers are unprefixed 64-hex hashes.
 # This is format validation, never a substitute for a full print match.
@@ -47,7 +49,8 @@ READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,r.
  (coalesce(p.market_value_minor,0)>0 and
   p.pricing_updated_at>=now()-interval '7 days') as has_detail_value,
  coalesce(b.market_value_minor,0) as existing_catalogue_value,
- b.quotes->0->>'source' as existing_source
+ b.quotes->0->>'source' as existing_source,
+ b.pricing_updated_at as existing_pricing_updated_at
  from tcg.reference_cards r
  join tcg.reference_sets s using(provider,system_code,language,set_id)
  left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
@@ -82,7 +85,8 @@ def reference_code(ref: dict) -> str | None:
     return code.casefold()
 
 
-def reference_groups(refs: list[dict]):
+def reference_groups(refs: list[dict], now: datetime | None = None):
+    now = now or datetime.now(timezone.utc)
     all_numbers = defaultdict(list)
     for ref in refs:
         code = reference_code(ref)
@@ -94,8 +98,17 @@ def reference_groups(refs: list[dict]):
         if len(rows) != 1:
             continue
         ref = rows[0]
-        if ref.get("has_detail_value") or int(ref.get("existing_catalogue_value") or 0) > 0:
+        if ref.get("has_detail_value"):
             continue
+        if int(ref.get("existing_catalogue_value") or 0) > 0:
+            # An independent adapter retains ownership of its positive guide.
+            # Our own source must be revisited before its seven-day display
+            # window expires; merely having a cached value is not freshness.
+            updated = ref.get("existing_pricing_updated_at")
+            if (ref.get("existing_source") != SOURCE or
+                    not isinstance(updated, datetime) or updated.tzinfo is None or
+                    updated >= now - timedelta(days=1)):
+                continue
         wanted[key] = ref
     return wanted
 
@@ -179,10 +192,30 @@ def matching_printings(wanted: dict, code: str, set_id: str, cards: list[dict], 
     return results
 
 
-def guide_quote(ref: dict, item: dict, set_id: str, fx, observed: datetime):
-    market = item.get("cardmarket")
-    if not isinstance(market, dict) or not isinstance(market.get("prices"), list):
+def guide_quote(ref: dict, item: dict, set_id: str, fx, observed: datetime, diagnostics=None):
+    """Return the existing trend guide, with bounded shape-only diagnostics.
+
+    Rejection information contains fixed labels/counts and positive-field
+    flags, never raw provider records, URLs, amounts, or exception messages.
+    Other source fields are observed for diagnosis only, not accepted prices.
+    """
+    shape = {"price_rows": 0, "normal_rows": 0, "holo_rows": 0,
+             "unsupported_variant_rows": 0, "invalid_price_rows": 0,
+             "positive_trend_rows": 0, "positive_avg30_rows": 0}
+
+    def reject(reason):
+        if diagnostics is not None:
+            diagnostics.update(reason=reason, source_shape=shape)
         return None
+
+    market = item.get("cardmarket")
+    if not isinstance(market, dict):
+        return reject("CARDMARKET_ABSENT")
+    if not isinstance(market.get("prices"), list):
+        return reject("PRICE_ARRAY_INVALID")
+    shape["price_rows"] = len(market["prices"])
+    if not market["prices"]:
+        return reject("PRICE_ARRAY_EMPTY")
     url = urlsplit(str(market.get("product_url") or ""))
     if (url.scheme != "https" or url.hostname not in {"cardmarket.com", "www.cardmarket.com"}
             or not url.path.casefold().startswith(("/en/pokemon/products/singles/",
@@ -191,25 +224,46 @@ def guide_quote(ref: dict, item: dict, set_id: str, fx, observed: datetime):
                                                   "/fr/pokemon/products/singles/",
                                                   "/es/pokemon/products/singles/"))
             or url.query or url.fragment):
-        return None
+        return reject("SINGLE_PRODUCT_URL_INVALID")
     quotes = defaultdict(list)
     for row in market["prices"]:
-        if not isinstance(row, dict) or row.get("variant_type") not in {"normal", "holo"}:
+        if not isinstance(row, dict):
+            shape["invalid_price_rows"] += 1
             continue
+        variant = row.get("variant_type")
+        if not isinstance(variant, str) or variant not in {"normal", "holo"}:
+            shape["unsupported_variant_rows"] += 1
+            continue
+        shape[variant + "_rows"] += 1
+        try:
+            _minor(row.get("avg30"))
+            shape["positive_avg30_rows"] += 1
+        except (ValueError, TypeError, ArithmeticError):
+            pass
         try:
             raw = _minor(row.get("trend"))
         except (ValueError, TypeError, ArithmeticError):
+            shape["invalid_price_rows"] += 1
             continue
+        shape["positive_trend_rows"] += 1
         quotes[row["variant_type"]].append((raw, row))
-    if not quotes or any(len(rows) != 1 for rows in quotes.values()):
-        return None
+    if not quotes:
+        return reject("POSITIVE_SUPPORTED_TREND_ABSENT")
+    if any(len(rows) != 1 for rows in quotes.values()):
+        return reject("DUPLICATE_FINISH_QUOTES")
     # Normal, if explicitly present, is the catalogue baseline. When the
     # sole available guide is Holo, its finish is disclosed in provenance.
     variant = "normal" if "normal" in quotes else "holo"
     original, source_row = quotes[variant][0]
     amount = int((Decimal(original) * fx.rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     if amount <= 0:
-        return None
+        return reject("NONPOSITIVE_CONVERSION")
+    if diagnostics is not None:
+        diagnostics.update(reason="ACCEPTED", source_shape=shape)
+    # The provider refreshes prices daily but updated_at records the last price
+    # change, not the last check. Preserve it literally, separately from this
+    # successful source observation; failed requests never create that observation.
+    # https://pokewallet.io/blog/tcg-price-api-12-card-games-one-key
     return {"source": SOURCE, "aggregator": "POKEWALLET", "market": "CARDMARKET",
         "source_card_id": item["id"], "source_set_id": set_id,
         "source_product_url": market["product_url"], "source_field": "trend",
@@ -272,7 +326,8 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
         "target_sets": 0, "matched_printings": 0, "eligible_quotes": 0,
         "writes_attempted": 0, "set_pages": 0, "source_sets": 0,
         "input_cursor": previous_cursor, "cursor": previous_cursor,
-        "sampled_sets": [], "skipped_invalid_sets": 0, "provider_failures": 0}
+        "sampled_sets": [], "skipped_invalid_sets": 0, "provider_failures": 0,
+        "quote_rejections": {}, "quote_rejection_samples": []}
     owns_client = http_client is None
     if owns_client:
         http_client = httpx.AsyncClient(timeout=18, follow_redirects=False)
@@ -281,7 +336,7 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
         async with user_connection(pool, actor, str(uuid4())) as connection:
             refs = [dict(row) for row in await connection.fetch(READ_SQL)]
         result["checked_references"] = len(refs)
-        wanted = reference_groups(refs)
+        wanted = reference_groups(refs, now)
         result["eligible_references"] = len(wanted)
         if not wanted:
             return result
@@ -346,8 +401,15 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
                 conversion = await fx.quote(base_currency="EUR", quote_currency="GBP", at=now)
             values = []
             for ref, item in matches:
-                quote = guide_quote(ref, item, set_id, conversion, now)
+                quote_diagnostics = {}
+                quote = guide_quote(ref, item, set_id, conversion, now, quote_diagnostics)
                 if quote is None:
+                    reason = quote_diagnostics["reason"]
+                    result["quote_rejections"][reason] = result["quote_rejections"].get(reason, 0) + 1
+                    if len(result["quote_rejection_samples"]) < 5:
+                        result["quote_rejection_samples"].append({
+                            "reference_id": ref["provider_id"], "set_code": code,
+                            **quote_diagnostics})
                     continue
                 result["eligible_quotes"] += 1
                 values.append((ref["provider"], ref["system_code"], ref["language"],

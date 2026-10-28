@@ -59,7 +59,7 @@ from coverage group by kind,system_code,language,status order by kind,system_cod
 # happens to have scanned. Do not count USD context, stale prices or unresolved
 # mappings as verified GBP market values.
 PRICED_REFERENCE_STATUSES = frozenset({"REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GUIDE"})
-PHYSICAL_CARD_COVERAGE_TARGET_BPS = 9500  # 95%, exact integer threshold
+PHYSICAL_CARD_COVERAGE_TARGET_BPS = 8900  # Current founder goal: 89%, exact integer threshold
 # Actions describe the needed evidence, not a guarantee that it can be bought
 # or that a source permits redistribution in a user-facing marketplace.
 UNPRICED_REFERENCE_ACTIONS = {
@@ -125,7 +125,7 @@ def coverage_summary(rows):
     if physical_total < 0 or physical_missing < 0 or physical_priced > physical_total:
         raise ValueError("Invalid physical-card coverage totals")
 
-    # Never round a displayed percentage up to a passing 95% threshold.
+    # Never round a displayed percentage up to a passing target threshold.
     minimum_priced = (physical_total * PHYSICAL_CARD_COVERAGE_TARGET_BPS + 9999) // 10000
     remaining_to_target = max(0, minimum_priced - physical_priced)
     target_by_game = []

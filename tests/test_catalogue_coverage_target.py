@@ -1,4 +1,4 @@
-"""Source-aware global pricing KPI: never pass 95% by counting digital or US asks."""
+"""Source-aware global pricing KPI: never pass 89% by counting digital or US asks."""
 from app.catalogue_coverage import coverage_summary
 
 
@@ -8,7 +8,7 @@ def sample(status, count, *, kind="CARD", game="POKEMON_TCG", language="English"
             "incomplete_references": 0}
 
 
-def test_live_sized_baseline_requires_23264_more_evidenced_prices():
+def test_historical_baseline_keeps_actual_counts_under_current_target():
     rows = [
         sample("REFERENCE_AVAILABLE", 21581),
         sample("MIXED_LANGUAGE_GUIDE", 18862),
@@ -24,22 +24,23 @@ def test_live_sized_baseline_requires_23264_more_evidenced_prices():
     }
     assert report["non_physical_cards"] == 2480
     goal = report["coverage_target"]
-    assert (goal["eligible"], goal["priced"], goal["minimum_priced"]) == (67060, 40443, 63707)
-    assert (goal["coverage_percent"], goal["additional_needed"], goal["target_met"]) == (60.31, 23264, False)
+    assert (goal["eligible"], goal["priced"], goal["minimum_priced"]) == (67060, 40443, 59684)
+    assert (goal["coverage_percent"], goal["additional_needed"], goal["target_met"]) == (60.31, 19241, False)
+    assert goal["target_percent"] == 89
     assert goal["by_game_language"][0]["eligible"] == 67060
     assert goal["by_game_language"][0]["missing"] == 26617
     assert report["missing_by_reason"][0]["count"] == 13064
 
 
 def test_exact_threshold_never_uses_rounded_percent_to_pass():
-    for priced, passed in [(94, False), (95, True), (96, True)]:
+    for priced, passed in [(88, False), (89, True), (90, True)]:
         report = coverage_summary([sample("REFERENCE_AVAILABLE", priced),
                                    sample("EXACT_QUOTE_UNAVAILABLE", 100 - priced),
                                    sample("NOT_APPLICABLE_DIGITAL", 20)])
         goal = report["coverage_target"]
         assert goal["eligible"] == 100
-        assert goal["minimum_priced"] == 95
-        assert goal["additional_needed"] == max(0, 95 - priced)
+        assert goal["minimum_priced"] == 89
+        assert goal["additional_needed"] == max(0, 89 - priced)
         assert goal["target_met"] is passed
 
 
@@ -73,5 +74,21 @@ def test_language_cohorts_remain_separate():
     by_language = {r["language"]: r for r in summary["coverage_target"]["by_game_language"]}
     assert by_language["English"]["target_met"] is False
     assert by_language["Japanese"]["target_met"] is True
-    assert by_language["English"]["additional_needed"] == 75
+    assert by_language["English"]["additional_needed"] == 69
     assert by_language["Japanese"]["additional_needed"] == 0
+
+
+def test_current_catalogue_needs_exact_count_even_when_percentage_rounds_to_89():
+    for priced, passed in [(43208, False), (59687, False), (59688, True)]:
+        report = coverage_summary([
+            sample("REFERENCE_AVAILABLE", priced),
+            sample("EXACT_QUOTE_UNAVAILABLE", 67065 - priced),
+            sample("NOT_APPLICABLE_DIGITAL", 2480),
+        ])
+        goal = report["coverage_target"]
+        assert goal["eligible"] == 67065
+        assert goal["minimum_priced"] == 59688
+        assert goal["additional_needed"] == max(0, 59688 - priced)
+        assert goal["target_met"] is passed
+        if priced == 59687:
+            assert goal["coverage_percent"] == 89.0

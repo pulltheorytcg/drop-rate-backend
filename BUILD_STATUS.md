@@ -1,3 +1,26 @@
+## 28 October 2026 — 89% physical-card pricing goal and importer recovery
+
+The founder's current coverage target is **89%**, using the unchanged full
+physical-reference denominator and supported dated price/guide rules. The
+10:07:18 UTC production receipt records **43,269 / 67,065 (64.52%)**, requiring
+**16,419** additional priced references to reach the exact **59,688** threshold.
+The 61-reference gain since yesterday belongs to existing scheduled work.
+
+This repair lets expired positive detailed caches re-enter One Piece/Dragon
+Ball source checks, revisits the Japanese Pokémon adapter's own older guides,
+and accepts the provider's documented negative Cardmarket-only set IDs. Exact
+release/collector/printing gates remain unchanged. Bounded rejection diagnostics
+and an opt-in three-call source probe separate provider shape from real quote
+coverage. PokéWallet's last-price-change timestamp remains distinct from the
+successful fresh observation date; failed calls never renew evidence.
+
+The local focused suites and native PostgreSQL persistence checks passed.
+Normal exact-head CI, deployment and live source/coverage verification remain
+required and are recorded in the associated PR. These code and reporting
+changes alone do not establish any new priced references or meet the target.
+See the [recovery contract](docs/PRICING_89_PERCENT_RECOVERY_20261028.md) and
+[measured baseline](docs/evidence/pricing-89-baseline-20261028.json).
+
 ## 27 October 2026 — Ordinary eBay discovery works; publication-date alias repair
 
 PR #768 deployed successfully as `19c140e50a09cf38d6ae3d8f755fcc94fe4757b7`.
