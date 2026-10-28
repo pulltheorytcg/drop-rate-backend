@@ -313,3 +313,27 @@ def test_capacity_pause_prevents_reservation_and_price_writes(sql_dependencies, 
         run_now(store.result(report(apply=True), reference(), ready(reference())))
     assert "budget_reservation" not in connection.events and "history" not in connection.events
     assert connection.committed == []
+
+
+def test_long_provider_deck_name_does_not_overconstrain_retrieval():
+    ref = reference()
+    ref.update(provider="Punk Records", system_code="ONE_PIECE_CARD_GAME",
+               provider_id="OP02-054_r1", name="Gecko Moria", card_number="OP02-054",
+               set_name="STARTER DECK -Blue Donquixote Doflamingo- [ST-17]", set_id="569017")
+    before = deepcopy(ref)
+    assert worker.search_query(ref) == "One Piece Gecko Moria OP02-054 English"
+    assert ref == before
+
+
+def test_short_retrieval_keeps_wrong_set_rejection():
+    ref = reference()
+    rows = [{"itemId": f"v1|{100000000000+i}|0", "seller": {"username": f"seller{i}"},
+             "title": "Pokemon Bulbasaur 44 Base Set 2 English Normal Near Mint",
+             "price": {"currency": "GBP", "value": "5.00"}, "buyingOptions": ["FIXED_PRICE"],
+             "shippingOptions": [{"shippingCost": {"currency": "GBP", "value": "0.00"}}],
+             "itemLocation": {"country": "GB"}, "condition": "Near Mint or Better"}
+            for i in range(3)]
+    assert worker.search_query(ref) == "Pokemon Bulbasaur 44 English"
+    result = worker.estimate_reference_asking_price(ref, rows, observed_at=NOW, now=NOW)
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["estimate_minor"] is None

@@ -88,3 +88,24 @@ Rollback: stop the operator command. Prior deployed application code ignores
 the additive asking tables. Retain historical evidence and audit records; do
 not delete them to undo display behavior. Revert the display/integration code
 if needed, leaving established market values untouched.
+
+## Initial live pilot, 28 October 2026
+
+PR #774 deployed at commit `b55f4ba3df1190435392fece8bdaf0b2134f58de` and
+readiness returned HTTP 200 with the database connected. The backend suite
+passed 8,104 tests (18 skipped), and all eight PR workflows passed. Migration
+`20261028224708_reference_asking_prices.sql` was applied with forced RLS and
+no anonymous or authenticated-user direct table reads.
+
+Collection-only run `654de0b2-af23-4b67-8ef1-3e6fd1b46d6e` reserved and
+completed ten One Piece English Browse searches. It scanned 586 references:
+575 were rejected as unresolved parallels, one query exceeded the provider
+length limit, and the ten executed searches returned zero item summaries.
+No estimates, inventory changes or store-price changes were written. The run
+stopped at its requested limit and retained its durable cursor and report.
+
+The database readback remains 43,362 supported values plus zero asking
+estimates out of 67,065 physical reference identities (64.66%). The 89%
+threshold remains 59,688; the remaining gap is 16,326. Shortening retrieval
+queries is the next pilot correction; exact-match acceptance checks must
+remain intact.

@@ -112,8 +112,11 @@ def benchmark_digest(postcode):
 
 
 def search_query(reference):
+    # Provider checklist labels include long deck/marketing names that sellers
+    # rarely repeat. Retrieve by game/card/language; the unchanged estimator
+    # still requires exact set/printing proof before accepting any listing.
     value = " ".join(str(v).strip() for v in (GAMES.get(reference["system_code"], ""),
-        reference["name"], reference["card_number"], reference.get("set_name") or "", reference["language"]) if v)
+        reference["name"], reference["card_number"], reference["language"]) if v)
     value = " ".join(value.split())
     if not value or len(value) > 100:
         raise BackfillStop("QUERY_EXCEEDS_BROWSE_LIMIT")
