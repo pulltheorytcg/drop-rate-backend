@@ -109,3 +109,11 @@ estimates out of 67,065 physical reference identities (64.66%). The 89%
 threshold remains 59,688; the remaining gap is 16,326. Shortening retrieval
 queries is the next pilot correction; exact-match acceptance checks must
 remain intact.
+
+Follow-up run `934c25c8-c2a2-4348-8d7a-953ba7221922` after PR #775 used
+ten shorter queries and retrieved 205 summaries. It still wrote zero estimates:
+112 listings lacked explicit matching language, 41 were multiple-item or
+nonphysical listings, 25 failed the exact-set check, and the remainder failed
+other identity checks. This confirms retrieval improved while acceptance
+remained conservative. Twenty Browse requests total were used by these two
+pilots; no physical inventory or store prices were changed.
