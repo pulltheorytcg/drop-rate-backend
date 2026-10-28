@@ -17,6 +17,30 @@ EBAY_PRODUCTION_BASE_URL = "https://api.ebay.com"
 EBAY_DEFAULT_SCOPE = "https://api.ebay.com/oauth/api_scope"
 
 
+def _buyer_context_header(country: str | None, postal_code: str | None) -> str | None:
+    """Encode an explicit delivery benchmark; never invent a destination.
+
+    eBay requires a postcode for contextualLocation in countries that use one:
+    https://developer.ebay.com/api-docs/buy/static/api-browse.html#Headers
+    This optional interface conservatively requires both fields. Existing
+    callers that omit both retain their previous request headers.
+    """
+    if country is None and postal_code is None:
+        return None
+    if not isinstance(country, str) or not re.fullmatch(r"[A-Za-z]{2}", country):
+        raise ValueError("eBay buyer country must be a two-letter country")
+    if not isinstance(postal_code, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 -]{0,15}", postal_code):
+        raise ValueError("eBay buyer postcode is required and must be valid text")
+    country = country.upper()
+    postal_code = postal_code.strip().upper()
+    if country == "GB":
+        compact = postal_code.replace(" ", "")
+        if not re.fullmatch(r"(?:GIR0AA|[A-PR-UWYZ][A-HK-Y]?[0-9][A-HJKPSTUW0-9]?[0-9][ABD-HJLNP-UW-Z]{2})", compact):
+            raise ValueError("eBay buyer postcode must be a complete valid UK postcode")
+        postal_code = compact[:-3] + " " + compact[-3:]
+    return "contextualLocation=" + quote(f"country={country},zip={postal_code}", safe="")
+
+
 def _retry_after(response) -> float | None:
     raw = getattr(response, "headers", {}).get("Retry-After")
     if raw is None:
@@ -63,11 +87,14 @@ class EbayOfficialClient:
         marketplace_id: str = "EBAY_GB",
         timeout_seconds: float = 20.0,
         before_browse_request: Callable[[], Awaitable[None]] | None = None,
+        buyer_country: str | None = None,
+        buyer_postal_code: str | None = None,
     ) -> None:
         if not client_id.strip() or not client_secret.strip():
             raise ValueError("eBay client credentials are required")
         if not marketplace_id.strip():
             raise ValueError("eBay marketplace ID is required")
+        self._buyer_context_header = _buyer_context_header(buyer_country, buyer_postal_code)
         self._client_id = client_id.strip()
         self._client_secret = client_secret.strip()
         self._marketplace_id = marketplace_id.strip()
@@ -204,16 +231,20 @@ class EbayOfficialClient:
         if self._before_browse_request is not None:
             await self._before_browse_request()
 
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "X-EBAY-C-MARKETPLACE-ID": self._marketplace_id,
+            "Accept": "application/json",
+        }
+        if self._buyer_context_header is not None:
+            headers["X-EBAY-C-ENDUSERCTX"] = self._buyer_context_header
+
         try:
             async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=False) as client:
                 response = await client.get(
                     EBAY_PRODUCTION_BASE_URL + path,
                     params=params,
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "X-EBAY-C-MARKETPLACE-ID": self._marketplace_id,
-                        "Accept": "application/json",
-                    },
+                    headers=headers,
                 )
         except httpx.TimeoutException as exc:
             raise EbayApiError("eBay Browse request timed out", retryable=True) from exc

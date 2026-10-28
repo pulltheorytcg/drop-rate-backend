@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from .db import user_connection
 from .reference_applicability import DIGITAL_REFERENCE_SQL
+from .reference_asking_display import asking_cache_join
 
 COVERAGE_SQL = f'''with coverage as (
  select 'CARD'::text as kind,r.system_code,r.language,
@@ -23,6 +24,7 @@ COVERAGE_SQL = f'''with coverage as (
         when r.provider='TCGdex' and r.language in ('English','Japanese') then 'EXACT_QUOTE_UNAVAILABLE'
         else 'PROVIDER_MAPPING_REQUIRED' end as status,
    greatest(p.checked_at,b.checked_at) as checked_at,
+   (a.provider_id is not null) as asking_estimate_available,
    (nullif(btrim(r.provider_id),'') is not null and nullif(btrim(r.name),'') is not null
     and nullif(btrim(r.set_id),'') is not null and nullif(btrim(r.card_number),'') is not null
     and nullif(btrim(r.source_url),'') is not null) as reference_complete
@@ -39,6 +41,7 @@ COVERAGE_SQL = f'''with coverage as (
  and b.pricing_updated_at>=now()-interval '7 days'
  and b.quotes->0->'reference_identity'=jsonb_build_object(
   'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name)
+ {asking_cache_join()}
  union all
  select 'SEALED',r.system_code,r.language,
    case when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days' then 'MIXED_LANGUAGE_GUIDE'
@@ -46,12 +49,13 @@ COVERAGE_SQL = f'''with coverage as (
         when r.system_code not in ('POKEMON_TCG','ONE_PIECE_CARD_GAME',
              'DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD') then 'PROVIDER_FEED_REQUIRED'
         when nullif(r.evidence->>'cardmarket_product_id','') is null then 'PROVIDER_MAPPING_REQUIRED'
-        when p.checked_at is null then 'AWAITING_DAILY_REFRESH' else 'EXACT_QUOTE_UNAVAILABLE' end,p.checked_at,
+        when p.checked_at is null then 'AWAITING_DAILY_REFRESH' else 'EXACT_QUOTE_UNAVAILABLE' end,p.checked_at,false,
    (nullif(btrim(r.provider_id),'') is not null and nullif(btrim(r.name),'') is not null
     and nullif(btrim(r.set_id),'') is not null and nullif(btrim(r.source_url),'') is not null)
  from tcg.reference_sealed_products r left join tcg.reference_sealed_market_prices p using(provider,system_code,language,provider_id)
 )
 select kind,system_code,language,status,count(*)::int as products,min(checked_at) as oldest_check,
+ count(*) filter(where asking_estimate_available)::int as asking_estimates,
  count(*) filter(where not reference_complete)::int as incomplete_references
 from coverage group by kind,system_code,language,status order by kind,system_code,language,status'''
 
@@ -84,6 +88,7 @@ def coverage_summary(rows):
     by_game = {}
     by_status = {}
     digital_cards = 0
+    asking_by_game = {}
     for row in rows:
         kind = row["kind"]
         if kind not in groups:
@@ -95,6 +100,14 @@ def coverage_summary(rows):
         if kind == "CARD" and status == "NOT_APPLICABLE_DIGITAL":
             digital_cards += count
         priced = count if status in PRICED_REFERENCE_STATUSES else 0
+        asking_count = int(row.get("asking_estimates", 0))
+        if asking_count < 0 or asking_count > count:
+            raise ValueError("Invalid asking-estimate coverage count")
+        # Only add a fallback for an otherwise unpriced physical reference.
+        # Existing guides, digital records and sealed products never double count.
+        if kind == "CARD" and status not in PRICED_REFERENCE_STATUSES and status != "NOT_APPLICABLE_DIGITAL":
+            cohort = (row["system_code"], row["language"])
+            asking_by_game[cohort] = asking_by_game.get(cohort, 0) + asking_count
         bucket = by_game.setdefault(
             (kind, row["system_code"], row["language"]),
             {"total": 0, "priced": 0, "missing": 0, "status_counts": {}},
@@ -129,6 +142,7 @@ def coverage_summary(rows):
     minimum_priced = (physical_total * PHYSICAL_CARD_COVERAGE_TARGET_BPS + 9999) // 10000
     remaining_to_target = max(0, minimum_priced - physical_priced)
     target_by_game = []
+    combined_by_game = []
     for (kind, system, language), stats in sorted(by_game.items()):
         if kind != "CARD":
             continue
@@ -144,6 +158,17 @@ def coverage_summary(rows):
             "additional_needed": max(0, required - priced),
             "target_met": priced >= required,
         })
+        asking = asking_by_game.get((system, language), 0)
+        combined_by_game.append({
+            "system_code": system, "language": language, "eligible": eligible,
+            "supported_reference_values": priced, "asking_price_estimates": asking,
+            "covered": priced + asking, "missing": eligible - priced - asking,
+            "coverage_percent": round((priced + asking) * 100 / eligible, 2),
+            "additional_needed": max(0, required - priced - asking),
+            "target_met": priced + asking >= required,
+        })
+    asking_total = sum(asking_by_game.values())
+    combined_covered = physical_priced + asking_total
     return {
         "by_kind": groups,
         # Preserve all-reference totals for comparison with earlier receipts.
@@ -154,6 +179,32 @@ def coverage_summary(rows):
             "missing": groups["CARD"]["missing"] - digital_cards,
         },
         "non_physical_cards": digital_cards,
+        "asking_price_estimates": {
+            "scope": "OTHERWISE_UNPRICED_PHYSICAL_REFERENCE_CARDS",
+            "count": asking_total,
+            "status": "ASKING_PRICE_ESTIMATE",
+            "source": "EBAY_OFFICIAL_BROWSE",
+            "physical_valuation_eligible": False,
+        },
+        "combined_coverage_target": {
+            "scope": "GLOBAL_PHYSICAL_REFERENCE_CARDS_WITH_ASKING_ESTIMATES",
+            "target_percent": PHYSICAL_CARD_COVERAGE_TARGET_BPS // 100,
+            "eligible": physical_total,
+            "supported_reference_values": physical_priced,
+            "asking_price_estimates": asking_total,
+            "covered": combined_covered,
+            "missing": physical_total - combined_covered,
+            "minimum_covered": minimum_priced,
+            "additional_needed": max(0, minimum_priced - combined_covered),
+            "coverage_percent": round(combined_covered * 100 / physical_total, 2) if physical_total else 0.0,
+            "target_met": physical_total > 0 and combined_covered >= minimum_priced,
+            "by_game_language": combined_by_game,
+            "disclaimer": (
+                "Counts supported dated GBP references plus separately labelled current asking-price estimates. "
+                "Asking prices are not completed sales or physical-copy valuations. "
+                "Digital Pocket records are excluded; the original reference coverage metric is unchanged."
+            ),
+        },
         "coverage_target": {
             "scope": "GLOBAL_PHYSICAL_REFERENCE_CARDS",
             "target_percent": PHYSICAL_CARD_COVERAGE_TARGET_BPS // 100,

@@ -4,9 +4,29 @@ window.DropRateCatalogue = (() => {
   const node = (tag, cls = "", text) => { const el = document.createElement(tag); el.className = cls; if (text != null) el.textContent = text; return el; };
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
-  const marketPrice = row => row.shared_price
-    ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money)
-    : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Checking value…":"Value unavailable"):"Value: "+money(row.market_value_minor);
+  const askingEstimate = row => {
+    // Asking evidence is a separate fallback, never a physical market value.
+    const estimate=row.asking_price_estimate, shared=row.shared_price, now=Date.now(), maxAge=3*24*60*60*1000;
+    if(row.product_type!=="CARD" || row.market_value_minor!=null ||
+      (["AVAILABLE","REFERENCE_ESTIMATE","CATALOGUE_GUIDE","CONDITION_REFERENCE"].includes(shared?.status) && Number.isInteger(shared.market_value_minor) && shared.market_value_minor>0))return null;
+    if(!estimate || estimate.status!=="ASKING_PRICE_ESTIMATE" || estimate.source!=="EBAY_OFFICIAL_BROWSE" ||
+      estimate.method_version!=="EBAY_UK_RAW_ASK_V1" || estimate.currency!=="GBP" || estimate.shipping_basis!=="ITEM_PLUS_SHIPPING" ||
+      estimate.physical_valuation_eligible!==false || estimate.recommended_retail_minor!==null || estimate.condition!=="Near Mint" ||
+      !["Normal","Holo","Reverse Holo","Foil","Parallel","Alt Art","Manga"].includes(estimate.finish) ||
+      !Number.isSafeInteger(estimate.estimate_minor) || estimate.estimate_minor<=0 ||
+      !Number.isSafeInteger(estimate.estimate_high_minor) || estimate.estimate_high_minor<estimate.estimate_minor ||
+      !Number.isSafeInteger(estimate.listing_count) || estimate.listing_count<3 ||
+      !Number.isSafeInteger(estimate.seller_count) || estimate.seller_count<3 || estimate.seller_count>estimate.listing_count ||
+      typeof estimate.observed_at!=="string" || typeof estimate.expires_at!=="string")return null;
+    const observed=Date.parse(estimate.observed_at), expires=Date.parse(estimate.expires_at);
+    return Number.isFinite(observed) && Number.isFinite(expires) && observed<=now && observed>=now-maxAge && expires>now && expires<=observed+maxAge ? estimate : null;
+  };
+  const marketPrice = row => {
+    const estimate=askingEstimate(row);
+    if(estimate)return "Asking-price estimate: "+money(estimate.estimate_minor);
+    return row.shared_price ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money)
+      : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Checking value…":"Value unavailable"):"Value: "+money(row.market_value_minor);
+  };
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", oldest:"Oldest first", name:"Name A–Z", name_desc:"Name Z–A",
@@ -278,11 +298,17 @@ window.DropRateCatalogue = (() => {
       }
     }
     renderMarketDetails(content,row) {
+      const estimate=askingEstimate(row);
       content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
-      const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","","About this value"));content.append(evidence);
-      if(row.shared_price)evidence.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));
-      if(row.market_value_minor==null && !row.shared_price?.last_known_minor)evidence.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
-      if(row.basis_condition)evidence.append(node("small","","Price basis: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
+      const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","",estimate?"About this estimate":"About this value"));content.append(evidence);
+      if(estimate){
+        evidence.append(node("p","dr-browse-reference-note","eBay current listings: "+estimate.listing_count+" listings from "+estimate.seller_count+" sellers · Checked "+new Date(estimate.observed_at).toLocaleDateString("en-GB")),
+          node("p","dr-browse-reference-note","Estimate basis: "+estimate.condition+" · "+estimate.finish+" · Item price plus shipping"),
+          node("p","dr-browse-reference-note","Current asking prices; not completed sales or a valuation of your copy."));
+      }
+      if(row.shared_price && !estimate)evidence.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));
+      if(row.market_value_minor==null && !row.shared_price?.last_known_minor && !estimate)evidence.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
+      if(row.basis_condition && !estimate)evidence.append(node("small","","Price basis: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       for(const quote of row.market_quotes||[]){
         const label=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer US context · "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(quote.original_minor/100):money(quote.price_gbp_minor);
         const source=quote.source==="TCGDEX_TCGPLAYER"||quote.market==="TCGPLAYER"?"TCGplayer":"Cardmarket";

@@ -92,3 +92,50 @@ def test_current_catalogue_needs_exact_count_even_when_percentage_rounds_to_89()
         assert goal["target_met"] is passed
         if priced == 59687:
             assert goal["coverage_percent"] == 89.0
+
+
+def test_asking_fallback_has_separate_coverage_without_reclassifying_reference_values():
+    rows = [sample("REFERENCE_AVAILABLE", 64), sample("EXACT_QUOTE_UNAVAILABLE", 36),
+            sample("NOT_APPLICABLE_DIGITAL", 20), sample("EXACT_QUOTE_UNAVAILABLE", 10, kind="SEALED")]
+    baseline = coverage_summary(rows)
+    with_asks = coverage_summary([{**row, "asking_estimates": count}
+                                 for row, count in zip(rows, [50, 25, 20, 10])])
+    for key in ("physical_cards", "coverage_target", "by_kind", "by_game", "by_status", "missing_by_reason"):
+        assert with_asks[key] == baseline[key]
+    assert with_asks["asking_price_estimates"]["count"] == 25
+    combined = with_asks["combined_coverage_target"]
+    assert (combined["eligible"], combined["supported_reference_values"], combined["asking_price_estimates"]) == (100, 64, 25)
+    assert (combined["covered"], combined["missing"], combined["additional_needed"]) == (89, 11, 0)
+    assert combined["target_met"] is True
+    assert with_asks["coverage_target"]["target_met"] is False
+    assert combined["by_game_language"][0]["asking_price_estimates"] == 25
+
+
+def test_asking_threshold_uses_exact_counts_and_keeps_language_cohorts_separate():
+    for asking, passed in [(16408, False), (16409, True)]:
+        report = coverage_summary([
+            sample("REFERENCE_AVAILABLE", 43279),
+            {**sample("EXACT_QUOTE_UNAVAILABLE", 23786), "asking_estimates": asking},
+            sample("NOT_APPLICABLE_DIGITAL", 2480),
+        ])
+        target = report["combined_coverage_target"]
+        assert target["minimum_covered"] == 59688
+        assert target["target_met"] is passed
+        assert report["coverage_target"]["priced"] == 43279
+    report = coverage_summary([
+        {**sample("EXACT_QUOTE_UNAVAILABLE", 100, language="English"), "asking_estimates": 90},
+        {**sample("EXACT_QUOTE_UNAVAILABLE", 100, language="Japanese"), "asking_estimates": 10},
+    ])
+    cohorts = {row["language"]: row for row in report["combined_coverage_target"]["by_game_language"]}
+    assert cohorts["English"]["target_met"] is True
+    assert cohorts["Japanese"]["target_met"] is False
+
+
+def test_asking_coverage_rejects_invalid_counts_and_empty_never_passes():
+    import pytest
+    for count in (-1, 11):
+        with pytest.raises(ValueError, match="asking-estimate"):
+            coverage_summary([{**sample("EXACT_QUOTE_UNAVAILABLE", 10), "asking_estimates": count}])
+    combined = coverage_summary([])["combined_coverage_target"]
+    assert combined["coverage_percent"] == 0.0
+    assert combined["target_met"] is False

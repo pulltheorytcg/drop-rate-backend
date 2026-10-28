@@ -11,6 +11,10 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const card={key:'c:00000000-0000-0000-0000-000000000001',catalogue_id:'card-1',name:'Luffy',game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',set_name:'A Fist of Divine Speed',set_id:'OP11',language:'English',product_type:'CARD',variant:'Foil',card_number:'OP11-118',owned_quantity:0,market_value_minor:null,source_kind:'CATALOGUE'};
 const games=[{game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',languages:['English','Japanese']}];
+const askingFixture=()=>({status:'ASKING_PRICE_ESTIMATE',source:'EBAY_OFFICIAL_BROWSE',method_version:'EBAY_UK_RAW_ASK_V1',
+ estimate_minor:1234,estimate_high_minor:1400,currency:'GBP',listing_count:4,seller_count:3,
+ observed_at:new Date(Date.now()-60000).toISOString(),expires_at:new Date(Date.now()+3600000).toISOString(),
+ shipping_basis:'ITEM_PLUS_SHIPPING',condition:'Near Mint',finish:'Foil',physical_valuation_eligible:false,recommended_retail_minor:null});
 let checks=0;
 function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a',embedded=false,gameHandler=async()=>({items:games})){
  const dom=new JSDOM('',{runScripts:'outside-only',url:'https://example.test',pretendToBeVisual:true});const w=dom.window;
@@ -23,6 +27,74 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
+ // Current asking evidence is visibly separate and never fills market-value fields.
+ {
+  const row={...card,asking_price_estimate:askingFixture()},f=fixture(async()=>({items:[row],has_more:false}));
+  await f.browser.open();f.browser.pickGame(games[0]);await tick();
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Asking-price estimate: £12.34');
+  f.browser.openProduct(row);
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Asking-price estimate: £12.34');
+  assert.match(f.browser.sheet.textContent,/eBay current listings: 4 listings from 3 sellers/);
+  assert.ok(f.browser.sheet.textContent.includes(new Date(row.asking_price_estimate.observed_at).toLocaleDateString('en-GB')));
+  assert.match(f.browser.sheet.textContent,/Estimate basis: Near Mint · Foil · Item price plus shipping/);
+  assert.match(f.browser.sheet.textContent,/Current asking prices; not completed sales or a valuation of your copy/);
+  assert.doesNotMatch(f.browser.sheet.textContent,/Cardmarket|No verified market value/);
+  assert.equal(row.market_value_minor,null);
+  assert.equal(row.asking_price_estimate.recommended_retail_minor,null);
+  f.finish();checks++;
+ }
+ // Expired, incomplete or unsafe evidence never becomes a displayed estimate.
+ {
+  const f=fixture();
+  const invalid=[null,{}, {status:'AVAILABLE'}, {source:'CARDMARKET'}, {method_version:'unknown'}, {currency:'USD'},
+   {estimate_minor:0},{estimate_minor:1234.5},{estimate_minor:'1234'},{estimate_high_minor:1233},{estimate_high_minor:null},
+   {listing_count:2},{seller_count:2},{seller_count:5},{shipping_basis:'ITEM_ONLY'},
+   {condition:'Graded'},{finish:'Unknown'},{physical_valuation_eligible:true},{recommended_retail_minor:1300},
+   {observed_at:'bad'},{expires_at:'bad'},{observed_at:new Date(Date.now()+60000).toISOString()},
+   {observed_at:new Date(Date.now()-4*86400000).toISOString()},
+   {expires_at:new Date(Date.now()-1).toISOString()}, {expires_at:new Date(Date.now()+4*86400000).toISOString()}];
+  for(const patch of invalid){
+   const estimate=patch===null?null:Object.keys(patch).length?{...askingFixture(),...patch}:{};
+   f.browser.openProduct({...card,asking_price_estimate:estimate});
+   assert.doesNotMatch(f.browser.sheet.textContent,/Asking-price estimate|eBay current listings/);
+   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value unavailable');
+  }
+  f.finish();checks++;
+ }
+ // Existing supported prices win; fresh asking evidence may replace dated history only in presentation.
+ {
+  const f=fixture(),estimate=askingFixture();
+  for(const stronger of [
+   {market_value_minor:900,market_value_source:'CARDMARKET_BULK_SINGLES'},
+   {shared_price:{status:'CATALOGUE_GUIDE',market_value_minor:900,label:'Catalogue guide'}}]){
+   f.browser.openProduct({...card,...stronger,asking_price_estimate:estimate});
+   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value: £9.00');
+   assert.doesNotMatch(f.browser.sheet.textContent,/Asking-price estimate|eBay current listings/);
+  }
+  const history={status:'STALE',market_value_minor:null,last_known_minor:800,checked_at:'2026-01-01T00:00:00Z'};
+  const row={...card,shared_price:history,asking_price_estimate:estimate};
+  f.browser.openProduct(row);
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Asking-price estimate: £12.34');
+  assert.equal(row.shared_price,history);assert.equal(row.market_value_minor,null);
+  f.finish();checks++;
+ }
+ // A legacy guide refresh may omit asking evidence; it preserves it until a stronger value arrives.
+ for(const outcome of ['missing','stronger']){
+  const waiting=deferred(),estimate=askingFixture(),row={...card,key:'r:0123456789abcdef0123456789abcdef',
+   source_kind:'REFERENCE',market_refresh_needed:true,asking_price_estimate:estimate};
+  const f=fixture(async url=>url.endsWith('/market-values')?waiting.promise:{items:[row],has_more:false});
+  await f.browser.open();f.browser.pickGame(games[0]);await tick();f.browser.openProduct(row);
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Asking-price estimate: £12.34');
+  waiting.resolve({items:[{key:row.key,market_value_minor:outcome==='stronger'?900:null,
+   market_value_source:outcome==='stronger'?'TCGDEX_CARDMARKET':null,market_refresh_needed:false,
+   provider_refresh_failed:outcome==='missing',market_quotes:[]}]});await tick();
+  const label=outcome==='stronger'?'Value: £9.00':'Asking-price estimate: £12.34';
+  assert.equal(f.browser.find('[data-price-key]').textContent,label);
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,label);
+  assert.equal(row.asking_price_estimate,estimate);
+  assert.equal(row.market_value_minor,outcome==='stronger'?900:null);
+  f.finish();checks++;
+ }
  {
   const f=fixture();
   const book={...card,product_type:'COMIC',book_data_attribution:{source_url:'https://www.comics.org/issue/1/',license_url:'https://creativecommons.org/licenses/by-sa/4.0/'}};
