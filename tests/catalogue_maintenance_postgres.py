@@ -64,6 +64,16 @@ async def main():
         # Catalogue search now joins this additive exact-print cache. Exercise
         # the real migration in the disposable integration DB, including RLS.
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261025232125_r2_reference_image_cache.sql').read_text())
+        # Coverage and the browser's optional asking tier share the real cache
+        # schema. Keep this disposable fixture aligned before executing either
+        # query, including while deployment has not assigned a migration number.
+        root=Path(__file__).parents[1]
+        asking_migrations=sorted((root/'database/migrations').glob('*_reference_asking_prices.sql'))
+        assert len(asking_migrations)<=1,'Ambiguous asking-price migration'
+        asking_schema=asking_migrations[0] if asking_migrations else root/'database/proposals/reference_asking_prices.sql'
+        await db.execute(asking_schema.read_text(encoding='utf-8'))
+        assert await db.fetchval("select relrowsecurity and relforcerowsecurity from pg_class where oid='tcg.reference_asking_prices'::regclass")
+        assert not await db.fetchval("select has_table_privilege('authenticated','tcg.reference_asking_prices','select')")
         assert await db.fetchval("select relrowsecurity and relforcerowsecurity from pg_class where oid='tcg.reference_image_mirrors'::regclass")
         assert not await db.fetchval("select has_table_privilege('anon','tcg.reference_image_mirrors','select')")
         assert not await db.fetchval("select has_table_privilege('authenticated','tcg.reference_image_mirrors','insert')")
@@ -97,7 +107,8 @@ async def main():
         priced=(await db.fetch(sql,*params))[0]
         assert priced['market_value_minor']==1000 and priced['market_value_source']=='CARDMARKET_BULK'
         assert 'mixed-language' in priced['basis_condition']
-        assert (await db.fetch(COVERAGE_SQL))[0]['status']=='MIXED_LANGUAGE_GUIDE'
+        coverage=(await db.fetch(COVERAGE_SQL))[0]
+        assert coverage['status']=='MIXED_LANGUAGE_GUIDE' and coverage['asking_estimates']==0
         older=list(args);older[5]=older[6]=500;older[8]=now-timedelta(days=1)
         await db.execute(WRITE_SQL,*older)
         assert await db.fetchval('select market_value_minor from tcg.reference_sealed_market_prices')==1000

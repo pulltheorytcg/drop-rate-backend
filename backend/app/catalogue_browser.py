@@ -31,6 +31,7 @@ from .cardtrader_recognition import _cardtrader_image_url
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 from .catalogue_display_prices import read_shared_prices, with_shared_price
 from .catalogue_price_history import add_reference_history
+from .reference_asking_display import add_asking_estimates
 from .book_catalogue import with_book_details
 from .r2_media import with_signed_mirror
 from .catalogue_r2_cache import (
@@ -572,6 +573,9 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
             shared = await read_shared_prices(connection, missing)
             rows = [with_shared_price(row, shared) for row in rows]
         rows = await add_reference_history(connection, rows)
+        # Current asks are a separate labelled display tier. Keep legacy value
+        # fields and their sort semantics unchanged, including physical values.
+        rows = await add_asking_estimates(connection, rows)
         rows = await with_book_details(connection, rows)
     # This bounded page is a suggestion pool, never a verified match. Filtering
     # is deliberately server-side and separate from ordinary manual search.

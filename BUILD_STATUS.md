@@ -1,4 +1,34 @@
-## 28 October 2026 — Decodo eBay acquisition pilot prepared
+## 28 October 2026 - Current-listing estimates and bounded backfill
+
+Recovery validation: all eight GitHub workflows passed on `999c6530`, including
+8,104 backend tests (18 skipped), dashboard UI and both native PostgreSQL
+contracts. The deployment tool applied `20261028224708_reference_asking_prices`;
+readback confirms forced RLS and no direct anon/authenticated access. Deployment
+and the first live batch remain pending; no new prices are claimed yet.
+
+The 22:04 UTC read-only audit measured **43,362 / 67,065 (64.66%)** supported
+references/labelled guides; **16,326** additional records are needed for the
+**59,688** threshold. No coverage gain is attributed to this implementation.
+
+Adds a separate, explicitly labelled eBay asking-price estimate for missing
+catalogue references. Exact identity, language, raw NM/Mint condition, finish,
+three independent sellers, known delivery costs, robust statistics and a
+three-day expiry are required. Postage uses the configured shop postcode as a
+delivery benchmark, never a customer's checkout quote. Existing physical-card
+valuations, store prices and settlements retain their current rules.
+
+The operator backfill is explicit and resumable, with durable request
+reservations, provider quota checks, a 500/day application-side ceiling,
+database-capacity checks, immutable evidence and atomic cache/audit writes.
+There is no new Railway service, subscription or unattended schedule.
+Reference-only coverage remains available separately from coverage including
+asking estimates. Migration, final CI, deployment and live batch results are
+recorded in the associated PR before reporting this as active.
+
+See [current-listing rollout](docs/REFERENCE_ASKING_BACKFILL.md) and
+[database contract](docs/REFERENCE_ASKING_DATABASE_CONTRACT.md).
+
+## 28 October 2026 - Decodo eBay acquisition pilot prepared
 
 Verified **43,279 / 67,065 (64.53%)** at 19:39 UTC; **16,409** additional
 references are required for 89%. Added a separate Decodo Web Data API client,
