@@ -317,11 +317,15 @@ class FreePokewalletPokemonClient:
 
 async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
                                     dry_run=True, request_limit=MAX_REQUESTS_PER_HOUR,
-                                    previous_cursor=None, http_client=None):
+                                    previous_cursor=None, http_client=None, reference_set_id=None):
     """Bounded, round-robin Japanese checklist import. Dry run by default."""
+    if reference_set_id is not None and (
+            type(reference_set_id) is not str or not SET_CODE.fullmatch(reference_set_id)):
+        raise ValueError("INVALID_REFERENCE_SET_ID")
     now = datetime.now(timezone.utc)
     budget = min(max(1, request_limit), MAX_REQUESTS_PER_HOUR)
     result = {"source": SOURCE, "dry_run": dry_run, "requests": 0,
+        "reference_set_id": reference_set_id,
         "checked_references": 0, "eligible_references": 0,
         "target_sets": 0, "matched_printings": 0, "eligible_quotes": 0,
         "writes_attempted": 0, "set_pages": 0, "source_sets": 0,
@@ -334,7 +338,11 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
     client = FreePokewalletPokemonClient(api_key, request_limit=budget, client=http_client)
     try:
         async with user_connection(pool, actor, str(uuid4())) as connection:
-            refs = [dict(row) for row in await connection.fetch(READ_SQL)]
+            if reference_set_id is None:
+                rows = await connection.fetch(READ_SQL)
+            else:
+                rows = await connection.fetch(READ_SQL + " and r.set_id=$1", reference_set_id)
+            refs = [dict(row) for row in rows]
         result["checked_references"] = len(refs)
         wanted = reference_groups(refs, now)
         result["eligible_references"] = len(wanted)

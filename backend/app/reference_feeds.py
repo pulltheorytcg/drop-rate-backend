@@ -16,6 +16,28 @@ class ReferenceFeedError(RuntimeError):
     pass
 
 
+
+SV11B_NUMBER_PROOF = {
+    "verification": "TCGDEX_REVIEWED_PRINTED_DENOMINATOR_V1",
+    "upstream_commit": "d09f7844f36b6cd69444650260372af490e9dbb7",
+    "upstream_file": "https://github.com/tcgdex/cards-database/blob/d09f7844f36b6cd69444650260372af490e9dbb7/data-asia/SV/SV11B.ts",
+    "printed_denominator": 86, "total_cards": 174,
+}
+
+
+def tcgdex_card_number(language, set_id, provider_id, local, official):
+    """Retain the reviewed printed fraction while upstream API metadata lags."""
+    if language == "ja" and set_id == "SV11B":
+        if (type(official) is not int or official not in {86, 174}
+                or not isinstance(local, str) or len(local) != 3
+                or not local.isascii() or not local.isdecimal()
+                or not 1 <= int(local) <= 174
+                or provider_id != f"SV11B-{local}"):
+            raise ReferenceFeedError("Reviewed SV11B collector identity changed")
+        return f"{local}/086"
+    return f"{local}/{official}" if official else local
+
+
 class ReferenceFeeds:
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=30, follow_redirects=False)
@@ -82,11 +104,14 @@ class ReferenceFeeds:
                 for card in payload['cards']:
                     local=str(card['localId'])
                     cards.append({"provider_id":card['id'],"name":card['name'],
-                        "card_number":f"{local}/{total}" if total else local,
+                        "card_number":tcgdex_card_number(lang,sid,str(card["id"]),local,total),
                         "image_url":f"{card['image']}/high.webp" if card.get('image') else None,
                         "source_url":f"{base}/cards/{quote(str(card['id']),safe='')}",
                         "evidence":{"shared_finish_artwork":True,"provider_local_id":local,
                             "detail_level":"SET_CHECKLIST","physical_finish_unresolved":True}})
+                if lang == "ja" and sid == "SV11B":
+                    for card in cards:
+                        card["evidence"]["collector_number_reference"] = dict(SV11B_NUMBER_PROOF)
                 yield record,cards
 
     async def punk(self):
