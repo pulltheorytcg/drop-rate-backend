@@ -28,9 +28,11 @@ from .reference_asking_estimator import estimate_reference_asking_price, referen
 KEYS = ("provider", "system_code", "language", "provider_id")
 IDENTITY = ("name", "set_id", "card_number", "set_name", "finish", "rarity")
 CONTEXT = "CONFIGURED_SHOP_POSTCODE_BENCHMARK"
-MAX_DAILY = 500
+MAX_DAILY = 2000
 HEADROOM = 500
-MAX_SCAN = 5000
+MAX_SCAN = 20000
+QUOTA_REFRESH_REQUESTS = 100
+MAX_RUN_SECONDS = 45 * 60
 LOCK_NAME = "tcg.reference_asking_backfill"
 GAMES = {"POKEMON_TCG": "Pokemon", "ONE_PIECE_CARD_GAME": "One Piece",
          "DRAGON_BALL_SUPER_FUSION_WORLD": "Fusion World",
@@ -172,6 +174,47 @@ def allow_quota_request(windows, used, now):
         raise BackfillStop("BROWSE_QUOTA_HEADROOM")
 
 
+def conservative_quota_windows(windows, budget):
+    """Retain durable provider-window allowances across every invocation."""
+    total = budget["total_requests"]
+    if type(total) is not int or total < 0:
+        raise BackfillStop("INVALID_DURABLE_QUOTA")
+    current = deepcopy(windows)
+    for window in current:
+        window["provider_remaining"] = window["remaining"]
+    for receipt in budget["receipts"]:
+        saved = receipt["report"]
+        if isinstance(saved, str):
+            saved = json.loads(saved)
+        prior = saved.get("quota", {})
+        marker = prior.get("global_requests_at_refresh")
+        # Pre-upgrade snapshots have no global reservation anchor. Deduct all
+        # recorded attempts, conservatively, until their provider window resets.
+        if marker is None:
+            used = total
+        elif type(marker) is not int or not 0 <= marker <= total:
+            raise BackfillStop("INVALID_DURABLE_QUOTA")
+        else:
+            used = total - marker
+        for previous in prior.get("windows", []):
+            for window in current:
+                if (previous.get("reset"), previous.get("time_window_seconds")) == (
+                        window["reset"], window["time_window_seconds"]):
+                    remaining = previous.get("remaining")
+                    if type(remaining) is not int:
+                        raise BackfillStop("INVALID_DURABLE_QUOTA")
+                    window["remaining"] = min(window["remaining"], remaining-used)
+    return current
+
+
+async def refreshed_quota(store, client, *, quota_reader, clock):
+    windows = quota_windows(await quota_reader(client), now=clock())
+    budget = await store.quota_budget(windows)
+    return {"resource": "buy.browse", "headroom": HEADROOM,
+            "windows": conservative_quota_windows(windows, budget),
+            "global_requests_at_refresh": budget["total_requests"]}
+
+
 async def read_browse_quota(client):
     token = await client.application_token()
     try:
@@ -264,6 +307,29 @@ class SqlBackfillStore:
             rows = await self.connection.fetch(CANDIDATES_SQL, *validated_cursor(cursor), limit,
                                                 scope.get("system_code"), scope.get("language"))
         return [dict(r) for r in rows]
+
+    async def quota_budget(self, windows):
+        # One snapshot pairs the monotone all-time reservation total with active
+        # window receipts. The caller also holds the session backfill lock.
+        resets = sorted({window["reset"] for window in windows})
+        async with self.transaction(readonly=True):
+            row = await self.connection.fetchrow("""
+                select coalesce(sum(requests),0)::bigint as total_requests,
+                  coalesce(jsonb_agg(jsonb_build_object('report',report)) filter (
+                    where exists (
+                      select 1 from jsonb_array_elements(
+                        case when jsonb_typeof(report#>'{quota,windows}')='array'
+                             then report#>'{quota,windows}' else '[]'::jsonb end
+                       ) as quota_window
+                      where quota_window->>'reset'=any($1::text[])
+                    )
+                  ),'[]'::jsonb) as receipts
+                from tcg.reference_asking_runs
+                """, resets)
+        receipts = row["receipts"]
+        if isinstance(receipts, str):
+            receipts = json.loads(receipts)
+        return {"total_requests": int(row["total_requests"]), "receipts": receipts}
 
     async def open_run(self, run_id, resume_run, *, apply, scope, digest, limit):
         async with self.transaction():
@@ -376,18 +442,20 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                            monotonic=time.monotonic):
     """Orchestration separated from SQL so failure/commit ordering is testable."""
     windows, session_used, next_request, scanned = [], 0, 0.0, 0
+    quota_baseline = 0
+    deadline = monotonic() + MAX_RUN_SECONDS
     try:
-        windows = quota_windows(await quota_reader(client), now=clock())
-        report["quota"] = {"resource": "buy.browse", "headroom": HEADROOM, "windows": windows}
+        report["quota"] = await refreshed_quota(store, client, quota_reader=quota_reader, clock=clock)
+        windows = report["quota"]["windows"]
         await store.checkpoint(report)
         checkpoint(report)
-        while session_used < report["max_queries"] and scanned < MAX_SCAN:
+        while session_used < report["max_queries"] and scanned < MAX_SCAN and monotonic() < deadline:
             rows = await store.candidates(report.get("cursor"), report["scope"], min(100, MAX_SCAN-scanned))
             if not rows:
                 report["status"] = "COMPLETE"
                 break
             for reference in rows:
-                if session_used >= report["max_queries"] or scanned >= MAX_SCAN:
+                if session_used >= report["max_queries"] or scanned >= MAX_SCAN or monotonic() >= deadline:
                     break
                 scanned += 1
                 report["stats"]["scanned"] += 1
@@ -403,7 +471,17 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                 delay = next_request - monotonic()
                 if delay > 0:
                     await sleep(delay)
-                allow_quota_request(windows, session_used, clock())
+                if monotonic() >= deadline:
+                    break
+                if session_used - quota_baseline >= QUOTA_REFRESH_REQUESTS:
+                    report["quota"] = await refreshed_quota(store, client, quota_reader=quota_reader, clock=clock)
+                    windows, quota_baseline = report["quota"]["windows"], session_used
+                    report["quota"]["session_requests_at_refresh"] = quota_baseline
+                    await store.checkpoint(report)
+                    checkpoint(report)
+                if monotonic() >= deadline:
+                    break
+                allow_quota_request(windows, session_used - quota_baseline, clock())
                 report = await store.reserve(report, reference)
                 checkpoint(report)
                 session_used += 1
@@ -429,7 +507,9 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                 continue
             break
         if report["status"] == "RUNNING":
-            report.update(status="INCOMPLETE", stop_reason="REQUEST_LIMIT" if session_used >= report["max_queries"] else "SCAN_LIMIT")
+            reason = ("REQUEST_LIMIT" if session_used >= report["max_queries"] else
+                      "SCAN_LIMIT" if scanned >= MAX_SCAN else "TIME_LIMIT")
+            report.update(status="INCOMPLETE", stop_reason=reason)
     except BackfillStop as exc:
         report.update(status="STOPPED", stop_reason=exc.code)
     except EbayApiError as exc:
@@ -451,7 +531,7 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
                                     postcode=None, checkpoint=lambda report: None, clock=utcnow,
                                     quota_reader=read_browse_quota):
     if type(max_queries) is not int or not 1 <= max_queries <= MAX_DAILY or (apply and not run):
-        raise ValueError("Use 1..500 queries and explicit --run with --apply")
+        raise ValueError(f"Use 1..{MAX_DAILY} queries and explicit --run with --apply")
     if system_code is not None and system_code not in GAMES:
         raise ValueError("Unsupported system filter")
     scope = {"system_code": system_code, "language": language}
@@ -463,20 +543,27 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
         if not run:
             if resume_run:
                 raise ValueError("--resume-run requires --run")
-            rows = await store.candidates(None, scope, min(MAX_SCAN, max_queries * 20))
             eligible, rejected = [], {}
-            for reference in rows:
-                reason = reference_asking_eligibility(reference)
-                try:
-                    query = search_query(reference) if reason is None else None
-                except BackfillStop as exc:
-                    reason = exc.code
-                if reason:
-                    rejected[reason] = rejected.get(reason, 0) + 1
-                    continue
-                eligible.append({"reference": dict(zip(KEYS, cursor_for(reference))), "query": query})
-                if len(eligible) == max_queries:
+            cursor, scanned = None, 0
+            scan_limit = min(MAX_SCAN, max_queries * 20)
+            while scanned < scan_limit and len(eligible) < max_queries:
+                rows = await store.candidates(cursor, scope, min(100, scan_limit-scanned))
+                if not rows:
                     break
+                for reference in rows:
+                    cursor = cursor_for(reference)
+                    scanned += 1
+                    reason = reference_asking_eligibility(reference)
+                    try:
+                        query = search_query(reference) if reason is None else None
+                    except BackfillStop as exc:
+                        reason = exc.code
+                    if reason:
+                        rejected[reason] = rejected.get(reason, 0) + 1
+                        continue
+                    eligible.append({"reference": dict(zip(KEYS, cursor_for(reference))), "query": query})
+                    if len(eligible) == max_queries:
+                        break
             report = {"status": "PLAN_ONLY", "run_id": str(run_id), "requests": 0, "database_writes": 0,
                       "max_queries": max_queries, "scope": scope, "candidates": eligible, "rejections": rejected}
             checkpoint(report)
