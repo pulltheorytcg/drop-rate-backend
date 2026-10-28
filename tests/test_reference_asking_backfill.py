@@ -1,4 +1,5 @@
 """Budget, resume and transaction failure tests with no sockets or credentials."""
+from bisect import bisect_right
 from contextlib import asynccontextmanager
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
@@ -9,6 +10,7 @@ import pytest
 
 from app import reference_asking_backfill as worker
 from app.ebay_official_client import EbayApiError
+from scripts.backfill_reference_asking import arguments
 
 NOW = datetime(2026, 10, 28, 22, tzinfo=timezone.utc)
 ACTOR = UUID("00000000-0000-0000-0000-000000000001")
@@ -59,7 +61,14 @@ async def no_sleep(seconds):
 class MemoryStore:
     def __init__(self, references):
         self.references, self.events = references, []
+        self.receipts = {}
+    def save_receipt(self, state):
+        self.receipts[state["run_id"]] = {"requests": state["requests"], "report": deepcopy(state)}
+    async def quota_budget(self, windows):
+        return {"total_requests": sum(row["requests"] for row in self.receipts.values()),
+                "receipts": list(self.receipts.values())}
     async def checkpoint(self, state):
+        self.save_receipt(state)
         self.events.append("checkpoint_commit")
     async def candidates(self, cursor, scope, limit):
         after = worker.validated_cursor(cursor)
@@ -68,14 +77,17 @@ class MemoryStore:
         state = deepcopy(state)
         state.update(cursor=worker.cursor_for(ref), pending=worker.cursor_for(ref),
                      requests=state["requests"] + 1, session_requests=state["session_requests"] + 1)
+        self.save_receipt(state)
         self.events.append("reservation_commit")
         return state
     async def result(self, state, ref, estimate):
         state = deepcopy(state)
         state["pending"] = None
+        self.save_receipt(state)
         self.events.append("result_commit")
         return state
     async def finish(self, state):
+        self.save_receipt(state)
         self.events.append("finish_commit")
 
 
@@ -90,6 +102,241 @@ class Client:
         if self.error:
             raise self.error
         return {"itemSummaries": []}
+
+
+
+class PagedStore(MemoryStore):
+    def __init__(self, references):
+        super().__init__(references)
+        self.cursors = [worker.cursor_for(ref) for ref in references]
+        self.page_limits, self.reserved_ids = [], []
+    async def candidates(self, cursor, scope, limit):
+        self.page_limits.append(limit)
+        start = bisect_right(self.cursors, worker.validated_cursor(cursor))
+        return self.references[start:start+limit]
+    async def reserve(self, state, ref):
+        result = await super().reserve(state, ref)
+        self.reserved_ids.append(ref["provider_id"])
+        return result
+
+
+class Clock:
+    def __init__(self):
+        self.elapsed = 0.0
+    def monotonic(self):
+        return self.elapsed
+    async def sleep(self, seconds):
+        self.elapsed += seconds
+
+
+@pytest.mark.parametrize("limit", [1000, 2000])
+def test_large_batches_stream_with_pacing_and_resume_without_duplicates(limit):
+    refs = [reference(f"{i:05d}") for i in range(limit+1)]
+    store = PagedStore(refs)
+    clock = Clock()
+    client = Client(store)
+    quota_calls, request_times = [], []
+    async def current_quota(client):
+        quota_calls.append(len(client.queries))
+        return quota(4999-len(client.queries))
+    original_search = client.search_items
+    async def timed_search(**kwargs):
+        request_times.append(clock.elapsed)
+        return await original_search(**kwargs)
+    client.search_items = timed_search
+    state = run_now(worker.execute_backfill(store, client, report(limit), quota_reader=current_quota,
+                    clock=lambda: NOW, sleep=clock.sleep, monotonic=clock.monotonic))
+    assert state["requests"] == state["session_requests"] == len(client.queries) == limit
+    assert state["stop_reason"] == "REQUEST_LIMIT" and state["pending"] is None
+    assert store.reserved_ids == [ref["provider_id"] for ref in refs[:-1]]
+    assert quota_calls == list(range(0, limit, 100))
+    assert all(later-earlier >= 1 for earlier, later in zip(request_times, request_times[1:]))
+    assert set(store.page_limits) == {100}
+    state.update(status="RUNNING", session_requests=0)
+    resumed = run_now(worker.execute_backfill(store, client, state, quota_reader=current_quota,
+                      clock=lambda: NOW, sleep=clock.sleep, monotonic=clock.monotonic))
+    assert resumed["status"] == "COMPLETE" and resumed["requests"] == limit+1
+    assert store.reserved_ids == [ref["provider_id"] for ref in refs]
+
+
+@pytest.mark.parametrize("limit", [1000, 2000])
+def test_large_readonly_plan_streams_candidates(monkeypatch, limit):
+    store = PagedStore([reference(f"{i:05d}") for i in range(limit+1)])
+    class Pool:
+        @asynccontextmanager
+        async def acquire(self):
+            yield object()
+    monkeypatch.setattr(worker, "SqlBackfillStore", lambda *args, **kwargs: store)
+    state = run_now(worker.backfill_reference_asking(Pool(), ACTOR, max_queries=limit))
+    assert state["status"] == "PLAN_ONLY" and len(state["candidates"]) == limit
+    assert state["requests"] == state["database_writes"] == 0
+    assert store.events == [] and store.page_limits == [100] * (limit//100)
+
+
+@pytest.mark.parametrize("limit", [1000, 2000])
+def test_cli_accepts_larger_explicit_batches(limit):
+    assert arguments(["--from-settings", "--run", "--max-queries", str(limit)]).max_queries == limit
+
+
+def test_cli_retains_small_default_and_rejects_out_of_range():
+    assert arguments(["--from-settings"]).max_queries == 25
+    for limit in (0, 2001):
+        with pytest.raises(SystemExit) as error:
+            arguments(["--from-settings", "--max-queries", str(limit)])
+        assert error.value.code == 2
+
+
+def test_quota_refresh_stops_before_attempt_101_when_other_usage_consumes_headroom():
+    store = PagedStore([reference(f"{i:05d}") for i in range(2000)])
+    client = Client(store)
+    async def shrinking_quota(client):
+        return quota(4999 if not client.queries else 500)
+    state = run_now(worker.execute_backfill(store, client, report(2000), quota_reader=shrinking_quota,
+                    clock=lambda: NOW, sleep=no_sleep, monotonic=lambda: 0))
+    assert state["status"] == "STOPPED" and state["stop_reason"] == "BROWSE_QUOTA_HEADROOM"
+    assert state["requests"] == len(client.queries) == len(store.reserved_ids) == 100
+    assert state["cursor"] == worker.cursor_for(store.references[99])
+
+
+def test_stale_quota_refresh_cannot_restore_locally_consumed_requests():
+    store = PagedStore([reference(f"{i:05d}") for i in range(2000)])
+    client = Client(store)
+    async def stale_quota(client):
+        return quota(650)
+    state = run_now(worker.execute_backfill(store, client, report(2000), quota_reader=stale_quota,
+                    clock=lambda: NOW, sleep=no_sleep, monotonic=lambda: 0))
+    assert state["status"] == "STOPPED" and state["stop_reason"] == "BROWSE_QUOTA_HEADROOM"
+    assert state["requests"] == len(client.queries) == 150
+    assert state["quota"]["windows"][0]["provider_remaining"] == 650
+    assert state["quota"]["windows"][0]["remaining"] == 550
+
+
+def test_failed_analytics_refresh_stops_without_reserving_attempt_101():
+    store = PagedStore([reference(f"{i:05d}") for i in range(2000)])
+    client = Client(store)
+    async def failed_quota(client):
+        if client.queries:
+            raise worker.BackfillStop("ANALYTICS_UNAVAILABLE")
+        return quota()
+    state = run_now(worker.execute_backfill(store, client, report(2000), quota_reader=failed_quota,
+                    clock=lambda: NOW, sleep=no_sleep, monotonic=lambda: 0))
+    assert state["status"] == "STOPPED" and state["stop_reason"] == "ANALYTICS_UNAVAILABLE"
+    assert state["requests"] == len(client.queries) == len(store.reserved_ids) == 100
+    assert state["pending"] is None
+
+
+def test_twenty_thousand_candidate_scan_is_bounded_and_resumable():
+    refs = [dict(reference(f"{i:05d}"), reference_group_count=2) for i in range(20000)]
+    refs.append(reference("20000"))
+    store, state = PagedStore(refs), report(1000)
+    client = Client(store)
+    state = run_now(worker.execute_backfill(store, client, state, quota_reader=quota_reader,
+                    clock=lambda: NOW, sleep=no_sleep, monotonic=lambda: 0))
+    assert state["status"] == "INCOMPLETE" and state["stop_reason"] == "SCAN_LIMIT"
+    assert state["stats"]["scanned"] == 20000 and state["requests"] == 0
+    assert state["cursor"][-1] == "19999" and store.page_limits == [100] * 200
+    state.update(status="RUNNING")
+    resumed = run_now(worker.execute_backfill(store, client, state, quota_reader=quota_reader,
+                      clock=lambda: NOW, sleep=no_sleep, monotonic=lambda: 0))
+    assert resumed["status"] == "COMPLETE" and store.reserved_ids == ["20000"]
+
+
+def test_time_limit_keeps_last_reserved_cursor_and_can_resume():
+    store = PagedStore([reference("1"), reference("2")])
+    clock, client = Clock(), Client(store)
+    async def slow_sleep(seconds):
+        clock.elapsed += 45 * 60
+    state = run_now(worker.execute_backfill(store, client, report(2000), quota_reader=quota_reader,
+                    clock=lambda: NOW, sleep=slow_sleep, monotonic=clock.monotonic))
+    assert state["status"] == "INCOMPLETE" and state["stop_reason"] == "TIME_LIMIT"
+    assert state["requests"] == 1 and state["cursor"][-1] == "1"
+    state.update(status="RUNNING", session_requests=0)
+    resumed = run_now(worker.execute_backfill(store, client, state, quota_reader=quota_reader,
+                      clock=lambda: NOW, sleep=clock.sleep, monotonic=clock.monotonic))
+    assert resumed["status"] == "COMPLETE" and store.reserved_ids == ["1", "2"]
+
+
+@pytest.mark.parametrize("new_run", [False, True])
+def test_stale_quota_cannot_restore_allowance_after_restart_or_new_run(new_run):
+    store = PagedStore([reference(f"{i:05d}") for i in range(2000)])
+    client = Client(store)
+    async def stale_quota(client):
+        return quota(650)
+    state = run_now(worker.execute_backfill(store, client, report(2000), quota_reader=stale_quota,
+                    clock=lambda: NOW, sleep=no_sleep, monotonic=lambda: 0))
+    assert state["requests"] == 150 and state["stop_reason"] == "BROWSE_QUOTA_HEADROOM"
+    if new_run:
+        next_state = report(2000)
+        next_state["cursor"] = state["cursor"]
+    else:
+        next_state = deepcopy(state)
+        next_state.update(status="RUNNING", session_requests=0)
+    restarted = run_now(worker.execute_backfill(store, client, next_state, quota_reader=stale_quota,
+                        clock=lambda: NOW+timedelta(hours=3), sleep=no_sleep, monotonic=lambda: 0))
+    assert restarted["stop_reason"] == "BROWSE_QUOTA_HEADROOM"
+    assert len(client.queries) == len(store.reserved_ids) == 150
+
+
+def test_durable_quota_counts_committed_reservations_even_if_report_lags():
+    windows = worker.quota_windows(quota(650), now=NOW)
+    saved = report()
+    saved.update(requests=10, session_requests=10)
+    saved["quota"] = {"windows": deepcopy(windows), "global_requests_at_refresh": 0}
+    budget = {"total_requests": 150, "receipts": [{"requests": 150, "report": saved}]}
+    clipped = worker.conservative_quota_windows(windows, budget)
+    assert clipped[0]["remaining"] == 500
+    with pytest.raises(worker.BackfillStop, match="HEADROOM"):
+        worker.allow_quota_request(clipped, 0, NOW)
+
+
+def test_legacy_quota_bootstrap_counts_all_runs_and_does_not_restore_at_utc_midnight():
+    windows = worker.quota_windows(quota(650), now=NOW)
+    legacy = report()
+    legacy.update(requests=150, session_requests=150)
+    legacy["quota"] = {"windows": deepcopy(windows)}
+    later = report()
+    later.update(requests=100, session_requests=100)
+    later["quota"] = {"windows": deepcopy(windows)}
+    budget = {"total_requests": 250, "receipts": [{"report": legacy}, {"report": later}]}
+    clipped = worker.conservative_quota_windows(windows, budget)
+    assert clipped[0]["remaining"] == 400
+    with pytest.raises(worker.BackfillStop, match="HEADROOM"):
+        worker.allow_quota_request(clipped, 0, NOW+timedelta(hours=3))
+
+
+def test_provider_window_reset_does_not_inherit_previous_window_consumption():
+    old = worker.quota_windows(quota(650), now=NOW)
+    saved = report()
+    saved["quota"] = {"windows": old, "global_requests_at_refresh": 0}
+    next_payload = quota(4999)
+    next_payload["rateLimits"][0]["resources"][0]["rates"][0]["reset"] = "2026-10-30T07:00:00Z"
+    fresh = worker.quota_windows(next_payload, now=NOW+timedelta(days=1))
+    result = worker.conservative_quota_windows(fresh, {"total_requests": 2000, "receipts": [{"report": saved}]})
+    assert result[0]["remaining"] == 4999
+    worker.allow_quota_request(result, 0, NOW+timedelta(days=1))
+
+
+@pytest.mark.parametrize("marker", [-1, 151, True])
+def test_invalid_or_decreased_durable_quota_counter_stops(marker):
+    windows = worker.quota_windows(quota(650), now=NOW)
+    saved = report()
+    saved["quota"] = {"windows": windows, "global_requests_at_refresh": marker}
+    with pytest.raises(worker.BackfillStop, match="INVALID_DURABLE_QUOTA"):
+        worker.conservative_quota_windows(windows, {"total_requests": 150, "receipts": [{"report": saved}]})
+
+
+def test_deadline_reached_during_quota_refresh_prevents_next_reservation():
+    store = PagedStore([reference(f"{i:05d}") for i in range(2000)])
+    clock, client = Clock(), Client(store)
+    async def slow_quota(client):
+        if client.queries:
+            clock.elapsed = 45 * 60
+        return quota()
+    state = run_now(worker.execute_backfill(store, client, report(2000), quota_reader=slow_quota,
+                    clock=lambda: NOW, sleep=clock.sleep, monotonic=clock.monotonic))
+    assert state["status"] == "INCOMPLETE" and state["stop_reason"] == "TIME_LIMIT"
+    assert len(client.queries) == len(store.reserved_ids) == state["requests"] == 100
+    assert state["pending"] is None
 
 
 def test_cap_and_resume_never_repeat_reserved_reference():
@@ -206,7 +453,7 @@ def ready(ref):
 
 
 def test_global_ledger_and_day_boundary_block_before_reservation(sql_dependencies):
-    connection = Connection(daily=500)
+    connection = Connection(daily=2000)
     store = worker.SqlBackfillStore(connection, ACTOR, clock=lambda: NOW)
     with pytest.raises(worker.BackfillStop, match="DAILY_BROWSE_BUDGET"):
         run_now(store.reserve(report(), reference()))
@@ -215,6 +462,16 @@ def test_global_ledger_and_day_boundary_block_before_reservation(sql_dependencie
     state["budget_day"] = "2026-10-27"
     with pytest.raises(worker.BackfillStop, match="UTC_DAY_CHANGED"):
         run_now(store.reserve(state, reference()))
+
+
+def test_global_ledger_allows_last_request_of_two_thousand(sql_dependencies):
+    connection = Connection(daily=1999)
+    store = worker.SqlBackfillStore(connection, ACTOR, clock=lambda: NOW)
+    prior = report(2000)
+    prior.update(requests=1999, session_requests=1999)
+    state = run_now(store.reserve(prior, reference()))
+    assert state["requests"] == state["session_requests"] == 2000
+    assert connection.events.index("budget_reservation") < connection.events.index("receipt") < connection.events.index("commit")
 
 
 def test_identity_or_current_evidence_race_never_writes_history(sql_dependencies):
@@ -244,7 +501,7 @@ def test_history_cache_and_receipt_atomic_and_ordered(sql_dependencies):
     assert original["stats"]["written"] == 0
 
 
-@pytest.mark.parametrize("limit", [0, 501, True])
+@pytest.mark.parametrize("limit", [0, 2001, True])
 def test_invalid_request_cap_rejected_before_database(limit):
     with pytest.raises(ValueError):
         run_now(worker.backfill_reference_asking(None, ACTOR, max_queries=limit))

@@ -6,6 +6,7 @@ on:
       - '.github/workflows/asking-price-contract.yml'
       - 'database/proposals/reference_asking_prices.sql'
       - 'database/migrations/*_reference_asking_prices.sql'
+      - 'database/migrations/*_reference_asking_budget_*.sql'
       - 'tests/reference_asking_postgres.py'
       - 'backend/app/reference_asking*.py'
       - 'backend/scripts/backfill_reference_asking.py'

@@ -85,6 +85,38 @@ async def history(db, item):
                      item["run_id"], item["actor_user_id"])
 
 
+async def assert_security_metadata(db):
+    for table in ("reference_asking_runs", "reference_asking_history", "reference_asking_prices"):
+        assert await db.fetchval("select relrowsecurity and relforcerowsecurity from pg_class where oid=$1::regclass",
+                                 "tcg." + table)
+        for role in ("anon", "authenticated", "service_role"):
+            for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+                assert not await db.fetchval("select has_table_privilege($1,$2,$3)", role, "tcg." + table, privilege)
+    assert not await db.fetchval("select has_table_privilege('tcg_api','tcg.audit_events','INSERT')")
+    for function in ("tcg.guard_reference_asking_run()", "tcg.reserve_reference_asking_request(uuid)"):
+        assert not await db.fetchval("select prosecdef from pg_proc where oid=$1::regprocedure", function)
+        for role in ("anon", "authenticated", "tcg_api"):
+            allowed = role == "tcg_api" and "reserve_reference_asking_request" in function
+            assert await db.fetchval("select has_function_privilege($1,$2,'EXECUTE')", role, function) == allowed
+
+
+async def race_last_reservation(dsn, first_run, second_run):
+    left, right = await asyncpg.connect(dsn), await asyncpg.connect(dsn)
+    try:
+        await actor(left)
+        await actor(right)
+        attempts = await asyncio.gather(
+            left.fetchval("select tcg.reserve_reference_asking_request($1)", first_run),
+            right.fetchval("select tcg.reserve_reference_asking_request($1)", second_run),
+            return_exceptions=True,
+        )
+        assert sum(isinstance(value, int) for value in attempts) == 1, attempts
+        assert any("ASKING_DAILY_REQUEST_BUDGET_EXHAUSTED" in str(value) for value in attempts), attempts
+    finally:
+        await left.close()
+        await right.close()
+
+
 async def main():
     dsn = os.environ["ASKING_TEST_DSN"]
     target = urlsplit(dsn)
@@ -130,13 +162,7 @@ async def main():
         sql_path = migrations[0] if migrations else ROOT / "database/proposals/reference_asking_prices.sql"
         await db.execute(sql_path.read_text(encoding="utf-8"))
 
-        for table in ("reference_asking_runs", "reference_asking_history", "reference_asking_prices"):
-            assert await db.fetchval("select relrowsecurity and relforcerowsecurity from pg_class where oid=$1::regclass",
-                                     "tcg." + table)
-            for role in ("anon", "authenticated", "service_role"):
-                for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE"):
-                    assert not await db.fetchval("select has_table_privilege($1,$2,$3)", role, "tcg." + table, privilege)
-        assert not await db.fetchval("select has_table_privilege('tcg_api','tcg.audit_events','INSERT')")
+        await assert_security_metadata(db)
 
         await actor(db)
         run_id = await db.fetchval("insert into tcg.reference_asking_runs(actor_user_id) values($1) returning id", ADMIN)
@@ -257,20 +283,7 @@ async def main():
         await db.execute("""do $$ declare n integer; begin for n in 1..498 loop
           perform tcg.reserve_reference_asking_request('%s'::uuid); end loop; end $$""" % run_id)
         assert await db.fetchval("select sum(requests) from tcg.reference_asking_runs") == 499
-        left, right = await asyncpg.connect(dsn), await asyncpg.connect(dsn)
-        try:
-            await actor(left)
-            await actor(right)
-            attempts = await asyncio.gather(
-                left.fetchval("select tcg.reserve_reference_asking_request($1)", run_id),
-                right.fetchval("select tcg.reserve_reference_asking_request($1)", other_run),
-                return_exceptions=True,
-            )
-            assert sum(isinstance(value, int) for value in attempts) == 1, attempts
-            assert any("ASKING_DAILY_REQUEST_BUDGET_EXHAUSTED" in str(value) for value in attempts), attempts
-        finally:
-            await left.close()
-            await right.close()
+        await race_last_reservation(dsn, run_id, other_run)
         assert await db.fetchval("select sum(requests) from tcg.reference_asking_runs") == 500
         restarted = await db.fetchval("insert into tcg.reference_asking_runs(actor_user_id) values($1) returning id", ADMIN)
         await rejected(db, "select tcg.reserve_reference_asking_request($1)", (restarted,),
@@ -281,6 +294,49 @@ async def main():
         await rejected(db, "update tcg.reference_asking_runs set status='RUNNING',finished_at=null where id=$1", (run_id,),
                        message="ASKING_RUN_IDENTITY_OR_FINAL_STATE_IMMUTABLE")
 
+        # The additive migration preserves the original day's 500 reservations,
+        # history, audits and permissions; it makes another 1,500 available.
+        await db.execute("reset role")
+        before_runs = await db.fetch("select * from tcg.reference_asking_runs order by id")
+        before_history = await db.fetch("select * from tcg.reference_asking_history order by snapshot_id")
+        before_audits = await db.fetch("select * from tcg.audit_events order by id")
+        budget_migrations = sorted((ROOT / "database/migrations").glob("*_reference_asking_budget_2000.sql"))
+        assert len(budget_migrations) == 1, "Expected one additive 2,000-request budget migration"
+        await db.execute(budget_migrations[0].read_text(encoding="utf-8"))
+        assert await db.fetch("select * from tcg.reference_asking_runs order by id") == before_runs
+        assert await db.fetch("select * from tcg.reference_asking_history order by snapshot_id") == before_history
+        assert await db.fetch("select * from tcg.audit_events order by id") == before_audits
+        constraint = await db.fetchval("""select pg_get_constraintdef(oid) from pg_constraint
+          where conrelid='tcg.reference_asking_runs'::regclass
+          and conname='reference_asking_runs_requests_check'""")
+        assert "requests >= 0" in constraint and "requests <= 2000" in constraint, constraint
+        await assert_security_metadata(db)
+
+        await actor(db, OWNER)
+        assert await db.fetchval("select count(*) from tcg.reference_asking_runs") == 0
+        await rejected(db, "insert into tcg.reference_asking_runs(actor_user_id) values($1)", (OWNER,),
+                       errors=(asyncpg.InsufficientPrivilegeError,))
+        await rejected(db, "select tcg.reserve_reference_asking_request($1)", (restarted,),
+                       errors=(asyncpg.InsufficientPrivilegeError,))
+        await actor(db, SECOND_ADMIN)
+        await rejected(db, "select tcg.reserve_reference_asking_request($1)", (restarted,),
+                       errors=(asyncpg.InsufficientPrivilegeError,))
+        await actor(db)
+        await rejected(db, "update tcg.reference_asking_runs set requests=requests+2 where id=$1", (restarted,),
+                       message="ASKING_REQUEST_COUNTER_MUST_INCREMENT_BY_ONE")
+        await rejected(db, "update tcg.reference_asking_runs set status='RUNNING',finished_at=null where id=$1", (run_id,),
+                       message="ASKING_RUN_IDENTITY_OR_FINAL_STATE_IMMUTABLE")
+        await db.execute("""do $$ declare n integer; begin for n in 1..1499 loop
+          perform tcg.reserve_reference_asking_request('%s'::uuid); end loop; end $$""" % restarted)
+        assert await db.fetchval("select requests from tcg.reference_asking_runs where id=$1", restarted) == 1499
+        assert await db.fetchval("select sum(requests) from tcg.reference_asking_runs") == 1999
+        await race_last_reservation(dsn, restarted, other_run)
+        assert await db.fetchval("select sum(requests) from tcg.reference_asking_runs") == 2000
+        exhausted_run = await db.fetchval("insert into tcg.reference_asking_runs(actor_user_id) values($1) returning id", ADMIN)
+        await rejected(db, "select tcg.reserve_reference_asking_request($1)", (exhausted_run,),
+                       message="ASKING_DAILY_REQUEST_BUDGET_EXHAUSTED")
+        assert await db.fetchval("select sum(requests) from tcg.reference_asking_runs") == 2000
+
         # History is append-only even for its database owner, not merely an
         # application-role privilege convention.
         await db.execute("reset role")
@@ -290,7 +346,7 @@ async def main():
                        errors=(asyncpg.InsufficientPrivilegeError,), message="ASKING_HISTORY_IS_APPEND_ONLY")
     finally:
         await db.close()
-    print("PASS: asking cache/history atomicity, identity/basis guards, audit, RLS, UTC durable budget and concurrency")
+    print("PASS: asking cache/history atomicity, identity/basis guards, audit, RLS, 500-to-2000 budget migration and concurrency")
 
 
 if __name__ == "__main__":
