@@ -1,3 +1,23 @@
+## 28 October 2026 — Larger reference-pricing batches
+
+Prepared support for 1,000–2,000 eligible eBay Browse checks per run, with a
+2,000-request global UTC-day budget. Candidate scans use 100-row pages and a
+20,000-reference ceiling. Quota is refreshed every 100 attempts; a durable
+reservation marker preserves the 500-request provider headroom across restarts
+and UTC-day changes. Collection remains sequential at one request per second
+and stops after 45 minutes with a resumable cursor.
+
+The additive database migration preserves prior usage, history, audits and RLS.
+Exact identity, language, shipping and seller requirements remain unchanged.
+Larger batches are search capacity, not a guarantee of accepted prices.
+
+The initial local change passed 213 focused tests. Independent review then
+identified and corrected stale provider-quota reuse across restarts. The local
+runtime disconnected during that review; the final reconstructed changes need
+GitHub CI and PostgreSQL contract verification before deployment. The planned
+first 1,000-check live batch has not started. Last verified catalogue coverage
+is **43,454/67,065 (64.79%)**, leaving **16,234** records to reach 89%.
+
 ## 28 October 2026 — Recovered pricing rollout and Black Bolt source matching
 
 PRs #774, #775 and #776 are merged and live. The latest code deployment is

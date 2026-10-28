@@ -45,9 +45,21 @@ requests. No database transaction is held across provider I/O.
 
 The worker checks the application's actual eBay quota and every applicable
 window, leaves headroom for existing features, and additionally caps this
-backfill at 500 Browse attempts per UTC day. It starts sequentially at no more
-than one request per second and stops on provider/auth/rate-limit errors.
-The existing 400,000,000-byte bulk-ingestion guard remains in force.
+backfill at 2,000 Browse attempts per UTC day. An operator can request 1,000 or
+2,000 eligible card checks in one run. This is a maximum number of searches,
+not a promise of that many accepted prices. The worker scans up to 20,000
+candidate references in 100-row pages and checkpoints after each card.
+
+Collection remains sequential at no more than one request per second. The
+worker refreshes provider quota every 100 attempts, preserves 500 requests of
+headroom in every applicable window, and retains conservative quota accounting
+across interruptions and new runs using the durable global reservation count.
+Keep the reservation ledger: removing it would invalidate this accounting.
+Failed and uncertain requests remain charged.
+A 45-minute limit stops with a durable cursor; provider/auth/rate-limit errors
+also stop collection. The existing 400,000,000-byte bulk-ingestion guard remains
+in force. Requested batches can finish early because of quota, elapsed time,
+UTC day rollover, candidate exhaustion, scan limits or provider failures.
 
 Before deployment: pass the focused matcher/API/UI tests, the normal repository
 CI and the disposable PostgreSQL contract test; apply the additive migration;
@@ -72,9 +84,9 @@ connection. Metadata availability alone is not pricing evidence. Its cheapest
 25 offers per product are a limited asking sample, and shipping/currency,
 language and printing still need explicit treatment before any import.
 
-The 500/day ceiling is a pilot control, not a capacity plan for 89%. With a
-three-day evidence lifetime and one reference per request, it supports roughly
-1,500 current estimates sustainably even at a 100% acceptance rate. Existing
+The original pilot ceiling was 500/day; the larger-batch ceiling is 2,000/day.
+With a three-day evidence lifetime and one reference per request, this supports
+at most roughly 6,000 current estimates sustainably at a 100% acceptance rate. Existing
 guide refreshes, permitted bulk sources and exact mapping improvements must
 cover the larger gap. Raising the request rate alone cannot solve it.
 
@@ -128,3 +140,28 @@ The separate, audited Black Bolt numbering repair recovered 92 existing-source
 guides. Verified combined coverage is now **43,454/67,065 (64.79%)**, with
 zero asking estimates and **16,234** additional records needed for 89%.
 See [the live correction receipt](SV11B_NUMBER_RECOVERY.md).
+
+## Larger-batch operation
+
+Apply the additive budget migration before running a worker configured above
+500 searches. It preserves all existing requests, history, audit records and
+access controls; it does not reset today's usage. The database and Python
+worker both enforce the 2,000-request daily ceiling.
+
+After CI and deployment verification, a controlled first batch is:
+
+```sh
+python backend/scripts/backfill_reference_asking.py --from-settings --run --apply --max-queries 1000 --language English --output /tmp/asking-batch-1000.json
+```
+
+Use a unique output path. Run the operator independently of application startup
+or deployment hooks. Inspect its durable run receipt before retrying after a
+connection loss. To continue, pass `--resume-run <run-id>` with the same scope
+and apply mode and request only the remaining checks. Resume preserves the
+cursor and charged requests. Never blindly launch a second batch when the
+first process may still be running.
+
+Verify acceptance/rejection counts, persisted evidence and total catalogue
+coverage after the run. Larger batches do not weaken exact-printing, language,
+condition, shipping or seller-diversity requirements, and they do not modify
+physical inventory, Store Prices or ownership.
