@@ -1,0 +1,310 @@
+{
+  "source_commit": "cfc964d05d355aa919608b2d19a57338f1e3822d",
+  "snapshot_at": "2026-10-28T19:39:19.17738+00:00",
+  "baseline": {
+    "observed_at": "2026-10-28T19:39:19.17738+00:00",
+    "total": 67065,
+    "priced": 43279,
+    "target": 59688,
+    "needed": 16409
+  },
+  "coverage": [
+    {
+      "kind": "CARD",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "English",
+      "products": 1407,
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "oldest_check": "2026-10-26T20:56:31.713657+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "language": "English",
+      "products": 2958,
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "oldest_check": "2026-10-26T20:56:31.713657+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "Japanese",
+      "products": 399,
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "oldest_check": "2026-10-26T20:56:31.713657+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "language": "Japanese",
+      "products": 2830,
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "oldest_check": null,
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "English",
+      "products": 5725,
+      "system_code": "DRAGON_BALL_SUPER_MASTERS",
+      "oldest_check": "2026-10-26T20:56:31.713657+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "language": "English",
+      "products": 3277,
+      "system_code": "DRAGON_BALL_SUPER_MASTERS",
+      "oldest_check": "2026-10-26T20:56:31.713657+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "language": "Unknown",
+      "products": 4487,
+      "system_code": "NARUTO_BANDAI_LEGACY",
+      "oldest_check": null,
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "language": "Unknown",
+      "products": 2679,
+      "system_code": "NARUTO_KAYOU",
+      "oldest_check": null,
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "English",
+      "products": 2336,
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "oldest_check": "2026-10-26T20:56:15.943311+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "language": "English",
+      "products": 2191,
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "oldest_check": "2026-10-26T20:56:15.943311+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "Japanese",
+      "products": 2156,
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "oldest_check": "2026-10-26T20:56:15.943311+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "language": "Japanese",
+      "products": 2324,
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "oldest_check": "2026-10-26T20:56:15.943311+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "language": "English",
+      "products": 525,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:31:56.408728+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "English",
+      "products": 8638,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T20:53:55.172886+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "NOT_APPLICABLE_DIGITAL",
+      "language": "English",
+      "products": 2480,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:30:47.409487+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "REFERENCE_AVAILABLE",
+      "language": "English",
+      "products": 12127,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:30:51.791425+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "language": "Japanese",
+      "products": 2515,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:23:20.104262+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "Japanese",
+      "products": 1006,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:29:35.573503+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "CARD",
+      "status": "REFERENCE_AVAILABLE",
+      "language": "Japanese",
+      "products": 9485,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:23:14.579611+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "language": "Unknown",
+      "products": 20,
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "Unknown",
+      "products": 70,
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "language": "Unknown",
+      "products": 58,
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "language": "Unknown",
+      "products": 8,
+      "system_code": "DRAGON_BALL_SUPER_MASTERS",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "Unknown",
+      "products": 253,
+      "system_code": "DRAGON_BALL_SUPER_MASTERS",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "language": "Unknown",
+      "products": 57,
+      "system_code": "DRAGON_BALL_SUPER_MASTERS",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "PROVIDER_FEED_REQUIRED",
+      "language": "Unknown",
+      "products": 4,
+      "system_code": "NARUTO_KAYOU",
+      "oldest_check": null,
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "language": "Unknown",
+      "products": 115,
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "Unknown",
+      "products": 272,
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "language": "Unknown",
+      "products": 156,
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "AWAITING_DAILY_REFRESH",
+      "language": "Unknown",
+      "products": 1,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": null,
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "language": "Unknown",
+      "products": 484,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "MIXED_LANGUAGE_GUIDE",
+      "language": "Unknown",
+      "products": 2145,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    },
+    {
+      "kind": "SEALED",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "language": "Unknown",
+      "products": 248,
+      "system_code": "POKEMON_TCG",
+      "oldest_check": "2026-10-26T03:19:16.113422+00:00",
+      "incomplete_references": 0
+    }
+  ]
+}
