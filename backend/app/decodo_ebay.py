@@ -36,7 +36,7 @@ class Node:
 
     @property
     def classes(self):
-        return set(self.attrs.get("class", "").split())
+        return set((self.attrs.get("class") or "").split())
 
     def nodes(self):
         yield self
@@ -95,6 +95,10 @@ def _amount(text):
 
 
 def _sale_date(text, now):
+    # A completed/related card can contain a negative label alongside a date.
+    # Never interpret the "Sold" token inside "Not Sold" as a completed sale.
+    if re.search(r"\b(?:not(?:\s+yet)?\s+sold|unsold)\b", text, re.I):
+        return None
     found = re.search(r"\bSold\s+(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}|\d{4}-\d{2}-\d{2})\b", text, re.I)
     if not found:
         return None
@@ -131,7 +135,7 @@ def parse_sold_html(content, *, now=None):
     title = " ".join(n.text() for n in nodes if n.tag == "title").casefold()
     if any(x in title for x in ("sign in", "signin", "pardon our interruption", "security measure", "robot check", "captcha", "access denied")):
         raise DecodoError("TARGET_ACCESS_GATE")
-    if any(n.tag == "form" and ("signin.ebay." in n.attrs.get("action", "") or n.attrs.get("id") == "signin-form") for n in nodes):
+    if any(n.tag == "form" and ("signin.ebay." in (n.attrs.get("action") or "") or n.attrs.get("id") == "signin-form") for n in nodes):
         raise DecodoError("TARGET_ACCESS_GATE")
     cards = [n for n in nodes if n.classes.intersection({"s-item", "s-card"})]
     if not cards:

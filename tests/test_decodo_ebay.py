@@ -48,6 +48,34 @@ def test_rejects_unsold_ambiguous_stale_and_nonstandard(change):
     assert parse_sold_html(page(card(**change)), now=NOW)["results"] == []
 
 
+@pytest.mark.parametrize("date", [
+    "Not Sold 27 Oct 2026",
+    "NOT YET SOLD 27 Oct 2026",
+    "Unsold: previously Sold 27 Oct 2026",
+])
+def test_negative_sale_labels_cannot_become_sold_evidence(date):
+    result = parse_sold_html(page(card(date=date)), now=NOW)
+    assert result["cards_seen"] == 1
+    assert result["results"] == []
+    assert result["rejected"]["MISSING_STALE_OR_FUTURE_SALE_DATE"] == 1
+
+
+def test_valueless_class_does_not_break_a_recognised_sale_card():
+    result = parse_sold_html(page(card(extra="<span class>Seller details</span>")), now=NOW)
+    assert len(result["results"]) == 1
+    assert result["results"][0]["item_id"] == "123456789012"
+
+
+def test_valueless_class_does_not_turn_unknown_markup_into_empty_success():
+    with pytest.raises(DecodoError, match="UNRECOGNISED_SEARCH_HTML"):
+        parse_sold_html("<html><title>eBay</title><div class>Unexpected layout</div></html>", now=NOW)
+
+
+def test_valueless_form_action_still_checks_login_gate():
+    with pytest.raises(DecodoError, match="TARGET_ACCESS_GATE"):
+        parse_sold_html('<form action id="signin-form"></form>', now=NOW)
+
+
 def test_new_card_class_and_english_month_first_date():
     row = parse_sold_html(page(card(style="s-card", date="Sold Oct 27, 2026", shipping="+£3.50 postage")), now=NOW)["results"][0]
     assert row["shipping_price"] == "3.50"

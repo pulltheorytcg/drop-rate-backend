@@ -39,6 +39,12 @@ For Railway execution the secret belongs in the API service's Variables and
 must be present in the process actually running this command. Adding a variable
 does not itself launch the pilot. Do not paste the key into chat, code or reports.
 
+After the commit containing this pilot is deployed, an authenticated Railway CLI
+can run it inside the existing service without exporting the key. The connected
+Railway MCP used for setup exposes configuration/status operations, not a shell.
+Do not attach this collection job to application startup or pre-deploy checks.
+Those checks have a 300-second timeout and should not depend on Decodo availability.
+
 Use one runner/client for the initial pilot. The rate limiter is per client,
 not a distributed global rate limit: do not launch parallel runners. The pilot
 is sequential, so latency can reduce throughput below the ceiling. Its built-in
@@ -87,6 +93,9 @@ reference coverage. Do not attach raw pilot rows directly to the reference cache
   tests start. The mocked tests were run with a local selector-loop harness that
   rejects real I/O; no production runtime workaround is included. Standard CI
   must independently run the same tests on its normal event loop.
+- The follow-up parser review added regression cases for negative sold labels
+  and valueless HTML attributes; 46 focused tests pass in the mock-only runner.
+  Normal CI must verify the final commit independently.
 - Live provider responses and exact-card recovery are **not yet verified**.
 
 ## Official references
