@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "status": "COLLECTED_REVIEW_REQUIRED",
+  "source": "EBAY",
+  "access_method": "OFFICIAL_EBAY_BROWSE",
+  "marketplace": "EBAY_GB",
+  "observation_type": "ACTIVE",
+  "price_basis": "ASKING_PRICE",
+  "identity_review_required": true,
+  "query": "Energy Marker E-141 English",
+  "limit": 20,
+  "item_location_country": "GB",
+  "fixed_price_only": true,
+  "max_browse_requests": 1,
+  "max_oauth_requests": 1,
+  "browse_requests_sent": 1,
+  "oauth_requests_sent": 1,
+  "database_writes": 0,
+  "newly_priced_references": 0,
+  "items": [
+    {
+      "observation_type": "ACTIVE",
+      "price_basis": "ASKING_PRICE",
+      "identity_review_required": true,
+      "item_id": "v1|920042953008|0",
+      "title": "BGS 9.5 E-141 Energy Marker Premium Card Collection Dragon Ball Fusion World",
+      "item_url": "https://www.ebay.co.uk/itm/920042953008",
+      "price": {
+        "value": "140.00",
+        "currency": "GBP"
+      },
+      "shipping_costs": [
+        {
+          "value": "4.52",
+          "currency": "GBP"
+        }
+      ],
+      "condition": "Graded",
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "item_country": "GB"
+    }
+  ],
+  "started_at": "2026-10-28T21:53:21.632521+00:00",
+  "provider_total": 1,
+  "returned_item_count": 1,
+  "finished_at": "2026-10-28T21:53:22.971227+00:00"
+}

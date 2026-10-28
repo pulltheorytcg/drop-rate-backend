@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "status": "STOPPED",
+  "database_writes": 0,
+  "newly_priced_references": 0,
+  "max_requests": 1,
+  "requests_sent": 1,
+  "proxy_pool": "standard",
+  "javascript": false,
+  "page": 1,
+  "reference": {
+    "provider": "Bandai Official",
+    "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+    "language": "English",
+    "provider_id": "583901:E-141"
+  },
+  "query": "Energy Marker E-141 English",
+  "started_at": "2026-10-28T21:32:08.613109+00:00",
+  "response": {
+    "provider_http_status": 200,
+    "response_bytes": 126507,
+    "target_http_status": 200,
+    "result_task_id": "7521322941875802113",
+    "html": {
+      "html_bytes": 116588,
+      "html_sha256": "a8bbfcd77c1f11fa346e7e9af217ce7e124f6d759c9d667cc0582ebee066ebc4",
+      "html_valid": true,
+      "document_titles": [
+        {
+          "kind": "DOCUMENT_TITLE",
+          "text": "Sign in or Register | eBay",
+          "characters": 26,
+          "sha256": "03195fd647c2ad24dca6bea9e4f2fc142234393f25e0cc24d445aa416009cd4a",
+          "matched_terms": [
+            "sign in"
+          ]
+        }
+      ],
+      "other_titles": [
+        {
+          "kind": "OTHER_TITLE",
+          "text": "eBay Home",
+          "characters": 9,
+          "sha256": "90b7fc137d399f150aae1dcab0c8d9e7debff8980e6905bfd1c26deb19741b6b",
+          "matched_terms": []
+        }
+      ],
+      "total_title_count": 2,
+      "combined_title_matched_terms": [
+        "sign in"
+      ],
+      "gate_reasons": [
+        "DOCUMENT_TITLE",
+        "SIGNIN_FORM_ACTION",
+        "SIGNIN_FORM_ID"
+      ],
+      "matching_signin_forms": [
+        {
+          "action": {
+            "hostname": "signin.ebay.co.uk",
+            "path": "/signin/s"
+          },
+          "action_rule_matched": true,
+          "id_rule_matched": true,
+          "hidden_hint": false
+        },
+        {
+          "action": {
+            "hostname": "signin.ebay.co.uk",
+            "path": "/signin/scl/s"
+          },
+          "action_rule_matched": true,
+          "id_rule_matched": false,
+          "hidden_hint": false
+        }
+      ],
+      "matching_signin_form_count": 2,
+      "result_card_count": 0,
+      "existing_parser": {
+        "status": "STOPPED",
+        "code": "TARGET_ACCESS_GATE",
+        "http_status": null
+      }
+    }
+  },
+  "error": {
+    "code": "TARGET_ACCESS_GATE",
+    "status": null,
+    "retry_after": null
+  },
+  "transport_calls": 1,
+  "finished_at": "2026-10-28T21:32:21.592676+00:00"
+}

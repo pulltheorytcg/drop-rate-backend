@@ -1,0 +1,13 @@
+{
+  "status": "STOPPED",
+  "database_writes": 0,
+  "newly_priced_references": 0,
+  "snapshot_at": "2026-10-28T19:39:19.17738+00:00",
+  "items": [],
+  "requests_sent": 1,
+  "error": {
+    "code": "TARGET_ACCESS_GATE",
+    "status": null,
+    "retry_after": null
+  }
+}
