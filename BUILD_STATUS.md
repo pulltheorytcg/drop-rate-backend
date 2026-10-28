@@ -1,10 +1,36 @@
+## 28 October 2026 — Recovered pricing rollout and Black Bolt source matching
+
+PRs #774, #775 and #776 are merged and live. The latest code deployment is
+`89ed3d11e501364e2cede8f26e1d4d04dee478d2`; readiness is healthy.
+All four applicable final CI workflows passed, including 8,147 backend tests
+(18 skipped), dashboard checks, artwork preservation and the real PostgreSQL
+repair rollback contract.
+
+Corrected all 174 Japanese Black Bolt collector fractions from /174 to /086
+with 174 immutable old/new audit records and an importer guard against the
+stale upstream API. A scoped five-request dry run then five-request apply
+recovered **92** eligible Cardmarket catalogue guides. Exact full-set printing
+checks rejected 80 ambiguous fractions and two missing guide prices.
+
+Coverage is **43,454/67,065 (64.79%)**, up from 43,362 (64.66%). The 89% target
+is **not met**: **16,234** additional records are still needed. Three bounded
+eBay pilots used 30 Browse searches and accepted zero asking estimates;
+shorter retrieval queries recovered listings while identity/language checks
+remained strict. All 616 physical inventory records have an identical
+before/after snapshot, including ownership, costs and selling prices.
+
+Receipts, primary evidence and remaining source/mapping constraints:
+[SV11B live recovery](docs/SV11B_NUMBER_RECOVERY.md) and
+[asking-price pilots](docs/REFERENCE_ASKING_BACKFILL.md).
+
 ## 28 October 2026 - Current-listing estimates and bounded backfill
 
 Recovery validation: all eight GitHub workflows passed on `999c6530`, including
 8,104 backend tests (18 skipped), dashboard UI and both native PostgreSQL
 contracts. The deployment tool applied `20261028224708_reference_asking_prices`;
-readback confirms forced RLS and no direct anon/authenticated access. Deployment
-and the first live batch remain pending; no new prices are claimed yet.
+readback confirms forced RLS and no direct anon/authenticated access. Deployment and three bounded live batches are complete; the asking pilots
+accepted zero estimates. The separate reviewed SV11B repair recovered 92
+existing-source guides, as recorded in the latest section above.
 
 The 22:04 UTC read-only audit measured **43,362 / 67,065 (64.66%)** supported
 references/labelled guides; **16,326** additional records are needed for the
