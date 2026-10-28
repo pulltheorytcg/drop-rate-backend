@@ -8,7 +8,7 @@ on:
       - 'database/migrations/*_reference_asking_prices.sql'
       - 'tests/reference_asking_postgres.py'
       - 'backend/app/reference_asking*.py'
-      - 'backend/scripts/reference_asking*.py'
+      - 'backend/scripts/backfill_reference_asking.py'
   workflow_dispatch:
 
 permissions:

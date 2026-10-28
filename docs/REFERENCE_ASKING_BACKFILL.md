@@ -72,6 +72,18 @@ connection. Metadata availability alone is not pricing evidence. Its cheapest
 25 offers per product are a limited asking sample, and shipping/currency,
 language and printing still need explicit treatment before any import.
 
+The 500/day ceiling is a pilot control, not a capacity plan for 89%. With a
+three-day evidence lifetime and one reference per request, it supports roughly
+1,500 current estimates sustainably even at a 100% acceptance rate. Existing
+guide refreshes, permitted bulk sources and exact mapping improvements must
+cover the larger gap. Raising the request rate alone cannot solve it.
+
+Recovery review on 28 October retained the full 67,065 denominator and confirmed
+43,362 supported values. It recovered the missing disposable-database fixture,
+completed the resumable worker, and added rejection tests for negated condition,
+language, finish and printing evidence. No live price gain is claimed until
+the applied batch receipt and database readback are recorded.
+
 Rollback: stop the operator command. Prior deployed application code ignores
 the additive asking tables. Retain historical evidence and audit records; do
 not delete them to undo display behavior. Revert the display/integration code

@@ -8,6 +8,20 @@ ASKING_METHOD_VERSION = "EBAY_UK_RAW_ASK_V1"
 ASKING_SOURCE = "EBAY_OFFICIAL_BROWSE"
 ASKING_MAX_AGE = timedelta(days=3)
 ASKING_FINISHES = frozenset({"Normal", "Holo", "Reverse Holo", "Foil", "Parallel", "Alt Art", "Manga"})
+MATCHING_EVIDENCE_KEYS = ("provider_variant", "variant_title_terms", "set_title_terms", "set_name")
+MATCHING_EVIDENCE_SQL = "jsonb_build_object(" + ",".join(
+    f"'{key}',r.evidence->'{key}'" for key in MATCHING_EVIDENCE_KEYS) + ")"
+
+
+def reference_number_alias(alias):
+    """Same printing-number grouping for acquisition and cache invalidation."""
+    return f"regexp_replace(lower(regexp_replace(regexp_replace(split_part({alias}.card_number,'/',1),'_p[0-9]+$','','i'),'[^[:alnum:]]','','g')),'^0+([0-9])','\\1')"
+
+
+def matching_reference_evidence(reference):
+    evidence = reference.get("evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    return {key: evidence.get(key) for key in MATCHING_EVIDENCE_KEYS}
 
 
 def asking_cache_join(*, as_of_sql="now()"):
@@ -17,10 +31,23 @@ def asking_cache_join(*, as_of_sql="now()"):
     Identity equality deliberately includes finish/rarity so a corrected printing
     cannot inherit an estimate calculated for an earlier reference identity.
     """
-    return f"""left join tcg.reference_asking_prices a
+    return f"""left join (
+ select other.provider,other.system_code,other.language,other.set_id,
+   {reference_number_alias('other')} as number_alias,count(*)::integer as reference_group_count
+ from tcg.reference_cards other join (
+   select distinct cached_ref.provider,cached_ref.system_code,cached_ref.language,cached_ref.set_id
+   from tcg.reference_cards cached_ref join tcg.reference_asking_prices cached
+   using(provider,system_code,language,provider_id)
+ ) asking_sets using(provider,system_code,language,set_id)
+ group by other.provider,other.system_code,other.language,other.set_id,{reference_number_alias('other')}
+) asking_groups on (asking_groups.provider,asking_groups.system_code,asking_groups.language,asking_groups.set_id)=
+ (r.provider,r.system_code,r.language,r.set_id) and asking_groups.number_alias={reference_number_alias('r')}
+left join tcg.reference_asking_prices a
  on (a.provider,a.system_code,a.language,a.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
  and a.reference_identity=jsonb_build_object('name',r.name,'set_id',r.set_id,
    'card_number',r.card_number,'set_name',s.name,'finish',r.finish,'rarity',r.rarity)
+ and a.evidence->'matching_reference_evidence'={MATCHING_EVIDENCE_SQL}
+ and a.evidence->'reference_group_count'=to_jsonb(asking_groups.reference_group_count)
  and a.method_version='{ASKING_METHOD_VERSION}' and a.currency='GBP'
  and a.evidence->>'source'='{ASKING_SOURCE}'
  and a.evidence->>'shipping_basis'='ITEM_PLUS_SHIPPING'
@@ -38,7 +65,9 @@ ASKING_DISPLAY_SQL = f"""with wanted as (
  select * from jsonb_to_recordset($1::jsonb) as x(
    key text,provider text,system_code text,language text,provider_id text)
 )
-select w.key,a.*,jsonb_build_object('name',r.name,'set_id',r.set_id,
+select w.key,a.*,{MATCHING_EVIDENCE_SQL} as current_matching_reference_evidence,
+ asking_groups.reference_group_count as current_reference_group_count,
+ jsonb_build_object('name',r.name,'set_id',r.set_id,
  'card_number',r.card_number,'set_name',s.name,'finish',r.finish,'rarity',r.rarity) as current_identity
 from wanted w join tcg.reference_cards r using(provider,system_code,language,provider_id)
 join tcg.reference_sets s using(provider,system_code,language,set_id)
@@ -73,6 +102,12 @@ def asking_estimate_view(record, *, now):
                 or evidence.get("shipping_basis") != "ITEM_PLUS_SHIPPING"
                 or evidence.get("shipping_context") != "CONFIGURED_SHOP_POSTCODE_BENCHMARK"
                 or evidence.get("condition") != "Near Mint" or evidence.get("finish") not in ASKING_FINISHES
+                or evidence.get("matching_reference_evidence") != _object(record.get("current_matching_reference_evidence"))
+                or not isinstance(evidence.get("matching_reference_evidence"), dict)
+                or set(evidence["matching_reference_evidence"]) != set(MATCHING_EVIDENCE_KEYS)
+                or type(evidence.get("reference_group_count")) is not int
+                or evidence["reference_group_count"] < 1
+                or evidence["reference_group_count"] != record.get("current_reference_group_count")
                 or not identity or identity != current_identity
                 or set(identity) != {"name", "set_id", "card_number", "set_name", "finish", "rarity"}
                 or any(type(amount) is not int for amount in (low, high, listings, sellers))

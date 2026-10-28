@@ -83,6 +83,14 @@ def _phrase(text: str, term: object) -> bool:
     return bool(needle and f" {needle} " in f" {text} ")
 
 
+def _explicitly_denies(text: str, terms: Sequence[str]) -> bool:
+    # A title such as "not English" is contradictory evidence, even if another
+    # field positively names English. "Non-holo" retains its valid finish
+    # meaning and is handled by _listing_finish rather than this helper.
+    prefix = r"\b(?:not|no|isn t|isnt|without)\s+(?:(?:quite|really|in|a|an|the)\s+)*"
+    return any(re.search(prefix + re.escape(_text(term)) + r"\b", text) for term in terms if _text(term))
+
+
 def _game_words(text: str, alias: str) -> bool:
     return set(_text(alias).split()).issubset(text.split())
 
@@ -208,6 +216,14 @@ def _number_matches(title: str, aspect: str, expected: str) -> bool:
 def _condition_matches(text: str) -> bool:
     # Ordinary raw terminology is allowed, including 'ungraded'. Restrict the
     # price cohort to NM/Mint; mixing played/damaged cards corrupts the median.
+    # Negative condition evidence overrides a positive title or provider label.
+    # Input has already been normalized, including apostrophes and hyphens.
+    if re.search(
+        r"\b(?:not|no|non|isn t|isnt|below|under|less than|worse than|far from|short of)"
+        r"\s+(?:(?:quite|really|truly|fully|in|a)\s+)*(?:near mint|nm|mint)\b",
+        text,
+    ):
+        return False
     if any(_phrase(text, term) for term in ("played", "lightly played", "moderately played", "heavily played", "damaged", "poor", "good", "excellent", "fair", "lp", "mp", "hp", "dmg")):
         return False
     return any(_phrase(text, term) for term in ("near mint", "nm", "mint"))
@@ -216,6 +232,8 @@ def _condition_matches(text: str) -> bool:
 def _listing_finish(row: Mapping[str, Any], spec: Mapping[str, Any]) -> str | None:
     aspects = _aspects(row)
     finish_text = " ".join((_text(row.get("title")), aspects.get("finish", "")))
+    if _explicitly_denies(finish_text, tuple(_FINISHES)):
+        return None
     normal = any(_phrase(finish_text, term) for term in ("normal", "regular", "non holo", "nonholo", "non foil", "nonfoil"))
     reverse = _phrase(finish_text, "reverse")
     positive = re.sub(r"\bnon\s*(?:holofoil|holo|foil)\b", "", finish_text)
@@ -266,14 +284,14 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     # Do not infer English from a UK seller or from the absence of Japanese.
     language_text = " ".join((title, aspects.get("language", "")))
     found_languages = {lang for lang, aliases in _LANGUAGES.items() if any(_phrase(language_text, alias) for alias in aliases)}
-    if found_languages != {spec["language"]}:
+    if found_languages != {spec["language"]} or _explicitly_denies(language_text, _LANGUAGES[spec["language"]]):
         return "LANGUAGE_MISMATCH_OR_UNKNOWN"
-    if not all(token in title.split() for token in _text(reference["name"]).split()):
+    if not all(token in title.split() for token in _text(reference["name"]).split()) or _explicitly_denies(title, (reference["name"],)):
         return "NAME_MISMATCH"
     if not _number_matches(str(raw_title), aspects.get("card number", ""), reference["card_number"]):
         return "CARD_NUMBER_MISMATCH"
     set_text = " ".join((title, aspects.get("set", "")))
-    if not all(_phrase(set_text, term) for term in spec["set_terms"]):
+    if not all(_phrase(set_text, term) for term in spec["set_terms"]) or _explicitly_denies(set_text, spec["set_terms"]):
         return "SET_MISMATCH"
     # Known prefix collisions cannot be established by substring containment.
     for base, expanded in (("base set", "base set 2"), ("team rocket", "team rocket returns")):
@@ -286,7 +304,9 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
         return "SET_MISMATCH"
     if _variant_markers(all_text) != spec["markers"]:
         return "VARIANT_MISMATCH"
-    if not all(_phrase(title, term) for term in spec["variant_terms"]):
+    if any(_explicitly_denies(all_text, _SPECIAL_MARKERS[marker]) for marker in spec["markers"]):
+        return "VARIANT_MISMATCH"
+    if not all(_phrase(title, term) for term in spec["variant_terms"]) or _explicitly_denies(title, spec["variant_terms"]):
         return "VARIANT_PROOF_MISSING"
     if _listing_finish(row, spec) is None:
         return "FINISH_MISMATCH_OR_UNKNOWN"

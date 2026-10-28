@@ -14,7 +14,7 @@ const games=[{game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',languages:['Eng
 const askingFixture=()=>({status:'ASKING_PRICE_ESTIMATE',source:'EBAY_OFFICIAL_BROWSE',method_version:'EBAY_UK_RAW_ASK_V1',
  estimate_minor:1234,estimate_high_minor:1400,currency:'GBP',listing_count:4,seller_count:3,
  observed_at:new Date(Date.now()-60000).toISOString(),expires_at:new Date(Date.now()+3600000).toISOString(),
- shipping_basis:'ITEM_PLUS_SHIPPING',condition:'Near Mint',finish:'Foil',physical_valuation_eligible:false,recommended_retail_minor:null});
+ shipping_basis:'ITEM_PLUS_SHIPPING',shipping_context:'CONFIGURED_SHOP_POSTCODE_BENCHMARK',condition:'Near Mint',finish:'Foil',physical_valuation_eligible:false,recommended_retail_minor:null});
 let checks=0;
 function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a',embedded=false,gameHandler=async()=>({items:games})){
  const dom=new JSDOM('',{runScripts:'outside-only',url:'https://example.test',pretendToBeVisual:true});const w=dom.window;
@@ -36,7 +36,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Asking-price estimate: £12.34');
   assert.match(f.browser.sheet.textContent,/eBay current listings: 4 listings from 3 sellers/);
   assert.ok(f.browser.sheet.textContent.includes(new Date(row.asking_price_estimate.observed_at).toLocaleDateString('en-GB')));
-  assert.match(f.browser.sheet.textContent,/Estimate basis: Near Mint · Foil · Item price plus shipping/);
+  assert.match(f.browser.sheet.textContent,/Estimate basis: Near Mint · Foil · Shop delivery estimate included/);
   assert.match(f.browser.sheet.textContent,/Current asking prices; not completed sales or a valuation of your copy/);
   assert.doesNotMatch(f.browser.sheet.textContent,/Cardmarket|No verified market value/);
   assert.equal(row.market_value_minor,null);
@@ -49,6 +49,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const invalid=[null,{}, {status:'AVAILABLE'}, {source:'CARDMARKET'}, {method_version:'unknown'}, {currency:'USD'},
    {estimate_minor:0},{estimate_minor:1234.5},{estimate_minor:'1234'},{estimate_high_minor:1233},{estimate_high_minor:null},
    {listing_count:2},{seller_count:2},{seller_count:5},{shipping_basis:'ITEM_ONLY'},
+   {shipping_context:null},{shipping_context:'BUYER_POSTCODE'},
    {condition:'Graded'},{finish:'Unknown'},{physical_valuation_eligible:true},{recommended_retail_minor:1300},
    {observed_at:'bad'},{expires_at:'bad'},{observed_at:new Date(Date.now()+60000).toISOString()},
    {observed_at:new Date(Date.now()-4*86400000).toISOString()},

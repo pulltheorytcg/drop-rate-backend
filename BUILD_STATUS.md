@@ -22,7 +22,7 @@ recorded in the associated PR before reporting this as active.
 See [current-listing rollout](docs/REFERENCE_ASKING_BACKFILL.md) and
 [database contract](docs/REFERENCE_ASKING_DATABASE_CONTRACT.md).
 
-## 28 October 2026 — Decodo eBay acquisition pilot prepared
+## 28 October 2026 - Decodo eBay acquisition pilot prepared
 
 Verified **43,279 / 67,065 (64.53%)** at 19:39 UTC; **16,409** additional
 references are required for 89%. Added a separate Decodo Web Data API client,

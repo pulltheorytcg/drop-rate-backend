@@ -11,6 +11,7 @@ window.DropRateCatalogue = (() => {
       (["AVAILABLE","REFERENCE_ESTIMATE","CATALOGUE_GUIDE","CONDITION_REFERENCE"].includes(shared?.status) && Number.isInteger(shared.market_value_minor) && shared.market_value_minor>0))return null;
     if(!estimate || estimate.status!=="ASKING_PRICE_ESTIMATE" || estimate.source!=="EBAY_OFFICIAL_BROWSE" ||
       estimate.method_version!=="EBAY_UK_RAW_ASK_V1" || estimate.currency!=="GBP" || estimate.shipping_basis!=="ITEM_PLUS_SHIPPING" ||
+      estimate.shipping_context!=="CONFIGURED_SHOP_POSTCODE_BENCHMARK" ||
       estimate.physical_valuation_eligible!==false || estimate.recommended_retail_minor!==null || estimate.condition!=="Near Mint" ||
       !["Normal","Holo","Reverse Holo","Foil","Parallel","Alt Art","Manga"].includes(estimate.finish) ||
       !Number.isSafeInteger(estimate.estimate_minor) || estimate.estimate_minor<=0 ||
@@ -303,7 +304,7 @@ window.DropRateCatalogue = (() => {
       const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","",estimate?"About this estimate":"About this value"));content.append(evidence);
       if(estimate){
         evidence.append(node("p","dr-browse-reference-note","eBay current listings: "+estimate.listing_count+" listings from "+estimate.seller_count+" sellers · Checked "+new Date(estimate.observed_at).toLocaleDateString("en-GB")),
-          node("p","dr-browse-reference-note","Estimate basis: "+estimate.condition+" · "+estimate.finish+" · Item price plus shipping"),
+          node("p","dr-browse-reference-note","Estimate basis: "+estimate.condition+" · "+estimate.finish+" · Shop delivery estimate included"),
           node("p","dr-browse-reference-note","Current asking prices; not completed sales or a valuation of your copy."));
       }
       if(row.shared_price && !estimate)evidence.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));

@@ -104,6 +104,54 @@ def test_ordinary_raw_conditions_are_not_confused_with_grading(condition):
     assert estimate(rows)["status"] == "READY"
 
 
+@pytest.mark.parametrize("condition", [
+    "Not Near Mint", "not mint", "not NM", "Not quite Near Mint",
+    "Not in mint condition", "Non-mint", "isn't near mint", "No NM",
+    "below Near Mint", "less than mint", "worse than NM", "far from mint",
+])
+@pytest.mark.parametrize("location", ["title", "aspect"])
+def test_negative_raw_condition_overrides_positive_listing_label(condition, location):
+    # Keep the ordinary provider condition positive: contradictions must still
+    # exclude this seller from the minimum three-comparable estimate.
+    bad = row(1)
+    if location == "title":
+        bad["title"] += " " + condition
+    else:
+        bad["localizedAspects"] = [{"name": "Card Condition", "value": condition}]
+    result = estimate([bad, row(2), row(3)])
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["rejection_counts"]["CONDITION_OUTSIDE_NM_MINT"] == 1
+    assert result["estimate_minor"] is None
+
+
+@pytest.mark.parametrize("denial,reason", [
+    ("not English", "LANGUAGE_MISMATCH_OR_UNKNOWN"),
+    ("not in English", "LANGUAGE_MISMATCH_OR_UNKNOWN"),
+    ("not holo", "FINISH_MISMATCH_OR_UNKNOWN"),
+    ("No holo", "FINISH_MISMATCH_OR_UNKNOWN"),
+    ("not Charizard", "NAME_MISMATCH"),
+    ("not Base Set", "SET_MISMATCH"),
+])
+def test_direct_identity_denial_cannot_supply_positive_match(denial, reason):
+    bad = row(1, title=row(1)["title"] + " " + denial)
+    result = estimate([bad, row(2), row(3)])
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["rejection_counts"][reason] == 1
+
+
+def test_denied_first_edition_is_not_exact_print_proof():
+    ref = reference(reference_group_count=2, evidence={"variant_title_terms": ["First Edition"]})
+    rows = [row(i, title=row(i)["title"] + " Not First Edition") for i in range(3)]
+    result = estimate(rows, ref)
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["rejection_counts"]["VARIANT_MISMATCH"] == 3
+
+
+def test_explicit_non_holo_remains_a_valid_normal_finish():
+    rows = [row(i, title=row(i)["title"].replace(" Holo ", " Non-Holo ")) for i in range(3)]
+    assert estimate(rows, reference(finish="Normal"))["status"] == "READY"
+
+
 @pytest.mark.parametrize("replacement", [
     ("Charizard", "Charmeleon"), ("4/102", "44/102"), ("4/102", "4/130"),
     ("Base Set", "Base Set 2"), ("Pokemon", "One Piece"), ("English", "Japanese"),

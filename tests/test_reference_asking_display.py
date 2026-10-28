@@ -12,6 +12,8 @@ from app.reference_asking_display import (
 NOW = datetime(2026, 10, 28, 12, tzinfo=timezone.utc)
 IDENTITY = {"name": "Energy Marker", "set_id": "PR", "card_number": "E-141",
             "set_name": "Promos", "finish": "Normal", "rarity": "Promo"}
+MATCHING_EVIDENCE = {"provider_variant": None, "variant_title_terms": None,
+                     "set_title_terms": None, "set_name": None}
 
 
 def record(**changes):
@@ -19,8 +21,12 @@ def record(**changes):
             "estimate_minor": 700, "estimate_high_minor": 900, "listing_count": 4, "seller_count": 3,
             "observed_at": NOW - timedelta(hours=1), "expires_at": NOW + timedelta(days=2),
             "reference_identity": dict(IDENTITY), "current_identity": dict(IDENTITY),
+            "current_matching_reference_evidence": dict(MATCHING_EVIDENCE),
+            "current_reference_group_count": 1,
             "evidence": {"source": "EBAY_OFFICIAL_BROWSE", "shipping_basis": "ITEM_PLUS_SHIPPING",
                          "shipping_context": "CONFIGURED_SHOP_POSTCODE_BENCHMARK",
+                         "matching_reference_evidence": dict(MATCHING_EVIDENCE),
+                         "reference_group_count": 1,
                          "condition": "Near Mint", "finish": "Normal"},
             **changes}
 
@@ -67,6 +73,12 @@ def test_shipping_context_is_required_and_private_destination_never_exposed():
     {"evidence": {**record()["evidence"], "finish": "Unknown"}},
     {"current_identity": {**IDENTITY, "finish": "Foil"}},
     {"current_identity": {**IDENTITY, "rarity": "Secret Rare"}},
+    {"current_matching_reference_evidence": {**MATCHING_EVIDENCE, "provider_variant": "Parallel"}},
+    {"current_reference_group_count": 2},
+    {"current_matching_reference_evidence": None},
+    {"evidence": {**record()["evidence"], "reference_group_count": True}},
+    {"evidence": {**record()["evidence"], "reference_group_count": 0}},
+    {"evidence": {**record()["evidence"], "matching_reference_evidence": {}}},
     {"reference_identity": None},
 ])
 def test_unusable_or_changed_printing_cache_is_hidden(changes):
