@@ -54,6 +54,86 @@ def japanese_cardmarket_card(*, printed='OP01-001', version=1, ordinal='1.0', **
     return row
 
 
+def numbered_english_base(**fields):
+    row = card(name='Roronoa Zoro (001)', cardmarket={
+        'product_name': 'Roronoa Zoro (OP01-001)',
+        'product_url': 'https://www.cardmarket.com/en/OnePiece/Products/Singles/Romance-Dawn/Roronoa-Zoro-OP01-001',
+        'prices': {'trend': 12.34},
+    })
+    row.update(fields)
+    return row
+
+
+def test_printed_number_title_matches_only_the_independently_identified_base():
+    base = numbered_english_base()
+    groups = market.collect_reference_groups([en()], NOW)
+    alternate = card(id='op_alt', name='Roronoa Zoro (Alternate Art)', sub_type_name='Alternate Art')
+    assert market.matches_for_complete_set(groups, 'English', 'OP01', [base, alternate]) == [(en(), base)]
+    assert market.matches_for_complete_set(groups, 'English', 'OP01', [alternate, base]) == [(en(), base)]
+    assert market.matches_for_complete_set(groups, 'English', 'OP01', [base, card(id='op_unknown', sub_type_name=None)]) == []
+    assert market.matches_for_complete_set(groups, 'English', 'OP01', [base, numbered_english_base(id='op_other_normal')]) == []
+
+
+@pytest.mark.parametrize('name', [
+    'Roronoa Zoro (002)', 'Roronoa Zoro (1)', 'Roronoa Zoro (0001)',
+    'Roronoa Zoro (001) (Alternate Art)', 'Roronoa Zoro (Alternate Art) (001)',
+    'Roronoa Zoro (OP02-001)', 'Different Character (001)',
+])
+def test_printed_number_title_never_discards_conflicting_identity(name):
+    assert not market.english_base_name_matches(en(), numbered_english_base(name=name))
+
+
+@pytest.mark.parametrize('fields', [
+    {'sub_type_name': 'Foil'}, {'sub_type_name': None}, {'card_number': 'OP02-001'},
+    {'cardmarket': None},
+])
+def test_printed_number_title_requires_explicit_base_metadata(fields):
+    assert not market.english_base_name_matches(en(), numbered_english_base(**fields))
+
+
+@pytest.mark.parametrize('title', [
+    '', 'Roronoa Zoro', 'Roronoa Zoro (OP02-001)', 'Roronoa Zoro (OP01-002)',
+    'Different Character (OP01-001)', 'Roronoa Zoro (OP01-001) (V.2)',
+])
+def test_printed_number_title_requires_agreeing_cardmarket_title(title):
+    source = numbered_english_base()
+    source['cardmarket']['product_name'] = title
+    assert not market.english_base_name_matches(en(), source)
+
+
+@pytest.mark.parametrize('replacement', [
+    'https://invalid.example/en/OnePiece/Products/Singles/Romance-Dawn/Roronoa-Zoro-OP01-001',
+    'https://www.cardmarket.com/en/OnePiece/Products/Singles/Romance-Dawn/Roronoa-Zoro-OP01-002',
+    'https://www.cardmarket.com/en/OnePiece/Products/Singles/Romance-Dawn/Roronoa-Zoro-OP01-001-V2',
+    'https://www.cardmarket.com/en/OnePiece/Products/Singles/Romance-Dawn-Japanese/Roronoa-Zoro-OP01-001',
+    'https://www.cardmarket.com/en/OnePiece/Products/Singles/Romance-Dawn-Non-English/Roronoa-Zoro-OP01-001',
+    'https://www.cardmarket.com/en/OnePiece/Products/Singles/Romance-Dawn/Roronoa-Zoro-OP01-001?variant=2',
+    'https://www.cardmarket.com/en/OnePiece/Products/Singles/Romance-Dawn/Roronoa-Zoro-OP01-001-V1',
+    'https://[invalid',
+])
+def test_printed_number_title_requires_agreeing_cardmarket_url(replacement):
+    source = numbered_english_base()
+    source['cardmarket']['product_url'] = replacement
+    assert not market.english_base_name_matches(en(), source)
+
+
+def test_printed_number_title_does_not_match_japanese_or_parallel_reference():
+    source = numbered_english_base()
+    assert not market.english_base_name_matches(en(language='Japanese'), source)
+    assert not market.english_base_name_matches(en(provider_id='OP01-001_p1'), source)
+    quote = market.catalogue_guide(en(), source, '3188', FxQuote('EUR', 'GBP', Decimal('.86'), NOW, NOW, 'ECB_EURO_REFERENCE_RATES'), NOW)
+    assert quote['physical_valuation_eligible'] is False
+    assert quote['sold_comparable'] is False
+
+
+def test_printed_number_title_requires_consistent_explicit_base_version():
+    source = numbered_english_base()
+    source['cardmarket']['product_name'] += ' (V.1)'
+    assert not market.english_base_name_matches(en(), source)
+    source['cardmarket']['product_url'] += '-V1'
+    assert market.english_base_name_matches(en(), source)
+
+
 def test_japanese_ordinals_require_printing_in_cardmarket_title_and_url():
     base=japanese_cardmarket_card()
     assert market.japanese_cardmarket_printing(base,'OP01')==('OP01-001',1)

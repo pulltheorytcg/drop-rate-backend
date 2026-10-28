@@ -1,3 +1,17 @@
+## 28 October 2026 — One Piece numbered-title recovery under verification
+
+The current measured coverage remains **43,277 / 67,065 (64.53%)**, requiring
+**16,411** additional supported prices for the 89% goal. Fresh One Piece bulk
+exports do not add safe candidates under the existing exact matchers.
+
+A narrowly scoped English base-title matcher accepts the provider's documented
+own-number suffix only with agreeing Cardmarket title/URL and base-version
+evidence. Existing collision, release, rarity, quota and write protections
+remain. Local tests pass after correcting a workspace-only transport dependency;
+normal CI and live source/deployment verification remain required. No new
+coverage is attributed to this candidate change. See the
+[matching contract](docs/ONE_PIECE_NUMBERED_NAME_RECOVERY_20261028.md).
+
 ## 28 October 2026 — 89% physical-card pricing goal and importer recovery
 
 The founder's current coverage target is **89%**, using the unchanged full
