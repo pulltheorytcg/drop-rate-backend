@@ -1,3 +1,20 @@
+## 28 October 2026 — Decodo eBay acquisition pilot prepared
+
+Verified **43,279 / 67,065 (64.53%)** at 19:39 UTC; **16,409** additional
+references are required for 89%. Added a separate Decodo Web Data API client,
+a 36-reference diagnostic manifest, reproducible read-only coverage SQL and a
+plan-first CLI. The client caps requests at 10/second and 200/run; the CLI starts
+at 1/second and 72/run and stops on provider, access-gate or schema errors.
+
+The founder instructed proceeding with Decodo while handling the eBay permission
+request separately. The remaining execution input is `TCG_DECODO_API_KEY`.
+No live scrape, new valuation, database write, subscription or schedule has been
+activated. Search results remain evidence for review until exact matching and
+live payload validation justify production imports.
+
+See [pilot usage and validation](docs/DECODO_EBAY_PILOT.md) and the
+[source evaluation](docs/MARKET_COVERAGE_SOURCE_PILOT_20261028.md).
+
 ## 28 October 2026 — One Piece numbered-title recovery under verification
 
 The current measured coverage remains **43,277 / 67,065 (64.53%)**, requiring
