@@ -277,6 +277,51 @@ def japanese_cardmarket_printing(product: dict, release: str) -> tuple[str, int 
     return number, int(title_version) if title_version is not None else None
 
 
+def english_base_name_matches(ref: dict, product: dict) -> bool:
+    """Accept a printed-number title only with independent base-product proof.
+
+    Provider titles may append ``(001)`` to the card name. Do not use a
+    generic suffix stripper: alternate-art labels and conflicting numbers
+    must remain meaningful. This helper does not resolve product collisions.
+    """
+    expected = normalized(html.unescape(ref["name"]))
+    source_name = html.unescape(str(product.get("name") or ""))
+    if normalized(source_name) == expected:
+        return True
+    number = str(ref.get("card_number") or "")
+    if (ref.get("language") != "English" or ref.get("provider_id") != number
+            or not BASE_NUMBER.fullmatch(number)
+            or product.get("card_number") != number
+            or str(product.get("sub_type_name") or "").casefold() != "normal"):
+        return False
+    named_number = re.fullmatch(r"(.+) \(([0-9]{3})\)", source_name)
+    if (named_number is None or named_number[2] != number.rsplit("-", 1)[1]
+            or normalized(named_number[1]) != expected):
+        return False
+    market = product.get("cardmarket")
+    if not isinstance(market, dict):
+        return False
+    title = JP_CARDMARKET_NAME.fullmatch(html.unescape(str(market.get("product_name") or "")))
+    if title is None or title[1] != number or title[2] not in (None, "1"):
+        return False
+    title_name = str(market.get("product_name") or "").split(" (" + number + ")", 1)[0]
+    if normalized(html.unescape(title_name)) != expected:
+        return False
+    try:
+        url = urlsplit(str(market.get("product_url") or ""))
+    except ValueError:
+        return False
+    parts = url.path.split("/")
+    return bool(
+        url.scheme == "https" and url.netloc in {"cardmarket.com", "www.cardmarket.com"}
+        and not url.query and not url.fragment and len(parts) == 7
+        and parts[1] in {"en", "it", "de", "fr", "es", "pt"}
+        and parts[2:5] == ["OnePiece", "Products", "Singles"]
+        and not parts[5].casefold().endswith(("-japanese", "-non-english"))
+        and re.fullmatch(r".+-" + re.escape(number) + (r"-V1" if title[2] else ""), parts[6])
+    )
+
+
 def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, products: list[dict], diagnostics=None):
     by_number = defaultdict(list)
     jp_printings = {}
@@ -339,7 +384,7 @@ def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, product
         if str(product.get("sub_type_name") or "Normal").casefold() not in {"normal", "foil", "holofoil"}:
             continue
         counts["matching_subtypes"]+=1
-        if lang == "English" and normalized(html.unescape(product.get("name") or "")) != normalized(html.unescape(refs[0]["name"])):
+        if lang == "English" and not english_base_name_matches(refs[0], product):
             continue
         counts["matching_english_names"]+=1
         matches.extend((ref,product) for ref in refs)
