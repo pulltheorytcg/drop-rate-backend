@@ -1,7 +1,7 @@
 """Plan missing reference searches, or explicitly collect/apply asking estimates.
 
 Default is database-read-only planning. --run creates a durable run receipt and
-makes at most 25 Browse searches (override <=500). --apply additionally writes
+makes at most 25 Browse searches (override <=2000). --apply additionally writes
 only validated READY estimates to separate asking history/cache. No scheduling.
 --resume-run skips all previously reserved references, including uncertain calls.
 """
@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.db import create_pool
 from app.ebay_official_client import EbayOfficialClient
-from app.reference_asking_backfill import GAMES, backfill_reference_asking
+from app.reference_asking_backfill import GAMES, MAX_DAILY, backfill_reference_asking
 from app.settings import get_settings
 
 
@@ -35,8 +35,8 @@ def arguments(argv=None):
     parser.add_argument("--language", choices=("English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese"))
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
-    if not 1 <= args.max_queries <= 500:
-        parser.error("--max-queries must be 1..500")
+    if not 1 <= args.max_queries <= MAX_DAILY:
+        parser.error(f"--max-queries must be 1..{MAX_DAILY}")
     if (args.apply or args.resume_run) and not args.run:
         parser.error("--apply and --resume-run require explicit --run")
     if args.output is not None and args.output.exists():
