@@ -117,3 +117,14 @@ nonphysical listings, 25 failed the exact-set check, and the remainder failed
 other identity checks. This confirms retrieval improved while acceptance
 remained conservative. Twenty Browse requests total were used by these two
 pilots; no physical inventory or store prices were changed.
+
+A third collection-only Pokémon English run,
+`74b1fdf8-247c-4489-bc29-d87d1ecff26c`, used ten requests and retrieved
+205 summaries with zero accepted estimates. It rejected 77 graded listings
+and 77 listings with unknown/mismatching language, among other identity
+failures. Thirty Browse requests were used across the three pilots.
+
+The separate, audited Black Bolt numbering repair recovered 92 existing-source
+guides. Verified combined coverage is now **43,454/67,065 (64.79%)**, with
+zero asking estimates and **16,234** additional records needed for 89%.
+See [the live correction receipt](SV11B_NUMBER_RECOVERY.md).
