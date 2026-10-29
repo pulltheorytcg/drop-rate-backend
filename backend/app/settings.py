@@ -118,6 +118,7 @@ class Settings:
     catalogue_source_archive_enabled: bool = False
     catalogue_r2_cache_build_enabled: bool = False
     catalogue_daily_refresh_enabled: bool = False
+    one_piece_base_recovery_enabled: bool = False
     catalogue_maintenance_actor_user_id: str | None = None
     catalogue_price_refresh_limit: int = 20000
     tcgcsv_free_enabled: bool = False
@@ -237,6 +238,7 @@ class Settings:
             catalogue_source_archive_enabled=_boolean("TCG_CATALOGUE_SOURCE_ARCHIVE_ENABLED", False),
             catalogue_r2_cache_build_enabled=_boolean("TCG_R2_CATALOGUE_CACHE_BUILD_ENABLED", False),
             catalogue_daily_refresh_enabled=_boolean("TCG_CATALOGUE_DAILY_REFRESH_ENABLED", False),
+            one_piece_base_recovery_enabled=_boolean("TCG_ONE_PIECE_BASE_RECOVERY_ENABLED", False),
             catalogue_maintenance_actor_user_id=_optional("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID"),
             catalogue_price_refresh_limit=_bounded_int("TCG_CATALOGUE_PRICE_REFRESH_LIMIT", 20000, minimum=1, maximum=30000),
             tcgcsv_free_enabled=_boolean("TCG_TCGCSV_FREE_ENABLED", False),

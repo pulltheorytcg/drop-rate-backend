@@ -46,6 +46,7 @@ log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
+ONE_PIECE_BASE_RECOVERY_JOB='ONE_PIECE_OFFICIAL_BASE_GUIDES'
 POKEWALLET_JOB_REVISION=9
 POKEWALLET_DBS_JOB_REVISION=3
 # At most 18 DBS + 10 One Piece + 7 Japanese Pokémon free requests/hour.
@@ -140,6 +141,15 @@ def weekly_price_due(run,now,*,revision=None):
     if run['status']=='COMPLETE':
         return run['started_at']<weekly_price_slot(now)
     return due(run,now,revision=revision)
+
+
+def one_piece_recovery_due(run, now):
+    """An explicitly enabled, idempotent one-time recovery, not a new daily feed."""
+    if run is None:
+        return True
+    if run['status']=='COMPLETE':
+        return False
+    return run['started_at']<now-timedelta(hours=1)
 
 
 def due(run,now,*,revision=None):
@@ -281,6 +291,37 @@ async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
         log.warning('Weekly bulk reference prices status=%s checked=%s priced=%s',status,checked,priced)
 
 
+async def run_one_piece_base_recovery(pool, actor):
+    """One-time reuse of the existing free Cardmarket reference-only importer.
+
+    Called only with the opt-in flag under the catalogue maintenance lock and
+    database capacity guard. No physical inventory/Shopify or eBay operations.
+    """
+    report={'importer_revision':1,'source':'CARDMARKET_BULK_SINGLES',
+            'scope':'REFERENCE_ONLY','inventory_writes':0,'store_price_writes':0}
+    run_id=await receipt(pool,actor,ONE_PIECE_BASE_RECOVERY_JOB,'RUNNING',report)
+    status='INCOMPLETE'
+    try:
+        result=await refresh_one_piece_prices(
+            pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),official_base_only=True)
+        report['one_piece']=result
+        if result.get('checked',0)>0 and result.get('provider_failures',0)==0:
+            status='COMPLETE'
+        else:
+            report['reason']='SOURCE_UNAVAILABLE_OR_EMPTY'
+    except asyncio.CancelledError:
+        report['reason']='INTERRUPTED'
+        raise
+    except Exception as exc:
+        report['reason']=type(exc).__name__
+        status='FAILED'
+    finally:
+        await receipt(pool,actor,ONE_PIECE_BASE_RECOVERY_JOB,status,report,run_id)
+    log.warning('One Piece official-base reference recovery status=%s priced=%s',
+                status,report.get('one_piece',{}).get('official_base_priced',0))
+    return status
+
+
 def coverage_lags_pricing(latest):
     """Retry a dropped coverage receipt after a completed source-price pass.
 
@@ -316,7 +357,7 @@ async def daily_pass(pool,settings):
                     log.error('CATALOGUE_BULK_REFRESH_DEFERRED %s', json.dumps(capacity.report(), sort_keys=True))
                     return
                 runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
-                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES') order by job,started_at desc")
+                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES','ONE_PIECE_OFFICIAL_BASE_GUIDES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
             latest[TCGCSV_JOB]=last.get(TCGCSV_JOB)
@@ -437,7 +478,8 @@ async def daily_pass(pool,settings):
             if weekly_price_due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
                 await refresh_sealed_prices(pool,actor)
                 sealed_refreshed=True
-            if weekly_price_due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION):
+            weekly_due=weekly_price_due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION)
+            if weekly_due:
                 # Record the complete database scope before a potentially long
                 # first fill; the final receipt then reflects its progress.
                 await record_coverage(pool,actor)
@@ -446,6 +488,11 @@ async def daily_pass(pool,settings):
                 await refresh_cardmarket_values(pool,actor)
                 await record_coverage(pool,actor)
                 coverage_recorded=True
+            elif (getattr(settings,'one_piece_base_recovery_enabled',False)
+                  and one_piece_recovery_due(latest.get(ONE_PIECE_BASE_RECOVERY_JOB),now)):
+                if await run_one_piece_base_recovery(pool,actor)=='COMPLETE':
+                    await record_coverage(pool,actor)
+                    coverage_recorded=True
             if (not coverage_recorded and
                 (sealed_refreshed or due(latest.get('CATALOGUE_COVERAGE'),now)
                   or coverage_lags_pricing(latest))):

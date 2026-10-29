@@ -124,6 +124,15 @@ async def test_published_base_guide_remains_reference_only_and_does_not_price_pa
                      set_id=base['set_id'],quotes=[quote])
     assert guide_values(product,[matched_ref],now=now)==[]
 
+    # The emergency recovery mode must preserve existing parallel and other
+    # market rows exactly as they were, rather than writing NULL valuations.
+    writes.clear()
+    recovery=await market.refresh_one_piece_prices(
+        object(),uuid4(),FX(),official_base_only=True)
+    assert recovery['recovery_mode']=='OFFICIAL_BASE_ONLY'
+    assert recovery['priced']==recovery['official_base_priced']==1
+    assert len(writes)==1 and writes[0][3]=='EB04-007'
+
 
 def test_recorded_zoro_special_print_does_not_inherit_asia_region_price():
     singles,packaging=fixtures()
