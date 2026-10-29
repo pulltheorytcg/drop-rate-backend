@@ -39,7 +39,7 @@ from .reference_sealed import normalized as source_normalized
 
 SOURCE = "CARDTRADER_EXPANSION_ASKING"
 JOB = "CARDTRADER_EXPANSION_GUIDES"
-REVISION = 3
+REVISION = 4
 MIN_SELLERS = 3
 MAX_PRICE_SPREAD = Decimal("3")
 MAX_SETS_PER_RUN = 30
@@ -181,6 +181,36 @@ def _signature(properties):
                         if any(flag in str(k).lower() for flag in keys)))
 
 
+def confirmed_single_unit(row, counts):
+    """Handle the two documented unit fields without treating a multipack as one.
+
+    CardTrader marketplace responses may omit the legacy bundle_size field,
+    while exposing bundled_quantity. Only explicit one-unit evidence is valid.
+    An explicit multi-unit bundle always wins over any conflicting fallback.
+    """
+    primary = _bundle_size(row)
+    supplementary = row.get("bundled_quantity")
+    if primary == 1:
+        counts["confirmed_bundle_size_one"] += 1
+        return True
+    if primary is None:
+        counts["bundle_size_missing_or_invalid"] += 1
+    elif primary == 0:
+        counts["bundle_size_zero"] += 1
+    else:
+        counts["bundle_size_multiple"] += 1
+    if type(supplementary) is int and supplementary == 1:
+        counts["bundled_quantity_one"] += 1
+        if primary in (None, 0):
+            counts["single_unit_fallback_confirmed"] += 1
+            return True
+    elif supplementary is None:
+        counts["bundled_quantity_missing"] += 1
+    else:
+        counts["bundled_quantity_not_one"] += 1
+    return False
+
+
 def eligible_seller_offers(rows, blueprint_id, expansion_id, *, diagnostics=None):
     """Return eligible rows; GBP-normalised seller deduplication happens later."""
     offers = []
@@ -198,7 +228,7 @@ def eligible_seller_offers(rows, blueprint_id, expansion_id, *, diagnostics=None
         if _on_vacation(row):
             counts["unavailable_seller"] += 1
             continue
-        if _bundle_size(row) != 1:
+        if not confirmed_single_unit(row, counts):
             counts["not_confirmed_single_unit"] += 1
             continue
         if _quantity(row) < 1:
