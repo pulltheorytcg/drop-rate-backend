@@ -1,3 +1,22 @@
+## 29 October 2026 — Full details verified; final normalization and resumed allowance
+
+The repaired worker completed a second 100-call verification slice with 42
+searches, 58 full listing details and zero accepted prices. Actual details
+confirm missing language/finish evidence and some condition conflicts. The
+daily ledger is 1,140/2,000; the next continuation has at most 860 calls.
+
+Final normalization fixes accept explicit Non-Holofoil and deduplicate equal
+item-specific values while preserving contradictions. Unresolved suffixed
+Masters printings are excluded before search, and the bounded receipt shows
+different actual rejection reasons. All 348 focused tests pass locally; normal
+CI must pass on this final head before execution. Prior head passed 8,269
+backend tests and all six other applicable checks and deployed successfully.
+
+Coverage remains 43,454/67,066 (gap 16,235 to 89%); no gain is claimed from
+requests or tests. Resume run `d5722b11-ec47-4a16-b075-6cc05d5f2054` using the
+same English/apply scope. Full evidence and cursor are in
+[the detail recovery runbook](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
 ## 29 October 2026 — Live detail canary completed; printing-specific follow-up
 
 The repaired worker completed a 40-request canary: 26 searches, 14 actual

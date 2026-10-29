@@ -137,10 +137,11 @@ def test_explicit_not_professionally_graded_means_raw(location):
     assert estimate(rows)["status"] == "READY"
 
 
-def test_unresolved_official_masters_special_print_is_excluded_before_discovery():
-    ref = masters("BT21-102_PR", name="Golden Frieza, Shining Emperor")
+@pytest.mark.parametrize("suffix", ["PR", "PR02", "SPR", "SPR02", "BD", "GDR", "S"])
+def test_unresolved_official_masters_special_print_is_excluded_before_discovery(suffix):
+    ref = masters("BT21-102_" + suffix, name="Golden Frieza, Shining Emperor")
     assert reference_asking_eligibility(ref) == "UNRESOLVED_PARALLEL_IDENTITY"
-    assert ref["card_number"] == "BT21-102_PR"  # No silent base-number rewrite.
+    assert ref["card_number"] == "BT21-102_" + suffix  # No silent base-number rewrite.
 
 
 def test_graded_yes_overrides_ungraded_sentinel():
@@ -149,3 +150,70 @@ def test_graded_yes_overrides_ungraded_sentinel():
         {"name": "Graded", "value": "Yes"}])
     result = estimate([bad, detailed(2), detailed(3)])
     assert result["rejection_counts"]["GRADED_OR_SLAB"] == 1
+
+
+@pytest.mark.parametrize("finish", ["Non-Holofoil", "non holofoil", "NonHolofoil"])
+@pytest.mark.parametrize("location", ["title", "aspect"])
+def test_explicit_non_holofoil_spelling_proves_normal_finish(finish, location):
+    rows = [detailed(i, title="Pokemon Charizard 4/102 Base Set English") for i in range(3)]
+    for value in rows:
+        if location == "title":
+            value["title"] += " " + finish
+        else:
+            value["localizedAspects"] = [{"name": "Finish", "value": finish}]
+    result = estimate(rows, reference(finish=finish))
+    assert result["status"] == "READY"
+    assert result["selected_finish"] == "Normal"
+
+
+@pytest.mark.parametrize("finish", ["Non-Holofoil Holo", "NonHolofoil Foil"])
+def test_non_holofoil_does_not_hide_a_conflicting_finish(finish):
+    rows = [detailed(i, localizedAspects=[{"name": "Finish", "value": finish}]) for i in range(3)]
+    assert estimate(rows, reference(finish="Normal"))["rejection_counts"]["FINISH_MISMATCH_OR_UNKNOWN"] == 3
+
+
+@pytest.mark.parametrize("source", ["same_array", "second_array", "descriptor"])
+def test_duplicate_ungraded_value_is_corroboration_across_browse_sources(source):
+    rows = [detailed(i, localizedAspects=[{
+        "name": "Professional Grader", "value": "Not Professionally Graded"}]) for i in range(3)]
+    for value in rows:
+        duplicate = {"name": "professional grader", "value": "not-professionally-graded"}
+        if source == "same_array":
+            value["localizedAspects"].append(duplicate)
+        elif source == "second_array":
+            value["localizedItemAspects"] = [duplicate]
+        else:
+            value["conditionDescriptors"].append(descriptor("Professional Grader", "not-professionally-graded"))
+    before = deepcopy(rows)
+    assert estimate(rows)["status"] == "READY"
+    assert rows == before
+
+
+def test_duplicate_exact_set_and_card_number_do_not_create_compound_identities():
+    aspects = [{"name": "Set", "value": "Base Set"}, {"name": "Card Number", "value": "4/102"}]
+    rows = [detailed(i, localizedAspects=deepcopy(aspects), localizedItemAspects=deepcopy(aspects)) for i in range(3)]
+    result = estimate(rows)
+    assert result["status"] == "READY"
+    assert result["comparables"][0]["listing_evidence"]["aspects"]["set"] == "base set"
+    assert result["comparables"][0]["listing_evidence"]["aspects"]["card number"] == "4 102"
+
+
+@pytest.mark.parametrize("name,good,bad,reason", [
+    ("Professional Grader", "Not Professionally Graded", "PSA", "GRADED_OR_SLAB"),
+    ("Set", "Base Set", "Base Set 2", "SET_MISMATCH"),
+    ("Language", "English", "Japanese", "LANGUAGE_MISMATCH_OR_UNKNOWN"),
+    ("Finish", "Holo", "Non-Holofoil", "FINISH_MISMATCH_OR_UNKNOWN"),
+    ("Card Condition", "Near Mint", "Lightly Played", "CONDITION_OUTSIDE_NM_MINT"),
+])
+def test_normalization_preserves_distinct_conflicting_values(name, good, bad, reason):
+    rows = [detailed(i,
+        localizedAspects=[{"name": name, "value": good}, {"name": name, "value": good}],
+        localizedItemAspects=[{"name": name, "value": good}, {"name": name, "value": bad}]) for i in range(3)]
+    assert estimate(rows)["rejection_counts"][reason] == 3
+
+
+def test_duplicate_condition_content_still_retains_conflicting_additional_information():
+    rows = [detailed(i, localizedAspects=[{"name": "Card Condition", "value": "Near Mint"}],
+        conditionDescriptors=[descriptor("Card Condition", "Near Mint", additionalInfo=["Near Mint", "Damaged"])])
+        for i in range(3)]
+    assert estimate(rows)["rejection_counts"]["CONDITION_OUTSIDE_NM_MINT"] == 3

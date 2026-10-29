@@ -81,7 +81,7 @@ No canonical identities or physical inventory are changed by this repair.
 
 ## Validation and rollout
 
-322 focused tests pass locally, including realistic summary/detail separation,
+348 focused tests pass locally, including realistic summary/detail separation,
 conditions, language contradictions, exact ID binding, availability, known
 end-time crossing, original-name Masters mapping, independent sellers, budget
 refresh across search/detail calls, provider failures and retained evidence.
@@ -131,3 +131,38 @@ At 07:35 UTC the catalogue denominator had independently grown by one to
 The updated 89% threshold is 59,689 and the gap is 16,235. At 07:34:55 UTC,
 database size was 372,853,907 bytes and all 616 physical inventory rows still
 matched `47a316ca0609fbbfedcd32f002c4c335`.
+
+## Second verification slice and final normalization repair
+
+Head `0c89ab2368342b52a5f65aabb719cb4f0382ba39` passed all seven applicable
+checks, including 8,269 backend tests (18 skipped). Deployment
+`12681bc7-d42e-4f05-82fc-995bbc1c78b0` reached SUCCESS. Run
+`d5722b11-ec47-4a16-b075-6cc05d5f2054` resumed the canary and completed
+from 07:46:46 to 07:48:44 UTC with `INCOMPLETE / REQUEST_LIMIT`.
+
+It used 42 searches and 58 detail GETs, scanned 88 references, retrieved 1,710
+summaries and all 58 details, and wrote zero prices. Full-detail rejections
+included 22 missing/conflicting language, 13 game, seven finish, four set,
+three variant, two number and one multiple-item mismatch. One candidate
+cohort reached the dispersion check and was rejected as too inconsistent.
+Forty-six unresolved identities were excluded before discovery.
+
+The actual details confirm that some listings omit language and finish;
+another sampled listing explicitly describes a lightly played card. Those
+are missing or contradictory valuation evidence, not merely spelling errors.
+Cursor: `[Bandai Official, DRAGON_BALL_SUPER_MASTERS, English,
+428024:BT24-038_SPR.png]`. The daily ledger is 1,140/2,000, leaving 860 calls.
+
+The follow-up normalization removes identical repeated item-specific values
+while retaining every distinct conflicting value and condition qualifier.
+It also recognises explicit `Non-Holofoil`/`NonHolofoil` as Normal. Unresolved
+Masters suffixes such as `_SPR`, `_PR02` and `_BD` are now excluded before
+search for the same reason as `_PR`: the current strict number matcher cannot
+establish their exact printing from a base printed number. Canonical IDs are
+not changed and these cards stay in the coverage denominator.
+
+The bounded receipt now prefers different full-detail rejection reasons,
+including a later retrieved listing when an earlier one repeats a known
+failure. It still retains at most three examples within the 8,000-byte limit.
+Local validation is 348 passing tests; this final head must pass normal CI
+before the remaining 860-call continuation resumes the second receipt.

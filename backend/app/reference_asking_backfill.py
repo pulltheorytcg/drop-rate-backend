@@ -343,10 +343,31 @@ def add_review_examples(report, reference, summaries, estimate, observed):
                         "price_gbp_minor": row["price_gbp_minor"], "shipping_gbp_minor": row["shipping_gbp_minor"]}
                        for row in estimate["comparables"][:3]]}
     else:
-        row = next((row for row in summaries if isinstance(row, dict)), {})
+        rows = [row for row in summaries if isinstance(row, dict)]
+        row = next(iter(rows), {})
         # Empty searches are already counted; retain the bounded examples for
         # actual listings whose details can explain a matching failure.
         if not row:
+            return
+        detailed_reasons = {item.get("reason") for item in current
+            if item.get("listing_evidence", {}).get("acquisition") == "GET_ITEM"}
+        # Use the small receipt budget to show different actual failures.
+        # A repeated missing-language example must not conceal a later finish
+        # or set mismatch from the same set of retrieved listing details.
+        single = None
+        for candidate in rows:
+            if candidate.get("_evidence_acquisition") != "GET_ITEM":
+                continue
+            candidate_estimate = estimate_reference_asking_price(
+                reference, [candidate], observed_at=observed, now=observed)
+            reason = next(iter(candidate_estimate["rejection_counts"]), candidate_estimate["status"])
+            if reason not in detailed_reasons:
+                row, single = candidate, candidate_estimate
+                break
+        if single is None:
+            single = estimate_reference_asking_price(reference, [row], observed_at=observed, now=observed)
+        reason = next(iter(single["rejection_counts"]), single["status"])
+        if row.get("_evidence_acquisition") == "GET_ITEM" and reason in detailed_reasons:
             return
         # A full listing's actual fields are more useful than a discovery-only
         # rejection. Replace a summary sample rather than hiding detail proof
@@ -357,13 +378,19 @@ def add_review_examples(report, reference, summaries, estimate, observed):
             replace = next((index for index, item in enumerate(current)
                 if item.get("listing_evidence", {}).get("acquisition") != "GET_ITEM"), None)
             if replace is None:
+                seen_reasons = set()
+                for index, item in enumerate(current):
+                    if item.get("reason") in seen_reasons:
+                        replace = index
+                        break
+                    seen_reasons.add(item.get("reason"))
+            if replace is None:
                 return
             current = [item for index, item in enumerate(current) if index != replace]
-        single = estimate_reference_asking_price(reference, [row] if row else [], observed_at=observed, now=observed)
         aspects = _aspects(row)
         example = {"reference": identity, "item_id": str(row.get("itemId", ""))[:80],
                    "title": str(row.get("title", ""))[:80],
-                   "reason": next(iter(single["rejection_counts"]), single["status"]),
+                   "reason": reason,
                    "listing_evidence": {
                        "acquisition": row.get("_evidence_acquisition", "SEARCH_SUMMARY"),
                        "condition": row.get("condition"), "condition_id": row.get("conditionId"),

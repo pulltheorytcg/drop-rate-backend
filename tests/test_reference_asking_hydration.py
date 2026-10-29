@@ -123,6 +123,42 @@ def test_full_detail_rejection_replaces_an_earlier_summary_only_sample():
     assert state["rejection_examples"][-1]["listing_evidence"]["aspects"]["language"] == "japanese"
 
 
+def test_full_detail_examples_retain_different_reasons_from_the_same_card():
+    state, ref = report(25), reference()
+    missing_language = worker.bounded_item_detail(detail(1, localizedAspects=[
+        {"name": "Finish", "value": "Normal"}]), summary(1)["itemId"])
+    missing_finish = worker.bounded_item_detail(detail(2, localizedAspects=[
+        {"name": "Language", "value": "English"}]), summary(2)["itemId"])
+    played = worker.bounded_item_detail(detail(3, condition="Lightly Played"), summary(3)["itemId"])
+    for rows in ([missing_language], [missing_language],
+                 [missing_language, missing_finish], [missing_language, played]):
+        result = worker.estimate_reference_asking_price(ref, rows, observed_at=NOW, now=NOW)
+        worker.add_review_examples(state, ref, rows, result, NOW)
+    assert [item["reason"] for item in state["rejection_examples"]] == [
+        "LANGUAGE_MISMATCH_OR_UNKNOWN", "FINISH_MISMATCH_OR_UNKNOWN", "CONDITION_OUTSIDE_NM_MINT"]
+    assert [item["item_id"] for item in state["rejection_examples"]] == [
+        summary(index)["itemId"] for index in (1, 2, 3)]
+    wrong_set = worker.bounded_item_detail(detail(4, localizedAspects=[
+        {"name": "Language", "value": "English"}, {"name": "Set", "value": "Team Rocket"}]), summary(4)["itemId"])
+    result = worker.estimate_reference_asking_price(ref, [wrong_set], observed_at=NOW, now=NOW)
+    worker.add_review_examples(state, ref, [wrong_set], result, NOW)
+    assert len(state["rejection_examples"]) == 3
+
+
+def test_full_detail_example_replaces_duplicate_reason_in_existing_receipt():
+    state, ref = report(25), reference()
+    bad = worker.bounded_item_detail(detail(1, localizedAspects=[]), summary(1)["itemId"])
+    result = worker.estimate_reference_asking_price(ref, [bad], observed_at=NOW, now=NOW)
+    worker.add_review_examples(state, ref, [bad], result, NOW)
+    state["rejection_examples"] *= 3  # Receipt from the previous worker version.
+    finish = worker.bounded_item_detail(detail(2, localizedAspects=[
+        {"name": "Language", "value": "English"}]), summary(2)["itemId"])
+    result = worker.estimate_reference_asking_price(ref, [finish], observed_at=NOW, now=NOW)
+    worker.add_review_examples(state, ref, [finish], result, NOW)
+    assert len(state["rejection_examples"]) == 3
+    assert state["rejection_examples"][-1]["reason"] == "FINISH_MISMATCH_OR_UNKNOWN"
+
+
 @pytest.mark.parametrize("bad", [
     {"itemId": "v1|999999999999|0"},
     {"title": "Pokemon Bulbasaur 44 Base Set Japanese"},

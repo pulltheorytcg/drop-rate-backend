@@ -45,6 +45,7 @@ _LANGUAGES = {
 _FINISHES = {
     "normal": "normal", "regular": "normal", "non holo": "normal",
     "non holofoil": "normal", "non foil": "normal", "nonholo": "normal",
+    "nonholofoil": "normal",
     "holo": "holo", "holofoil": "holo", "holographic": "holo",
     "reverse": "reverse", "reverse holo": "reverse", "reverse holofoil": "reverse",
     "reverse foil": "reverse", "foil": "foil", "parallel": "parallel",
@@ -116,14 +117,20 @@ def _terms(value: object) -> tuple[str, ...]:
 
 
 def _aspects(row: Mapping[str, Any]) -> dict[str, str]:
-    result: dict[str, str] = {}
+    parts: dict[str, list[str]] = {}
+
+    def add(name: str, value: object) -> None:
+        normalized = _text(value)
+        if normalized and normalized not in parts.setdefault(name, []):
+            parts[name].append(normalized)
+
     for key in ("localizedAspects", "localizedItemAspects"):
         values = row.get(key)
         if isinstance(values, list):
             for value in values:
                 if isinstance(value, Mapping) and isinstance(value.get("value"), str):
                     name = _text(value.get("name"))
-                    result[name] = " ".join(filter(None, (result.get(name), _text(value["value"]))))
+                    add(name, value["value"])
     # Browse getItem exposes trading-card condition separately from aspects.
     # A raw conditionId=4000 means Ungraded, not Near Mint. Retain every explicit
     # descriptor, including conflicting grades/condition, for the same matcher.
@@ -139,12 +146,14 @@ def _aspects(row: Mapping[str, Any]) -> dict[str, str]:
             for value in values:
                 if not isinstance(value, Mapping):
                     continue
-                parts = [_text(value.get("content"))]
+                add(name, value.get("content"))
                 extra = value.get("additionalInfo")
                 if isinstance(extra, list):
-                    parts.extend(_text(part) for part in extra)
-                result[name] = " ".join(filter(None, (result.get(name), *parts)))
-    return result
+                    for part in extra:
+                        add(name, part)
+    # The same field may occur in multiple Browse containers. Repeated values
+    # are corroboration, not a new compound value; retain distinct conflicts.
+    return {name: " ".join(values) for name, values in parts.items()}
 
 
 def _matches_game(text: str, reference: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
@@ -184,12 +193,13 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
         return None, "INVALID_VARIANT_GROUP"
     ambiguous = reference.get("ambiguous_variant") is True or group_count > 1
     provider_variant = _text(str(evidence.get("provider_variant") or "") + " " + reference["provider_id"])
-    # Official Masters _PR entries are special-event/promotional printings,
-    # not an alternate spelling of the base card. Their exact event/printing
-    # must be established before spending a search or reusing a base value.
+    # Suffixed official Masters identities require their own printing proof,
+    # not an alternate spelling of the base card. The strict number matcher
+    # cannot bind these opaque identifiers to an ordinary printed base number.
+    # Their exact printing must be established before spending a search.
     # e.g. BT21-102_PR: Championship 2024 Finals ZENKAI Pack on Bandai's list.
     unresolved_masters_special = (game == "DRAGON_BALL_SUPER_MASTERS"
-        and re.search(r"_PR$", reference["card_number"], re.I))
+        and re.search(r"_[A-Z][A-Z0-9]*$", reference["card_number"], re.I))
     if (ambiguous or unresolved_masters_special or re.search(r"(?:^|\s)p\d+(?:$|\s)", provider_variant)) and not proof:
         return None, "UNRESOLVED_PARALLEL_IDENTITY"
     set_name = reference.get("set_name") or evidence.get("set_name")
@@ -304,7 +314,7 @@ def _listing_finish(row: Mapping[str, Any], spec: Mapping[str, Any]) -> str | No
     finish_text = " ".join((_text(row.get("title")), aspects.get("finish", "")))
     if _explicitly_denies(finish_text, tuple(_FINISHES)):
         return None
-    normal = any(_phrase(finish_text, term) for term in ("normal", "regular", "non holo", "nonholo", "non foil", "nonfoil"))
+    normal = any(_phrase(finish_text, term) for term in ("normal", "regular", "non holo", "nonholo", "non holofoil", "nonholofoil", "non foil", "nonfoil"))
     reverse = _phrase(finish_text, "reverse")
     positive = re.sub(r"\bnon\s*(?:holofoil|holo|foil)\b", "", finish_text)
     holo = any(_phrase(positive, term) for term in ("holo", "holofoil", "holographic"))
