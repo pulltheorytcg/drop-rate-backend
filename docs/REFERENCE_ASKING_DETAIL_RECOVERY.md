@@ -28,6 +28,12 @@ plausible item IDs per reference and validates the returned detail alone.
   official former full name `Dragon Ball Super Card Game` only for canonical
   Masters references with an exact BT/TB/EX/SD collector number. Fusion World
   conflicts, unknown families, set/printing and variant checks remain.
+- Six exact English Bandai Masters releases accept their verified official
+  short names alongside full catalogue labels: Wild Resurgence, Critical Blow,
+  Perfect Combination, Beyond Generations, Legend of the Dragon Balls and
+  Ultimate Advent. Aliases require the exact provider/game/language/set ID and
+  canonical name; explicit curated terms retain precedence. A wrong structured
+  set or printing conflict still rejects the listing.
 - Browse `conditionDescriptors[].values[].content` and `additionalInfo` are
   read alongside aspects. Ungraded alone does not establish Near Mint.
 - Returned item IDs must match discovery IDs. Missing fields are never filled
@@ -65,10 +71,17 @@ No canonical identities or physical inventory are changed by this repair.
   and [original SD1 product](https://www.dbs-cardgame.com/europe-en/product/dbs-sd01.php)
   establish the scoped collector-number families. These are game evidence,
   never sufficient proof of original release: starters may contain reprints.
+- The exact set-name aliases are evidenced by Bandai category pages
+  [428021](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428021),
+  [428022](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428022),
+  [428023](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428023),
+  [428024](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428024),
+  [428025](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428025),
+  [428026](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428026).
 
 ## Validation and rollout
 
-273 focused tests pass locally, including realistic summary/detail separation,
+317 focused tests pass locally, including realistic summary/detail separation,
 conditions, language contradictions, exact ID binding, availability, known
 end-time crossing, original-name Masters mapping, independent sellers, budget
 refresh across search/detail calls, provider failures and retained evidence.
@@ -84,5 +97,5 @@ allowance. Keep `restartPolicyType=NEVER` and no public endpoint.
 
 This implementation and its synthetic tests do not establish a price gain.
 Record actual live accepted writes, full coverage and inventory readback after
-execution. Set aliases remain a separate narrow issue: do not replace explicit
-release evidence with a collector-number prefix.
+execution. Unconfigured set aliases remain a separate narrow issue: do not
+replace explicit release evidence with a collector-number prefix.

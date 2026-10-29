@@ -24,7 +24,7 @@ from .ebay_official_client import EbayApiError
 from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_asking_display import asking_cache_join, matching_reference_evidence, reference_number_alias as _number_alias
 from .reference_asking_estimator import (
-    _GRADE_RE, _MULTI_RE, _number_matches, _text,
+    _GRADE_RE, _MULTI_RE, _aspects, _number_matches, _text,
     estimate_reference_asking_price, reference_asking_eligibility,
 )
 
@@ -344,10 +344,21 @@ def add_review_examples(report, reference, summaries, estimate, observed):
                        for row in estimate["comparables"][:3]]}
     else:
         row = next((row for row in summaries if isinstance(row, dict)), {})
+        # Empty searches are already counted; retain the bounded examples for
+        # actual listings whose details can explain a matching failure.
+        if not row:
+            return
         single = estimate_reference_asking_price(reference, [row] if row else [], observed_at=observed, now=observed)
+        aspects = _aspects(row)
         example = {"reference": identity, "item_id": str(row.get("itemId", ""))[:80],
                    "title": str(row.get("title", ""))[:80],
-                   "reason": next(iter(single["rejection_counts"]), single["status"])}
+                   "reason": next(iter(single["rejection_counts"]), single["status"]),
+                   "listing_evidence": {
+                       "acquisition": row.get("_evidence_acquisition", "SEARCH_SUMMARY"),
+                       "condition": row.get("condition"), "condition_id": row.get("conditionId"),
+                       "aspects": {key: aspects[key] for key in
+                                   ("game", "language", "card number", "set", "finish", "card condition")
+                                   if key in aspects}}}
     proposed = deepcopy(report)
     proposed[field] = [*current, example]
     if len(json.dumps({k: proposed.get(k, []) for k in ("preview", "rejection_examples")}, ensure_ascii=False).encode()) <= 8000:

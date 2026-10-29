@@ -89,6 +89,24 @@ def test_item_details_supply_explicit_language_and_finish_without_search_keyword
     assert state["pending"] is None and state["status"] == "COMPLETE"
 
 
+def test_empty_searches_do_not_hide_actual_rejected_detail_examples():
+    state = report(25)
+    ref = reference()
+    empty = worker.estimate_reference_asking_price(ref, [], observed_at=NOW, now=NOW)
+    for _ in range(3):
+        worker.add_review_examples(state, ref, [], empty, NOW)
+    assert not state.get("rejection_examples")
+    bad = worker.bounded_item_detail(detail(1, localizedAspects=[
+        {"name": "Language", "value": "Japanese"}, {"name": "Finish", "value": "Normal"}]), summary(1)["itemId"])
+    result = worker.estimate_reference_asking_price(ref, [bad], observed_at=NOW, now=NOW)
+    worker.add_review_examples(state, ref, [bad], result, NOW)
+    example = state["rejection_examples"][0]
+    assert example["reason"] == "LANGUAGE_MISMATCH_OR_UNKNOWN"
+    assert example["listing_evidence"]["aspects"]["language"] == "japanese"
+    assert example["listing_evidence"]["acquisition"] == "GET_ITEM"
+    assert "seller1" not in str(example)
+
+
 @pytest.mark.parametrize("bad", [
     {"itemId": "v1|999999999999|0"},
     {"title": "Pokemon Bulbasaur 44 Base Set Japanese"},

@@ -11,7 +11,8 @@ remain. Search and detail requests share the same durable limits and pacing.
 `--max-queries 1000` caps total Browse calls, including details, so fewer than
 1,000 distinct cards may be checked. No arbitrary values are introduced.
 
-Local focused validation passed 273 tests. Normal CI, reviewed deployment and
+Six verified Masters releases also accept their official short set names.
+Local focused validation passed 317 tests. Normal CI, reviewed deployment and
 live readback remain required; no new price gain is claimed from code alone.
 See [detail recovery and live continuation](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
 

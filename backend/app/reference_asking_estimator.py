@@ -69,6 +69,20 @@ _CARD_CODES = re.compile(r"(?<![A-Z0-9])(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|P|E
 _SET_CODES = re.compile(r"\b(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|SB)\d{1,3}\b", re.I)
 _FRACTIONS = re.compile(r"(?<![A-Z0-9])(?:[A-Z]{0,3}\d{1,4})\s*/\s*(?:[A-Z]{0,3}\d{1,4})(?![A-Z0-9])", re.I)
 
+# Reviewed aliases for the importer labels of these exact English Masters
+# releases. Bandai's category pages identify each release by its shorter name:
+# https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=<set_id>
+# These are alternatives for explicit set evidence, never a collector-prefix
+# inference or a rule that strips marketing words from arbitrary set names.
+_MASTERS_SET_ALIASES = {
+    ("428021", "Z04 Booster -WILD RESURGENCE-"): "Wild Resurgence",
+    ("428022", "Z05 Booster -CRITICAL BLOW-"): "Critical Blow",
+    ("428023", "Z06 Booster -PERFECT COMBINATION-"): "Perfect Combination",
+    ("428024", "Z07 Booster -BEYOND GENERATIONS-"): "Beyond Generations",
+    ("428025", "Z08 Booster -LEGEND OF THE DRAGON BALLS-"): "Legend of the Dragon Balls",
+    ("428026", "Z09 Booster -ULTIMATE ADVENT-"): "Ultimate Advent",
+}
+
 
 def _text(value: object) -> str:
     if not isinstance(value, str):
@@ -183,11 +197,28 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
             set_terms = (prefix,)
     if not set_terms:
         return None, "MISSING_SET_IDENTITY"
+    set_alternatives = (set_terms,)
+    set_conflicts: tuple[str, ...] = ()
+    set_alias_source = None
+    # Explicit curated terms take precedence, including a deliberately empty
+    # field. Only the complete known canonical identity enables an alias.
+    if ("set_title_terms" not in evidence
+            and reference["provider"] == "Bandai Official"
+            and game == "DRAGON_BALL_SUPER_MASTERS"
+            and reference["language"] == "English"
+            and isinstance(reference.get("set_name"), str)
+            and reference["set_name"] == set_name):
+        alias = _MASTERS_SET_ALIASES.get((reference["set_id"], set_name))
+        if alias:
+            set_alternatives += ((alias,),)
+            set_conflicts = tuple(other for other in _MASTERS_SET_ALIASES.values() if other != alias)
+            set_alias_source = "https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=" + reference["set_id"]
     canonical_text = _text(" ".join(str(reference.get(k) or "") for k in ("name", "finish", "rarity")))
     markers = _variant_markers(canonical_text + " " + _text(set_name))
     markers |= _variant_markers(_text(" ".join(proof)))
     return {"game": game, "language": language, "finish": finish, "set_terms": set_terms,
-            "variant_terms": proof, "markers": markers}, None
+            "set_alternatives": set_alternatives, "set_conflicts": set_conflicts,
+            "set_alias_source": set_alias_source, "variant_terms": proof, "markers": markers}, None
 
 
 def reference_asking_eligibility(reference: Mapping[str, Any]) -> str | None:
@@ -324,13 +355,17 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     if not _number_matches(str(raw_title), aspects.get("card number", ""), reference["card_number"]):
         return "CARD_NUMBER_MISMATCH"
     set_text = " ".join((title, aspects.get("set", "")))
-    if not all(_phrase(set_text, term) for term in spec["set_terms"]) or _explicitly_denies(set_text, spec["set_terms"]):
+    set_options = spec["set_alternatives"]
+    all_set_terms = tuple(term for option in set_options for term in option)
+    if (not any(all(_phrase(set_text, term) for term in option) for option in set_options)
+            or _explicitly_denies(set_text, all_set_terms)
+            or any(_phrase(set_text, term) for term in spec["set_conflicts"])):
         return "SET_MISMATCH"
     # Known prefix collisions cannot be established by substring containment.
     for base, expanded in (("base set", "base set 2"), ("team rocket", "team rocket returns")):
         if any(_text(term) == base for term in spec["set_terms"]) and _phrase(set_text, expanded):
             return "SET_MISMATCH"
-    if aspects.get("set") and not all(_text(term) == aspects["set"] for term in spec["set_terms"]):
+    if aspects.get("set") and not any(all(_text(term) == aspects["set"] for term in option) for option in set_options):
         return "SET_MISMATCH"
     allowed_codes = {m.group().casefold() for m in _SET_CODES.finditer(" ".join((*spec["set_terms"], reference["card_number"])))}
     if any(m.group().casefold() not in allowed_codes for m in _SET_CODES.finditer(str(raw_title))):
@@ -412,6 +447,8 @@ def _comparable(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapp
             "listing_evidence": listing_evidence,
             "match_proof": {"game": spec["game"], "language": spec["language"],
                             "card_number": reference["card_number"], "set_terms": list(spec["set_terms"]),
+                            "set_alternatives": [list(option) for option in spec["set_alternatives"]],
+                            "set_alias_source": spec["set_alias_source"],
                             "variant_terms": list(spec["variant_terms"])}}, None
 
 
