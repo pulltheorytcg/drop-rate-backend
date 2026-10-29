@@ -57,6 +57,13 @@ One additional documented CardTrader field, `bundled_quantity`, can confirm
 a single unit when `bundle_size` is missing or zero; a reported multi-unit
 `bundle_size` is never overridden. The receipt records which field supplied
 that confirmation, and unknown unit counts still fail closed.
+Some live marketplace cards omit *both* unit fields. For an exact, unique
+publisher-to-CardTrader match in the **single-card blueprint category only**,
+accept no-reported-unit offers when there is no seller lot/bundle/playset hint,
+while still requiring raw, near-mint, English, three distinct sellers and
+finish consistency. Explicit bundles are always rejected. Each accepted
+catalogue-only quote records `unit_evidence` and is never used to value a
+physical card or change its store price.
 
 ## Verification and roll-out
 
