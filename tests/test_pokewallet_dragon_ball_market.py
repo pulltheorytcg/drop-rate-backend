@@ -69,6 +69,18 @@ def test_bandaibase_identity_excludes_variants_and_unknown_releases():
     assert dbs.wanted_groups([fusion(has_detail_value=True)],NOW)=={}
 
 
+def test_coverage_first_only_requests_dragon_ball_cards_missing_all_positive_guides():
+    stale = fusion(existing_catalogue_value=600, existing_source=dbs.SOURCE_CM,
+                   existing_pricing_updated_at=NOW - timedelta(days=4))
+    assert dbs.eligible(stale, NOW)
+    assert not dbs.eligible(stale, NOW, coverage_first=True)
+    stale_detail = fusion(has_any_detail_value=True, has_detail_value=False)
+    assert dbs.eligible(stale_detail, NOW)
+    assert not dbs.eligible(stale_detail, NOW, coverage_first=True)
+    assert dbs.eligible(fusion(), NOW, coverage_first=True)
+    assert dbs.wanted_groups([stale, stale_detail], NOW, coverage_first=True) == {}
+
+
 def test_search_shards_are_bounded_by_printed_number_not_just_set():
     refs=[fusion(card_number="FB01-001",provider_id="583001:FB01-001"),
           fusion(card_number="FB01-002",provider_id="583001:FB01-002"),

@@ -48,6 +48,7 @@ READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,r.
  r.card_number,r.rarity,s.name as set_name,
  (coalesce(p.market_value_minor,0)>0 and
   p.pricing_updated_at>=now()-interval '7 days') as has_detail_value,
+ (coalesce(p.market_value_minor,0)>0) as has_any_detail_value,
  coalesce(b.market_value_minor,0) as existing_catalogue_value,
  b.quotes->0->>'source' as existing_source,
  b.pricing_updated_at as existing_pricing_updated_at
@@ -85,7 +86,8 @@ def reference_code(ref: dict) -> str | None:
     return code.casefold()
 
 
-def reference_groups(refs: list[dict], now: datetime | None = None):
+def reference_groups(refs: list[dict], now: datetime | None = None, *,
+                     coverage_first: bool=False):
     now = now or datetime.now(timezone.utc)
     all_numbers = defaultdict(list)
     for ref in refs:
@@ -98,9 +100,13 @@ def reference_groups(refs: list[dict], now: datetime | None = None):
         if len(rows) != 1:
             continue
         ref = rows[0]
+        if coverage_first and ref.get("has_any_detail_value"):
+            continue
         if ref.get("has_detail_value"):
             continue
         if int(ref.get("existing_catalogue_value") or 0) > 0:
+            if coverage_first:
+                continue
             # An independent adapter retains ownership of its positive guide.
             # Our own source must be revisited before its seven-day display
             # window expires; merely having a cached value is not freshness.
@@ -317,7 +323,8 @@ class FreePokewalletPokemonClient:
 
 async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
                                     dry_run=True, request_limit=MAX_REQUESTS_PER_HOUR,
-                                    previous_cursor=None, http_client=None, reference_set_id=None):
+                                    previous_cursor=None, http_client=None, reference_set_id=None,
+                                    coverage_first: bool=False):
     """Bounded, round-robin Japanese checklist import. Dry run by default."""
     if reference_set_id is not None and (
             type(reference_set_id) is not str or not SET_CODE.fullmatch(reference_set_id)):
@@ -325,6 +332,7 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
     now = datetime.now(timezone.utc)
     budget = min(max(1, request_limit), MAX_REQUESTS_PER_HOUR)
     result = {"source": SOURCE, "dry_run": dry_run, "requests": 0,
+        "coverage_first": coverage_first,
         "reference_set_id": reference_set_id,
         "checked_references": 0, "eligible_references": 0,
         "target_sets": 0, "matched_printings": 0, "eligible_quotes": 0,
@@ -344,7 +352,7 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
                 rows = await connection.fetch(READ_SQL + " and r.set_id=$1", reference_set_id)
             refs = [dict(row) for row in rows]
         result["checked_references"] = len(refs)
-        wanted = reference_groups(refs, now)
+        wanted = reference_groups(refs, now, coverage_first=coverage_first)
         result["eligible_references"] = len(wanted)
         if not wanted:
             return result

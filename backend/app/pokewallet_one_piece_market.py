@@ -69,6 +69,7 @@ READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,r.
  r.card_number,r.rarity,r.finish,r.image_url,r.evidence,s.name as set_name,
  (coalesce(p.market_value_minor,0)>0 and
   p.pricing_updated_at>=now()-interval '7 days') as has_detail_value,
+ (coalesce(p.market_value_minor,0)>0) as has_any_detail_value,
  coalesce(b.market_value_minor,0) as existing_catalogue_value,
  b.quotes->0->>'source' as existing_source,
  b.pricing_updated_at as existing_pricing_updated_at
@@ -141,6 +142,10 @@ def rarity(value: object) -> str:
 
 
 def quote_eligible(ref: dict, now: datetime, *, coverage_first: bool=False) -> bool:
+    # The coverage denominator already counts stale positive detail values.
+    # Backfill mode must not spend free API requests refreshing them.
+    if coverage_first and ref.get("has_any_detail_value"):
+        return False
     if ref.get("has_detail_value"):
         return False
     existing = int(ref.get("existing_catalogue_value") or 0)
@@ -229,6 +234,28 @@ def source_list_diagnostics(payloads: dict[str,dict], refs_by_number: dict) -> d
             "wanted_release_codes":len(wanted),"unmatched_release_codes":sum(code not in names for code in wanted),
             "multiple_group_ids":len(ambiguous),"ambiguous_code_sample":sorted(ambiguous)[:10]}
     return summary
+
+
+def prioritize_missing_artwork_sets(
+    targets: list[tuple[str, str, str]], eligible_art_codes: set[str],
+    previous_cursor: str | None,
+) -> list[tuple[str, str, str]]:
+    """Reach verified parallel-art releases before spending free calls on starters.
+
+    Both tiers retain a round-robin cursor. Ordinary/legacy jobs continue to
+    use the original ordering and cursor outside coverage-first art mode.
+    """
+    special=[row for row in targets if row[0]=="English" and row[1] in eligible_art_codes]
+    remaining=[row for row in targets if row not in special]
+
+    def rotate(rows):
+        if not previous_cursor:
+            return rows
+        index=next((i+1 for i,row in enumerate(rows)
+                    if f"{row[0]}:{row[2]}"==previous_cursor),0)
+        return rows[index:]+rows[:index]
+
+    return rotate(special)+rotate(remaining)
 
 
 def unique_market_products(body: dict, lang: str, group_id: str, code: str):
@@ -518,7 +545,7 @@ class FreePokewalletOnePieceClient:
 async def artwork_matches_for_complete_set(
     groups: dict, language: str, code: str, products: list[dict],
     client: FreePokewalletOnePieceClient, diagnostics: dict,
-    *, coverage_first: bool=False,
+    *, coverage_first: bool=False, previous_artwork_cursor: str | None=None,
 ) -> list[tuple[dict, dict, dict]]:
     """Resolve a bounded number of *official* printings using actual art.
 
@@ -533,9 +560,18 @@ async def artwork_matches_for_complete_set(
         if isinstance(item, dict):
             by_number[str(item.get("card_number") or "")].append(item)
     verified = []
-    for (group_code, number), refs in sorted(groups.items()):
-        if group_code != code or diagnostics.get("artwork_groups_tested", 0) >= MAX_ARTWORK_GROUPS_PER_RUN:
-            continue
+    artwork_candidates = sorted((key, refs) for key, refs in groups.items() if key[0] == code)
+    # A repeatedly ambiguous group must never starve later official printings.
+    prior = previous_artwork_cursor.removeprefix(code + ":") if (
+        isinstance(previous_artwork_cursor, str) and
+        previous_artwork_cursor.startswith(code + ":")) else None
+    if prior:
+        start = next((i+1 for i, (key, _) in enumerate(artwork_candidates)
+                      if key[1] == prior), 0)
+        artwork_candidates = artwork_candidates[start:] + artwork_candidates[:start]
+    for (group_code, number), refs in artwork_candidates:
+        if diagnostics.get("artwork_groups_tested", 0) >= MAX_ARTWORK_GROUPS_PER_RUN:
+            break
         if not any(quote_eligible(ref, datetime.now(timezone.utc), coverage_first=coverage_first)
                    for ref in refs):
             continue
@@ -549,6 +585,7 @@ async def artwork_matches_for_complete_set(
             diagnostics["artwork_groups_deferred_budget"] = diagnostics.get("artwork_groups_deferred_budget", 0) + 1
             break
         diagnostics["artwork_groups_tested"] = diagnostics.get("artwork_groups_tested", 0) + 1
+        diagnostics["artwork_cursor"] = f"{code}:{number}"
         try:
             official = {ref["provider_id"]: await reference_image_hashes(ref["image_url"])
                         for ref in refs}
@@ -597,6 +634,8 @@ async def artwork_matches_for_complete_set(
 async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                                        dry_run: bool=True, request_limit: int=MAX_FREE_REQUESTS_PER_RUN,
                                        previous_cursor: str | None=None,
+                                       previous_artwork_cursor: str | None=None,
+                                       previous_artwork_cursors: dict[str,str] | None=None,
                                        http_client=None,
                                        reference_set_id: str | None=None,
                                        operator_run_id: str | None=None,
@@ -628,6 +667,11 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
     result["artwork_groups_tested"] = 0
     result["artwork_groups_verified"] = 0
     result["artwork_printings_quoted"] = 0
+    result["artwork_cursor"] = previous_artwork_cursor
+    result["artwork_cursors"] = {code:value for code,value in
+        (previous_artwork_cursors or {}).items()
+        if re.fullmatch(r"(?:OP|EB|PRB)\d{2}",str(code)) and
+        isinstance(value,str) and re.fullmatch(re.escape(code)+r":(?:OP|EB|PRB)\d{2}-\d{3}",value)}
     if reference_set_id is not None:
         budget=min(budget,10)
         result.update(reference_set_id=reference_set_id,preview=[])
@@ -647,6 +691,9 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                         and r["set_name"]=="The Time of Battle [OP-16]" for r in rows)}
             art_groups={key:rows for key,rows in art_groups.items()
                         if key[0]=="OP16" and all(r["set_id"]==reference_set_id for r in rows)}
+        eligible_art_codes={key[0] for key,rows in art_groups.items()
+                            if any(quote_eligible(ref,now,coverage_first=coverage_first)
+                                   for ref in rows)}
         result["wanted_base_printings"]=sum(map(len,groups.values()))
         if not groups and not art_groups:
             return result
@@ -665,12 +712,22 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             result["source_list_diagnostics"]=source_list_diagnostics(lists,groups)
             targets=sorted(((lang,code,str(item["group_id"])) for (lang,code),item in sources.items()
                             if (any(key[:2]==(lang,code) for key in groups)
-                                or (lang=="English" and any(key[0]==code for key in art_groups)))),
+                                or (lang=="English" and code in eligible_art_codes))),
                            key=lambda row:(row[0]!="Japanese",row[1],row[2]))
+            if coverage_first and artwork_matching_enabled and eligible_art_codes:
+                # Artwork-backed missing printings first. Keep a round-robin
+                # cursor inside this tier; do not burn the hourly limit on
+                # starter decks before reaching alternate-art releases.
+                targets=prioritize_missing_artwork_sets(
+                    targets,eligible_art_codes,previous_cursor)
+                result["artwork_priority_releases"]=sorted(eligible_art_codes)
+                cursor_rotated=True
+            else:
+                cursor_rotated=False
             result["target_groups"]=len(targets)
             result["targets_by_language"]={lang:sum(t[0]==lang for t in targets)
                                             for lang in ("Japanese","English")}
-            if previous_cursor:
+            if previous_cursor and not cursor_rotated:
                 index=next((i+1 for i,x in enumerate(targets) if f"{x[0]}:{x[2]}"==previous_cursor),0)
                 targets=targets[index:]+targets[:index]
             converted=None
@@ -756,7 +813,10 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                         and result["artwork_groups_tested"]<MAX_ARTWORK_GROUPS_PER_RUN):
                     artwork_matches=await artwork_matches_for_complete_set(
                         art_groups,lang,code,complete,client,result,
-                        coverage_first=coverage_first)
+                        coverage_first=coverage_first,
+                        previous_artwork_cursor=result["artwork_cursors"].get(code))
+                    if result["artwork_cursor"] and result["artwork_cursor"].startswith(code+":"):
+                        result["artwork_cursors"][code]=result["artwork_cursor"]
                 # Art matches supersede base matches only for the same exact
                 # printing; identities and observed prices are not guessed.
                 verified_ids={ref["provider_id"] for ref,_,_ in artwork_matches}

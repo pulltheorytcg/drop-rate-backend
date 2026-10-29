@@ -26,9 +26,22 @@ the overall coverage target is unmet, the operator can independently enable:
 
 In coverage-first mode, references with an existing positive guide are still
 loaded for identity collision checks but are not selected for price refresh or
-write. Only genuinely unpriced references are eligible for new catalogue guides.
+write. The same rule also excludes any positive detail price, even when its
+freshness has expired: coverage already counts that card as priced. Only
+genuinely unpriced references are eligible for new catalogue guides. This
+queue rule now applies to the existing **One Piece, Dragon Ball and Japanese
+Pokémon** PokéWallet importers, without adding a data provider or raising its
+hourly allowance.
 Turn this flag OFF after the coverage push so normal daily guide refreshes
 resume; stale prices must not be mistaken for recent sold comparables.
+
+When artwork matching and coverage-first mode are both enabled, complete
+publisher-artwork release sets run before ordinary starter decks. The release
+cursor rotates within that priority tier, and each attempted artwork group
+records its own cursor to avoid retrying an ambiguous first pair forever.
+This fixes the observed 29 Oct 16:42 UTC pass which spent ten allowed requests
+on eight starter-deck sets and made no new price matches. The release order
+does **not** loosen card identity or pricing acceptance rules.
 
 With the flag on, the existing bounded hourly importer:
 

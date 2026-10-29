@@ -66,6 +66,44 @@ def test_coverage_first_refuses_refreshes_but_accepts_genuinely_missing_prices()
     assert market.collect_reference_groups([previously_priced], now, coverage_first=True) == {}
     # The source must not be queried just to refresh an already priced row.
     assert market.collect_reference_groups([missing], now, coverage_first=True)
+    # A stale *detail* price counts towards global coverage as well.
+    stale_detail = official(NUMBER, has_any_detail_value=True, has_detail_value=False)
+    assert market.quote_eligible(stale_detail, now)
+    assert not market.quote_eligible(stale_detail, now, coverage_first=True)
+
+
+def test_missing_artwork_sets_are_prioritised_even_after_an_old_starter_cursor():
+    targets = [("Japanese", "OP02", "11"), ("English", "OP15", "15"),
+               ("English", "OP16", "16"), ("English", "ST02", "3191")]
+    assert market.prioritize_missing_artwork_sets(
+        targets, {"OP15", "OP16"}, "English:15") == [
+            ("English", "OP16", "16"), ("English", "OP15", "15"),
+            ("Japanese", "OP02", "11"), ("English", "ST02", "3191")]
+    assert market.prioritize_missing_artwork_sets(
+        targets, {"OP15"}, "English:3191")[0] == ("English", "OP15", "15")
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_art_group_cursor_advances_instead_of_stalling(monkeypatch):
+    called = []
+    monkeypatch.setattr(market, "MAX_ARTWORK_GROUPS_PER_RUN", 1)
+    def unlabeled(_, refs):
+        called.append(refs[0]["card_number"])
+        return []
+    monkeypatch.setattr(market, "source_products_for_group", unlabeled)
+    groups = {("OP15", f"OP15-{i:03d}"): [official(NUMBER, card_number=f"OP15-{i:03d}")]
+              for i in (1, 2, 3)}
+    class NeverCall:
+        requests = 0
+        limit = 10
+        async def get_image(self, _):
+            raise AssertionError("Unlabelled group must not fetch images")
+    report = {"artwork_groups_tested": 0}
+    assert await market.artwork_matches_for_complete_set(
+        groups, "English", "OP15", [], NeverCall(), report,
+        previous_artwork_cursor="OP15:OP15-001") == []
+    assert called == ["OP15-002", "OP15-003", "OP15-001"]
+    assert report["artwork_groups_tested"] == 0
 
 
 def test_official_printings_are_distinct_and_publisher_evidenced():
@@ -262,6 +300,7 @@ async def test_live_job_path_uses_artwork_evidence_for_reference_quotes_only(mon
     assert report["requests"] == 5
     assert report["artwork_groups_verified"] == 1
     assert report["artwork_printings_quoted"] == 2
+    assert report["artwork_cursors"] == {"OP15": "OP15:OP15-001"}
     assert report["eligible_quotes"] == 2
     assert report["writes_attempted"] == (0 if dry_run else 2)
     assert len(writes) == (0 if dry_run else 2)
@@ -333,5 +372,7 @@ async def test_coverage_first_writes_only_the_unpriced_alternate(monkeypatch):
         dry_run=False, coverage_first=True, artwork_matching_enabled=True,
         request_limit=10, http_client=Http())
     assert result["coverage_first"] is True and result["artwork_groups_verified"] == 1
+    assert result["artwork_priority_releases"] == ["OP15"]
+    assert result["artwork_cursors"] == {"OP15": "OP15:OP15-001"}
     assert result["eligible_quotes"] == result["writes_attempted"] == 1
     assert len(writes) == 1 and writes[0][3] == NUMBER + "_p1"

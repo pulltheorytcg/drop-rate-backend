@@ -68,6 +68,7 @@ READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,
  r.set_id,r.card_number,r.rarity,s.name as set_name,
  (coalesce(p.market_value_minor,0)>0 and
   p.pricing_updated_at>=now()-interval '7 days') as has_detail_value,
+ (coalesce(p.market_value_minor,0)>0) as has_any_detail_value,
  coalesce(b.market_value_minor,0) as existing_catalogue_value,
  b.quotes->0->>'source' as existing_source,
  b.pricing_updated_at as existing_pricing_updated_at
@@ -116,19 +117,23 @@ def reference_release(ref: dict) -> str | None:
     return normalized(match[1]) if match else None
 
 
-def eligible(ref: dict, now: datetime) -> bool:
+def eligible(ref: dict, now: datetime, *, coverage_first: bool=False) -> bool:
+    if coverage_first and ref.get("has_any_detail_value"):
+        return False
     if ref.get("has_detail_value"):
         return False
     current = int(ref.get("existing_catalogue_value") or 0)
     if current <= 0:
         return True
+    if coverage_first:
+        return False
     if ref.get("existing_source") not in SOURCES:
         return False
     checked = ref.get("existing_pricing_updated_at")
     return isinstance(checked,datetime) and checked < now - timedelta(days=1)
 
 
-def wanted_groups(refs: list[dict], now: datetime) -> dict[str,list[dict]]:
+def wanted_groups(refs: list[dict], now: datetime, *, coverage_first: bool=False) -> dict[str,list[dict]]:
     all_keys = defaultdict(list)
     wants = defaultdict(list)
     for ref in refs:
@@ -137,7 +142,7 @@ def wanted_groups(refs: list[dict], now: datetime) -> dict[str,list[dict]]:
             continue
         key=(ref["system_code"],ref["set_id"],ref["card_number"])
         all_keys[key].append(ref)
-        if eligible(ref,now):
+        if eligible(ref,now,coverage_first=coverage_first):
             number=ref["card_number"]
             set_prefix,printed_number=number.split("-",1)
             # The vendor indexes both name and number. The first two printed
@@ -503,7 +508,8 @@ class FreeDragonBallClient:
 async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                                          dry_run=True,request_limit=MAX_FREE_REQUESTS_PER_RUN,
                                          previous_cursor=None,http_client=None,
-                                         reference_set_id=None,operator_run_id=None) -> dict:
+                                         reference_set_id=None,operator_run_id=None,
+                                         coverage_first: bool=False) -> dict:
     """Free, round-robin search batches; full query pages or no quote."""
     if reference_set_id not in (None, "583201", "583301"):
         raise ValueError("UNREVIEWED_REFERENCE_SET")
@@ -515,6 +521,7 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
     if reference_set_id is not None:
         budget=min(budget,8)
     report={"source":"POKEWALLET_DBS_FREE","dry_run":dry_run,"requests":0,
+            "coverage_first":coverage_first,
             "checked_references":0,"target_prefixes":0,"matches":0,
             "eligible_quotes":0,"writes_attempted":0,"cursor":previous_cursor,
             "input_cursor":previous_cursor,"sampled_queries":[],"invalid_samples":[],
@@ -530,7 +537,7 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
         async with user_connection(pool,actor,str(uuid4())) as connection:
             refs=[dict(r) for r in await connection.fetch(READ_SQL)]
         report["checked_references"]=len(refs)
-        groups=wanted_groups(refs,now)
+        groups=wanted_groups(refs,now,coverage_first=coverage_first)
         if reference_set_id is not None:
             groups={key:[ref for ref in rows if ref["set_id"]==reference_set_id]
                     for key,rows in groups.items()}
