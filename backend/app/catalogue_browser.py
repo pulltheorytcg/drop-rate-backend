@@ -182,7 +182,7 @@ with reference_base as not materialized (
  left join tcg.reference_catalogue_prices b
  on (b.provider,b.system_code,b.language,b.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
  and b.pricing_updated_at>=now()-interval '7 days'
- and (b.quotes->0->>'source'<>'DROP_RATE_COMPUTED_MARKET_V1' or b.expires_at>now())
+ and (b.quotes->0->>'source'<>'DROP_RATE_COMPUTED_MARKET_V1' or b.pricing_updated_at>now()-interval '2 days')
  and b.quotes->0->'reference_identity'=jsonb_build_object(
    'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',r.set_name)
  union all
