@@ -4,7 +4,7 @@
 
 Increase **global reference-card** pricing coverage without spending a separate
 eBay search per card. Official CardTrader `/marketplace/products?expansion_id=...`
-returns up to 25 active offers for each blueprint in the requested expansion.
+normally returns the 25 cheapest active offers per blueprint in an expansion.
 One expansion read therefore evaluates hundreds or thousands of cards/listings.
 The separate `/blueprints/export?expansion_id=...` binds each offer to a source
 printing. No scraping or paid provider is introduced.
@@ -46,6 +46,12 @@ The existing maintenance lock, database-capacity guard, read permissions,
 hourly cadence, bounded batch, request pacing and immutable `catalogue_job_runs`
 receipts apply. Changing from trial to apply replays the *trial input cursor*,
 so the tested release window isn't accidentally skipped.
+
+If the live endpoint returns more than 25 offers for a blueprint, preserve
+the full validated array under strict ceilings (2,500 per blueprint and 100,000
+per expansion), instead of discarding the entire release. Rejection reports
+separate graded/unknown grading, seller vacation, bundle size, quantity,
+blueprint identity, condition and language; they do not expose seller details.
 
 ## Verification and roll-out
 

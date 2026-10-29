@@ -39,7 +39,7 @@ from .reference_sealed import normalized as source_normalized
 
 SOURCE = "CARDTRADER_EXPANSION_ASKING"
 JOB = "CARDTRADER_EXPANSION_GUIDES"
-REVISION = 2
+REVISION = 3
 MIN_SELLERS = 3
 MAX_PRICE_SPREAD = Decimal("3")
 MAX_SETS_PER_RUN = 30
@@ -188,10 +188,21 @@ def eligible_seller_offers(rows, blueprint_id, expansion_id, *, diagnostics=None
     counts = defaultdict(int)
     for row in rows:
         counts["source_offers"] += 1
-        if (row.get("blueprint_id") != blueprint_id or
-                row.get("graded") is not False or _on_vacation(row) or
-                _bundle_size(row) != 1 or _quantity(row) < 1):
-            counts["non_raw_or_bundle_or_unavailable"] += 1
+        if row.get("blueprint_id") != blueprint_id:
+            counts["wrong_blueprint"] += 1
+            continue
+        if row.get("graded") is not False:
+            # A missing graded flag is unknown, not evidence of a raw card.
+            counts["graded_or_unconfirmed"] += 1
+            continue
+        if _on_vacation(row):
+            counts["unavailable_seller"] += 1
+            continue
+        if _bundle_size(row) != 1:
+            counts["not_confirmed_single_unit"] += 1
+            continue
+        if _quantity(row) < 1:
+            counts["no_available_quantity"] += 1
             continue
         expansion = row.get("expansion")
         if isinstance(expansion, dict) and expansion.get("id") != expansion_id:

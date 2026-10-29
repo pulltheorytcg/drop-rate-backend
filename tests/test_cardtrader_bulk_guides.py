@@ -66,9 +66,25 @@ def test_rejection_diagnostics_count_seller_and_condition_failures():
         listing(3, graded=True), listing(4, language="jp"),
     ], 111, 30, diagnostics=diagnostics)
     assert diagnostics["condition_not_near_mint"] == 1
-    assert diagnostics["non_raw_or_bundle_or_unavailable"] == 1
+    assert diagnostics["graded_or_unconfirmed"] == 1
     assert diagnostics["different_language"] == 1
     assert diagnostics["qualified_distinct_sellers"] == 1
+
+
+def test_rejection_diagnostics_identify_each_raw_availability_gate():
+    diagnostics = {}
+    rows = [
+        {**listing(1), "graded": None},
+        {**listing(2), "on_vacation": True},
+        {**listing(3), "bundle_size": 2},
+        {**listing(4), "quantity": 0},
+        {**listing(5), "blueprint_id": 222},
+    ]
+    assert not eligible_seller_offers(rows, 111, 30, diagnostics=diagnostics)
+    for reason in ("graded_or_unconfirmed", "unavailable_seller",
+                   "not_confirmed_single_unit", "no_available_quantity",
+                   "wrong_blueprint"):
+        assert diagnostics[reason] == 1
 
 
 def test_missing_does_not_replace_other_provider_positive_guide():
