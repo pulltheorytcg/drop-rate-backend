@@ -47,7 +47,7 @@ SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_m
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
 ONE_PIECE_BASE_RECOVERY_JOB='ONE_PIECE_OFFICIAL_BASE_GUIDES'
-POKEWALLET_JOB_REVISION=10  # Run updated, artwork-first resolver once on deploy.
+POKEWALLET_JOB_REVISION=11  # Run verified Cardmarket release-code matcher once on deploy.
 POKEWALLET_DBS_JOB_REVISION=3
 # At most 18 DBS + 10 One Piece + 7 Japanese Pokémon free requests/hour.
 # service consumes <=840/day of the provider's shared 1,000/day allowance,

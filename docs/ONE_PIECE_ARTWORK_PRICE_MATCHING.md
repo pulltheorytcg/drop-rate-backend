@@ -104,3 +104,13 @@ The supplier's API key stays on the server.
 Focused tests: `tests/test_one_piece_artwork_match.py`,
 `tests/test_pokewallet_one_piece_market.py`,
 `tests/test_catalogue_maintenance.py`.
+
+# Release-code URL identity
+
+Cardmarket uses either a release-title slug or Bandai's exact publisher set
+code (for example, `/Singles/OP16/`) for its English One Piece singles. Both
+are accepted only when they exactly agree with the canonical Bandai release
+identity already resolved for the official checklist. Cross-set, regional and
+approximate slugs still fail. This URL normalization enables image comparison;
+it does **not** permit a value to be assigned without an unambiguous,
+reciprocal artwork match and the existing metadata/price checks.
