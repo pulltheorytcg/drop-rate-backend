@@ -39,10 +39,14 @@ from .reference_sealed import normalized as source_normalized
 
 SOURCE = "CARDTRADER_EXPANSION_ASKING"
 JOB = "CARDTRADER_EXPANSION_GUIDES"
-REVISION = 4
+REVISION = 5
 MIN_SELLERS = 3
 MAX_PRICE_SPREAD = Decimal("3")
 MAX_SETS_PER_RUN = 30
+LOT_HINT = re.compile(
+    r"\b(?:lot|bundle|playset|multipack|multi-pack|set of [2-9]\d*|"
+    r"pack of [2-9]\d*|[2-9]\d*\s*(?:cards?|copies)|"
+    r"[x×]\s*[2-9]\d*|[2-9]\d*\s*[x×])\b", re.I)
 
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,
  r.name,r.set_id,r.card_number,r.rarity,r.finish,r.image_url,r.evidence,
@@ -181,12 +185,15 @@ def _signature(properties):
                         if any(flag in str(k).lower() for flag in keys)))
 
 
-def confirmed_single_unit(row, counts):
+def confirmed_single_unit(row, counts, *, verified_single_blueprint=False):
     """Handle the two documented unit fields without treating a multipack as one.
 
     CardTrader marketplace responses may omit the legacy bundle_size field,
     while exposing bundled_quantity. Only explicit one-unit evidence is valid.
     An explicit multi-unit bundle always wins over any conflicting fallback.
+    A missing pair of unit fields is accepted only when the caller has already
+    proven the product is an unambiguous official single-card blueprint and
+    the seller did not describe a lot. Such a guide remains catalogue-only.
     """
     primary = _bundle_size(row)
     supplementary = row.get("bundled_quantity")
@@ -208,10 +215,20 @@ def confirmed_single_unit(row, counts):
         counts["bundled_quantity_missing"] += 1
     else:
         counts["bundled_quantity_not_one"] += 1
+    if primary is None and supplementary is None and verified_single_blueprint:
+        description = row.get("description") or ""
+        tag = row.get("tag") or ""
+        if (isinstance(description, str) and len(description) <= 2000
+                and isinstance(tag, str) and len(tag) <= 250
+                and not LOT_HINT.search(description + " " + tag)):
+            counts["single_blueprint_unreported_unit_accepted"] += 1
+            return True
+        counts["seller_lot_description_or_invalid"] += 1
     return False
 
 
-def eligible_seller_offers(rows, blueprint_id, expansion_id, *, diagnostics=None):
+def eligible_seller_offers(rows, blueprint_id, expansion_id, *, diagnostics=None,
+                           verified_single_blueprint=False):
     """Return eligible rows; GBP-normalised seller deduplication happens later."""
     offers = []
     all_signatures = set()
@@ -228,7 +245,8 @@ def eligible_seller_offers(rows, blueprint_id, expansion_id, *, diagnostics=None
         if _on_vacation(row):
             counts["unavailable_seller"] += 1
             continue
-        if not confirmed_single_unit(row, counts):
+        if not confirmed_single_unit(
+                row, counts, verified_single_blueprint=verified_single_blueprint):
             counts["not_confirmed_single_unit"] += 1
             continue
         if _quantity(row) < 1:
@@ -271,9 +289,10 @@ def eligible_seller_offers(rows, blueprint_id, expansion_id, *, diagnostics=None
 
 
 async def asking_guide(ref, blueprint_id, expansion_id, rows, fx_provider, observed,
-                       fx_cache, *, diagnostics=None):
+                       fx_cache, *, diagnostics=None, verified_single_blueprint=False):
     offers = eligible_seller_offers(rows, blueprint_id, expansion_id,
-                                    diagnostics=diagnostics)
+                                    diagnostics=diagnostics,
+                                    verified_single_blueprint=verified_single_blueprint)
     if len(offers) < MIN_SELLERS:
         return None
     per_seller = {}
@@ -319,6 +338,10 @@ async def asking_guide(ref, blueprint_id, expansion_id, rows, fx_provider, obser
         "physical_language_confirmed": True, "condition_specific": True,
         "physical_valuation_eligible": False, "sold_comparable": False,
         "valuation_role": "INDICATIVE_ACTIVE_ASKING_GUIDE",
+        "unit_evidence": (
+            "EXACT_SINGLE_CARD_BLUEPRINT_UNIT_UNREPORTED"
+            if diagnostics and diagnostics.get("single_blueprint_unreported_unit_accepted")
+            else "EXPLICIT_SINGLE_UNIT_SOURCE_FIELD"),
         "match_basis": "EXACT_RELEASE_NUMBER_NAME_RARITY_UNAMBIGUOUS_CARDTRADER_BLUEPRINT",
         "reference_printing_id": ref["provider_id"],
         "reference_rarity": ref.get("rarity"),
@@ -429,7 +452,8 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
                     diagnostics = {}
                     guide = await asking_guide(ref, bp_id, expansion["id"],
                                                offers, fx_provider, observed, fx_cache,
-                                               diagnostics=diagnostics)
+                                               diagnostics=diagnostics,
+                                               verified_single_blueprint=True)
                     release["with_three_matching_sellers"] += int(
                         diagnostics.get("qualified_distinct_sellers", 0) >= MIN_SELLERS
                         and diagnostics.get("finish_signatures", 0) == 1)
