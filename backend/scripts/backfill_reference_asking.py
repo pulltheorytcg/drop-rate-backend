@@ -1,7 +1,9 @@
 """Plan missing reference searches, or explicitly collect/apply asking estimates.
 
 Default is database-read-only planning. --run creates a durable run receipt and
-makes at most 25 Browse searches (override <=2000). --apply additionally writes
+makes at most 25 total Browse calls (searches plus item details; override <=2000).
+The limit counts requests, not cards: a 1000-call run may inspect fewer cards.
+--apply additionally writes
 only validated READY estimates to separate asking history/cache. No scheduling.
 --resume-run skips all previously reserved references, including uncertain calls.
 """
@@ -29,7 +31,8 @@ def arguments(argv=None):
     actor.add_argument("--from-settings", action="store_true")
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--apply", action="store_true")
-    parser.add_argument("--max-queries", type=int, default=25)
+    parser.add_argument("--max-queries", type=int, default=25,
+                        help="Maximum total Browse requests: searches plus item details (1..2000, default 25); not a card count")
     parser.add_argument("--resume-run", type=UUID)
     parser.add_argument("--system-code", choices=sorted(GAMES))
     parser.add_argument("--language", choices=("English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese"))
@@ -95,3 +98,4 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

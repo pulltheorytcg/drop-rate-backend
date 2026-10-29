@@ -1,3 +1,20 @@
+## 29 October 2026 — Recover complete listing evidence after zero-yield batch
+
+The first cloud run finished at 00:36 UTC with 1,000 charged searches, 513
+summaries and zero accepted prices. It preserved its cursor and quota ledger.
+Last verified coverage remains **43,454/67,065 (64.7939%)**, gap **16,234**.
+
+The follow-up reads complete official eBay item details, structured condition
+descriptors and Bandai's documented former Masters game name. Discovery no
+longer requires language in the title; exact-language and printing checks
+remain. Search and detail requests share the same durable limits and pacing.
+`--max-queries 1000` caps total Browse calls, including details, so fewer than
+1,000 distinct cards may be checked. No arbitrary values are introduced.
+
+Local focused validation passed 273 tests. Normal CI, reviewed deployment and
+live readback remain required; no new price gain is claimed from code alone.
+See [detail recovery and live continuation](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
 ## 29 October 2026 — First 1,000-check batch running in the cloud
 
 Resolved the laptop command-session dependency by launching the existing

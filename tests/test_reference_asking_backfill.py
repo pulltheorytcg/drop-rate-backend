@@ -578,7 +578,7 @@ def test_long_provider_deck_name_does_not_overconstrain_retrieval():
                provider_id="OP02-054_r1", name="Gecko Moria", card_number="OP02-054",
                set_name="STARTER DECK -Blue Donquixote Doflamingo- [ST-17]", set_id="569017")
     before = deepcopy(ref)
-    assert worker.search_query(ref) == "One Piece Gecko Moria OP02-054 English"
+    assert worker.search_query(ref) == "One Piece Gecko Moria OP02-054"
     assert ref == before
 
 
@@ -590,7 +590,8 @@ def test_short_retrieval_keeps_wrong_set_rejection():
              "shippingOptions": [{"shippingCost": {"currency": "GBP", "value": "0.00"}}],
              "itemLocation": {"country": "GB"}, "condition": "Near Mint or Better"}
             for i in range(3)]
-    assert worker.search_query(ref) == "Pokemon Bulbasaur 44 English"
+    assert worker.search_query(ref) == "Pokemon Bulbasaur 44"
     result = worker.estimate_reference_asking_price(ref, rows, observed_at=NOW, now=NOW)
     assert result["status"] == "INSUFFICIENT_COMPARABLES"
     assert result["estimate_minor"] is None
+

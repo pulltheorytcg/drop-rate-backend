@@ -110,7 +110,40 @@ def _aspects(row: Mapping[str, Any]) -> dict[str, str]:
                 if isinstance(value, Mapping) and isinstance(value.get("value"), str):
                     name = _text(value.get("name"))
                     result[name] = " ".join(filter(None, (result.get(name), _text(value["value"]))))
+    # Browse getItem exposes trading-card condition separately from aspects.
+    # A raw conditionId=4000 means Ungraded, not Near Mint. Retain every explicit
+    # descriptor, including conflicting grades/condition, for the same matcher.
+    descriptors = row.get("conditionDescriptors")
+    if isinstance(descriptors, list):
+        for descriptor in descriptors:
+            if not isinstance(descriptor, Mapping):
+                continue
+            name = _text(descriptor.get("name"))
+            values = descriptor.get("values")
+            if not name or not isinstance(values, list):
+                continue
+            for value in values:
+                if not isinstance(value, Mapping):
+                    continue
+                parts = [_text(value.get("content"))]
+                extra = value.get("additionalInfo")
+                if isinstance(extra, list):
+                    parts.extend(_text(part) for part in extra)
+                result[name] = " ".join(filter(None, (result.get(name), *parts)))
     return result
+
+
+def _matches_game(text: str, reference: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
+    aliases = _GAMES[spec["game"]]
+    # Bandai renamed the original game to Masters in March 2024. The old full
+    # name remains valid explicit game evidence for its known collector-number
+    # families. This proves the game only; set/printing checks still follow.
+    # https://www.dbs-cardgame.com/europe-en/about/
+    if (spec["game"] == "DRAGON_BALL_SUPER_MASTERS"
+            and re.fullmatch(r"(?:BT|TB|EX|SD)\d{1,3}-\d{1,4}", reference["card_number"], re.I)):
+        aliases = (*aliases, "dragon ball super card game")
+    return (any(_game_words(text, alias) for alias in aliases)
+            and not _explicitly_denies(text, aliases))
 
 
 def _variant_markers(text: str) -> set[str]:
@@ -273,7 +306,7 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     if _MULTI_RE.search(all_text):
         return "MULTI_ITEM_OR_NON_PHYSICAL"
     game_text = " ".join((title, aspects.get("game", "")))
-    if not any(_game_words(game_text, alias) for alias in _GAMES[spec["game"]]):
+    if not _matches_game(game_text, reference, spec):
         return "GAME_MISMATCH"
     if any(any(_game_words(game_text, alias) for alias in aliases) for game, aliases in _GAMES.items() if game != spec["game"]):
         return "GAME_MISMATCH"
@@ -330,6 +363,19 @@ def _comparable(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapp
             end = None
         if end is None or end.tzinfo is None or end.utcoffset() is None or end <= observed_at:
             return None, "ENDED_OR_INVALID_LISTING_TIME"
+    availability = row.get("estimatedAvailabilities")
+    if availability is not None:
+        if not isinstance(availability, list) or not availability:
+            return None, "UNAVAILABLE_OR_INVALID_LISTING"
+        for entry in availability:
+            if not isinstance(entry, Mapping):
+                return None, "UNAVAILABLE_OR_INVALID_LISTING"
+            status = entry.get("estimatedAvailabilityStatus")
+            if status is not None and status not in {"IN_STOCK", "LIMITED_STOCK"}:
+                return None, "UNAVAILABLE_OR_INVALID_LISTING"
+            quantity = entry.get("estimatedAvailableQuantity")
+            if quantity is not None and (type(quantity) is not int or quantity < 1):
+                return None, "UNAVAILABLE_OR_INVALID_LISTING"
     location = row.get("itemLocation")
     if not isinstance(location, Mapping) or location.get("country") != "GB":
         return None, "NON_GB_OR_UNKNOWN_LOCATION"
@@ -351,10 +397,19 @@ def _comparable(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapp
     if not isinstance(username, str) or not username.strip():
         return None, "MISSING_SELLER_ID"
     seller_hash = hashlib.sha256((SOURCE + ":" + username.strip().casefold()).encode()).hexdigest()
+    aspects = _aspects(row)
+    listing_evidence = {
+        "acquisition": "GET_ITEM" if row.get("_evidence_acquisition") == "GET_ITEM" else "SEARCH_SUMMARY",
+        "condition": row.get("condition"), "condition_id": row.get("conditionId"),
+        "aspects": {key: aspects[key] for key in
+                    ("game", "language", "card number", "set", "finish", "card condition")
+                    if key in aspects},
+    }
     return {"item_id": item_id, "seller_hash": seller_hash, "title": row["title"],
             "price_gbp_minor": price, "shipping_gbp_minor": shipping,
             "delivered_gbp_minor": price + shipping,
             "finish": _FINISH_LABEL[_listing_finish(row, spec)], "condition": "Near Mint",
+            "listing_evidence": listing_evidence,
             "match_proof": {"game": spec["game"], "language": spec["language"],
                             "card_number": reference["card_number"], "set_terms": list(spec["set_terms"]),
                             "variant_terms": list(spec["variant_terms"])}}, None
@@ -413,7 +468,9 @@ def estimate_reference_asking_price(
         if not isinstance(row, Mapping):
             rejected["INVALID_ROW"] += 1
             continue
-        comparable, reason = _comparable(row, reference, spec, observed_at)
+        # A reused response retains acquisition time for TTL, but a listing
+        # whose known end time has passed is no longer an active comparable.
+        comparable, reason = _comparable(row, reference, spec, current)
         if comparable is None:
             rejected[reason or "INVALID_ROW"] += 1
         else:
@@ -470,3 +527,4 @@ def estimate_reference_asking_price(
                   confidence="MEDIUM" if len(candidates) >= 5 else "LOW",
                   dispersion_ratio=float(dispersion))
     return result
+
