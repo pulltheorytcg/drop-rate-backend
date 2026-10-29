@@ -22,6 +22,12 @@ from .cardtrader_bulk_guides import (
     REVISION as CARDTRADER_BULK_REVISION,
     refresh_cardtrader_expansion_guides,
 )
+from .drop_rate_daily_model import (
+    JOB as DROP_RATE_DAILY_JOB,
+    REVISION as DROP_RATE_DAILY_REVISION,
+    daily_model_due,
+    run_daily_reference_model,
+)
 from .db import user_connection
 from .fx import EcbHistoricalFxProvider
 from .database_capacity import check_database_capacity
@@ -357,7 +363,7 @@ def coverage_lags_pricing(latest):
         for name in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES',
                      'CARDMARKET_VALUES','CATALOGUE_VALUES','POKEWALLET_PRICES',
                      'POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES',
-                     CARDTRADER_BULK_JOB,TCGCSV_JOB)
+                     CARDTRADER_BULK_JOB,DROP_RATE_DAILY_JOB,TCGCSV_JOB)
         for run in (latest.get(name),)
     )
 
@@ -377,7 +383,7 @@ async def daily_pass(pool,settings):
                     log.error('CATALOGUE_BULK_REFRESH_DEFERRED %s', json.dumps(capacity.report(), sort_keys=True))
                     return
                 runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
-                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES','ONE_PIECE_OFFICIAL_BASE_GUIDES','CARDTRADER_EXPANSION_GUIDES') order by job,started_at desc")
+                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES','ONE_PIECE_OFFICIAL_BASE_GUIDES','CARDTRADER_EXPANSION_GUIDES','DROP_RATE_DAILY_MODEL') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
             latest[TCGCSV_JOB]=last.get(TCGCSV_JOB)
@@ -514,6 +520,47 @@ async def daily_pass(pool,settings):
                     await receipt(pool,actor,CARDTRADER_BULK_JOB,
                                   'INCOMPLETE' if result.get('provider_failures') else 'COMPLETE',
                                   {'importer_revision':revision,**result})
+                    if result.get('writes_applied'):
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            # Drop Rate's own rules-verified 04:00 UK catalogue values.
+            # This runs inside the existing worker lock/capacity guard and
+            # never mutates founder/consignor inventory or Shopify directly.
+            if getattr(settings,'drop_rate_daily_model_enabled',False):
+                prior=latest.get(DROP_RATE_DAILY_JOB)
+                revision=(DROP_RATE_DAILY_REVISION*10+
+                          int(getattr(settings,'drop_rate_daily_model_apply_enabled',False)))
+                if daily_model_due(prior,now,revision=revision):
+                    prior_report=(prior.get('report') or {}) if prior else {}
+                    cursor=prior_report.get('cursor')
+                    # Dry-run => apply and algorithm revisions replay the
+                    # assessed window, never silently skip eligible cards.
+                    if prior_report.get('importer_revision')!=revision:
+                        cursor=prior_report.get('input_cursor')
+                    run_id=await receipt(pool,actor,DROP_RATE_DAILY_JOB,'RUNNING',{
+                        'importer_revision':revision,'input_cursor':cursor,
+                        'scope':'CARD_CATALOGUE_ONLY'})
+                    status='FAILED'
+                    result={'importer_revision':revision,'reason':'NOT_STARTED'}
+                    try:
+                        result=await run_daily_reference_model(
+                            pool,actor,
+                            dry_run=not getattr(settings,'drop_rate_daily_model_apply_enabled',False),
+                            limit=getattr(settings,'drop_rate_daily_model_batch_limit',1000),
+                            previous_cursor=cursor,
+                            now=datetime.now(timezone.utc))
+                        result={'importer_revision':revision,**result}
+                        status='COMPLETE'
+                    except asyncio.CancelledError:
+                        result={'importer_revision':revision,'reason':'INTERRUPTED',
+                                'input_cursor':cursor}
+                        raise
+                    except Exception as exc:
+                        result={'importer_revision':revision,
+                                'reason':type(exc).__name__,
+                                'input_cursor':cursor}
+                    finally:
+                        await receipt(pool,actor,DROP_RATE_DAILY_JOB,status,result,run_id)
                     if result.get('writes_applied'):
                         await record_coverage(pool,actor)
                         coverage_recorded=True
