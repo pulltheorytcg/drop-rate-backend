@@ -17,6 +17,11 @@ from fastapi import HTTPException
 
 from .access_control import require_platform_admin
 from .cardtrader_client import CardTraderClient
+from .cardtrader_bulk_guides import (
+    JOB as CARDTRADER_BULK_JOB,
+    REVISION as CARDTRADER_BULK_REVISION,
+    refresh_cardtrader_expansion_guides,
+)
 from .db import user_connection
 from .fx import EcbHistoricalFxProvider
 from .database_capacity import check_database_capacity
@@ -337,7 +342,8 @@ def coverage_lags_pricing(latest):
         run is not None and run['status']=='COMPLETE' and run['started_at']>checkpoint
         for name in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES',
                      'CARDMARKET_VALUES','CATALOGUE_VALUES','POKEWALLET_PRICES',
-                     'POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES',TCGCSV_JOB)
+                     'POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES',
+                     CARDTRADER_BULK_JOB,TCGCSV_JOB)
         for run in (latest.get(name),)
     )
 
@@ -357,7 +363,7 @@ async def daily_pass(pool,settings):
                     log.error('CATALOGUE_BULK_REFRESH_DEFERRED %s', json.dumps(capacity.report(), sort_keys=True))
                     return
                 runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
-                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES','ONE_PIECE_OFFICIAL_BASE_GUIDES') order by job,started_at desc")
+                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES','ONE_PIECE_OFFICIAL_BASE_GUIDES','CARDTRADER_EXPANSION_GUIDES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
             latest[TCGCSV_JOB]=last.get(TCGCSV_JOB)
@@ -466,6 +472,37 @@ async def daily_pass(pool,settings):
                                   'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
                                   {'importer_revision':revision,**result})
                     if result['writes_attempted']:
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            # Official expansion-level marketplace API: one read for all
+            # blueprints in a set, without the 2,000-call eBay Browse bottleneck.
+            # This is opt-in and starts as a dry run. It never writes inventory,
+            # Shopify prices, ownership, or fabricated sold observations.
+            if (getattr(settings,'cardtrader_bulk_guides_enabled',False)
+                    and getattr(settings,'cardtrader_api_token',None)):
+                prior=latest.get(CARDTRADER_BULK_JOB)
+                revision=(CARDTRADER_BULK_REVISION*10 +
+                          int(getattr(settings,'cardtrader_bulk_guides_apply_enabled',False)))
+                if (prior is None or prior['started_at']<hourly_slot(now) or
+                        (prior.get('report') or {}).get('importer_revision')!=revision):
+                    prior_report=(prior.get('report') or {}) if prior else {}
+                    cursor=prior_report.get('cursor')
+                    if (getattr(settings,'cardtrader_bulk_guides_apply_enabled',False)
+                            and prior_report.get('dry_run') is True
+                            and not prior_report.get('writes_attempted')):
+                        cursor=prior_report.get('input_cursor')
+                    result=await refresh_cardtrader_expansion_guides(
+                        pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
+                        CardTraderClient(api_token=settings.cardtrader_api_token,
+                                         timeout_seconds=20),
+                        dry_run=not getattr(settings,'cardtrader_bulk_guides_apply_enabled',False),
+                        expansion_limit=getattr(settings,
+                                                'cardtrader_bulk_guides_expansion_limit',15),
+                        previous_cursor=cursor)
+                    await receipt(pool,actor,CARDTRADER_BULK_JOB,
+                                  'INCOMPLETE' if result.get('provider_failures') else 'COMPLETE',
+                                  {'importer_revision':revision,**result})
+                    if result.get('writes_applied'):
                         await record_coverage(pool,actor)
                         coverage_recorded=True
             # The hourly quota feeds run before *all* bulk work, including

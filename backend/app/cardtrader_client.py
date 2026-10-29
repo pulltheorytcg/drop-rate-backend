@@ -94,6 +94,45 @@ class CardTraderClient:
         payload = await self._request("/marketplace/products", params=params)
         return self._marketplace_list(payload, blueprint_id=blueprint_id)
 
+    async def list_marketplace_expansion_products(
+        self,
+        *,
+        expansion_id: int,
+        language: str | None = None,
+        foil: bool | None = None,
+    ) -> dict[int, list[dict[str, Any]]]:
+        """Read the official expansion-wide marketplace feed in a single request.
+
+        The response maps blueprint IDs to their cheapest 25 live offers.  A
+        per-blueprint search for a 300-card release would use 300 requests;
+        this endpoint uses one without weakening printing identity checks.
+        """
+        if type(expansion_id) is not int or expansion_id <= 0:
+            raise ValueError("expansion_id must be positive")
+        params: dict[str, str | int | bool] = {"expansion_id": expansion_id}
+        if language:
+            lang = language.strip().lower()
+            if len(lang) != 2 or not lang.isalpha():
+                raise ValueError("language must be a two-letter locale")
+            params["language"] = lang
+        if foil is not None:
+            params["foil"] = foil
+        payload = await self._request("/marketplace/products", params=params)
+        if not isinstance(payload, dict) or len(payload) > 10_000:
+            raise CardTraderApiError("CardTrader expansion marketplace returned an invalid map")
+        result: dict[int, list[dict[str, Any]]] = {}
+        for raw_id, rows in payload.items():
+            if not isinstance(raw_id, str) or not raw_id.isdecimal():
+                raise CardTraderApiError("CardTrader expansion marketplace contains an invalid blueprint id")
+            blueprint_id = int(raw_id)
+            if blueprint_id <= 0 or not isinstance(rows, list) or len(rows) > 25:
+                raise CardTraderApiError("CardTrader expansion marketplace contains invalid offers")
+            if not all(isinstance(row, dict) and row.get("blueprint_id") == blueprint_id
+                       for row in rows):
+                raise CardTraderApiError("CardTrader expansion marketplace contains mismatched offers")
+            result[blueprint_id] = rows
+        return result
+
     @staticmethod
     def _as_list(payload: object, label: str) -> list[dict[str, Any]]:
         if isinstance(payload, list):
