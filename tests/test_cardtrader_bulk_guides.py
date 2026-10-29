@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 
 from app.cardtrader_bulk_guides import (
-    SOURCE, asking_guide, eligible_seller_offers, masters_printings,
+    SOURCE, asking_guide, eligible_seller_offers, masters_printings, missing,
     pokemon_printings,
 )
 from app.fx import FxQuote
@@ -51,8 +51,34 @@ def test_three_independent_nm_english_raw_sellers_required():
 
 
 def test_foil_and_nonfoil_not_mixed():
+    diagnostics = {}
     assert not eligible_seller_offers(
-        [listing(1), listing(2), listing(3), listing(4, foil=True)], 111, 30)
+        [listing(1), listing(2), listing(3), listing(4, foil=True)], 111, 30,
+        diagnostics=diagnostics)
+    assert diagnostics["finish_signatures"] == 2
+    assert diagnostics["qualified_distinct_sellers"] == 4
+
+
+def test_rejection_diagnostics_count_seller_and_condition_failures():
+    diagnostics = {}
+    assert not eligible_seller_offers([
+        listing(1), listing(2, condition="Played"),
+        listing(3, graded=True), listing(4, language="jp"),
+    ], 111, 30, diagnostics=diagnostics)
+    assert diagnostics["condition_not_near_mint"] == 1
+    assert diagnostics["non_raw_or_bundle_or_unavailable"] == 1
+    assert diagnostics["different_language"] == 1
+    assert diagnostics["qualified_distinct_sellers"] == 1
+
+
+def test_missing_does_not_replace_other_provider_positive_guide():
+    assert missing({"has_detail": False, "has_catalogue": False,
+                    "has_any_catalogue": False})
+    assert not missing({"has_detail": False, "has_catalogue": False,
+                        "has_any_catalogue": True,
+                        "existing_catalogue_source": "POKEWALLET_CARDMARKET_CATALOGUE"})
+    assert missing({"has_detail": False, "has_catalogue": False,
+                    "has_any_catalogue": True, "existing_catalogue_source": SOURCE})
 
 
 @pytest.mark.asyncio

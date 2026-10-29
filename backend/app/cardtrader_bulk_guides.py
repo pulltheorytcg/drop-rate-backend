@@ -39,7 +39,7 @@ from .reference_sealed import normalized as source_normalized
 
 SOURCE = "CARDTRADER_EXPANSION_ASKING"
 JOB = "CARDTRADER_EXPANSION_GUIDES"
-REVISION = 1
+REVISION = 2
 MIN_SELLERS = 3
 MAX_PRICE_SPREAD = Decimal("3")
 MAX_SETS_PER_RUN = 30
@@ -181,42 +181,58 @@ def _signature(properties):
                         if any(flag in str(k).lower() for flag in keys)))
 
 
-def eligible_seller_offers(rows, blueprint_id, expansion_id):
+def eligible_seller_offers(rows, blueprint_id, expansion_id, *, diagnostics=None):
     """Return eligible rows; GBP-normalised seller deduplication happens later."""
     offers = []
     all_signatures = set()
+    counts = defaultdict(int)
     for row in rows:
+        counts["source_offers"] += 1
         if (row.get("blueprint_id") != blueprint_id or
                 row.get("graded") is not False or _on_vacation(row) or
                 _bundle_size(row) != 1 or _quantity(row) < 1):
+            counts["non_raw_or_bundle_or_unavailable"] += 1
             continue
         expansion = row.get("expansion")
         if isinstance(expansion, dict) and expansion.get("id") != expansion_id:
+            counts["wrong_expansion"] += 1
             continue
         properties = row.get("properties_hash")
         if not isinstance(properties, dict) or properties.get("condition") != "Near Mint":
+            counts["condition_not_near_mint"] += 1
             continue
         if any(value is True for key, value in properties.items()
                if any(flag in str(key).lower() for flag in ("signed", "altered", "proxy"))):
+            counts["signed_or_altered"] += 1
             continue
         if any(str(value).strip().casefold() not in {"en", "english"}
                for key, value in properties.items() if "language" in str(key).lower()):
+            counts["different_language"] += 1
             continue
         price = _price(row)
         user_id = _seller(row).get("id")
         if price is None or type(user_id) is not int or user_id <= 0:
+            counts["invalid_price_or_seller"] += 1
             continue
         all_signatures.add(_signature(properties))
         if type(row.get("id")) is not int or row["id"] <= 0:
+            counts["invalid_listing_id"] += 1
             continue
         offers.append((user_id, price, row["id"]))
+    counts["qualified_offers"] = len(offers)
+    counts["qualified_distinct_sellers"] = len({row[0] for row in offers})
+    counts["finish_signatures"] = len(all_signatures)
+    if diagnostics is not None:
+        diagnostics.update(counts)
     if len(all_signatures) != 1 or len({row[0] for row in offers}) < MIN_SELLERS:
         return []
     return offers
 
 
-async def asking_guide(ref, blueprint_id, expansion_id, rows, fx_provider, observed, fx_cache):
-    offers = eligible_seller_offers(rows, blueprint_id, expansion_id)
+async def asking_guide(ref, blueprint_id, expansion_id, rows, fx_provider, observed,
+                       fx_cache, *, diagnostics=None):
+    offers = eligible_seller_offers(rows, blueprint_id, expansion_id,
+                                    diagnostics=diagnostics)
     if len(offers) < MIN_SELLERS:
         return None
     per_seller = {}
@@ -234,8 +250,12 @@ async def asking_guide(ref, blueprint_id, expansion_id, rows, fx_provider, obser
             if prior is None or row < prior:
                 per_seller[seller] = row
     amounts = sorted(per_seller.values())
+    if diagnostics is not None:
+        diagnostics["independent_sellers_above_one_pound"] = len(amounts)
     selected = amounts[:7]
     if len(selected) < MIN_SELLERS or selected[-1][0] > selected[0][0] * MAX_PRICE_SPREAD:
+        if diagnostics is not None and len(selected) >= MIN_SELLERS:
+            diagnostics["spread_rejected"] = 1
         return None
     gbp_minor = int(Decimal(str(median(item[0] for item in selected))).quantize(
         Decimal("1"), rounding=ROUND_HALF_UP))
@@ -320,7 +340,7 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
               "provider_failures": 0, "sets_checked": 0, "references_examined": 0,
               "exact_printings": 0, "eligible_quotes": 0, "writes_attempted": 0,
               "writes_applied": 0, "inventory_writes": 0, "store_price_writes": 0,
-              "by_release": {}, "request_limit": expansion_limit,
+              "by_release": {}, "failed_release_ids": [], "request_limit": expansion_limit,
               "quote_type": "ACTIVE_ASKING_NOT_SOLD", "scope": "CATALOGUE_ONLY"}
     async with user_connection(pool, actor, str(uuid4())) as connection:
         await require_platform_admin(connection)
@@ -340,7 +360,9 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
             report["cursor"] = cursor
             report["references_examined"] += len(group)
             release = {"references": len(group), "missing_before": sum(map(missing, group)),
-                       "matched": 0, "quotes": 0, "writes": 0}
+                       "matched": 0, "quotes": 0, "writes": 0,
+                       "blueprints_with_offers": 0, "candidate_source_offers": 0,
+                       "with_three_matching_sellers": 0, "rejection_counts": {}}
             report["by_release"][cursor] = release
             try:
                 report["provider_calls"] += 2
@@ -355,13 +377,24 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
                 release["matched"] = len(matches)
                 report["exact_printings"] += len(matches)
                 values = []
+                rejections = defaultdict(int)
                 for ref in group:
                     bp_id = matches.get(ref["provider_id"])
                     if not bp_id or not missing(ref):
                         continue
+                    offers = offers_by_blueprint.get(bp_id, [])
+                    release["blueprints_with_offers"] += int(bool(offers))
+                    release["candidate_source_offers"] += len(offers)
+                    diagnostics = {}
                     guide = await asking_guide(ref, bp_id, expansion["id"],
-                                               offers_by_blueprint.get(bp_id, []),
-                                               fx_provider, observed, fx_cache)
+                                               offers, fx_provider, observed, fx_cache,
+                                               diagnostics=diagnostics)
+                    release["with_three_matching_sellers"] += int(
+                        diagnostics.get("qualified_distinct_sellers", 0) >= MIN_SELLERS
+                        and diagnostics.get("finish_signatures", 0) == 1)
+                    for key, value in diagnostics.items():
+                        if key != "finish_signatures":
+                            rejections[key] += value
                     if not guide:
                         continue
                     quote, minor = guide
@@ -372,6 +405,7 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
                                    ref["card_number"], ref["set_name"], ref.get("rarity"),
                                    SOURCE, ref.get("image_url"), None))
                 release["quotes"] = len(values)
+                release["rejection_counts"] = dict(sorted(rejections.items()))
                 report["eligible_quotes"] += len(values)
                 if not dry_run and values:
                     async with user_connection(pool, actor, str(uuid4())) as connection:
@@ -395,12 +429,23 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
                 report["sets_checked"] += 1
             except (CardTraderApiError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                 release["error_type"] = type(exc).__name__
+                if isinstance(exc, CardTraderApiError):
+                    # Error details are fixed messages emitted by our own client,
+                    # never raw upstream bodies or credential-bearing URLs.
+                    release["error_detail"] = exc.detail
+                    release["http_status"] = exc.status_code
                 report["provider_failures"] += 1
                 report["reason"] = type(exc).__name__
-                # The cursor must stay at the last successfully completed set,
-                # so retry can safely replay the failed release next hour.
-                report["cursor"] = selected[index - 1][0] if index else previous_cursor
-                break
+                report["failed_release_ids"].append(cursor)
+                # Rate limits, auth failures and transient network errors pause
+                # the whole session. A single missing/invalid release should
+                # not stop the other expansions in the allowed batch.
+                if (not isinstance(exc, CardTraderApiError) or exc.retryable or
+                        exc.status_code in {401, 403, 429}):
+                    report["cursor"] = selected[index - 1][0] if index else previous_cursor
+                    break
+                await asyncio.sleep(1)
+                continue
             await asyncio.sleep(1)  # conservative pacing, independent of 10/s maximum
     except (CardTraderApiError, ValueError, TypeError, KeyError, RuntimeError) as exc:
         report["reason"] = type(exc).__name__
