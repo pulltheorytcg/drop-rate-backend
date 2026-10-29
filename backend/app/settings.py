@@ -125,6 +125,7 @@ class Settings:
     pokewallet_api_key: str | None = None
     pokewallet_pricing_apply_enabled: bool = False
     pokewallet_one_piece_artwork_matching_enabled: bool = False
+    pokewallet_pricing_coverage_first_enabled: bool = False
     pokewallet_pricing_request_limit: int = 60
     pokewallet_dragon_ball_enabled: bool = False
     pokewallet_dragon_ball_apply_enabled: bool = False
@@ -247,6 +248,8 @@ class Settings:
             pokewallet_pricing_apply_enabled=_boolean("TCG_POKEWALLET_PRICING_APPLY_ENABLED", False),
             pokewallet_one_piece_artwork_matching_enabled=_boolean(
                 "TCG_POKEWALLET_ONE_PIECE_ARTWORK_MATCH_ENABLED", False),
+            pokewallet_pricing_coverage_first_enabled=_boolean(
+                "TCG_POKEWALLET_PRICING_COVERAGE_FIRST_ENABLED", False),
             pokewallet_pricing_request_limit=_bounded_int(
                 "TCG_POKEWALLET_PRICING_REQUEST_LIMIT", 60, minimum=3, maximum=60
             ),

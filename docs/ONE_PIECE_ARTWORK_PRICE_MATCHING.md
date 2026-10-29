@@ -19,6 +19,17 @@ Opt-in feature flag:
 
 `TCG_POKEWALLET_ONE_PIECE_ARTWORK_MATCH_ENABLED=false`
 
+To stop spending the constrained free quota on already-priced references while
+the overall coverage target is unmet, the operator can independently enable:
+
+`TCG_POKEWALLET_PRICING_COVERAGE_FIRST_ENABLED=true`
+
+In coverage-first mode, references with an existing positive guide are still
+loaded for identity collision checks but are not selected for price refresh or
+write. Only genuinely unpriced references are eligible for new catalogue guides.
+Turn this flag OFF after the coverage push so normal daily guide refreshes
+resume; stale prices must not be mistaken for recent sold comparables.
+
 With the flag on, the existing bounded hourly importer:
 
 1. Selects publisher-confirmed **English** Bandai references with an original

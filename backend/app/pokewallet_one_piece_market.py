@@ -140,19 +140,24 @@ def rarity(value: object) -> str:
     return RARITIES.get(label, label)
 
 
-def quote_eligible(ref: dict, now: datetime) -> bool:
+def quote_eligible(ref: dict, now: datetime, *, coverage_first: bool=False) -> bool:
     if ref.get("has_detail_value"):
         return False
     existing = int(ref.get("existing_catalogue_value") or 0)
     if existing <= 0:
         return True
+    # During an explicit coverage push, never spend scarce free API calls
+    # refreshing a reference that already has a positive catalogue guide.
+    # Stale-guide refresh resumes when the operator turns this mode off.
+    if coverage_first:
+        return False
     if ref.get("existing_source") != SOURCE:
         return False
     updated = ref.get("existing_pricing_updated_at")
     return isinstance(updated, datetime) and updated < now - timedelta(days=1)
 
 
-def collect_reference_groups(refs: list[dict], now: datetime):
+def collect_reference_groups(refs: list[dict], now: datetime, *, coverage_first: bool=False):
     """Return every base reference, including priced rows for collision checks."""
     by_number = defaultdict(list)
     wanted = defaultdict(list)
@@ -161,7 +166,7 @@ def collect_reference_groups(refs: list[dict], now: datetime):
         if code:
             key = (ref["language"], code, ref["card_number"])
             by_number[key].append(ref)
-            if quote_eligible(ref, now):
+            if quote_eligible(ref, now, coverage_first=coverage_first):
                 wanted[key].append(ref)
     # Multiple reference sets with one release code, or conflicting reference
     # rarities, must never create an apparent unique market product.
@@ -513,6 +518,7 @@ class FreePokewalletOnePieceClient:
 async def artwork_matches_for_complete_set(
     groups: dict, language: str, code: str, products: list[dict],
     client: FreePokewalletOnePieceClient, diagnostics: dict,
+    *, coverage_first: bool=False,
 ) -> list[tuple[dict, dict, dict]]:
     """Resolve a bounded number of *official* printings using actual art.
 
@@ -530,7 +536,8 @@ async def artwork_matches_for_complete_set(
     for (group_code, number), refs in sorted(groups.items()):
         if group_code != code or diagnostics.get("artwork_groups_tested", 0) >= MAX_ARTWORK_GROUPS_PER_RUN:
             continue
-        if not any(quote_eligible(ref, datetime.now(timezone.utc)) for ref in refs):
+        if not any(quote_eligible(ref, datetime.now(timezone.utc), coverage_first=coverage_first)
+                   for ref in refs):
             continue
         candidates = source_products_for_group(by_number.get(number, []), refs)
         if not candidates:
@@ -593,7 +600,8 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                                        http_client=None,
                                        reference_set_id: str | None=None,
                                        operator_run_id: str | None=None,
-                                       artwork_matching_enabled: bool=False) -> dict:
+                                       artwork_matching_enabled: bool=False,
+                                       coverage_first: bool=False) -> dict:
     """One bounded free API pass, with dry-run by default and a round-robin cursor.
 
     The caller holds the existing global catalogue advisory lock and records
@@ -616,6 +624,7 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             "matching_printings":0,"eligible_quotes":0,
             "writes_attempted":0,"provider_failures":0,"cursor":previous_cursor}
     result["artwork_matching_enabled"] = artwork_matching_enabled
+    result["coverage_first"] = coverage_first
     result["artwork_groups_tested"] = 0
     result["artwork_groups_verified"] = 0
     result["artwork_printings_quoted"] = 0
@@ -627,7 +636,7 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
         async with user_connection(pool,actor,str(uuid4())) as connection:
             refs=[dict(r) for r in await connection.fetch(READ_SQL)]
         result["checked_references"]=len(refs)
-        groups=collect_reference_groups(refs,now)
+        groups=collect_reference_groups(refs,now,coverage_first=coverage_first)
         art_groups = official_groups(refs, code_from_reference) if artwork_matching_enabled else {}
         if reference_set_id is not None:
             # First retain complete-catalogue identity collision checks, then
@@ -746,7 +755,8 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                 if (artwork_matching_enabled and lang=="English"
                         and result["artwork_groups_tested"]<MAX_ARTWORK_GROUPS_PER_RUN):
                     artwork_matches=await artwork_matches_for_complete_set(
-                        art_groups,lang,code,complete,client,result)
+                        art_groups,lang,code,complete,client,result,
+                        coverage_first=coverage_first)
                 # Art matches supersede base matches only for the same exact
                 # printing; identities and observed prices are not guessed.
                 verified_ids={ref["provider_id"] for ref,_,_ in artwork_matches}
@@ -763,7 +773,7 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                         converted=await fx.quote(base_currency="EUR",quote_currency="GBP",at=now)
                     values=[]
                     for ref,product,art_evidence in matches:
-                        if not quote_eligible(ref,now):
+                        if not quote_eligible(ref,now,coverage_first=coverage_first):
                             continue
                         quote=catalogue_guide(ref,product,group_id,converted,now)
                         if quote is None:

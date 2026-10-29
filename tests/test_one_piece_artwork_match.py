@@ -1,7 +1,7 @@
 """Offline checks for artwork-confirmed catalogue pricing, never inventory."""
 import pytest
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -53,6 +53,19 @@ def two_official():
 
 def two_products():
     return [product(1), product(2)]
+
+
+def test_coverage_first_refuses_refreshes_but_accepts_genuinely_missing_prices():
+    now = datetime(2026, 10, 29, 16, tzinfo=timezone.utc)
+    previously_priced = official(NUMBER, existing_catalogue_value=1000,
+        existing_source=market.SOURCE, existing_pricing_updated_at=now - timedelta(days=4))
+    missing = official(NUMBER, existing_catalogue_value=0)
+    assert market.quote_eligible(previously_priced, now)
+    assert not market.quote_eligible(previously_priced, now, coverage_first=True)
+    assert market.quote_eligible(missing, now, coverage_first=True)
+    assert market.collect_reference_groups([previously_priced], now, coverage_first=True) == {}
+    # The source must not be queried just to refresh an already priced row.
+    assert market.collect_reference_groups([missing], now, coverage_first=True)
 
 
 def test_official_printings_are_distinct_and_publisher_evidenced():
@@ -259,3 +272,66 @@ async def test_live_job_path_uses_artwork_evidence_for_reference_quotes_only(mon
         assert all(row[4][0]["physical_valuation_eligible"] is False for row in writes)
         assert all(row[16] == next(ref["image_url"] for ref in refs if ref["provider_id"] == row[3])
                    and row[17] == row[3] for row in writes)
+
+
+@pytest.mark.asyncio
+async def test_coverage_first_writes_only_the_unpriced_alternate(monkeypatch):
+    refs = two_official()
+    now = datetime(2026, 10, 29, 16, tzinfo=timezone.utc)
+    refs[0]["existing_catalogue_value"] = 500
+    refs[0]["existing_source"] = market.SOURCE
+    refs[0]["existing_pricing_updated_at"] = now - timedelta(days=4)
+    products = two_products()
+    writes = []
+
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self, query):
+                return refs
+            async def executemany(self, query, rows):
+                writes.extend(rows)
+        yield Conn()
+
+    class Response:
+        def __init__(self, body=None, image=None):
+            self.status_code = 200
+            self.body = body
+            self.headers = {"content-type": "image/png"} if image else {}
+            self.content = image or b"fixture"
+        def json(self):
+            return self.body
+
+    class Http:
+        async def get(self, url, params=None, headers=None):
+            if url.endswith("/op/sets"):
+                return Response({"success": True, "data": [
+                    {"set_code": "OP15", "group_id": "15", "language": "en"}]
+                    if params["language"] == "en" else []})
+            if url.endswith("/op/sets/15"):
+                return Response({"success": True,
+                    "set": {"set_code": "OP15", "group_id": "15", "language": "en"},
+                    "page": 1, "total": 2, "data": products})
+            if "/images/" in url:
+                return Response(image=url.rsplit("/", 1)[-1].encode())
+            raise AssertionError("Unexpected endpoint")
+
+    async def official_hash(url):
+        return (0,) if url.endswith("OP15-001.png?261016") else ((1 << 256) - 1,)
+
+    class FX:
+        async def quote(self, **kwargs):
+            return FxQuote("EUR", "GBP", Decimal(".86"), now, now, "ECB_EURO_REFERENCE_RATES")
+
+    monkeypatch.setattr(market, "user_connection", connection)
+    monkeypatch.setattr(market, "reference_image_hashes", official_hash)
+    monkeypatch.setattr(market, "_open_image", lambda value: (value, 200, 280))
+    monkeypatch.setattr(market, "_fingerprints", lambda value: (0,)
+                        if value == products[0]["id"].encode() else ((1 << 256) - 1,))
+    result = await market.refresh_pokewallet_one_piece(
+        object(), uuid4(), FX(), "pk_live_secret_fixture",
+        dry_run=False, coverage_first=True, artwork_matching_enabled=True,
+        request_limit=10, http_client=Http())
+    assert result["coverage_first"] is True and result["artwork_groups_verified"] == 1
+    assert result["eligible_quotes"] == result["writes_attempted"] == 1
+    assert len(writes) == 1 and writes[0][3] == NUMBER + "_p1"
