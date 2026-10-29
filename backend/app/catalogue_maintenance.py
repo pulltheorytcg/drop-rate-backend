@@ -369,7 +369,8 @@ async def daily_pass(pool,settings):
             if pokewallet_key:
                 prior=latest.get('POKEWALLET_PRICES')
                 importer_revision=(POKEWALLET_JOB_REVISION*10 +
-                    int(getattr(settings,'pokewallet_pricing_apply_enabled',False)))
+                    int(getattr(settings,'pokewallet_pricing_apply_enabled',False)) +
+                    100*int(getattr(settings,'pokewallet_one_piece_artwork_matching_enabled',False)))
                 # The quota is shared across games and must never be spent in
                 # the five-minute loop. A failed or partial pass waits until
                 # the next UTC hour; switching from trial to apply runs once.
@@ -392,7 +393,9 @@ async def daily_pass(pool,settings):
                         dry_run=not getattr(settings,'pokewallet_pricing_apply_enabled',False),
                         request_limit=min(ONE_PIECE_HOURLY_REQUEST_BUDGET,
                             getattr(settings,'pokewallet_pricing_request_limit',60)),
-                        previous_cursor=last_cursor)
+                        previous_cursor=last_cursor,
+                        artwork_matching_enabled=getattr(
+                            settings,'pokewallet_one_piece_artwork_matching_enabled',False))
                     await receipt(pool,actor,'POKEWALLET_PRICES',
                                   'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
                                   {'importer_revision':importer_revision,**result,
