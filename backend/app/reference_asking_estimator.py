@@ -184,7 +184,13 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
         return None, "INVALID_VARIANT_GROUP"
     ambiguous = reference.get("ambiguous_variant") is True or group_count > 1
     provider_variant = _text(str(evidence.get("provider_variant") or "") + " " + reference["provider_id"])
-    if (ambiguous or re.search(r"(?:^|\s)p\d+(?:$|\s)", provider_variant)) and not proof:
+    # Official Masters _PR entries are special-event/promotional printings,
+    # not an alternate spelling of the base card. Their exact event/printing
+    # must be established before spending a search or reusing a base value.
+    # e.g. BT21-102_PR: Championship 2024 Finals ZENKAI Pack on Bandai's list.
+    unresolved_masters_special = (game == "DRAGON_BALL_SUPER_MASTERS"
+        and re.search(r"_PR$", reference["card_number"], re.I))
+    if (ambiguous or unresolved_masters_special or re.search(r"(?:^|\s)p\d+(?:$|\s)", provider_variant)) and not proof:
         return None, "UNRESOLVED_PARALLEL_IDENTITY"
     set_name = reference.get("set_name") or evidence.get("set_name")
     set_terms = _terms(evidence.get("set_title_terms"))
@@ -332,7 +338,7 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     grade_text = re.sub(r"\bnot(?:\s+professionally)?\s+graded\b", "", all_text)
     if _GRADE_RE.search(grade_text) or str(row.get("conditionId")) == "2750":
         return "GRADED_OR_SLAB"
-    if any(aspects.get(k) not in (None, "", "no", "ungraded", "not graded") for k in ("professional grader", "grade", "certification number")):
+    if any(aspects.get(k) not in (None, "", "no", "ungraded", "not graded", "not professionally graded") for k in ("professional grader", "grade", "certification number", "graded")):
         return "GRADED_OR_SLAB"
     if _MULTI_RE.search(all_text):
         return "MULTI_ITEM_OR_NON_PHYSICAL"

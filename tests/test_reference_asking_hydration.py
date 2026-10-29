@@ -107,6 +107,22 @@ def test_empty_searches_do_not_hide_actual_rejected_detail_examples():
     assert "seller1" not in str(example)
 
 
+def test_full_detail_rejection_replaces_an_earlier_summary_only_sample():
+    state = report(25)
+    ref = reference()
+    for index in range(1, 4):
+        candidate = summary(index)
+        result = worker.estimate_reference_asking_price(ref, [candidate], observed_at=NOW, now=NOW)
+        worker.add_review_examples(state, ref, [candidate], result, NOW)
+    bad = worker.bounded_item_detail(detail(4, localizedAspects=[
+        {"name": "Language", "value": "Japanese"}, {"name": "Finish", "value": "Normal"}]), summary(4)["itemId"])
+    result = worker.estimate_reference_asking_price(ref, [bad], observed_at=NOW, now=NOW)
+    worker.add_review_examples(state, ref, [bad], result, NOW)
+    assert len(state["rejection_examples"]) == 3
+    assert state["rejection_examples"][-1]["listing_evidence"]["acquisition"] == "GET_ITEM"
+    assert state["rejection_examples"][-1]["listing_evidence"]["aspects"]["language"] == "japanese"
+
+
 @pytest.mark.parametrize("bad", [
     {"itemId": "v1|999999999999|0"},
     {"title": "Pokemon Bulbasaur 44 Base Set Japanese"},

@@ -4,7 +4,7 @@ from datetime import timedelta
 
 import pytest
 
-from test_reference_asking_estimator import NOW, estimate, reference, row
+from test_reference_asking_estimator import NOW, estimate, reference, reference_asking_eligibility, row
 
 
 def descriptor(name, content, **changes):
@@ -124,3 +124,28 @@ def test_reused_evidence_cannot_keep_a_now_ended_listing_active():
     result = estimate(rows, observed_at=NOW, now=NOW + timedelta(seconds=60))
     assert result["status"] == "INSUFFICIENT_COMPARABLES"
     assert result["rejection_counts"]["ENDED_OR_INVALID_LISTING_TIME"] == 3
+
+
+@pytest.mark.parametrize("location", ["aspect", "descriptor"])
+def test_explicit_not_professionally_graded_means_raw(location):
+    rows = [detailed(i) for i in range(3)]
+    for value in rows:
+        if location == "aspect":
+            value["localizedAspects"] = [{"name": "Professional Grader", "value": "Not Professionally Graded"}]
+        else:
+            value["conditionDescriptors"].append(descriptor("Professional Grader", "Not Professionally Graded"))
+    assert estimate(rows)["status"] == "READY"
+
+
+def test_unresolved_official_masters_special_print_is_excluded_before_discovery():
+    ref = masters("BT21-102_PR", name="Golden Frieza, Shining Emperor")
+    assert reference_asking_eligibility(ref) == "UNRESOLVED_PARALLEL_IDENTITY"
+    assert ref["card_number"] == "BT21-102_PR"  # No silent base-number rewrite.
+
+
+def test_graded_yes_overrides_ungraded_sentinel():
+    bad = detailed(1, localizedAspects=[
+        {"name": "Professional Grader", "value": "Not Professionally Graded"},
+        {"name": "Graded", "value": "Yes"}])
+    result = estimate([bad, detailed(2), detailed(3)])
+    assert result["rejection_counts"]["GRADED_OR_SLAB"] == 1

@@ -333,9 +333,9 @@ def add_review_examples(report, reference, summaries, estimate, observed):
     identity = {key: reference.get(key) for key in (*KEYS, "name", "card_number", "set_name")}
     field = "preview" if estimate["status"] == "READY" else "rejection_examples"
     current = report.get(field, [])
-    if len(current) >= 3:
-        return
     if estimate["status"] == "READY":
+        if len(current) >= 3:
+            return
         example = {"reference": identity, "estimate_minor": estimate["estimate_minor"],
                    "finish": estimate["selected_finish"], "confidence": estimate["confidence"],
                    "sample_count": estimate["sample_count"], "comparables": [
@@ -348,6 +348,17 @@ def add_review_examples(report, reference, summaries, estimate, observed):
         # actual listings whose details can explain a matching failure.
         if not row:
             return
+        # A full listing's actual fields are more useful than a discovery-only
+        # rejection. Replace a summary sample rather than hiding detail proof
+        # behind the first three missing-language/opaque-number summaries.
+        if len(current) >= 3:
+            if row.get("_evidence_acquisition") != "GET_ITEM":
+                return
+            replace = next((index for index, item in enumerate(current)
+                if item.get("listing_evidence", {}).get("acquisition") != "GET_ITEM"), None)
+            if replace is None:
+                return
+            current = [item for index, item in enumerate(current) if index != replace]
         single = estimate_reference_asking_price(reference, [row] if row else [], observed_at=observed, now=observed)
         aspects = _aspects(row)
         example = {"reference": identity, "item_id": str(row.get("itemId", ""))[:80],

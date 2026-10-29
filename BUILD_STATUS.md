@@ -1,3 +1,18 @@
+## 29 October 2026 — Live detail canary completed; printing-specific follow-up
+
+The repaired worker completed a 40-request canary: 26 searches, 14 actual
+listing details, zero provider failures and zero accepted prices. It exposed
+unresolved Masters promotional identifiers and a negative grading sentinel.
+The follow-up skips unresolved specials before search, accepts the explicit
+ungraded wording and retains more useful detailed rejection evidence.
+
+Local focused validation now passes 322 tests. The previous head passed all
+applicable CI including 8,264 backend tests and deployed to the dedicated
+worker. The follow-up requires its own CI before execution. Today's durable
+ledger is 1,040/2,000 requests. Coverage remains 43,454; an independently added
+reference makes the current denominator 67,066 and the remaining gap 16,235.
+See [the live receipt](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
 ## 29 October 2026 — Recover complete listing evidence after zero-yield batch
 
 The first cloud run finished at 00:36 UTC with 1,000 charged searches, 513

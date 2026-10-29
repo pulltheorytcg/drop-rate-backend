@@ -81,7 +81,7 @@ No canonical identities or physical inventory are changed by this repair.
 
 ## Validation and rollout
 
-317 focused tests pass locally, including realistic summary/detail separation,
+322 focused tests pass locally, including realistic summary/detail separation,
 conditions, language contradictions, exact ID binding, availability, known
 end-time crossing, original-name Masters mapping, independent sellers, budget
 refresh across search/detail calls, provider failures and retained evidence.
@@ -99,3 +99,35 @@ This implementation and its synthetic tests do not establish a price gain.
 Record actual live accepted writes, full coverage and inventory readback after
 execution. Unconfigured set aliases remain a separate narrow issue: do not
 replace explicit release evidence with a collector-number prefix.
+
+## Live detail canary and resulting corrections
+
+All seven applicable PR workflows passed at `c8c2450476494c632f2c7a438bc79ade9c0c7a8a`,
+including 8,264 backend tests (18 skipped), UI/n8n checks and the native
+PostgreSQL asking-price contract. Dedicated-worker deployment
+`d629e96e-5369-48e7-b3c4-3611bff9e764` succeeded after two source-triggered
+attempts were skipped by Railway; the manual redeploy built the pinned source.
+
+Canary `52c5b0da-4dec-4255-9910-631466236065` ran from 07:36:52 to
+07:37:45 UTC, resuming the original cursor. Its 40 total requests were 26
+searches and 14 item-detail GETs. It retrieved 592 summaries and all 14 details,
+with no provider failures and zero accepted/written estimates. Detail
+rejections: five language, three finish, two set, two graded/slab, one number
+and one multiple-item/nonphysical. This proves full-detail retrieval, not a
+coverage gain. Cursor: `[Bandai Official, DRAGON_BALL_SUPER_MASTERS, English,
+428022:BT22-092_PR.png]`. The daily ledger is 1,040 requests, leaving 960.
+
+The next correction excludes unresolved official Masters `_PR` special
+printings before search. Bandai's official cardlist identifies `BT21-102_PR`
+as Championship 2024 Finals ZENKAI Pack, while adjacent `_PR` cards belong to
+ZENKAI premium pack. These must never be stripped to the base number/price.
+It also recognises the literal negative grading value `Not Professionally
+Graded`, while retaining every positive grading contradiction. Full-detail
+rejection examples replace less useful search-only examples within the same
+bounded receipt. The follow-up code requires its own exact-head CI before use.
+
+At 07:35 UTC the catalogue denominator had independently grown by one to
+67,066. Supported existing prices remain 43,454; zero asking estimates.
+The updated 89% threshold is 59,689 and the gap is 16,235. At 07:34:55 UTC,
+database size was 372,853,907 bytes and all 616 physical inventory rows still
+matched `47a316ca0609fbbfedcd32f002c4c335`.
