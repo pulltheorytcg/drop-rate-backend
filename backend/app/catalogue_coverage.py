@@ -11,6 +11,12 @@ COVERAGE_SQL = f'''with coverage as (
         when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days'
           and p.quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'MIXED_LANGUAGE_GUIDE'
         when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days' then 'REFERENCE_AVAILABLE'
+        when b.market_value_minor>0
+          and b.quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
+          and b.expires_at>now() then 'DROP_RATE_CALCULATED_VALUE'
+        when b.market_value_minor>0
+          and b.quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
+          then 'STALE_EVIDENCE'
         when b.market_value_minor>0 then 'MIXED_LANGUAGE_GUIDE'
         when p.quotes<>'[]'::jsonb and p.pricing_updated_at>=now()-interval '7 days' then 'US_CONTEXT_ONLY'
         when p.pricing_updated_at<now()-interval '7 days' then 'STALE_EVIDENCE'
@@ -62,7 +68,10 @@ from coverage group by kind,system_code,language,status order by kind,system_cod
 # Availability is global by source/printing, not by owner or the cards anybody
 # happens to have scanned. Do not count USD context, stale prices or unresolved
 # mappings as verified GBP market values.
-PRICED_REFERENCE_STATUSES = frozenset({"REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GUIDE"})
+# Explicitly track own validated model calculations; never report these as sold.
+PRICED_REFERENCE_STATUSES = frozenset({
+    "REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GUIDE", "DROP_RATE_CALCULATED_VALUE",
+})
 PHYSICAL_CARD_COVERAGE_TARGET_BPS = 8900  # Current founder goal: 89%, exact integer threshold
 # Actions describe the needed evidence, not a guarantee that it can be bought
 # or that a source permits redistribution in a user-facing marketplace.

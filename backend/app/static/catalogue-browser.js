@@ -327,6 +327,9 @@ window.DropRateCatalogue = (() => {
       if(row.market_value_source==="CARDMARKET_BULK")evidence.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
       if(row.market_value_source==="CARDMARKET_BULK_SINGLES")evidence.append(node("p","dr-browse-reference-note","Cardmarket daily guide for this printing’s release, converted from EUR. It combines languages and conditions; it is separate from a condition-adjusted eBay UK sold value."));
       if(row.market_value_source==="CARDMARKET_ESTIMATE")evidence.append(node("p","dr-browse-reference-note","Cardmarket estimate for this printing and finish, converted from EUR. The guide combines languages and conditions; it is not a condition-adjusted UK sold value. Fresh exact eBay UK evidence takes priority."));
+      if(row.market_value_source==="DROP_RATE_COMPUTED_MARKET_V1")evidence.append(
+        node("p","dr-browse-reference-note",
+          "Drop Rate rules-verified internal market value: conservative same-release, same-rarity standard-card comparison. It is not a recorded sale or an exact physical-copy appraisal. Shopify Store Price has a separate £1 minimum and owner approval rules."));
     }
     renderGames() {
       const content=this.find(".dr-browse-content"),grid=node("div","dr-browse-game-grid");

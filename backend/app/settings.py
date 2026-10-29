@@ -190,6 +190,9 @@ class Settings:
     cardtrader_bulk_guides_enabled: bool = False
     cardtrader_bulk_guides_apply_enabled: bool = False
     cardtrader_bulk_guides_expansion_limit: int = 15
+    drop_rate_daily_model_enabled: bool = False
+    drop_rate_daily_model_apply_enabled: bool = False
+    drop_rate_daily_model_batch_limit: int = 1000
     psa_public_api_token: str | None = None
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
@@ -371,6 +374,13 @@ class Settings:
             cardtrader_bulk_guides_expansion_limit=_bounded_int(
                 "TCG_CARDTRADER_BULK_GUIDES_EXPANSION_LIMIT", 15,
                 minimum=1, maximum=30),
+            drop_rate_daily_model_enabled=_boolean(
+                "TCG_DROP_RATE_DAILY_MODEL_ENABLED", False),
+            drop_rate_daily_model_apply_enabled=_boolean(
+                "TCG_DROP_RATE_DAILY_MODEL_APPLY_ENABLED", False),
+            drop_rate_daily_model_batch_limit=_bounded_int(
+                "TCG_DROP_RATE_DAILY_MODEL_BATCH_LIMIT", 1000,
+                minimum=1, maximum=1000),
             psa_public_api_token=_optional("TCG_PSA_PUBLIC_API_TOKEN"),
             stripe_secret_key=_optional("TCG_STRIPE_SECRET_KEY"),
             stripe_webhook_secret=_optional("TCG_STRIPE_WEBHOOK_SECRET"),
