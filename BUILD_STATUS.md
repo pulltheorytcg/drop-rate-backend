@@ -1,3 +1,55 @@
+## 29 October 2026 — Full details verified; final normalization and resumed allowance
+
+The repaired worker completed a second 100-call verification slice with 42
+searches, 58 full listing details and zero accepted prices. Actual details
+confirm missing language/finish evidence and some condition conflicts. The
+daily ledger is 1,140/2,000; the next continuation has at most 860 calls.
+
+Final normalization fixes accept explicit Non-Holofoil and deduplicate equal
+item-specific values while preserving contradictions. Unresolved suffixed
+Masters printings are excluded before search, and the bounded receipt shows
+different actual rejection reasons. All 348 focused tests pass locally; normal
+CI must pass on this final head before execution. Prior head passed 8,269
+backend tests and all six other applicable checks and deployed successfully.
+
+Coverage remains 43,454/67,066 (gap 16,235 to 89%); no gain is claimed from
+requests or tests. Resume run `d5722b11-ec47-4a16-b075-6cc05d5f2054` using the
+same English/apply scope. Full evidence and cursor are in
+[the detail recovery runbook](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
+## 29 October 2026 — Live detail canary completed; printing-specific follow-up
+
+The repaired worker completed a 40-request canary: 26 searches, 14 actual
+listing details, zero provider failures and zero accepted prices. It exposed
+unresolved Masters promotional identifiers and a negative grading sentinel.
+The follow-up skips unresolved specials before search, accepts the explicit
+ungraded wording and retains more useful detailed rejection evidence.
+
+Local focused validation now passes 322 tests. The previous head passed all
+applicable CI including 8,264 backend tests and deployed to the dedicated
+worker. The follow-up requires its own CI before execution. Today's durable
+ledger is 1,040/2,000 requests. Coverage remains 43,454; an independently added
+reference makes the current denominator 67,066 and the remaining gap 16,235.
+See [the live receipt](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
+## 29 October 2026 — Recover complete listing evidence after zero-yield batch
+
+The first cloud run finished at 00:36 UTC with 1,000 charged searches, 513
+summaries and zero accepted prices. It preserved its cursor and quota ledger.
+Last verified coverage remains **43,454/67,065 (64.7939%)**, gap **16,234**.
+
+The follow-up reads complete official eBay item details, structured condition
+descriptors and Bandai's documented former Masters game name. Discovery no
+longer requires language in the title; exact-language and printing checks
+remain. Search and detail requests share the same durable limits and pacing.
+`--max-queries 1000` caps total Browse calls, including details, so fewer than
+1,000 distinct cards may be checked. No arbitrary values are introduced.
+
+Six verified Masters releases also accept their official short set names.
+Local focused validation passed 317 tests. Normal CI, reviewed deployment and
+live readback remain required; no new price gain is claimed from code alone.
+See [detail recovery and live continuation](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
 ## 29 October 2026 — First 1,000-check batch running in the cloud
 
 Resolved the laptop command-session dependency by launching the existing

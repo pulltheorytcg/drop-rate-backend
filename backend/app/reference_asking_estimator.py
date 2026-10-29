@@ -45,6 +45,7 @@ _LANGUAGES = {
 _FINISHES = {
     "normal": "normal", "regular": "normal", "non holo": "normal",
     "non holofoil": "normal", "non foil": "normal", "nonholo": "normal",
+    "nonholofoil": "normal",
     "holo": "holo", "holofoil": "holo", "holographic": "holo",
     "reverse": "reverse", "reverse holo": "reverse", "reverse holofoil": "reverse",
     "reverse foil": "reverse", "foil": "foil", "parallel": "parallel",
@@ -68,6 +69,20 @@ _MULTI_RE = re.compile(r"\b(?:bundle|bundles|lot|lots|playset|pair|replica|proxy
 _CARD_CODES = re.compile(r"(?<![A-Z0-9])(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|P|E|SB)\d{0,3}\s*-\s*\d{1,4}(?![A-Z0-9])", re.I)
 _SET_CODES = re.compile(r"\b(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|SB)\d{1,3}\b", re.I)
 _FRACTIONS = re.compile(r"(?<![A-Z0-9])(?:[A-Z]{0,3}\d{1,4})\s*/\s*(?:[A-Z]{0,3}\d{1,4})(?![A-Z0-9])", re.I)
+
+# Reviewed aliases for the importer labels of these exact English Masters
+# releases. Bandai's category pages identify each release by its shorter name:
+# https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=<set_id>
+# These are alternatives for explicit set evidence, never a collector-prefix
+# inference or a rule that strips marketing words from arbitrary set names.
+_MASTERS_SET_ALIASES = {
+    ("428021", "Z04 Booster -WILD RESURGENCE-"): "Wild Resurgence",
+    ("428022", "Z05 Booster -CRITICAL BLOW-"): "Critical Blow",
+    ("428023", "Z06 Booster -PERFECT COMBINATION-"): "Perfect Combination",
+    ("428024", "Z07 Booster -BEYOND GENERATIONS-"): "Beyond Generations",
+    ("428025", "Z08 Booster -LEGEND OF THE DRAGON BALLS-"): "Legend of the Dragon Balls",
+    ("428026", "Z09 Booster -ULTIMATE ADVENT-"): "Ultimate Advent",
+}
 
 
 def _text(value: object) -> str:
@@ -102,15 +117,56 @@ def _terms(value: object) -> tuple[str, ...]:
 
 
 def _aspects(row: Mapping[str, Any]) -> dict[str, str]:
-    result: dict[str, str] = {}
+    parts: dict[str, list[str]] = {}
+
+    def add(name: str, value: object) -> None:
+        normalized = _text(value)
+        if normalized and normalized not in parts.setdefault(name, []):
+            parts[name].append(normalized)
+
     for key in ("localizedAspects", "localizedItemAspects"):
         values = row.get(key)
         if isinstance(values, list):
             for value in values:
                 if isinstance(value, Mapping) and isinstance(value.get("value"), str):
                     name = _text(value.get("name"))
-                    result[name] = " ".join(filter(None, (result.get(name), _text(value["value"]))))
-    return result
+                    add(name, value["value"])
+    # Browse getItem exposes trading-card condition separately from aspects.
+    # A raw conditionId=4000 means Ungraded, not Near Mint. Retain every explicit
+    # descriptor, including conflicting grades/condition, for the same matcher.
+    descriptors = row.get("conditionDescriptors")
+    if isinstance(descriptors, list):
+        for descriptor in descriptors:
+            if not isinstance(descriptor, Mapping):
+                continue
+            name = _text(descriptor.get("name"))
+            values = descriptor.get("values")
+            if not name or not isinstance(values, list):
+                continue
+            for value in values:
+                if not isinstance(value, Mapping):
+                    continue
+                add(name, value.get("content"))
+                extra = value.get("additionalInfo")
+                if isinstance(extra, list):
+                    for part in extra:
+                        add(name, part)
+    # The same field may occur in multiple Browse containers. Repeated values
+    # are corroboration, not a new compound value; retain distinct conflicts.
+    return {name: " ".join(values) for name, values in parts.items()}
+
+
+def _matches_game(text: str, reference: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
+    aliases = _GAMES[spec["game"]]
+    # Bandai renamed the original game to Masters in March 2024. The old full
+    # name remains valid explicit game evidence for its known collector-number
+    # families. This proves the game only; set/printing checks still follow.
+    # https://www.dbs-cardgame.com/europe-en/about/
+    if (spec["game"] == "DRAGON_BALL_SUPER_MASTERS"
+            and re.fullmatch(r"(?:BT|TB|EX|SD)\d{1,3}-\d{1,4}", reference["card_number"], re.I)):
+        aliases = (*aliases, "dragon ball super card game")
+    return (any(_game_words(text, alias) for alias in aliases)
+            and not _explicitly_denies(text, aliases))
 
 
 def _variant_markers(text: str) -> set[str]:
@@ -137,7 +193,14 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
         return None, "INVALID_VARIANT_GROUP"
     ambiguous = reference.get("ambiguous_variant") is True or group_count > 1
     provider_variant = _text(str(evidence.get("provider_variant") or "") + " " + reference["provider_id"])
-    if (ambiguous or re.search(r"(?:^|\s)p\d+(?:$|\s)", provider_variant)) and not proof:
+    # Suffixed official Masters identities require their own printing proof,
+    # not an alternate spelling of the base card. The strict number matcher
+    # cannot bind these opaque identifiers to an ordinary printed base number.
+    # Their exact printing must be established before spending a search.
+    # e.g. BT21-102_PR: Championship 2024 Finals ZENKAI Pack on Bandai's list.
+    unresolved_masters_special = (game == "DRAGON_BALL_SUPER_MASTERS"
+        and re.search(r"_[A-Z][A-Z0-9]*$", reference["card_number"], re.I))
+    if (ambiguous or unresolved_masters_special or re.search(r"(?:^|\s)p\d+(?:$|\s)", provider_variant)) and not proof:
         return None, "UNRESOLVED_PARALLEL_IDENTITY"
     set_name = reference.get("set_name") or evidence.get("set_name")
     set_terms = _terms(evidence.get("set_title_terms"))
@@ -150,11 +213,28 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
             set_terms = (prefix,)
     if not set_terms:
         return None, "MISSING_SET_IDENTITY"
+    set_alternatives = (set_terms,)
+    set_conflicts: tuple[str, ...] = ()
+    set_alias_source = None
+    # Explicit curated terms take precedence, including a deliberately empty
+    # field. Only the complete known canonical identity enables an alias.
+    if ("set_title_terms" not in evidence
+            and reference["provider"] == "Bandai Official"
+            and game == "DRAGON_BALL_SUPER_MASTERS"
+            and reference["language"] == "English"
+            and isinstance(reference.get("set_name"), str)
+            and reference["set_name"] == set_name):
+        alias = _MASTERS_SET_ALIASES.get((reference["set_id"], set_name))
+        if alias:
+            set_alternatives += ((alias,),)
+            set_conflicts = tuple(other for other in _MASTERS_SET_ALIASES.values() if other != alias)
+            set_alias_source = "https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=" + reference["set_id"]
     canonical_text = _text(" ".join(str(reference.get(k) or "") for k in ("name", "finish", "rarity")))
     markers = _variant_markers(canonical_text + " " + _text(set_name))
     markers |= _variant_markers(_text(" ".join(proof)))
     return {"game": game, "language": language, "finish": finish, "set_terms": set_terms,
-            "variant_terms": proof, "markers": markers}, None
+            "set_alternatives": set_alternatives, "set_conflicts": set_conflicts,
+            "set_alias_source": set_alias_source, "variant_terms": proof, "markers": markers}, None
 
 
 def reference_asking_eligibility(reference: Mapping[str, Any]) -> str | None:
@@ -234,7 +314,7 @@ def _listing_finish(row: Mapping[str, Any], spec: Mapping[str, Any]) -> str | No
     finish_text = " ".join((_text(row.get("title")), aspects.get("finish", "")))
     if _explicitly_denies(finish_text, tuple(_FINISHES)):
         return None
-    normal = any(_phrase(finish_text, term) for term in ("normal", "regular", "non holo", "nonholo", "non foil", "nonfoil"))
+    normal = any(_phrase(finish_text, term) for term in ("normal", "regular", "non holo", "nonholo", "non holofoil", "nonholofoil", "non foil", "nonfoil"))
     reverse = _phrase(finish_text, "reverse")
     positive = re.sub(r"\bnon\s*(?:holofoil|holo|foil)\b", "", finish_text)
     holo = any(_phrase(positive, term) for term in ("holo", "holofoil", "holographic"))
@@ -268,12 +348,12 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     grade_text = re.sub(r"\bnot(?:\s+professionally)?\s+graded\b", "", all_text)
     if _GRADE_RE.search(grade_text) or str(row.get("conditionId")) == "2750":
         return "GRADED_OR_SLAB"
-    if any(aspects.get(k) not in (None, "", "no", "ungraded", "not graded") for k in ("professional grader", "grade", "certification number")):
+    if any(aspects.get(k) not in (None, "", "no", "ungraded", "not graded", "not professionally graded") for k in ("professional grader", "grade", "certification number", "graded")):
         return "GRADED_OR_SLAB"
     if _MULTI_RE.search(all_text):
         return "MULTI_ITEM_OR_NON_PHYSICAL"
     game_text = " ".join((title, aspects.get("game", "")))
-    if not any(_game_words(game_text, alias) for alias in _GAMES[spec["game"]]):
+    if not _matches_game(game_text, reference, spec):
         return "GAME_MISMATCH"
     if any(any(_game_words(game_text, alias) for alias in aliases) for game, aliases in _GAMES.items() if game != spec["game"]):
         return "GAME_MISMATCH"
@@ -291,13 +371,17 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     if not _number_matches(str(raw_title), aspects.get("card number", ""), reference["card_number"]):
         return "CARD_NUMBER_MISMATCH"
     set_text = " ".join((title, aspects.get("set", "")))
-    if not all(_phrase(set_text, term) for term in spec["set_terms"]) or _explicitly_denies(set_text, spec["set_terms"]):
+    set_options = spec["set_alternatives"]
+    all_set_terms = tuple(term for option in set_options for term in option)
+    if (not any(all(_phrase(set_text, term) for term in option) for option in set_options)
+            or _explicitly_denies(set_text, all_set_terms)
+            or any(_phrase(set_text, term) for term in spec["set_conflicts"])):
         return "SET_MISMATCH"
     # Known prefix collisions cannot be established by substring containment.
     for base, expanded in (("base set", "base set 2"), ("team rocket", "team rocket returns")):
         if any(_text(term) == base for term in spec["set_terms"]) and _phrase(set_text, expanded):
             return "SET_MISMATCH"
-    if aspects.get("set") and not all(_text(term) == aspects["set"] for term in spec["set_terms"]):
+    if aspects.get("set") and not any(all(_text(term) == aspects["set"] for term in option) for option in set_options):
         return "SET_MISMATCH"
     allowed_codes = {m.group().casefold() for m in _SET_CODES.finditer(" ".join((*spec["set_terms"], reference["card_number"])))}
     if any(m.group().casefold() not in allowed_codes for m in _SET_CODES.finditer(str(raw_title))):
@@ -330,6 +414,19 @@ def _comparable(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapp
             end = None
         if end is None or end.tzinfo is None or end.utcoffset() is None or end <= observed_at:
             return None, "ENDED_OR_INVALID_LISTING_TIME"
+    availability = row.get("estimatedAvailabilities")
+    if availability is not None:
+        if not isinstance(availability, list) or not availability:
+            return None, "UNAVAILABLE_OR_INVALID_LISTING"
+        for entry in availability:
+            if not isinstance(entry, Mapping):
+                return None, "UNAVAILABLE_OR_INVALID_LISTING"
+            status = entry.get("estimatedAvailabilityStatus")
+            if status is not None and status not in {"IN_STOCK", "LIMITED_STOCK"}:
+                return None, "UNAVAILABLE_OR_INVALID_LISTING"
+            quantity = entry.get("estimatedAvailableQuantity")
+            if quantity is not None and (type(quantity) is not int or quantity < 1):
+                return None, "UNAVAILABLE_OR_INVALID_LISTING"
     location = row.get("itemLocation")
     if not isinstance(location, Mapping) or location.get("country") != "GB":
         return None, "NON_GB_OR_UNKNOWN_LOCATION"
@@ -351,12 +448,23 @@ def _comparable(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapp
     if not isinstance(username, str) or not username.strip():
         return None, "MISSING_SELLER_ID"
     seller_hash = hashlib.sha256((SOURCE + ":" + username.strip().casefold()).encode()).hexdigest()
+    aspects = _aspects(row)
+    listing_evidence = {
+        "acquisition": "GET_ITEM" if row.get("_evidence_acquisition") == "GET_ITEM" else "SEARCH_SUMMARY",
+        "condition": row.get("condition"), "condition_id": row.get("conditionId"),
+        "aspects": {key: aspects[key] for key in
+                    ("game", "language", "card number", "set", "finish", "card condition")
+                    if key in aspects},
+    }
     return {"item_id": item_id, "seller_hash": seller_hash, "title": row["title"],
             "price_gbp_minor": price, "shipping_gbp_minor": shipping,
             "delivered_gbp_minor": price + shipping,
             "finish": _FINISH_LABEL[_listing_finish(row, spec)], "condition": "Near Mint",
+            "listing_evidence": listing_evidence,
             "match_proof": {"game": spec["game"], "language": spec["language"],
                             "card_number": reference["card_number"], "set_terms": list(spec["set_terms"]),
+                            "set_alternatives": [list(option) for option in spec["set_alternatives"]],
+                            "set_alias_source": spec["set_alias_source"],
                             "variant_terms": list(spec["variant_terms"])}}, None
 
 
@@ -413,7 +521,9 @@ def estimate_reference_asking_price(
         if not isinstance(row, Mapping):
             rejected["INVALID_ROW"] += 1
             continue
-        comparable, reason = _comparable(row, reference, spec, observed_at)
+        # A reused response retains acquisition time for TTL, but a listing
+        # whose known end time has passed is no longer an active comparable.
+        comparable, reason = _comparable(row, reference, spec, current)
         if comparable is None:
             rejected[reason or "INVALID_ROW"] += 1
         else:
@@ -470,3 +580,4 @@ def estimate_reference_asking_price(
                   confidence="MEDIUM" if len(candidates) >= 5 else "LOW",
                   dispersion_ratio=float(dispersion))
     return result
+
