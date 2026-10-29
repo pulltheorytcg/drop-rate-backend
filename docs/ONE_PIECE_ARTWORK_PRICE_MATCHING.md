@@ -11,7 +11,7 @@ these collisions by product ID order, cheapest price or V.2 == `_p1` alone.
 ## What this change adds
 
 The existing (authenticated) free PokéWallet One Piece source already delivers
-card-level Cardmarket guide information and independently labelled variants.
+card-level Cardmarket guide information, card images and some variant labels.
 Its documented, free `GET /images/{op_card_id}` serves the corresponding
 artwork. No new provider, account, paid endpoint or scraping method is added.
 
@@ -48,9 +48,14 @@ With the flag on, the existing bounded hourly importer:
 1. Selects publisher-confirmed **English** Bandai references with an original
    `OPxx-nnn` image and one or more distinct `OPxx-nnn_pN` image URLs.
 2. Requires the **complete** source set, the exact printed number, official
-   release name, Cardmarket URL and version label, compatible rarities, and
-   one Normal item plus independently labelled alternate items.
-3. Reads each source card's actual image through the documented authenticated
+   release name, Cardmarket title and single-product URL, compatible rarities,
+   and the full competing source group. Version labels and Normal/Alternate
+   metadata are used when present, but missing V1/V2 labels alone do not block
+   a sufficiently strong *artwork-only* crosswalk. Contradictory explicit
+   subtype labels remain a hard stop. A group containing more source variants
+   than publisher printings remains eligible only if all source images are
+   available and there are at most five distinct candidates.
+3. Reads every competing source card's actual image through the documented authenticated
    free API, compares it to the corresponding official Bandai images, and
    requires a **reciprocal unique match** (similarity >= 0.93, next-best
    separation >= 0.09). Neither prices nor numeric ID ordering can affect it.
@@ -67,8 +72,9 @@ The supplier's API key stays on the server.
 
 ## Safeguards and trade-offs
 
-- OFF by default until the first operator-reviewed dry-run. The normal
-  hourly updater stays unchanged with the flag off.
+- The flag defaults OFF in code, preserving normal jobs. Production has been
+  enabled by the operator for the bounded coverage push; earlier rollout
+  validated the source metadata gates but showed missing version labels.
 - At most two complete artwork groups are tested per hourly run; image calls
   spend the existing free API budget alongside set/list calls.
 - Missing images, visually similar candidates, wrong-language/version evidence,
