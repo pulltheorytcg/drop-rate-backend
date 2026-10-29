@@ -27,6 +27,104 @@ def fixtures():
     return singles,packaging
 
 
+def published_base_and_parallel():
+    base = reference()
+    base.update(provider_id='EB04-007', rarity='SR', evidence={
+        'printing_id':'EB04-007','detail_level':'OFFICIAL_CHECKLIST'})
+    parallel = {**base,'provider_id':'EB04-007_p1',
+                'evidence':{'printing_id':'EB04-007_p1','detail_level':'OFFICIAL_CHECKLIST'}}
+    return base, parallel
+
+
+def test_publisher_confirmed_base_recovers_only_unambiguous_marketplace_sku():
+    singles, packaging = fixtures()
+    base, parallel = published_base_and_parallel()
+    matches = market.matched_products([base,parallel],singles,packaging)
+    assert set(matches)=={'EB04-007'}
+    assert matches['EB04-007']['idProduct']==904150
+    # The other provider can corroborate the same published identities, but
+    # never permit an uncorroborated variant to borrow the base price.
+    punk_base = {**base,'provider':'Punk Records','evidence':{'printing_id':'EB04-007'}}
+    punk_parallel = {**parallel,'provider':'Punk Records',
+                     'evidence':{'printing_id':'EB04-007_p1'}}
+    assert set(market.matched_products([base,parallel,punk_base,punk_parallel],singles,packaging))=={
+        'EB04-007'}
+
+
+@pytest.mark.parametrize('change', [
+    'missing_official_evidence','unverified_parallel','different_name','different_rarity',
+    'different_finish','unknown_parallel_suffix','starter_release','ambiguous_marketplace',
+])
+def test_official_base_exception_rejects_unproven_and_ambiguous_printings(change):
+    singles, packaging = fixtures()
+    base, parallel = published_base_and_parallel()
+    refs = [base,parallel]
+    if change=='missing_official_evidence':
+        parallel['evidence']={'printing_id':'EB04-007_p1','detail_level':'PROVIDER_INDEX'}
+    elif change=='unverified_parallel':
+        refs.append({**parallel,'provider':'Punk Records','provider_id':'EB04-007_p2',
+                     'evidence':{'printing_id':'EB04-007_p2'}})
+    elif change=='different_name':
+        parallel['name']='Different Character'
+    elif change=='different_rarity':
+        parallel['rarity']='SEC'
+    elif change=='different_finish':
+        parallel['finish']='Holofoil'
+    elif change=='unknown_parallel_suffix':
+        parallel['provider_id']='EB04-007_PR'
+        parallel['evidence']['printing_id']='EB04-007_PR'
+    elif change=='starter_release':
+        for ref in refs:ref['set_name']='STARTER DECK -The Three Captains- [ST-10]'
+    elif change=='ambiguous_marketplace':
+        singles['duplicate']={**singles['904150'],'idProduct':904999}
+    assert not market.matched_products(refs,singles,packaging)
+
+
+@pytest.mark.asyncio
+async def test_published_base_guide_remains_reference_only_and_does_not_price_parallel(monkeypatch):
+    singles, packaging = fixtures()
+    base, parallel = published_base_and_parallel()
+    now=datetime.now(timezone.utc);writes=[]
+    async def download(client,path,**kwargs):
+        if 'nonsingles' in path:return packaging,now
+        if 'singles' in path:return singles,now
+        return {'904150':{'idProduct':904150,'idCategory':1621,'trend':'3.00'}},now
+    class Connection:
+        async def fetch(self,sql):return [base,parallel]
+        async def executemany(self,sql,values):writes.extend(values)
+    @asynccontextmanager
+    async def connection(*args):yield Connection()
+    class FX:
+        async def quote(self,**kwargs):return FxQuote('EUR','GBP',Decimal('.86'),now,now,
+                                                     'ECB_EURO_REFERENCE_RATES')
+    monkeypatch.setattr(market,'download',download)
+    monkeypatch.setattr(market,'user_connection',connection)
+    report=await market.refresh_one_piece_prices(object(),uuid4(),FX())
+    assert report['official_base_groups_matched']==1
+    assert report['official_base_priced']==1
+    assert report['priced']==1
+    by_id={row[3]:row for row in writes}
+    assert by_id['EB04-007'][5]==258
+    quote=by_id['EB04-007'][4][0]
+    assert quote['match_basis']==market.OFFICIAL_BASE_PARALLEL_BASIS
+    assert quote['physical_valuation_eligible'] is False
+    assert quote['reference_printing_id']=='EB04-007'
+    assert by_id['EB04-007_p1'][4]==[]
+    assert by_id['EB04-007_p1'][5] is None
+    # A mixed-language Cardmarket reference guide is not an exact physical
+    # valuation: the downstream inventory fallback must reject this basis.
+    from app.cardmarket_valuations import guide_values
+    product=dict(product_type='CARD',game='One Piece',language='English',
+                 name='Roronoa Zoro',set_name="The World's Strongest Warriors",
+                 card_number='EB04-007',variant='Holofoil',rarity='SR')
+    matched_ref=dict(provider='Bandai Official',system_code='ONE_PIECE_CARD_GAME',
+                     provider_id='EB04-007',reference_language='English',
+                     reference_name='Roronoa Zoro',reference_number='EB04-007',
+                     reference_set_name=base['set_name'],reference_rarity='SR',
+                     set_id=base['set_id'],quotes=[quote])
+    assert guide_values(product,[matched_ref],now=now)==[]
+
+
 def test_recorded_zoro_special_print_does_not_inherit_asia_region_price():
     singles,packaging=fixtures()
     result=market.matched_products([reference()],singles,packaging)
