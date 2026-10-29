@@ -18,7 +18,8 @@ printing. No scraping or paid provider is introduced.
   resolved by choosing a cheap seller; the entire ambiguous identity is skipped.
   Independent artwork matching must be added and tested separately for these.
 - If the source's foil/edition signatures conflict, all those offers are skipped.
-- Accept only raw (`graded=false`), unbundled (`bundle_size=1`), English,
+- Accept only raw (`graded=false`), confirmed single-unit (`bundle_size=1`,
+  or `bundled_quantity=1` when the primary field is absent or zero), English,
   *Near Mint* offers from at least **three independent seller IDs**. Exclude
   signed, altered, out-of-stock and vacation inventory. Take the lowest offer
   per seller, use the lowest seven distinct sellers, reject more than a 3×
@@ -52,6 +53,10 @@ the full validated array under strict ceilings (2,500 per blueprint and 100,000
 per expansion), instead of discarding the entire release. Rejection reports
 separate graded/unknown grading, seller vacation, bundle size, quantity,
 blueprint identity, condition and language; they do not expose seller details.
+One additional documented CardTrader field, `bundled_quantity`, can confirm
+a single unit when `bundle_size` is missing or zero; a reported multi-unit
+`bundle_size` is never overridden. The receipt records which field supplied
+that confirmation, and unknown unit counts still fail closed.
 
 ## Verification and roll-out
 
