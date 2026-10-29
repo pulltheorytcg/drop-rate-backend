@@ -187,6 +187,9 @@ class Settings:
     tcggraph_max_concurrency: int = 8
     cardtrader_api_token: str | None = None
     cardtrader_max_concurrency: int = 8
+    cardtrader_bulk_guides_enabled: bool = False
+    cardtrader_bulk_guides_apply_enabled: bool = False
+    cardtrader_bulk_guides_expansion_limit: int = 15
     psa_public_api_token: str | None = None
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
@@ -361,6 +364,13 @@ class Settings:
                 minimum=1,
                 maximum=20,
             ),
+            cardtrader_bulk_guides_enabled=_boolean(
+                "TCG_CARDTRADER_BULK_GUIDES_ENABLED", False),
+            cardtrader_bulk_guides_apply_enabled=_boolean(
+                "TCG_CARDTRADER_BULK_GUIDES_APPLY_ENABLED", False),
+            cardtrader_bulk_guides_expansion_limit=_bounded_int(
+                "TCG_CARDTRADER_BULK_GUIDES_EXPANSION_LIMIT", 15,
+                minimum=1, maximum=30),
             psa_public_api_token=_optional("TCG_PSA_PUBLIC_API_TOKEN"),
             stripe_secret_key=_optional("TCG_STRIPE_SECRET_KEY"),
             stripe_webhook_secret=_optional("TCG_STRIPE_WEBHOOK_SECRET"),
