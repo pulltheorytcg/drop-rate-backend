@@ -67,7 +67,7 @@ async def test_cardtrader_expansion_feed_uses_one_request_and_preserves_blueprin
     ["not a blueprint map"],
     {"bad-key": []},
     {"100": [{"id": 1, "blueprint_id": 200}]},
-    {"100": [{}] * 26},
+    {"100": [{"blueprint_id": 100}] * 2501},
 ])
 async def test_cardtrader_expansion_feed_rejects_invalid_groups(monkeypatch, payload):
     client = CardTraderClient(api_token="test-token")
@@ -78,3 +78,15 @@ async def test_cardtrader_expansion_feed_rejects_invalid_groups(monkeypatch, pay
     monkeypatch.setattr(client, "_request", fake_request)
     with pytest.raises(CardTraderApiError):
         await client.list_marketplace_expansion_products(expansion_id=900, language="en")
+
+
+@pytest.mark.asyncio
+async def test_cardtrader_expansion_accepts_more_than_documented_25_complete_offers(monkeypatch):
+    client = CardTraderClient(api_token="test-token")
+
+    async def fake_request(path, *, params=None):
+        return {"100": [{"id": idx + 1, "blueprint_id": 100} for idx in range(30)]}
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    result = await client.list_marketplace_expansion_products(expansion_id=900)
+    assert len(result[100]) == 30
