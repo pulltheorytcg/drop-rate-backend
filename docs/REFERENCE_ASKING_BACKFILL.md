@@ -169,5 +169,6 @@ physical inventory, Store Prices or ownership.
 Validation for PR #778 passed 8,169 backend tests (18 skipped) and the real
 PostgreSQL budget migration, concurrency and access-control checks. Applied
 migration `20261028235621_reference_asking_budget_2000.sql` retained all three
-existing runs and their 30 requests unchanged. The first larger live batch is
-pending an authenticated operator runner; no additional price gain is claimed.
+existing runs and their 30 requests unchanged. The first larger live batch started on 29 October in a dedicated cloud worker.
+See [the cloud runner receipt](REFERENCE_ASKING_CLOUD_RUNNER.md). No additional
+price gain is claimed until persisted results are verified.

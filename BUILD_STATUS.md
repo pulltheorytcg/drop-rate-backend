@@ -1,3 +1,18 @@
+## 29 October 2026 — First 1,000-check batch running in the cloud
+
+Resolved the laptop command-session dependency by launching the existing
+pricing operator in a dedicated Railway worker, pinned to the tested release.
+Deployment `c40c993b-1335-4582-83f3-ea6d46224834` succeeded; durable run
+`ce1f435a-3a1c-4a94-889d-8fe887da7147` started at 00:16:32 UTC in apply
+mode for at most 1,000 English checks. At 00:17:42 UTC it had reserved 55
+requests and collected 54, with zero accepted estimates so far.
+
+The worker has no scheduler, automatic restart or public endpoint. Progress
+and quota reservations persist in PostgreSQL; the stable run ID prevents a
+new batch on an accidental restart. Existing API/storefront services were not
+reconfigured. See [the cloud runner receipt and recovery procedure](docs/REFERENCE_ASKING_CLOUD_RUNNER.md).
+The run is active; no final result or coverage increase is claimed yet.
+
 ## 28 October 2026 — Larger reference-pricing batches
 
 PR #778 implements 1,000–2,000 eligible eBay Browse checks per run, with a
