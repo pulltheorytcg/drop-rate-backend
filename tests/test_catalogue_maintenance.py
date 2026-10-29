@@ -431,3 +431,15 @@ async def test_apply_mode_uses_successful_trials_input_cursor(monkeypatch):
     assert state['called'][0]['previous_cursor']=='English:24305'
     assert state['called'][0]['request_limit']==jobs.ONE_PIECE_HOURLY_REQUEST_BUDGET
     assert state['receipt'][-1][-1]['replayed_trial_started_at']==now.isoformat()
+
+
+def test_cardtrader_replays_failed_window_once_on_matching_revision_change():
+    prior={'importer_revision':41, 'dry_run':False, 'input_cursor':'BT7-00',
+           'cursor':'FB05-05', 'eligible_quotes':0, 'writes_applied':0}
+    assert jobs.cardtrader_resume_cursor(prior,51,apply_enabled=True)=='BT7-00'
+    assert jobs.cardtrader_resume_cursor({**prior,'importer_revision':51},51,
+                                         apply_enabled=True)=='FB05-05'
+    assert jobs.cardtrader_resume_cursor({**prior,'importer_revision':50,
+                                          'dry_run':True},51,
+                                         apply_enabled=True)=='BT7-00'
+    assert jobs.cardtrader_resume_cursor({},51,apply_enabled=True) is None
