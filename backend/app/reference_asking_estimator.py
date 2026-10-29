@@ -82,6 +82,11 @@ _MASTERS_SET_ALIASES = {
     ("428024", "Z07 Booster -BEYOND GENERATIONS-"): "Beyond Generations",
     ("428025", "Z08 Booster -LEGEND OF THE DRAGON BALLS-"): "Legend of the Dragon Balls",
     ("428026", "Z09 Booster -ULTIMATE ADVENT-"): "Ultimate Advent",
+    ("428027", "Z10 Booster -HISTORY OF Z-"): "History of Z",
+    ("428028", "UB01 Booster -PRISMATIC CLASH-"): "Prismatic Clash",
+    ("428029", "UB02 Booster -FEARSOME RIVALS-"): "Fearsome Rivals",
+    ("428030", "UB03 Booster -THREE GLORIOUS FIGHTERS-"): "Three Glorious Fighters",
+    ("428031", "UB04 Booster -IMPACT BEYOND DIMENSIONS-"): "Impact Beyond Dimensions",
 }
 
 

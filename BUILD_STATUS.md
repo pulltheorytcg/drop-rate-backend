@@ -1,3 +1,22 @@
+## 29 October 2026 — Pricing repair deployed; later Masters aliases and accurate coverage readback
+
+PR #781 is merged and both API/worker deployments reached SUCCESS. The live
+860-request continuation is `503d9c3f-b368-498c-89b7-6ffef19be279`; inspect
+its durable receipt before acting. At 08:01:47 UTC it was running at 280 calls
+with zero accepted prices. Inventory remains 616 unchanged rows.
+
+Five later Masters releases now have exact official short-name aliases,
+bringing the reviewed map to eleven releases. Local focused validation passes
+383 tests; this extension requires normal CI before the next run. Do not
+replace the active pinned worker to apply it midway through execution.
+
+The new [coverage SQL](docs/evidence/market_coverage_20261029.sql) counts valid
+asking estimates without double counting existing guides. Verified coverage
+is 43,454/67,066 (64.7929%), target 59,689, gap 16,235. Read the
+[full deployment, evidence and continuation handoff](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+The existing hourly continuation task has been updated; source limits,
+printing identity, daily budgets and physical inventory protections remain.
+
 ## 29 October 2026 — Full details verified; final normalization and resumed allowance
 
 The repaired worker completed a second 100-call verification slice with 42

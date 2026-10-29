@@ -81,7 +81,7 @@ No canonical identities or physical inventory are changed by this repair.
 
 ## Validation and rollout
 
-348 focused tests pass locally, including realistic summary/detail separation,
+383 focused tests pass locally, including realistic summary/detail separation,
 conditions, language contradictions, exact ID binding, availability, known
 end-time crossing, original-name Masters mapping, independent sellers, budget
 refresh across search/detail calls, provider failures and retained evidence.
@@ -166,3 +166,60 @@ including a later retrieved listing when an earlier one repeats a known
 failure. It still retains at most three examples within the 8,000-byte limit.
 Local validation is 348 passing tests; this final head must pass normal CI
 before the remaining 860-call continuation resumes the second receipt.
+
+## Deployed continuation and later-release aliases
+
+PR #781 merged as `e17af29e0aae3c78f9d5bfd9a5ebe0f0c04df3c5`.
+The final head passed all seven applicable checks, including 8,295 backend
+tests (18 skipped). API deployment `8c7fb29a-00b3-4e15-99d7-f7abf42ccdab`
+and dedicated-worker deployment `029b8703-f96d-4849-8e46-f3d332190368`
+both reached SUCCESS.
+
+Run `503d9c3f-b368-498c-89b7-6ffef19be279` started at 07:56:26 UTC with
+an 860-request cap, resuming `d5722b11-ec47-4a16-b075-6cc05d5f2054` in the
+same English/apply scope. At 08:01:47 UTC it was still RUNNING: 280 requests
+(86 searches, 194 details), 350 references scanned, zero matched/written
+prices. The daily ledger was 1,420/2,000. All 616 inventory rows retained the
+same snapshot and database size was 372,821,139 bytes. Always inspect the
+current receipt before another operation; these are timestamped observations.
+
+The continuation reached newer Masters releases whose official short names
+were not yet in the six-release alias map. Five additional exact canonical
+pairs now accept the names on their official Bandai pages:
+
+| Set ID | Canonical name | Accepted official name |
+| --- | --- | --- |
+| 428027 | Z10 Booster -HISTORY OF Z- | History of Z |
+| 428028 | UB01 Booster -PRISMATIC CLASH- | Prismatic Clash |
+| 428029 | UB02 Booster -FEARSOME RIVALS- | Fearsome Rivals |
+| 428030 | UB03 Booster -THREE GLORIOUS FIGHTERS- | Three Glorious Fighters |
+| 428031 | UB04 Booster -IMPACT BEYOND DIMENSIONS- | Impact Beyond Dimensions |
+
+Primary sources: Bandai categories
+[428027](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428027),
+[428028](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428028),
+[428029](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428029),
+[428030](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428030),
+[428031](https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428031).
+Provider, game, language, set ID/name, curated-term precedence and explicit
+conflict guards are unchanged. There is no generic marketing-label stripping.
+The focused suite passes 383 tests, including 35 additional mapping/conflict
+cases. The active worker remains pinned to its original tested head and must
+finish without a mid-run replacement. Use the newer tested main on the next
+authorized run, observing the daily cap and recording any justified retry of
+a previously rejected cohort without resetting its earlier charged attempts.
+
+The [full coverage query](evidence/market_coverage_20261029.sql) includes the
+exact shared asking-cache identity, evidence, seller, expiry and finish guards.
+It gives existing stronger prices precedence and counts asking-only coverage
+once. Verified result: 43,454/67,066 (64.7929%), zero asking-only cards,
+59,689 required for 89%, gap 16,235. Do not add raw cache rows to the total.
+
+The permitted bulk-source review found no verified immediate shortcut. In the
+last 24 Japanese Pokemon PokéWallet receipts, 1,151 printings matched and
+1,006 quotes were eligible; these include refreshes and are not automatically
+new coverage. No retained sample showed a positive AVG30 fallback. The 91
+missing SV-P references are an investigation cohort, not a promised recovery:
+observed canonical numbers are numeric-only, so accepting hyphens alone does
+not satisfy the existing full-number matcher. Additional source evidence is
+required before changing that mapping. TCGCSV remains permission-blocked.

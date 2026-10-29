@@ -1,4 +1,4 @@
-"""Narrow release-name aliases verified against Bandai's six category pages."""
+"""Narrow release-name aliases verified against Bandai's eleven category pages."""
 from copy import deepcopy
 
 import pytest
@@ -13,6 +13,11 @@ RELEASES = [
     ("428024", "Z07 Booster -BEYOND GENERATIONS-", "Beyond Generations", "BT24-079"),
     ("428025", "Z08 Booster -LEGEND OF THE DRAGON BALLS-", "Legend of the Dragon Balls", "BT25-079"),
     ("428026", "Z09 Booster -ULTIMATE ADVENT-", "Ultimate Advent", "BT26-079"),
+    ("428027", "Z10 Booster -HISTORY OF Z-", "History of Z", "BT27-079"),
+    ("428028", "UB01 Booster -PRISMATIC CLASH-", "Prismatic Clash", "BT28-079"),
+    ("428029", "UB02 Booster -FEARSOME RIVALS-", "Fearsome Rivals", "BT29-079"),
+    ("428030", "UB03 Booster -THREE GLORIOUS FIGHTERS-", "Three Glorious Fighters", "BT30-079"),
+    ("428031", "UB04 Booster -IMPACT BEYOND DIMENSIONS-", "Impact Beyond Dimensions", "BT31-079"),
 ]
 
 
@@ -63,6 +68,22 @@ def test_existing_full_canonical_name_still_matches(release):
 ])
 def test_alias_requires_full_known_canonical_identity(change):
     assert estimate(listings(), masters(**change))["status"] != "READY"
+
+
+@pytest.mark.parametrize("release", RELEASES[6:])
+@pytest.mark.parametrize("field", ["set_id", "set_name"])
+def test_new_aliases_require_the_exact_canonical_id_and_name_pair(release, field):
+    change = {field: RELEASES[0][0] if field == "set_id" else release[1] + " Collector Edition"}
+    result = estimate(listings(release), masters(release, **change))
+    assert result["rejection_counts"]["SET_MISMATCH"] == 3
+
+
+@pytest.mark.parametrize("release", RELEASES[6:])
+@pytest.mark.parametrize("new_reference", [False, True])
+def test_new_and_existing_release_names_cannot_both_claim_the_listing(release, new_reference):
+    canonical, conflicting = (release, RELEASES[0]) if new_reference else (RELEASES[0], release)
+    result = estimate(listings(canonical, suffix=conflicting[2]), masters(canonical))
+    assert result["rejection_counts"]["SET_MISMATCH"] == 3
 
 
 @pytest.mark.parametrize("terms", [["Z04 Booster -WILD RESURGENCE-"], ["Other Set"], [], None])
