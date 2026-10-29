@@ -99,6 +99,38 @@ def test_cardtrader_single_unit_fallback_requires_explicit_bundled_quantity_one(
     assert not confirmed_single_unit({}, defaultdict(int))
 
 
+def test_unknown_unit_acceptance_requires_verified_single_blueprint_and_no_lot_hint():
+    from app.cardtrader_bulk_guides import confirmed_single_unit
+
+    counts = defaultdict(int)
+    assert confirmed_single_unit({"description": "", "tag": ""}, counts,
+                                 verified_single_blueprint=True)
+    assert counts["single_blueprint_unreported_unit_accepted"] == 1
+    assert not confirmed_single_unit({"description": "lot of 4 cards"}, defaultdict(int),
+                                     verified_single_blueprint=True)
+    assert not confirmed_single_unit({"description": "playset"}, defaultdict(int),
+                                     verified_single_blueprint=True)
+    assert not confirmed_single_unit({"bundle_size": 3}, defaultdict(int),
+                                     verified_single_blueprint=True)
+    assert not confirmed_single_unit({}, defaultdict(int))
+
+
+@pytest.mark.asyncio
+async def test_single_blueprint_missing_unit_fields_still_requires_nm_and_three_sellers():
+    rows = [{k: v for k, v in listing(s).items() if k != "bundle_size"}
+            for s in (1, 2, 3)]
+    now = datetime.now(timezone.utc)
+    guide = await asking_guide(ref(), 111, 30, rows, SameCurrencyFx(), now, {},
+                               diagnostics={}, verified_single_blueprint=True)
+    assert guide is not None
+    assert guide[0]["unit_evidence"] == "EXACT_SINGLE_CARD_BLUEPRINT_UNIT_UNREPORTED"
+    assert await asking_guide(ref(), 111, 30, rows[:2], SameCurrencyFx(), now, {},
+                              verified_single_blueprint=True) is None
+    rows[1]["properties_hash"]["condition"] = "Played"
+    assert await asking_guide(ref(), 111, 30, rows, SameCurrencyFx(), now, {},
+                              verified_single_blueprint=True) is None
+
+
 def test_missing_does_not_replace_other_provider_positive_guide():
     assert missing({"has_detail": False, "has_catalogue": False,
                     "has_any_catalogue": False})
