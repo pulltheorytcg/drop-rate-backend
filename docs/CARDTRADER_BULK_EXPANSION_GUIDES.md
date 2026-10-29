@@ -47,6 +47,9 @@ The existing maintenance lock, database-capacity guard, read permissions,
 hourly cadence, bounded batch, request pacing and immutable `catalogue_job_runs`
 receipts apply. Changing from trial to apply replays the *trial input cursor*,
 so the tested release window isn't accidentally skipped.
+Any later rule revision also replays the prior batch input cursor once, so
+source offers rejected by the old rule are checked immediately instead of
+waiting for a full expansion cycle.
 
 If the live endpoint returns more than 25 offers for a blueprint, preserve
 the full validated array under strict ceilings (2,500 per blueprint and 100,000
@@ -57,6 +60,13 @@ One additional documented CardTrader field, `bundled_quantity`, can confirm
 a single unit when `bundle_size` is missing or zero; a reported multi-unit
 `bundle_size` is never overridden. The receipt records which field supplied
 that confirmation, and unknown unit counts still fail closed.
+Some live marketplace cards omit *both* unit fields. For an exact, unique
+publisher-to-CardTrader match in the **single-card blueprint category only**,
+accept no-reported-unit offers when there is no seller lot/bundle/playset hint,
+while still requiring raw, near-mint, English, three distinct sellers and
+finish consistency. Explicit bundles are always rejected. Each accepted
+catalogue-only quote records `unit_evidence` and is never used to value a
+physical card or change its store price.
 
 ## Verification and roll-out
 

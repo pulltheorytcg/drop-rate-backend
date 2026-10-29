@@ -95,6 +95,20 @@ def unapplied_trial_cursor(rows):
             return {'cursor':(previous or {}).get('cursor'),
                     'replayed_trial_started_at':rows[i]['started_at'].isoformat()}
     return None
+
+
+def cardtrader_resume_cursor(prior_report, revision, *, apply_enabled):
+    """Replay a previously failed window once after improving matching rules.
+
+    Otherwise advancing the cursor on a revision change strands the known
+    rejected offers until a complete cycle of all eligible expansions.
+    """
+    if prior_report.get('importer_revision') != revision:
+        return prior_report.get('input_cursor')
+    if (apply_enabled and prior_report.get('dry_run') is True
+            and not prior_report.get('writes_attempted')):
+        return prior_report.get('input_cursor')
+    return prior_report.get('cursor')
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -486,16 +500,9 @@ async def daily_pass(pool,settings):
                 if (prior is None or prior['started_at']<hourly_slot(now) or
                         (prior.get('report') or {}).get('importer_revision')!=revision):
                     prior_report=(prior.get('report') or {}) if prior else {}
-                    cursor=prior_report.get('cursor')
-                    if (not getattr(settings,'cardtrader_bulk_guides_apply_enabled',False)
-                            and prior_report.get('importer_revision')!=revision):
-                        # Re-run the same initial release window after a rule
-                        # revision, so its diagnostics are comparable.
-                        cursor=None
-                    if (getattr(settings,'cardtrader_bulk_guides_apply_enabled',False)
-                            and prior_report.get('dry_run') is True
-                            and not prior_report.get('writes_attempted')):
-                        cursor=prior_report.get('input_cursor')
+                    cursor=cardtrader_resume_cursor(
+                        prior_report,revision,
+                        apply_enabled=getattr(settings,'cardtrader_bulk_guides_apply_enabled',False))
                     result=await refresh_cardtrader_expansion_guides(
                         pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
                         CardTraderClient(api_token=settings.cardtrader_api_token,
