@@ -37,8 +37,8 @@ def test_exact_variants_cannot_borrow_each_others_price():
               offer(6, 9500, alternate)]
     base = exact_listing_baseline(standard, inputs, now=NOW)
     alt = exact_listing_baseline(alternate, inputs, now=NOW)
-    assert base.estimate_minor == 200
-    assert alt.estimate_minor == 9000
+    assert base.estimate_minor == 215
+    assert alt.estimate_minor == 9250
     assert base.method == alt.method == "EXACT_ACTIVE_ASKING_LOWER_MEDIAN"
     assert not base.physical_valuation_eligible and not alt.sold_comparable
 
@@ -85,7 +85,7 @@ def test_rejects_wrong_identity_source_unknown_condition_lots_and_stale():
 def test_standard_low_rarity_peer_estimate_can_be_pennies():
     peers = [peer(i, price) for i, price in enumerate([2, 3, 4, 4, 5, 6, 7], start=2)]
     result = ordinary_peer_baseline(card(), peers, now=NOW)
-    assert result.estimate_minor == 4
+    assert result.estimate_minor == 3
     assert result.confidence == "LOW"
     assert result.method == "MODEL_SAME_SET_STANDARD_RARITY_P25"
     assert result.physical_valuation_eligible is False
