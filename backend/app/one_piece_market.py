@@ -200,7 +200,7 @@ def matched_products(references, singles, packaging):
     return {key:value for key,value in result.items() if key not in conflicts}
 
 
-async def refresh_one_piece_prices(pool, actor, fx):
+async def refresh_one_piece_prices(pool, actor, fx, *, official_base_only=False):
     report = {'checked':0, 'matched':0, 'priced':0, 'provider_failures':0}
     now = datetime.now(timezone.utc)
     try:
@@ -294,6 +294,13 @@ async def refresh_one_piece_prices(pool, actor, fx):
             values.append((ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],
                 [quote] if quote else [],value,value,observed if quote else None,now,now+timedelta(days=1),
                 ref['name'],ref['set_id'],ref['card_number'],ref['set_name']))
+        if official_base_only:
+            # A one-time recovery must never clear or reprice unrelated
+            # references. Persist only positively quoted, publisher-confirmed
+            # unsuffixed bases; unmatched and parallel records stay untouched.
+            values = [row for row in values if row[4] and
+                      row[4][0].get('match_basis')==OFFICIAL_BASE_PARALLEL_BASIS]
+            report['recovery_mode']='OFFICIAL_BASE_ONLY'
         for start in range(0,len(values),100):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])

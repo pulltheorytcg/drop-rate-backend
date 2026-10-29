@@ -33,6 +33,30 @@ products. Original and parallel references are never merged.
   guide, **not** a verified UK sold transaction.
 - No database migration, credentials, additional provider or eBay requests.
 
+## One-time, opt-in live recovery
+
+The regular bulk market import runs on Monday. To apply this narrowly scoped
+fix sooner, the catalogue-maintenance worker supports an explicit one-time
+opt-in: `TCG_ONE_PIECE_BASE_RECOVERY_ENABLED=true`. The default is `false`.
+
+Only while the usual global maintenance advisory lock and database-capacity
+guard are held, the worker downloads the same publicly available Cardmarket
+bulk exports and scans the existing One Piece references. In recovery mode it
+**writes only positively priced, officially confirmed unsuffixed base rows**.
+All parallels, unmatched bases, and unrelated existing reference prices remain
+unchanged. Physical inventory and Shopify are never written.
+
+The durable `tcg.catalogue_job_runs` receipt uses job
+`ONE_PIECE_OFFICIAL_BASE_GUIDES` with `RUNNING` followed by `COMPLETE`,
+`INCOMPLETE`, or `FAILED`. After one complete run it is not repeated on
+future ticks even with the flag still set. Failures back off for an hour.
+The receipt's `one_piece.official_base_priced` counts the recovered prices,
+not verified sold-market prices or newly valued physical inventory.
+
+Operators must check the successful Railway deployment and receipt after
+enabling, and can reset the flag to `false` after completion. The feature
+does not change the usual Monday bulk-price job or its provider quotas.
+
 ## Verification
 
 Run `python -m pytest tests/test_one_piece_market.py tests/test_cardmarket_valuations.py
@@ -40,7 +64,9 @@ tests/test_inventory_catalogue_reference.py -q` in the pinned test environment.
 Positive tests require published base/parallel evidence; negative tests cover
 missing official provenance, extra unverified printings, conflicting names,
 rarities and finishes, unknown suffixes, starter releases, duplicate Cardmarket
-products and physical-copy fallback isolation.
+products and physical-copy fallback isolation. Additional recovery tests assert
+that a one-time pass writes only official base rows, respects the maintenance
+advisory lock, stops after a completed receipt and backs off after failures.
 
 The live first-party One Piece importer must run on the tested commit to obtain
 any new guides. Its receipt reports `official_base_groups_matched` and

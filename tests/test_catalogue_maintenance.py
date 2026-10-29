@@ -30,6 +30,44 @@ def test_daily_schedule_uses_london_time_and_recovers_without_restart_storm():
     assert not jobs.due(dict(recent,report={'importer_revision':2}),NOW,revision=2)
 
 
+def test_opt_in_one_piece_recovery_is_once_only_and_backs_off_failed_attempts():
+    assert jobs.one_piece_recovery_due(None,NOW)
+    assert not jobs.one_piece_recovery_due(
+        {'status':'COMPLETE','started_at':NOW-timedelta(days=8)},NOW)
+    for status in ('RUNNING','INCOMPLETE','FAILED'):
+        assert not jobs.one_piece_recovery_due({'status':status,'started_at':NOW},NOW)
+        assert jobs.one_piece_recovery_due(
+            {'status':status,'started_at':NOW-timedelta(hours=2)},NOW)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('result,expected', [
+    ({'checked':9000,'priced':3768,'official_base_priced':33,'provider_failures':0},'COMPLETE'),
+    ({'checked':0,'priced':0,'provider_failures':1},'INCOMPLETE'),
+])
+async def test_one_time_reference_refresh_preserves_receipts_and_uses_only_cardmarket(monkeypatch,result,expected):
+    receipts=[];calls=[];actor=uuid4()
+    async def receipt(*args):
+        receipts.append(args)
+        return uuid4()
+    async def refresh(*args,**kwargs):
+        calls.append((args,kwargs))
+        return result
+    monkeypatch.setattr(jobs,'receipt',receipt)
+    monkeypatch.setattr(jobs,'refresh_one_piece_prices',refresh)
+    assert await jobs.run_one_piece_base_recovery(object(),actor)==expected
+    assert len(calls)==1 and calls[0][0][1]==actor
+    assert calls[0][1]=={'official_base_only':True}
+    assert receipts[0][2]==jobs.ONE_PIECE_BASE_RECOVERY_JOB
+    assert receipts[0][3]=='RUNNING'
+    assert receipts[1][3]==expected
+    report=receipts[1][4]
+    assert report['scope']=='REFERENCE_ONLY'
+    assert report['inventory_writes']==report['store_price_writes']==0
+    assert report['one_piece']==result
+    assert len(receipts[1])==6  # update the original receipt, not another run
+
+
 def test_live_prefixed_categories_exclude_accessories_and_separate_fusion_world():
     game={'name':'Pokémon','id':5}
     assert category_type('Pokémon Booster Box',game)=='BOOSTER_BOX'
@@ -207,6 +245,55 @@ async def test_sealed_only_refresh_updates_the_coverage_receipt(monkeypatch):
     monkeypatch.setattr(jobs,'check_database_capacity',safe_capacity)
     await jobs.daily_pass(Pool(conn),SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4())))
     assert events==['sealed','coverage']
+
+
+@pytest.mark.asyncio
+async def test_opt_in_official_base_recovery_runs_once_under_daily_lock(monkeypatch):
+    now=datetime.now(timezone.utc);events=[];state={'completed':False}
+    class DailyConnection(Connection):
+        async def fetch(self,sql,*args):
+            if 'reference_sync_runs' in sql:
+                return [dict(source=s,status='COMPLETE',started_at=now,
+                             report={'importer_revision':jobs.SOURCE_REVISIONS.get(s,1)})
+                        for s in jobs.SOURCES]
+            revisions={'REFERENCE_PRICES':jobs.REFERENCE_JOB_REVISION,
+                       'SEALED_REFERENCE_PRICES':jobs.SEALED_MARKET_REVISION,
+                       'CATALOGUE_VALUES':jobs.CATALOGUE_VALUE_REVISION,
+                       'CARDMARKET_VALUES':jobs.CARDMARKET_VALUE_REVISION,
+                       'CATALOGUE_COVERAGE':1}
+            result=[dict(job=j,status='COMPLETE',started_at=now,
+                         report={'importer_revision':rev}) for j,rev in revisions.items()]
+            if state['completed']:
+                result.append(dict(job=jobs.ONE_PIECE_BASE_RECOVERY_JOB,
+                                   status='COMPLETE',started_at=now,report={'importer_revision':1}))
+            return result
+    conn=DailyConnection()
+    @asynccontextmanager
+    async def user_connection(*args):yield conn
+    async def authorized(*args):pass
+    async def recovery(*args):events.append('recovery');return 'COMPLETE'
+    async def coverage(*args):events.append('coverage')
+    async def capacity(_):
+        from app.database_capacity import assess_capacity
+        return assess_capacity(321_334_419,'off')
+    monkeypatch.setattr(jobs,'user_connection',user_connection)
+    monkeypatch.setattr(jobs,'require_platform_admin',authorized)
+    monkeypatch.setattr(jobs,'run_one_piece_base_recovery',recovery)
+    monkeypatch.setattr(jobs,'record_coverage',coverage)
+    monkeypatch.setattr(jobs,'check_database_capacity',capacity)
+    settings=SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()),
+                             one_piece_base_recovery_enabled=True)
+    await jobs.daily_pass(Pool(conn),settings)
+    assert events==['recovery','coverage']
+    assert any('pg_try_advisory_lock' in sql for sql,_ in conn.calls)
+    assert any('pg_advisory_unlock' in sql for sql,_ in conn.calls)
+    state['completed']=True
+    await jobs.daily_pass(Pool(conn),settings)
+    assert events==['recovery','coverage']
+    state['completed']=False
+    settings.one_piece_base_recovery_enabled=False
+    await jobs.daily_pass(Pool(conn),settings)
+    assert events==['recovery','coverage']
 
 
 @pytest.mark.asyncio
