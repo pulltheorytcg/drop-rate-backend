@@ -163,6 +163,63 @@ def source_products_for_group(products: list[dict], refs: list[dict]) -> list[di
     return editions
 
 
+def image_proven_source_candidates(
+    products: list[dict], refs: list[dict], diagnostic: dict | None=None,
+) -> list[dict]:
+    """Allow *unlabelled* editions into image verification, never into pricing.
+
+    A strict V1/V2 crosswalk is preferable, but not necessary when every
+    competing source image will be compared to the publisher's exact printing.
+    The whole source number group, including extra printings, must fit the
+    bounded image budget. We never choose a product by price or ID order.
+    """
+    def reject(reason):
+        if diagnostic is not None:
+            diagnostic[reason] = diagnostic.get(reason, 0) + 1
+        return []
+
+    if not refs:
+        return reject("artwork_candidates_no_publisher_reference")
+    number = refs[0]["card_number"]
+    expected_name = normalized(html.unescape(refs[0]["name"]))
+    release = release_identity(refs[0]["set_name"])
+    if release is None:
+        return reject("artwork_candidates_unknown_release")
+    expected_rarity = normalized_rarity(refs[0].get("rarity"))
+    rows = [p for p in products if isinstance(p, dict) and p.get("card_number") == number]
+    if not (len(refs) <= len(rows) <= MAX_PRINTINGS_PER_GROUP):
+        return reject("artwork_candidates_incomplete_or_oversized")
+    ids = [str(p.get("id") or "") for p in rows]
+    if len(set(ids)) != len(ids) or not all(re.fullmatch(r"op_[A-Za-z0-9]{6,128}", value) for value in ids):
+        return reject("artwork_candidates_invalid_ids")
+    for product in rows:
+        if (product.get("product_type", "card") != "card" or
+                normalized_rarity(product.get("rarity")) != expected_rarity):
+            return reject("artwork_candidates_incompatible_kind_or_rarity")
+        market = product.get("cardmarket")
+        if not isinstance(market, dict):
+            return reject("artwork_candidates_no_market_product")
+        title = PRINTED_TITLE.fullmatch(html.unescape(str(market.get("product_name") or "")))
+        if not title or title[2].upper() != number or normalized(title[1]) != expected_name:
+            return reject("artwork_candidates_title_mismatch")
+        try:
+            uri = urlsplit(str(market.get("product_url") or ""))
+        except ValueError:
+            return reject("artwork_candidates_url_invalid")
+        path = uri.path.split("/")
+        if (uri.scheme != "https" or uri.hostname not in {"www.cardmarket.com", "cardmarket.com"}
+                or uri.query or uri.fragment or len(path) != 7
+                or path[1] not in {"en", "de", "it", "fr", "es", "pt"}
+                or path[2:5] != ["OnePiece", "Products", "Singles"]
+                or path[5].casefold().endswith(("-japanese", "-non-english"))
+                or normalized(path[5]) != release[0]):
+            return reject("artwork_candidates_release_mismatch")
+        slug = re.fullmatch(r".+-" + re.escape(number) + r"(?:-V([1-9]\d*))?", path[6], re.I)
+        if not slug or (title[3] and slug[1] and title[3] != slug[1]):
+            return reject("artwork_candidates_printed_number_mismatch")
+    return rows
+
+
 def match_image_fingerprints(
     references: list[dict], products: list[dict],
     official_hashes: dict[str, tuple[int, ...]],
@@ -174,7 +231,7 @@ def match_image_fingerprints(
     decides. A publisher pair or source pair with near-identical images is
     ambiguous and must remain unpriced.
     """
-    if len(references) != len(products) or not 2 <= len(references) <= MAX_PRINTINGS_PER_GROUP:
+    if not (2 <= len(references) <= len(products) <= MAX_PRINTINGS_PER_GROUP):
         return []
     ref_ids = [r["provider_id"] for r in references]
     source_ids = [p["id"] for p in products]

@@ -26,7 +26,10 @@ from uuid import UUID, uuid4
 import httpx
 
 from .db import user_connection
-from .one_piece_artwork_match import official_groups, source_products_for_group, match_image_fingerprints
+from .one_piece_artwork_match import (
+    ALTERNATE_SUBTYPES, image_proven_source_candidates,
+    official_groups, source_products_for_group, match_image_fingerprints,
+)
 from .one_piece_market import normalized, release_identity
 from .recognition_images import (
     RecognitionImageError, _fingerprints, _open_image, reference_image_hashes,
@@ -576,9 +579,20 @@ async def artwork_matches_for_complete_set(
                    for ref in refs):
             continue
         candidates = source_products_for_group(by_number.get(number, []), refs)
+        label_confirmed = bool(candidates)
+        if not candidates:
+            # An upstream V1/V2 label is not compulsory when the publisher's
+            # exact artwork can prove a reciprocal match for *all* printings.
+            # The fallback still verifies release, title, number, rarity,
+            # product URLs, complete source rows and every competing image.
+            candidates = image_proven_source_candidates(
+                by_number.get(number, []), refs, diagnostics)
         if not candidates:
             diagnostics["artwork_groups_unlabelled"] = diagnostics.get("artwork_groups_unlabelled", 0) + 1
             continue
+        if not label_confirmed:
+            diagnostics["artwork_groups_image_only_candidates"] = (
+                diagnostics.get("artwork_groups_image_only_candidates", 0) + 1)
         # Reserve the exact number of image calls; never start a partially
         # fetched group when the free request budget cannot finish it.
         if client.requests + len(candidates) > client.limit:
@@ -613,9 +627,12 @@ async def artwork_matches_for_complete_set(
         # The artwork must also agree with *independent* printing metadata.
         # Never allow an image service to swap the normal/base and an alt-art
         # price if its own subtype contradicts the official printing suffix.
-        if any((ref_by_id[link.reference_id]["provider_id"] == number)
-               != (normalized(source_by_id[link.source_id].get("sub_type_name")) == "normal")
-               for link in links):
+        if any(
+            (label == "normal" and ref_by_id[link.reference_id]["provider_id"] != number)
+            or (label in ALTERNATE_SUBTYPES and ref_by_id[link.reference_id]["provider_id"] == number)
+            for link in links
+            for label in (normalized(source_by_id[link.source_id].get("sub_type_name")),)
+        ):
             diagnostics["artwork_groups_metadata_conflict"] = diagnostics.get("artwork_groups_metadata_conflict", 0) + 1
             continue
         for link in links:
@@ -626,6 +643,7 @@ async def artwork_matches_for_complete_set(
                 "image_similarity": link.similarity,
                 "image_margin": link.margin,
                 "image_provider": "POKEWALLET_AUTHENTICATED_CARD_IMAGE",
+                "printing_label_confirmed": label_confirmed,
             }))
         diagnostics["artwork_groups_verified"] = diagnostics.get("artwork_groups_verified", 0) + 1
     return verified

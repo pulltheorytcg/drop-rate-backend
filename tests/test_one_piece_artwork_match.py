@@ -142,6 +142,26 @@ def test_source_accepts_only_complete_versions_not_order_or_price():
     assert art.source_products_for_group([product(1), product(3)], two_official()) == []
 
 
+def test_unlabelled_source_candidates_need_exact_title_release_number_and_rarity():
+    missing_labels = [product(1, sub_type_name=None), product(2, sub_type_name=None)]
+    assert art.source_products_for_group(missing_labels, two_official()) == []
+    assert art.image_proven_source_candidates(missing_labels, two_official()) == missing_labels
+    # A third distinct source printing may be compared but cannot silently
+    # disappear from the source collision test.
+    extras = missing_labels + [product(3, sub_type_name=None)]
+    assert art.image_proven_source_candidates(extras, two_official()) == extras
+    assert art.image_proven_source_candidates([missing_labels[0]], two_official()) == []
+    assert art.image_proven_source_candidates(
+        [missing_labels[0], product(2, rarity="C")], two_official()) == []
+    assert art.image_proven_source_candidates(
+        [missing_labels[0], product(2, cardmarket={**product(2)["cardmarket"],
+            "product_name": "Other (OP15-001) (V.2)"})], two_official()) == []
+    assert art.image_proven_source_candidates(
+        [missing_labels[0], product(2, cardmarket={**product(2)["cardmarket"],
+            "product_url": "https://www.cardmarket.com/en/OnePiece/Products/Singles/Wrong-Set/Krieg-OP15-001-V2"})],
+        two_official()) == []
+
+
 def test_perceptual_match_is_reciprocal_not_by_price_or_source_order():
     refs = two_official()
     products = two_products()[::-1]
@@ -172,6 +192,52 @@ def test_ambiguous_artwork_or_incomplete_fingerprints_never_price():
     assert art.match_image_fingerprints(refs, products,
         {NUMBER: same, NUMBER + "_p1": opposite},
         {products[0]["id"]: (0b1010,), products[1]["id"]: (0b0101,)}) == []
+
+
+def test_image_match_checks_every_extra_source_competitor():
+    refs = two_official()
+    products = [product(1), product(2), product(3)]
+    official = {NUMBER: (0,), NUMBER + "_p1": ((1 << 256) - 1,)}
+    source = {products[0]["id"]: (0,), products[1]["id"]: ((1 << 256) - 1,),
+              products[2]["id"]: ((1 << 128) - 1,)}
+    matches = art.match_image_fingerprints(refs, products, official, source)
+    assert {link.source_id for link in matches} == {products[0]["id"], products[1]["id"]}
+    # A second source variant with the same base artwork destroys uniqueness.
+    source[products[2]["id"]] = (0,)
+    assert art.match_image_fingerprints(refs, products, official, source) == []
+
+
+@pytest.mark.asyncio
+async def test_artwork_can_prove_unlabelled_printings_without_guessing_versions(monkeypatch):
+    refs = two_official()
+    products = [product(1, sub_type_name=None), product(2, sub_type_name=None)]
+    async def official_hash(url):
+        return (0,) if url.endswith("OP15-001.png?261016") else ((1 << 256) - 1,)
+    class FakeClient:
+        requests = 0
+        limit = 10
+        async def get_image(self, source_id):
+            self.requests += 1
+            return source_id.encode()
+    monkeypatch.setattr(market, "reference_image_hashes", official_hash)
+    monkeypatch.setattr(market, "_open_image", lambda value: (value, 200, 280))
+    monkeypatch.setattr(market, "_fingerprints", lambda value: (0,)
+                        if value == products[0]["id"].encode() else ((1 << 256) - 1,))
+    stats = {"artwork_groups_tested": 0}
+    matches = await market.artwork_matches_for_complete_set(
+        {("OP15", NUMBER): refs}, "English", "OP15", products, FakeClient(), stats)
+    assert len(matches) == 2
+    assert stats["artwork_groups_image_only_candidates"] == 1
+    assert all(evidence["printing_label_confirmed"] is False
+               for _, _, evidence in matches)
+
+    # If a supplier explicitly calls the alternate 'Normal' while its art
+    # matches the publisher's alternate, that contradiction still fails shut.
+    products[1]["sub_type_name"] = "Normal"
+    stats = {"artwork_groups_tested": 0}
+    assert await market.artwork_matches_for_complete_set(
+        {("OP15", NUMBER): refs}, "English", "OP15", products, FakeClient(), stats) == []
+    assert stats["artwork_groups_metadata_conflict"] == 1
 
 
 @pytest.mark.asyncio
