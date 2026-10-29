@@ -1,4 +1,5 @@
 """Bulk CardTrader catalogue pricing must not equate lookalike printings."""
+from collections import defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -85,6 +86,17 @@ def test_rejection_diagnostics_identify_each_raw_availability_gate():
                    "not_confirmed_single_unit", "no_available_quantity",
                    "wrong_blueprint"):
         assert diagnostics[reason] == 1
+
+
+def test_cardtrader_single_unit_fallback_requires_explicit_bundled_quantity_one():
+    from app.cardtrader_bulk_guides import confirmed_single_unit
+    # The field is documented by CardTrader; preserve a true single-unit row
+    # when a marketplace release lacks the other unit field.
+    assert confirmed_single_unit({"bundled_quantity": 1}, defaultdict(int))
+    assert confirmed_single_unit({"bundle_size": 0, "bundled_quantity": 1}, defaultdict(int))
+    assert not confirmed_single_unit({"bundle_size": 2, "bundled_quantity": 1}, defaultdict(int))
+    assert not confirmed_single_unit({"bundle_size": 0}, defaultdict(int))
+    assert not confirmed_single_unit({}, defaultdict(int))
 
 
 def test_missing_does_not_replace_other_provider_positive_guide():
