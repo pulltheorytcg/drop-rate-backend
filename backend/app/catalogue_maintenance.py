@@ -487,6 +487,11 @@ async def daily_pass(pool,settings):
                         (prior.get('report') or {}).get('importer_revision')!=revision):
                     prior_report=(prior.get('report') or {}) if prior else {}
                     cursor=prior_report.get('cursor')
+                    if (not getattr(settings,'cardtrader_bulk_guides_apply_enabled',False)
+                            and prior_report.get('importer_revision')!=revision):
+                        # Re-run the same initial release window after a rule
+                        # revision, so its diagnostics are comparable.
+                        cursor=None
                     if (getattr(settings,'cardtrader_bulk_guides_apply_enabled',False)
                             and prior_report.get('dry_run') is True
                             and not prior_report.get('writes_attempted')):

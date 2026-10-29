@@ -53,6 +53,9 @@ so the tested release window isn't accidentally skipped.
 2. Set `...ENABLED=true`, leave `...APPLY_ENABLED=false`. Check the
    `CARDTRADER_EXPANSION_GUIDES` receipt: `references_examined`,
    `exact_printings`, `eligible_quotes`, `provider_failures`, `by_release`.
+   Each release also reports candidate offer counts, seller qualification
+   counts, rejection categories, and non-sensitive source error details.
+   Isolated missing expansion errors do not discard other release scans.
 3. Only when source records are actually eligible, enable `...APPLY_ENABLED`.
    Confirm `writes_applied` and independent `CATALOGUE_COVERAGE` delta.
 4. Review accidental mix-ups/identity conflicts before increasing the limit.
