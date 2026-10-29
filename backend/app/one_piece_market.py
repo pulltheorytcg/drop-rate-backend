@@ -23,6 +23,7 @@ from .market_guide_fields import choose_bulk_price_field
 from .sealed_market import download
 
 SOURCE = 'CARDMARKET_BULK_SINGLES'
+OFFICIAL_BASE_PARALLEL_BASIS = 'OFFICIAL_CHECKLIST_BASE_WITH_SEPARATE_PARALLELS'
 # The complete official label (including ST code) is required. Never drop
 # colours, EX, region or edition text from arbitrary release names.
 STARTER_RELEASE_ALIASES = {
@@ -115,6 +116,51 @@ def expansion_index(products):
     return {key:next(iter(ids)) for key, ids in result.items() if len(ids) == 1}
 
 
+def official_base_with_parallels(refs):
+    """Resolve only a publisher-confirmed base; never assign its guide to parallels.
+
+    Some Bandai checklists contain both ``OP01-001`` and ``OP01-001_p1``.
+    They are distinct official printings, not a conflicting base identity.
+    Require the official checklist to establish *every* printing in the group,
+    and an exact original booster release before accepting the unsuffixed base.
+    The resulting Cardmarket guide remains reference-only.
+    """
+    if len({r.get('provider_id') for r in refs}) < 2:
+        return None
+    originals = [r for r in refs if r.get('provider') == 'Bandai Official'
+                 and r.get('provider_id') == r.get('card_number')
+                 and (r.get('evidence') or {}).get('detail_level') == 'OFFICIAL_CHECKLIST'
+                 and (r.get('evidence') or {}).get('printing_id') == r.get('provider_id')]
+    if len(originals) != 1:
+        return None
+    base = originals[0]
+    number = str(base['card_number'])
+    if (not re.fullmatch(r'(?:OP|EB)\d{2}-\d{3}', number)
+            or not release_identity(base.get('set_name') or '', include_starters=False)):
+        return None
+    official_ids = {r['provider_id'] for r in refs
+        if r.get('provider') == 'Bandai Official'
+        and (r.get('evidence') or {}).get('detail_level') == 'OFFICIAL_CHECKLIST'
+        and (r.get('evidence') or {}).get('printing_id') == r.get('provider_id')}
+    ids = {r.get('provider_id') for r in refs}
+    if not ids <= official_ids:
+        return None
+    if any(not (printing == number or re.fullmatch(rf'{re.escape(number)}_p[1-9]\d*', str(printing or '')))
+           for printing in ids):
+        return None
+    if any(r.get('set_id') != base['set_id']
+           or r.get('card_number') != number
+           or r.get('system_code') != 'ONE_PIECE_CARD_GAME'
+           or r.get('language') != 'English'
+           or normalized(r.get('set_name')) != normalized(base.get('set_name'))
+           or normalized(html.unescape(r.get('name') or '')) != normalized(html.unescape(base.get('name') or ''))
+           or normalized(r.get('rarity')) != normalized(base.get('rarity'))
+           or normalized(r.get('finish')) != normalized(base.get('finish'))
+           for r in refs):
+        return None
+    return base
+
+
 def matched_products(references, singles, packaging):
     expansions = expansion_index(packaging)
     cards = defaultdict(list)
@@ -132,10 +178,15 @@ def matched_products(references, singles, packaging):
     conflicts = set()
     for (_, number), refs in groups.items():
         # Multiple providers can carry the same exact printing. Distinct
-        # printing IDs or conflicting names must still block the match.
-        if len({(r['provider_id'],normalized(r['name'])) for r in refs}) != 1:
-            continue
-        ref = refs[0]
+        # printings normally block the match. The only exception is an
+        # unsuffixed base independently recorded in the official checklist;
+        # its parallel printings never inherit the base marketplace SKU.
+        if len({(r['provider_id'],normalized(r['name'])) for r in refs}) == 1:
+            ref = refs[0]
+        else:
+            ref = official_base_with_parallels(refs)
+            if ref is None:
+                continue
         expansion = expansions.get(release_identity(ref['set_name']))
         candidates = cards.get((expansion, number), []) if expansion else []
         # Bandai's published catalogue occasionally HTML-escapes ampersands
@@ -167,6 +218,12 @@ async def refresh_one_piece_prices(pool, actor, fx):
                 and (s.release_date is null or s.release_date<=current_date)''')]
         from .one_piece_japanese_market import matched_japanese_products, japanese_nonenglish_quote
         matches = matched_products(references,singles,packaging)
+        english_groups = defaultdict(list)
+        for ref in references:
+            if (ref['system_code'], ref['language']) == ('ONE_PIECE_CARD_GAME', 'English'):
+                english_groups[(ref['set_id'], ref['card_number'])].append(ref)
+        official_base_groups = {key for key, refs in english_groups.items()
+                                if official_base_with_parallels(refs) is not None}
         jp_matches = matched_japanese_products(references,singles,packaging)
         jp_references = [ref for ref in references if ref['language']=='Japanese']
         report.update(checked=len(references),matched=len(matches)+len(jp_matches))
@@ -226,6 +283,11 @@ async def refresh_one_piece_prices(pool, actor, fx):
                 quote.update(guide_window_days=30, physical_valuation_eligible=False)
             if quote and quote.get('match_basis')=='EXACT_PREMIUM_RELEASE_UNIQUE_PRINTING':
                 quote['physical_valuation_eligible']=False
+            if (quote and ref['language']=='English'
+                    and (ref['set_id'], ref['card_number']) in official_base_groups
+                    and ref['provider_id']==ref['card_number']):
+                quote.update(match_basis=OFFICIAL_BASE_PARALLEL_BASIS,
+                             physical_valuation_eligible=False)
             if quote and ref['language']=='English' and ref['set_name'] in STARTER_RELEASE_ALIASES:
                 quote.update(match_basis=STARTER_ALIAS_BASIS, physical_valuation_eligible=False)
             value = quote['price_gbp_minor'] if quote else None
@@ -236,6 +298,15 @@ async def refresh_one_piece_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(row[5] is not None for row in values)
+        if official_base_groups:
+            report['official_base_groups_matched'] = sum(
+                any(r['set_id']==set_id and r['card_number']==number
+                    and r['provider_id']==number and number in matches
+                    for r in references if r['language']=='English')
+                for set_id, number in official_base_groups)
+            report['official_base_priced'] = sum(
+                bool(row[4]) and row[4][0].get('match_basis')==OFFICIAL_BASE_PARALLEL_BASIS
+                for row in values)
         if starter_refs:
             report['starter_alias_priced'] = sum(
                 row[5] is not None and row[2]=='English' and row[13] in STARTER_RELEASE_ALIASES
