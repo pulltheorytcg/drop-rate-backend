@@ -75,6 +75,17 @@ def test_only_unique_unpriced_canonical_numbers_are_eligible():
     assert pokemon.reference_groups([reference()])
 
 
+def test_coverage_first_japanese_pokemon_skips_already_counted_stale_prices():
+    stale = reference(existing_catalogue_value=500, existing_source=pokemon.SOURCE,
+                      existing_pricing_updated_at=NOW-timedelta(days=4))
+    assert pokemon.reference_groups([stale], NOW)
+    assert pokemon.reference_groups([stale], NOW, coverage_first=True) == {}
+    stale_detail = reference(has_any_detail_value=True, has_detail_value=False)
+    assert pokemon.reference_groups([stale_detail], NOW)
+    assert pokemon.reference_groups([stale_detail], NOW, coverage_first=True) == {}
+    assert pokemon.reference_groups([reference()], NOW, coverage_first=True)
+
+
 def test_japanese_set_code_must_be_unique_across_provider_listing():
     assert pokemon.unique_japanese_sets(sets())['sv11b']['set_id']=='23599'
     body=sets() | {'data':sets()['data']+[{'set_code':'sv11b','set_id':'23600','language':'jap'}]}

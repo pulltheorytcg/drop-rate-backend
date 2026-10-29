@@ -395,6 +395,8 @@ async def daily_pass(pool,settings):
                         request_limit=min(ONE_PIECE_HOURLY_REQUEST_BUDGET,
                             getattr(settings,'pokewallet_pricing_request_limit',60)),
                         previous_cursor=last_cursor,
+                        previous_artwork_cursor=(prior.get('report') or {}).get('artwork_cursor') if prior else None,
+                        previous_artwork_cursors=(prior.get('report') or {}).get('artwork_cursors') if prior else None,
                         artwork_matching_enabled=getattr(
                             settings,'pokewallet_one_piece_artwork_matching_enabled',False),
                         coverage_first=getattr(settings,'pokewallet_pricing_coverage_first_enabled',False))
@@ -410,7 +412,8 @@ async def daily_pass(pool,settings):
                     getattr(settings,'pokewallet_dragon_ball_enabled',False)):
                 prior=latest.get('POKEWALLET_DBS_PRICES')
                 importer_revision=(POKEWALLET_DBS_JOB_REVISION*10 +
-                    int(getattr(settings,'pokewallet_dragon_ball_apply_enabled',False)))
+                    int(getattr(settings,'pokewallet_dragon_ball_apply_enabled',False)) +
+                    100*int(getattr(settings,'pokewallet_pricing_coverage_first_enabled',False)))
                 if (prior is None or prior['started_at']<hourly_slot(now)
                         or (prior.get('report') or {}).get('importer_revision')!=importer_revision):
                     last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
@@ -430,7 +433,8 @@ async def daily_pass(pool,settings):
                         dry_run=not getattr(settings,'pokewallet_dragon_ball_apply_enabled',False),
                         request_limit=min(DBS_HOURLY_REQUEST_BUDGET,
                             getattr(settings,'pokewallet_dragon_ball_request_limit',35)),
-                        previous_cursor=last_cursor)
+                        previous_cursor=last_cursor,
+                        coverage_first=getattr(settings,'pokewallet_pricing_coverage_first_enabled',False))
                     await receipt(pool,actor,'POKEWALLET_DBS_PRICES',
                                   'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
                                   {'importer_revision':importer_revision,**result,
@@ -442,7 +446,8 @@ async def daily_pass(pool,settings):
             if (pokewallet_key and getattr(settings,'pokewallet_pokemon_enabled',False)):
                 prior=latest.get('POKEWALLET_POKEMON_PRICES')
                 revision=(POKEWALLET_POKEMON_JOB_REVISION*10 +
-                          int(getattr(settings,'pokewallet_pokemon_apply_enabled',False)))
+                          int(getattr(settings,'pokewallet_pokemon_apply_enabled',False)) +
+                          100*int(getattr(settings,'pokewallet_pricing_coverage_first_enabled',False)))
                 if (prior is None or prior['started_at']<hourly_slot(now)
                         or (prior.get('report') or {}).get('importer_revision')!=revision):
                     last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
@@ -455,7 +460,8 @@ async def daily_pass(pool,settings):
                         pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),pokewallet_key,
                         dry_run=not getattr(settings,'pokewallet_pokemon_apply_enabled',False),
                         request_limit=POKEMON_HOURLY_REQUEST_BUDGET,
-                        previous_cursor=last_cursor)
+                        previous_cursor=last_cursor,
+                        coverage_first=getattr(settings,'pokewallet_pricing_coverage_first_enabled',False))
                     await receipt(pool,actor,'POKEWALLET_POKEMON_PRICES',
                                   'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
                                   {'importer_revision':revision,**result})
