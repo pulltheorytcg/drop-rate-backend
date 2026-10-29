@@ -103,7 +103,7 @@ class CardTraderClient:
     ) -> dict[int, list[dict[str, Any]]]:
         """Read the official expansion-wide marketplace feed in a single request.
 
-        The response maps blueprint IDs to their cheapest 25 live offers.  A
+        The response maps blueprint IDs to their live offers.  A
         per-blueprint search for a 300-card release would use 300 requests;
         this endpoint uses one without weakening printing identity checks.
         """
@@ -121,12 +121,19 @@ class CardTraderClient:
         if not isinstance(payload, dict) or len(payload) > 10_000:
             raise CardTraderApiError("CardTrader expansion marketplace returned an invalid map")
         result: dict[int, list[dict[str, Any]]] = {}
+        total_offers = 0
         for raw_id, rows in payload.items():
             if not isinstance(raw_id, str) or not raw_id.isdecimal():
                 raise CardTraderApiError("CardTrader expansion marketplace contains an invalid blueprint id")
             blueprint_id = int(raw_id)
-            if blueprint_id <= 0 or not isinstance(rows, list) or len(rows) > 25:
+            # The published reference describes 25 offers per blueprint, but
+            # the live endpoint sometimes returns more. Retain complete,
+            # bounded groups instead of dropping an entire large expansion.
+            if blueprint_id <= 0 or not isinstance(rows, list) or len(rows) > 2500:
                 raise CardTraderApiError("CardTrader expansion marketplace contains invalid offers")
+            total_offers += len(rows)
+            if total_offers > 100_000:
+                raise CardTraderApiError("CardTrader expansion marketplace exceeds safety limit")
             if not all(isinstance(row, dict) and row.get("blueprint_id") == blueprint_id
                        for row in rows):
                 raise CardTraderApiError("CardTrader expansion marketplace contains mismatched offers")
