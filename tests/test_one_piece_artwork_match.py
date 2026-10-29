@@ -142,6 +142,35 @@ def test_source_accepts_only_complete_versions_not_order_or_price():
     assert art.source_products_for_group([product(1), product(3)], two_official()) == []
 
 
+def test_cardmarket_exact_bandai_release_code_slug_is_valid_for_artwork_matching():
+    # Cardmarket's real OP16 singles have /Singles/OP16/ URLs, whereas the
+    # Bandai checklist calls the same release "The Time of Battle [OP-16]".
+    refs = [official(printing, card_number="OP16-001", name="Portgas.D.Ace",
+                     set_name="BOOSTER PACK -The Time of Battle- [OP-16]", set_id="569116")
+            for printing in ("OP16-001", "OP16-001_p1")]
+    products = [product(version, card_number="OP16-001", name="Portgas.D.Ace",
+                        cardmarket={
+                            "product_name": f"Portgas.D.Ace (OP16-001) (V.{version})",
+                            "product_url": ("https://www.cardmarket.com/en/OnePiece/Products/Singles/"
+                                            f"OP16/PortgasDAce-OP16-001-V{version}"),
+                            "prices": {"trend": 1.0 if version == 1 else 50.0},
+                        })
+                for version in (1, 2)]
+    assert art.source_products_for_group(products, refs) == products
+    unlabelled = [{**p, "sub_type_name": None} for p in products]
+    assert art.image_proven_source_candidates(unlabelled, refs) == unlabelled
+
+    # An adjacent release or region-specific slug is not sufficient identity.
+    for wrong_slug in ("OP17", "OP16-Japanese", "OP16-Non-English", "OP160"):
+        wrong = [{**products[0]}, {**products[1], "cardmarket": {
+            **products[1]["cardmarket"],
+            "product_url": products[1]["cardmarket"]["product_url"].replace(
+                "/Singles/OP16/", f"/Singles/{wrong_slug}/"),
+        }}]
+        assert art.source_products_for_group(wrong, refs) == []
+        assert art.image_proven_source_candidates(wrong, refs) == []
+
+
 def test_unlabelled_source_candidates_need_exact_title_release_number_and_rarity():
     missing_labels = [product(1, sub_type_name=None), product(2, sub_type_name=None)]
     assert art.source_products_for_group(missing_labels, two_official()) == []

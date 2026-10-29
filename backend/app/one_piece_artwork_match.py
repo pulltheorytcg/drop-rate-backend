@@ -31,6 +31,15 @@ RARITY_ALIASES = {
 }
 
 
+def is_exact_release_slug(slug: str, release: tuple[str, str]) -> bool:
+    """Accept Cardmarket's official release title or Bandai's exact set code.
+
+    No prefix/fuzzy matching: OP16, OP17 and language-specific releases must
+    remain distinct even if the printed card number or name is similar.
+    """
+    return normalized(slug) in {release[0], normalized(release[1])}
+
+
 def normalized_rarity(value) -> str:
     name = normalized(value)
     return RARITY_ALIASES.get(name, name)
@@ -145,7 +154,7 @@ def source_products_for_group(products: list[dict], refs: list[dict]) -> list[di
                 or path[1] not in {"en", "de", "it", "fr", "es", "pt"}
                 or path[2:5] != ["OnePiece", "Products", "Singles"]
                 or path[5].casefold().endswith(("-japanese", "-non-english"))
-                or normalized(path[5]) != expected_release[0]):
+                or not is_exact_release_slug(path[5], expected_release)):
             return []
         card_slug = re.fullmatch(r".+-" + re.escape(number) + r"(?:-V([1-9]\d*))?", path[6], re.I)
         if not card_slug or card_slug[1] != title[3]:
@@ -212,7 +221,7 @@ def image_proven_source_candidates(
                 or path[1] not in {"en", "de", "it", "fr", "es", "pt"}
                 or path[2:5] != ["OnePiece", "Products", "Singles"]
                 or path[5].casefold().endswith(("-japanese", "-non-english"))
-                or normalized(path[5]) != release[0]):
+                or not is_exact_release_slug(path[5], release)):
             return reject("artwork_candidates_release_mismatch")
         slug = re.fullmatch(r".+-" + re.escape(number) + r"(?:-V([1-9]\d*))?", path[6], re.I)
         if not slug or (title[3] and slug[1] and title[3] != slug[1]):
