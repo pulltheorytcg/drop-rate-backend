@@ -5,8 +5,9 @@ guides. Its paid ``/op/prices`` route is deliberately never called. These
 are indicative EUR marketplace guides, not UK sold comparables or a licence
 to reprice physical inventory. The separate catalogue-guide table is used.
 
-Only a release-unique, number-unique **base** printing can be matched. An
-alternate art/parallel requires its own independent printing evidence; the
+Ordinary matching accepts only a release-unique **base** printing. A separate,
+opt-in artwork check may link official alternate printings to independently
+labelled provider variants, using a reciprocal one-to-one image match. The
 first, cheapest or sole *priced* item is never used as a tie-breaker.
 """
 from __future__ import annotations
@@ -25,7 +26,11 @@ from uuid import UUID, uuid4
 import httpx
 
 from .db import user_connection
+from .one_piece_artwork_match import official_groups, source_products_for_group, match_image_fingerprints
 from .one_piece_market import normalized, release_identity
+from .recognition_images import (
+    RecognitionImageError, _fingerprints, _open_image, reference_image_hashes,
+)
 from .reference_market import _minor
 
 log = logging.getLogger(__name__)
@@ -34,6 +39,8 @@ SYSTEM = "ONE_PIECE_CARD_GAME"
 BASE_URL = "https://api.pokewallet.io"
 MAX_FREE_REQUESTS_PER_RUN = 60  # 100/hour, 1,000/day across all PokéWallet games
 PAGE_SIZE = 200
+MAX_ARTWORK_GROUPS_PER_RUN = 2
+MAX_SOURCE_ARTWORK_BYTES = 2_000_000
 BASE_NUMBER = re.compile(r"(?:OP|EB|PRB|ST)\d{2}-\d{3}")
 JP_CARDMARKET_NAME = re.compile(
     r"^.+\(((?:OP|EB|PRB|ST)\d{2}-\d{3})\)(?:\s*\(V\.\s*([1-9]\d*)\))?$",
@@ -59,7 +66,7 @@ ALTERNATE_PRINT_LABELS = {
 }
 
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,r.set_id,
- r.card_number,r.rarity,s.name as set_name,
+ r.card_number,r.rarity,r.finish,r.image_url,r.evidence,s.name as set_name,
  (coalesce(p.market_value_minor,0)>0 and
   p.pricing_updated_at>=now()-interval '7 days') as has_detail_value,
  coalesce(b.market_value_minor,0) as existing_catalogue_value,
@@ -85,6 +92,8 @@ WRITE_SQL = """insert into tcg.reference_catalogue_prices
  where r.provider=$1 and r.system_code=$2 and r.language=$3 and r.provider_id=$4
  and r.name=$11 and r.set_id=$12 and r.card_number=$13 and s.name=$14
  and r.rarity is not distinct from $15
+ and ($17::text is null or r.image_url=$17)
+ and ($18::text is null or r.evidence->>'printing_id'=$18)
  on conflict(provider,system_code,language,provider_id) do update set
  quotes=excluded.quotes,market_value_minor=excluded.market_value_minor,
  market_value_high_minor=excluded.market_value_high_minor,
@@ -471,13 +480,120 @@ class FreePokewalletOnePieceClient:
             raise ProviderResponseError("INVALID_SCHEMA")
         return data
 
+    async def get_image(self, source_id: str) -> bytes:
+        """Use the vendor's documented authenticated free image endpoint.
+
+        Does not follow redirects, crawl web pages, or persist image bytes.
+        Each request consumes the *same* quota as catalogue requests.
+        """
+        if not re.fullmatch(r"op_[a-zA-Z0-9]{6,128}", source_id):
+            raise ProviderResponseError("ARTWORK_INVALID_SOURCE_ID")
+        if self.requests >= self.limit:
+            raise ProviderResponseError("REQUEST_BUDGET_EXHAUSTED")
+        self.requests += 1
+        response = await self._client.get(
+            BASE_URL + "/images/" + source_id,
+            headers={"X-API-Key": self.api_key, "Accept": "image/png,image/jpeg,image/webp"},
+        )
+        if response.status_code == 429:
+            raise ProviderResponseError("RATE_LIMITED")
+        if response.status_code >= 400:
+            raise ProviderResponseError("ARTWORK_HTTP_" + str(response.status_code))
+        for header in ("X-RateLimit-Remaining-Hour", "X-RateLimit-Remaining-Day"):
+            remainder = response.headers.get(header)
+            if remainder is not None and remainder.isdigit() and int(remainder) < 5:
+                raise ProviderResponseError("PROVIDER_BUDGET_LOW")
+        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().casefold()
+        if (content_type not in {"image/jpeg", "image/png", "image/webp"}
+                or not 0 < len(response.content) <= MAX_SOURCE_ARTWORK_BYTES):
+            raise ProviderResponseError("ARTWORK_INVALID_IMAGE")
+        return response.content
+
+
+async def artwork_matches_for_complete_set(
+    groups: dict, language: str, code: str, products: list[dict],
+    client: FreePokewalletOnePieceClient, diagnostics: dict,
+) -> list[tuple[dict, dict, dict]]:
+    """Resolve a bounded number of *official* printings using actual art.
+
+    All candidate images must be available and distinct. A missing image or
+    ambiguous comparison leaves the whole group unpriced. The returned quote
+    evidence is never eligible to reprice a physical inventory item.
+    """
+    if language != "English":
+        return []
+    by_number = defaultdict(list)
+    for item in products:
+        if isinstance(item, dict):
+            by_number[str(item.get("card_number") or "")].append(item)
+    verified = []
+    for (group_code, number), refs in sorted(groups.items()):
+        if group_code != code or diagnostics.get("artwork_groups_tested", 0) >= MAX_ARTWORK_GROUPS_PER_RUN:
+            continue
+        if not any(quote_eligible(ref, datetime.now(timezone.utc)) for ref in refs):
+            continue
+        candidates = source_products_for_group(by_number.get(number, []), refs)
+        if not candidates:
+            diagnostics["artwork_groups_unlabelled"] = diagnostics.get("artwork_groups_unlabelled", 0) + 1
+            continue
+        # Reserve the exact number of image calls; never start a partially
+        # fetched group when the free request budget cannot finish it.
+        if client.requests + len(candidates) > client.limit:
+            diagnostics["artwork_groups_deferred_budget"] = diagnostics.get("artwork_groups_deferred_budget", 0) + 1
+            break
+        diagnostics["artwork_groups_tested"] = diagnostics.get("artwork_groups_tested", 0) + 1
+        try:
+            official = {ref["provider_id"]: await reference_image_hashes(ref["image_url"])
+                        for ref in refs}
+            if any(value is None for value in official.values()):
+                raise RecognitionImageError("Publisher artwork could not be read")
+            source = {}
+            for product in candidates:
+                data = await client.get_image(product["id"])
+                image, _, _ = _open_image(data)
+                source[product["id"]] = _fingerprints(image)
+            links = match_image_fingerprints(refs, candidates, official, source)
+        except ProviderResponseError as exc:
+            if str(exc) in {"RATE_LIMITED", "PROVIDER_BUDGET_LOW", "REQUEST_BUDGET_EXHAUSTED"}:
+                raise
+            diagnostics["artwork_groups_source_image_failure"] = diagnostics.get("artwork_groups_source_image_failure", 0) + 1
+            continue
+        except (httpx.HTTPError, RecognitionImageError, ValueError, TypeError):
+            diagnostics["artwork_groups_image_failure"] = diagnostics.get("artwork_groups_image_failure", 0) + 1
+            continue
+        if len(links) != len(refs):
+            diagnostics["artwork_groups_ambiguous"] = diagnostics.get("artwork_groups_ambiguous", 0) + 1
+            continue
+        source_by_id = {item["id"]: item for item in candidates}
+        ref_by_id = {ref["provider_id"]: ref for ref in refs}
+        # The artwork must also agree with *independent* printing metadata.
+        # Never allow an image service to swap the normal/base and an alt-art
+        # price if its own subtype contradicts the official printing suffix.
+        if any((ref_by_id[link.reference_id]["provider_id"] == number)
+               != (normalized(source_by_id[link.source_id].get("sub_type_name")) == "normal")
+               for link in links):
+            diagnostics["artwork_groups_metadata_conflict"] = diagnostics.get("artwork_groups_metadata_conflict", 0) + 1
+            continue
+        for link in links:
+            ref = ref_by_id[link.reference_id]
+            verified.append((ref, source_by_id[link.source_id], {
+                "match_basis": "OFFICIAL_PUBLISHER_ARTWORK_RECIPROCAL_IMAGE_MATCH",
+                "reference_artwork_url": ref["image_url"],
+                "image_similarity": link.similarity,
+                "image_margin": link.margin,
+                "image_provider": "POKEWALLET_AUTHENTICATED_CARD_IMAGE",
+            }))
+        diagnostics["artwork_groups_verified"] = diagnostics.get("artwork_groups_verified", 0) + 1
+    return verified
+
 
 async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                                        dry_run: bool=True, request_limit: int=MAX_FREE_REQUESTS_PER_RUN,
                                        previous_cursor: str | None=None,
                                        http_client=None,
                                        reference_set_id: str | None=None,
-                                       operator_run_id: str | None=None) -> dict:
+                                       operator_run_id: str | None=None,
+                                       artwork_matching_enabled: bool=False) -> dict:
     """One bounded free API pass, with dry-run by default and a round-robin cursor.
 
     The caller holds the existing global catalogue advisory lock and records
@@ -499,6 +615,10 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             "skipped_invalid_sets":0,"invalid_set_samples":[],
             "matching_printings":0,"eligible_quotes":0,
             "writes_attempted":0,"provider_failures":0,"cursor":previous_cursor}
+    result["artwork_matching_enabled"] = artwork_matching_enabled
+    result["artwork_groups_tested"] = 0
+    result["artwork_groups_verified"] = 0
+    result["artwork_printings_quoted"] = 0
     if reference_set_id is not None:
         budget=min(budget,10)
         result.update(reference_set_id=reference_set_id,preview=[])
@@ -508,6 +628,7 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             refs=[dict(r) for r in await connection.fetch(READ_SQL)]
         result["checked_references"]=len(refs)
         groups=collect_reference_groups(refs,now)
+        art_groups = official_groups(refs, code_from_reference) if artwork_matching_enabled else {}
         if reference_set_id is not None:
             # First retain complete-catalogue identity collision checks, then
             # restrict writes to the reviewed English OP-16 base references.
@@ -515,8 +636,10 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                     if key[:2]==("English","OP16") and
                     all(r["provider"]=="Bandai Official" and r["set_id"]==reference_set_id
                         and r["set_name"]=="The Time of Battle [OP-16]" for r in rows)}
+            art_groups={key:rows for key,rows in art_groups.items()
+                        if key[0]=="OP16" and all(r["set_id"]==reference_set_id for r in rows)}
         result["wanted_base_printings"]=sum(map(len,groups.values()))
-        if not groups:
+        if not groups and not art_groups:
             return result
         if http_client is None:
             http_client=httpx.AsyncClient(timeout=18,follow_redirects=False)
@@ -532,7 +655,8 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             result["source_groups"]=len(sources)
             result["source_list_diagnostics"]=source_list_diagnostics(lists,groups)
             targets=sorted(((lang,code,str(item["group_id"])) for (lang,code),item in sources.items()
-                            if any(key[:2]==(lang,code) for key in groups)),
+                            if (any(key[:2]==(lang,code) for key in groups)
+                                or (lang=="English" and any(key[0]==code for key in art_groups)))),
                            key=lambda row:(row[0]!="Japanese",row[1],row[2]))
             result["target_groups"]=len(targets)
             result["targets_by_language"]={lang:sum(t[0]==lang for t in targets)
@@ -618,6 +742,17 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                     result["japanese_product_examples"]=examples
                 set_diagnostics={}
                 matches=matches_for_complete_set(groups,lang,code,complete,set_diagnostics)
+                artwork_matches=[]
+                if (artwork_matching_enabled and lang=="English"
+                        and result["artwork_groups_tested"]<MAX_ARTWORK_GROUPS_PER_RUN):
+                    artwork_matches=await artwork_matches_for_complete_set(
+                        art_groups,lang,code,complete,client,result)
+                # Art matches supersede base matches only for the same exact
+                # printing; identities and observed prices are not guessed.
+                verified_ids={ref["provider_id"] for ref,_,_ in artwork_matches}
+                matches=[(ref,product,None) for ref,product in matches
+                         if ref["provider_id"] not in verified_ids]
+                matches.extend(artwork_matches)
                 result["matching_printings"]+=len(matches)
                 if len(result["sampled_sets"])<8:
                     result["sampled_sets"].append({"language":lang,"set_code":code,
@@ -627,10 +762,15 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                     if converted is None:
                         converted=await fx.quote(base_currency="EUR",quote_currency="GBP",at=now)
                     values=[]
-                    for ref,product in matches:
+                    for ref,product,art_evidence in matches:
+                        if not quote_eligible(ref,now):
+                            continue
                         quote=catalogue_guide(ref,product,group_id,converted,now)
                         if quote is None:
                             continue
+                        if art_evidence is not None:
+                            quote.update(art_evidence)
+                            result["artwork_printings_quoted"]+=1
                         result["eligible_quotes"]+=1
                         if operator_run_id is not None:
                             quote["operator_run_id"]=operator_run_id
@@ -643,7 +783,9 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                         values.append((ref["provider"],ref["system_code"],ref["language"],
                             ref["provider_id"],[quote],quote["price_gbp_minor"],quote["price_gbp_minor"],
                             now,now,now+timedelta(days=1),ref["name"],ref["set_id"],
-                            ref["card_number"],ref["set_name"],ref.get("rarity"),SOURCE))
+                            ref["card_number"],ref["set_name"],ref.get("rarity"),SOURCE,
+                            ref.get("image_url") if art_evidence is not None else None,
+                            ref["provider_id"] if art_evidence is not None else None))
                     if values and not dry_run:
                         for start in range(0,len(values),100):
                             async with user_connection(pool,actor,str(uuid4())) as connection:
