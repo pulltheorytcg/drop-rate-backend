@@ -182,6 +182,7 @@ with reference_base as not materialized (
  left join tcg.reference_catalogue_prices b
  on (b.provider,b.system_code,b.language,b.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
  and b.pricing_updated_at>=now()-interval '7 days'
+ and (b.quotes->0->>'source'<>'DROP_RATE_COMPUTED_MARKET_V1' or b.expires_at>now())
  and b.quotes->0->'reference_identity'=jsonb_build_object(
    'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',r.set_name)
  union all
@@ -312,6 +313,8 @@ def price_columns(entry: str, shared: bool = False) -> str:
         case when v.market_value_minor is null then {high} end as market_value_high_minor,
         coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null
           then case when {entry}.source_kind='SEALED_REFERENCE' then 'Sealed · Cardmarket mixed-language guide'
+            when {entry}.market_quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
+              then 'Raw · Drop Rate internally calculated standard-card value (not sold)'
             when {entry}.market_quotes->0->>'source'='TCGCSV_TCGPLAYER_CATALOGUE'
               then 'Raw · TCGplayer US guide · GBP converted'
             when {entry}.market_quotes->0->>'valuation_role'='MIXED_NON_ENGLISH_REFERENCE'
@@ -322,6 +325,7 @@ def price_columns(entry: str, shared: bool = False) -> str:
         case when v.market_value_minor is not null then v.valuation_source
              when {entry}.reference_value_minor is not null then case when {entry}.source_kind='SEALED_REFERENCE' then 'CARDMARKET_BULK'
                when {entry}.market_quotes->0->>'source'='TCGCSV_TCGPLAYER_CATALOGUE' then 'TCGCSV_TCGPLAYER_CATALOGUE'
+               when {entry}.market_quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1' then 'DROP_RATE_COMPUTED_MARKET_V1'
                when {entry}.market_quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'CARDMARKET_BULK_SINGLES'
                when {entry}.market_quotes->0->>'source'='CARDMARKET_CATALOGUE' then 'CARDMARKET_CATALOGUE'
                when {entry}.market_quotes->0->>'source'='POKEWALLET_POKEMON_CARDMARKET_CATALOGUE' then 'POKEWALLET_POKEMON_CARDMARKET_CATALOGUE'
