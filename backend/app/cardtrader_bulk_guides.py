@@ -39,7 +39,7 @@ from .reference_sealed import normalized as source_normalized
 
 SOURCE = "CARDTRADER_EXPANSION_ASKING"
 JOB = "CARDTRADER_EXPANSION_GUIDES"
-REVISION = 5
+REVISION = 6
 MIN_SELLERS = 3
 MAX_PRICE_SPREAD = Decimal("3")
 MAX_SETS_PER_RUN = 30
@@ -49,7 +49,7 @@ LOT_HINT = re.compile(
     r"[x×]\s*[2-9]\d*|[2-9]\d*\s*[x×])\b", re.I)
 
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,
- r.name,r.set_id,r.card_number,r.rarity,r.finish,r.image_url,r.evidence,
+ r.name,r.set_id,r.card_number,r.rarity,r.finish,r.image_url,r.evidence,r.source_url,
  s.declared_card_count,s.name as set_name,
  (coalesce(p.market_value_minor,0)>0 and
   p.pricing_updated_at>=now()-interval '7 days') as has_detail,
@@ -71,6 +71,11 @@ def missing(ref):
     return (not ref.get("has_detail") and not ref.get("has_catalogue")
             and (not ref.get("has_any_catalogue") or
                  ref.get("existing_catalogue_source") == SOURCE))
+
+
+def missing_artwork(ref):
+    return (ref.get('provider') == 'TCGdex' and ref.get('system_code') == 'POKEMON_TCG'
+            and ref.get('language') == 'English' and not str(ref.get('image_url') or '').strip())
 
 
 def masters_printings(refs, blueprints, expansion, categories):
@@ -365,7 +370,7 @@ def selected_releases(refs, games, categories, expansions, *, previous_cursor=No
         grouped[(ref["system_code"], ref["set_id"])].append(ref)
     candidates = []
     for (system, set_id), group in grouped.items():
-        if system not in game_ids or not any(missing(r) for r in group):
+        if system not in game_ids or not any(missing(r) or missing_artwork(r) for r in group):
             continue
         if system == "DRAGON_BALL_SUPER_MASTERS":
             from .dragon_ball_market import MASTERS, release_identity
@@ -385,7 +390,7 @@ def selected_releases(refs, games, categories, expansions, *, previous_cursor=No
         if not category_ids:
             continue
         candidates.append((f"{system}:{set_id}", group, possible[0], category_ids))
-    candidates.sort(key=lambda entry: (-sum(missing(r) for r in entry[1]), entry[0]))
+    candidates.sort(key=lambda entry: (-sum(missing(r) or missing_artwork(r) for r in entry[1]), entry[0]))
     if previous_cursor:
         index = next((i + 1 for i, row in enumerate(candidates)
                       if row[0] == previous_cursor), 0)
@@ -395,7 +400,7 @@ def selected_releases(refs, games, categories, expansions, *, previous_cursor=No
 
 async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, *,
                                               dry_run=True, expansion_limit=15,
-                                              previous_cursor=None):
+                                              previous_cursor=None, previous_artwork_cursors=None):
     if not 1 <= expansion_limit <= MAX_SETS_PER_RUN:
         raise ValueError("invalid CardTrader expansion batch size")
     observed = datetime.now(timezone.utc)
@@ -406,6 +411,8 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
               "writes_applied": 0, "inventory_writes": 0, "store_price_writes": 0,
               "by_release": {}, "failed_release_ids": [], "request_limit": expansion_limit,
               "quote_type": "ACTIVE_ASKING_NOT_SOLD", "scope": "CATALOGUE_ONLY"}
+    report.update(artwork_probes=0, artwork_verified=0, artwork_written=0)
+    report['artwork_cursors'] = dict(previous_artwork_cursors or {})
     async with user_connection(pool, actor, str(uuid4())) as connection:
         await require_platform_admin(connection)
         rows = await connection.fetch(READ_SQL)
@@ -440,6 +447,17 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
                                           blueprints, expansion, category_ids)
                 release["matched"] = len(matches)
                 report["exact_printings"] += len(matches)
+                from .cardtrader_reference_artwork import MAX_PROBES, recover_reference_artwork
+                artwork = await recover_reference_artwork(
+                    pool, actor, group, blueprints, matches,
+                    limit=MAX_PROBES-report['artwork_probes'], dry_run=dry_run,
+                    previous_cursor=report['artwork_cursors'].get(cursor))
+                report['artwork_probes'] += artwork['probed']
+                report['artwork_verified'] += artwork['verified']
+                report['artwork_written'] += artwork['written']
+                release['artwork'] = artwork
+                if artwork['cursor']:
+                    report['artwork_cursors'][cursor] = artwork['cursor']
                 values = []
                 rejections = defaultdict(int)
                 for ref in group:

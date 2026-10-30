@@ -119,7 +119,7 @@ window.DropRateInventory = (() => {
 
   function status(text, error = false) { message.textContent = text; message.classList.toggle("error", error); }
 
-  async function open(item) {
+  async function open(item, options = {}) {
     if (!item?.id || busy) return;
     ensureDialog(); returnFocus = document.activeElement;
     if (!dialog.open) dialog.showModal();
@@ -133,6 +133,12 @@ window.DropRateInventory = (() => {
       channels=state.ownerChannelAccount===owner && Array.isArray(state.ownerChannelSummaries)
         ?state.ownerChannelSummaries:[];
       selected = data.item; render(data); status("");
+      if (options.prepareEbay) {
+        const selling = content.querySelector(".owner-item-selling");
+        if (selling) selling.open = true;
+        const preparation = content.querySelector(".owner-ebay-preparation");
+        if (preparation) { preparation.open = true; preparation.focus(); }
+      }
     } catch (error) { if (alive(rev, owner)) status(error.message, true); }
   }
 
@@ -261,14 +267,14 @@ window.DropRateInventory = (() => {
     facts.append(list); content.append(facts);
 
     const values = el("section", "owner-item-values");
-    values.append(el("div", "", "Collection value"), el("strong", "", item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null ? "Value unavailable" : "Value: " + price(item.market_value_minor)));
+    values.append(el("div", "", window.DropRateReferenceValue?.label(item) || "Market value"), el("strong", "", item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null ? "Value unavailable" : "Value: " + price(item.market_value_minor)));
     if (item.reference_value) values.append(el("small", "", window.DropRateReferenceValue.description(item)));
     if (!item.reference_value && item.pricing_method === "CARDMARKET_GUIDE_V1") values.append(el("small", "", "Cardmarket guide estimate"));
     if (item.pricing_updated_at) values.append(el("small", "", `Updated ${new Date(item.pricing_updated_at).toLocaleDateString("en-GB")}`));
     content.append(values);
     const recommended = window.DropRateReferenceValue?.recommendedMinor(item) ?? null;
     const recommendationNote = el("p", "owner-item-note",
-      "Recommended retail: " + (window.DropRateReferenceValue?.recommendationText(item, formatMoney) || "Recommendation unavailable"));
+      "Drop Rate recommended retail: " + (window.DropRateReferenceValue?.recommendationText(item, formatMoney) || "Recommendation unavailable"));
     recommendationNote.dataset.recommendedRetail = "true";
 
 
@@ -278,6 +284,24 @@ window.DropRateInventory = (() => {
     sale.open = sellingOpen;
     sale.append(el("summary", "", publishedOnShopify ? "Manage listing" : "Sell this item"));
     sale.append(el("p", "owner-item-note", "Choose a price and condition when you’re ready to sell."));
+    if (item.product_type === "CARD" && item.ebay_preparation) {
+      const preparation = item.ebay_preparation;
+      const checklist = el("details", "owner-ebay-preparation");
+      checklist.tabIndex = -1;
+      checklist.setAttribute("aria-label", "eBay preparation checklist");
+      checklist.append(el("summary", "", `Prepare for eBay · ${preparation.completed}/${preparation.checks.length}`),
+        el("p", "owner-item-note", `${preparation.completed} of ${preparation.checks.length} preparation steps complete`));
+      if (preparation.scope_blocker) checklist.append(el("p", "owner-item-note", preparation.scope_blocker + ". You can prepare the card while publishing is unavailable."));
+      const steps = el("ul", "owner-ebay-checklist");
+      for (const check of preparation.checks) {
+        const step = el("li", check.complete ? "complete" : "pending");
+        step.append(el("strong", "", (check.complete ? "✓ " : "○ ") + check.label));
+        if (!check.complete) step.append(el("small", "", check.next_step));
+        steps.append(step);
+      }
+      checklist.append(steps, el("p", "owner-item-note", "Final account, delivery and eBay checks run before publication. Preparing a card does not list it."));
+      sale.append(checklist);
+    }
     sale.append(recommendationNote);
     let saleCondition;
     if (["CARD", "COMIC"].includes(item.product_type) && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
@@ -380,7 +404,7 @@ window.DropRateInventory = (() => {
       {
         code:"SHOPIFY",label:"Shopify",state:publishedOnShopify?"Published":
           !item.shopify_sync_enabled?"Unavailable":
-          !approvedForSale?"Not listed — use List for sale":"Awaiting channel checks",
+          !approvedForSale?(item.seller_approval_available?"Not listed — use List on Shopify":"Not listed — request listing review above"):"Awaiting channel checks",
         action:!publishedOnShopify && item.shopify_sync_enabled && approvedForSale?"Check & sync to Shopify":null,
         click:()=>run(async()=>{
           const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`,
@@ -430,7 +454,7 @@ window.DropRateInventory = (() => {
     }
     sellerChannels.append(channelGrid);
     if(!ebayEligible) sellerChannels.append(el("p","owner-item-channel-footnote",
-      "eBay: "+ebayReason+". Whatnot is not connected in this workflow. No seller is given access to Shopify Admin."));
+      "eBay: "+ebayReason+"."));
     sale.append(sellerChannels);
 
     const stock = el("section", "owner-item-section"); stock.append(el("h3", "", "Quantity"));

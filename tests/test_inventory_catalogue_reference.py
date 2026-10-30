@@ -11,6 +11,54 @@ from app.inventory_reference_values import add_shared_reference_values, referenc
 NOW = datetime(2026, 10, 15, 12, tzinfo=timezone.utc)
 
 
+def computed_fixture():
+    from app.drop_rate_daily_model import _quote
+    from app.reference_baseline_model import Printing, PeerGuide, ordinary_peer_baseline
+    ref = dict(provider='Punk Records', system_code='ONE_PIECE_CARD_GAME', language='English',
+               provider_id='OP01-001', set_id='one-piece-set', name='Sample card',
+               set_name='Sample release', card_number='OP01-001', rarity='C', quotes=[])
+    printing = Printing(ref['provider'], ref['system_code'], ref['set_id'], ref['provider_id'], 'English', 'STANDARD', 'C')
+    peers = [PeerGuide(Printing(ref['provider'], ref['system_code'], ref['set_id'], f'OP01-{n:03}', 'English', 'STANDARD', 'C'),
+                       3+n, NOW-timedelta(hours=1), 'CARDMARKET_BULK_SINGLES') for n in range(2, 8)]
+    estimate = ordinary_peer_baseline(printing, peers, now=NOW)
+    quote = _quote(ref, estimate, NOW, peers)
+    ref['catalogue_quotes'] = [quote]
+    product = dict(id=uuid4(), product_type='CARD', game='One Piece', name=ref['name'],
+                   set_name=ref['set_name'], card_number=ref['card_number'], variant=ref['provider_id'],
+                   rarity='C', language='English', blocked=False)
+    return product, ref, quote, estimate
+
+
+def test_existing_daily_model_is_visible_without_inventing_a_copy_price():
+    product, ref, quote, estimate = computed_fixture()
+    before = deepcopy((product, ref))
+    result = catalogue_guide(product, [ref], 'English', now=NOW)
+    assert result['market_value_minor'] == estimate.estimate_minor
+    assert result['label'] == 'Drop Rate estimate'
+    assert result['method'] == 'DROP_RATE_COMPUTED_MARKET_V1'
+    assert result['physical_valuation_eligible'] is False and result['recommended_retail_minor'] is None
+    assert (product, ref) == before
+
+
+@pytest.mark.parametrize('change', [
+    {'observed_at': (NOW-timedelta(days=2, seconds=1)).isoformat()},
+    {'observed_at': (NOW+timedelta(seconds=1)).isoformat()},
+    {'reference_printing_id': 'OP01-002'}, {'reference_rarity': 'SR'},
+    {'reference_identity': {}}, {'algorithm_version': 2}, {'method': 'GUESSED'},
+    {'independent_reference_count': 4}, {'physical_valuation_eligible': True},
+    {'sold_comparable': True}, {'price_gbp_minor': True}, {'condition_specific': True},
+])
+def test_model_display_rejects_stale_or_wrong_basis(change):
+    product, ref, quote, _ = computed_fixture(); quote.update(change)
+    assert catalogue_guide(product, [ref], 'English', now=NOW) is None
+
+
+def test_special_printings_cannot_inherit_standard_model_estimates():
+    product, ref, quote, _ = computed_fixture()
+    product['variant'] = ref['provider_id'] = quote['reference_printing_id'] = 'OP01-001_p1'
+    assert catalogue_guide(product, [ref], 'English', now=NOW) is None
+
+
 def fixtures():
     product = dict(id=uuid4(), product_type='CARD', game='Pokemon', name='Heat Rotom',
                    set_name='Destined Rivals', card_number='043/182', variant='sv10-043',

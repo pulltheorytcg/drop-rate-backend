@@ -12,7 +12,7 @@ function fixture(override={}) {
  run(fs.readFileSync(path.join(base,'inventory-groups.js'),'utf8'));
  run(fs.readFileSync(path.join(base,'owner-inventory.js'),'utf8'));
  run(fs.readFileSync(path.join(base,'owner-portal.js'),'utf8').replace(/\ninitialise\(\);\s*$/,''));
- run(`window.testLoadInventory=loadOwnerInventory;state.session={access_token:'secret-session',user:{id:'seller-a'}};loadOwnerOverview=loadOwnerChannels=loadOwnerInsights=loadOwnerInventory=async()=>{};`);
+ run(`window.testLoadInventory=loadOwnerInventory;window.testLoadChannels=loadOwnerChannels;state.session={access_token:'secret-session',user:{id:'seller-a'}};loadOwnerOverview=loadOwnerChannels=loadOwnerInsights=loadOwnerInventory=async()=>{};`);
  let current={...item,...override},handler;
  w.testRequest=async(url,options={})=>{calls.push({url,...options});if(handler)return handler(url,options);return {item:current,copies:[current]};};run('apiRequest=window.testRequest');
  return {w,run,calls,setHandler:f=>{handler=f;},setItem:x=>{current={...current,...x};},open:()=>w.DropRateInventory.open(current),finish:()=>w.close()};
@@ -21,6 +21,55 @@ function btn(w,text){return [...w.document.querySelectorAll('button')].find(b=>b
 async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);assert.equal(b.disabled,false);b.click();await tick();await tick();}
 (async()=>{
  let checks=0;
+ // Real dispatched events lose currentTarget before the debounce fires.
+ for (const channel of [false,true]) {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;loadOwnerChannels=window.testLoadChannels;');
+  f.setHandler(async()=>({total:1,items:[{...item,name:'Borgos'}],channels:[]}));
+  const input=f.w.document.querySelector(channel?'#owner-channels-search':'#owner-inventory-search');
+  input.value='Old search';input.dispatchEvent(new f.w.Event('input',{bubbles:true}));
+  input.value='  Borgos  ';const event=new f.w.Event('input',{bubbles:true});input.dispatchEvent(event);
+  assert.equal(event.currentTarget,null);assert.equal(f.calls.length,0);
+  await new Promise(resolve=>setTimeout(resolve,380));
+  assert.equal(f.calls.length,1);assert.equal(new URL(f.calls[0].url,'https://example.test').searchParams.get('search'),'Borgos');
+  assert.match(f.w.document.querySelector(channel?'#owner-channels-body':'#owner-inventory-grid').textContent,/Borgos/);
+  f.finish();checks++;
+ }
+ // Condition is part of the group; sale intent is per physical copy.
+ {
+  const raw={...item,product_type:'CARD',seal_status:null,status:'APPROVED',condition:'Near Mint',store_price_minor:1000};
+  const personal={...raw,id:'personal',sale_intent:'PERSONAL_COLLECTION',store_price_minor:9900};
+  const played={...raw,id:'played',condition:'Lightly Played',store_price_minor:800};
+  const f=fixture();const originals=JSON.stringify([personal,raw,played]);
+  f.run(`const groups=ownerInventoryDisplayGroups(${originals});renderInventoryCards(groups);renderInventoryRows(groups);`);
+  const cards=[...f.w.document.querySelectorAll('.owner-inventory-card')];
+  assert.equal(cards.length,2);assert.match(cards[0].textContent,/Near Mint/);assert.match(cards[1].textContent,/Lightly Played/);
+  assert.equal(cards[0].querySelector('.owner-card-quantity').textContent,'×2');
+  assert.equal(cards[0].querySelector('.owner-status-pill').textContent,'Mixed availability');
+  assert.match(cards[0].querySelector('.owner-status-pill').title,/1 in collection.*1 ready to sell/);
+  assert.match(cards[0].textContent,/£10.00/);assert.doesNotMatch(cards[0].textContent,/£99.00/);
+  assert.equal(f.w.document.querySelector('#owner-inventory-body tr td:last-child').textContent,'£10.00');
+  assert.equal(JSON.stringify([personal,raw,played]),originals);f.finish();checks++;
+ }
+ {
+  const f=fixture();f.run(`renderOwnerChannelSummary({channels:[{code:'EBAY',connected:true,connection_status:'READY',sync_enabled:false,sync_unavailable_reason:'Consignor eBay publishing is not enabled yet'}]});
+   renderOwnerChannelsRows([${JSON.stringify({...item,product_type:'CARD',inventory_id:id,store_value_minor:100,recommended_retail_minor:100})}],[]);`);
+  assert.equal(f.w.document.querySelector('#owner-channel-ebay-status').textContent,'Connected · publishing unavailable');
+  assert.match(f.w.document.querySelector('#owner-channel-ebay-note').textContent,/Consignor/);
+  assert.equal(f.w.document.querySelector('#owner-channels-body tr td:nth-child(5)').textContent,'Not set');
+  assert.ok(btn(f.w,'Prepare for eBay'));assert.equal(f.calls.length,0);f.finish();checks++;
+ }
+ {
+  const preparation={completed:1,scope_blocker:'Consignor eBay publishing is not enabled yet',checks:[
+   {code:'language',label:'Language recorded',complete:true},
+   {code:'photos',label:'Front and back photos approved',complete:false,next_step:'Drop Rate needs photos of this physical copy'}]};
+  const f=fixture({product_type:'CARD',ebay_preparation:preparation});
+  await f.w.DropRateInventory.open(item,{prepareEbay:true});
+  assert.equal(f.w.document.querySelector('.owner-item-selling').open,true);
+  const checklist=f.w.document.querySelector('.owner-ebay-preparation');
+  assert.equal(f.w.document.activeElement,checklist);assert.match(checklist.textContent,/1 of 2 preparation steps complete/);
+  assert.equal(checklist.querySelectorAll('.complete').length,1);assert.match(checklist.textContent,/physical copy/);
+  assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
+ }
  {
   const f=fixture({seller_approval_available:true,approval_blockers:[],image_url:'https://cdn.shopify.com/op17.webp'});await f.open();
   assert.match(f.w.document.querySelector('dialog').textContent,/Your stock stays with you/);
@@ -206,7 +255,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   assert.equal(tile.querySelector('.owner-card-quantity').textContent,'×2');
   assert.match(tile.textContent,/Mixed availability/);assert.match(tile.textContent,/£1.32/);
-  assert.match(tile.textContent,/Market value · each/);assert.match(tile.textContent,/some unset/);
+  assert.match(tile.textContent,/Guide estimate · each/);assert.match(tile.textContent,/Selling priceNot set/);
   assert.doesNotMatch(tile.textContent,/Condition not specified/);
   assert.equal(raw.market_value_minor,null,'Grouping never writes a value into the physical copy');
   assert.equal(f.calls.filter(call=>call.method).length,0);

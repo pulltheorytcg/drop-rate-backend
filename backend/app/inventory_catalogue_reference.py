@@ -294,6 +294,50 @@ def _pokewallet_guide_matches(product, row, quote):
     except ValueError:
         return False
 
+def computed_catalogue_guide(row, quotes, language, *, now):
+    """Expose the existing daily model for the same exact raw reference only."""
+    ordinary = (
+        row['provider'] == 'Bandai Official'
+        and row['system_code'] == 'DRAGON_BALL_SUPER_MASTERS' and language == 'English'
+        and row.get('rarity') in {'Common[C]', 'Uncommon[UC]'}
+        and re.fullmatch(r'BT[0-9]+-[0-9]{2,3}', row['card_number'])
+        and not re.search(r'_(PR[0-9]*|p[0-9]+)([.]|$)', row['provider_id'], re.I)
+    ) or (
+        row['system_code'] == 'ONE_PIECE_CARD_GAME' and language in {'English', 'Japanese'}
+        and row.get('rarity') in {'C', 'UC', 'Common', 'Uncommon'}
+        and row['provider_id'] == row['card_number']
+        and re.fullmatch(r'(OP|EB|PRB|ST)[0-9]{2}-[0-9]{3}', row['card_number'])
+    )
+    models = [q for q in quotes if isinstance(q, dict) and q.get('source') == 'DROP_RATE_COMPUTED_MARKET_V1']
+    if not ordinary or len(models) != 1:
+        return None
+    q = models[0]
+    identity = {key: row[key] for key in ('name', 'set_id', 'card_number', 'set_name')}
+    try:
+        checked = _time(q['observed_at'])
+        amount, low, high = q['price_gbp_minor'], q['low_gbp_minor'], q['high_gbp_minor']
+        if (q.get('reference_identity') != identity or q.get('reference_printing_id') != row['provider_id']
+                or q.get('reference_rarity') != row.get('rarity') or q.get('algorithm_version') != 1
+                or q.get('method') != 'MODEL_SAME_SET_STANDARD_RARITY_P25'
+                or q.get('verification_basis') != 'RULES_VERIFIED_PEER_MODEL'
+                or q.get('observation_type') != 'DERIVED_NOT_SOLD' or q.get('confidence') != 'LOW'
+                or q.get('physical_valuation_eligible') is not False or q.get('sold_comparable') is not False
+                or q.get('condition_specific') is not False
+                or type(q.get('independent_reference_count')) is not int or q['independent_reference_count'] < 5
+                or not all(type(v) is int for v in (amount, low, high)) or not 0 < low <= amount <= high
+                or not now-timedelta(days=2) <= checked <= now):
+            return None
+    except (KeyError, ValueError, TypeError):
+        return None
+    return {'status': 'CATALOGUE_GUIDE', 'currency': 'GBP',
+            'market_value_minor': amount, 'market_value_high_minor': high,
+            'checked_at': checked, 'basis': language + ' · Standard raw printing',
+            'label': 'Drop Rate estimate', 'method': q['source'], 'algorithm_version': 1,
+            'reason': 'Calculated by the Drop Rate model from current same-set, same-rarity comparisons. Low confidence; not a completed sale or a valuation of this copy’s condition.',
+            'reference_id': ':'.join(row[k] for k in ('provider', 'system_code', 'language', 'provider_id')),
+            'physical_valuation_eligible': False, 'recommended_retail_minor': None}
+
+
 def catalogue_guide(product, rows, language, *, now):
     candidates = reference_candidates(product, rows, language)
     identities = {(r['provider'], r['system_code'], r['language'], r['provider_id']) for r in candidates}
@@ -365,7 +409,7 @@ def catalogue_guide(product, rows, language, *, now):
             continue
         eligible.append((amount, checked, quote))
     if not eligible:
-        return None
+        return computed_catalogue_guide(row, quotes, language, now=now)
     # Match catalogue source precedence: detailed quotes before broad guides.
     detailed = [v for v in eligible if v[2]['source'].startswith('TCGDEX_')]
     eligible = detailed or eligible

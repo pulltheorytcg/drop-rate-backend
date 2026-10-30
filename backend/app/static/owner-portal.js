@@ -43,13 +43,39 @@ function statusClass(value) {
 }
 
 function collectionStatus(item) {
+  if (item.group_members?.length > 1) {
+    const labels = [...new Set(item.group_members.map(collectionStatus))];
+    return labels.length > 1 ? "Mixed availability" : labels[0];
+  }
   if (item.group_status_label === "Mixed status") return "Mixed availability";
   if (item.status === "SOLD") return "Sold";
   if (item.status === "RESERVED") return "Reserved";
   if (item.status === "WITHDRAWN") return "Removed";
+  if (item.sale_intent === "PERSONAL_COLLECTION") return item.shopify_state === "PUBLISHED" ? "Listing needs review" : "In collection";
   if (item.shopify_state === "PUBLISHED") return "Listed";
-  if (item.sale_intent === "PERSONAL_COLLECTION") return "In collection";
   return {DRAFT: "Not listed", INSPECTION: "Listing review", APPROVED: "Ready to sell"}[item.status] || "In collection";
+}
+
+function sellingCopies(item) {
+  return (item.group_members || [item]).filter(copy => copy.sale_intent !== "PERSONAL_COLLECTION");
+}
+
+function sellingPriceText(item) {
+  const copies = sellingCopies(item);
+  if (!copies.length) return "—";
+  if (copies.length === 1) return copies[0].store_price_minor == null ? "Not set" : formatMoney(copies[0].store_price_minor);
+  return window.DropRateInventoryGroups.moneyRange(
+    {group_members: copies}, "store_price_minor", formatMoney, "Not set"
+  );
+}
+
+function availabilityDescription(item) {
+  const counts = new Map();
+  for (const copy of item.group_members || [item]) {
+    const label = collectionStatus(copy);
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return [...counts].map(([label, count]) => `${count} ${label.toLowerCase()}`).join(" · ");
 }
 
 function inventoryCardSubtitle(item) {
@@ -157,9 +183,9 @@ function renderInventoryRows(items) {
 
     const statusCell = document.createElement("td");
     const status = document.createElement("span");
-    status.className = `owner-status-pill ${statusClass(item.group_status_label === "Mixed status" ? "mixed" : item.status)}`;
+    status.className = `owner-status-pill ${statusClass(collectionStatus(item) === "Mixed availability" ? "mixed" : item.status)}`;
     status.textContent = collectionStatus(item);
-    status.title = item.group_status_description || "";
+    status.title = availabilityDescription(item);
     statusCell.append(status);
 
     const marketCell = document.createElement("td");
@@ -177,11 +203,7 @@ function renderInventoryRows(items) {
     if((item.grouped_quantity||1)>1 && item.group_valued_count>0 && item.group_valued_count<item.grouped_quantity)
       marketCell.append(document.createTextNode(" · "+item.group_valued_count+"/"+item.grouped_quantity+" copies valued"));
     const storeCell = document.createElement("td");
-    const storeValue = item.store_price_minor;
-    const storeText = (item.grouped_quantity || 1) > 1
-      ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney, "Not set")
-      : storeValue == null ? "Not set" : formatMoney(storeValue);
-    storeCell.textContent = item.sale_intent === "PERSONAL_COLLECTION" ? "—" : storeText;
+    storeCell.textContent = sellingPriceText(item);
 
     row.append(cardCell, statusCell, marketCell, storeCell);
     body.append(row);
@@ -242,26 +264,24 @@ function renderInventoryCards(items) {
     subtitle.textContent = inventoryCardSubtitle(item);
     title.append(name, subtitle);
     const status = document.createElement("span");
-    status.className = `owner-status-pill ${statusClass(item.group_status_label === "Mixed status" ? "mixed" : item.status)}`;
+    status.className = `owner-status-pill ${statusClass(collectionStatus(item) === "Mixed availability" ? "mixed" : item.status)}`;
     status.textContent = collectionStatus(item);
-    status.title = item.group_status_description || "";
+    status.title = availabilityDescription(item);
     heading.append(title, status);
 
     const prices = document.createElement("div");
     prices.className = "owner-card-prices";
-    const storeValue = item.store_price_minor;
-    const storeText = (item.grouped_quantity || 1) > 1
-      ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney, "Not set")
-      : storeValue == null ? "Not set" : formatMoney(storeValue);
+    const storeText = sellingPriceText(item);
     const storeLabel = "Selling price";
     for (const [labelText, valueText] of [
       ["Market value", item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null ? "Value pending" : "Value: " + formatMoney(item.market_value_minor)],
       [storeLabel, storeText],
     ]) {
-      if (labelText === storeLabel && item.sale_intent === "PERSONAL_COLLECTION") continue;
+      if (labelText === storeLabel && !sellingCopies(item).length) continue;
       const box = document.createElement("div");
       const label = document.createElement("span");
-      label.textContent = labelText === "Market value" && item.grouped_quantity > 1 ? "Market value · each" : labelText;
+      label.textContent = labelText === "Market value"
+        ? (window.DropRateReferenceValue?.label(item) || labelText) + (item.grouped_quantity > 1 ? " · each" : "") : labelText;
       const value = document.createElement("strong");
       value.textContent = valueText;
       box.append(label, value);
@@ -514,12 +534,14 @@ function renderOwnerChannelSummary(data) {
     ownerChannelCount(shopify, "ERROR").toLocaleString("en-GB");
 
   const ebayStatus = byId("owner-channel-ebay-status");
-  ebayStatus.textContent = safeText(
-    ebay.connection_status,
-    ebay.connected ? "Connected" : "Not connected"
-  ).replaceAll("_", " ");
+  ebayStatus.textContent = ebay.connected
+    ? (ebay.sync_enabled ? "Connected · publishing enabled" : "Connected · publishing unavailable")
+    : "Not connected";
   ebayStatus.className =
-    "owner-status-pill " + ownerChannelStatusClass(ebay.connection_status);
+    "owner-status-pill " + (ebay.connected && ebay.sync_enabled ? "approved" : "inspection");
+  byId("owner-channel-ebay-note").textContent = ebay.sync_unavailable_reason ||
+    (ebay.connected && !ebay.sync_enabled ? "Publishing is not enabled. You can still prepare your cards below."
+      : "Open a card to check its price, condition, photos and listing readiness.");
   byId("owner-channel-ebay-live").textContent =
     ownerChannelCount(ebay, "LIVE").toLocaleString("en-GB");
   byId("owner-channel-ebay-errors").textContent =
@@ -619,6 +641,16 @@ function renderOwnerChannelsRows(items, channels = []) {
         note.textContent = !eligible ? (item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "Awaiting approval") : blocker || "Seller sync not enabled yet";
         cell.append(note);
       }
+      if (code === "EBAY" && item.product_type === "CARD") {
+        const prepare = document.createElement("button");
+        prepare.type = "button";
+        prepare.className = "ghost-button compact";
+        prepare.textContent = "Prepare for eBay";
+        prepare.addEventListener("click", () => window.DropRateInventory.open(
+          {...item, id: item.inventory_id || item.id}, {prepareEbay: true}
+        ));
+        cell.append(prepare);
+      }
     }
 
     const marketCell = document.createElement("td");
@@ -627,7 +659,8 @@ function renderOwnerChannelsRows(items, channels = []) {
 
     const storeCell = document.createElement("td");
     storeCell.textContent =
-      item.store_value_minor == null ? "—" : formatMoney(item.store_value_minor);
+      item.sale_intent === "PERSONAL_COLLECTION" ? "—"
+        : item.store_price_minor == null ? "Not set" : formatMoney(item.store_price_minor);
 
     const checkedCell = document.createElement("td");
     const times = [item.shopify_last_synced_at, item.ebay_last_verified_at]
@@ -648,7 +681,7 @@ function renderOwnerChannelsPagination() {
   const end = Math.min(offset + limit, total);
   byId("owner-channels-page").textContent = total
     ? String(start) + "–" + String(end) + " of " + String(total)
-    : "0 linked cards";
+    : "0 items";
   byId("owner-channels-prev").disabled = offset <= 0;
   byId("owner-channels-next").disabled = offset + limit >= total;
 }
@@ -1689,6 +1722,7 @@ byId("owner-google").addEventListener("click", () => startOAuth("google"));
 byId("owner-apple").addEventListener("click", () => startOAuth("apple"));
 
 byId("owner-inventory-refresh").addEventListener("click", async () => {
+  window.clearTimeout(ownerInventorySearchTimer);
   state.inventory.search = byId("owner-inventory-search").value.trim();
   state.inventory.status = byId("owner-inventory-status").value;
   state.inventory.offset = 0;
@@ -1698,6 +1732,7 @@ byId("owner-inventory-refresh").addEventListener("click", async () => {
 byId("owner-inventory-search").addEventListener("keydown", async (event) => {
   if (event.key !== "Enter") return;
   event.preventDefault();
+  window.clearTimeout(ownerInventorySearchTimer);
   state.inventory.search = event.currentTarget.value.trim();
   state.inventory.status = byId("owner-inventory-status").value;
   state.inventory.offset = 0;
@@ -1706,16 +1741,19 @@ byId("owner-inventory-search").addEventListener("keydown", async (event) => {
 
 let ownerInventorySearchTimer = null;
 byId("owner-inventory-search").addEventListener("input", (event) => {
+  const search = event.currentTarget.value.trim();
   window.clearTimeout(ownerInventorySearchTimer);
   ownerInventorySearchTimer = window.setTimeout(async () => {
-    state.inventory.search = event.currentTarget.value.trim();
+    state.inventory.search = search;
     state.inventory.status = byId("owner-inventory-status").value;
     state.inventory.offset = 0;
-    await loadOwnerInventory();
+    try { await loadOwnerInventory(); }
+    catch (error) { showPortalMessage(error.message || "Search could not load. Try again.", "error"); }
   }, 320);
 });
 
 byId("owner-inventory-status").addEventListener("change", async (event) => {
+  window.clearTimeout(ownerInventorySearchTimer);
   state.inventory.status = event.currentTarget.value;
   state.inventory.search = byId("owner-inventory-search").value.trim();
   state.inventory.offset = 0;
@@ -1759,11 +1797,12 @@ document.querySelectorAll("[data-owner-inventory-layout]").forEach((button) => {
 
 let ownerChannelsSearchTimer = null;
 byId("owner-channels-search").addEventListener("input", (event) => {
+  const search = event.currentTarget.value.trim();
   window.clearTimeout(ownerChannelsSearchTimer);
   ownerChannelsSearchTimer = window.setTimeout(async () => {
-    state.channels.search = event.currentTarget.value.trim();
+    state.channels.search = search;
     state.channels.offset = 0;
-    await loadOwnerChannels();
+    try { await loadOwnerChannels(); } catch (_) { /* The channel panel shows the request error. */ }
   }, 320);
 });
 byId("owner-channels-filter").addEventListener("change", async (event) => {

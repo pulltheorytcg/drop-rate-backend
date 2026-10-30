@@ -708,7 +708,7 @@ async def owner_channels(
         await add_shared_reference_values(connection, items)
         for item in items:
             # Actual remote asking prices remain in the channel-specific fields.
-            item["store_value_minor"] = item.get("store_price_minor") if item.get("store_price_minor") is not None else item.get("recommended_retail_minor")
+            item["store_value_minor"] = item.get("store_price_minor")
             item["channel_sync_blockers"] = {"EBAY": ebay_listing_scope_blocker(access["owner_type"], item["product_type"])}
 
     shopify_configured = bool(

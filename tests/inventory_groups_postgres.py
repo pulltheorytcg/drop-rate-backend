@@ -26,6 +26,7 @@ async def verify_display_groups(db, pool, owner, actor, foreign, foreign_actor):
     raw = [await copy(status=['DRAFT','INSPECTION','APPROVED','RESERVED'][n % 4], position=n) for n in range(61)]
     implicit = await copy(language=None, position=62)
     nm = [await copy(condition='Near Mint', position=70+n) for n in range(2)]
+    lp = [await copy(condition='Lightly Played', position=75+n) for n in range(2)]
     slabs = [await copy(company='PSA', grade='10', certificate=str(n), position=80+n) for n in range(2)]
     partial = [await copy(grade='10', position=90+n) for n in range(2)]
     certificates = [await copy(certificate=str(n), position=100+n) for n in range(2)]
@@ -38,17 +39,19 @@ async def verify_display_groups(db, pool, owner, actor, foreign, foreign_actor):
     where = 'i.owner_id=$1 and i.catalogue_id=any($2::uuid[])'
     async with user_connection(pool, actor, 'quantity-groups-fixture') as connection:
         first = await inventory_group_page(connection, where, [owner, [product, alternate]], 1, 0)
-        assert first[:2] == (12, 74), first[:2]
+        assert first[:2] == (13, 76), first[:2]
         assert set(first[2]) == set(raw + [implicit]), 'Group split at a physical-copy page boundary'
         second = await inventory_group_page(connection, where, [owner, [product, alternate]], 1, 1)
         assert set(second[2]) == set(nm), 'Explicit condition must be separate from unknown'
+        third = await inventory_group_page(connection, where, [owner, [product, alternate]], 1, 2)
+        assert set(third[2]) == set(lp), 'Lightly Played must never merge into Near Mint'
         all_pages = []
-        for offset in range(12):
+        for offset in range(13):
             total, copies, page = await inventory_group_page(connection, where, [owner, [product, alternate]], 1, offset)
             all_pages.extend(page)
-        assert len(all_pages) == len(set(all_pages)) == 74
+        assert len(all_pages) == len(set(all_pages)) == 76
         assert other_owner not in all_pages
-        assert (await inventory_group_page(connection, where, [owner, [product, alternate]], 1, 12))[2] == []
+        assert (await inventory_group_page(connection, where, [owner, [product, alternate]], 1, 13))[2] == []
         total, count, approved = await inventory_group_page(connection, where+" and i.status=$3", [owner,[product,alternate],'APPROVED'], 50, 0)
         assert total == 1 and count == 15 and set(approved) == set(raw[2::4])
         for identifier in slabs + partial + certificates:

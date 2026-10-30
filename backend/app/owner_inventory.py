@@ -23,7 +23,7 @@ from .inventory_sale_intent import change_inventory_sale_intent
 from .recognition_images import _trusted_reference_url
 from .schemas import InventorySaleIntentChange
 from .settings import get_settings
-from .seller_inventory_policy import sealed_seller_candidate
+from .seller_inventory_policy import sealed_seller_candidate, ebay_preparation
 from .physical_state import CARD_CONDITIONS, validate_physical_state
 from .comic_identity import BOOK_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
@@ -93,7 +93,7 @@ async def add_reference_artwork(connection, items):
 
 DETAIL_SQL = """
 select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
- i.condition,i.seal_status,i.grading_company,i.grade,i.certificate_number,
+ i.condition,i.seal_status,i.grading_company,i.grade,i.certificate_number,i.condition_review_status,
  o.owner_type,p.language as catalogue_language,pr.identity_status as catalogue_identity_status,
  coalesce(i.language,p.language) as language,i.store_price_minor,i.market_value_minor,
  i.recommended_retail_minor,i.pricing_updated_at,p.product_type,p.game,p.name,p.set_name,
@@ -102,6 +102,15 @@ select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
  (i.acquisition_cost_minor is not null) as cost_recorded,
  (i.storage_location_id is not null) as location_recorded,
  (i.acquisition_cost_minor is not null and i.storage_location_id is not null) as intake_ready,
+ (select count(distinct m.side)=2 from tcg.media_assets m
+   where m.owner_id=i.owner_id and m.inventory_id=i.id and m.scope='INVENTORY_ITEM'
+     and m.media_kind='IMAGE' and m.side in ('FRONT','BACK')
+     and m.rights_status='VERIFIED' and m.approval_status='APPROVED'
+     and m.shopify_file_status='READY' and m.shopify_cdn_url is not null
+     and m.source_status='ACTIVE' and m.revoked_at is null) as ebay_photos_ready,
+ exists(select 1 from tcg.shopify_shipping_profiles sp where sp.owner_id=i.owner_id
+   and sp.active and sp.profile_key=case when coalesce(i.grade,'')<>'' or coalesce(i.grading_company,'')<>''
+     then 'GRADED_CARD' else 'RAW_CARD' end) as ebay_shipping_ready,
  (select ps.evidence->>'method' from tcg.pricing_snapshots ps
    where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
      and ps.inventory_id=i.id and ps.catalogue_id=i.catalogue_id) as pricing_method,
@@ -178,6 +187,7 @@ async def details(inventory_id: UUID, request: Request,
                     attributes = json.loads(attributes)
                 item["comic_printing"]["attributes"] = {key: attributes.get(key) for key in ("publisher", "book_format")}
         item["approval_blockers"] = approval_blockers(item)
+        item["ebay_preparation"] = ebay_preparation(item)
         await add_reference_artwork(connection, [item])
         await add_shared_inventory_media(connection, [item])
         await add_shared_reference_values(connection, [item])

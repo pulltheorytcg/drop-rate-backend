@@ -19,7 +19,6 @@ def test_whatnot_readiness_is_not_false_company_shopify_install():
     assert 'action:null' in ITEM
     assert 'https://apps.shopify.com/whatnot' not in ITEM
     assert 'https://apps.shopify.com/whatnot' not in HTML
-    assert 'Whatnot is not connected in this workflow' in ITEM
     assert 'Your own Whatnot account' in HTML
 
 

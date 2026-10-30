@@ -34,7 +34,7 @@ async def main():
             version int default 1,status text,sale_intent text,language text,condition text,seal_status text,
             grading_company text,grade text,certificate_number text,currency text,store_price_minor bigint,
             market_value_minor bigint,recommended_retail_minor bigint,pricing_updated_at timestamptz,
-            acquisition_cost_minor bigint,storage_location_id uuid,identity_confirmed bool default false,
+            acquisition_cost_minor bigint,storage_location_id uuid,identity_confirmed bool default false,condition_review_status text,
             latest_pricing_snapshot_id uuid,intake_request_key uuid unique,source_record jsonb,
             created_at timestamptz default now(),updated_at timestamptz default now());
           create table tcg.shopify_inventory_links(inventory_id uuid,owner_id uuid,sync_state text,test_mode bool,last_synced_at timestamptz);
