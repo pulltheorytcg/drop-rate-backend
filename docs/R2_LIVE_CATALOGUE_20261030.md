@@ -86,3 +86,14 @@ on 30 October. Its canonical filename now matches the recorded Supabase
 version `20261030002930`. Readback confirms forced RLS, five source triggers,
 generation 1 and no published manifest yet. Security advisories are unchanged.
 Delivery remains off pending verified production publication.
+
+The first build-only production deployment reached SUCCESS, but publication
+validation hit the existing 15-second SQL limit. The full-size JSON rowsets were
+estimated at 100 rows, selecting quadratic nested loops. A 70,000-card disposable
+fixture reproduced the timeout. R2 statements now discourage nested loops and
+disable JIT inside a savepoint, restoring both settings before any other SQL;
+failure rolls them back. Ordinary queries and server timeouts stay unchanged.
+The regression fixture includes 4,000 sealed products, 2,000 canonical products
+and 50,000 live prices, and compares all eight query shapes with the original SQL.
+Extraction, independent R2 readback and each parity case now have separate logs.
+Delivery stays disabled until the corrected production publication passes.

@@ -166,6 +166,46 @@ async def check(db):
             assert await live.read(db) is None
         assert inventory==await db.fetchval('select jsonb_agg(to_jsonb(i) order by id)::text from tcg.inventory_items i')
     print('PASS: complete catalogue SQL parity for two owners, search/filter/sort, books/sealed, live prices, RLS, atomic invalidation, partial failure, concurrent source change and unchanged inventory')
+    # Production-sized joins expose the 100-row JSON cardinality estimate that
+    # tiny fixtures cannot. Synthetic records only, in the disposable database.
+    await db.execute("""insert into tcg.reference_sets(provider,system_code,language,set_id,name)
+      select 'Scale','POKEMON_TCG','English','set-'||n,'Set '||n from generate_series(1,1400) n;
+      insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,rarity)
+      select 'Scale','POKEMON_TCG','English','card-'||n,'set-'||((n-1)/50+1),
+        'Card '||n,(n%50)::text,'Common' from generate_series(1,70000) n;
+      insert into tcg.reference_sealed_products(provider,system_code,language,provider_id,set_id,name,product_type)
+      select 'Scale','POKEMON_TCG','English','sealed-'||n,'set-'||(n%1400+1),'Box '||n,'Booster Box'
+      from generate_series(1,4000) n;
+      insert into tcg.catalogue_products(id,product_type,game,name,set_name,card_number,variant,rarity,language)
+      select md5(n::text)::uuid,'CARD','Pokemon','Card '||n,'Set '||((n-1)/50+1),
+        (n%50)::text,'card-'||n,'Common','English' from generate_series(1,2000) n;
+      insert into tcg.catalogue_product_profiles(catalogue_id,system_code,collectible_type)
+      select md5(n::text)::uuid,'POKEMON_TCG','CARD' from generate_series(1,2000) n;
+      insert into tcg.reference_market_prices(provider,system_code,language,provider_id,
+        market_value_minor,market_value_high_minor,pricing_updated_at,quotes)
+      select 'Scale','POKEMON_TCG','English','card-'||n,n,n,now(),
+        '[{"source":"SYNTHETIC_ONLY"}]'::jsonb from generate_series(1,50000) n;
+      analyze;""")
+    with patch.object(live,'user_connection',user_connection),patch.object(live,'require_platform_admin',admin):
+        report=await live.publish(Pool(),ACTOR_A,storage=Storage())
+        assert report['status']=='PUBLISHED',report
+        assert report['counts']['reference_cards']>=70000
+        assert len(report['query_parity']['cases'])==8
+        assert all(case['r2_ms']<15000 and case['equal'] for case in report['query_parity']['cases'])
+        before=await db.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('jit') as jit")
+        async with authorized(db):
+            await live.fetch_snapshot(db,GAMES_SQL,[OWNER_A],live._current)
+            after=await db.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('jit') as jit")
+            assert before==after,'planner settings escaped R2 statement'
+            try:
+                await live.fetch_snapshot(db,GAMES_SQL+' invalid syntax',[OWNER_A],live._current)
+            except Exception:
+                pass
+            else:
+                raise AssertionError('synthetic invalid SQL unexpectedly succeeded')
+            after=await db.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('jit') as jit")
+            assert before==after,'failed R2 statement leaked settings or aborted transaction'
+    print('PASS: 70k cards, 4k sealed, 2k canonical and 50k live prices; eight query shapes, bounded runtime and planner restoration')
 
 
 async def main(pglite):

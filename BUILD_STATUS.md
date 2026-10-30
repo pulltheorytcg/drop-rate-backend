@@ -1,5 +1,11 @@
 ## 30 October 2026 — Complete R2 catalogue delivery prepared
 
+PR #799 passed CI, was merged, and deployed with build enabled and delivery off.
+Its first publication validation timed out because JSON row counts produced a
+nested-loop plan. The follow-up adds statement-scoped planner settings and a
+70,000-card/50,000-price PostgreSQL regression. No incomplete publication was
+activated; API health and ordinary catalogue reads remain available.
+
 The new whole-catalogue R2 path covers games/sets, card browsing and searches,
 sealed products and comic/manga catalogue identities. A private generation
 record invalidates old objects atomically on source edits; complete verified

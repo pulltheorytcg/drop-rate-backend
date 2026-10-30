@@ -205,14 +205,31 @@ async def read(connection):
 async def fetch(connection, query, params, snapshot, **scope):
     if snapshot is not None:
         try:
-            async with connection.transaction():
-                sql,args=snapshot.sql(query,params,**scope)
-                rows=await connection.fetch(sql,*args)
+            rows=await fetch_snapshot(connection,query,params,snapshot,**scope)
             log.info('CATALOGUE_R2_LIVE_HIT generation=%s rows=%s',snapshot.generation,len(rows))
             return rows
         except Exception as exc:
             log.warning('CATALOGUE_R2_LIVE_QUERY_FALLBACK type=%s',type(exc).__name__)
     return await connection.fetch(query,*params)
+
+
+async def fetch_snapshot(connection, query, params, snapshot, **scope):
+    """Bound JSON joins without leaking planner settings to other SQL.
+
+    PostgreSQL estimates jsonb_to_recordset at 100 rows even for a 70k-card
+    publication. That selected quadratic nested loops in production. Hash/merge
+    joins preserve the SQL decisions; JIT is disabled for this statement because
+    unavoidable lateral loops otherwise inherit the disabled-loop cost penalty.
+    A savepoint restores settings on failure, and success restores them explicitly.
+    """
+    async with connection.transaction():
+        previous=await connection.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('jit') as jit")
+        await connection.execute('set local enable_nestloop=off; set local jit=off')
+        sql,args=snapshot.sql(query,params,**scope)
+        rows=await connection.fetch(sql,*args)
+        await connection.execute("select set_config('enable_nestloop',$1,true),set_config('jit',$2,true)",
+                                 previous['nestloop'],previous['jit'])
+        return rows
 
 
 async def verify(pool, actor, snapshot):
@@ -233,15 +250,16 @@ async def verify(pool, actor, snapshot):
             query,args=product_query(owner_id=owner,limit=9,**options)
             cases.append((name,query,args))
         for name,query,args in cases:
+            log.warning('CATALOGUE_R2_LIVE_PARITY_START case=%s',name)
             started=time.perf_counter()
             original=[dict(row) for row in await connection.fetch(query,*args)]
             db_ms=round((time.perf_counter()-started)*1000,2)
-            sql,params=snapshot.sql(query,args)
             started=time.perf_counter()
-            cached=[dict(row) for row in await connection.fetch(sql,*params)]
+            cached=[dict(row) for row in await fetch_snapshot(connection,query,args,snapshot)]
             r2_ms=round((time.perf_counter()-started)*1000,2)
             results.append(dict(case=name,rows=len(original),equal=original==cached,
                                 database_ms=db_ms,r2_ms=r2_ms))
+            log.warning('CATALOGUE_R2_LIVE_PARITY %s',json.dumps(results[-1],sort_keys=True))
             if original!=cached:
                 return {'status':'MISMATCH','equal':False,'cases':results}
     return {'status':'MATCH','equal':True,'cases':results}
@@ -296,6 +314,8 @@ async def publish(pool, actor, *, storage=None):
                             if count<CHUNK_ROWS:
                                 break
             validate_manifest(manifest,state['generation'])
+            log.warning('CATALOGUE_R2_LIVE_EXTRACTED generation=%s counts=%s parts=%s',
+                        state['generation'],manifest['counts'],len(manifest['parts']))
             if not raw_parts:
                 _current=await download(manifest,storage)
                 return {'status':'LOADED','generation':_current.generation,'counts':manifest['counts']}
@@ -306,6 +326,8 @@ async def publish(pool, actor, *, storage=None):
                         or receipt.get('key')!=f"{storage.config.prefix}/catalogue-reference-inputs/{part['sha256']}.json.gz"):
                     raise ObjectStorageError('Storage receipt did not verify the catalogue part')
             candidate=await download(manifest,storage)
+            log.warning('CATALOGUE_R2_LIVE_READBACK generation=%s verified_parts=%s',
+                        candidate.generation,len(raw_parts))
             parity=await verify(pool,actor,candidate)
             if parity['status']!='MATCH':
                 return {'status':parity['status'],'generation':manifest['generation'],'query_parity':parity}
