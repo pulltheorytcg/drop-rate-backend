@@ -23,6 +23,7 @@ from .db import user_connection
 from .object_storage import ObjectStorageError, configured_object_storage
 from .catalogue_r2_index import SharedReferenceIndex
 from .catalogue_r2_navigation import build_navigation, owned_navigation
+from .catalogue_r2_browse import build_browse_index, indexed_browse_sql
 
 log = logging.getLogger(__name__)
 SCHEMA = 'drop-rate-live-catalogue-v1'
@@ -174,6 +175,20 @@ def assemble(manifest, parts):
 _current = None
 _loading = None
 _nav_cache = {}
+_browse_cache = {}
+
+
+def indexed_browse_enabled():
+    return os.getenv('TCG_R2_LIVE_CATALOGUE_INDEXED_BROWSE_ENABLED','false').lower() in ('true','1')
+
+
+def browse_for(snapshot):
+    key=(snapshot.generation,datetime.now(timezone.utc).date())
+    if key not in _browse_cache:
+        _browse_cache.clear()
+        _browse_cache[key]=build_browse_index(snapshot.rows,today=key[1])
+    return _browse_cache[key]
+
 
 
 def navigation_enabled():
@@ -272,6 +287,22 @@ async def fetch(connection, query, params, snapshot, **scope):
                             owner=owner)
         except Exception as exc:
             log.warning('CATALOGUE_R2_NAVIGATION_QUERY_FALLBACK type=%s',type(exc).__name__)
+    if snapshot is not None and indexed_browse_enabled():
+        try:
+            if not await connection.fetchval("""select exists(
+              select 1 from tcg.provider_catalogue_mappings
+              where match_status='VERIFIED'
+                and provider_entity_type='CARD_PRINTING'
+                and provider_variant_key='')"""):
+                indexed_query,indexed_args=indexed_browse_sql(
+                    query,params,browse_for(snapshot))
+                async with connection.transaction():
+                    rows=await connection.fetch(indexed_query,*indexed_args)
+                log.info('CATALOGUE_R2_INDEXED_BROWSE_HIT rows=%s',len(rows))
+                return rows
+        except Exception as exc:
+            log.warning('CATALOGUE_R2_INDEXED_BROWSE_FALLBACK type=%s',
+                        type(exc).__name__)
     if snapshot is not None:
         try:
             rows=await fetch_snapshot(connection,query,params,snapshot,**scope)
@@ -320,6 +351,8 @@ async def verify(pool, actor, snapshot):
             and provider_variant_key='' and match_status='VERIFIED'""")]
         navigation=build_navigation(snapshot.rows,
             today=datetime.now(timezone.utc).date(),verified_mappings=verified)
+        browse_index=build_browse_index(snapshot.rows,
+            today=datetime.now(timezone.utc).date(),verified_mappings=verified)
         owner_nav=await owned_navigation(connection,owner)
         cases=[('games',GAMES_SQL,[owner]),
             ('sets',SETS_SQL,[owner,['POKEMON_TCG'],'','',10,0])]
@@ -340,6 +373,10 @@ async def verify(pool, actor, snapshot):
             elif name=='sets':
                 cached=navigation.sets(systems=['POKEMON_TCG'],limit=10,
                                        owner=owner_nav)
+            elif name=='browse':
+                indexed_query,indexed_args=indexed_browse_sql(query,args,browse_index)
+                cached=[dict(row) for row in await connection.fetch(
+                    indexed_query,*indexed_args)]
             else:
                 cached=[dict(row) for row in await fetch_snapshot(
                     connection,query,args,snapshot)]
