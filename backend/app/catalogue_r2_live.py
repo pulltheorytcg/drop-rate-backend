@@ -181,6 +181,10 @@ _browse_cache = {}
 def indexed_browse_enabled():
     return os.getenv('TCG_R2_LIVE_CATALOGUE_INDEXED_BROWSE_ENABLED','false').lower() in ('true','1')
 
+def extended_browse_enabled():
+    # Separate opt-in: text/owned/sealed shortlists are not default navigation.
+    return os.getenv('TCG_R2_LIVE_CATALOGUE_EXTENDED_BROWSE_ENABLED','false').lower() in ('true','1')
+
 
 def browse_for(snapshot):
     key=(snapshot.generation,datetime.now(timezone.utc).date())
@@ -287,17 +291,25 @@ async def fetch(connection, query, params, snapshot, **scope):
                             owner=owner)
         except Exception as exc:
             log.warning('CATALOGUE_R2_NAVIGATION_QUERY_FALLBACK type=%s',type(exc).__name__)
-    if snapshot is not None and indexed_browse_enabled():
+    if snapshot is not None and (indexed_browse_enabled() or extended_browse_enabled()):
         try:
+            # Any verified provider-to-canonical links can change the browsing
+            # population without changing the R2 snapshot. Refuse the shortcut.
             if not await connection.fetchval("""select exists(
               select 1 from tcg.provider_catalogue_mappings
               where match_status='VERIFIED'
                 and provider_entity_type='CARD_PRINTING'
                 and provider_variant_key='')"""):
-                owner_nav=(await owned_navigation(connection,params[0])
-                    if "where coalesce(o.quantity,0)>0 order by" in query else None)
-                indexed_query,indexed_args,mode=indexed_catalogue_query(
-                    query,params,browse_for(snapshot),owned=owner_nav)
+                selected=browse_for(snapshot)
+                if extended_browse_enabled():
+                    owner_nav=(await owned_navigation(connection,params[0])
+                        if "where coalesce(o.quantity,0)>0 order by" in query else None)
+                    indexed_query,indexed_args,mode=indexed_catalogue_query(
+                        query,params,selected,owned=owner_nav)
+                else:
+                    indexed_query,indexed_args=indexed_browse_sql(
+                        query,params,selected)
+                    mode='NEWEST'
                 async with connection.transaction():
                     rows=await connection.fetch(indexed_query,*indexed_args)
                 log.info('CATALOGUE_R2_INDEXED_BROWSE_HIT mode=%s rows=%s',
