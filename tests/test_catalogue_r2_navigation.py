@@ -124,3 +124,22 @@ def test_unpopulated_pokemon_set_cannot_replace_friendly_game_label():
     # the game-directory MIN uses case-insensitive collation.
     empty=next(x for x in nav.set_templates if x["set_id"]=="unpopulated")
     assert empty["game"]=="POKEMON_TCG"
+
+
+
+def test_pokemon_30th_set_titles_match_postgresql_case_order():
+    data=fixture()
+    for ident,title in (
+        ("30th","30th Celebration"),
+        ("M6a","30th CELEBRATION"),
+        ("MF","30th CELEBRATION プレミアムデッキセット"),
+    ):
+        data["reference_sets"].append(dict(
+            provider="TCGdex",system_code="POKEMON_TCG",
+            language="English" if ident=="30th" else "Japanese",
+            set_id=ident,name=title,release_date="2026-09-16",
+            declared_card_count=0))
+    nav=build_navigation(data,today=date(2026,10,30))
+    page=nav.sets(systems=["POKEMON_TCG"],limit=10)
+    assert [r["set_id"] for r in page]==["30th","M6a","MF"]
+    assert all(r["checklist_status"]=="UNAVAILABLE" for r in page)
