@@ -59,6 +59,50 @@ async def check(db):
       values('30000000-0000-0000-0000-000000000020','MANGA','COMIC','Fixture Series',current_date-1),
       ('30000000-0000-0000-0000-000000000021','DC_COMICS','COMIC','Future Series',current_date+1)""")
     await db.execute((ROOT/'database/migrations/20261030002930_live_catalogue_r2_publication.sql').read_text())
+    await db.execute((ROOT/'database/migrations/20261030085900_r2_relevant_change_invalidation.sql').read_text())
+    # No-op upserts and refresh timestamps must not make a previously
+    # published immutable source generation disappear from the app.
+    gen_sql = "select generation from tcg_private.live_catalogue_r2_publication where singleton"
+    before = await db.fetchval(gen_sql)
+    await db.execute("""update tcg.reference_cards set refreshed_at=now()
+        where provider='TCGdex' and system_code='POKEMON_TCG'
+          and language='English' and provider_id='fixture-001'""")
+    assert await db.fetchval(gen_sql) == before
+    await db.execute("""update tcg.reference_cards set name=name
+        where provider='TCGdex' and system_code='POKEMON_TCG'
+          and language='English' and provider_id='fixture-001'""")
+    assert await db.fetchval(gen_sql) == before
+    await db.execute("""insert into tcg.reference_cards
+        (provider,system_code,language,provider_id,set_id,name,card_number,
+         rarity,image_url,source_url,number_key)
+        select provider,system_code,language,provider_id,set_id,name,card_number,
+               rarity,image_url,source_url,number_key
+        from tcg.reference_cards where provider='TCGdex'
+          and system_code='POKEMON_TCG' and language='English'
+          and provider_id='fixture-001'
+        on conflict(provider,system_code,language,provider_id)
+        do update set refreshed_at=now()""")
+    assert await db.fetchval(gen_sql) == before, 'No-op ON CONFLICT UPDATE invalidated R2'
+    # Real identity/public artwork changes must invalidate the snapshot.
+    await db.execute("""update tcg.reference_cards set name=name||' changed'
+        where provider='TCGdex' and system_code='POKEMON_TCG'
+          and language='English' and provider_id='fixture-001'""")
+    assert await db.fetchval(gen_sql) == before+1
+    await db.execute("""update tcg.reference_cards
+        set name=left(name,length(name)-length(' changed'))
+        where provider='TCGdex' and system_code='POKEMON_TCG'
+          and language='English' and provider_id='fixture-001'""")
+    assert await db.fetchval(gen_sql) == before+2
+    try:
+        async with db.transaction():
+            await db.execute("""update tcg.reference_cards set image_url=image_url||'?new-art=1'
+               where provider='TCGdex' and system_code='POKEMON_TCG'
+                 and language='English' and provider_id='fixture-001'""")
+            assert await db.fetchval(gen_sql) == before+3
+            raise RuntimeError('synthetic rollback')
+    except RuntimeError as exc:
+        assert str(exc)=='synthetic rollback'
+    assert await db.fetchval(gen_sql) == before+2, 'Rolled-back art change invalidated R2'
     inventory=await db.fetchval('select jsonb_agg(to_jsonb(i) order by id)::text from tcg.inventory_items i')
 
     class Pool:
