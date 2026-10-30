@@ -1,5 +1,6 @@
 -- Read-only full-denominator coverage including valid asking estimates.
--- Verified after PR #781, main e17af29e0aae3c78f9d5bfd9a5ebe0f0c04df3c5.
+-- Updated 30 October 2026 after PR #798 introduced model-owned catalogue rows.
+-- Model values are reported separately and never count toward verified 89%.
 with coverage as (
  select 'CARD'::text as kind,r.system_code,r.language,
    case when (r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language='English' and (r.set_id,s.name) in (('A1','Genetic Apex'),('P-A','Promos-A'),('A1a','Mythical Island'),('A2','Space-Time Smackdown'),('A2a','Triumphant Light'),('A2b','Shining Revelry'),('A3','Celestial Guardians'),('A3a','Extradimensional Crisis'),('A3b','Eevee Grove'),('A4','Wisdom of Sea and Sky'),('A4a','Secluded Springs'),('B1','Mega Rising'),('B1a','Crimson Blaze'),('B2','Fantastical Parade'),('B2a','Paldean Wonders'))) then 'NOT_APPLICABLE_DIGITAL'
@@ -8,6 +9,7 @@ with coverage as (
         when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days' then 'REFERENCE_AVAILABLE'
         when b.market_value_minor>0 then 'MIXED_LANGUAGE_GUIDE'
         when a.provider_id is not null then 'ASKING_ESTIMATE'
+        when m.market_value_minor>0 then 'DROP_RATE_CALCULATED_VALUE'
         when p.quotes<>'[]'::jsonb and p.pricing_updated_at>=now()-interval '7 days' then 'US_CONTEXT_ONLY'
         when p.pricing_updated_at<now()-interval '7 days' then 'STALE_EVIDENCE'
         -- These languages/games have no licensed exact GBP source in the
@@ -33,8 +35,16 @@ with coverage as (
         'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name))
  left join tcg.reference_catalogue_prices b
  on (b.provider,b.system_code,b.language,b.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
+ and coalesce(b.quotes->0->>'source','')<>'DROP_RATE_COMPUTED_MARKET_V1'
  and b.pricing_updated_at>=now()-interval '7 days'
  and b.quotes->0->'reference_identity'=jsonb_build_object(
+  'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name)
+left join tcg.reference_catalogue_prices m
+ on (m.provider,m.system_code,m.language,m.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
+ and m.quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
+ and m.pricing_updated_at>=now()-interval '2 days'
+ and m.pricing_updated_at<=now() and m.expires_at>now()
+ and m.quotes->0->'reference_identity'=jsonb_build_object(
   'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name)
 left join (
  select other.provider,other.system_code,other.language,other.set_id,
@@ -78,4 +88,4 @@ left join tcg.reference_asking_prices a
     and nullif(btrim(r.set_id),'') is not null and nullif(btrim(r.source_url),'') is not null)
  from tcg.reference_sealed_products r left join tcg.reference_sealed_market_prices p using(provider,system_code,language,provider_id)
 )
-select count(*) as total,count(*) filter(where status in ('REFERENCE_AVAILABLE','MIXED_LANGUAGE_GUIDE','ASKING_ESTIMATE')) as supported,count(*) filter(where status='ASKING_ESTIMATE') as asking_only from coverage where kind='CARD' and status<>'NOT_APPLICABLE_DIGITAL';
+select count(*) as total,count(*) filter(where status in ('REFERENCE_AVAILABLE','MIXED_LANGUAGE_GUIDE','ASKING_ESTIMATE')) as supported,count(*) filter(where status='ASKING_ESTIMATE') as asking_only,count(*) filter(where status='DROP_RATE_CALCULATED_VALUE') as model_only from coverage where kind='CARD' and status<>'NOT_APPLICABLE_DIGITAL';
