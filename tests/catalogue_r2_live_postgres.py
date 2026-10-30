@@ -47,6 +47,12 @@ async def check(db):
     print('PostgreSQL engine:',await db.fetchval('select version()'),flush=True)
     if not await db.fetchval("select to_regclass('tcg.reference_cards') is not null"):
         await seed(db)
+    # A released but empty Pokemon set must not replace the friendly Pokemon
+    # game-directory label with the uppercase POKEMON_TCG fallback.
+    await db.execute("""insert into tcg.reference_sets
+      (provider,system_code,language,set_id,name,release_date)
+      values('TCGdex','POKEMON_TCG','English','r2-empty-pokemon-set',
+             'Unpopulated Pokemon Set',current_date-800)""")
     await db.execute('''create or replace function tcg.current_access_role() returns text language sql stable as
       $$select role from tcg.owner_memberships where user_id=tcg.current_user_id() and active limit 1$$''')
     await db.execute("update tcg.owner_memberships set role='PLATFORM_ADMIN' where user_id=$1",ACTOR_A)
