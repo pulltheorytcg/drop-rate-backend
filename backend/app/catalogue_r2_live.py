@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import hashlib
 import json
 import logging
@@ -21,6 +22,7 @@ from .access_control import require_platform_admin
 from .db import user_connection
 from .object_storage import ObjectStorageError, configured_object_storage
 from .catalogue_r2_index import SharedReferenceIndex
+from .catalogue_r2_navigation import build_navigation, owned_navigation
 
 log = logging.getLogger(__name__)
 SCHEMA = 'drop-rate-live-catalogue-v1'
@@ -171,6 +173,41 @@ def assemble(manifest, parts):
 
 _current = None
 _loading = None
+_nav_cache = {}
+
+
+def navigation_enabled():
+    return os.getenv('TCG_R2_LIVE_CATALOGUE_NAVIGATION_ENABLED', 'false').lower() in ('true','1')
+
+
+def navigation_for(snapshot):
+    """Build one immutable Railway navigation index per R2 generation/UTC date.
+
+    The clock-dependent release filter must refresh at midnight without
+    requiring an R2 rewrite or restarting Railway.
+    """
+    key=(snapshot.generation,datetime.now(timezone.utc).date())
+    if key not in _nav_cache:
+        _nav_cache.clear()
+        _nav_cache[key]=build_navigation(snapshot.rows,today=key[1])
+    return _nav_cache[key]
+
+
+async def eligible_navigation(connection,snapshot):
+    """Never use precomputed canonical aliases when dynamic verified mappings exist."""
+    if snapshot is None or not navigation_enabled():
+        return None
+    try:
+        verified=await connection.fetchval("""select exists(
+            select 1 from tcg.provider_catalogue_mappings
+            where match_status='VERIFIED'
+              and provider_entity_type='CARD_PRINTING'
+              and provider_variant_key='')""")
+        return None if verified else navigation_for(snapshot)
+    except Exception as exc:
+        log.warning('CATALOGUE_R2_NAVIGATION_FALLBACK type=%s',type(exc).__name__)
+        return None
+
 
 
 async def download(manifest, storage):
