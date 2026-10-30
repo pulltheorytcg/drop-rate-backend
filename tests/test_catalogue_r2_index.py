@@ -1,6 +1,4 @@
 """R2's scoped input population is indexed in Railway, never copied to SQL for filtering."""
-from dataclasses import replace
-import hashlib
 import json
 
 from app.catalogue_r2_index import SharedReferenceIndex
@@ -107,11 +105,11 @@ def test_sql_uses_index_but_does_not_narrow_canonical_product_population():
     assert params[1]==["Bandai Official","Bandai Official"]
     assert params[4]==["OP15-001","OP15-001_p1"]
     offset=1+len(r2.RELATIONS["reference_cards"])
-    assert params[offset+1]==["Bandai Official"]
-    assert params[offset+len(r2.RELATIONS["reference_sets"]) + 1]==["Bandai Official"]
+    assert params[offset]==["Bandai Official"]
+    assert params[offset+len(r2.RELATIONS["reference_sets"])]==["Bandai Official"]
     canonical_offset=1+sum(len(r2.RELATIONS[t]) for t in
         ("reference_cards","reference_sets","reference_sealed_products"))
-    assert params[canonical_offset+1]==[None]
+    assert params[canonical_offset]==[None]
 
 
 def test_canonical_rows_are_always_complete_for_exact_link_suppression():
