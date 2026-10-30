@@ -620,6 +620,37 @@ function renderOwnerChannelsRows(items, channels = []) {
       ebayCell.append(error);
     }
 
+    const personalShopify = item.sale_intent === "PERSONAL_COLLECTION"
+      && ["PUBLISHED", "ERROR"].includes(item.shopify_state) && item.shopify_test_mode !== true;
+    const personalEbay = item.sale_intent === "PERSONAL_COLLECTION"
+      && ["LIVE", "ERROR"].includes(item.ebay_state);
+    if (personalShopify || personalEbay) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "ghost-button compact";
+      retry.textContent = "Retry removal";
+      retry.title = "Remove this personal copy from sale, preserving other sellable copies.";
+      retry.addEventListener("click", async () => {
+        const account = state.session?.user?.id;
+        retry.disabled = true;
+        retry.textContent = "Removing…";
+        try {
+          await apiRequest(`/api/v1/inventory/${encodeURIComponent(item.inventory_id || item.id)}/sale-intent`, {
+            method: "POST", body: JSON.stringify({version: item.version, sale_intent: "PERSONAL_COLLECTION"})
+          });
+          if (state.session?.user?.id !== account) return;
+          showOwnerChannelsMessage("Personal copy removed from sale. Other sellable copies remain available.", "success");
+          await loadOwnerChannels();
+          await loadOwnerInventory();
+        } catch (error) {
+          if (state.session?.user?.id === account) showOwnerChannelsMessage(error.message, "error");
+          retry.disabled = false;
+          retry.textContent = "Retry removal";
+        }
+      });
+      (personalShopify ? shopifyCell : ebayCell).append(retry);
+    }
+
     for (const [code, cell, linked] of [["SHOPIFY", shopifyCell, item.shopify_state === "PUBLISHED"], ["EBAY", ebayCell, item.ebay_state === "LIVE"]]) {
       if (linked) continue;
       const channel = channels.find(value => value.code === code);

@@ -73,6 +73,19 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(f.calls.length,0);f.finish();checks++;
  }
  {
+  for (const fails of [false,true]) {
+   const f=fixture();const personal={...item,inventory_id:id,inventory_status:'APPROVED',sale_intent:'PERSONAL_COLLECTION',shopify_state:'PUBLISHED',shopify_test_mode:false};
+   f.run(`renderOwnerChannelsRows([${JSON.stringify(personal)}],[]);`);
+   f.setHandler(async()=>{if(fails)throw new Error('Channel withdrawal needs retry');return {action_required:false};});
+   await click(f.w,'Retry removal');
+   assert.equal(f.calls.length,1);assert.equal(f.calls[0].url,`/api/v1/inventory/${id}/sale-intent`);
+   assert.deepEqual(JSON.parse(f.calls[0].body),{version:3,sale_intent:'PERSONAL_COLLECTION'});
+   if(fails){assert.equal(btn(f.w,'Retry removal').disabled,false);assert.match(f.w.document.querySelector('#owner-channels-message').textContent,/needs retry/);}
+   else assert.match(f.w.document.querySelector('#owner-channels-message').textContent,/Other sellable copies remain available/);
+   f.finish();checks++;
+  }
+ }
+ {
   const preparation={completed:1,scope_blocker:'Consignor eBay publishing is not enabled yet',checks:[
    {code:'language',label:'Language recorded',complete:true},
    {code:'photos',label:'Front and back photos approved',complete:false,next_step:'Drop Rate needs photos of this physical copy'}]};
