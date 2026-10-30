@@ -14,6 +14,8 @@ from app.auth import require_user
 @pytest.mark.parametrize('path', ['/games','/sets?system_code=ONE_PIECE_CARD_GAME','/products?q=Luffy','/products?q=223&slab_number=223&slab_name=Charizard','/select'])
 @pytest.mark.asyncio
 async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, path):
+    # This fixture asserts the ordinary-SQL contract, independent of deployment flags.
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED', 'false')
     owner_id=uuid4(); user_id=uuid4(); queries=[]
     class Connection:
         async def fetchrow(self, sql, *args):
@@ -145,6 +147,7 @@ def test_browse_family_filters_keep_exact_printing_and_owner_scope(system,member
 
 @pytest.mark.asyncio
 async def test_naruto_set_browsing_expands_family_but_returns_original_system(monkeypatch):
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED', 'false')
     owner_id=uuid4()
     class Connection:
         async def fetch(self,sql,*args):

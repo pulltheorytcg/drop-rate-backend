@@ -1,3 +1,24 @@
+## 30 October 2026 — Complete R2 catalogue and prices published
+
+Production published catalogue generation 121595 at 14:45:25 UTC: all 69,546
+card records, 1,456 sets, 3,893 sealed references, 2,055 products and 2,055
+profiles are verified across 161 R2 objects. Every one of the 75,492 derived
+catalogue identities and all eight production query comparisons matched.
+Market generation 1 independently verifies 91,054 overlapping price-cache
+records across 366 objects; this is not a count of separately priced cards.
+
+R2 browsing and page-price delivery flags are enabled in configuration. The
+rollout was stopped by ordinary-SQL unit tests inheriting those production
+flags; their fixtures now explicitly select their intended path. Application
+code and the already-passed R2/native PostgreSQL parity contracts are unchanged.
+The final live deployment must be verified before claiming the switch complete.
+
+Images copy continuously in resumable verified batches. At 14:41 UTC, 2,838
+reference images were verified; 6,941 cards have no source image. Inventory is
+unchanged at 616 rows. Full value sorting retains the original live SQL query.
+See [current evidence and backout](docs/R2_LIVE_CATALOGUE_20261030.md).
+Older entries below describe earlier checkpoints.
+
 ## 30 October 2026 — Resumable R2 reference image migration
 
 The existing API can now run the exact-reference image copier continuously in
