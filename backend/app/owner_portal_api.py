@@ -601,21 +601,37 @@ async def owner_channels(
     ) as connection:
         shopify_counts = await connection.fetch(
             """
-            select sync_state as state,count(*)::int as count
-            from tcg.shopify_inventory_links
-            where owner_id=$1
-            group by sync_state
-            order by sync_state
+            with latest as (
+                select distinct on (inventory_id) inventory_id,owner_id,sync_state
+                from tcg.shopify_inventory_links
+                where owner_id=$1 and not test_mode
+                order by inventory_id,linked_at desc,id desc
+            )
+            select case when l.sync_state='PUBLISHED'
+                          and i.sale_intent='PERSONAL_COLLECTION'
+                        then 'REVIEW_REQUIRED' else l.sync_state end as state,
+                   count(*)::int as count
+            from latest l join tcg.inventory_items i
+              on i.id=l.inventory_id and i.owner_id=l.owner_id
+            group by 1 order by 1
             """,
             owner_id,
         )
         ebay_counts = await connection.fetch(
             """
-            select state,count(*)::int as count
-            from tcg.ebay_inventory_links
-            where owner_id=$1
-            group by state
-            order by state
+            with latest as (
+                select distinct on (inventory_id) inventory_id,owner_id,state
+                from tcg.ebay_inventory_links
+                where owner_id=$1
+                order by inventory_id,created_at desc,id desc
+            )
+            select case when l.state='LIVE'
+                          and i.sale_intent='PERSONAL_COLLECTION'
+                        then 'REVIEW_REQUIRED' else l.state end as state,
+                   count(*)::int as count
+            from latest l join tcg.inventory_items i
+              on i.id=l.inventory_id and i.owner_id=l.owner_id
+            group by 1 order by 1
             """,
             owner_id,
         )
