@@ -127,3 +127,39 @@ plan using the same column-array shape and current data completed in 2.71 second
 (including source extraction); the comparable merge-join plan took 7.31 seconds.
 The full-size regression now includes realistic image/source URL widths and
 checks restoration of all three planner settings on success and failure.
+
+
+## Market data and complete reference artwork (30 October)
+
+Price caches now have a separate private R2 publication: reference market
+quotes, catalogue guide values, sealed values, and current asking snapshots.
+The four source caches currently contain 91,054 rows (overlapping identities;
+this is not a count of independently priced products). Closed projections retain
+source evidence, GBP amounts and original checked/expiry timestamps. No stock,
+owner, asking-for-sale price or payment data is exported. Immutable parts are
+uploaded and independently read back before a generation-checked publication.
+
+The existing catalogue maintenance worker republishes after provider jobs.
+Statement triggers immediately invalidate changed inputs; no-op updates and
+rolled-back changes leave the publication intact. Normal indexed browse pages
+can read exact matching price rows from R2, with existing SQL expiry, printing
+identity and ownership rules. Cold, missing, invalid or changed publications
+use current PostgreSQL. Full-population value sorts and canonical/asking
+resolvers retain their existing live SQL decisions.
+
+Feature gates: `TCG_R2_MARKET_BUILD_ENABLED` and
+`TCG_R2_MARKET_DELIVERY_ENABLED`, both initially false. This section describes
+the implementation, not a claim that production publication has succeeded.
+
+The reference image worker now applies the existing maintenance administrator
+on every short source/receipt lease; an unauthenticated lease sees zero source
+rows under RLS. The source cache also accepts the existing Naruto archive and
+CardTrader Pokémon paths, validated by exact host/path and current source URL.
+These remain private reference assets. The current 6,941 records without any
+source image cannot be made complete by copying storage. Failed downloads
+retain bounded retries and the original display fallback.
+
+Validation includes two-owner SQL parity for complete R2 price inputs, source
+expiry and identity checks, incomplete upload and concurrent-update rejection,
+all four invalidation triggers, non-admin publication denial, unchanged stock,
+and real restricted-role image receipts for the additional hosts.

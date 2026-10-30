@@ -101,6 +101,16 @@ class Pool:
      'https://en.onepiece-cardgame.com/other.png', False),
     ('Naruto Card Game Archive', 'NARUTO_KAYOU',
      'https://narutocardgame.gg/images/1.png', False),
+    ('Naruto Card Game Archive', 'NARUTO_KAYOU',
+     'https://narutocardgame.gg/images/kayou/SP-042-iseeyoustealing.webp', True),
+    ('Naruto Card Game Archive', 'NARUTO_BANDAI_LEGACY',
+     'https://narutocardgame.gg/images/classic/j387.jpg', True),
+    ('Naruto Card Game Archive', 'NARUTO_KAYOU',
+     'https://narutocardgame.gg/images/classic/j387.jpg', False),
+    ('TCGdex','POKEMON_TCG',
+     'https://cardtrader.com/uploads/blueprints/image/110281/preview_porygon-103a-147-aquapolis.jpg', True),
+    ('TCGdex','POKEMON_TCG','https://cardtrader.com/private/1.jpg',False),
+    ('Naruto Card Game Archive','NARUTO_KAYOU','https://narutocardgame.gg.evil.test/images/kayou/1.jpg',False),
     ('Bandai Official', 'POKEMON_TCG', ART, False),
 ])
 def test_cache_allows_only_known_exact_print_relay(provider, system, url, accepted):
