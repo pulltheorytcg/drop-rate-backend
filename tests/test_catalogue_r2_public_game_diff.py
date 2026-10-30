@@ -37,3 +37,24 @@ def test_game_parity_report_can_distinguish_only_order_difference():
     report=public_game_parity_diff(original,cached)
     assert report["differences"]==[]
     assert report["sql_order"]!=report["r2_order"]
+
+
+
+def test_public_set_diff_never_logs_owner_balances():
+    from app.catalogue_r2_live import public_set_parity_diff
+    a=[{"system_code":"POKEMON_TCG","set_id":"30th",
+        "set_name":"30th Celebration","language":"English",
+        "provider":"TCGdex","game":"Pokemon","release_date":"2026-09-16",
+        "indexed_count":161,"card_count":161,"total_count":884,
+        "owned_count":2,"owned_value_minor":987654321,
+        "private_notes":"DO_NOT_LOG"}]
+    b=[{**a[0],"set_name":"30th CELEBRATION","owned_count":1,
+        "owned_value_minor":765432101,"private_notes":"NEVER"}]
+    result=public_set_parity_diff(a,b)
+    assert result["differences"][0]["fields"]["set_name"]=={
+        "sql":"30th Celebration","r2":"30th CELEBRATION"}
+    assert result["differences"][0]["fields"]["owner_aggregates"]=="DIFFERENT"
+    assert "987654321" not in str(result)
+    assert "765432101" not in str(result)
+    assert "DO_NOT_LOG" not in str(result)
+    assert "NEVER" not in str(result)
