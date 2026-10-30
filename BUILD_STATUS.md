@@ -1,3 +1,16 @@
+## 30 October 2026 — Resumable R2 reference image migration
+
+The existing API can now run the exact-reference image copier continuously in
+bounded batches of 20, with four downloads at once and a single-writer advisory
+lock. Both worker and apply flags are required. Every object is read back and
+hashed before its current provider/printing/source link is recorded. Restarts
+resume from durable mirror rows; failed sources back off. Signed R2 delivery
+already exists in the catalogue UI, with original-source fallback.
+
+The existing host scope covers Pokemon/Dragon Ball/One Piece. Naruto and the
+CardTrader-sourced Pokemon images require the separate host-policy extension.
+No success or bulk completion is claimed until deployed counts are read back.
+
 ## 30 October 2026 — R2 value-sort publication repair
 
 Production generation 121595 has 161 independently verified objects but is not

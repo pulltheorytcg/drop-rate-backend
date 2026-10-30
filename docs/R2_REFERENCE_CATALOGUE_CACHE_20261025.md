@@ -1,5 +1,22 @@
 # Drop Rate — exact-reference catalogue cache (25 October 2026)
 
+## 30 October authorised migration worker
+
+The user has requested bulk migration of the catalogue's existing images into
+R2 with connected in-app delivery. The existing API now hosts a restartable
+worker enabled only by both `TCG_R2_REFERENCE_CACHE_WORKER_ENABLED=true` and
+`TCG_R2_REFERENCE_CACHE_APPLY_ENABLED=true`. It uses the existing 20-image,
+four-download implementation, a database advisory lock across deployments,
+two-second pauses between successful batches, 60-second pauses on broad source
+failures and five minutes when caught up. Every image retains its durable exact
+printing link, verified hash and retry history.
+
+Set `TCG_R2_REFERENCE_CACHE_DELIVERY_ENABLED=true` after the first verified
+batch; the browser already tries its signed R2 image first and retains the
+original source fallback. Stop the worker flag to pause safely. There is no new
+Railway service or n8n workflow. Source-host scope is unchanged in this release.
+Earlier rollout restrictions below describe the original disabled release.
+
 ## What the implementation actually changes
 
 The searchable catalogue, portfolio ownership, live card market values, and

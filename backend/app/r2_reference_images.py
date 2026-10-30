@@ -9,15 +9,24 @@ the applicable use and redistribution terms.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from uuid import uuid4
 
 from .object_storage import ObjectStorageError, configured_object_storage
 from .r2_media import optimized_media_bytes
 from .recognition_images import reference_image_bytes
 
 logger = logging.getLogger(__name__)
+MIRROR_WORKER_LOCK = 847220098
+
+
+def worker_enabled() -> bool:
+    return (os.getenv('TCG_R2_REFERENCE_CACHE_WORKER_ENABLED','false').lower() in ('true','1')
+            and os.getenv('TCG_R2_REFERENCE_CACHE_APPLY_ENABLED','false').lower() in ('true','1'))
 
 PENDING_REFERENCE_IMAGES_SQL = """
 select r.provider,r.system_code,r.language,r.provider_id,r.image_url,
@@ -152,3 +161,37 @@ async def mirror_reference_images(pool: Any, *, limit: int, request_id: str) -> 
         for status in statuses:
             result[status] += 1
     return result
+
+
+async def run_reference_mirror_loop(pool: Any) -> None:
+    """Resume durable exact-image work in the existing API, with one writer.
+
+    A batch has at most 20 identities and four downloads at once. Content hashes
+    and the exact source recheck make a restart safe. Failed sources retain their
+    per-image retry backoff; the app keeps the original source until verified.
+    """
+    while worker_enabled():
+        delay=30
+        try:
+            async with pool.acquire() as lock:
+                acquired=await lock.fetchval('select pg_try_advisory_lock($1)',MIRROR_WORKER_LOCK)
+                if acquired:
+                    try:
+                        report=await mirror_reference_images(pool,limit=20,
+                            request_id='r2-reference-worker-'+str(uuid4()))
+                        logger.warning('CATALOGUE_R2_REFERENCE_MEDIA_BATCH %s',
+                                       json.dumps(report,sort_keys=True))
+                        if report['examined']==0:
+                            delay=300
+                        elif report['failed']>=max(1,report['examined']//2):
+                            delay=60
+                        else:
+                            delay=2
+                    finally:
+                        await lock.execute('select pg_advisory_unlock($1)',MIRROR_WORKER_LOCK)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.error('CATALOGUE_R2_REFERENCE_MEDIA_WORKER_FAILED type=%s',type(exc).__name__)
+            delay=60
+        await asyncio.sleep(delay)
