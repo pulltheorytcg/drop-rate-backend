@@ -10,6 +10,23 @@ from app import catalogue_maintenance as maintenance
 ACTOR = UUID('00000000-0000-4000-8000-000000000025')
 
 
+@pytest.mark.asyncio
+async def test_market_publication_precedes_catalogue_proof(monkeypatch):
+    calls=[]
+    async def pricing(*args):calls.append('pricing')
+    async def market(*args):calls.append('market');return {'status':'CURRENT'}
+    async def catalogue(*args):calls.append('catalogue');return {'status':'CURRENT'}
+    monkeypatch.setattr(maintenance,'daily_pass',pricing)
+    monkeypatch.setattr(maintenance.catalogue_r2_market,'enabled',lambda kind:True)
+    monkeypatch.setattr(maintenance.catalogue_r2_market,'publish',market)
+    monkeypatch.setattr(maintenance.catalogue_r2_live,'enabled',lambda kind:True)
+    monkeypatch.setattr(maintenance.catalogue_r2_live,'publish',catalogue)
+    stop_after_one_pass(monkeypatch)
+    with pytest.raises(asyncio.CancelledError):
+        await maintenance.run_loop(object(),worker_settings(catalogue_r2_cache_build_enabled=False))
+    assert calls==['pricing','market','catalogue']
+
+
 def worker_settings(**updates):
     values = dict(catalogue_r2_cache_build_enabled=True,
                   catalogue_source_archive_enabled=False,

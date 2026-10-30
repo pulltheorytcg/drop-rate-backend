@@ -275,7 +275,10 @@ async def check(db):
         assert report['status']=='PUBLISHED',report
         assert report['counts']['reference_cards']>=70000
         assert len(report['query_parity']['cases'])==8
-        assert all(case['r2_ms']<15000 and case['equal'] for case in report['query_parity']['cases'])
+        assert all(case['computed_ms']<15000 and case['equal'] for case in report['query_parity']['cases'])
+        assert report['query_parity']['identity_entries']>=70000
+        assert report['query_parity']['cases'][-1]['delivery']=='POSTGRES_DYNAMIC_VALUE'
+        assert report['query_parity']['cases'][-1]['r2_ms'] is None
         settings_sql="select current_setting('enable_nestloop') as nestloop,current_setting('enable_mergejoin') as mergejoin,current_setting('jit') as jit"
         before=await db.fetchrow(settings_sql)
         async with authorized(db):

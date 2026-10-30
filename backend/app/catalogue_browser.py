@@ -80,7 +80,7 @@ def provider_reference_artwork_url(value, provider: str, system_code: str) -> bo
     try:
         parsed = urlsplit(value)
         if parsed.hostname == 'cardtrader.com' and not re.fullmatch(
-                r'/uploads/blueprints/image/[0-9]+/[A-Za-z0-9_.-]+\.(?:png|webp|jpg|jpeg)', parsed.path, flags=re.I):
+                r'/uploads/blueprints/image/[0-9]+/[A-Za-z0-9_.()-]+\.(?:png|webp|jpg|jpeg)', parsed.path, flags=re.I):
             return False
         if parsed.hostname == 'narutocardgame.gg':
             directory = 'classic' if system_code == 'NARUTO_BANDAI_LEGACY' else 'kayou'
@@ -89,7 +89,7 @@ def provider_reference_artwork_url(value, provider: str, system_code: str) -> bo
         return (parsed.scheme == 'https' and parsed.hostname in allowed
                 and parsed.port in (None, 443) and parsed.username is None
                 and parsed.password is None and not parsed.fragment
-                and re.fullmatch(r'/[A-Za-z0-9_./-]+\.(?:png|webp|jpg|jpeg)', parsed.path, flags=re.I) is not None
+                and re.fullmatch(r'/[A-Za-z0-9_./()-]+\.(?:png|webp|jpg|jpeg)', parsed.path, flags=re.I) is not None
                 and '..' not in parsed.path.split('/') and not parsed.query)
     except (TypeError, ValueError):
         return False

@@ -23,7 +23,7 @@ from .db import user_connection
 from .object_storage import ObjectStorageError, configured_object_storage
 from .catalogue_r2_index import SharedReferenceIndex
 from .catalogue_r2_navigation import build_navigation, owned_navigation
-from .catalogue_r2_browse import build_browse_index, indexed_browse_sql, indexed_catalogue_query, indexed_value_sql
+from .catalogue_r2_browse import build_browse_index, indexed_browse_sql, indexed_catalogue_query
 
 log = logging.getLogger(__name__)
 
@@ -221,7 +221,6 @@ _current = None
 _loading = None
 _nav_cache = {}
 _browse_cache = {}
-_value_plan_logged = set()
 
 
 def indexed_browse_enabled():
@@ -322,6 +321,11 @@ async def read(connection):
 
 
 async def fetch(connection, query, params, snapshot, **scope):
+    from .catalogue_browser import REFERENCE_VALUES_CTE
+    if REFERENCE_VALUES_CTE in query:
+        rows=await connection.fetch(query,*params)
+        log.info('CATALOGUE_DYNAMIC_VALUE_DATABASE rows=%s',len(rows))
+        return rows
     if snapshot is not None and navigation_enabled():
         try:
             from .catalogue_browser import GAMES_SQL, SETS_SQL
@@ -388,73 +392,15 @@ async def fetch_snapshot(connection, query, params, snapshot, **scope):
     A savepoint restores settings on failure, and success restores them explicitly.
     """
     async with connection.transaction():
-        from .catalogue_browser import REFERENCE_VALUES_CTE, REFERENCE_VALUES_SQL
+        from .catalogue_browser import REFERENCE_VALUES_CTE
         if REFERENCE_VALUES_CTE in query:
-            verified=[dict(row) for row in await connection.fetch("""
-              select catalogue_id::text as catalogue_id,source_provider,
-                system_code,provider_language,provider_id,provider_entity_type,
-                provider_variant_key,match_status
-              from tcg.provider_catalogue_mappings
-              where provider_entity_type='CARD_PRINTING'
-                and provider_variant_key='' and match_status='VERIFIED'""")]
-            index=(build_browse_index(snapshot.rows,verified_mappings=verified)
-                   if verified else browse_for(snapshot))
-            query,params=indexed_value_sql(query,params,index)
-            array_query=True
-        else:
-            array_query=False
-        # Large R2 joins need different planner settings from the indexed,
-        # per-canonical-card valuation function. Running the function with
-        # nested loops disabled can choose a different plan. Keep its original
-        # plan and bind its complete result in the SAME
-        # authorised transaction. These transient values never enter R2.
-        if REFERENCE_VALUES_CTE in query:
-            value_started=time.perf_counter()
-            log.warning('CATALOGUE_R2_VALUE_PHASE stage=canonical_start')
-            values = [dict(row) for row in await connection.fetch(REFERENCE_VALUES_SQL)]
-            log.warning('CATALOGUE_R2_VALUE_PHASE stage=canonical_complete rows=%s elapsed_ms=%.2f',
-                        len(values),(time.perf_counter()-value_started)*1000)
-            def encode(value):
-                if isinstance(value, UUID):
-                    return str(value)
-                if isinstance(value, datetime):
-                    return value.isoformat()
-                raise TypeError('Unexpected canonical valuation type')
-            params = [*params, json.dumps(values, default=encode)]
-            replacement = f'''reference_values as materialized (
-              select * from jsonb_to_recordset(${len(params)}::jsonb) as value(
-                id uuid,market_value_minor bigint,recommended_retail_minor bigint,
-                pricing_updated_at timestamptz,basis_condition text,
-                basis_language text,valuation_source text))'''
-            query = query.replace(REFERENCE_VALUES_CTE, replacement, 1)
-        if array_query:
-            # This path already has one indexed entry population. It no longer
-            # joins five unindexed source relations, so retain normal indexed
-            # plans for prices, RLS checks and page media lookups.
-            value_started=time.perf_counter()
-            if snapshot.generation not in _value_plan_logged:
-                # One bounded structural plan per generation. Never log SQL,
-                # parameter values, predicates, prices or account identifiers.
-                async with connection.transaction():
-                    plan=await connection.fetchval('explain (format json) '+query,*params)
-                if isinstance(plan,str):plan=json.loads(plan)
-                nodes=[]
-                def visit(node,depth=0):
-                    if len(nodes)>=48:return
-                    nodes.append({k:node[k] for k in ('Node Type','Relation Name','Join Type','Plan Rows','Total Cost') if k in node}|{'depth':depth})
-                    for child in node.get('Plans',[]):visit(child,depth+1)
-                visit(plan[0]['Plan'])
-                log.warning('CATALOGUE_R2_VALUE_PLAN %s',json.dumps(nodes,separators=(',',':')))
-                _value_plan_logged.clear()
-                _value_plan_logged.add(snapshot.generation)
-            log.warning('CATALOGUE_R2_VALUE_PHASE stage=indexed_start')
-            rows=await connection.fetch(query,*params)
-            log.warning('CATALOGUE_R2_VALUE_PHASE stage=indexed_complete rows=%s elapsed_ms=%.2f',
-                        len(rows),(time.perf_counter()-value_started)*1000)
-            return rows
+            # Complete value ranking remains the live SQL authority. Sending
+            # all 70k identities as one parameter message stalls the production
+            # connection; ordinary bounded pages still use R2 inputs/prices.
+            return await connection.fetch(query,*params)
         previous=await connection.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('enable_mergejoin') as mergejoin,current_setting('jit') as jit")
         await connection.execute('set local enable_nestloop=off; set local enable_mergejoin=off; set local jit=off')
-        sql,args=(query,params) if array_query else snapshot.sql(query,params,**scope)
+        sql,args=snapshot.sql(query,params,**scope)
         rows=await connection.fetch(sql,*args)
         await connection.execute("select set_config('enable_nestloop',$1,true),set_config('enable_mergejoin',$2,true),set_config('jit',$3,true)",
                                  previous['nestloop'],previous['mergejoin'],previous['jit'])
@@ -463,7 +409,7 @@ async def fetch_snapshot(connection, query, params, snapshot, **scope):
 
 async def verify(pool, actor, snapshot):
     """Read-only live query parity; no account rows leave this function."""
-    from .catalogue_browser import GAMES_SQL, SETS_SQL, product_query
+    from .catalogue_browser import GAMES_SQL, SETS_SQL, SOURCE_CTE, product_query
     results=[]
     async with user_connection(pool,actor,str(uuid4()),readonly_snapshot=True) as connection:
         access=await require_platform_admin(connection)
@@ -482,6 +428,17 @@ async def verify(pool, actor, snapshot):
             today=datetime.now(timezone.utc).date(),verified_mappings=verified)
         browse_index=build_browse_index(snapshot.rows,
             today=datetime.now(timezone.utc).date(),verified_mappings=verified)
+        from . import catalogue_r2_market
+        market=await catalogue_r2_market.read(connection)
+        # Compare the entire identity population, not only visible samples.
+        # The value sort deliberately retains its existing live database path.
+        source_keys=await connection.fetch(SOURCE_CTE+' select key from entries',owner)
+        expected_keys=sorted(row['key'] for row in source_keys)
+        actual_keys=sorted(row['key'] for row in browse_index.entries)
+        if expected_keys!=actual_keys:
+            return {'status':'MISMATCH','equal':False,'reason':'IDENTITY_POPULATION',
+                    'database_entries':len(expected_keys),'r2_entries':len(actual_keys)}
+        log.warning('CATALOGUE_R2_LIVE_IDENTITY_PARITY entries=%s equal=true',len(actual_keys))
         owner_nav=await owned_navigation(connection,owner)
         cases=[('games',GAMES_SQL,[owner]),
             ('sets',SETS_SQL,[owner,['POKEMON_TCG'],'','',10,0])]
@@ -493,7 +450,14 @@ async def verify(pool, actor, snapshot):
         for name,query,args in cases:
             log.warning('CATALOGUE_R2_LIVE_PARITY_START case=%s',name)
             started=time.perf_counter()
-            original=[dict(row) for row in await connection.fetch(query,*args)]
+            # The legacy full-table baseline itself can exceed the request
+            # deadline. Give only this read-only offline comparison 30 seconds;
+            # R2 queries and live application request limits remain unchanged.
+            async with connection.transaction():
+                previous_timeout=await connection.fetchval("select current_setting('statement_timeout')")
+                await connection.execute("set local statement_timeout='30s'")
+                original=[dict(row) for row in await connection.fetch(query,*args,timeout=30)]
+                await connection.execute("select set_config('statement_timeout',$1,true)",previous_timeout)
             db_ms=round((time.perf_counter()-started)*1000,2)
             log.warning('CATALOGUE_R2_LIVE_PARITY_DATABASE case=%s rows=%s elapsed_ms=%s',name,len(original),db_ms)
             started=time.perf_counter()
@@ -504,15 +468,17 @@ async def verify(pool, actor, snapshot):
                                        owner=owner_nav)
             elif name in ('browse','search','books','sealed','owned'):
                 indexed_query,indexed_args,mode=indexed_catalogue_query(
-                    query,args,browse_index,owned=owner_nav)
+                    query,args,browse_index,owned=owner_nav,market=market)
                 cached=[dict(row) for row in await connection.fetch(
                     indexed_query,*indexed_args)]
             else:
-                cached=[dict(row) for row in await fetch_snapshot(
-                    connection,query,args,snapshot)]
+                cached=[dict(row) for row in await fetch(connection,query,args,snapshot)]
             r2_ms=round((time.perf_counter()-started)*1000,2)
             results.append(dict(case=name,rows=len(original),equal=original==cached,
-                                database_ms=db_ms,r2_ms=r2_ms))
+                                database_ms=db_ms,r2_ms=None if name=='value' else r2_ms,
+                                computed_ms=r2_ms,delivery='POSTGRES_DYNAMIC_VALUE' if name=='value' else 'R2'))
+            if market is not None and name in ('browse','search','books','sealed','owned'):
+                results[-1]['r2_market_generation']=market.generation
             log.warning('CATALOGUE_R2_LIVE_PARITY %s',json.dumps(results[-1],sort_keys=True))
             if original!=cached:
                 if name=='games':
@@ -524,7 +490,7 @@ async def verify(pool, actor, snapshot):
                                 json.dumps(public_set_parity_diff(original,cached),
                                            sort_keys=True))
                 return {'status':'MISMATCH','equal':False,'cases':results}
-    return {'status':'MATCH','equal':True,'cases':results}
+    return {'status':'MATCH','equal':True,'identity_entries':len(actual_keys),'cases':results}
 
 
 async def publish(pool, actor, *, storage=None):

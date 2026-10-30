@@ -163,3 +163,37 @@ Validation includes two-owner SQL parity for complete R2 price inputs, source
 expiry and identity checks, incomplete upload and concurrent-update rejection,
 all four invalidation triggers, non-admin publication denial, unchanged stock,
 and real restricted-role image receipts for the additional hosts.
+
+
+## Production delivery decision and evidence (30 October, 14:31 UTC)
+
+All 91,054 shared market cache rows are now published in R2: 59,542 reference
+market records, 27,626 catalogue guides and 3,886 sealed quotes. The 366 immutable
+parts total 103,799,009 uncompressed bytes and were independently read back.
+The asking cache is currently empty. Source quote overlap means these counts
+must not be presented as a count of separately priced cards.
+
+Whole-catalogue value sorting retains its existing PostgreSQL query. Sending
+the entire entry array in one message left the production connection waiting
+for client input; it also stalled EXPLAIN before any plan was returned. The
+revised route never serializes that population for a value request. Bounded
+browse/search/owned/sealed pages use R2 identities and eligible R2 prices.
+Publication now compares the complete identity multiset as well as visible
+page results. Its value result explicitly reports POSTGRES_DYNAMIC_VALUE and
+no R2 timing; this is an intentional live-SQL path, not an R2 performance claim.
+
+The offline baseline gets a 30-second bounded read-only comparison deadline;
+application request and R2 query limits stay unchanged. Market publication runs
+before catalogue verification so the latter can compare R2 page prices too.
+
+Applied migration versions: 20261030141054 (market publication), 20261030141056
+(remaining artwork hosts), 20261030142942 (CardTrader filename parentheses).
+Forced RLS and 16 price invalidation triggers were read back. One stalled
+read-only verification connection was terminated after cancellation failed;
+the waiting policy migration then completed and the lock queue cleared.
+Source data and the 616 physical inventory records remain in PostgreSQL.
+
+Bulk card artwork continues in the existing API worker with exact source
+checks and content verification. More than 1,700 files were verified at this
+checkpoint. The 6,941 cards without source imagery and provider download
+failures are separate completeness gaps; they are not filled with guessed art.
