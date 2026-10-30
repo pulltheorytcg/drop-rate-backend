@@ -50,6 +50,31 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(f.w.document.querySelector('#owner-inventory-body tr td:last-child').textContent,'£10.00');
   assert.equal(JSON.stringify([personal,raw,played]),originals);f.finish();checks++;
  }
+ // Managed consignor cards can publish only after their real checklist passes.
+ for (const mode of ['ready','photos-missing','unknown-seller','no-checklist']) {
+  const preparation={scope_blocker:mode==='unknown-seller'?'An active seller account is required for eBay':null,
+   checks:[{code:'photos',label:'Front and back photos approved',complete:mode!=='photos-missing'}]};
+  const card={...item,product_type:'CARD',is_consignment:true,status:'APPROVED',condition:'Near Mint',
+   store_price_minor:1000,ebay_preparation:mode==='no-checklist'?null:preparation};
+  const f=fixture(card);
+  f.run("state.ownerChannelAccount='seller-a';state.ownerChannelSummaries=[{code:'EBAY',connected:true,sync_enabled:true}];");
+  f.setHandler(async()=>({item:card,copies:[card],status:'LIVE'}));
+  await f.open();
+  const block=f.w.document.querySelector('.owner-item-channel-ebay');
+  assert.doesNotMatch(block.textContent,/Consignor sync isn't supported/);
+  if(mode==='ready'){
+   assert.match(block.textContent,/Ready for final checks/);
+   await click(f.w,'Sync to eBay');
+   const writes=f.calls.filter(call=>call.method==='POST');
+   assert.equal(writes.length,1);assert.equal(writes[0].url,`/api/v1/owner/inventory/${id}/channels/ebay/sync`);
+   assert.deepEqual(JSON.parse(writes[0].body),{version:3});
+  }else{
+   assert.equal(btn(f.w,'Sync to eBay'),undefined);
+   assert.match(block.textContent,mode==='unknown-seller'?/active seller account/:/Complete the eBay checklist/);
+   assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+  }
+  f.finish();checks++;
+ }
  {
   const f=fixture();f.run(`renderOwnerChannelSummary({channels:[{code:'EBAY',connected:true,connection_status:'READY',sync_enabled:false,sync_unavailable_reason:'Consignor eBay publishing is not enabled yet'}]});
    renderOwnerChannelsRows([${JSON.stringify({...item,product_type:'CARD',inventory_id:id,store_value_minor:100,recommended_retail_minor:100})}],[]);`);
@@ -175,11 +200,11 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
       checked_at:'2026-10-14T12:00:00Z',physical_valuation_eligible:false}};
   const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
   assert.equal(f.w.DropRateReferenceValue.isHistorical(old),true);
-  assert.match(f.w.document.querySelector('.owner-card-prices').textContent,/Value: £8.00/);
+  assert.match(f.w.document.querySelector('.owner-card-prices').textContent,/£8.00/);
   assert.match(f.w.document.querySelector('.owner-card-historical-label').textContent,/Historical value/);
   assert.match(f.w.document.querySelector('.owner-table-historical-label').textContent,/Historical value/);
   f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
-  assert.match(f.w.document.querySelector('.owner-item-values').textContent,/Value: £8.00/);
+  assert.match(f.w.document.querySelector('.owner-item-values').textContent,/£8.00/);
   assert.match(f.w.document.querySelector('.owner-item-values').textContent,/Last known 14\/10\/2026/);
   assert.equal(old.market_value_minor,null);f.finish();checks++;
  }

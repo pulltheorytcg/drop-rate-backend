@@ -72,10 +72,10 @@ def main():
       if width==390 and status=='CONDITION_REFERENCE':page.screenshot(path=str(OUT/f'{engine}-search-set-immediate-390.png'),full_page=True)
       page.evaluate('sharedBrowse.destroy()')
      page.evaluate('DropRateInventory.open(item)');page.wait_for_selector('.owner-item-values strong')
-     seller=page.locator('.owner-item-values strong').inner_text().strip();assert founder==seller,(status,founder,seller)
-     if status in ('AVAILABLE','REFERENCE_ESTIMATE','STALE'):assert 'Value: £99.00' == seller
-     elif status in ('CATALOGUE_GUIDE','CONDITION_REFERENCE'):assert 'Value: £1.32' == seller
-     elif status=='HISTORICAL_GUIDE':assert 'Value: £8.00' == seller
+     seller=page.locator('.owner-item-values strong').inner_text().strip();assert founder.removeprefix('Value: ')==seller,(status,founder,seller)
+     if status in ('AVAILABLE','REFERENCE_ESTIMATE','STALE'):assert '£99.00' == seller
+     elif status in ('CATALOGUE_GUIDE','CONDITION_REFERENCE'):assert '£1.32' == seller
+     elif status=='HISTORICAL_GUIDE':assert '£8.00' == seller
      else:assert '£0' not in seller and 'pending' not in seller.lower()
      assert all(call['method']=='GET' for call in page.evaluate('calls'))
      assert not errors,errors

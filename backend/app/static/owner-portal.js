@@ -80,7 +80,8 @@ function availabilityDescription(item) {
 
 function inventoryCardSubtitle(item) {
   return [
-    item.product_type === "CARD" && conditionLabel(item) !== "—" ? conditionLabel(item) : "",
+    ["CARD", "COMIC"].includes(item.product_type)
+      ? conditionLabel(item) === "—" ? "Condition not recorded" : conditionLabel(item) : "",
     safeText(item.set_name, ""),
     item.card_number ? `#${item.card_number}` : "",
     safeText(item.variant, ""),
@@ -283,7 +284,7 @@ function renderInventoryCards(items) {
       label.textContent = labelText === "Market value"
         ? (window.DropRateReferenceValue?.label(item) || labelText) + (item.grouped_quantity > 1 ? " · each" : "") : labelText;
       const value = document.createElement("strong");
-      value.textContent = valueText;
+      value.textContent = labelText === "Market value" ? valueText.replace(/^Value:\s*/, "") : valueText;
       box.append(label, value);
       // Stale values stay explicitly historical, but their date/source detail
       // lives in the item view instead of cluttering small mobile tiles.
