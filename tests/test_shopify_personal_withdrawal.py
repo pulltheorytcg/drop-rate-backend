@@ -9,7 +9,7 @@ import pytest
 from app import shopify_pipeline as shopify
 from test_book_connector_import import run_sql
 
-MIGRATION = Path(__file__).parents[1] / 'database/migrations/20261030235000_shopify_personal_withdrawal_quantity.sql'
+MIGRATION = Path(__file__).parents[1] / 'database/migrations/20261030232801_shopify_personal_withdrawal_quantity.sql'
 
 
 def test_withdrawal_aggregate_preserves_other_sellers_without_exposing_their_stock(tmp_path):
