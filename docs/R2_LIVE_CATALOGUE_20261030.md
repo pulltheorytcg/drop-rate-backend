@@ -1,5 +1,25 @@
 # Live catalogue delivery from R2
 
+## 30 October value-sort repair
+
+Generation 121595 uploaded and independently read back 161 parts covering
+69,546 card references, 1,456 sets, 3,893 sealed references, 2,055 canonical
+products and 2,055 product profiles. Production games, sets, browse, search,
+books, sealed and owner checks match; the last value-sort query times out.
+
+Value sorting now uses the already-derived R2 catalogue entries in compact
+column arrays. It retains the whole candidate population until PostgreSQL has
+applied current prices, identity restrictions, ownership, filters and ordering.
+The existing canonical price function is evaluated in the same authorised
+snapshot before planner settings for the large array join. Its transient
+results are never persisted to shared R2 objects. Both ascending and descending
+sorts are compared with the original queries for two owners in native SQL CI.
+
+The full local PGlite suite currently stops on its pre-existing C-collation
+game-label difference versus the native production locale. Native PostgreSQL 17
+is the release gate; a separate local 70,000-card value-sort fixture checks the
+new reader. No production-publication success is claimed before live readback.
+
 The full shared catalogue has a versioned R2 delivery path: games and sets,
 card searches, ownership filters, value sorts, watchlists, sealed products and
 comic/manga catalogue entries. The existing exact-set input cache remains a

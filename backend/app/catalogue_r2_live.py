@@ -23,7 +23,7 @@ from .db import user_connection
 from .object_storage import ObjectStorageError, configured_object_storage
 from .catalogue_r2_index import SharedReferenceIndex
 from .catalogue_r2_navigation import build_navigation, owned_navigation
-from .catalogue_r2_browse import build_browse_index, indexed_browse_sql, indexed_catalogue_query
+from .catalogue_r2_browse import build_browse_index, indexed_browse_sql, indexed_catalogue_query, indexed_value_sql
 
 log = logging.getLogger(__name__)
 
@@ -383,9 +383,44 @@ async def fetch_snapshot(connection, query, params, snapshot, **scope):
     A savepoint restores settings on failure, and success restores them explicitly.
     """
     async with connection.transaction():
+        from .catalogue_browser import REFERENCE_VALUES_CTE, REFERENCE_VALUES_SQL
+        if REFERENCE_VALUES_CTE in query:
+            verified=[dict(row) for row in await connection.fetch("""
+              select catalogue_id::text as catalogue_id,source_provider,
+                system_code,provider_language,provider_id,provider_entity_type,
+                provider_variant_key,match_status
+              from tcg.provider_catalogue_mappings
+              where provider_entity_type='CARD_PRINTING'
+                and provider_variant_key='' and match_status='VERIFIED'""")]
+            index=(build_browse_index(snapshot.rows,verified_mappings=verified)
+                   if verified else browse_for(snapshot))
+            query,params=indexed_value_sql(query,params,index)
+            array_query=True
+        else:
+            array_query=False
+        # Large R2 joins need different planner settings from the indexed,
+        # per-canonical-card valuation function. Running the function with
+        # nested loops disabled can choose a different plan. Keep its original
+        # plan and bind its complete result in the SAME
+        # authorised transaction. These transient values never enter R2.
+        if REFERENCE_VALUES_CTE in query:
+            values = [dict(row) for row in await connection.fetch(REFERENCE_VALUES_SQL)]
+            def encode(value):
+                if isinstance(value, UUID):
+                    return str(value)
+                if isinstance(value, datetime):
+                    return value.isoformat()
+                raise TypeError('Unexpected canonical valuation type')
+            params = [*params, json.dumps(values, default=encode)]
+            replacement = f'''reference_values as materialized (
+              select * from jsonb_to_recordset(${len(params)}::jsonb) as value(
+                id uuid,market_value_minor bigint,recommended_retail_minor bigint,
+                pricing_updated_at timestamptz,basis_condition text,
+                basis_language text,valuation_source text))'''
+            query = query.replace(REFERENCE_VALUES_CTE, replacement, 1)
         previous=await connection.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('enable_mergejoin') as mergejoin,current_setting('jit') as jit")
         await connection.execute('set local enable_nestloop=off; set local enable_mergejoin=off; set local jit=off')
-        sql,args=snapshot.sql(query,params,**scope)
+        sql,args=(query,params) if array_query else snapshot.sql(query,params,**scope)
         rows=await connection.fetch(sql,*args)
         await connection.execute("select set_config('enable_nestloop',$1,true),set_config('enable_mergejoin',$2,true),set_config('jit',$3,true)",
                                  previous['nestloop'],previous['mergejoin'],previous['jit'])

@@ -157,19 +157,34 @@ def build_browse_index(shared, *, today=None, verified_mappings=None):
     return BrowseIndex(today,tuple(sorted(rows,key=_sort_key)))
 
 
-def _compose_indexed_sql(query, params, rows):
+def _compose_indexed_sql(query, params, rows, *, dynamic=False):
     from .catalogue_browser import SOURCE_CTE
     if not query.startswith(SOURCE_CTE):
         raise ValueError("Unrecognized R2 browse query")
     tail=query[len(SOURCE_CTE):]
-    if "selected_page as materialized (" not in tail:
+    if not dynamic and "selected_page as materialized (" not in tail:
         raise ValueError("R2 browse requires a static-sort selected page")
-    payload=json.dumps(rows,sort_keys=True,separators=(",",":"),ensure_ascii=False)
-    fields=",".join(f"{name} {kind}" for name,kind in _STATIC_COLUMNS)
+    if dynamic:
+        # Full value ordering must price every candidate. Bind the already
+        # indexed R2 identities once, instead of rebuilding joins between five
+        # unindexed source rowsets on every request.
+        args=list(params)
+        arrays=[]
+        for name,kind in _STATIC_COLUMNS:
+            args.append([None if row[name] is None else str(row[name]) for row in rows])
+            arrays.append(f'${len(args)}::text[]')
+        names=','.join(name for name,_ in _STATIC_COLUMNS)
+        casts=','.join(f'x.{name}::{kind} as {name}' for name,kind in _STATIC_COLUMNS)
+        transport=f'select {casts} from unnest({",".join(arrays)}) as x({names})'
+    else:
+        payload=json.dumps(rows,sort_keys=True,separators=(",",":"),ensure_ascii=False)
+        fields=",".join(f"{name} {kind}" for name,kind in _STATIC_COLUMNS)
+        args=[*params,payload]
+        transport=f'select * from jsonb_to_recordset(${len(args)}::jsonb) as x({fields})'
     public_columns=",".join("st."+field for field,_ in _STATIC_COLUMNS)
     prefix=f"""
 with static_page as (
-  select * from jsonb_to_recordset(${len(params)+1}::jsonb) as x({fields})
+  {transport}
 ), entries as (
  select {public_columns},
  case when st.source_kind='REFERENCE' then
@@ -244,7 +259,17 @@ with static_page as (
  group by i.catalogue_id
 )
 """
-    return prefix+tail,[*params,payload]
+    return prefix+tail,args
+
+
+def indexed_value_sql(query, params, snapshot):
+    """Keep the whole candidate population and all original price/RLS rules."""
+    from .catalogue_browser import SOURCE_CTE, REFERENCE_VALUES_CTE
+    if (not isinstance(query,str) or not query.startswith(SOURCE_CTE)
+            or REFERENCE_VALUES_CTE not in query or len(params)<3
+            or len(snapshot.entries)>150000):
+        raise ValueError('Unsupported R2 value ordering')
+    return _compose_indexed_sql(query,params,snapshot.entries,dynamic=True)
 
 
 def indexed_browse_sql(query, params, snapshot, *, max_page=81):

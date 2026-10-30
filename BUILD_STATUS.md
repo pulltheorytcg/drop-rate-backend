@@ -1,3 +1,14 @@
+## 30 October 2026 — R2 value-sort publication repair
+
+Production generation 121595 has 161 independently verified objects but is not
+published: seven parity cases pass and the value-sort query times out. The reader
+now supplies the complete Railway-indexed R2 candidate population directly to
+the live price/owner joins, avoiding repeated joins across five source arrays.
+Canonical valuation uses the existing authorised resolver before the array-only
+planner settings. No prices, ownership rules or pagination order are weakened.
+Native PostgreSQL parity and deployed publication readback remain required.
+See [the migration record](docs/R2_LIVE_CATALOGUE_20261030.md).
+
 ## 30 October 2026 — Complete R2 catalogue delivery prepared
 
 PR #799 passed CI, was merged, and deployed with build enabled and delivery off.
