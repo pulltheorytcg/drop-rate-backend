@@ -223,6 +223,8 @@ async def change_inventory_sale_intent(
         request.app.state.db_pool,
         [str(inventory_id)],
         owner_id=owner_id,
+        actor_user_id=user.user_id,
+        request_id=request.state.request_id,
         reason="PERSONAL_COLLECTION",
     )
     for result in shopify_results:

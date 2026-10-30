@@ -182,6 +182,8 @@ async def withdraw_shopify_for_inventory(
     inventory_ids: list[str],
     *,
     owner_id: UUID,
+    actor_user_id: UUID,
+    request_id: str,
     reason: str,
 ) -> list[dict[str, Any]]:
     """Fail closed and verify Shopify is no longer selling exact inventory."""
@@ -189,7 +191,7 @@ async def withdraw_shopify_for_inventory(
     if not inventory_ids:
         return []
 
-    async with pool.acquire() as connection:
+    async with user_connection(pool, actor_user_id, request_id) as connection:
         rows = await connection.fetch(
             """
             select
@@ -199,6 +201,7 @@ async def withdraw_shopify_for_inventory(
             from tcg.shopify_inventory_links
             where owner_id=$1
               and inventory_id=any($2::uuid[])
+              and not test_mode
               and sync_state in ('DRAFT','PUBLISHED','ERROR')
             order by linked_at,id
             """,
@@ -213,7 +216,7 @@ async def withdraw_shopify_for_inventory(
     except HTTPException as exc:
         detail = str(exc.detail)
         results: list[dict[str, Any]] = []
-        async with pool.acquire() as connection:
+        async with user_connection(pool, actor_user_id, request_id) as connection:
             for row in rows:
                 await connection.execute(
                     """
@@ -237,38 +240,17 @@ async def withdraw_shopify_for_inventory(
     results: list[dict[str, Any]] = []
     for row in rows:
         try:
-            sibling_state = "PUBLISHED" if row["sync_state"] == "PUBLISHED" else "DRAFT"
-            async with pool.acquire() as connection:
-                remaining_sellable_quantity = await connection.fetchval(
-                    """
-                    select count(*)::int
-                    from tcg.shopify_inventory_links pool_link
-                    join tcg.inventory_items pool_item
-                      on pool_item.id=pool_link.inventory_id
-                    where pool_link.shopify_variant_gid=$1
-                      and pool_link.id <> $2
-                      and pool_link.sync_state=$3
-                      and pool_link.reserved_order_reference is null
-                      and pool_link.reserved_line_reference is null
-                      and pool_item.status='APPROVED'
-                      and pool_item.sale_intent='FOR_SALE'
-                    """,
-                    row["shopify_variant_gid"],
-                    row["id"],
-                    sibling_state,
-                )
-            target_quantity = int(remaining_sellable_quantity or 0)
-            target_status = (
-                "ACTIVE"
-                if row["sync_state"] == "PUBLISHED" and target_quantity > 0
-                else "DRAFT"
-            )
+            async with user_connection(pool, actor_user_id, request_id) as connection:
+                target = await connection.fetchval(
+                    "select tcg.shopify_personal_withdrawal_target($1,$2)", row["id"], owner_id)
+            target_quantity = int(target["quantity"])
+            target_status = target["status"]
             await client.set_inventory_quantity(
                 inventory_item_id=str(row["shopify_inventory_item_gid"]),
                 location_id=str(row["shopify_location_gid"]),
                 quantity=target_quantity,
                 idempotency_key=(
-                    f"withdraw-{reason.casefold()}-{row['inventory_id']}"
+                    f"withdraw-{reason.casefold()}-{row['inventory_id']}-{row['version']}-{target_quantity}"
                 ),
             )
             await client.set_product_status(
@@ -279,17 +261,16 @@ async def withdraw_shopify_for_inventory(
                 str(row["shopify_product_gid"])
             )
             variants = snapshot.get("variants", {}).get("nodes", [])
-            quantity = (
-                variants[0].get("inventoryQuantity")
-                if len(variants) == 1 and isinstance(variants[0], dict)
-                else None
-            )
+            exact = [variant for variant in variants if isinstance(variant, dict)
+                     and variant.get("id") == row["shopify_variant_gid"]]
+            quantity = exact[0].get("inventoryQuantity") if len(exact) == 1 else None
             if snapshot.get("status") != target_status or quantity != target_quantity:
                 raise ShopifyApiError(
                     "Shopify inventory withdrawal could not be verified"
                 )
         except ShopifyApiError as exc:
-            async with pool.acquire() as connection:
+            logger.warning("Shopify personal withdrawal failed: %s", str(exc))
+            async with user_connection(pool, actor_user_id, request_id) as connection:
                 await connection.execute(
                     """
                     update tcg.shopify_inventory_links
@@ -309,7 +290,7 @@ async def withdraw_shopify_for_inventory(
             })
             continue
 
-        async with pool.acquire() as connection:
+        async with user_connection(pool, actor_user_id, request_id) as connection:
             updated = await connection.fetchrow(
                 """
                 update tcg.shopify_inventory_links
