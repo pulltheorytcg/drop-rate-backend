@@ -396,13 +396,18 @@ window.DropRateInventory = (() => {
     sellerChannels.append(el("h3","","Selling channels"));
     const channelGrid=el("div","owner-item-channels");
     const ebay=channels.find(row=>row.code==="EBAY")||{};
+    const ebayScopeBlocker=item.ebay_preparation?.scope_blocker;
+    const ebayChecks=item.ebay_preparation?.checks;
+    const ebayPrepared=Array.isArray(ebayChecks) && ebayChecks.length>0 &&
+      ebayChecks.every(check=>check.complete===true);
     const ebayEligible=Boolean(ebay.connected && ebay.sync_enabled) &&
-      !item.is_consignment && item.product_type==="CARD" && approvedForSale;
+      !ebayScopeBlocker && ebayPrepared && item.product_type==="CARD" && approvedForSale;
     const ebayReason=item.product_type!=="CARD"?(item.product_type === "COMIC" ? "Comics and manga aren't supported here yet" : "Sealed packs aren't supported yet"):
-      item.is_consignment?"Consignor sync isn't supported yet":
+      ebayScopeBlocker?ebayScopeBlocker:
       !ebay.connected?"eBay account not connected":
       !ebay.sync_enabled?"Seller publishing not enabled":
-      !approvedForSale?"Approval required":"Ready to sync";
+      !approvedForSale?"Approval required":
+      !ebayPrepared?"Complete the eBay checklist":"Ready for final checks";
     const cards=[
       {
         code:"SHOPIFY",label:"Shopify",state:publishedOnShopify?"Published":
