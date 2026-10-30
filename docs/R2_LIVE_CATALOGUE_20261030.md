@@ -29,7 +29,7 @@ Shopify automation are unchanged.
 
 ## Complete and current publications
 
-Migration `20261030001452_live_catalogue_r2_publication.sql` creates a single
+Migration `20261030002930_live_catalogue_r2_publication.sql` creates a single
 private publication record and statement triggers on the five shared sources.
 A source write increments its generation in the same transaction; rollback
 rolls the increment back too. The trigger can only invalidate this record and
@@ -77,3 +77,12 @@ private-column rejection, cold-loading races and savepoint fallback.
 Native PostgreSQL 17 CI and production receipts are recorded separately after
 they complete. A configured schedule or successful deployment is not evidence
 that the catalogue was published or served from R2.
+
+The first release head `d3d623d92c787dff02a3928bb0eb586dafec7088` passed
+all nine GitHub workflows, including both original and whole-catalogue native
+PostgreSQL 17 contracts. All 8,417 local backend tests passed (18 optional SQL
+tests skipped). The additive production migration was applied at 00:29 UK
+on 30 October. Its canonical filename now matches the recorded Supabase
+version `20261030002930`. Readback confirms forced RLS, five source triggers,
+generation 1 and no published manifest yet. Security advisories are unchanged.
+Delivery remains off pending verified production publication.

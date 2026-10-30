@@ -58,7 +58,7 @@ async def check(db):
       insert into tcg.catalogue_product_profiles(catalogue_id,system_code,collectible_type,set_code,release_date)
       values('30000000-0000-0000-0000-000000000020','MANGA','COMIC','Fixture Series',current_date-1),
       ('30000000-0000-0000-0000-000000000021','DC_COMICS','COMIC','Future Series',current_date+1)""")
-    await db.execute((ROOT/'database/migrations/20261030001452_live_catalogue_r2_publication.sql').read_text())
+    await db.execute((ROOT/'database/migrations/20261030002930_live_catalogue_r2_publication.sql').read_text())
     inventory=await db.fetchval('select jsonb_agg(to_jsonb(i) order by id)::text from tcg.inventory_items i')
 
     class Pool:
