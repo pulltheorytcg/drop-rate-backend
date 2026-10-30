@@ -35,6 +35,7 @@ from .archive_backlog import archive_check_window, check_archive_backlog
 from .reference_history_archive import archive_reference_history
 from .catalogue_source_archives import archive_reviewed_openlibrary_sources
 from .catalogue_r2_cache import warm_reference_snapshots
+from . import catalogue_r2_live
 from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
@@ -719,6 +720,15 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
                 raise
             except Exception as exc:
                 log.error('CATALOGUE_R2_SOURCE_ARCHIVE_FAILED type=%s', type(exc).__name__)
+        if not shopify and catalogue_r2_live.enabled('BUILD'):
+            try:
+                live_report = await catalogue_r2_live.publish(pool,
+                    UUID(settings.catalogue_maintenance_actor_user_id))
+                log.warning('CATALOGUE_R2_LIVE_PUBLICATION %s',json.dumps(live_report,sort_keys=True))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.error('CATALOGUE_R2_LIVE_PUBLICATION_FAILED type=%s',type(exc).__name__)
         if (not shopify and getattr(settings, 'catalogue_r2_cache_build_enabled', False)
                 and asyncio.get_running_loop().time() >= next_reference_cache_check):
             next_reference_cache_check = asyncio.get_running_loop().time() + 300
