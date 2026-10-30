@@ -17,7 +17,9 @@ from .access_control import require_platform_admin
 from .db import user_connection
 from .recognition_images import reference_image_bytes
 
-MAX_PROBES = 20
+# Reuse the already-budgeted expansion exports. Images still use four bounded
+# concurrent downloads; this adds no marketplace API calls or price writes.
+MAX_PROBES = 100
 WRITE_SQL = """
 update tcg.reference_cards r set image_url=$8,
  evidence=r.evidence || jsonb_build_object('image_reference',$9::jsonb)

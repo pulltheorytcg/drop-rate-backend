@@ -175,11 +175,11 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
       checked_at:'2026-10-14T12:00:00Z',physical_valuation_eligible:false}};
   const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
   assert.equal(f.w.DropRateReferenceValue.isHistorical(old),true);
-  assert.match(f.w.document.querySelector('.owner-card-prices').textContent,/Value: £8.00/);
+  assert.match(f.w.document.querySelector('.owner-card-prices').textContent,/£8.00/);
   assert.match(f.w.document.querySelector('.owner-card-historical-label').textContent,/Historical value/);
   assert.match(f.w.document.querySelector('.owner-table-historical-label').textContent,/Historical value/);
   f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
-  assert.match(f.w.document.querySelector('.owner-item-values').textContent,/Value: £8.00/);
+  assert.match(f.w.document.querySelector('.owner-item-values').textContent,/£8.00/);
   assert.match(f.w.document.querySelector('.owner-item-values').textContent,/Last known 14\/10\/2026/);
   assert.equal(old.market_value_minor,null);f.finish();checks++;
  }

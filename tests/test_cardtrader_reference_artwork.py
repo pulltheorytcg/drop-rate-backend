@@ -45,8 +45,8 @@ def test_existing_images_wrong_language_and_ambiguous_blueprints_are_kept_out():
 
 @pytest.mark.asyncio
 async def test_recovery_is_bounded_resumes_failures_and_only_writes_verified_exact_references(monkeypatch):
-    refs = [reference(n) for n in range(1, 26)]
-    blueprints = [blueprint(n) for n in range(1, 26)]
+    refs = [reference(n) for n in range(1, 106)]
+    blueprints = [blueprint(n) for n in range(1, 106)]
     matches = {r['provider_id']: n for n, r in enumerate(refs, 1)}
     downloads, writes, running, peak = [], [], 0, 0
     async def download(url, **limits):
@@ -64,16 +64,16 @@ async def test_recovery_is_bounded_resumes_failures_and_only_writes_verified_exa
     monkeypatch.setattr(art, 'user_connection', connection)
     monkeypatch.setattr(art, 'require_platform_admin', AsyncMock())
     result = await art.recover_reference_artwork(None, None, refs, blueprints, matches, dry_run=False)
-    assert (result['probed'], result['verified'], result['written'], result['cursor']) == (20, 19, 19, 'svp-020')
-    assert peak <= 4 and len(downloads) == 20 and len(writes) == 19
+    assert (result['probed'], result['verified'], result['written'], result['cursor']) == (100, 99, 99, 'svp-100')
+    assert peak <= 4 and len(downloads) == 100 and len(writes) == 99
     evidence = json.loads(writes[0][-1])
     assert evidence['scope'] == 'REFERENCE_ONLY_NOT_APPROVED_MEDIA'
     assert evidence['blueprint_id'] == 2 and len(evidence['content_sha256']) == 64
     downloads.clear(); writes.clear()
     result = await art.recover_reference_artwork(None, None, refs, blueprints, matches,
         limit=2, dry_run=True, previous_cursor=result['cursor'])
-    assert result['cursor'] == 'svp-022' and result['verified'] == 2 and not writes
-    assert '/image/21/' in downloads[0]
+    assert result['cursor'] == 'svp-102' and result['verified'] == 2 and not writes
+    assert '/image/101/' in downloads[0]
 
 
 def test_database_rechecks_identity_and_does_not_overwrite_existing_art(tmp_path):

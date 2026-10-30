@@ -39,7 +39,7 @@ from .reference_sealed import normalized as source_normalized
 
 SOURCE = "CARDTRADER_EXPANSION_ASKING"
 JOB = "CARDTRADER_EXPANSION_GUIDES"
-REVISION = 6
+REVISION = 7
 MIN_SELLERS = 3
 MAX_PRICE_SPREAD = Decimal("3")
 MAX_SETS_PER_RUN = 30
