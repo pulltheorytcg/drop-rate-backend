@@ -5,9 +5,10 @@ day in Railway. Only the requested page (at most 81 rows + bounded offset)
 is passed back to PostgreSQL for its *current*, account-scoped price, owner,
 media, canonical appraisal and history overlays.
 
-This intentionally does not short-cut text search, owner/value sorts, keys,
-condition/grade pricing or arbitrary query shapes. They retain SQL fallback
-until independently proven. No shared R2 object contains owner or price data.
+Only explicitly supported text/owner/product-type shapes use a bounded
+Railway shortlist; complicated searches, value sorts, watchlists, condition
+pricing and ambiguous query shapes retain the original SQL fallback.
+No shared R2 object contains owner or price data.
 """
 from __future__ import annotations
 
@@ -156,33 +157,19 @@ def build_browse_index(shared, *, today=None, verified_mappings=None):
     return BrowseIndex(today,tuple(sorted(rows,key=_sort_key)))
 
 
-def indexed_browse_sql(query, params, snapshot, *, max_page=81):
-    """Restrict the *input population* before unchanged SQL overlays run.
-
-    Only the exact default newest, all/unfiltered, first-page query is allowed.
-    Unknown SQL shapes, owner/value sorts and pages over the bounded limit fall
-    back to the original authorized PostgreSQL statement.
-    """
+def _compose_indexed_sql(query, params, rows):
     from .catalogue_browser import SOURCE_CTE
-    if not isinstance(query,str) or not query.startswith(SOURCE_CTE):
-        raise ValueError("Unexpected catalogue query for indexed browse")
+    if not query.startswith(SOURCE_CTE):
+        raise ValueError("Unrecognized R2 browse query")
     tail=query[len(SOURCE_CTE):]
-    if (len(params)!=3 or
-            "selected_page as materialized (" not in tail or
-            "where true order by e.release_date desc nulls last,lower(e.name),e.key" not in tail or
-            "where coalesce(o.quantity,0)" in tail):
-        raise ValueError("Indexed R2 browse is restricted to unfiltered newest")
-    limit,offset=params[1],params[2]
-    if type(limit) is not int or not 1<=limit<=max_page:
-        raise ValueError("Unexpected browse page size")
-    rows=snapshot.page(limit,offset)
-    # Positional arrays retain exact publisher artwork printing identity.
+    if "selected_page as materialized (" not in tail:
+        raise ValueError("R2 browse requires a static-sort selected page")
     payload=json.dumps(rows,sort_keys=True,separators=(",",":"),ensure_ascii=False)
     fields=",".join(f"{name} {kind}" for name,kind in _STATIC_COLUMNS)
     public_columns=",".join("st."+field for field,_ in _STATIC_COLUMNS)
     prefix=f"""
 with static_page as (
-  select * from jsonb_to_recordset($4::jsonb) as x({fields})
+  select * from jsonb_to_recordset(${len(params)+1}::jsonb) as x({fields})
 ), entries as (
  select {public_columns},
  case when st.source_kind='REFERENCE' then
@@ -258,3 +245,78 @@ with static_page as (
 )
 """
     return prefix+tail,[*params,payload]
+
+
+def indexed_browse_sql(query, params, snapshot, *, max_page=81):
+    """Fast default global newest case, with no query or owner filter."""
+    from .catalogue_browser import SOURCE_CTE
+    if not isinstance(query,str) or not query.startswith(SOURCE_CTE):
+        raise ValueError("Unexpected catalogue query")
+    tail=query[len(SOURCE_CTE):]
+    if (len(params)!=3 or
+            "selected_page as materialized (" not in tail or
+            "where true order by e.release_date desc nulls last,lower(e.name),e.key" not in tail):
+        raise ValueError("Default browse only")
+    limit,offset=params[1],params[2]
+    return _compose_indexed_sql(query,params,snapshot.page(limit,offset))
+
+
+def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidates=2000):
+    """Finite R2 shortlist for text search, books, sealed and owned stock.
+
+    The real SQL query still applies all predicates and dynamic valuation,
+    image, owner and RLS rules to the shortlisted printing identities.
+    """
+    try:
+        sql,args=indexed_browse_sql(query,params,snapshot)
+        return sql,args,"NEWEST"
+    except ValueError:
+        pass
+    from .catalogue_browser import SOURCE_CTE
+    if (not isinstance(query,str) or not query.startswith(SOURCE_CTE)
+            or len(params)<3):
+        raise ValueError("Not a static indexed R2 page query")
+    tail=query[len(SOURCE_CTE):]
+    if ("selected_page as materialized (" not in tail or
+            "e.release_date desc nulls last,lower(e.name),e.key" not in tail):
+        raise ValueError("Dynamic value sort or unsupported query")
+    limit,offset=params[-2:]
+    if (type(limit) is not int or not 1<=limit<=81 or
+            type(offset) is not int or not 0<=offset<=512):
+        raise ValueError("Unbounded R2 page")
+
+    mode=None
+    if (len(params)==4 and isinstance(params[1],str)
+            and params[1] in ("COMIC","SEALED")
+            and f"where e.product_type=$2 order by" in tail):
+        mode=params[1]
+        rows=[row for row in snapshot.entries if row["product_type"]==mode]
+        rows=rows[:offset+limit]
+    elif len(params)==3 and "where coalesce(o.quantity,0)>0 order by" in tail:
+        if owned is None:
+            raise ValueError("Owned browser requires live RLS inventory facts")
+        mode="OWNED"
+        rows=[row for row in snapshot.entries
+              if row["catalogue_id"] is not None
+              and owned.get(row["catalogue_id"],(0,None,0))[0]>0]
+        rows=rows[:offset+limit]
+    elif (len(params)==5 and isinstance(params[1],list)
+          and params[1] and all(isinstance(t,str) and t.isascii()
+                                and not any(c.isdigit() for c in t)
+                                for t in params[1])
+          and isinstance(params[2],str) and params[2].isascii()
+          and "where (false or not exists (" in tail):
+        mode="SEARCH_TEXT"
+        tokens=[term.lower() for term in params[1]]
+        rows=[]
+        for row in snapshot.entries:
+            body=" ".join(str(row.get(k) or "") for k in (
+                "name","set_name","card_number","game",
+                "variant","language","rarity")).lower()
+            if all(term in body for term in tokens):
+                rows.append(row)
+                if len(rows)>max_candidates:
+                    raise ValueError("Search result exceeds bounded R2 shortlist")
+    else:
+        raise ValueError("Unsupported R2 browse query shape")
+    return (*_compose_indexed_sql(query,params,rows),mode)
