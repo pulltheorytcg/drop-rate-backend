@@ -90,7 +90,7 @@ def test_shopify_never_allocates_or_syncs_personal_collection_stock() -> None:
     assert "sync_state='ARCHIVED'" in source
     assert 'status="DRAFT"' in source
     assert "quantity=target_quantity" in source
-    assert "pool_link.id <> $2" in source
+    assert "tcg.shopify_personal_withdrawal_target" in source
     assert "pool_item.sale_intent='FOR_SALE'" in source
 
 

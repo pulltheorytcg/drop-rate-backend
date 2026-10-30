@@ -1190,13 +1190,10 @@ def test_shopify_withdraw_preserves_remaining_pool_quantity() -> None:
     start = source.index("async def withdraw_shopify_for_inventory(")
     end = source.index("def _minor(", start)
     withdraw = source[start:end]
-    assert "remaining_sellable_quantity = await connection.fetchval" in withdraw
-    assert "pool_link.shopify_variant_gid=$1" in withdraw
-    assert "pool_link.id <> $2" in withdraw
-    assert 'sibling_state = "PUBLISHED" if row["sync_state"] == "PUBLISHED" else "DRAFT"' in withdraw
+    assert "tcg.shopify_personal_withdrawal_target" in withdraw
+    assert "user_connection(pool, actor_user_id, request_id)" in withdraw
     assert "quantity=target_quantity" in withdraw
-    assert '"ACTIVE"' in withdraw
-    assert "target_quantity > 0" in withdraw
+    assert 'target_status = target["status"]' in withdraw
     assert "quantity=0" not in withdraw
 
 
