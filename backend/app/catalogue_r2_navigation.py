@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from .recognition_games import SYSTEM_BY_GAME
@@ -147,7 +147,7 @@ def build_navigation(
     or an explicitly VERIFIED mapping. An ambiguous multi-canonical reference
     does not link. Unlinked canonicals remain as their own catalogue entries.
     """
-    today=today or date.today()
+    today=today or datetime.now(timezone.utc).date()
     ref_sets={
         (s["provider"],s["system_code"],s["language"],s["set_id"]): s
         for s in shared["reference_sets"] if _released(s["release_date"],today)
@@ -172,15 +172,18 @@ def build_navigation(
             r["name"],s["name"],r["card_number"],r["language"],r["provider_id"],
             r["rarity"] or "Unknown"),())
         candidates[_rkey(r)].update(matches)
+    released_keys={_rkey(r) for r,_ in references}
     for m in verified_mappings or ():
-        if (m["provider_entity_type"]=="CARD_PRINTING" and
+        candidate_key=(
+            m["source_provider"],m["system_code"],
+            m["provider_language"],m["provider_id"]
+        )
+        if (candidate_key in released_keys and
+                m["provider_entity_type"]=="CARD_PRINTING" and
                 m["provider_variant_key"]=="" and
                 m["match_status"]=="VERIFIED" and
                 m["catalogue_id"] in canonical):
-            candidates[(
-                m["source_provider"],m["system_code"],
-                m["provider_language"],m["provider_id"]
-            )].add(m["catalogue_id"])
+            candidates[candidate_key].add(m["catalogue_id"])
 
     exact={key:next(iter(ids)) for key,ids in candidates.items() if len(ids)==1}
     linked=set(exact.values())
