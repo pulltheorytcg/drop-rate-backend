@@ -705,7 +705,17 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
                                  json.dumps(report, sort_keys=True))
         try:await (shopify_pass if shopify else daily_pass)(pool,settings)
         except asyncio.CancelledError:raise
-        except Exception as exc:log.error('Catalogue maintenance job=%s failed type=%s','SHOPIFY' if shopify else 'DAILY',type(exc).__name__)
+        except Exception as exc:
+            # Never log query parameters, provider responses or credentials.
+            # The terminal Python frame identifies a broken workflow stage
+            # without exposing any SQL data or secrets in production logs.
+            trace = exc.__traceback__
+            while trace is not None and trace.tb_next is not None:
+                trace = trace.tb_next
+            location = (f"{trace.tb_frame.f_code.co_filename.rsplit('/', 1)[-1]}:"
+                        f"{trace.tb_frame.f_code.co_name}:{trace.tb_lineno}") if trace else "unknown"
+            log.error('Catalogue maintenance job=%s failed type=%s location=%s',
+                      'SHOPIFY' if shopify else 'DAILY',type(exc).__name__,location)
         # Private, immutable source evidence follows the existing pricing jobs.
         # No new provider requests, database job labels or import writes. Content
         # addresses make overlapping deployments/retries safe to reuse.
