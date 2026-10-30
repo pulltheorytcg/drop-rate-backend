@@ -127,9 +127,18 @@ class LiveCatalogue:
                     and (not language or r['language']==language)
                     and (provider is None or r['provider']==provider)
                     and (not set_id or r['set_id']==set_id)]
-            params.append(json.dumps(rows,separators=(',',':'),ensure_ascii=False))
-            typed=','.join(name+' '+kind for name,kind in columns)
-            ctes.append(f'live_r2_{table} as (select * from jsonb_to_recordset(${len(params)}::jsonb) as x({typed}))')
+            # Bind compact column arrays, not one very large JSONB recordset.
+            # JSONB decoding multiplied memory and parse work on the production
+            # database. Text arrays keep date/UUID transport consistent across
+            # drivers; casts retain the original SQL column types. Every array
+            # comes from the same row order, including NULLs.
+            arrays=[]
+            for name,kind in columns:
+                params.append([None if r[name] is None else str(r[name]) for r in rows])
+                arrays.append(f'${len(params)}::text[]')
+            fields=','.join(f'x.{name}::{kind} as {name}' for name,kind in columns)
+            names=','.join(name for name,_ in columns)
+            ctes.append(f'live_r2_{table} as (select {fields} from unnest({",".join(arrays)}) as x({names}))')
             query=re.sub(r'\btcg\.'+table+r'\b', 'live_r2_'+table, query)
         return query.replace('\nwith ', '\nwith '+',\n'.join(ctes)+',\n',1),params
 
@@ -216,19 +225,19 @@ async def fetch(connection, query, params, snapshot, **scope):
 async def fetch_snapshot(connection, query, params, snapshot, **scope):
     """Bound JSON joins without leaking planner settings to other SQL.
 
-    PostgreSQL estimates jsonb_to_recordset at 100 rows even for a 70k-card
-    publication. That selected quadratic nested loops in production. Hash/merge
+    Shared inputs have no persistent statistics or indexes. PostgreSQL selected
+    quadratic nested loops and spilling merge joins at production size. Hash
     joins preserve the SQL decisions; JIT is disabled for this statement because
     unavoidable lateral loops otherwise inherit the disabled-loop cost penalty.
     A savepoint restores settings on failure, and success restores them explicitly.
     """
     async with connection.transaction():
-        previous=await connection.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('jit') as jit")
-        await connection.execute('set local enable_nestloop=off; set local jit=off')
+        previous=await connection.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('enable_mergejoin') as mergejoin,current_setting('jit') as jit")
+        await connection.execute('set local enable_nestloop=off; set local enable_mergejoin=off; set local jit=off')
         sql,args=snapshot.sql(query,params,**scope)
         rows=await connection.fetch(sql,*args)
-        await connection.execute("select set_config('enable_nestloop',$1,true),set_config('jit',$2,true)",
-                                 previous['nestloop'],previous['jit'])
+        await connection.execute("select set_config('enable_nestloop',$1,true),set_config('enable_mergejoin',$2,true),set_config('jit',$3,true)",
+                                 previous['nestloop'],previous['mergejoin'],previous['jit'])
         return rows
 
 
@@ -254,6 +263,7 @@ async def verify(pool, actor, snapshot):
             started=time.perf_counter()
             original=[dict(row) for row in await connection.fetch(query,*args)]
             db_ms=round((time.perf_counter()-started)*1000,2)
+            log.warning('CATALOGUE_R2_LIVE_PARITY_DATABASE case=%s rows=%s elapsed_ms=%s',name,len(original),db_ms)
             started=time.perf_counter()
             cached=[dict(row) for row in await fetch_snapshot(connection,query,args,snapshot)]
             r2_ms=round((time.perf_counter()-started)*1000,2)
@@ -314,8 +324,8 @@ async def publish(pool, actor, *, storage=None):
                             if count<CHUNK_ROWS:
                                 break
             validate_manifest(manifest,state['generation'])
-            log.warning('CATALOGUE_R2_LIVE_EXTRACTED generation=%s counts=%s parts=%s',
-                        state['generation'],manifest['counts'],len(manifest['parts']))
+            log.warning('CATALOGUE_R2_LIVE_EXTRACTED generation=%s counts=%s parts=%s raw_bytes=%s',
+                        state['generation'],manifest['counts'],len(manifest['parts']),manifest['raw_bytes'])
             if not raw_parts:
                 _current=await download(manifest,storage)
                 return {'status':'LOADED','generation':_current.generation,'counts':manifest['counts']}

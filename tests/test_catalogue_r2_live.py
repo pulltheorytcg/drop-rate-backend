@@ -57,7 +57,7 @@ class Connection:
         try:yield
         except Exception:self.rolled_back=True;raise
     async def fetchrow(self,sql):
-        return dict(nestloop='on',jit='on') if 'current_setting' in sql else self.state
+        return dict(nestloop='on',mergejoin='on',jit='on') if 'current_setting' in sql else self.state
     async def execute(self,sql,*args):pass
     async def fetch(self,sql,*args):
         self.queries.append(sql)

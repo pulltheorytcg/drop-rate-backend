@@ -97,3 +97,13 @@ The regression fixture includes 4,000 sealed products, 2,000 canonical products
 and 50,000 live prices, and compares all eight query shapes with the original SQL.
 Extraction, independent R2 readback and each parity case now have separate logs.
 Delivery stays disabled until the corrected production publication passes.
+
+The subsequent production attempt verified all 161 R2 parts but the JSONB-backed
+games query still exceeded the SQL limit. The final query transport uses compact
+column arrays with explicit SQL casts and statement-scoped hash-join preference;
+it avoids whole-catalogue JSONB decoding and repeated merge-sort spills. The
+publication format and closed projections are unchanged. A read-only production
+plan using the same column-array shape and current data completed in 2.71 seconds
+(including source extraction); the comparable merge-join plan took 7.31 seconds.
+The full-size regression now includes realistic image/source URL widths and
+checks restoration of all three planner settings on success and failure.
