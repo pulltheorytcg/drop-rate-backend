@@ -196,8 +196,9 @@ def create_app() -> FastAPI:
         market_task: asyncio.Task | None = None
         maintenance_tasks=[]
         from .r2_reference_images import worker_enabled, run_reference_mirror_loop
-        if worker_enabled():
-            maintenance_tasks.append(asyncio.create_task(run_reference_mirror_loop(app.state.db_pool)))
+        if worker_enabled() and settings.catalogue_maintenance_actor_user_id:
+            maintenance_tasks.append(asyncio.create_task(run_reference_mirror_loop(
+                app.state.db_pool, settings.catalogue_maintenance_actor_user_id)))
         app.state.shopify_sync_wakeup = None
         from .catalogue_maintenance import run_loop
         for enabled,shopify in ((settings.catalogue_daily_refresh_enabled,False),(settings.shopify_auto_sync_enabled,True)):

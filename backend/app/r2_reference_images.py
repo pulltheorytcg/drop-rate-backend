@@ -12,16 +12,32 @@ import asyncio
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from .object_storage import ObjectStorageError, configured_object_storage
 from .r2_media import optimized_media_bytes
 from .recognition_images import reference_image_bytes
+from .access_control import require_platform_admin
+from .db import user_connection
 
 logger = logging.getLogger(__name__)
 MIRROR_WORKER_LOCK = 847220098
+
+
+class ReferenceActorPool:
+    """Apply the existing maintenance actor on every short database lease."""
+    def __init__(self, pool, actor):
+        self.pool = pool
+        self.actor = UUID(str(actor))
+
+    @asynccontextmanager
+    async def acquire(self):
+        async with user_connection(self.pool, self.actor, 'r2-reference-'+str(uuid4())) as connection:
+            await require_platform_admin(connection)
+            yield connection
 
 
 def worker_enabled() -> bool:
@@ -163,13 +179,14 @@ async def mirror_reference_images(pool: Any, *, limit: int, request_id: str) -> 
     return result
 
 
-async def run_reference_mirror_loop(pool: Any) -> None:
+async def run_reference_mirror_loop(pool: Any, actor) -> None:
     """Resume durable exact-image work in the existing API, with one writer.
 
     A batch has at most 20 identities and four downloads at once. Content hashes
     and the exact source recheck make a restart safe. Failed sources retain their
     per-image retry backoff; the app keeps the original source until verified.
     """
+    actor_pool = ReferenceActorPool(pool, actor)
     while worker_enabled():
         delay=30
         try:
@@ -177,7 +194,7 @@ async def run_reference_mirror_loop(pool: Any) -> None:
                 acquired=await lock.fetchval('select pg_try_advisory_lock($1)',MIRROR_WORKER_LOCK)
                 if acquired:
                     try:
-                        report=await mirror_reference_images(pool,limit=20,
+                        report=await mirror_reference_images(actor_pool,limit=20,
                             request_id='r2-reference-worker-'+str(uuid4()))
                         logger.warning('CATALOGUE_R2_REFERENCE_MEDIA_BATCH %s',
                                        json.dumps(report,sort_keys=True))
