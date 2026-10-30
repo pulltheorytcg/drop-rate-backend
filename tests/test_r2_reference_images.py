@@ -109,6 +109,7 @@ class Pool:
      'https://narutocardgame.gg/images/classic/j387.jpg', False),
     ('TCGdex','POKEMON_TCG',
      'https://cardtrader.com/uploads/blueprints/image/110281/preview_porygon-103a-147-aquapolis.jpg', True),
+    ('TCGdex','POKEMON_TCG','https://cardtrader.com/uploads/blueprints/image/235151/preview_miltank(2).jpg',True),
     ('TCGdex','POKEMON_TCG','https://cardtrader.com/private/1.jpg',False),
     ('Naruto Card Game Archive','NARUTO_KAYOU','https://narutocardgame.gg.evil.test/images/kayou/1.jpg',False),
     ('Bandai Official', 'POKEMON_TCG', ART, False),

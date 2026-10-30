@@ -1764,3 +1764,21 @@ User clarified the required Seller Hub choices: **CGC for Marvel, DC and other c
 - Local unit and disposable SQL checks cover corrupted/partial uploads,
   generation races, owner separation, stale prices and authenticated image
   receipts. Production publication and copy progress still require readback.
+
+
+### 30 October 2026 — R2 production readback and safe value routing
+
+- Market publication verified: 91,054 records, 366 parts, 103,799,009 raw bytes;
+  price generation 1 published at 14:15:14 UTC. Both market feature gates enabled.
+- Keep full-catalogue value sorting on its existing SQL query. Remove the large
+  R2 array transport and diagnostic EXPLAIN that stalled a production connection.
+  Compare every catalogue identity before publishing; report SQL value delivery
+  explicitly alongside the seven R2 page/navigation comparisons.
+- Market publication precedes catalogue proof. Only the offline source baseline
+  has a 30-second comparison budget; live request limits stay unchanged.
+- Canonical migration filenames match the production registry, including the
+  CardTrader filename fix. One stalled read-only connection was cleared; the
+  waiting migration completed and no lock queue remained.
+- Whole-catalogue delivery remains pending the new production parity readback.
+  Artwork copying continues automatically; no source catalogue or inventory rows
+  were deleted.

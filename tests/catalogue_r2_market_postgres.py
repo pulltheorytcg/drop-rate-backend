@@ -32,7 +32,7 @@ async def check(db):
     fields=','.join(f'{n} {kind}' for n,kind in market.RELATIONS['reference_asking_prices'])
     await db.execute(f'create table tcg.reference_asking_prices({fields},primary key(provider,system_code,language,provider_id)); grant select on tcg.reference_asking_prices to tcg_api')
     await db.execute("update tcg.owner_memberships set role='PLATFORM_ADMIN' where user_id=$1",ACTOR_A)
-    await db.execute((ROOT/'database/migrations/20261030134825_r2_live_market_data.sql').read_text())
+    await db.execute((ROOT/'database/migrations/20261030141054_r2_live_market_data.sql').read_text())
     inventory=await db.fetchval('select jsonb_agg(to_jsonb(i) order by id)::text from tcg.inventory_items i')
     class Pool:
         @asynccontextmanager
@@ -120,11 +120,12 @@ async def check(db):
     # wrapper, not a superuser source read or a mocked empty candidate list.
     await db.execute('alter table tcg.reference_image_mirrors rename to reference_image_mirrors_empty_fixture')
     await db.execute((ROOT/'database/migrations/20261025232125_r2_reference_image_cache.sql').read_text())
-    await db.execute((ROOT/'database/migrations/20261030140005_r2_remaining_reference_artwork_hosts.sql').read_text())
+    await db.execute((ROOT/'database/migrations/20261030141056_r2_remaining_reference_artwork_hosts.sql').read_text())
+    await db.execute(next((ROOT/'database/migrations').glob('*_r2_cardtrader_image_filenames.sql')).read_text())
     for provider,system,url in (
         ('Naruto Card Game Archive','NARUTO_KAYOU','https://narutocardgame.gg/images/kayou/SP-001.webp'),
         ('Naruto Card Game Archive','NARUTO_BANDAI_LEGACY','https://narutocardgame.gg/images/classic/j387.jpg'),
-        ('TCGdex','POKEMON_TCG','https://cardtrader.com/uploads/blueprints/image/123/preview_one.jpg')):
+        ('TCGdex','POKEMON_TCG','https://cardtrader.com/uploads/blueprints/image/123/preview_one(2).jpg')):
         await db.execute('''insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,image_url)
           values($1,$2,'English','r2-art-test','fixture','Fixture',$3)''',provider,system,url)
         item=dict(provider=provider,system_code=system,language='English',provider_id='r2-art-test',image_url=url)

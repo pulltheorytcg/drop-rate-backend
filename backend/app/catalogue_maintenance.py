@@ -735,6 +735,18 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
                 raise
             except Exception as exc:
                 log.error('CATALOGUE_R2_SOURCE_ARCHIVE_FAILED type=%s', type(exc).__name__)
+        if (not shopify and catalogue_r2_market.enabled('BUILD')
+                and asyncio.get_running_loop().time() >= next_market_publication_check):
+            try:
+                market_report = await asyncio.wait_for(
+                    catalogue_r2_market.publish(pool, UUID(settings.catalogue_maintenance_actor_user_id)),
+                    timeout=R2_PUBLICATION_TIMEOUT_SECONDS)
+                log.warning('CATALOGUE_R2_MARKET_PUBLICATION %s',json.dumps(market_report,sort_keys=True))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                next_market_publication_check = asyncio.get_running_loop().time() + R2_PUBLICATION_RETRY_SECONDS
+                log.error('CATALOGUE_R2_MARKET_PUBLICATION_FAILED type=%s',type(exc).__name__)
         if (not shopify and catalogue_r2_live.enabled('BUILD')
                 and asyncio.get_running_loop().time() >= next_live_publication_check):
             try:
@@ -756,18 +768,6 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
                 next_live_publication_check = (asyncio.get_running_loop().time()
                                                + R2_PUBLICATION_RETRY_SECONDS)
                 log.error('CATALOGUE_R2_LIVE_PUBLICATION_FAILED type=%s',type(exc).__name__)
-        if (not shopify and catalogue_r2_market.enabled('BUILD')
-                and asyncio.get_running_loop().time() >= next_market_publication_check):
-            try:
-                market_report = await asyncio.wait_for(
-                    catalogue_r2_market.publish(pool, UUID(settings.catalogue_maintenance_actor_user_id)),
-                    timeout=R2_PUBLICATION_TIMEOUT_SECONDS)
-                log.warning('CATALOGUE_R2_MARKET_PUBLICATION %s',json.dumps(market_report,sort_keys=True))
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                next_market_publication_check = asyncio.get_running_loop().time() + R2_PUBLICATION_RETRY_SECONDS
-                log.error('CATALOGUE_R2_MARKET_PUBLICATION_FAILED type=%s',type(exc).__name__)
         if (not shopify and getattr(settings, 'catalogue_r2_cache_build_enabled', False)
                 and asyncio.get_running_loop().time() >= next_reference_cache_check):
             next_reference_cache_check = asyncio.get_running_loop().time() + 300

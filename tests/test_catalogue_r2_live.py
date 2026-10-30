@@ -66,6 +66,17 @@ class Connection:
 
 
 @pytest.mark.asyncio
+async def test_full_value_sort_keeps_live_sql_without_a_whole_catalogue_bind():
+    from app.catalogue_browser import product_query
+    from uuid import uuid4
+    query,args=product_query(owner_id=uuid4(),sort='value_desc')
+    connection=Connection(None)
+    # An object without sql()/rows proves the value path never serializes R2.
+    assert await live.fetch(connection,query,args,object())==['original']
+    assert connection.queries==[query]
+
+
+@pytest.mark.asyncio
 async def test_cold_read_returns_immediately_and_rechecks_generation_after_download(monkeypatch):
     manifest,raw=fixture()
     state=dict(generation=1,published_generation=1,manifest=manifest)

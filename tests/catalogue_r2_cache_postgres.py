@@ -126,7 +126,7 @@ class PGliteConnection:
     async def execute(self, sql, *arguments):
         return await self._request('execute', sql, arguments)
 
-    async def fetch(self, sql, *arguments):
+    async def fetch(self, sql, *arguments, timeout=None):
         return await self._request('fetch', sql, arguments)
 
     async def fetchrow(self, sql, *arguments):
