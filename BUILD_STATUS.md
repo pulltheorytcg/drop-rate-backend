@@ -1,3 +1,17 @@
+## 30 October 2026 — Complete R2 catalogue delivery prepared
+
+The new whole-catalogue R2 path covers games/sets, card browsing and searches,
+sealed products and comic/manga catalogue identities. A private generation
+record invalidates old objects atomically on source edits; complete verified
+publications feed the existing SQL rules and live owner/pricing overlays.
+Source rows, inventory, Store Prices, Shopify and archive automation are retained.
+This delivery change does not itself reclaim Supabase disk space.
+
+Local SQL parity and failure/access-control checks pass on PGlite PostgreSQL
+18.6. Native PostgreSQL 17 CI, migration, deployment and production readback
+remain release gates. Both new feature flags default false. See
+[scope, rollout and verification](docs/R2_LIVE_CATALOGUE_20261030.md).
+
 ## 29 October 2026 — Pricing repair deployed; later Masters aliases and accurate coverage readback
 
 PR #781 is merged and both API/worker deployments reached SUCCESS. The live

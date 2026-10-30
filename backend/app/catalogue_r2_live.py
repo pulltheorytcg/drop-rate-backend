@@ -1,0 +1,324 @@
+"""Whole-catalogue R2 content with transactionally fresh, owner-specific SQL overlays.
+
+Only closed, shared identity/display projections enter storage. Prices, mappings,
+book validation, media approvals, inventory and ownership remain live SQL rules.
+Publication never deletes source rows. An invalidated/incomplete object set cannot
+be used, and cold downloads happen off the customer request transaction.
+"""
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass
+import hashlib
+import json
+import logging
+import os
+import re
+import time
+from uuid import UUID, uuid4
+
+from .access_control import require_platform_admin
+from .db import user_connection
+from .object_storage import ObjectStorageError, configured_object_storage
+
+log = logging.getLogger(__name__)
+SCHEMA = 'drop-rate-live-catalogue-v1'
+MAX_BYTES = 64_000_000
+MAX_PARTS = 300
+CHUNK_ROWS = 500
+LOCK_ID = 847220097
+STATE_SQL = '''select generation,published_generation,manifest,published_at
+ from tcg_private.live_catalogue_r2_publication where singleton'''
+
+# No SELECT *, attributes, source evidence, user IDs or physical-copy fields.
+RELATIONS = {
+    'reference_cards': (('provider','text'),('system_code','text'),('language','text'),
+        ('provider_id','text'),('set_id','text'),('name','text'),('card_number','text'),
+        ('rarity','text'),('image_url','text'),('source_url','text'),('number_key','text')),
+    'reference_sets': (('provider','text'),('system_code','text'),('language','text'),
+        ('set_id','text'),('name','text'),('release_date','date'),('declared_card_count','integer')),
+    'reference_sealed_products': (('provider','text'),('system_code','text'),('language','text'),
+        ('provider_id','text'),('set_id','text'),('name','text'),('product_type','text'),
+        ('image_url','text'),('source_url','text')),
+    'catalogue_products': (('id','uuid'),('product_type','text'),('game','text'),('name','text'),
+        ('set_name','text'),('card_number','text'),('variant','text'),('rarity','text'),('language','text')),
+    'catalogue_product_profiles': (('catalogue_id','uuid'),('system_code','text'),
+        ('collectible_type','text'),('set_code','text'),('release_date','date')),
+}
+KEYS = {name: ('provider','system_code','language', 'set_id' if name=='reference_sets' else 'provider_id')
+        for name in RELATIONS if name.startswith('reference_')}
+KEYS.update(catalogue_products=('id',), catalogue_product_profiles=('catalogue_id',))
+
+
+def enabled(kind):
+    return os.getenv(f'TCG_R2_LIVE_CATALOGUE_{kind}_ENABLED', 'false').lower() in {'true','1'}
+
+
+def chunk_sql(relation):
+    fields = ','.join(name for name, _ in RELATIONS[relation])
+    order = ','.join(KEYS[relation])
+    return f'''select coalesce(jsonb_agg(to_jsonb(page) order by {order}),'[]'::jsonb)::text as payload
+      from (select {fields} from tcg.{relation} order by {order} limit $1 offset $2) page'''
+
+
+def parse_part(raw, relation, digest, size, count):
+    if (not isinstance(raw,bytes) or len(raw)!=size or not 0<size<=4_000_000
+            or hashlib.sha256(raw).hexdigest()!=digest):
+        raise ObjectStorageError('Live catalogue part failed integrity verification')
+    rows = json.loads(raw)
+    columns = {name for name, _ in RELATIONS[relation]}
+    if not isinstance(rows,list) or len(rows)!=count or not 0<count<=CHUNK_ROWS:
+        raise ObjectStorageError('Live catalogue part count is invalid')
+    for row in rows:
+        if (not isinstance(row,dict) or set(row)!=columns
+                or any(value is not None and not isinstance(value,(str,int)) for value in row.values())
+                or any(not isinstance(row[key],str) or not row[key] for key in KEYS[relation])):
+            raise ObjectStorageError('Live catalogue part contains unexpected fields or identity')
+    return rows
+
+
+def validate_manifest(value, generation):
+    if isinstance(value,str):
+        value=json.loads(value)
+    if (not isinstance(value,dict) or set(value)!={'schema','generation','counts','parts','raw_bytes'}
+            or value['schema']!=SCHEMA or value['generation']!=generation
+            or not isinstance(value['parts'],list) or len(value['parts'])>MAX_PARTS
+            or not isinstance(value['counts'],dict) or set(value['counts'])!=set(RELATIONS)):
+        raise ObjectStorageError('Invalid live catalogue manifest')
+    counts = dict.fromkeys(RELATIONS,0)
+    size = 0
+    seen = set()
+    for part in value['parts']:
+        if (not isinstance(part,dict) or set(part)!={'relation','sha256','raw_bytes','rows'}
+                or part['relation'] not in RELATIONS
+                or not re.fullmatch('[a-f0-9]{64}',str(part['sha256']))
+                or type(part['raw_bytes']) is not int or not 0<part['raw_bytes']<=4_000_000
+                or type(part['rows']) is not int or not 0<part['rows']<=CHUNK_ROWS
+                or part['sha256'] in seen):
+            raise ObjectStorageError('Invalid live catalogue part descriptor')
+        seen.add(part['sha256'])
+        counts[part['relation']] += part['rows']
+        size += part['raw_bytes']
+    if (counts!=value['counts'] or size!=value['raw_bytes'] or not 0<size<=MAX_BYTES
+            or any(type(n) is not int for n in value['counts'].values())):
+        raise ObjectStorageError('Live catalogue completeness check failed')
+    return value
+
+
+@dataclass(frozen=True)
+class LiveCatalogue:
+    generation: int
+    manifest_digest: str
+    rows: dict
+
+    def sql(self, query, params, *, systems=None, language='', provider=None, set_id=''):
+        """Replace shared content only. Existing SQL still owns every decision."""
+        if not query.startswith('\nwith reference_base as not materialized ('):
+            raise ValueError('Unexpected catalogue query shape')
+        params = list(params)
+        ctes=[]
+        for table, columns in RELATIONS.items():
+            rows=self.rows[table]
+            # Both original SQL filters and exact-link construction see the same
+            # selected reference universe. Canonical entries stay complete so a
+            # link outside the requested set cannot create a duplicate entry.
+            if table.startswith('reference_'):
+                rows=[r for r in rows if (not systems or r['system_code'] in systems)
+                    and (not language or r['language']==language)
+                    and (provider is None or r['provider']==provider)
+                    and (not set_id or r['set_id']==set_id)]
+            params.append(json.dumps(rows,separators=(',',':'),ensure_ascii=False))
+            typed=','.join(name+' '+kind for name,kind in columns)
+            ctes.append(f'live_r2_{table} as (select * from jsonb_to_recordset(${len(params)}::jsonb) as x({typed}))')
+            query=re.sub(r'\btcg\.'+table+r'\b', 'live_r2_'+table, query)
+        return query.replace('\nwith ', '\nwith '+',\n'.join(ctes)+',\n',1),params
+
+
+def manifest_digest(manifest):
+    return hashlib.sha256(json.dumps(manifest,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+
+def assemble(manifest, parts):
+    rows={name:[] for name in RELATIONS}
+    identities={name:set() for name in RELATIONS}
+    for part, raw in zip(manifest['parts'],parts,strict=True):
+        table=part['relation']
+        for row in parse_part(raw,table,part['sha256'],part['raw_bytes'],part['rows']):
+            key=tuple(row[field] for field in KEYS[table])
+            if key in identities[table]:
+                raise ObjectStorageError('Duplicate catalogue identity across R2 parts')
+            identities[table].add(key)
+            rows[table].append(row)
+    return LiveCatalogue(manifest['generation'],manifest_digest(manifest),rows)
+
+
+_current = None
+_loading = None
+
+
+async def download(manifest, storage):
+    """At most four private storage reads at once, with existing bounded IO."""
+    from .catalogue_r2_cache import _read_with_budget
+    semaphore=asyncio.Semaphore(4)
+    async def part_read(part):
+        async with semaphore:
+            return await _read_with_budget(storage,part['sha256'])
+    parts=await asyncio.gather(*(part_read(p) for p in manifest['parts']))
+    return assemble(manifest,parts)
+
+
+async def _load(manifest,storage):
+    global _current
+    try:
+        loaded=await download(manifest,storage)
+        if _current is None or loaded.generation>=_current.generation:
+            _current=loaded
+        log.warning('CATALOGUE_R2_LIVE_LOADED generation=%s counts=%s',loaded.generation,manifest['counts'])
+    except Exception as exc:
+        log.warning('CATALOGUE_R2_LIVE_LOAD_FAILED type=%s',type(exc).__name__)
+
+
+async def read(connection):
+    """One small version read, no source scan; a cold worker falls back while loading."""
+    global _loading
+    if not enabled('DELIVERY'):
+        return None
+    try:
+        async with connection.transaction():
+            state=await connection.fetchrow(STATE_SQL)
+        if not state or state['generation']!=state['published_generation']:
+            return None
+        manifest=validate_manifest(state['manifest'],state['generation'])
+        if (_current is not None and _current.generation==state['generation']
+                and _current.manifest_digest==manifest_digest(manifest)):
+            return _current
+        if _loading is None or _loading.done():
+            storage=configured_object_storage()
+            if storage is not None:
+                _loading=asyncio.create_task(_load(manifest,storage))
+        return None
+    except Exception as exc:
+        log.warning('CATALOGUE_R2_LIVE_FALLBACK type=%s',type(exc).__name__)
+        return None
+
+
+async def fetch(connection, query, params, snapshot, **scope):
+    if snapshot is not None:
+        try:
+            async with connection.transaction():
+                sql,args=snapshot.sql(query,params,**scope)
+                rows=await connection.fetch(sql,*args)
+            log.info('CATALOGUE_R2_LIVE_HIT generation=%s rows=%s',snapshot.generation,len(rows))
+            return rows
+        except Exception as exc:
+            log.warning('CATALOGUE_R2_LIVE_QUERY_FALLBACK type=%s',type(exc).__name__)
+    return await connection.fetch(query,*params)
+
+
+async def verify(pool, actor, snapshot):
+    """Read-only live query parity; no account rows leave this function."""
+    from .catalogue_browser import GAMES_SQL, SETS_SQL, product_query
+    results=[]
+    async with user_connection(pool,actor,str(uuid4()),readonly_snapshot=True) as connection:
+        access=await require_platform_admin(connection)
+        state=await connection.fetchrow(STATE_SQL)
+        if state['generation']!=snapshot.generation:
+            return {'status':'SOURCE_CHANGED','equal':None}
+        owner=access['owner_id']
+        cases=[('games',GAMES_SQL,[owner]),
+            ('sets',SETS_SQL,[owner,['POKEMON_TCG'],'','',10,0])]
+        for name,options in (('browse',{}),('search',dict(q='Pikachu')),
+                ('books',dict(product_type='COMIC')),('sealed',dict(product_type='SEALED')),
+                ('owned',dict(owned='owned')),('value',dict(sort='value_desc'))):
+            query,args=product_query(owner_id=owner,limit=9,**options)
+            cases.append((name,query,args))
+        for name,query,args in cases:
+            started=time.perf_counter()
+            original=[dict(row) for row in await connection.fetch(query,*args)]
+            db_ms=round((time.perf_counter()-started)*1000,2)
+            sql,params=snapshot.sql(query,args)
+            started=time.perf_counter()
+            cached=[dict(row) for row in await connection.fetch(sql,*params)]
+            r2_ms=round((time.perf_counter()-started)*1000,2)
+            results.append(dict(case=name,rows=len(original),equal=original==cached,
+                                database_ms=db_ms,r2_ms=r2_ms))
+            if original!=cached:
+                return {'status':'MISMATCH','equal':False,'cases':results}
+    return {'status':'MATCH','equal':True,'cases':results}
+
+
+async def publish(pool, actor, *, storage=None):
+    """Existing worker owns publication; CAS prevents a stale build becoming live."""
+    global _current
+    if not isinstance(actor,UUID):
+        raise ValueError('Publication requires an existing administrator')
+    storage=storage if storage is not None else configured_object_storage()
+    if storage is None:
+        raise ObjectStorageError('Private R2 storage is not configured')
+    # Avoid duplicate publishers across overlapping Railway releases.
+    async with pool.acquire() as lock:
+        if not await lock.fetchval('select pg_try_advisory_lock($1)',LOCK_ID):
+            return {'status':'LOCKED'}
+        try:
+            raw_parts=[]
+            async with user_connection(pool,actor,str(uuid4()),readonly_snapshot=True) as connection:
+                await require_platform_admin(connection)
+                state=await connection.fetchrow(STATE_SQL)
+                if state is None:
+                    raise ObjectStorageError('Publication migration is not installed')
+                if state['generation']==state['published_generation']:
+                    manifest=validate_manifest(state['manifest'],state['generation'])
+                    if (_current is None or _current.generation!=state['generation']
+                            or _current.manifest_digest!=manifest_digest(manifest)):
+                        # Loading after releasing the DB snapshot avoids idle leases.
+                        pass
+                    else:
+                        return {'status':'CURRENT','generation':state['generation'],'counts':manifest['counts']}
+                else:
+                    manifest={'schema':SCHEMA,'generation':state['generation'],'counts':dict.fromkeys(RELATIONS,0),
+                              'parts':[],'raw_bytes':0}
+                    for table in RELATIONS:
+                        offset=0
+                        while True:
+                            raw=(await connection.fetchval(chunk_sql(table),CHUNK_ROWS,offset)).encode()
+                            count=len(json.loads(raw))
+                            if not count:
+                                break
+                            digest=hashlib.sha256(raw).hexdigest()
+                            parse_part(raw,table,digest,len(raw),count)
+                            manifest['parts'].append(dict(relation=table,sha256=digest,raw_bytes=len(raw),rows=count))
+                            manifest['counts'][table]+=count
+                            manifest['raw_bytes']+=len(raw)
+                            if manifest['raw_bytes']>MAX_BYTES or len(manifest['parts'])>MAX_PARTS:
+                                raise ObjectStorageError('Whole catalogue exceeds publication bounds')
+                            raw_parts.append(raw)
+                            offset+=count
+                            if count<CHUNK_ROWS:
+                                break
+            validate_manifest(manifest,state['generation'])
+            if not raw_parts:
+                _current=await download(manifest,storage)
+                return {'status':'LOADED','generation':_current.generation,'counts':manifest['counts']}
+            # Persist and independently read back every immutable part before CAS.
+            for part,raw in zip(manifest['parts'],raw_parts,strict=True):
+                receipt=await asyncio.to_thread(storage.put_verified_reference_snapshot,raw)
+                if (receipt.get('verified') is not True or receipt.get('sha256')!=part['sha256']
+                        or receipt.get('key')!=f"{storage.config.prefix}/catalogue-reference-inputs/{part['sha256']}.json.gz"):
+                    raise ObjectStorageError('Storage receipt did not verify the catalogue part')
+            candidate=await download(manifest,storage)
+            parity=await verify(pool,actor,candidate)
+            if parity['status']!='MATCH':
+                return {'status':parity['status'],'generation':manifest['generation'],'query_parity':parity}
+            async with user_connection(pool,actor,str(uuid4())) as connection:
+                await require_platform_admin(connection)
+                committed=await connection.fetchval('''update tcg_private.live_catalogue_r2_publication
+                  set published_generation=$1,manifest=$2::jsonb,published_at=now()
+                  where singleton and generation=$1 returning published_generation''',manifest['generation'],json.dumps(manifest))
+            if committed is None:
+                return {'status':'SOURCE_CHANGED','generation':manifest['generation'],'verified_parts':len(raw_parts)}
+            _current=candidate
+            return {'status':'PUBLISHED','generation':committed,'counts':manifest['counts'],
+                    'verified_parts':len(raw_parts),'raw_bytes':manifest['raw_bytes'],
+                    'query_parity':parity,'catalogue_rows_deleted':0}
+        finally:
+            await lock.execute('select pg_advisory_unlock($1)',LOCK_ID)

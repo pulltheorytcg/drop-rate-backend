@@ -34,6 +34,7 @@ from .catalogue_price_history import add_reference_history
 from .reference_asking_display import add_asking_estimates
 from .book_catalogue import with_book_details
 from .r2_media import with_signed_mirror
+from . import catalogue_r2_live
 from .catalogue_r2_cache import (
     delivery_enabled, read_reference_snapshot, reference_scope, source_cte_with_snapshot,
 )
@@ -378,8 +379,10 @@ async def set_artwork_coverage(
 @router.get("/games")
 async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                 access: Annotated[dict, Depends(browser_access)]):
-    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        rows = await connection.fetch(GAMES_SQL, access["owner_id"])
+    options = {'readonly_snapshot': True} if catalogue_r2_live.enabled('DELIVERY') else {}
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id, **options) as connection:
+        live = await catalogue_r2_live.read(connection)
+        rows = await catalogue_r2_live.fetch(connection, GAMES_SQL, [access["owner_id"]], live)
     items=browse_games(rows)
     # These are two real catalogue sections even when the first physical
     # seller books have not yet been added. A zero count is not fake stock.
@@ -394,8 +397,11 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
                access: Annotated[dict, Depends(browser_access)], system_code: str = Query(max_length=80),
                language: str = Query(default="", max_length=80), q: str = Query(default="", max_length=160),
                limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
-    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        rows = await connection.fetch(SETS_SQL, access["owner_id"], browse_systems(system_code), language, q.strip(), limit + 1, offset)
+    options = {'readonly_snapshot': True} if catalogue_r2_live.enabled('DELIVERY') else {}
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id, **options) as connection:
+        live = await catalogue_r2_live.read(connection)
+        rows = await catalogue_r2_live.fetch(connection, SETS_SQL,
+            [access["owner_id"], browse_systems(system_code), language, q.strip(), limit + 1, offset], live)
     return jsonable_encoder({"items": [set_metadata_only(row) for row in rows[:limit]], "has_more": len(rows) > limit,
                              "offset": offset, "total_count": rows[0]["total_count"] if rows else 0,
                              "coverage": "MASTER_SET_CATALOGUE"})
@@ -549,13 +555,14 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     cache_scope = reference_scope(provider=provider, system_code=system_code, language=language,
         set_id=set_id, product_type=product_type, owned=owned, sort=sort, q=q, keys=key_list,
         slab_number=slab_number, slab_name=slab_name, slab_set=slab_set) if delivery_enabled() else None
-    connection_options = {'readonly_snapshot': True} if cache_scope is not None else {}
+    connection_options = {'readonly_snapshot': True} if cache_scope is not None or catalogue_r2_live.enabled('DELIVERY') else {}
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id,
                                **connection_options) as connection:
         # Value sorts include alias prices before pagination. Other searches
         # resolve only the missing values on their bounded visible page.
         shared = await read_shared_prices(connection) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
-        snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None else None
+        live = await catalogue_r2_live.read(connection)
+        snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None and live is None else None
         query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
             set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list,
             limit=limit, offset=offset, shared_prices=shared)
@@ -571,7 +578,11 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                 snapshot = None
         if snapshot is None:
             query, params = product_query(**query_options)
-            rows = await connection.fetch(query, *params)
+            # An explicit nonempty provider excludes every canonical fallback
+            # entry, so narrowing reference inputs cannot resurrect a duplicate.
+            live_scope = dict(systems=browse_systems(system_code) if system_code else None,
+                language=language,provider=provider,set_id=set_id) if provider else {}
+            rows = await catalogue_r2_live.fetch(connection, query, params, live, **live_scope)
         if sort not in ('value_desc', 'value_asc'):
             missing = [dict(row) for row in rows[:limit] if row.get('market_value_minor') is None]
             shared = await read_shared_prices(connection, missing)
