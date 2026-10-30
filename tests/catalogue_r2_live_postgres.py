@@ -18,6 +18,7 @@ from uuid import UUID
 import asyncpg
 
 from app import catalogue_r2_live as live
+from app.catalogue_r2_navigation import build_navigation, owned_navigation
 from app.catalogue_browser import GAMES_SQL, SETS_SQL, product_query
 from app.db import _init_connection
 from catalogue_r2_cache_postgres import (PGliteConnection, seed, authorized,
@@ -124,6 +125,26 @@ async def check(db):
         report=await live.publish(Pool(),ACTOR_A,storage=storage)
         assert report['status']=='PUBLISHED'
         snapshot=live._current
+        # Global navigation is precomputed from R2 shared facts in Railway;
+        # only current owner-visible inventory aggregations come from SQL.
+        # Compare exact native PostgreSQL results, not mocked navigation data.
+        verified=[dict(row) for row in await db.fetch("""
+          select catalogue_id::text as catalogue_id,source_provider,system_code,
+                 provider_language,provider_id,provider_entity_type,
+                 provider_variant_key,match_status
+          from tcg.provider_catalogue_mappings
+          where provider_entity_type='CARD_PRINTING'
+            and provider_variant_key='' and match_status='VERIFIED'""")]
+        navigation=build_navigation(snapshot.rows,verified_mappings=verified)
+        async with authorized(db,ACTOR_A):
+            owner=await owned_navigation(db,OWNER_A)
+            real_games=[dict(r) for r in await db.fetch(GAMES_SQL,OWNER_A)]
+            fast_games=navigation.games()
+            assert fast_games==real_games,(fast_games,real_games)
+            real_sets=[dict(r) for r in await db.fetch(
+                SETS_SQL,OWNER_A,['POKEMON_TCG'],'','',11,0)]
+            fast_sets=navigation.sets(systems=['POKEMON_TCG'],limit=11,owner=owner)
+            assert fast_sets==real_sets,(fast_sets,real_sets)
         for raw in storage.objects.values():
             assert PRIVATE.encode() not in raw
             for field in ('created_by_user_id','acquisition_cost_minor','store_price_minor','owned_quantity','private_notes','attributes','evidence'):
