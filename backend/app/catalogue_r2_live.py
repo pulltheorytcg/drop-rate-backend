@@ -311,6 +311,16 @@ async def verify(pool, actor, snapshot):
         if state['generation']!=snapshot.generation:
             return {'status':'SOURCE_CHANGED','equal':None}
         owner=access['owner_id']
+        verified=[dict(row) for row in await connection.fetch("""
+          select catalogue_id::text as catalogue_id,source_provider,
+            system_code,provider_language,provider_id,provider_entity_type,
+            provider_variant_key,match_status
+          from tcg.provider_catalogue_mappings
+          where provider_entity_type='CARD_PRINTING'
+            and provider_variant_key='' and match_status='VERIFIED'""")]
+        navigation=build_navigation(snapshot.rows,
+            today=datetime.now(timezone.utc).date(),verified_mappings=verified)
+        owner_nav=await owned_navigation(connection,owner)
         cases=[('games',GAMES_SQL,[owner]),
             ('sets',SETS_SQL,[owner,['POKEMON_TCG'],'','',10,0])]
         for name,options in (('browse',{}),('search',dict(q='Pikachu')),
@@ -325,7 +335,14 @@ async def verify(pool, actor, snapshot):
             db_ms=round((time.perf_counter()-started)*1000,2)
             log.warning('CATALOGUE_R2_LIVE_PARITY_DATABASE case=%s rows=%s elapsed_ms=%s',name,len(original),db_ms)
             started=time.perf_counter()
-            cached=[dict(row) for row in await fetch_snapshot(connection,query,args,snapshot)]
+            if name=='games':
+                cached=navigation.games()
+            elif name=='sets':
+                cached=navigation.sets(systems=['POKEMON_TCG'],limit=10,
+                                       owner=owner_nav)
+            else:
+                cached=[dict(row) for row in await fetch_snapshot(
+                    connection,query,args,snapshot)]
             r2_ms=round((time.perf_counter()-started)*1000,2)
             results.append(dict(case=name,rows=len(original),equal=original==cached,
                                 database_ms=db_ms,r2_ms=r2_ms))
