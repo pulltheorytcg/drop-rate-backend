@@ -429,6 +429,8 @@ async def _load_listing_plan(
               and side in ('FRONT','BACK')
               and rights_status='VERIFIED'
               and approval_status='APPROVED'
+              and source_status='ACTIVE'
+              and revoked_at is null
               and shopify_file_status='READY'
               and shopify_cdn_url is not null
             order by case side when 'FRONT' then 1 when 'BACK' then 2 else 3 end
@@ -486,7 +488,7 @@ async def _load_listing_plan(
             """,
             owner["id"], user.user_id, link["id"],
             json.dumps({"inventory_id": str(inventory_id), "price_minor": price_minor}),
-            "Single-item eBay publish requested from Founder HQ",
+            "Single-item eBay publish requested by the authenticated inventory owner",
         )
         return {
             "already_live": False,
@@ -500,15 +502,11 @@ async def _load_listing_plan(
 
 async def _mark_link_error(pool: Any, link_id: UUID, code: str) -> None:
     async with pool.acquire() as connection:
-        await connection.execute(
-            """
-            update tcg.ebay_inventory_links
-            set state='ERROR', last_error_code=$2, version=version+1,
-                updated_at=clock_timestamp()
-            where id=$1
-            """,
-            link_id, code[:120],
-        )
+        version = await connection.fetchval('select version from tcg.ebay_inventory_links where id=$1', link_id)
+        if version is not None:
+            await connection.fetchval(
+                'select tcg.record_ebay_channel_result($1,$2,\'ERROR\',null,null,null,$3)',
+                link_id, version, code[:120])
 
 
 @router.get("/seller-status", dependencies=[Depends(require_platform_admin_request)])
@@ -1078,18 +1076,11 @@ async def withdraw_ebay_for_inventory(
                 )
 
             async with pool.acquire() as connection:
-                await connection.execute(
-                    """
-                    update tcg.ebay_inventory_links
-                    set state='WITHDRAWN', withdrawal_reason=$2,
-                        offer_id=coalesce($3,offer_id),
-                        withdrawn_at=clock_timestamp(), last_verified_at=clock_timestamp(),
-                        last_error_code=null, version=version+1,
-                        updated_at=clock_timestamp()
-                    where id=$1
-                    """,
-                    link["id"], reason, offer_id or None,
-                )
+                recorded = await connection.fetchval(
+                    "select tcg.record_ebay_channel_result($1,$2,'WITHDRAWN',$3,null,$4,null)",
+                    link["id"], link["version"], offer_id or None, reason)
+                if not recorded:
+                    raise EbaySellApiError('eBay withdrawal completed but inventory changed; refresh and retry')
         except (EbaySellApiError, RuntimeError, ValueError) as exc:
             await _mark_link_error(pool, link["id"], f"CROSS_CHANNEL:{reason}")
             if isinstance(exc, EbaySellApiError):
@@ -1119,15 +1110,8 @@ async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]
                 "Cannot restore eBay listing: seller authorisation is missing"
             ) from exc
         async with pool.acquire() as connection:
-            item = await connection.fetchrow(
-                "select status, sale_intent from tcg.inventory_items where id=$1",
-                link["inventory_id"],
-            )
-        if (
-            item is None
-            or item["status"] != "APPROVED"
-            or item["sale_intent"] != "FOR_SALE"
-        ):
+            ready = await connection.fetchval('select tcg.ebay_restore_ready($1)', link['id'])
+        if not ready:
             continue
         try:
             listing_id = await client.publish_offer(str(link["offer_id"]))
@@ -1136,17 +1120,12 @@ async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]
             if not _offer_is_live(offer) or not verified or verified != listing_id:
                 raise EbaySellApiError("Restored eBay offer could not be verified")
             async with pool.acquire() as connection:
-                await connection.execute(
-                    """
-                    update tcg.ebay_inventory_links
-                    set state='LIVE', listing_id=$2, withdrawal_reason=null,
-                        withdrawn_at=null, last_verified_at=clock_timestamp(),
-                        last_error_code=null, version=version+1,
-                        updated_at=clock_timestamp()
-                    where id=$1
-                    """,
-                    link["id"], verified,
-                )
+                recorded = await connection.fetchval(
+                    "select tcg.record_ebay_channel_result($1,$2,'LIVE',null,$3,null,null)",
+                    link['id'], link['version'], verified)
+                if not recorded:
+                    await client.withdraw_offer(str(link['offer_id']))
+                    raise EbaySellApiError('Inventory changed during eBay restoration; offer withdrawn')
         except EbaySellApiError as exc:
             await _mark_link_error(pool, link["id"], "RESTORE_AFTER_SHOPIFY_RELEASE")
             raise exc
@@ -1508,10 +1487,11 @@ async def _zero_shopify_for_ebay_sale(pool: Any, inventory_ids: list[str]) -> No
     async with pool.acquire() as connection:
         rows = await connection.fetch(
             """
-            select inventory_id, shopify_product_gid, shopify_inventory_item_gid,
-                   shopify_location_gid
+            select id, inventory_id, shopify_product_gid, shopify_variant_gid,
+                   shopify_inventory_item_gid, shopify_location_gid
             from tcg.shopify_inventory_links
             where inventory_id=any($1::uuid[])
+              and not test_mode
               and shopify_product_gid is not null
               and shopify_inventory_item_gid is not null
               and shopify_location_gid is not null
@@ -1525,21 +1505,26 @@ async def _zero_shopify_for_ebay_sale(pool: Any, inventory_ids: list[str]) -> No
     if client is None:
         raise ShopifyApiError("Shopify connection is missing while eBay stock is live")
     for row in rows:
-        key = f"ebay-sale-{str(row['inventory_id'])}"
+        async with pool.acquire() as connection:
+            target = await connection.fetchval('select tcg.shopify_stock_after_ebay_sale($1)', row['id'])
+        quantity = int(target['quantity'])
+        status = target['status']
+        key = f"ebay-sale-{str(row['inventory_id'])}-{quantity}"
         await client.set_inventory_quantity(
             inventory_item_id=str(row["shopify_inventory_item_gid"]),
             location_id=str(row["shopify_location_gid"]),
-            quantity=0,
+            quantity=quantity,
             idempotency_key=key,
         )
         await client.set_product_status(
             product_id=str(row["shopify_product_gid"]),
-            status="DRAFT",
+            status=status,
         )
         snapshot = await client.get_product_snapshot(str(row["shopify_product_gid"]))
         variants = snapshot.get("variants", {}).get("nodes", [])
-        quantity = variants[0].get("inventoryQuantity") if len(variants) == 1 else None
-        if snapshot.get("status") != "DRAFT" or quantity != 0:
+        exact = [variant for variant in variants if variant.get('id') == row['shopify_variant_gid']]
+        verified_quantity = exact[0].get('inventoryQuantity') if len(exact) == 1 else None
+        if snapshot.get("status") != status or verified_quantity != quantity:
             raise ShopifyApiError("Shopify cross-channel stock removal could not be verified")
 
 

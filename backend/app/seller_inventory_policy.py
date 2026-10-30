@@ -30,9 +30,9 @@ def seller_held_consignment(item):
 
 
 def ebay_listing_scope_blocker(owner_type: str, product_type: str) -> str | None:
-    """The existing v1 publisher scope, shared by readiness display and execution."""
-    if owner_type == "CONSIGNOR":
-        return "Consignor eBay publishing is not enabled yet"
+    """Managed physical cards use the shared store and owner-scoped checks."""
+    if owner_type not in {"FOUNDER", "CONSIGNOR"}:
+        return "An active seller account is required for eBay"
     if product_type != "CARD":
         return "eBay v1 only supports individual physical cards"
     return None

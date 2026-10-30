@@ -119,8 +119,8 @@ async def main():
                     assert channel_item['market_value_minor']==item['market_value_minor']==1200
                     assert channel_item['recommended_retail_minor']==1200 and channel_item['store_value_minor']==1000+n*500
                     assert channel_item['card_image_url']==item['card_image_url']=='https://www.onepiece-cardgame.com/synthetic-reference.png'
-                    assert channel_item['channel_sync_blockers']['EBAY']=='Consignor eBay publishing is not enabled yet'
-                    assert not next(x for x in channel_data['channels'] if x['code']=='EBAY')['sync_enabled']
+                    assert channel_item['channel_sync_blockers']['EBAY'] is None
+                    assert next(x for x in channel_data['channels'] if x['code']=='EBAY')['sync_enabled']
                     unpriced=next((x for x in channel_data['items'] if x['inventory_code'].startswith('INV-UNPRICED')),None)
                     if unpriced:assert unpriced['market_value_minor'] is None and unpriced['recommended_retail_minor'] is None and unpriced['store_value_minor'] is None
                     foreign_search=await client.get('/api/v1/owner/channels',params={'search':f'INV-SYN-{1-n}-'},headers=headers(n))

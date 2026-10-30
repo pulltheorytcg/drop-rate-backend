@@ -193,4 +193,4 @@ def test_collection_withdrawal_recovers_uncertain_ebay_offer_state() -> None:
     assert "await client.get_offer(offer_id)" in block
     assert "await client.withdraw_offer(offer_id)" in block
     assert "Live eBay link has no recoverable remote offer" in block
-    assert "set state='WITHDRAWN'" in block
+    assert "tcg.record_ebay_channel_result" in block and "'WITHDRAWN'" in block

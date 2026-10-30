@@ -41,9 +41,9 @@ async def sync_inventory(
         if item["status"] != "APPROVED" or item["sale_intent"] != "FOR_SALE":
             raise HTTPException(409, "Only approved inventory marked For sale can be synced")
         if channel == "ebay":
-            # The legacy eBay seller publisher is an individually-owned card
-            # pathway with founder-only financial/media checks. Never route a
-            # consignor or sealed unit through it, even if shared eBay OAuth is READY.
+            # Managed consignor cards use the same owner-scoped media/intake
+            # checks and the shared store's atomic per-owner order allocation.
+            # Sealed items still have no supported eBay publication pathway.
             blocker = ebay_listing_scope_blocker(access["owner_type"], item["product_type"])
             if blocker:
                 raise HTTPException(409, blocker)
