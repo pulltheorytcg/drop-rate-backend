@@ -5,6 +5,9 @@ Its first publication validation timed out because JSON row counts produced a
 nested-loop plan. The follow-up adds statement-scoped planner settings and a
 70,000-card/50,000-price PostgreSQL regression. No incomplete publication was
 activated; API health and ordinary catalogue reads remain available.
+The second attempt verified all 161 objects but still hit a JSONB query timeout.
+The follow-up uses compact column bindings and hash joins; a production read-only
+plan completed in 2.71 seconds. Delivery remains gated on final live parity.
 
 The new whole-catalogue R2 path covers games/sets, card browsing and searches,
 sealed products and comic/manga catalogue identities. A private generation
