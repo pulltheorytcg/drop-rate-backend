@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -115,7 +116,13 @@ def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
     assert "Inventory" in html
     assert "/api/v1/owner/overview" in js
     assert "/api/v1/owner/inventory" in js
-    assert "/api/v1/inventory" not in js
+    # The one write exception retries an owner-scoped, version-checked personal
+    # collection withdrawal. Inventory reads still use the owner contracts.
+    inventory_calls = re.findall(r'apiRequest\(`(/api/v1/inventory/[^`]+)`', js)
+    assert inventory_calls == [
+        "/api/v1/inventory/${encodeURIComponent(item.inventory_id || item.id)}/sale-intent"
+    ]
+    assert 'apiRequest("/api/v1/inventory' not in js
     assert "/api/v1/finance/" not in js
 
     assert 'apiRequest("/api/v1/owner/overview")' in js
