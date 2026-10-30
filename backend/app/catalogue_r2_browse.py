@@ -5,9 +5,10 @@ day in Railway. Only the requested page (at most 81 rows + bounded offset)
 is passed back to PostgreSQL for its *current*, account-scoped price, owner,
 media, canonical appraisal and history overlays.
 
-This intentionally does not short-cut text search, owner/value sorts, keys,
-condition/grade pricing or arbitrary query shapes. They retain SQL fallback
-until independently proven. No shared R2 object contains owner or price data.
+Only explicitly supported text/owner/product-type shapes use a bounded
+Railway shortlist; complicated searches, value sorts, watchlists, condition
+pricing and ambiguous query shapes retain the original SQL fallback.
+No shared R2 object contains owner or price data.
 """
 from __future__ import annotations
 
