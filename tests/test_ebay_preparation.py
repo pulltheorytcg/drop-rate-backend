@@ -20,7 +20,7 @@ def test_readiness_is_read_only_and_keeps_scope_separate_from_preparation():
     assert result['scope_blocker'] is None and item == before
     item['owner_type'] = 'CONSIGNOR'
     result = ebay_preparation(item)
-    assert result['completed'] == 9 and 'Consignor' in result['scope_blocker']
+    assert result['completed'] == 9 and result['scope_blocker'] is None
 
 
 @pytest.mark.parametrize('change,missing', [

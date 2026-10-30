@@ -129,9 +129,9 @@ async def test_parallel_ebay_publishes_leave_capacity_for_their_own_queries(monk
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("product_type,owner_type", [
-    ("SEALED","CONSIGNOR"),("CARD","CONSIGNOR"),("SEALED","FOUNDER")
+    ("SEALED","CONSIGNOR"),("COMIC","CONSIGNOR"),("SEALED","FOUNDER")
 ])
-async def test_ebay_route_fails_closed_for_consignment_and_sealed_items(monkeypatch, product_type, owner_type):
+async def test_ebay_route_fails_closed_for_unsupported_products(monkeypatch, product_type, owner_type):
     owner,user_id,inventory_id=uuid4(),uuid4(),uuid4()
     @asynccontextmanager
     async def connection(*args):
@@ -157,3 +157,46 @@ async def test_ebay_route_fails_closed_for_consignment_and_sealed_items(monkeypa
     assert exc.value.status_code==409
     assert "eBay" in str(exc.value.detail)
     publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scenario,status", [("ready", 200), ("foreign", 404),
+    ("stale", 409), ("draft", 409), ("personal", 409), ("disabled", 409),
+    ("unbound", 409), ("intake_missing", 409)])
+async def test_consignor_ebay_sync_preserves_owner_version_and_publication_gates(monkeypatch, scenario, status):
+    owner, user_id, item_id = uuid4(), uuid4(), uuid4()
+    @asynccontextmanager
+    async def connection(*args):
+        class Connection:
+            async def fetchrow(self, sql, *params):
+                assert 'i.owner_id=$2' in sql and params == (item_id, owner)
+                if scenario == 'foreign':
+                    return None
+                return {'id': item_id, 'version': 5 if scenario == 'stale' else 4,
+                        'status': 'DRAFT' if scenario == 'draft' else 'APPROVED',
+                        'sale_intent': 'PERSONAL_COLLECTION' if scenario == 'personal' else 'FOR_SALE',
+                        'product_type': 'CARD'}
+        yield Connection()
+    monkeypatch.setattr(sync, 'user_connection', connection)
+    monkeypatch.setattr(sync, 'require_owner_portal', AsyncMock(return_value={
+        'owner_id': owner, 'owner_type': 'CONSIGNOR'}))
+    monkeypatch.setattr(sync, 'get_settings', lambda: SimpleNamespace(
+        ebay_seller_sync_enabled=scenario != 'disabled', ebay_publish_enabled=True,
+        ebay_shared_store_owner_id=None if scenario == 'unbound' else str(uuid4())))
+    publish = AsyncMock(return_value={'status': 'LIVE', 'internal_plan': 'private'})
+    if scenario == 'intake_missing':
+        publish.side_effect = HTTPException(409, {'blockers': ['registered storage location is required']})
+    monkeypatch.setattr(sync, 'publish_inventory_to_ebay', publish)
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),
+                              state=SimpleNamespace(request_id='consignor-ebay-test'))
+    user = SimpleNamespace(user_id=user_id)
+    if status == 200:
+        result = await sync.sync_inventory(item_id, 'ebay', sync.SyncRequest(version=4), request, user)
+        assert result == {'inventory_id': str(item_id), 'channel': 'EBAY', 'status': 'LIVE'}
+        assert publish.call_args.args == (item_id, ebay_sales.EbayListRequest(version=4), request, user)
+    else:
+        with pytest.raises(HTTPException) as exc:
+            await sync.sync_inventory(item_id, 'ebay', sync.SyncRequest(version=4), request, user)
+        assert exc.value.status_code == status
+        if scenario != 'intake_missing':
+            publish.assert_not_called()
