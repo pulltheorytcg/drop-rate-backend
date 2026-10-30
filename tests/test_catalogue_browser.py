@@ -12,9 +12,11 @@ from app.auth import require_user
 
 @pytest.mark.parametrize('role,roster,status', [('OWNER',False,200),('PLATFORM_ADMIN',True,200),('PLATFORM_ADMIN',False,403),(None,False,403)])
 @pytest.mark.parametrize('path', ['/games','/sets?system_code=ONE_PIECE_CARD_GAME','/products?q=Luffy','/products?q=223&slab_number=223&slab_name=Charizard','/select'])
+@pytest.mark.parametrize('live_delivery',[False,True])
 @pytest.mark.asyncio
-async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, path):
-    owner_id=uuid4(); user_id=uuid4(); queries=[]
+async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, path, live_delivery):
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED',str(live_delivery).lower())
+    owner_id=uuid4(); user_id=uuid4(); queries=[]; snapshots=[]
     class Connection:
         async def fetchrow(self, sql, *args):
             queries.append((sql,args)); return {"product_type":"CARD","catalogue_id":uuid4()}
@@ -24,7 +26,9 @@ async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, p
                     'display_name':'Test','owner_type':'FOUNDER' if roster else 'CONSIGNOR','founder_slot':1 if roster else None}]
             queries.append((sql,args)); return []
     @asynccontextmanager
-    async def connection(*args): yield Connection()
+    async def connection(*args,readonly_snapshot=False):
+        snapshots.append(readonly_snapshot)
+        yield Connection()
     monkeypatch.setattr(browser,'user_connection',connection)
     app=FastAPI(); app.state.db_pool=object(); app.include_router(browser.router)
     app.dependency_overrides[require_user]=lambda:SimpleNamespace(user_id=user_id)
@@ -37,6 +41,7 @@ async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, p
     else:
         assert queries and all(args[0]==owner_id for _,args in queries)
         assert all('i.owner_id=$1' in sql for sql,_ in queries)
+    assert any(snapshots)==(live_delivery and status==200 and path!='/select')
 
 
 def test_set_tiles_receive_metadata_not_arbitrary_card_images():
@@ -144,7 +149,9 @@ def test_browse_family_filters_keep_exact_printing_and_owner_scope(system,member
 
 
 @pytest.mark.asyncio
-async def test_naruto_set_browsing_expands_family_but_returns_original_system(monkeypatch):
+@pytest.mark.parametrize('live_delivery',[False,True])
+async def test_naruto_set_browsing_expands_family_but_returns_original_system(monkeypatch,live_delivery):
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED',str(live_delivery).lower())
     owner_id=uuid4()
     class Connection:
         async def fetch(self,sql,*args):
@@ -153,7 +160,9 @@ async def test_naruto_set_browsing_expands_family_but_returns_original_system(mo
             return [{'system_code':'NARUTO_KAYOU','set_id':'1','total_count':2},
                     {'system_code':'NARUTO_BANDAI_LEGACY','set_id':'1','total_count':2}]
     @asynccontextmanager
-    async def connection(*args): yield Connection()
+    async def connection(*args,readonly_snapshot=False):
+        assert readonly_snapshot==live_delivery
+        yield Connection()
     monkeypatch.setattr(browser,'user_connection',connection)
     request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),state=SimpleNamespace(request_id='test'))
     result=await browser.sets(request,SimpleNamespace(user_id=uuid4()),{'owner_id':owner_id},'NARUTO','','',40,0)
