@@ -171,3 +171,24 @@ def test_extended_live_reader_does_not_enable_itself_by_default(monkeypatch):
     assert live.extended_browse_enabled() is False
     monkeypatch.setenv("TCG_R2_LIVE_CATALOGUE_EXTENDED_BROWSE_ENABLED","true")
     assert live.extended_browse_enabled() is True
+
+
+def test_value_ordering_keeps_unpaged_population_and_live_price_owner_predicates():
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_value_sql, _STATIC_COLUMNS
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    owner=UUID('10000000-0000-0000-0000-000000000001')
+    for direction in ('value_asc','value_desc'):
+        query,params=product_query(owner_id=owner,sort=direction,limit=1,
+                                  owned='owned',language='English')
+        sql,args=indexed_value_sql(query,params,idx)
+        assert len(args[len(params)])==len(idx.entries)>2
+        provider_ids=args[len(params)+[name for name,_ in _STATIC_COLUMNS].index('provider_id')]
+        assert 'OP15-001' in provider_ids and 'OP15-001_p1' in provider_ids
+        assert 'tcg.reference_cards' not in sql
+        assert 'tcg.reference_market_prices' in sql
+        assert 'tcg.catalogue_reference_value_v2' in sql
+        assert 'coalesce(o.quantity,0)>0' in sql
+        assert 'e.language=$2' in sql
+        assert 'tcg.reference_image_mirrors' in sql
+        assert args[:len(params)]==params

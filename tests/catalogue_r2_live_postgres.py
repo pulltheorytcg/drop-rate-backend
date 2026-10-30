@@ -179,6 +179,12 @@ async def check(db):
                         assert 'from tcg.catalogue_products ' not in sql
                         cached=[dict(r) for r in await db.fetch(sql,*params)]
                         assert original==cached,(actor,options,sort,original,cached)
+                        # Exercise the actual reader, including the indexed
+                        # whole-population value sort and live canonical values.
+                        from app.catalogue_browser import SOURCE_CTE
+                        if sort in ('value_desc','value_asc') and query.startswith(SOURCE_CTE):
+                            actual=[dict(r) for r in await live.fetch_snapshot(db,query,args,snapshot)]
+                            assert original==actual,(actor,options,sort,original,actual)
                         if options.get('provider'):
                             sql,params=snapshot.sql(query,args,systems=[options['system_code']],language=options['language'],provider=options['provider'],set_id=options['set_id'])
                             assert original==[dict(r) for r in await db.fetch(sql,*params)]

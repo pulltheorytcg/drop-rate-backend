@@ -301,6 +301,12 @@ SORTS = {
     "value_asc": "coalesce(v.market_value_minor,e.reference_value_minor) asc nulls last,lower(e.name),e.key",
 }
 
+# This is also evaluated separately by the R2 reader, in the same authorised
+# snapshot, before applying planner settings needed for large array joins.
+REFERENCE_VALUES_SQL = """select p.id,v.* from tcg.catalogue_products p
+      left join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) v on p.product_type<>'COMIC'"""
+REFERENCE_VALUES_CTE = 'reference_values as materialized (\n      ' + REFERENCE_VALUES_SQL + '\n    )'
+
 
 def price_columns(entry: str, shared: bool = False) -> str:
     low = ',d.market_value_minor' if shared else ''
@@ -497,10 +503,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     # Value sorts must price the matching population before pagination. All
     # other sorts can select a page first and price only those canonical rows.
     if sort in ("value_desc", "value_asc"):
-        query = source_cte + f""", reference_values as materialized (
-      select p.id,v.* from tcg.catalogue_products p
-      left join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) v on p.product_type<>'COMIC'
-    ), page as (
+        query = source_cte + f""", {REFERENCE_VALUES_CTE}, page as (
       select e.*,coalesce(o.quantity,0) as owned_quantity,{price_columns('e', bool(shared_prices))},
              row_number() over(order by {order}) as ordinal
       from entries e left join owned o on o.catalogue_id=e.catalogue_id
