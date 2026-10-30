@@ -124,9 +124,9 @@ async def reference_image_bytes(url: str, *, max_bytes: int = 4_000_000,
         return None
 
 
-def optimized_media_bytes(payload: ReferenceImagePayload) -> bytes:
+def optimized_media_bytes(payload: ReferenceImagePayload, *, min_dimension: int = 200) -> bytes:
     """Deterministic, EXIF-stripped, bounded WebP; never upload source HTML/SVG."""
-    image, _, _ = _open_image(payload.data)
+    image, _, _ = _open_image(payload.data, min_dimension=min_dimension)
     image = ImageOps.exif_transpose(image)
     image.thumbnail((960, 1344))
     image = image.convert('RGBA' if 'A' in image.getbands() else 'RGB')

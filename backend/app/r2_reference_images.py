@@ -19,7 +19,7 @@ from uuid import UUID, uuid4
 
 from .object_storage import ObjectStorageError, configured_object_storage
 from .r2_media import optimized_media_bytes
-from .recognition_images import reference_image_bytes
+from .recognition_images import reference_image_bytes, reference_display_min_dimension
 from .access_control import require_platform_admin
 from .db import user_connection
 from .database_capacity import check_database_capacity
@@ -154,7 +154,8 @@ async def mirror_reference_images(pool: Any, *, limit: int, request_id: str) -> 
                     if payload is None:
                         reason = 'SOURCE_UNAVAILABLE'
                     else:
-                        content = await asyncio.to_thread(optimized_media_bytes,payload)
+                        content = await asyncio.to_thread(optimized_media_bytes,payload,
+                            min_dimension=reference_display_min_dimension(url))
                         receipt = await asyncio.to_thread(store.put_verified_media,content)
                         if receipt['verified'] is not True:
                             raise ObjectStorageError('R2 byte verification failed')

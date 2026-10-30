@@ -4,6 +4,7 @@ import asyncio
 import base64
 import hashlib
 import io
+import re
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -119,7 +120,25 @@ def _fingerprints(image: Image.Image) -> tuple[int, ...]:
     return tuple(dict.fromkeys(values))
 
 
-def _open_image(data: bytes) -> tuple[Image.Image, int, int]:
+def reference_display_min_dimension(url: str) -> int:
+    """CardTrader's exact blueprint thumbnails are 180px; scans remain 200px."""
+    try:
+        parsed = urlparse(url)
+        if (parsed.scheme == 'https'
+                and parsed.hostname in {'cardtrader.com', 'www.cardtrader.com'}
+                and parsed.port in {None, 443}
+                and parsed.username is None and parsed.password is None
+                and not parsed.query and not parsed.fragment
+                and re.fullmatch(
+                    r'/uploads/blueprints/image/[0-9]+/preview_[A-Za-z0-9_.()-]+\.(?:png|webp|jpg|jpeg)',
+                    parsed.path, flags=re.I)):
+            return 180
+    except (TypeError, ValueError):
+        pass
+    return 200
+
+
+def _open_image(data: bytes, *, min_dimension: int = 200) -> tuple[Image.Image, int, int]:
     if not data:
         raise RecognitionImageError("Recognition image is empty")
     Image.MAX_IMAGE_PIXELS = 40_000_000
@@ -132,7 +151,7 @@ def _open_image(data: bytes) -> tuple[Image.Image, int, int]:
     if getattr(image, "is_animated", False):
         raise RecognitionImageError("Animated images are not supported")
     width, height = image.size
-    if width < 200 or height < 200:
+    if width < min_dimension or height < min_dimension:
         raise RecognitionImageError("Recognition image resolution is too low")
     if width * height > 40_000_000:
         raise RecognitionImageError("Recognition image dimensions are too large")
@@ -302,7 +321,8 @@ async def _fetch_reference_image_uncached(
         return None
 
     try:
-        image, _, _ = _open_image(data)
+        image, _, _ = _open_image(data, min_dimension=max(
+            reference_display_min_dimension(url), reference_display_min_dimension(current)))
     except RecognitionImageError:
         return None
     # Some VIZ publisher JPEGs omit Content-Type. Only those exact publisher
