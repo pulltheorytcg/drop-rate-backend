@@ -351,6 +351,8 @@ async def verify(pool, actor, snapshot):
             and provider_variant_key='' and match_status='VERIFIED'""")]
         navigation=build_navigation(snapshot.rows,
             today=datetime.now(timezone.utc).date(),verified_mappings=verified)
+        browse_index=build_browse_index(snapshot.rows,
+            today=datetime.now(timezone.utc).date(),verified_mappings=verified)
         owner_nav=await owned_navigation(connection,owner)
         cases=[('games',GAMES_SQL,[owner]),
             ('sets',SETS_SQL,[owner,['POKEMON_TCG'],'','',10,0])]
@@ -371,6 +373,10 @@ async def verify(pool, actor, snapshot):
             elif name=='sets':
                 cached=navigation.sets(systems=['POKEMON_TCG'],limit=10,
                                        owner=owner_nav)
+            elif name=='browse':
+                indexed_query,indexed_args=indexed_browse_sql(query,args,browse_index)
+                cached=[dict(row) for row in await connection.fetch(
+                    indexed_query,*indexed_args)]
             else:
                 cached=[dict(row) for row in await fetch_snapshot(
                     connection,query,args,snapshot)]
