@@ -404,7 +404,11 @@ async def fetch_snapshot(connection, query, params, snapshot, **scope):
         # plan and bind its complete result in the SAME
         # authorised transaction. These transient values never enter R2.
         if REFERENCE_VALUES_CTE in query:
+            value_started=time.perf_counter()
+            log.warning('CATALOGUE_R2_VALUE_PHASE stage=canonical_start')
             values = [dict(row) for row in await connection.fetch(REFERENCE_VALUES_SQL)]
+            log.warning('CATALOGUE_R2_VALUE_PHASE stage=canonical_complete rows=%s elapsed_ms=%.2f',
+                        len(values),(time.perf_counter()-value_started)*1000)
             def encode(value):
                 if isinstance(value, UUID):
                     return str(value)
@@ -418,6 +422,16 @@ async def fetch_snapshot(connection, query, params, snapshot, **scope):
                 pricing_updated_at timestamptz,basis_condition text,
                 basis_language text,valuation_source text))'''
             query = query.replace(REFERENCE_VALUES_CTE, replacement, 1)
+        if array_query:
+            # This path already has one indexed entry population. It no longer
+            # joins five unindexed source relations, so retain normal indexed
+            # plans for prices, RLS checks and page media lookups.
+            value_started=time.perf_counter()
+            log.warning('CATALOGUE_R2_VALUE_PHASE stage=indexed_start')
+            rows=await connection.fetch(query,*params)
+            log.warning('CATALOGUE_R2_VALUE_PHASE stage=indexed_complete rows=%s elapsed_ms=%.2f',
+                        len(rows),(time.perf_counter()-value_started)*1000)
+            return rows
         previous=await connection.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('enable_mergejoin') as mergejoin,current_setting('jit') as jit")
         await connection.execute('set local enable_nestloop=off; set local enable_mergejoin=off; set local jit=off')
         sql,args=(query,params) if array_query else snapshot.sql(query,params,**scope)
