@@ -307,7 +307,7 @@ async def refresh_exports(pool, actor, *, previous=None, http_client=None, stora
                 values.append((ref["provider"], ref["system_code"], ref["language"], ref["provider_id"],
                     [quote], quote["price_gbp_minor"], quote["price_gbp_minor"], observed, now,
                     now+timedelta(days=1), ref["name"], ref["set_id"], ref["card_number"],
-                    ref["set_name"], ref.get("rarity"), SOURCE))
+                    ref["set_name"], ref.get("rarity"), SOURCE, None, None))
         if build_timestamp(await client.get("last-updated.txt", timestamp=True), now) != observed:
             raise SourceError("SOURCE_BUILD_CHANGED")
         report["eligible_quotes"] = len(values)
