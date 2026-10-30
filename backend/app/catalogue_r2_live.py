@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import hashlib
 import json
 import logging
@@ -21,6 +22,7 @@ from .access_control import require_platform_admin
 from .db import user_connection
 from .object_storage import ObjectStorageError, configured_object_storage
 from .catalogue_r2_index import SharedReferenceIndex
+from .catalogue_r2_navigation import build_navigation, owned_navigation
 
 log = logging.getLogger(__name__)
 SCHEMA = 'drop-rate-live-catalogue-v1'
@@ -171,6 +173,41 @@ def assemble(manifest, parts):
 
 _current = None
 _loading = None
+_nav_cache = {}
+
+
+def navigation_enabled():
+    return os.getenv('TCG_R2_LIVE_CATALOGUE_NAVIGATION_ENABLED', 'false').lower() in ('true','1')
+
+
+def navigation_for(snapshot):
+    """Build one immutable Railway navigation index per R2 generation/UTC date.
+
+    The clock-dependent release filter must refresh at midnight without
+    requiring an R2 rewrite or restarting Railway.
+    """
+    key=(snapshot.generation,datetime.now(timezone.utc).date())
+    if key not in _nav_cache:
+        _nav_cache.clear()
+        _nav_cache[key]=build_navigation(snapshot.rows,today=key[1])
+    return _nav_cache[key]
+
+
+async def eligible_navigation(connection,snapshot):
+    """Never use precomputed canonical aliases when dynamic verified mappings exist."""
+    if snapshot is None or not navigation_enabled():
+        return None
+    try:
+        verified=await connection.fetchval("""select exists(
+            select 1 from tcg.provider_catalogue_mappings
+            where match_status='VERIFIED'
+              and provider_entity_type='CARD_PRINTING'
+              and provider_variant_key='')""")
+        return None if verified else navigation_for(snapshot)
+    except Exception as exc:
+        log.warning('CATALOGUE_R2_NAVIGATION_FALLBACK type=%s',type(exc).__name__)
+        return None
+
 
 
 async def download(manifest, storage):
@@ -220,6 +257,21 @@ async def read(connection):
 
 
 async def fetch(connection, query, params, snapshot, **scope):
+    if snapshot is not None and navigation_enabled():
+        try:
+            from .catalogue_browser import GAMES_SQL, SETS_SQL
+            if query in (GAMES_SQL, SETS_SQL):
+                nav=await eligible_navigation(connection,snapshot)
+                if nav is not None:
+                    if query==GAMES_SQL:
+                        return nav.games()
+                    if isinstance(params[3],str) and params[3].isascii():
+                        owner=await owned_navigation(connection,params[0])
+                        return nav.sets(systems=params[1],language=params[2],
+                            search=params[3],limit=params[4],offset=params[5],
+                            owner=owner)
+        except Exception as exc:
+            log.warning('CATALOGUE_R2_NAVIGATION_QUERY_FALLBACK type=%s',type(exc).__name__)
     if snapshot is not None:
         try:
             rows=await fetch_snapshot(connection,query,params,snapshot,**scope)
@@ -259,6 +311,16 @@ async def verify(pool, actor, snapshot):
         if state['generation']!=snapshot.generation:
             return {'status':'SOURCE_CHANGED','equal':None}
         owner=access['owner_id']
+        verified=[dict(row) for row in await connection.fetch("""
+          select catalogue_id::text as catalogue_id,source_provider,
+            system_code,provider_language,provider_id,provider_entity_type,
+            provider_variant_key,match_status
+          from tcg.provider_catalogue_mappings
+          where provider_entity_type='CARD_PRINTING'
+            and provider_variant_key='' and match_status='VERIFIED'""")]
+        navigation=build_navigation(snapshot.rows,
+            today=datetime.now(timezone.utc).date(),verified_mappings=verified)
+        owner_nav=await owned_navigation(connection,owner)
         cases=[('games',GAMES_SQL,[owner]),
             ('sets',SETS_SQL,[owner,['POKEMON_TCG'],'','',10,0])]
         for name,options in (('browse',{}),('search',dict(q='Pikachu')),
@@ -273,7 +335,14 @@ async def verify(pool, actor, snapshot):
             db_ms=round((time.perf_counter()-started)*1000,2)
             log.warning('CATALOGUE_R2_LIVE_PARITY_DATABASE case=%s rows=%s elapsed_ms=%s',name,len(original),db_ms)
             started=time.perf_counter()
-            cached=[dict(row) for row in await fetch_snapshot(connection,query,args,snapshot)]
+            if name=='games':
+                cached=navigation.games()
+            elif name=='sets':
+                cached=navigation.sets(systems=['POKEMON_TCG'],limit=10,
+                                       owner=owner_nav)
+            else:
+                cached=[dict(row) for row in await fetch_snapshot(
+                    connection,query,args,snapshot)]
             r2_ms=round((time.perf_counter()-started)*1000,2)
             results.append(dict(case=name,rows=len(original),equal=original==cached,
                                 database_ms=db_ms,r2_ms=r2_ms))
