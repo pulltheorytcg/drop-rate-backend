@@ -1749,3 +1749,18 @@ Reference revision 19 completed at **2026-10-13 22:49:51.645823 UTC** with zero 
 ## Comic and manga grading choices — 2026-10-13
 
 User clarified the required Seller Hub choices: **CGC for Marvel, DC and other comics; CGC or BGS for manga**. Replaced the generic grading dropdown with category-specific choices and bumped the book script version. A company change clears the old grade/certificate, including switching BGS manga to a comic, so certificate data cannot silently move to a different company. Existing records and the general intake API remain compatible. Extended the existing browser and disposable PostgreSQL fixtures for both manga graders and certificate handling; 49 focused unit/contract checks and JavaScript/Python syntax checks passed locally. This changes entry options, not market-data provider connections or grading authentication.
+
+
+### 30 October 2026 — R2 catalogue, current prices and artwork
+
+- PRs 814–816 repair publication value-query transport and authenticated
+  reference-image leases. Production delivery is gated by all eight parity cases.
+- Add independent, content-verified R2 copies of the four shared price caches,
+  with atomic freshness invalidation and bounded default/search/owned/sealed
+  page delivery. Existing SQL still validates exact identity and expiry.
+- Extend private reference image coverage to existing Naruto and CardTrader
+  sources with matching application and RLS policies. No owner data is exported,
+  no source rows are deleted, and no store/Shopify media approvals change.
+- Local unit and disposable SQL checks cover corrupted/partial uploads,
+  generation races, owner separation, stale prices and authenticated image
+  receipts. Production publication and copy progress still require readback.

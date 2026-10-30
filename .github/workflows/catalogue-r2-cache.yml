@@ -4,6 +4,9 @@ on:
     paths:
       - 'backend/app/catalogue_r2_cache.py'
       - 'backend/app/catalogue_r2_live.py'
+      - 'backend/app/catalogue_r2_market.py'
+      - 'backend/app/catalogue_r2_browse.py'
+      - 'database/migrations/*r2_live_market_data.sql'
       - 'database/migrations/*live_catalogue_r2_publication.sql'
       - 'backend/app/catalogue_browser.py'
       - 'backend/app/catalogue_display_prices.py'
@@ -12,6 +15,7 @@ on:
       - 'backend/app/db.py'
       - 'tests/*catalogue_r2_cache*'
       - 'tests/*catalogue_r2_live*'
+      - 'tests/*catalogue_r2_market*'
       - 'tests/shared_reference_fixture.py'
       - '.github/workflows/catalogue-r2-cache.yml'
 permissions:
@@ -41,5 +45,8 @@ jobs:
         env:
           CATALOGUE_R2_CACHE_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/catalogue_r2_cache_test
       - run: PYTHONPATH=backend python tests/catalogue_r2_live_postgres.py
+        env:
+          CATALOGUE_R2_CACHE_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/catalogue_r2_cache_test
+      - run: PYTHONPATH=backend python tests/catalogue_r2_market_postgres.py
         env:
           CATALOGUE_R2_CACHE_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/catalogue_r2_cache_test

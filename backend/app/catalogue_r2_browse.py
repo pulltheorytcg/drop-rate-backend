@@ -157,7 +157,7 @@ def build_browse_index(shared, *, today=None, verified_mappings=None):
     return BrowseIndex(today,tuple(sorted(rows,key=_sort_key)))
 
 
-def _compose_indexed_sql(query, params, rows, *, dynamic=False):
+def _compose_indexed_sql(query, params, rows, *, dynamic=False, market=None):
     from .catalogue_browser import SOURCE_CTE
     if not query.startswith(SOURCE_CTE):
         raise ValueError("Unrecognized R2 browse query")
@@ -259,7 +259,7 @@ with static_page as (
  group by i.catalogue_id
 )
 """
-    return prefix+tail,args
+    return market.sql(prefix+tail,args,rows) if market is not None else (prefix+tail,args)
 
 
 def indexed_value_sql(query, params, snapshot):
@@ -272,7 +272,7 @@ def indexed_value_sql(query, params, snapshot):
     return _compose_indexed_sql(query,params,snapshot.entries,dynamic=True)
 
 
-def indexed_browse_sql(query, params, snapshot, *, max_page=81):
+def indexed_browse_sql(query, params, snapshot, *, max_page=81, market=None):
     """Fast default global newest case, with no query or owner filter."""
     from .catalogue_browser import SOURCE_CTE
     if not isinstance(query,str) or not query.startswith(SOURCE_CTE):
@@ -283,17 +283,17 @@ def indexed_browse_sql(query, params, snapshot, *, max_page=81):
             "where true order by e.release_date desc nulls last,lower(e.name),e.key" not in tail):
         raise ValueError("Default browse only")
     limit,offset=params[1],params[2]
-    return _compose_indexed_sql(query,params,snapshot.page(limit,offset))
+    return _compose_indexed_sql(query,params,snapshot.page(limit,offset),market=market)
 
 
-def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidates=2000):
+def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidates=2000, market=None):
     """Finite R2 shortlist for text search, books, sealed and owned stock.
 
     The real SQL query still applies all predicates and dynamic valuation,
     image, owner and RLS rules to the shortlisted printing identities.
     """
     try:
-        sql,args=indexed_browse_sql(query,params,snapshot)
+        sql,args=indexed_browse_sql(query,params,snapshot,market=market)
         return sql,args,"NEWEST"
     except ValueError:
         pass
@@ -344,4 +344,4 @@ def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidat
                     raise ValueError("Search result exceeds bounded R2 shortlist")
     else:
         raise ValueError("Unsupported R2 browse query shape")
-    return (*_compose_indexed_sql(query,params,rows),mode)
+    return (*_compose_indexed_sql(query,params,rows,market=market),mode)

@@ -63,9 +63,11 @@ def one_piece_artwork_url(value):
 # Provider + game are fixed by the exact database identity, never by client URL.
 # Do not relay card marketplace listings or fan-archive scans through this path.
 REFERENCE_IMAGE_PROVIDER_HOSTS = {
-    ('TCGdex', 'POKEMON_TCG'): frozenset({'assets.tcgdex.net'}),
+    ('TCGdex', 'POKEMON_TCG'): frozenset({'assets.tcgdex.net', 'cardtrader.com'}),
     ('Bandai Official', 'DRAGON_BALL_SUPER_MASTERS'): frozenset({'www.dbs-cardgame.com'}),
     ('Bandai Official', 'DRAGON_BALL_SUPER_FUSION_WORLD'): frozenset({'www.dbs-cardgame.com'}),
+    ('Naruto Card Game Archive', 'NARUTO_BANDAI_LEGACY'): frozenset({'narutocardgame.gg'}),
+    ('Naruto Card Game Archive', 'NARUTO_KAYOU'): frozenset({'narutocardgame.gg'}),
 }
 
 
@@ -77,6 +79,13 @@ def provider_reference_artwork_url(value, provider: str, system_code: str) -> bo
         return False
     try:
         parsed = urlsplit(value)
+        if parsed.hostname == 'cardtrader.com' and not re.fullmatch(
+                r'/uploads/blueprints/image/[0-9]+/[A-Za-z0-9_.-]+\.(?:png|webp|jpg|jpeg)', parsed.path, flags=re.I):
+            return False
+        if parsed.hostname == 'narutocardgame.gg':
+            directory = 'classic' if system_code == 'NARUTO_BANDAI_LEGACY' else 'kayou'
+            if not parsed.path.startswith('/images/'+directory+'/'):
+                return False
         return (parsed.scheme == 'https' and parsed.hostname in allowed
                 and parsed.port in (None, 443) and parsed.username is None
                 and parsed.password is None and not parsed.fragment

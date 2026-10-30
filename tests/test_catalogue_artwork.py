@@ -30,14 +30,14 @@ def test_artwork_transport_carries_only_exact_reference_identity():
 
 @pytest.mark.parametrize('provider,system,url,expected', [
     ('TCGdex','POKEMON_TCG','https://assets.tcgdex.net/en/me/30th/001/high.webp',True),
-    ('TCGdex','POKEMON_TCG','https://cardtrader.com/uploads/blueprints/image/4/photo.png',False),
+    ('TCGdex','POKEMON_TCG','https://cardtrader.com/uploads/blueprints/image/4/photo.png',True),
     ('TCGdex','POKEMON_TCG','https://assets.tcgdex.net.evil.test/card.png',False),
     ('TCGdex','POKEMON_TCG','https://assets.tcgdex.net:8080/en/card.png',False),
     ('TCGdex','POKEMON_TCG','http://assets.tcgdex.net/en/card.png',False),
     ('Bandai Official','DRAGON_BALL_SUPER_MASTERS','https://www.dbs-cardgame.com/images/cardlist/cardimg/BT1-001_b.png',True),
     ('Bandai Official','DRAGON_BALL_SUPER_FUSION_WORLD','https://www.dbs-cardgame.com/fw/images/cards/card/en/FB01-001_f.webp',True),
     ('Bandai Official','POKEMON_TCG','https://www.dbs-cardgame.com/images/card.png',False),
-    ('Naruto Card Game Archive','NARUTO_KAYOU','https://narutocardgame.gg/images/kayou/123.webp',False),
+    ('Naruto Card Game Archive','NARUTO_KAYOU','https://narutocardgame.gg/images/kayou/123.webp',True),
     ('Punk Records','ONE_PIECE_CARD_GAME',ART,True),
     ('Bandai Official','ONE_PIECE_CARD_GAME',ART,True),
     ('Punk Records','ONE_PIECE_CARD_GAME','https://en.onepiece-cardgame.com/other.png',False),

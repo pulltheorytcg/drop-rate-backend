@@ -221,6 +221,7 @@ _current = None
 _loading = None
 _nav_cache = {}
 _browse_cache = {}
+_value_plan_logged = set()
 
 
 def indexed_browse_enabled():
@@ -346,19 +347,23 @@ async def fetch(connection, query, params, snapshot, **scope):
                 and provider_entity_type='CARD_PRINTING'
                 and provider_variant_key='')"""):
                 selected=browse_for(snapshot)
+                from . import catalogue_r2_market
+                market=await catalogue_r2_market.read(connection)
                 if extended_browse_enabled():
                     owner_nav=(await owned_navigation(connection,params[0])
                         if "where coalesce(o.quantity,0)>0 order by" in query else None)
                     indexed_query,indexed_args,mode=indexed_catalogue_query(
-                        query,params,selected,owned=owner_nav)
+                        query,params,selected,owned=owner_nav,market=market)
                 else:
                     indexed_query,indexed_args=indexed_browse_sql(
-                        query,params,selected)
+                        query,params,selected,market=market)
                     mode='NEWEST'
                 async with connection.transaction():
                     rows=await connection.fetch(indexed_query,*indexed_args)
                 log.info('CATALOGUE_R2_INDEXED_BROWSE_HIT mode=%s rows=%s',
                          mode,len(rows))
+                if market is not None:
+                    log.info('CATALOGUE_R2_MARKET_HIT generation=%s rows=%s',market.generation,len(rows))
                 return rows
         except Exception as exc:
             log.warning('CATALOGUE_R2_INDEXED_BROWSE_FALLBACK type=%s',
@@ -427,6 +432,21 @@ async def fetch_snapshot(connection, query, params, snapshot, **scope):
             # joins five unindexed source relations, so retain normal indexed
             # plans for prices, RLS checks and page media lookups.
             value_started=time.perf_counter()
+            if snapshot.generation not in _value_plan_logged:
+                # One bounded structural plan per generation. Never log SQL,
+                # parameter values, predicates, prices or account identifiers.
+                async with connection.transaction():
+                    plan=await connection.fetchval('explain (format json) '+query,*params)
+                if isinstance(plan,str):plan=json.loads(plan)
+                nodes=[]
+                def visit(node,depth=0):
+                    if len(nodes)>=48:return
+                    nodes.append({k:node[k] for k in ('Node Type','Relation Name','Join Type','Plan Rows','Total Cost') if k in node}|{'depth':depth})
+                    for child in node.get('Plans',[]):visit(child,depth+1)
+                visit(plan[0]['Plan'])
+                log.warning('CATALOGUE_R2_VALUE_PLAN %s',json.dumps(nodes,separators=(',',':')))
+                _value_plan_logged.clear()
+                _value_plan_logged.add(snapshot.generation)
             log.warning('CATALOGUE_R2_VALUE_PHASE stage=indexed_start')
             rows=await connection.fetch(query,*params)
             log.warning('CATALOGUE_R2_VALUE_PHASE stage=indexed_complete rows=%s elapsed_ms=%.2f',

@@ -52,7 +52,10 @@ left join tcg.reference_image_mirrors m
   using(provider,system_code,language,provider_id)
 where r.image_url is not null
   and ((r.provider='TCGdex' and r.system_code='POKEMON_TCG'
-         and split_part(r.image_url,'/',3)='assets.tcgdex.net')
+         and split_part(r.image_url,'/',3) in ('assets.tcgdex.net','cardtrader.com'))
+       or (r.provider='Naruto Card Game Archive'
+           and r.system_code in ('NARUTO_BANDAI_LEGACY','NARUTO_KAYOU')
+           and split_part(r.image_url,'/',3)='narutocardgame.gg')
        or (r.provider='Bandai Official' and
            r.system_code in ('DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD')
            and split_part(r.image_url,'/',3)='www.dbs-cardgame.com')
