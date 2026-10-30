@@ -8,7 +8,7 @@ be used, and cold downloads happen off the customer request transaction.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import json
 import logging
@@ -20,6 +20,7 @@ from uuid import UUID, uuid4
 from .access_control import require_platform_admin
 from .db import user_connection
 from .object_storage import ObjectStorageError, configured_object_storage
+from .catalogue_r2_index import SharedReferenceIndex
 
 log = logging.getLogger(__name__)
 SCHEMA = 'drop-rate-live-catalogue-v1'
@@ -110,6 +111,7 @@ class LiveCatalogue:
     generation: int
     manifest_digest: str
     rows: dict
+    scope_index: SharedReferenceIndex | None = field(default=None, repr=False, compare=False)
 
     def sql(self, query, params, *, systems=None, language='', provider=None, set_id=''):
         """Replace shared content only. Existing SQL still owns every decision."""
@@ -119,14 +121,19 @@ class LiveCatalogue:
         ctes=[]
         for table, columns in RELATIONS.items():
             rows=self.rows[table]
-            # Both original SQL filters and exact-link construction see the same
-            # selected reference universe. Canonical entries stay complete so a
-            # link outside the requested set cannot create a duplicate entry.
+            # The source population and SQL decisions are unchanged. Only
+            # reference collection is indexed in Railway (not PostgreSQL).
+            # Canonical products remain complete for exact-link suppression.
             if table.startswith('reference_'):
-                rows=[r for r in rows if (not systems or r['system_code'] in systems)
-                    and (not language or r['language']==language)
-                    and (provider is None or r['provider']==provider)
-                    and (not set_id or r['set_id']==set_id)]
+                if self.scope_index is not None:
+                    rows=self.scope_index.select(table,rows,
+                        systems=systems,language=language,provider=provider,
+                        set_id=set_id)
+                else:
+                    rows=[r for r in rows if (not systems or r['system_code'] in systems)
+                        and (not language or r['language']==language)
+                        and (provider is None or r['provider']==provider)
+                        and (not set_id or r['set_id']==set_id)]
             # Bind compact column arrays, not one very large JSONB recordset.
             # JSONB decoding multiplied memory and parse work on the production
             # database. Text arrays keep date/UUID transport consistent across
@@ -158,7 +165,8 @@ def assemble(manifest, parts):
                 raise ObjectStorageError('Duplicate catalogue identity across R2 parts')
             identities[table].add(key)
             rows[table].append(row)
-    return LiveCatalogue(manifest['generation'],manifest_digest(manifest),rows)
+    return LiveCatalogue(manifest['generation'],manifest_digest(manifest),rows,
+                         SharedReferenceIndex.build(rows))
 
 
 _current = None
