@@ -46,8 +46,11 @@ def worker_enabled() -> bool:
             and os.getenv('TCG_R2_REFERENCE_CACHE_APPLY_ENABLED','false').lower() in ('true','1'))
 
 PENDING_REFERENCE_IMAGES_SQL = """
+with pending as (
 select r.provider,r.system_code,r.language,r.provider_id,r.image_url,
-       coalesce(m.failure_count,0) as failure_count
+       case when m.source_url=r.image_url then m.failure_count else 0 end as failure_count,
+       coalesce(m.status='RETRY' and m.source_url=r.image_url,false) as is_retry,
+       m.next_retry_at
 from tcg.reference_cards r
 left join tcg.reference_image_mirrors m
   using(provider,system_code,language,provider_id)
@@ -66,7 +69,18 @@ where r.image_url is not null
                ('en.onepiece-cardgame.com','www.onepiece-cardgame.com')))
   and (m.provider is null or m.source_url is distinct from r.image_url
        or (m.status='RETRY' and m.next_retry_at<=now()))
-order by random()
+), ranked as (
+  select *,row_number() over (
+    partition by is_retry order by next_retry_at nulls last,random()
+  ) as queue_position
+  from pending
+)
+select provider,system_code,language,provider_id,image_url,failure_count
+from ranked
+-- Reserve four places for due retries; fill the rest with new/changed images.
+-- Either queue may fill unused places when the other queue is exhausted.
+order by case when is_retry and queue_position<=4 then 0
+              when not is_retry then 1 else 2 end,queue_position
 limit $1
 """
 

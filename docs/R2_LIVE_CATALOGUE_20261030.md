@@ -2,6 +2,19 @@
 
 ## Completion follow-up — 30 October 2026
 
+PR #821 deployed successfully as Railway deployment
+`4556fa82-d156-4048-a357-e678794bdc92` at 17:31 UTC. Readiness returned HTTP 200.
+
+The reference queue now reserves four of each 20 places for the oldest due
+retries, while new/changed sources fill the remaining places. Either queue can
+use unused capacity. This prevents a retry from being lost among 40,000-plus
+uncopied images for hours. Future retries and verified unchanged sources stay
+excluded; a changed source starts with zero failures rather than inheriting its
+old source's backoff. Download concurrency, batch size and capacity checks are
+unchanged. A disposable 10,000-row SQL fixture verifies these behaviors and is
+also run against native PostgreSQL 17 in CI. Read-only EXPLAIN ANALYZE of the
+new selection on production completed in 868ms.
+
 The failed configuration rollout was corrected by PR #820. Railway deployment
 `db55407d-3af5-4744-98af-53dfbed43bd5` reached SUCCESS at 15:54 UTC. Both R2
 publications remain current. The image worker continued during the interrupted
