@@ -97,3 +97,77 @@ def test_unknown_query_shapes_and_oversized_offsets_fallback():
         query,params=product_query(owner_id=owner,limit=9,**opts)
         with pytest.raises(ValueError):
             indexed_browse_sql(query,params,idx)
+
+
+
+def test_extended_indexed_modes_are_bounded_and_printing_safe():
+    from copy import deepcopy
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_catalogue_query
+    data=deepcopy(fixture())
+    data["reference_sealed_products"].append(dict(
+        provider="Bandai Official",system_code="ONE_PIECE_CARD_GAME",
+        language="English",set_id="OP15",provider_id="sealed-pack",
+        name="OP15 Sealed Pack",product_type="BOOSTER_PACK",
+        image_url=None,source_url=None))
+    idx=build_browse_index(data,today=date(2026,10,30))
+    owner=UUID("10000000-0000-0000-0000-000000000001")
+
+    for kind in ("COMIC","SEALED"):
+        query,params=product_query(owner_id=owner,product_type=kind,limit=9)
+        sql,args,mode=indexed_catalogue_query(query,params,idx)
+        assert mode==kind
+        assert "jsonb_to_recordset($5::jsonb)" in sql
+        assert {r["product_type"] for r in json.loads(args[-1])}=={kind}
+        assert len(json.loads(args[-1]))==1
+        assert "tcg.inventory_items" in sql
+        assert "tcg.reference_catalogue_prices" in sql
+
+    query,params=product_query(owner_id=owner,owned="owned",limit=9)
+    owner_facts={"10000000-0000-0000-0000-000000000001":(1,400,0)}
+    sql,args,mode=indexed_catalogue_query(query,params,idx,owned=owner_facts)
+    assert mode=="OWNED"
+    owned_rows=json.loads(args[-1])
+    assert len(owned_rows)==1
+    assert owned_rows[0]["provider_id"]=="OP15-001"
+    # Owning the standard printing must never grant its parallel.
+    assert owned_rows[0]["provider_id"]!="OP15-001_p1"
+    assert all("owner_id" not in row and "market_value_minor" not in row
+               for row in owned_rows)
+
+    query,params=product_query(owner_id=owner,q="Krieg",limit=9)
+    sql,args,mode=indexed_catalogue_query(query,params,idx)
+    assert mode=="SEARCH_TEXT"
+    matches=json.loads(args[-1])
+    assert {r["provider_id"] for r in matches}=={
+        "OP15-001","OP15-001_p1"}
+    assert "tcg.reference_market_prices" in sql
+    assert len(args)==len(params)+1
+
+
+def test_extended_search_rejects_ambiguous_or_unbounded_work():
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_catalogue_query
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    owner=UUID("10000000-0000-0000-0000-000000000001")
+    query,params=product_query(owner_id=owner,q="Krieg",limit=9)
+    with pytest.raises(ValueError):
+        indexed_catalogue_query(query,params,idx,max_candidates=1)
+    for options in (
+        dict(q="OP15-001"),dict(q="クリエグ"),
+        dict(q="Krieg",owned="owned"),
+        dict(q="Krieg",system_code="ONE_PIECE_CARD_GAME"),
+        dict(product_type="CARD"),dict(sort="value_asc"),
+        dict(owned="not_owned"),dict(owned="owned",offset=1000),
+    ):
+        query,params=product_query(owner_id=owner,limit=9,**options)
+        with pytest.raises(ValueError):
+            indexed_catalogue_query(query,params,idx,owned={})
+
+
+def test_extended_live_reader_does_not_enable_itself_by_default(monkeypatch):
+    from app import catalogue_r2_live as live
+    monkeypatch.delenv("TCG_R2_LIVE_CATALOGUE_EXTENDED_BROWSE_ENABLED",raising=False)
+    assert live.extended_browse_enabled() is False
+    monkeypatch.setenv("TCG_R2_LIVE_CATALOGUE_EXTENDED_BROWSE_ENABLED","true")
+    assert live.extended_browse_enabled() is True
