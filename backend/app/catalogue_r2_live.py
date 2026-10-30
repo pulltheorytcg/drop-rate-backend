@@ -47,6 +47,30 @@ def public_game_parity_diff(original, computed):
                 differences=changes)
 
 
+def public_set_parity_diff(original, computed):
+    """Public set metadata only; owner counts and valuations never enter logs."""
+    fields=('system_code','set_id','set_name','language','provider','game',
+            'release_date','indexed_count','card_count','total_count',
+            'checklist_status')
+    def clean(value):
+        return value.isoformat() if hasattr(value,'isoformat') else value
+    items=[]
+    for idx in range(min(max(len(original),len(computed)),12)):
+        a=original[idx] if idx<len(original) else {}
+        b=computed[idx] if idx<len(computed) else {}
+        changes={
+            k:dict(sql=clean(a.get(k)),r2=clean(b.get(k)))
+            for k in fields if a.get(k)!=b.get(k)
+        }
+        private_aggregates=('owned_count','owned_value_minor','unknown_values')
+        if any(a.get(k)!=b.get(k) for k in private_aggregates):
+            changes['owner_aggregates']='DIFFERENT'  # Never include values.
+        if changes:
+            items.append(dict(position=idx,fields=changes))
+    return dict(sql_rows=len(original),r2_rows=len(computed),
+                differences=items)
+
+
 SCHEMA = 'drop-rate-live-catalogue-v1'
 MAX_BYTES = 64_000_000
 MAX_PARTS = 300
@@ -425,6 +449,10 @@ async def verify(pool, actor, snapshot):
                 if name=='games':
                     log.warning('CATALOGUE_R2_LIVE_PUBLIC_GAME_DIFF %s',
                                 json.dumps(public_game_parity_diff(original,cached),
+                                           sort_keys=True))
+                elif name=='sets':
+                    log.warning('CATALOGUE_R2_LIVE_PUBLIC_SET_DIFF %s',
+                                json.dumps(public_set_parity_diff(original,cached),
                                            sort_keys=True))
                 return {'status':'MISMATCH','equal':False,'cases':results}
     return {'status':'MATCH','equal':True,'cases':results}

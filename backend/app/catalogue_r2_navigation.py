@@ -33,6 +33,18 @@ def _rkey(row: dict) -> tuple[str, str, str, str]:
     return (row["provider"],row["system_code"],row["language"],row["provider_id"])
 
 
+def _directory_text_order(value: str | None):
+    """Approximate PostgreSQL's case-aware text collation, not Python's bytes.
+
+    Empty and NULL-like fields retain their existing fallback. Equal
+    casefolded strings prefer the mixed/lowercase form over all-uppercase
+    display labels, e.g. "30th Celebration" before "30th CELEBRATION".
+    The independent PostgreSQL parity gate remains mandatory.
+    """
+    txt=value or ""
+    return (txt.casefold(), tuple(-ord(ch) for ch in txt))
+
+
 @dataclass(slots=True)
 class _EntryGroup:
     system_code: str | None
@@ -121,7 +133,10 @@ class NavigationIndex:
         matches.sort(key=lambda s:(
             s["release_date"] is None,
             -s["release_date"].toordinal() if s["release_date"] else 0,
-            s["set_name"] or "",s["language"] or "",s["provider"] or "",s["set_id"] or ""))
+            _directory_text_order(s["set_name"]),
+            _directory_text_order(s["language"]),
+            _directory_text_order(s["provider"]),
+            _directory_text_order(s["set_id"])))
         total=len(matches)
         result=[]
         current=owner or {}
