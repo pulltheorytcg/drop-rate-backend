@@ -31,9 +31,10 @@ create table tcg.catalogue_product_profiles(catalogue_id uuid,identity_status te
 create table tcg.inventory_items(id uuid primary key,inventory_code text,owner_id uuid,catalogue_id uuid,language text,condition text,grading_company text,grade text,seal_status text,certificate_number text,
  status text default 'DRAFT',sale_intent text default 'PERSONAL_COLLECTION',version int default 1,
  market_value_minor bigint,recommended_retail_minor bigint,store_price_minor bigint,pricing_updated_at timestamptz,latest_pricing_snapshot_id uuid,identity_confirmed bool default false,
- acquisition_cost_minor bigint,storage_location_id uuid,created_at timestamptz default now(),updated_at timestamptz default now());
+ acquisition_cost_minor bigint,storage_location_id uuid,condition_review_status text,created_at timestamptz default now(),updated_at timestamptz default now());
 create table tcg.pricing_snapshots(id uuid,inventory_id uuid,catalogue_id uuid,owner_id uuid,confidence numeric,evidence jsonb,source_count int,observation_count int,newest_observation_at timestamptz);
 create table tcg.shopify_inventory_links(inventory_id uuid,owner_id uuid,sync_state text,test_mode bool,last_synced_at timestamptz);
+create table tcg.shopify_shipping_profiles(owner_id uuid,profile_key text,active bool);
 create table tcg.audit_events(actor text,request_id text,action text,entity_type text,entity_id uuid,old_values jsonb,new_values jsonb);
 grant usage on schema tcg to tcg_api;grant select on all tables in schema tcg to tcg_api;
 alter table tcg.owner_memberships enable row level security;
