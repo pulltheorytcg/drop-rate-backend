@@ -1184,7 +1184,8 @@ function updateAllocationRemaining() {
 }
 async function saveBulkAllocation(event) {
   event.preventDefault();
-  setBusy(event.currentTarget, true);
+  const form = event.currentTarget;
+  setBusy(form, true);
   showMessage("bulk-message");
   try {
     const total = inputToMinor(byId("bulk-total").value, false);
@@ -1201,7 +1202,7 @@ async function saveBulkAllocation(event) {
     byId("bulk-dialog").close();
     await reloadDashboard(`Acquisition cost allocated across ${items.length} cards.`);
   } catch (error) { showMessage("bulk-message", error.message, "error"); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 }
 
 async function openDashboard() {
@@ -1288,33 +1289,38 @@ byId("login-google").addEventListener("click", () => startOAuth("google"));
 byId("login-apple").addEventListener("click", () => startOAuth("apple"));
 
 byId("login-form").addEventListener("submit", async (event) => {
-  event.preventDefault(); setBusy(event.currentTarget, true); showMessage("login-message");
+  event.preventDefault();
+  const form = event.currentTarget;
+  setBusy(form, true); showMessage("login-message");
   try {
     const session = await readJson(await fetch("/api/v1/public/owner-session", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({identifier:byId("login-email").value.trim(), password:byId("login-password").value})}));
     saveSession(session); await openDashboard();
   } catch (error) { showMessage("login-message", error.message, "error"); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 });
 byId("show-reset").addEventListener("click", () => { byId("reset-email").value = byId("login-email").value; showForm("request-reset-form"); });
 document.querySelector("[data-back-login]").addEventListener("click", () => showForm("login-form"));
 byId("request-reset-form").addEventListener("submit", async (event) => {
-  event.preventDefault(); setBusy(event.currentTarget, true);
+  event.preventDefault();
+  const form = event.currentTarget;
+  setBusy(form, true);
   try {
     await authRequest("/recover", { method: "POST", body: JSON.stringify({ email: byId("reset-email").value.trim(), redirect_to: `${window.location.origin}/` }) });
     showMessage("reset-message", "Recovery email sent. Check your inbox and junk folder.", "success");
   } catch (error) { showMessage("reset-message", error.message, "error"); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 });
 byId("new-password-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const form = event.currentTarget;
   const password = byId("new-password").value;
   if (password !== byId("confirm-password").value) { showMessage("password-message", "The passwords do not match.", "error"); return; }
-  setBusy(event.currentTarget, true);
+  setBusy(form, true);
   try {
     await authRequest("/user", { method: "PUT", headers: { Authorization: `Bearer ${state.session.access_token}` }, body: JSON.stringify({ password }) });
     showMessage("password-message", "Password saved. Opening your inventory…", "success"); await openDashboard();
   } catch (error) { showMessage("password-message", error.message, "error"); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 });
 
 let searchTimer;
