@@ -75,7 +75,12 @@ class NavigationIndex:
             group = summary.setdefault(system,dict(
                 system_code=system,game=None,languages=set(),products=0,sets=0))
             game=s["game"]
-            if game is not None and (group["game"] is None or game < group["game"]):
+            # PostgreSQL's collation orders the friendly "Pokemon" label
+            # before the uppercase fallback "POKEMON_TCG" from empty sets.
+            # Python's binary comparison does the opposite. Compare the
+            # casefolded forms to preserve the intended directory title.
+            if game is not None and (group["game"] is None
+                                     or game.casefold() < group["game"].casefold()):
                 group["game"]=game
             if s["language"] is not None:
                 group["languages"].add(s["language"])

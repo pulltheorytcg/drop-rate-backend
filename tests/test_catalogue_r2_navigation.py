@@ -98,3 +98,29 @@ def test_page_filter_and_bounds():
             pass
         else:
             raise AssertionError("Unbounded navigation request accepted")
+
+
+
+def test_unpopulated_pokemon_set_cannot_replace_friendly_game_label():
+    data=fixture()
+    data["reference_sets"].extend([
+        dict(provider="TCGdex",system_code="POKEMON_TCG",language="English",
+             set_id="loaded",name="Loaded Pokemon Set",
+             release_date="2026-04-01",declared_card_count=1),
+        dict(provider="TCGdex",system_code="POKEMON_TCG",language="English",
+             set_id="unpopulated",name="Empty Pokemon Set",
+             release_date="2026-04-02",declared_card_count=0),
+    ])
+    data["reference_cards"].append(dict(
+        provider="TCGdex",system_code="POKEMON_TCG",language="English",
+        set_id="loaded",provider_id="pk-001",name="Pikachu",
+        card_number="001/100",rarity="Common"))
+    nav=build_navigation(data,today=date(2026,10,30))
+    games={x["system_code"]:x for x in nav.games()}
+    assert games["POKEMON_TCG"]["game"]=="Pokemon"
+    assert games["POKEMON_TCG"]["products"]==1
+    assert games["POKEMON_TCG"]["sets"]==2
+    # Keep the PostgreSQL set-level fallback label for an empty set. Only
+    # the game-directory MIN uses case-insensitive collation.
+    empty=next(x for x in nav.set_templates if x["set_id"]=="unpopulated")
+    assert empty["game"]=="POKEMON_TCG"
