@@ -112,6 +112,8 @@ async def test_incomplete_provider_payload_is_not_usable_even_when_json_parses()
 @pytest.mark.asyncio
 @pytest.mark.parametrize("filtered", [False, True])
 async def test_slab_filter_is_in_authenticated_http_read_and_manual_search_unchanged(monkeypatch, filtered):
+    # Inspect the original SQL here; R2 delivery has separate parity contracts.
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED', 'false')
     owner_id, user_id = uuid4(), uuid4()
     rows = [dict(product_type="CARD",name="Wrong card",card_number="223",set_name="Other",set_id="Other"),
             dict(product_type="CARD",name="Mega Charizard X ex",card_number="223/193",set_name="Dream",set_id="M2a")]
