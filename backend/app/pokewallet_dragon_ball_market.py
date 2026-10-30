@@ -635,7 +635,7 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                         ref["provider_id"],[quote],quote["price_gbp_minor"],
                         quote["price_gbp_minor"],now,now,now+timedelta(days=1),
                         ref["name"],ref["set_id"],ref["card_number"],ref["set_name"],
-                        ref.get("rarity"),quote["source"]))
+                        ref.get("rarity"),quote["source"],None,None))
                 if values and not dry_run:
                     for start in range(0,len(values),100):
                         async with user_connection(pool,actor,str(uuid4())) as connection:

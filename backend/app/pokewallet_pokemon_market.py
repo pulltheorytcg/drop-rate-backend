@@ -432,7 +432,7 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
                     ref["provider_id"], json.dumps([quote]), quote["price_gbp_minor"],
                     quote["price_gbp_minor"], now, now, now+timedelta(days=1),
                     ref["name"], ref["set_id"], ref["card_number"], ref["set_name"],
-                    ref.get("rarity"), SOURCE))
+                    ref.get("rarity"), SOURCE, None, None))
             if values and not dry_run:
                 for index in range(0, len(values), 100):
                     async with user_connection(pool, actor, str(uuid4())) as connection:
