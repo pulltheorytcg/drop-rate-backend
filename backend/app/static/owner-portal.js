@@ -514,7 +514,7 @@ function ownerChannelStatusClass(value) {
   if (["PUBLISHED", "LIVE", "READY", "CONNECTED", "PLATFORM_MANAGED"].includes(stateValue)) {
     return "approved";
   }
-  if (["ERROR", "ACTION_REQUIRED"].includes(stateValue)) return "withdrawn";
+  if (["ERROR", "ACTION_REQUIRED", "REVIEW_REQUIRED"].includes(stateValue)) return "withdrawn";
   if (["DRAFT", "PUBLISHING"].includes(stateValue)) return "inspection";
   return "";
 }
@@ -531,7 +531,7 @@ function renderOwnerChannelSummary(data) {
   byId("owner-channel-shopify-live").textContent =
     ownerChannelCount(shopify, "PUBLISHED").toLocaleString("en-GB");
   byId("owner-channel-shopify-errors").textContent =
-    ownerChannelCount(shopify, "ERROR").toLocaleString("en-GB");
+    (ownerChannelCount(shopify, "ERROR") + ownerChannelCount(shopify, "REVIEW_REQUIRED")).toLocaleString("en-GB");
 
   const ebayStatus = byId("owner-channel-ebay-status");
   ebayStatus.textContent = ebay.connected
@@ -545,7 +545,19 @@ function renderOwnerChannelSummary(data) {
   byId("owner-channel-ebay-live").textContent =
     ownerChannelCount(ebay, "LIVE").toLocaleString("en-GB");
   byId("owner-channel-ebay-errors").textContent =
-    ownerChannelCount(ebay, "ERROR").toLocaleString("en-GB");
+    (ownerChannelCount(ebay, "ERROR") + ownerChannelCount(ebay, "REVIEW_REQUIRED")).toLocaleString("en-GB");
+}
+
+function renderOwnerChannelState(item, code) {
+  const savedState = String(item[code === "SHOPIFY" ? "shopify_state" : "ebay_state"] || "NOT_LINKED").toUpperCase();
+  const testOnly = code === "SHOPIFY" && item.shopify_test_mode === true;
+  const needsReview = !testOnly && item.sale_intent === "PERSONAL_COLLECTION"
+    && savedState === (code === "SHOPIFY" ? "PUBLISHED" : "LIVE");
+  const badge = document.createElement("span");
+  badge.className = "owner-status-pill " + ownerChannelStatusClass(testOnly ? "TEST_ONLY" : needsReview ? "REVIEW_REQUIRED" : savedState);
+  badge.textContent = testOnly ? "Test listing" : needsReview ? "Listing needs review" : savedState.replaceAll("_", " ");
+  if (needsReview) badge.title = "This copy is in your personal collection, but its saved channel status is published. Drop Rate needs to review the listing.";
+  return badge;
 }
 
 function renderOwnerChannelsRows(items, channels = []) {
@@ -576,11 +588,7 @@ function renderOwnerChannelsRows(items, channels = []) {
     cardCell.append(cardWrap);
 
     const shopifyCell = document.createElement("td");
-    const shopify = document.createElement("span");
-    shopify.className =
-      "owner-status-pill " + ownerChannelStatusClass(item.shopify_state);
-    shopify.textContent = safeText(item.shopify_state, "Not linked").replaceAll("_", " ");
-    shopifyCell.append(shopify);
+    shopifyCell.append(renderOwnerChannelState(item, "SHOPIFY"));
     if (item.shopify_price_minor != null) {
       const price = document.createElement("small");
       price.className = "owner-channel-price";
@@ -589,10 +597,7 @@ function renderOwnerChannelsRows(items, channels = []) {
     }
 
     const ebayCell = document.createElement("td");
-    const ebay = document.createElement("span");
-    ebay.className = "owner-status-pill " + ownerChannelStatusClass(item.ebay_state);
-    ebay.textContent = safeText(item.ebay_state, "Not linked").replaceAll("_", " ");
-    ebayCell.append(ebay);
+    ebayCell.append(renderOwnerChannelState(item, "EBAY"));
     if (item.ebay_price_minor != null) {
       const price = document.createElement("small");
       price.className = "owner-channel-price";

@@ -59,6 +59,20 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.ok(btn(f.w,'Prepare for eBay'));assert.equal(f.calls.length,0);f.finish();checks++;
  }
  {
+  const personal={...item,inventory_status:'APPROVED',sale_intent:'PERSONAL_COLLECTION',shopify_state:'PUBLISHED',shopify_test_mode:false,ebay_state:'LIVE'};
+  const f=fixture();f.run(`renderOwnerChannelSummary({channels:[{code:'SHOPIFY',states:[{state:'PUBLISHED',count:1},{state:'REVIEW_REQUIRED',count:1}]},{code:'EBAY',states:[{state:'ERROR',count:2},{state:'REVIEW_REQUIRED',count:1}]}]});
+    renderOwnerChannelsRows(${JSON.stringify([personal,{...personal,id:'test',shopify_test_mode:true},{...personal,id:'sale',sale_intent:'FOR_SALE'}])},[]);`);
+  const rows=f.w.document.querySelectorAll('#owner-channels-body tr');
+  assert.equal(rows[0].querySelector('td:nth-child(2) .owner-status-pill').textContent,'Listing needs review');
+  assert.equal(rows[0].querySelector('td:nth-child(3) .owner-status-pill').textContent,'Listing needs review');
+  assert.equal(rows[1].querySelector('td:nth-child(2) .owner-status-pill').textContent,'Test listing');
+  assert.equal(rows[2].querySelector('td:nth-child(2) .owner-status-pill').textContent,'PUBLISHED');
+  assert.equal(f.w.document.querySelector('#owner-channel-shopify-live').textContent,'1');
+  assert.equal(f.w.document.querySelector('#owner-channel-shopify-errors').textContent,'1');
+  assert.equal(f.w.document.querySelector('#owner-channel-ebay-errors').textContent,'3');
+  assert.equal(f.calls.length,0);f.finish();checks++;
+ }
+ {
   const preparation={completed:1,scope_blocker:'Consignor eBay publishing is not enabled yet',checks:[
    {code:'language',label:'Language recorded',complete:true},
    {code:'photos',label:'Front and back photos approved',complete:false,next_step:'Drop Rate needs photos of this physical copy'}]};
