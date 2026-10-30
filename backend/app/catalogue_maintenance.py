@@ -68,6 +68,8 @@ POKEWALLET_DBS_JOB_REVISION=3
 DBS_HOURLY_REQUEST_BUDGET=18
 ONE_PIECE_HOURLY_REQUEST_BUDGET=10
 POKEMON_HOURLY_REQUEST_BUDGET=7
+R2_PUBLICATION_TIMEOUT_SECONDS=180
+R2_PUBLICATION_RETRY_SECONDS=3600
 POKEWALLET_POKEMON_JOB_REVISION=3
 
 
@@ -661,6 +663,7 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
     next_source_archive_check = 0.0
     next_reference_cache_check = 0.0
     reference_cache_cursor = None
+    next_live_publication_check = 0.0
     while True:
         # Clear BEFORE scanning: an approval during a pass must cause another
         # pass, not disappear into a subsequent clear/sleep race.
@@ -720,14 +723,26 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
                 raise
             except Exception as exc:
                 log.error('CATALOGUE_R2_SOURCE_ARCHIVE_FAILED type=%s', type(exc).__name__)
-        if not shopify and catalogue_r2_live.enabled('BUILD'):
+        if (not shopify and catalogue_r2_live.enabled('BUILD')
+                and asyncio.get_running_loop().time() >= next_live_publication_check):
             try:
-                live_report = await catalogue_r2_live.publish(pool,
-                    UUID(settings.catalogue_maintenance_actor_user_id))
+                # Await cancellation/lock cleanup before returning to pricing:
+                # never detach a publisher or start a competing attempt.
+                live_report = await asyncio.wait_for(
+                    catalogue_r2_live.publish(pool,
+                        UUID(settings.catalogue_maintenance_actor_user_id)),
+                    timeout=R2_PUBLICATION_TIMEOUT_SECONDS)
                 log.warning('CATALOGUE_R2_LIVE_PUBLICATION %s',json.dumps(live_report,sort_keys=True))
             except asyncio.CancelledError:
                 raise
+            except asyncio.TimeoutError:
+                next_live_publication_check = (asyncio.get_running_loop().time()
+                                               + R2_PUBLICATION_RETRY_SECONDS)
+                log.error('CATALOGUE_R2_LIVE_PUBLICATION_TIMEOUT timeout_seconds=%s',
+                          R2_PUBLICATION_TIMEOUT_SECONDS)
             except Exception as exc:
+                next_live_publication_check = (asyncio.get_running_loop().time()
+                                               + R2_PUBLICATION_RETRY_SECONDS)
                 log.error('CATALOGUE_R2_LIVE_PUBLICATION_FAILED type=%s',type(exc).__name__)
         if (not shopify and getattr(settings, 'catalogue_r2_cache_build_enabled', False)
                 and asyncio.get_running_loop().time() >= next_reference_cache_check):
