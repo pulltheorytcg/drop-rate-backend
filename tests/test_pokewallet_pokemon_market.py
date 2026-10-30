@@ -277,7 +277,8 @@ async def test_dry_run_then_guarded_apply_without_physical_repricing(monkeypatch
         'pk_live_test_fixture',dry_run=False,http_client=FakeHttp())
     assert applied['writes_attempted']==1
     assert len(captures)==1 and captures[0][0:4]==('TCGdex','POKEMON_TCG','Japanese','SV11B-001')
-    assert captures[0][5]==100 and captures[0][-1]==pokemon.SOURCE
+    assert captures[0][5]==100 and captures[0][15]==pokemon.SOURCE
+    assert len(captures[0])==18 and captures[0][-2:]==(None,None)
 
 
 @pytest.mark.asyncio
