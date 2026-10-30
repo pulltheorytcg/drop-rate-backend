@@ -257,6 +257,21 @@ async def read(connection):
 
 
 async def fetch(connection, query, params, snapshot, **scope):
+    if snapshot is not None and navigation_enabled():
+        try:
+            from .catalogue_browser import GAMES_SQL, SETS_SQL
+            if query in (GAMES_SQL, SETS_SQL):
+                nav=await eligible_navigation(connection,snapshot)
+                if nav is not None:
+                    if query==GAMES_SQL:
+                        return nav.games()
+                    if isinstance(params[3],str) and params[3].isascii():
+                        owner=await owned_navigation(connection,params[0])
+                        return nav.sets(systems=params[1],language=params[2],
+                            search=params[3],limit=params[4],offset=params[5],
+                            owner=owner)
+        except Exception as exc:
+            log.warning('CATALOGUE_R2_NAVIGATION_QUERY_FALLBACK type=%s',type(exc).__name__)
     if snapshot is not None:
         try:
             rows=await fetch_snapshot(connection,query,params,snapshot,**scope)
