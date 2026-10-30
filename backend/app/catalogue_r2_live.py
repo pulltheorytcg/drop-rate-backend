@@ -23,7 +23,7 @@ from .db import user_connection
 from .object_storage import ObjectStorageError, configured_object_storage
 from .catalogue_r2_index import SharedReferenceIndex
 from .catalogue_r2_navigation import build_navigation, owned_navigation
-from .catalogue_r2_browse import build_browse_index, indexed_browse_sql
+from .catalogue_r2_browse import build_browse_index, indexed_browse_sql, indexed_catalogue_query
 
 log = logging.getLogger(__name__)
 SCHEMA = 'drop-rate-live-catalogue-v1'
@@ -294,11 +294,14 @@ async def fetch(connection, query, params, snapshot, **scope):
               where match_status='VERIFIED'
                 and provider_entity_type='CARD_PRINTING'
                 and provider_variant_key='')"""):
-                indexed_query,indexed_args=indexed_browse_sql(
-                    query,params,browse_for(snapshot))
+                owner_nav=(await owned_navigation(connection,params[0])
+                    if "where coalesce(o.quantity,0)>0 order by" in query else None)
+                indexed_query,indexed_args,mode=indexed_catalogue_query(
+                    query,params,browse_for(snapshot),owned=owner_nav)
                 async with connection.transaction():
                     rows=await connection.fetch(indexed_query,*indexed_args)
-                log.info('CATALOGUE_R2_INDEXED_BROWSE_HIT rows=%s',len(rows))
+                log.info('CATALOGUE_R2_INDEXED_BROWSE_HIT mode=%s rows=%s',
+                         mode,len(rows))
                 return rows
         except Exception as exc:
             log.warning('CATALOGUE_R2_INDEXED_BROWSE_FALLBACK type=%s',
@@ -373,8 +376,9 @@ async def verify(pool, actor, snapshot):
             elif name=='sets':
                 cached=navigation.sets(systems=['POKEMON_TCG'],limit=10,
                                        owner=owner_nav)
-            elif name=='browse':
-                indexed_query,indexed_args=indexed_browse_sql(query,args,browse_index)
+            elif name in ('browse','search','books','sealed','owned'):
+                indexed_query,indexed_args,mode=indexed_catalogue_query(
+                    query,args,browse_index,owned=owner_nav)
                 cached=[dict(row) for row in await connection.fetch(
                     indexed_query,*indexed_args)]
             else:
