@@ -26,6 +26,27 @@ from .catalogue_r2_navigation import build_navigation, owned_navigation
 from .catalogue_r2_browse import build_browse_index, indexed_browse_sql, indexed_catalogue_query
 
 log = logging.getLogger(__name__)
+
+
+def public_game_parity_diff(original, computed):
+    """Only public game directory fields; no owner or account data in logs."""
+    allowed=('game','languages','products','sets')
+    a={r['system_code']:r for r in original if r.get('system_code')}
+    b={r['system_code']:r for r in computed if r.get('system_code')}
+    changes=[]
+    for system in sorted(set(a)|set(b))[:20]:
+        lhs,rhs=a.get(system,{}),b.get(system,{})
+        fields={
+            name:dict(sql=lhs.get(name),r2=rhs.get(name))
+            for name in allowed if lhs.get(name)!=rhs.get(name)
+        }
+        if fields:
+            changes.append(dict(system_code=system,fields=fields))
+    return dict(sql_order=[r.get('system_code') for r in original[:20]],
+                r2_order=[r.get('system_code') for r in computed[:20]],
+                differences=changes)
+
+
 SCHEMA = 'drop-rate-live-catalogue-v1'
 MAX_BYTES = 64_000_000
 MAX_PARTS = 300
@@ -401,6 +422,10 @@ async def verify(pool, actor, snapshot):
                                 database_ms=db_ms,r2_ms=r2_ms))
             log.warning('CATALOGUE_R2_LIVE_PARITY %s',json.dumps(results[-1],sort_keys=True))
             if original!=cached:
+                if name=='games':
+                    log.warning('CATALOGUE_R2_LIVE_PUBLIC_GAME_DIFF %s',
+                                json.dumps(public_game_parity_diff(original,cached),
+                                           sort_keys=True))
                 return {'status':'MISMATCH','equal':False,'cases':results}
     return {'status':'MATCH','equal':True,'cases':results}
 
