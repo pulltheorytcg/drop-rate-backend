@@ -1,199 +1,166 @@
 # Live catalogue delivery from R2
 
-## 30 October value-sort repair
+## Completion follow-up — 30 October 2026
 
-Generation 121595 uploaded and independently read back 161 parts covering
-69,546 card references, 1,456 sets, 3,893 sealed references, 2,055 canonical
-products and 2,055 product profiles. Production games, sets, browse, search,
-books, sealed and owner checks match; the last value-sort query times out.
+The failed configuration rollout was corrected by PR #820. Railway deployment
+`db55407d-3af5-4744-98af-53dfbed43bd5` reached SUCCESS at 15:54 UTC. Both R2
+publications remain current. The image worker continued during the interrupted
+chat; 18,188 images were verified at 17:16 UTC.
 
-Value sorting now uses the already-derived R2 catalogue entries in compact
-column arrays. It retains the whole candidate population until PostgreSQL has
-applied current prices, identity restrictions, ownership, filters and ordering.
-The existing canonical price function is evaluated in the same authorised
-snapshot before planner settings for the large array join. Its transient
-results are never persisted to shared R2 objects. Both ascending and descending
-sorts are compared with the original queries for two owners in native SQL CI.
+A concrete retry defect was reproduced against CardTrader blueprint 153104:
+its valid PNG is **180 × 250**, below the shared scanner's 200px minimum.
+Exact HTTPS CardTrader `preview_` blueprint paths now use a 180px display/copy
+minimum, including their same-provider www redirect. Both the original and
+final URLs must qualify. All other sources, uploaded scans, recognition
+fingerprints and approved storefront media retain the 200px default. The
+existing raster, byte, pixel, redirect, exact-printing and source-URL checks
+remain. No enlargement or generated replacement is used.
 
-The full local PGlite suite currently stops on its pre-existing C-collation
-game-label difference versus the native production locale. Native PostgreSQL 17
-is the release gate; a separate local 70,000-card value-sort fixture checks the
-new reader. No production-publication success is claimed before live readback.
+The actual source now downloads and converts to a 13,050-byte WebP at its native
+dimensions. Twelve regressions cover the verified R2 receipt, preserved scan
+and fingerprint rejection, hostile URLs, cross-provider redirect, undersized
+images and invalid raster payloads. The complete suite passed **8,514 tests**
+with production R2 gates enabled (18 optional PGlite tests skipped).
 
-The full shared catalogue has a versioned R2 delivery path: games and sets,
-card searches, ownership filters, value sorts, watchlists, sealed products and
-comic/manga catalogue entries. The existing exact-set input cache remains a
-fallback during rollout.
+The price cache was compacted in one transaction with a 250ms lock-acquisition
+limit and 15-second statement limit. A sorted digest of every complete row and
+the count matched before and after. All **59,542** records were preserved;
+`reference_market_prices` shrank from **65,716,224** to **43,876,352** bytes,
+recovering **21,839,872 bytes**. No live prices, history, source records, audit
+events or inventory were deleted. The database measured **360,795,283 bytes**
+afterward; the existing 400MB worker pause is unchanged. Both publication
+generations are still current and inventory remains at **616 rows**.
 
-## Storage and authority
+Missing source artwork is separate from migration: the two checked TCGdex
+records `en/B2a-073` and `ja/M2a-001` still have no image in their official
+detail response. They must not be filled using guessed assets. A signed-in
+browser display check is still required; the available browser reaches login.
 
-The R2 publication contains explicit display/identity columns from
-`reference_cards`, `reference_sets`, `reference_sealed_products`,
-`catalogue_products` and `catalogue_product_profiles`. It includes book catalogue
-identities. Additional book printing/cover validation remains a bounded live
-overlay. Reference image URLs are metadata; copying them does not mirror image
-bytes or confer storefront approval.
+## Production checkpoint — 30 October 2026
 
-Railway reads the immutable private objects, verifies their SHA-256 and retains
-one bounded process copy. It binds this content into the existing catalogue SQL.
-Supabase continues to apply current prices, identity mappings, ownership,
-inventory, media permissions and book-validation rules. Price expiry still
-changes with the clock. No owner response, physical-copy details, Store Prices,
-secrets, arbitrary attributes or approval decisions enter the shared objects.
+The complete catalogue published at **14:45:25 UTC**, after independent R2
+readback, a comparison of **all 75,492 catalogue entry identities**, and eight
+matching production query comparisons. PR #818 passed all ten GitHub workflows
+and merged as `a4b377d7c38fedb26524991f06c8bddcae04ac8c`. Railway deployment
+`e497007a-3af7-4314-b409-b8bc51cdca54` reached SUCCESS.
 
-Importers still write the source tables. No source rows or indexes are removed,
-so this release does **not** claim to reduce Supabase disk usage. Removing those
-copies requires a separate importer/search/recognition migration and verified
-restore plan. Existing archival, source permissions, provider budgets and
-Shopify automation are unchanged.
+| Publication | Generation | Contents | Verified objects | Uncompressed bytes |
+| --- | --- | --- | ---: | ---: |
+| Catalogue | 121595 | 69,546 cards; 1,456 sets; 3,893 sealed references; 2,055 products; 2,055 profiles | 161 | 29,375,905 |
+| Current market caches | 1 | 59,542 market records; 27,626 catalogue guides; 3,886 sealed quotes; 0 asking records | 366 | 103,799,009 |
 
-## Complete and current publications
+The 91,054 price-cache records overlap identities and include source
+availability/expiry states. They are **not** a count of independently priced
+cards; copying them does not establish complete current market coverage.
 
-Migration `20261030002930_live_catalogue_r2_publication.sql` creates a single
-private publication record and statement triggers on the five shared sources.
-A source write increments its generation in the same transaction; rollback
-rolls the increment back too. The trigger can only invalidate this record and
-is not directly executable by application/public roles. Price or ownership
-changes need no rebuild because those decisions stay live.
+Catalogue delivery, navigation, indexed browse and extended browse were enabled
+after publication. The old exact-set background warmer was disabled; its
+fallback reader remains available. The configuration rollout hit an
+environment-dependent unit-test mock; the following test-only fix isolates the
+ordinary-SQL route tests from inherited production delivery flags. Final rollout
+verification is recorded below when complete.
 
-The existing maintenance worker takes an advisory lock, reads a repeatable-read
-source snapshot, and writes at most 300 immutable 500-row parts / 64 MB raw.
-It verifies each uploaded object, downloads all parts, checks complete counts,
-unique identities and closed schemas, then compares eight original/R2-backed
-query shapes. It publishes with a compare-and-set only while the source
-generation is unchanged. A partial upload, mismatch, corruption or concurrent
-source change cannot become the active catalogue.
+## What Drop Rate reads
 
-Every customer request reads the small authorized publication record. A
-generation mismatch immediately falls back to current SQL. A cold process
-loads R2 in the background with at most four bounded reads concurrently;
-requests remain available during loading. Query errors roll back a savepoint
-before the ordinary SQL fallback in the same authenticated snapshot.
+R2 supplies shared catalogue identity/display fields for games, sets, browse,
+search, owned filters, sealed products and book entries. Bounded pages also use
+exact matching rows from the separate R2 price snapshot. Existing SQL enforces
+printing identity, expiry, ownership, inventory and book-validation rules.
 
-## Rollout and backout
+**Full-catalogue value sorts retain their existing PostgreSQL query.** An earlier
+attempt bound the whole entry population in one message, leaving the production
+connection waiting for client input. The released route avoids that transfer.
+Canonical and asking-price resolvers also retain their live SQL decisions.
+These paths are intentional and are not reported as R2 delivery.
 
-Both `TCG_R2_LIVE_CATALOGUE_BUILD_ENABLED` and
-`TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED` default false.
+Importers and provider schedules continue to update source tables. A source
+write invalidates its publication generation in the same transaction. The
+maintenance worker publishes prices before catalogue validation and checks for
+updates on its normal cycle. Missing, changed or invalid snapshots use current
+PostgreSQL. A cold process loads and verifies immutable R2 objects in the
+background while requests retain SQL fallback. This is a continuously refreshed
+feed, not a claim that providers supply real-time prices for every product.
 
-1. Pass backend and native PostgreSQL 17 CI and apply the matching migration.
-2. Enable build on the existing API worker and observe `PUBLISHED`, complete
-   committed counts, actual R2 readback and eight matching query results.
-3. Review query timings, then enable delivery and verify the deployed API.
-4. Disable the old exact-set warmer only after complete publication succeeds.
+## Production comparisons
 
-Backout: set the new delivery flag false to restore ordinary SQL immediately
-after configuration rollout; set build false to stop publications. Keep source
-tables and immutable objects. The new flags do not change archive/media flags.
+These are query computation timings, not browser page load times. Each case
+returned matching results for the same authorised actor. The complete identity
+multiset comparison precedes these page checks.
 
-## Validation
+| Case | Existing SQL (ms) | Released computation (ms) | Delivery |
+| --- | ---: | ---: | --- |
+| Games | 573.39 | 1.26 | R2 |
+| Sets | 537.69 | 16.55 | R2 |
+| Browse | 16,909.79 | 135.88 | R2 + market generation 1 |
+| Search | 5,695.01 | 418.82 | R2 + market generation 1 |
+| Books | 382.12 | 59.33 | R2 + market generation 1 |
+| Sealed | 256.35 | 40.03 | R2 + market generation 1 |
+| Owned | 5,620.45 | 124.23 | R2 + market generation 1 |
+| Value sort | 8,059.32 | 6,750.02 | POSTGRES_DYNAMIC_VALUE |
 
-The local PGlite PostgreSQL 18.6 contract passes two-owner SQL parity across
-search/filter/sort, games/sets, sealed and book entries; current price changes;
-generation invalidation and rollback; private-column exclusion; nonmember and
-ordinary-owner restrictions; failed upload; concurrent source changes; and
-unchanged inventory. Unit tests cover corrupt/incomplete manifests, bounds,
-private-column rejection, cold-loading races and savepoint fallback.
+The read-only offline baseline has a bounded 30-second deadline. Application
+request and R2 query limits remain unchanged; the value result reports no R2
+timing. Any mismatch, upload failure, corruption or concurrent source change
+prevents publication.
 
-Native PostgreSQL 17 CI and production receipts are recorded separately after
-they complete. A configured schedule or successful deployment is not evidence
-that the catalogue was published or served from R2.
+## Artwork migration
 
-The first release head `d3d623d92c787dff02a3928bb0eb586dafec7088` passed
-all nine GitHub workflows, including both original and whole-catalogue native
-PostgreSQL 17 contracts. All 8,417 local backend tests passed (18 optional SQL
-tests skipped). The additive production migration was applied at 00:29 UK
-on 30 October. Its canonical filename now matches the recorded Supabase
-version `20261030002930`. Readback confirms forced RLS, five source triggers,
-generation 1 and no published manifest yet. Security advisories are unchanged.
-Delivery remains off pending verified production publication.
+The API worker copies exact-reference artwork in resumable batches of 20, with
+four downloads at once and a single-writer advisory lock. Each object is
+downloaded and hashed before its current provider/printing/source-URL receipt is
+recorded. Every database lease uses the existing maintenance administrator
+through the normal authenticated connection wrapper. This fixes earlier raw
+leases that saw no source rows under RLS.
 
-The first build-only production deployment reached SUCCESS, but publication
-validation hit the existing 15-second SQL limit. The full-size JSON rowsets were
-estimated at 100 rows, selecting quadratic nested loops. A 70,000-card disposable
-fixture reproduced the timeout. R2 statements now discourage nested loops and
-disable JIT inside a savepoint, restoring both settings before any other SQL;
-failure rolls them back. Ordinary queries and server timeouts stay unchanged.
-The regression fixture includes 4,000 sealed products, 2,000 canonical products
-and 50,000 live prices, and compares all eight query shapes with the original SQL.
-Extraction, independent R2 readback and each parity case now have separate logs.
-Delivery stays disabled until the corrected production publication passes.
+Source policies cover existing Pokemon, Dragon Ball and One Piece sources plus
+the Naruto archive and CardTrader Pokemon paths, including parentheses in
+filenames. Signed R2 delivery uses verified receipts with original-source
+fallback. Failed downloads back off; restarts resume from durable receipts.
 
-The subsequent production attempt verified all 161 R2 parts but the JSONB-backed
-games query still exceeded the SQL limit. The final query transport uses compact
-column arrays with explicit SQL casts and statement-scoped hash-join preference;
-it avoids whole-catalogue JSONB decoding and repeated merge-sort spills. The
-publication format and closed projections are unchanged. A read-only production
-plan using the same column-array shape and current data completed in 2.71 seconds
-(including source extraction); the comparable merge-join plan took 7.31 seconds.
-The full-size regression now includes realistic image/source URL widths and
-checks restoration of all three planner settings on success and failure.
+At 14:41 UTC, **2,838 reference images were VERIFIED**, with 90 awaiting retry.
+Copying continues automatically. **62,605** of the card records have source
+imagery; **6,941 have no source image**. A storage copy cannot fill that separate
+completeness gap. Sealed-image metadata is included in the catalogue, but this
+checkpoint does not claim that every sealed image binary has been mirrored.
 
+## Storage, access and validation
 
-## Market data and complete reference artwork (30 October)
+Both publications use closed projections, private immutable objects,
+SHA-256/size/count/schema checks, independent readback and generation-checked
+publication. Owner responses, physical-copy details, Store Prices, payment data,
+secrets and approval decisions are excluded. Source tables and indexes remain;
+this delivery release does not itself reclaim Supabase disk space. Physical
+inventory is unchanged at **616 rows**.
 
-Price caches now have a separate private R2 publication: reference market
-quotes, catalogue guide values, sealed values, and current asking snapshots.
-The four source caches currently contain 91,054 rows (overlapping identities;
-this is not a count of independently priced products). Closed projections retain
-source evidence, GBP amounts and original checked/expiry timestamps. No stock,
-owner, asking-for-sale price or payment data is exported. Immutable parts are
-uploaded and independently read back before a generation-checked publication.
+Production migrations:
 
-The existing catalogue maintenance worker republishes after provider jobs.
-Statement triggers immediately invalidate changed inputs; no-op updates and
-rolled-back changes leave the publication intact. Normal indexed browse pages
-can read exact matching price rows from R2, with existing SQL expiry, printing
-identity and ownership rules. Cold, missing, invalid or changed publications
-use current PostgreSQL. Full-population value sorts and canonical/asking
-resolvers retain their existing live SQL decisions.
+- `20261030002930_live_catalogue_r2_publication.sql`
+- `20261030141054_r2_live_market_data.sql`
+- `20261030141056_r2_remaining_reference_artwork_hosts.sql`
+- `20261030142942_r2_cardtrader_image_filenames.sql`
 
-Feature gates: `TCG_R2_MARKET_BUILD_ENABLED` and
-`TCG_R2_MARKET_DELIVERY_ENABLED`, both initially false. This section describes
-the implementation, not a claim that production publication has succeeded.
+Forced RLS, restricted publication permissions and all 16 price invalidation
+triggers were read back. No-op price updates do not invalidate a publication;
+rollback also rolls back invalidation. Security advisories were unchanged. One
+stalled read-only validation connection was terminated after cancellation failed,
+allowing the pending artwork migration to complete and clearing the lock queue.
 
-The reference image worker now applies the existing maintenance administrator
-on every short source/receipt lease; an unauthenticated lease sees zero source
-rows under RLS. The source cache also accepts the existing Naruto archive and
-CardTrader Pokémon paths, validated by exact host/path and current source URL.
-These remain private reference assets. The current 6,941 records without any
-source image cannot be made complete by copying storage. Failed downloads
-retain bounded retries and the original display fallback.
+All **8,473 local backend tests passed**, with 18 optional SQL tests skipped; the
+initial deployment repeated the suite successfully. Native PostgreSQL CI passed
+the realistic 70,000-card / 50,000-price fixture, two-owner parity, expiry and
+identity rules, generation invalidation/rollback, permission checks, failed
+upload/concurrent-update rejection and unchanged inventory. Restricted-role
+artwork receipt tests cover additional hosts and stale-source rejection.
 
-Validation includes two-owner SQL parity for complete R2 price inputs, source
-expiry and identity checks, incomplete upload and concurrent-update rejection,
-all four invalidation triggers, non-admin publication denial, unchanged stock,
-and real restricted-role image receipts for the additional hosts.
+The local PGlite whole-catalogue fixture has a known locale-dependent game-label
+difference; native PostgreSQL and actual production comparisons are the release
+evidence. A signed-in browser check remains needed in this session: the available
+browser is at the login page.
 
+## Backout
 
-## Production delivery decision and evidence (30 October, 14:31 UTC)
-
-All 91,054 shared market cache rows are now published in R2: 59,542 reference
-market records, 27,626 catalogue guides and 3,886 sealed quotes. The 366 immutable
-parts total 103,799,009 uncompressed bytes and were independently read back.
-The asking cache is currently empty. Source quote overlap means these counts
-must not be presented as a count of separately priced cards.
-
-Whole-catalogue value sorting retains its existing PostgreSQL query. Sending
-the entire entry array in one message left the production connection waiting
-for client input; it also stalled EXPLAIN before any plan was returned. The
-revised route never serializes that population for a value request. Bounded
-browse/search/owned/sealed pages use R2 identities and eligible R2 prices.
-Publication now compares the complete identity multiset as well as visible
-page results. Its value result explicitly reports POSTGRES_DYNAMIC_VALUE and
-no R2 timing; this is an intentional live-SQL path, not an R2 performance claim.
-
-The offline baseline gets a 30-second bounded read-only comparison deadline;
-application request and R2 query limits stay unchanged. Market publication runs
-before catalogue verification so the latter can compare R2 page prices too.
-
-Applied migration versions: 20261030141054 (market publication), 20261030141056
-(remaining artwork hosts), 20261030142942 (CardTrader filename parentheses).
-Forced RLS and 16 price invalidation triggers were read back. One stalled
-read-only verification connection was terminated after cancellation failed;
-the waiting policy migration then completed and the lock queue cleared.
-Source data and the 616 physical inventory records remain in PostgreSQL.
-
-Bulk card artwork continues in the existing API worker with exact source
-checks and content verification. More than 1,700 files were verified at this
-checkpoint. The 6,941 cards without source imagery and provider download
-failures are separate completeness gaps; they are not filled with guessed art.
+Set `TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED=false` to restore ordinary catalogue
+SQL after configuration rollout. Set `TCG_R2_MARKET_DELIVERY_ENABLED=false` to
+restore PostgreSQL page-price inputs. Build flags can stop publication without
+removing source data or verified objects. Keep image receipts and source
+fallbacks. Archive and media workers have separate flags.
