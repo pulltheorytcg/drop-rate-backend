@@ -11,6 +11,13 @@ two-second pauses between successful batches, 60-second pauses on broad source
 failures and five minutes when caught up. Every image retains its durable exact
 printing link, verified hash and retry history.
 
+Before every worker batch, the existing database capacity guard checks the
+Postgres receipt store. At 400,000,000 bytes or in read-only mode, the worker
+releases its lock and pauses for five minutes before checking again. A failed
+capacity probe prevents downloads/uploads and retries after 60 seconds.
+Successful batch logs include the measured database size; deferred logs include
+the guard's reason. The existing 20-image/four-download pace is unchanged.
+
 Set `TCG_R2_REFERENCE_CACHE_DELIVERY_ENABLED=true` after the first verified
 batch; the browser already tries its signed R2 image first and retains the
 original source fallback. Stop the worker flag to pause safely. There is no new

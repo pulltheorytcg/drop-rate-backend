@@ -111,7 +111,9 @@ async def test_incomplete_provider_payload_is_not_usable_even_when_json_parses()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("filtered", [False, True])
-async def test_slab_filter_is_in_authenticated_http_read_and_manual_search_unchanged(monkeypatch, filtered):
+@pytest.mark.parametrize("live_delivery", [False, True])
+async def test_slab_filter_is_in_authenticated_http_read_and_manual_search_unchanged(monkeypatch, filtered, live_delivery):
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED',str(live_delivery).lower())
     owner_id, user_id = uuid4(), uuid4()
     rows = [dict(product_type="CARD",name="Wrong card",card_number="223",set_name="Other",set_id="Other"),
             dict(product_type="CARD",name="Mega Charizard X ex",card_number="223/193",set_name="Dream",set_id="M2a")]
@@ -124,7 +126,9 @@ async def test_slab_filter_is_in_authenticated_http_read_and_manual_search_uncha
             assert "Japanese" in args
             return rows
     @asynccontextmanager
-    async def connection(*args): yield Connection()
+    async def connection(*args,readonly_snapshot=False):
+        assert readonly_snapshot==live_delivery
+        yield Connection()
     monkeypatch.setattr(browser,"user_connection",connection)
     app=FastAPI();app.state.db_pool=object();app.include_router(browser.router)
     app.dependency_overrides[require_user]=lambda:SimpleNamespace(user_id=user_id)
