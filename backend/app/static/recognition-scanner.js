@@ -161,7 +161,7 @@ async function loadRecognitionStatus() {
     const data = await apiRequest("/api/v1/recognition/status");
     state.recognition.status = data;
     badge.className = data.configured ? "pill approved" : "pill inspection";
-    badge.textContent = data.configured ? `${data.vision_model} · READY` : "VISION KEY REQUIRED";
+    badge.textContent = data.configured ? "READY TO SCAN" : "SCANNER UNAVAILABLE";
     byId("recognition-scan").disabled = !data.configured || !state.recognition.imageDataUrl;
     const cameraSupported = Boolean(
       navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function"

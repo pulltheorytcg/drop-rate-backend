@@ -520,7 +520,8 @@ async def daily_pass(pool,settings):
                         dry_run=not getattr(settings,'cardtrader_bulk_guides_apply_enabled',False),
                         expansion_limit=getattr(settings,
                                                 'cardtrader_bulk_guides_expansion_limit',15),
-                        previous_cursor=cursor)
+                        previous_cursor=cursor,
+                        previous_artwork_cursors=prior_report.get('artwork_cursors'))
                     await receipt(pool,actor,CARDTRADER_BULK_JOB,
                                   'INCOMPLETE' if result.get('provider_failures') else 'COMPLETE',
                                   {'importer_revision':revision,**result})

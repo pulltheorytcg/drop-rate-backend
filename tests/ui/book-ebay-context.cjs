@@ -160,7 +160,10 @@ function fixture(handler=async row=>response(row),rows=[structuredClone(book)]) 
   const img=card.querySelector('.dr-browse-product-image img');img.dispatchEvent(new f.w.Event('load'));
   await pause(90);assert.equal(card.querySelector('.book-ebay-range'),null);assert.equal(card.querySelector('.book-ebay-photo-credit'),null);
   assert.equal(card.querySelector('.dr-browse-product-image img'),null);assert.equal(f.rows[0].book_listing_context,undefined);
-  assert.equal(f.calls.filter(call=>call.url.includes('/listing-context')).length,1);f.finish();checks++;
+  assert.equal(f.calls.filter(call=>call.url.includes('/listing-context')).length,1);
+  const refresh=card.querySelector('.book-ebay-refresh');assert.ok(refresh);refresh.click();await tick();await tick();
+  assert.equal(f.calls.filter(call=>call.url.includes('/listing-context')).length,2);
+  assert.ok(card.querySelector('.book-ebay-range'));f.finish();checks++;
  }
  // A selected catalogue book can reuse the already displayed source photo,
  // while copy condition, printing and sale price remain unfilled.

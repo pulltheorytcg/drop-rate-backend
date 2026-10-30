@@ -27,6 +27,14 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
+ {
+  const row={...card,market_value_minor:3,market_value_source:'DROP_RATE_COMPUTED_MARKET_V1',market_quotes:[{
+   source:'DROP_RATE_COMPUTED_MARKET_V1',price_gbp_minor:3,observed_at:new Date().toISOString()}]};
+  const f=fixture(async()=>({items:[row],has_more:false}));await f.browser.open();f.browser.pickGame(games[0]);await tick();
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Drop Rate estimate: £0.03');
+  f.browser.openProduct(row);assert.match(f.browser.sheet.textContent,/Drop Rate estimate: £0.03/);
+  assert.doesNotMatch(f.browser.sheet.textContent,/undefined:|Cardmarket #/);f.finish();
+ }
  // Current asking evidence is visibly separate and never fills market-value fields.
  {
   const row={...card,asking_price_estimate:askingFixture()},f=fixture(async()=>({items:[row],has_more:false}));

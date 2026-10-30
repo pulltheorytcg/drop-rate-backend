@@ -137,7 +137,8 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
     fresh, _, checked, _, _, selected = max(candidates, key=lambda candidate: candidate[:5])
     estimate = selected["method"] == GUIDE
     basis = f"{language} · " + (f"{item.get('grading_company')} {item.get('grade')}" if company else item.get("condition") or item.get("seal_status") or "Raw reference")
-    result.update(snapshot_id=str(selected["snapshot_id"]), checked_at=checked, method=selected["method"], basis=basis)
+    result.update(snapshot_id=str(selected["snapshot_id"]), checked_at=checked, method=selected["method"], basis=basis,
+                  algorithm_version=selected["algorithm_version"], label="Drop Rate guide estimate" if estimate else "Drop Rate market value")
     if not fresh:
         result.update(status="STALE", last_known_minor=selected["market_value_minor"], reason="Last recorded evidence is stale; no current reference value is available.")
     else:

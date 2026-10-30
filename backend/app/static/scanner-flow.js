@@ -632,9 +632,12 @@ window.DropRateScanner = (() => {
       } catch (error) {
         if (revision !== this.cameraRevision || !this.active()) return;
         this.stopCamera();
-        this.status(error.name === "NotAllowedError"
-          ? "Allow camera access, or choose a photo below."
-          : error.message || "Camera unavailable. Choose a photo below.");
+        const messages = {
+          NotAllowedError: "Allow camera access, or choose a photo below.",
+          NotFoundError: "No camera was found on this device. Choose a photo below to scan.",
+          NotReadableError: "Your camera is busy. Close other camera apps, retry, or choose a photo below.",
+        };
+        this.status(messages[error.name] || "Camera unavailable. Retry or choose a photo below to scan.");
       }
     }
 

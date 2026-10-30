@@ -25,6 +25,8 @@ window.DropRateCatalogue = (() => {
   const marketPrice = row => {
     const estimate=askingEstimate(row);
     if(estimate)return "Asking-price estimate: "+money(estimate.estimate_minor);
+    if(row.market_value_source==="DROP_RATE_COMPUTED_MARKET_V1" && Number.isInteger(row.market_value_minor))
+      return "Drop Rate estimate: "+money(row.market_value_minor);
     return row.shared_price ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money)
       : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Checking value…":"Value unavailable"):"Value: "+money(row.market_value_minor);
   };
@@ -312,10 +314,11 @@ window.DropRateCatalogue = (() => {
       if(row.basis_condition && !estimate)evidence.append(node("small","","Price basis: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       for(const quote of row.market_quotes||[]){
         const label=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer US context · "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(quote.original_minor/100):money(quote.price_gbp_minor);
-        const source=quote.source==="TCGDEX_TCGPLAYER"||quote.market==="TCGPLAYER"?"TCGplayer":"Cardmarket";
+        const computed=quote.source==="DROP_RATE_COMPUTED_MARKET_V1";
+        const source=computed?"Drop Rate":quote.source==="CARDTRADER_EXPANSION_ASKING"?"CardTrader":quote.source==="TCGDEX_TCGPLAYER"||quote.market==="TCGPLAYER"?"TCGplayer":"Cardmarket";
         const productId=quote.product_id||quote.source_product_id;
         const quoteEvidence=[productId?source+" #"+productId:"",quote.observed_at?new Date(quote.observed_at).toLocaleDateString("en-GB"):""].filter(Boolean).join(" · ");
-        evidence.append(node("p","dr-browse-reference-note",(quote.variant_label||quote.finish)+": "+label+(quoteEvidence?" · "+quoteEvidence:"")));
+        evidence.append(node("p","dr-browse-reference-note",(quote.variant_label||quote.finish||(computed?"Drop Rate estimate":source+" guide"))+": "+label+(quoteEvidence?" · "+quoteEvidence:"")));
       }
       if(["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)){
         evidence.append(node("p","dr-browse-reference-note","Cardmarket reference via TCGdex, converted from EUR. This is separate from your collection’s eBay UK sold-market valuation."));

@@ -143,6 +143,12 @@
 .owner-item-confirmation:empty{display:none}
 .owner-item-confirmation-actions{display:flex;flex-wrap:wrap;gap:9px}
 .owner-item-confirmation-actions button{flex:1 1 150px}
+.owner-ebay-preparation{padding:14px;border:1px solid var(--op-line,#dce5ef);border-radius:12px;background:var(--op-soft,#f7faff);margin:14px 0}
+.owner-ebay-preparation summary{font-size:14px;font-weight:600;cursor:pointer;min-height:32px}
+.owner-ebay-checklist{list-style:none;padding:0;margin:12px 0;display:grid;gap:10px}
+.owner-ebay-checklist li{display:grid;gap:3px;font-size:13px;line-height:1.5}
+.owner-ebay-checklist small{padding-left:18px;color:var(--op-muted,#596c83);font-size:12px}
+.owner-ebay-checklist .complete strong{color:var(--op-success,#146c53)}
 
 @media(max-width:1200px){
  .owner-portal-page .owner-inventory-toolbar{grid-template-columns:minmax(160px,1fr) auto auto auto}

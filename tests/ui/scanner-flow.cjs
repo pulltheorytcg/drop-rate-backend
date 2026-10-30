@@ -451,6 +451,14 @@ async function matched(scanner, quantity = 1) {
     f.finish(); checks += 1;
   }
   // Torch is offered only when the active track supports it, and is stopped with the camera.
+  for (const [name, message] of [['NotFoundError', /No camera was found/], ['NotReadableError', /camera is busy/], ['Error', /Camera unavailable/]]) {
+    const f=fixture();Object.defineProperty(f.w.navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+      throw Object.assign(new Error('Requested device not found'),{name});
+    }}});
+    await f.scanner.open();assert.match(f.scanner.find('.dr-scan-status').textContent,message);
+    assert.match(f.scanner.find('.dr-scan-status').textContent,/photo below/);
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);f.finish();checks++;
+  }
   {
     const f = fixture(); const constraints = []; let stopped = 0;
     const track = {getCapabilities: () => ({torch:true}), applyConstraints: async value => constraints.push(value), stop: () => {stopped += 1;}};

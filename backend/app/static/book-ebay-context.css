@@ -20,3 +20,4 @@
 .book-ebay-item-price { font-weight:600; }
 .book-ebay-listings small { color:#657085; font-size:11px; }
 .dr-browse-product-details .book-ebay-photo-credit { margin:0; font-size:11px; }
+.book-ebay-context .book-ebay-refresh { min-height:44px; padding:8px 12px; border:1px solid #aac1df; border-radius:8px; color:#164a7b; background:#fff; font-size:12px; }

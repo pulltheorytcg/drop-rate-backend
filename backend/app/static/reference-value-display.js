@@ -24,6 +24,12 @@ window.DropRateReferenceValue = Object.freeze({
     return ref != null && !["AVAILABLE", "REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref.status)
       && Number.isInteger(ref.last_known_minor) && Boolean(ref.checked_at);
   },
+  label(item) {
+    const ref = this.displayReference(item);
+    if (ref?.method === "DROP_RATE_COMPUTED_MARKET_V1") return "Drop Rate estimate";
+    if (["REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref?.status)) return "Guide estimate";
+    return "Market value";
+  },
   compactText(item, money) {
     // The exact observation date remains visible in details, not the mobile
     // two-column grid. A visual historical label is added by the tile itself.

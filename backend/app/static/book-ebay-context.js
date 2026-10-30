@@ -87,14 +87,21 @@ window.DropRateBookEbay = (() => {
     const note = element("p", "book-ebay-photo-credit");
     note.append(link("eBay listing photo", item.url), document.createTextNode(" · Copy may vary")); return note;
   }
-  function render(target, row, data, {detail = false, loading = false, expired = false} = {}) {
+  function render(target, row, data, {detail = false, loading = false, expired = false, refresh = null} = {}) {
     target.replaceChildren(); target.className = detail ? "book-ebay-context book-ebay-detail" : "book-ebay-context book-ebay-grid";
     const checked = validate(row, data);
     target.hidden = checked?.status === "DISABLED";
     if (target.hidden) return;
     if (checked?.status !== "AVAILABLE") {
-      target.append(element("p", "book-ebay-empty", loading ? "Checking eBay asking prices…" : expired ? "eBay asking prices have expired. Reopen to refresh."
-        : detail ? "No matching eBay asking prices available right now." : "eBay asking prices unavailable")); return;
+      target.append(element("p", "book-ebay-empty", loading ? "Checking eBay asking prices…" : expired ? "eBay asking prices have expired."
+        : detail ? "No matching eBay asking prices available right now." : "eBay asking prices unavailable"));
+      if (expired && refresh) {
+        const retry = element("button", "book-ebay-refresh", "Refresh asking prices");
+        retry.type = "button";
+        retry.addEventListener("click", event => { event.stopPropagation(); retry.disabled = true; refresh(); });
+        target.append(retry);
+      }
+      return;
     }
     target.append(element(detail ? "h4" : "strong", "book-ebay-heading", checked.item_count === 1 ? "eBay asking price" : "eBay asking prices"));
     target.append(element("span", "book-ebay-range", money(checked.asking_low_minor)
@@ -159,7 +166,11 @@ window.DropRateBookEbay = (() => {
       watcher.receive(data, options);
       if (data) watcher.timer = setTimeout(() => {
         this.cache.delete(watcher.key);
-        this.deliver(watcher, null, {expired:true});
+        this.deliver(watcher, null, {expired:true, refresh:() => {
+          if (!this.valid(watcher)) return;
+          watcher.started = false;
+          this.start(watcher);
+        }});
       }, Math.max(1, Date.parse(data.expires_at) - Date.now()));
     }
     start(watcher) {

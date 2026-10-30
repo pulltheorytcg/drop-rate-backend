@@ -672,7 +672,7 @@
                   <div><span>Live</span><strong id="owner-channel-ebay-live">0</strong></div>
                   <div><span>Needs attention</span><strong id="owner-channel-ebay-errors">0</strong></div>
                 </div>
-                <p>See live, withdrawn and error states for your eBay-linked cards.</p>
+                <p id="owner-channel-ebay-note">Open a card to check its listing readiness.</p>
               </article>
               <article class="owner-channel-card planned" data-channel-card="WHATNOT">
                 <div class="owner-channel-brand"><img class="owner-channel-brandmark" src="https://upload.wikimedia.org/wikipedia/commons/9/91/Whatnot_Logo_2025.svg" alt="Whatnot logo" loading="lazy"><small>Your own Whatnot account</small></div>
@@ -683,13 +683,13 @@
 
             <section class="owner-panel owner-channels-panel">
               <div class="owner-section-header">
-                <div><span class="owner-section-kicker">Channel manager</span><h2>Synced inventory</h2><p>One Drop Rate inventory record can be represented across channels. This view shows the actual remote sync state without changing ownership.</p></div>
-                <div class="owner-inventory-total"><strong id="owner-channels-total">0</strong><span>linked cards</span></div>
+                <div><span class="owner-section-kicker">Channel manager</span><h2>Inventory &amp; listings</h2><p>Prepare items for sale and check each channel’s saved listing status.</p></div>
+                <div class="owner-inventory-total"><strong id="owner-channels-total">0</strong><span>items</span></div>
               </div>
               <div class="owner-inventory-toolbar owner-channels-toolbar">
                 <div class="owner-search-field">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"/></svg>
-                  <input id="owner-channels-search" type="search" placeholder="Search synced card or inventory ID">
+                  <input id="owner-channels-search" type="search" aria-label="Search channel inventory" placeholder="Search item or inventory ID">
                 </div>
                 <select id="owner-channels-filter" aria-label="Filter sales channel">
                   <option value="ALL">All channels</option>
@@ -701,7 +701,7 @@
               <div id="owner-channels-message" class="owner-inline-message" aria-live="polite"></div>
               <div class="owner-table-wrap">
                 <table class="owner-table owner-channels-table">
-                  <thead><tr><th>Card</th><th>Shopify</th><th>eBay</th><th>Market value</th><th>Store value</th><th>Last channel check</th></tr></thead>
+                  <thead><tr><th>Card</th><th>Shopify</th><th>eBay</th><th>Market value</th><th>Selling price</th><th>Last channel check</th></tr></thead>
                   <tbody id="owner-channels-body"><tr><td colspan="6" class="muted">Loading channel inventory…</td></tr></tbody>
                 </table>
               </div>
