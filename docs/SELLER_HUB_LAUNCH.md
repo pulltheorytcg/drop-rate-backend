@@ -11,6 +11,30 @@ existing, already deployed Supabase Auth flow at `/owner/join`.
 The parent `droprate.co.uk` and `www.droprate.co.uk` stay on Shopify. Its live
 Horizon theme and password/launch gate are not changed by this backend PR.
 
+## Prelaunch visuals and app badges
+
+- The **Seller Hub landing page header only** shows familiar App Store and
+  Google Play badges. Neither mobile app is available to download yet, so the
+  badges explicitly say **Coming Soon** and take visitors to the existing
+  `#early-access` opt-in form. Replace those same-page links with verified
+  store listing URLs only after the corresponding mobile apps are published.
+  No Shopify storefront header, page, navigation or theme is edited here.
+- The Seller Hub hero replaces the large logo graphic with three **actual
+  reference-card artworks**: Umbreon VMAX 215/203 and Son Goku FB01-139 from
+  the existing collector-workspace catalogue, and **Rocks.D.Xebec OP17-118_p2
+  Pirate Crew Super Parallel** from Bandai's official card listing. The OP17
+  artwork is resized for the landing page, with its official SAMPLE marking
+  retained. Original sources, image transformations and hashes are documented
+  at `backend/app/static/grail-art/sources.json`. The card frames are
+  decorative design treatments, **not fabricated graded slabs**, certificate
+  numbers, ownership claims or current stock. The hero identifies the art as
+  reference inspiration, not inventory. Do not label an image BGS Black Label
+  or CGC 9.8 without a verified photo of that exact certified item.
+- If founder-provided, use-rights-cleared photos of Ancient Mew, an OP17
+  chase card in a genuine BGS Black Label 10 case, or a verified CGC-graded
+  Batman comic become available, they can replace the three reference images
+  without changing signup, accounts or the storefront.
+
 ## Routes and ownership
 
 | Route | Result | System |
@@ -75,14 +99,18 @@ Seller Hub launch and early-access purpose. It sends
 1. Verify Python, JS, migration/security and Shopify mock tests and merge
    through CI. The additive migration has already been applied and its grants
    and row-level security verified; do not apply it again.
-2. In the Shopify Dev Dashboard, create/publish an app version with
-   `write_customers`, preserving existing scopes; ensure protected customer
-   data access is approved and the installation has the updated permission.
-   **The current active app version lacks `write_customers`**. Do not turn the
-   worker on until verified.
-3. In Railway's existing API service set only
-   `TCG_SHOPIFY_WAITLIST_SYNC_ENABLED=true` and deploy. Leave it `false` for
-   safe staging and rollback.
+2. **Completed 31 October 2026:** Shopify Dev Dashboard app version
+   `drop-rate-backend-customer-sync-20261031` (ID `1189657608193`) was
+   released as active with `write_customers` plus the original six required
+   scopes. The Drop Rate production store accepted Shopify's **Update data
+   access** prompt for editing customers. Verify this remains true after any
+   later Shopify app installation/version changes.
+3. **Completed 31 October 2026:** Railway production service
+   `drop-rate-api-live` now has
+   `TCG_SHOPIFY_WAITLIST_SYNC_ENABLED=true`; configuration deployment
+   `37b2793a-3a76-4e6e-81ca-8edaa0793eeb` reached **SUCCESS** with one
+   running replica and no warnings. Restore the variable to `false` for a
+   safe rollback if access is later revoked.
 4. Watch worker processed/success counts (without email addresses), and
    inspect privacy-safe sync totals via read-only SQL:
 

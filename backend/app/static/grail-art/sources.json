@@ -1,5 +1,5 @@
 {
-  "usage": "Authenticated collector reference spotlight. Not inventory, storefront approval or a price/stock claim. Original bytes and official SAMPLE watermarks preserved.",
+  "usage": "Authenticated collector reference spotlight; selected existing images and the optimised OP17 reference image also feature in the public Seller Hub prelaunch hero. Not inventory, storefront approval or a price/stock claim. Original SAMPLE watermarks are preserved.",
   "cards": [
     {
       "file": "umbreon-vmax-215.webp",
@@ -30,6 +30,17 @@
       "source_url": "https://www.dbs-cardgame.com/fw/images/cards/card/en/FB01-139_p2.webp",
       "catalogue_key": "r:604f17c87635175c6422e00915eb568b",
       "sha256": "40c8f9d8fb83e17b7af2c5a6fa13845f4e884e6366af06bea62e9500094b9cad"
+    },
+    {
+      "file": "rocks-op17-118-p2.webp",
+      "name": "Rocks.D.Xebec",
+      "printing": "OP17-118_p2 (Pirate Crew Super Parallel)",
+      "language": "English",
+      "provider": "Bandai Official",
+      "source_url": "https://en.onepiece-cardgame.com/images/cardlist/card/OP17-118_p2.png",
+      "source_sha256": "56b34e82410cc9dc14cd19c78aa3e7a5aad6a941382f74d107b08716738d01d1",
+      "transform": "Preserves official SAMPLE marking; source 600x838 PNG, resized to 480x670 WebP quality 76 for the public hero. Not a certified or graded slab.",
+      "sha256": "5359ff777779e3ba34a486acda3a1b3a177e5cb4dd6dcecbf1fb33cb2acb1bbe"
     }
   ]
 }

@@ -39,6 +39,23 @@ async function settle(predicate) {
   assert.equal(new Set(ids).size, ids.length, 'IDs must be unique');
   assert.equal(layout.querySelectorAll('.feature-card').length, 6);
   assert.ok(layout.querySelector('img[src="/assets/brand-assets/seller-hub-approved.webp"]'));
+  const badges = Array.from(layout.querySelectorAll('.topbar .store-badge'));
+  assert.equal(badges.length, 2, 'both mobile platform badges appear only in the Seller Hub header');
+  assert.ok(badges.every(badge => badge.getAttribute('href') === '#early-access'), 'unreleased apps must direct visitors to the launch list');
+  assert.ok(badges.every(badge => badge.getAttribute('aria-label').includes('coming soon')), 'download buttons must not promise an available app');
+  assert.deepEqual(badges.map(badge => badge.querySelector('strong').textContent), ['App Store', 'Google Play']);
+  assert.equal(layout.querySelectorAll('.grail-showcase .grail-card img').length, 3, 'three genuine grail-card artworks replace the large hero logo');
+  assert.equal(layout.querySelectorAll('.hero-art .seller-hub-mark').length, 0, 'large hero logo was removed');
+  assert.deepEqual(
+    Array.from(layout.querySelectorAll('.grail-showcase .grail-card img'), image => image.getAttribute('src')),
+    ['/assets/grail-art/umbreon-vmax-215.webp', '/assets/grail-art/goku-fb01-139-p2.webp', '/assets/grail-art/rocks-op17-118-p2.webp'],
+  );
+  for (const image of layout.querySelectorAll('.grail-showcase .grail-card img')) {
+    assert.ok(fs.existsSync(path.join(root, 'backend/app/static', image.getAttribute('src').replace('/assets/', ''))), 'referenced grail artwork must be shipped');
+  }
+  assert.ok(Array.from(layout.querySelectorAll('.grail-showcase .grail-card img')).every(image => image.alt.includes('reference artwork')));
+  assert.ok(layout.querySelector('.grail-note').textContent.includes('NOT INVENTORY'));
+  assert.ok(!layout.querySelector('.grail-showcase').textContent.includes('BLACK LABEL'), 'never invent slab certifications');
   assert.ok(layout.querySelector('a[href="/owner/join"]'), 'early seller account route remains available');
   assert.ok(layout.querySelector('a[href="/owner"]'), 'existing seller login remains available');
   assert.ok(layout.getElementById('waitlist-consent').required);
