@@ -27,7 +27,8 @@ Horizon theme and password/launch gate are not changed by this backend PR.
   checked on 31 October 2026. The landing image collage adds visual frames
   around real photographs; it does not fabricate slab labels or current stock.
   The hero keeps the real card photographs, heading and caption unobstructed:
-  overlapping decorative floating callouts were removed at all screen widths.
+  overlapping decorative floating callouts were removed at all screen widths,
+  and the mobile collage height scales to clear the bottom photo caption.
 - A separate six-tile collection gallery makes the intended breadth explicit:
   raw Pokémon cards, graded cards, sealed One Piece, One Piece graded cards,
   comics and manga. The Pokémon/comics/manga photos come from named Unsplash
