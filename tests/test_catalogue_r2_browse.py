@@ -145,6 +145,45 @@ def test_extended_indexed_modes_are_bounded_and_printing_safe():
     assert len(args)==len(params)+1
 
 
+@pytest.mark.parametrize('filters,expected',[
+    (dict(system_code='ONE_PIECE_CARD_GAME'),{'OP15-001','OP15-001_p1'}),
+    (dict(system_code='MANGA',product_type='COMIC'),{'Volume 1'}),
+    (dict(system_code='ONE_PIECE_CARD_GAME',product_type='CARD'),{'OP15-001','OP15-001_p1'}),
+    (dict(system_code='ONE_PIECE_CARD_GAME',language='English',
+          set_id='OP15',provider='Bandai Official',product_type='CARD'),
+     {'OP15-001','OP15-001_p1'}),
+    (dict(product_type='CARD'),{'OP15-001','OP15-001_p1'}),
+    (dict(system_code='MANGA',product_type='SEALED'),set()),
+    (dict(language='Japanese'),set()),
+])
+def test_filtered_newest_stays_on_bounded_r2_path(filters,expected):
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_catalogue_query
+    owner=UUID('10000000-0000-0000-0000-000000000001')
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    query,params=product_query(owner_id=owner,limit=9,**filters)
+    sql,args,mode=indexed_catalogue_query(query,params,idx)
+    assert mode=='FILTERED_NEWEST'
+    rows=json.loads(args[-1])
+    assert {row['provider_id'] or row['name'] for row in rows}==expected
+    assert len(rows)<=10
+    assert 'tcg.inventory_items' in sql
+    assert 'tcg.reference_market_prices' in sql
+    assert all('owner_id' not in row and 'market_value_minor' not in row for row in rows)
+
+
+def test_filtered_newest_pagination_never_drops_a_printing():
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_catalogue_query
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    query,params=product_query(
+        owner_id=UUID('10000000-0000-0000-0000-000000000001'),
+        system_code='ONE_PIECE_CARD_GAME',limit=1,offset=1)
+    _,args,mode=indexed_catalogue_query(query,params,idx)
+    assert mode=='FILTERED_NEWEST'
+    assert {r['provider_id'] for r in json.loads(args[-1])}=={'OP15-001','OP15-001_p1'}
+
+
 def test_extended_search_rejects_ambiguous_or_unbounded_work():
     from uuid import UUID
     from app.catalogue_r2_browse import indexed_catalogue_query
@@ -157,7 +196,7 @@ def test_extended_search_rejects_ambiguous_or_unbounded_work():
         dict(q="OP15-001"),dict(q="クリエグ"),
         dict(q="Krieg",owned="owned"),
         dict(q="Krieg",system_code="ONE_PIECE_CARD_GAME"),
-        dict(product_type="CARD"),dict(sort="value_asc"),
+        dict(sort="value_asc"),
         dict(owned="not_owned"),dict(owned="owned",offset=1000),
     ):
         query,params=product_query(owner_id=owner,limit=9,**options)
