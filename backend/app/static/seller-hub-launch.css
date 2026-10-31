@@ -194,7 +194,7 @@ h2{font-weight:900;font-size:clamp(39px,4.1vw,60px);letter-spacing:-.06em;line-h
 .grail-card-left{width:35%;top:25%;left:4%}
 .grail-card-right{width:35%;top:24%;right:3%}
 .grail-card-centre{width:43%;top:11%;left:28.5%}
-.grail-note{bottom:0;max-width:95%;text-align:center}
+.grail-note{bottom:-26px;max-width:95%;text-align:center;color:#a7cbe8}
 .collection-section{padding-block:103px 18px}
 .collection-heading{margin-bottom:34px}
 .collection-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:285px;gap:15px}
