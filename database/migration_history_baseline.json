@@ -37,7 +37,9 @@
     "automation_event_outbox": "20260928051959",
     "shopify_raw_pool_audit_function": "20260929192433",
     "unique_graded_certificate": "20261001034809",
-    "seller_comics_manga": "20261013224334"
+    "seller_comics_manga": "20261013224334",
+    "seller_hub_launch_waitlist": "20261031192146",
+    "seller_hub_shopify_contact_sync": "20261031203048"
   },
   "remote_only_applied": [
     {

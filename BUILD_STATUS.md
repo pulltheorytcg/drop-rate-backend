@@ -10,6 +10,11 @@ Postgres leases, retries and acknowledgement tokens keep the mirror safe when
 Shopify is unavailable; Supabase stays the consent record. No launch emails,
 theme publication or early seller-account marketing enrolment are enabled.
 
+Production Supabase migration `20261031203048` is applied and read-back
+verified; RLS is still forced, no browser/API table reads were granted, and
+the waitlist contains zero records as of the verification. Historical
+migration-version mappings include this and the original Seller Hub opt-in.
+
 **Activation blocked:** Installed Shopify app's active version lacks
 `write_customers`; updating its permissions/protected-customer-data approval
 and the explicit `TCG_SHOPIFY_WAITLIST_SYNC_ENABLED=true` rollout remain

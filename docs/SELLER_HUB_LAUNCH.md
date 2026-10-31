@@ -37,6 +37,12 @@ Seller Hub launch and early-access purpose. It sends
 
 - Canonical additive migration:
   `database/migrations/20261031210000_seller_hub_shopify_contact_sync.sql`.
+  Applied in production Supabase migration history as version
+  `20261031203048` on 31 October 2026. The existing launch-list migration
+  was applied as `20261031192146`; both versions are mapped in
+  `database/migration_history_baseline.json` to prevent future reapplication.
+  RLS remained forced; neither the browser roles nor `tcg_api` can read the
+  contact table directly.
 - **Existing pre-disclosure rows** default to `NOT_REQUESTED` and are never
   included in a Shopify export. The original four-argument registration path
   remains Supabase-only for old browser assets. A fresh, disclosed opt-in can
@@ -67,8 +73,8 @@ Seller Hub launch and early-access purpose. It sends
 ### Controlled activation
 
 1. Verify Python, JS, migration/security and Shopify mock tests and merge
-   through CI. Apply the exact committed additive migration to Supabase and
-   inspect grants and row-level security.
+   through CI. The additive migration has already been applied and its grants
+   and row-level security verified; do not apply it again.
 2. In the Shopify Dev Dashboard, create/publish an app version with
    `write_customers`, preserving existing scopes; ensure protected customer
    data access is approved and the installation has the updated permission.
