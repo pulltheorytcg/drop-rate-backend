@@ -1,7 +1,7 @@
 """Drop Rate's internal, evidence-backed catalogue valuation pass.
 
 Runs within the existing catalogue worker; never creates a new service.
-The first release is strictly for ordinary standard C/UC cards: variants and
+The model is strictly for ordinary standard C/UC cards: variants and
 special rarities require exact product/artwork marketplace evidence instead.
 A calculation can be rules-verified without pretending to be a completed sale.
 The derived catalogue value is not a physical copy's condition-adjusted value.
@@ -19,16 +19,18 @@ from .db import user_connection
 from .pokewallet_one_piece_market import WRITE_SQL
 from .pricing_rules import store_price_floor
 from .reference_baseline_model import PeerGuide, Printing, ordinary_peer_baseline
+from .fusion_official_rarity import VERIFIED_BASE_SQL as FUSION_VERIFIED_BASE_SQL
 
 JOB = "DROP_RATE_DAILY_MODEL"
 SOURCE = "DROP_RATE_COMPUTED_MARKET_V1"
-REVISION = 1
+REVISION = 2
+ALGORITHM_VERSION = 1  # The existing P25 formula is unchanged; revision rolls out new source eligibility.
 MAX_BATCH = 1000
 
 # Exact, published physical references only. We explicitly exclude Naruto and
 # every printing with a positive independent market/guide price, even if stale.
 # On later days a previously calculated Drop Rate value may be recalculated.
-CANDIDATE_SQL = """
+CANDIDATE_SQL = f"""
 select r.provider,r.system_code,r.language,r.provider_id,r.set_id,r.name,
        r.card_number,r.rarity,r.image_url,s.name as set_name,
        b.quotes->0->>'source' as prior_source,
@@ -45,12 +47,13 @@ where (s.release_date is null or s.release_date<=current_date)
   and (
    (r.provider='Bandai Official' and r.system_code='DRAGON_BALL_SUPER_MASTERS'
     and r.language='English' and r.rarity in ('Common[C]','Uncommon[UC]')
-    and r.card_number ~ '^BT[0-9]+-[0-9]{2,3}$'
+    and r.card_number ~ '^BT[0-9]+-[0-9]{{2,3}}$'
     and r.provider_id !~* '_(PR[0-9]*|p[0-9]+)([.]|$)')
    or
    (r.system_code='ONE_PIECE_CARD_GAME' and r.language in ('English','Japanese')
     and r.rarity in ('C','UC','Common','Uncommon')
-    and r.provider_id=r.card_number and r.card_number ~ '^(OP|EB|PRB|ST)[0-9]{2}-[0-9]{3}$')
+    and r.provider_id=r.card_number and r.card_number ~ '^(OP|EB|PRB|ST)[0-9]{{2}}-[0-9]{{3}}$')
+   or {FUSION_VERIFIED_BASE_SQL}
   )
   and concat_ws(chr(31),r.provider,r.system_code,r.language,r.set_id,r.provider_id)>$1
 order by r.provider,r.system_code,r.language,r.set_id,r.provider_id
@@ -59,7 +62,7 @@ limit $2
 
 # Peers are sourced from pre-existing externally derived guides, NEVER from
 # another Drop Rate model estimate. Future models cannot self-reinforce.
-PEER_SQL = """
+PEER_SQL = f"""
 with wanted as (
  select distinct provider,system_code,language,set_id,rarity
  from jsonb_to_recordset($1::jsonb)
@@ -76,11 +79,12 @@ left join tcg.reference_market_prices p using(provider,system_code,language,prov
 left join tcg.reference_catalogue_prices b using(provider,system_code,language,provider_id)
 where
  (r.system_code='DRAGON_BALL_SUPER_MASTERS'
-  and r.card_number ~ '^BT[0-9]+-[0-9]{2,3}$'
+  and r.card_number ~ '^BT[0-9]+-[0-9]{{2,3}}$'
   and r.provider_id !~* '_(PR[0-9]*|p[0-9]+)([.]|$)')
  or
  (r.system_code='ONE_PIECE_CARD_GAME' and r.provider_id=r.card_number
-  and r.card_number ~ '^(OP|EB|PRB|ST)[0-9]{2}-[0-9]{3}$')
+  and r.card_number ~ '^(OP|EB|PRB|ST)[0-9]{{2}}-[0-9]{{3}}$')
+ or {FUSION_VERIFIED_BASE_SQL}
 """
 
 
@@ -153,7 +157,7 @@ def _quote(ref: dict, value, now: datetime, sample: list[PeerGuide]) -> dict:
         "observation_type": "DERIVED_NOT_SOLD",
         "valuation_role": "DROP_RATE_CALCULATED_MARKET_VALUE",
         "verification_basis": "RULES_VERIFIED_PEER_MODEL",
-        "algorithm_version": REVISION,
+        "algorithm_version": ALGORITHM_VERSION,
         "method": value.method, "confidence": value.confidence,
         "price_gbp_minor": value.estimate_minor,
         "low_gbp_minor": value.low_minor,

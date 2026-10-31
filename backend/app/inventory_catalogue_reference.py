@@ -73,7 +73,7 @@ PRODUCTS_SQL = """select p.*,
 # The existing global number-key index bounds this lookup. Unpriced siblings
 # are retained: quote availability must never select a printing.
 CACHE_SQL = """select k.catalogue_id,r.provider,r.system_code,r.language,r.provider_id,
- r.set_id,r.name,r.card_number,r.rarity,s.name as set_name,
+ r.set_id,r.name,r.card_number,r.rarity,r.image_url,r.source_url,r.evidence,s.name as set_name,
  coalesce(m.quotes,'[]'::jsonb) as quotes,
  coalesce(b.quotes,'[]'::jsonb) as catalogue_quotes
  from tcg.reference_cards r
@@ -296,6 +296,7 @@ def _pokewallet_guide_matches(product, row, quote):
 
 def computed_catalogue_guide(row, quotes, language, *, now):
     """Expose the existing daily model for the same exact raw reference only."""
+    from .fusion_official_rarity import verified_base_reference
     ordinary = (
         row['provider'] == 'Bandai Official'
         and row['system_code'] == 'DRAGON_BALL_SUPER_MASTERS' and language == 'English'
@@ -307,7 +308,7 @@ def computed_catalogue_guide(row, quotes, language, *, now):
         and row.get('rarity') in {'C', 'UC', 'Common', 'Uncommon'}
         and row['provider_id'] == row['card_number']
         and re.fullmatch(r'(OP|EB|PRB|ST)[0-9]{2}-[0-9]{3}', row['card_number'])
-    )
+    ) or (row.get('language')==language and verified_base_reference(row))
     models = [q for q in quotes if isinstance(q, dict) and q.get('source') == 'DROP_RATE_COMPUTED_MARKET_V1']
     if not ordinary or len(models) != 1:
         return None
