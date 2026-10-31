@@ -1,5 +1,32 @@
 # Live catalogue delivery from R2
 
+## 31 October 2026 — Filtered browse incident and bounded-path repair
+
+The live 23:43–23:47 UTC mobile session reproduced long-loading catalogue
+placeholders when a system/game filter or combined manga/COMIC selection was
+active. Railway recorded the indexed shortcut declining the filter shape with
+`ValueError`, followed by 7–42-second request abandonment or a 30-second
+response after the full-catalogue SQL fallback. The current published snapshot
+was intact. Healthy `/health/ready` alone did not reveal this regression.
+
+The indexed newest-first path previously covered global unfiltered pages and
+three isolated extended modes; it did not accept a plain game filter or
+game-plus-type. The correction validates the *entire* generated SQL predicate
+against a small allowlist: system, product type, language, set and provider.
+It selects at most `offset + limit + 1` shared immutable entries in the same
+newest ordering. Original SQL still reapplies the predicates and computes
+current private ownership, dynamic value, images and history. Unexpected
+predicates, text+number searches, owned-only, value sorts and unsupported
+ordering fail closed to the existing SQL path. No invented identity matches or
+catalogue-media claims are introduced.
+
+Release gates: unit cases for all supported combinations and unsupported
+shapes; two-owner native PostgreSQL equivalence including a Pokémon game and
+Manga/COMIC filter; normal CI; Railway deployment/health; user-authenticated
+HTTP timings for each tab. The fix is not considered live until those checks
+complete. The separate heavy authenticated inventory-image requests require
+additional optimisation, without weakening per-owner image access.
+
 ## Completion follow-up — 30 October 2026
 
 PR #821 deployed successfully as Railway deployment
