@@ -2,6 +2,17 @@
 
 Private FastAPI backend and founder dashboard for Drop Rate's inventory system.
 
+## Seller Hub prelaunch registrations
+
+The upcoming seller experience has a branded public landing page at
+`https://app.droprate.co.uk` (or `/seller-hub` on the existing Railway origin).
+`POST /api/v1/public/seller-hub/waitlist` stores explicit launch-notification
+opt-ins in a separate private Supabase/PostgreSQL table. The existing
+`/owner/join` early seller registration, invitation tokens and `/owner` login
+remain available. This **does not** indicate the complete Seller Hub is live,
+nor does it enable automated launch emails; see the
+[Seller Hub launch deployment and consent guide](docs/SELLER_HUB_LAUNCH.md).
+
 ## Inventory workflow
 
 - Search and filter owner-scoped inventory.

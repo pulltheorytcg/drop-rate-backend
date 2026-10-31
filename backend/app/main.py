@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import router
 from .db import DATABASE_WRITE_READY_SQL, create_pool
 from .seller_channel_sync import router as seller_channel_sync_router
+from .seller_hub_launch import router as seller_hub_launch_router
 from .owner_inventory import router as owner_inventory_router
 from .owner_imports import router as owner_csv_imports_router
 from .founder_accounts import router as founder_accounts_router
@@ -353,8 +354,14 @@ def create_app() -> FastAPI:
 
     @app.get("/app", include_in_schema=False)
     @app.get("/", include_in_schema=False)
-    async def dashboard() -> HTMLResponse:
+    async def dashboard(request: Request) -> HTMLResponse:
+        if request.url.hostname == "app.droprate.co.uk" and request.url.path == "/":
+            return HTMLResponse((STATIC_DIR / "seller-hub-launch.html").read_text(encoding="utf-8"))
         return HTMLResponse(_dashboard_html())
+
+    @app.get("/seller-hub", include_in_schema=False)
+    async def seller_hub_launch() -> HTMLResponse:
+        return HTMLResponse((STATIC_DIR / "seller-hub-launch.html").read_text(encoding="utf-8"))
 
     @app.get("/join", include_in_schema=False)
     async def founder_join() -> HTMLResponse:
@@ -397,6 +404,7 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
+    app.include_router(seller_hub_launch_router)
     app.include_router(access_control_router)
     app.include_router(founder_accounts_router)
     app.include_router(seller_channel_sync_router)
