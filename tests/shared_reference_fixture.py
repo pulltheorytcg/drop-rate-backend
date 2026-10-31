@@ -19,6 +19,8 @@ async def install_reference_schema(db):
       create table if not exists tcg.reference_market_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
       create table if not exists tcg.reference_catalogue_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
       alter table tcg.reference_cards add column if not exists number_key text;
+      alter table tcg.reference_cards add column if not exists image_url text,
+        add column if not exists source_url text,add column if not exists evidence jsonb;
       create table if not exists tcg.reference_sealed_products(provider text,system_code text,language text,provider_id text,set_id text,name text,product_type text,image_url text);
       create table if not exists tcg.provider_catalogue_mappings(catalogue_id uuid,source_provider text,system_code text,provider_language text,provider_id text,provider_entity_type text,provider_variant_key text,match_status text,verification_basis text,confidence numeric,metadata jsonb);
       create table if not exists tcg.market_source_mappings(catalogue_id uuid,source text,match_status text);

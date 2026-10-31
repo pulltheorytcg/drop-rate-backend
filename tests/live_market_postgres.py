@@ -41,7 +41,7 @@ async def main():
       create table tcg.pricing_policies(owner_id uuid);
       create table tcg.catalogue_job_runs(id uuid primary key default gen_random_uuid(),job text constraint catalogue_job_runs_job_check
        check(job in ('REFERENCE_PRICES')),actor_user_id uuid,status text,report jsonb,started_at timestamptz default now(),finished_at timestamptz);
-      create table tcg.reference_cards(provider text,system_code text,language text,provider_id text,set_id text,name text,card_number text,rarity text,number_key text);
+      create table tcg.reference_cards(provider text,system_code text,language text,provider_id text,set_id text,name text,card_number text,rarity text,number_key text,image_url text,source_url text,evidence jsonb);
       create table tcg.reference_sets(provider text,system_code text,language text,set_id text,name text,release_date date);
       create table tcg.reference_market_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
       create table tcg.reference_catalogue_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
