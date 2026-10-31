@@ -77,3 +77,25 @@ scoring threshold or evidence branch was weakened. Search corrections now use
 both roles' full released catalogue; a read-only Japanese OP12-106 database probe
 returned two printings in 671 ms (not an end-to-end phone timing benchmark).
 The historical vision timings above remain the latest measured scan baseline.
+
+## 31 October: preserve terminal vision-stage timing (prepared, pending release)
+
+A read-only review of production scan runs showed that early exits (`NO_MATCH`
+for an empty frame, `NEEDS_REVIEW` for unknown object/game) and provider errors
+often had empty `provider_evidence`, despite spending up to tens of seconds
+waiting for vision. The apparent time samples were therefore biased toward
+scans that reached catalogue resolution. A recent burst of 19 fast provider
+rejections also lacked their sanitized HTTP status in durable scan records.
+
+The small server-only change persists the existing timing and usage telemetry
+on all three early exits, counts visual-reference hints without exposing their
+IDs, and records only the status code and retryability of a failed provider
+request (never the upstream response body, image or credentials). No change is
+made to model, photo quality, vision prompt/schema, card candidates or review
+thresholds. This change improves *diagnosis*, not latency by itself.
+
+After a verified deployment, measure the 50th/95th percentile of the provider
+HTTP and overall vision stage for each terminal outcome, including empty/
+unknown scans. Establish a labelled test set of cards, manga and sealed items
+before pursuing any faster-model or lower-resolution change. Do not use fewer
+human-review results as a proxy for improved recognition accuracy.

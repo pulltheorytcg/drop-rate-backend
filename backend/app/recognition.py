@@ -80,6 +80,37 @@ ENGINE_VERSION = "v1.10.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
+def _vision_terminal_evidence(
+    *,
+    timings_ms: dict[str, float],
+    pipeline_started: float,
+    vision_telemetry: dict[str, Any] | None = None,
+    reference_hints: list[dict[str, Any]] | None = None,
+    vision_error: RecognitionVisionError | None = None,
+) -> dict[str, Any]:
+    """Keep latency diagnostics when vision exits before catalogue matching.
+
+    An unknown game or rejected provider call is often the slowest scan and
+    previously left provider_evidence empty. Store only sanitized error status,
+    never the provider response body, image or credentials.
+    """
+    snapshot = dict(timings_ms)
+    snapshot["pipeline_before_persist"] = round(
+        (time.perf_counter() - pipeline_started) * 1000, 2,
+    )
+    evidence: dict[str, Any] = {"timings_ms": snapshot}
+    if vision_telemetry is not None:
+        evidence["vision_telemetry"] = vision_telemetry
+    if reference_hints is not None:
+        evidence["reference_index_hint_count"] = len(reference_hints)
+    if vision_error is not None:
+        evidence["vision_error"] = {
+            "http_status": vision_error.status_code,
+            "retryable": vision_error.retryable,
+        }
+    return evidence
+
+
 class RecognitionRequest(BaseModel):
     image_data_url: str = Field(min_length=100, max_length=12_000_000)
     inventory_id: UUID | None = None
@@ -1088,6 +1119,11 @@ async def recognize_card(
         vision_telemetry = vision_result.telemetry.to_dict()
         timings_ms["vision_provider_http"] = vision_result.telemetry.request_ms
     except RecognitionVisionError as exc:
+        evidence = _vision_terminal_evidence(
+            timings_ms=timings_ms,
+            pipeline_started=pipeline_started,
+            vision_error=exc,
+        )
         async with user_connection(
             request.app.state.db_pool,
             user.user_id,
@@ -1099,6 +1135,7 @@ async def recognize_card(
                 set status='FAILED',decision='FAILED',
                     error_code='VISION_PROVIDER_ERROR',
                     error_detail=$1,decision_reasons=$2::jsonb,
+                    provider_evidence=$5::jsonb,
                     completed_at=clock_timestamp(),updated_at=clock_timestamp(),
                     version=version+1
                 where id=$3 and owner_id=$4
@@ -1107,6 +1144,7 @@ async def recognize_card(
                 json.dumps([exc.detail]),
                 run_id,
                 owner_id,
+                json.dumps(evidence),
             )
             result = await _run_payload(connection, run_id)
         return jsonable_encoder(result)
@@ -1116,6 +1154,13 @@ async def recognize_card(
                                          payload.image_data_url, vision_telemetry)
         async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
             return jsonable_encoder(await _run_payload(connection, run_id))
+
+    terminal_evidence = json.dumps(_vision_terminal_evidence(
+        timings_ms=timings_ms,
+        pipeline_started=pipeline_started,
+        vision_telemetry=vision_telemetry,
+        reference_hints=reference_hints,
+    ))
 
     if observation.object_type == "NONE" and observation.object_type_confidence >= 0.80:
         async with user_connection(
@@ -1129,6 +1174,7 @@ async def recognize_card(
                 set status='NO_MATCH',decision='NO_MATCH',
                     ai_observation=$1::jsonb,
                     decision_reasons=$2::jsonb,risk_flags=$3::jsonb,
+                    provider_evidence=$6::jsonb,
                     completed_at=clock_timestamp(),updated_at=clock_timestamp(),
                     version=version+1
                 where id=$4 and owner_id=$5
@@ -1138,6 +1184,7 @@ async def recognize_card(
                 json.dumps(["NO_COLLECTIBLE_PRESENT"]),
                 run_id,
                 owner_id,
+                terminal_evidence,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
 
@@ -1153,6 +1200,7 @@ async def recognize_card(
                 set status='NEEDS_REVIEW',decision='NEEDS_REVIEW',
                     ai_observation=$1::jsonb,
                     decision_reasons=$2::jsonb,risk_flags=$3::jsonb,
+                    provider_evidence=$6::jsonb,
                     completed_at=clock_timestamp(),updated_at=clock_timestamp(),
                     version=version+1
                 where id=$4 and owner_id=$5
@@ -1162,6 +1210,7 @@ async def recognize_card(
                 json.dumps(["OBJECT_TYPE_UNRESOLVED"]),
                 run_id,
                 owner_id,
+                terminal_evidence,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
 
@@ -1179,6 +1228,7 @@ async def recognize_card(
                     ai_observation=$1::jsonb,
                     decision_reasons=$2::jsonb,
                     risk_flags=$3::jsonb,
+                    provider_evidence=$6::jsonb,
                     completed_at=clock_timestamp(),updated_at=clock_timestamp(),
                     version=version+1
                 where id=$4 and owner_id=$5
@@ -1188,6 +1238,7 @@ async def recognize_card(
                 json.dumps(["UNSUPPORTED_OR_UNKNOWN_GAME"]),
                 run_id,
                 owner_id,
+                terminal_evidence,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
 
