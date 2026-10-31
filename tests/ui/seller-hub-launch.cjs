@@ -42,6 +42,8 @@ async function settle(predicate) {
   assert.ok(layout.querySelector('a[href="/owner/join"]'), 'early seller account route remains available');
   assert.ok(layout.querySelector('a[href="/owner"]'), 'existing seller login remains available');
   assert.ok(layout.getElementById('waitlist-consent').required);
+  assert.ok(layout.querySelector('.consent-choice').textContent.includes('Shopify customer list'));
+  assert.ok(layout.querySelector('.fine-print').textContent.includes('unrelated store marketing'));
   assert.ok(layout.getElementById('waitlist-email').required);
 
   const success = mount();
@@ -56,6 +58,7 @@ async function settle(predicate) {
   assert.equal(success.calls[0].body.email, 'seller@example.com');
   assert.equal(success.calls[0].body.interest, 'COMICS_MANGA');
   assert.equal(success.calls[0].body.consent, true);
+  assert.equal(success.calls[0].body.shopify_contact_consent, true);
   success.form.dispatchEvent(new success.dom.window.Event('submit', { bubbles: true, cancelable: true }));
   assert.equal(success.calls.length, 1, 'completed form must not submit twice');
   success.dom.window.close();

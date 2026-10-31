@@ -16,6 +16,7 @@ from .api import router
 from .db import DATABASE_WRITE_READY_SQL, create_pool
 from .seller_channel_sync import router as seller_channel_sync_router
 from .seller_hub_launch import router as seller_hub_launch_router
+from .seller_hub_shopify_sync import run_shopify_waitlist_sync
 from .owner_inventory import router as owner_inventory_router
 from .owner_imports import router as owner_csv_imports_router
 from .founder_accounts import router as founder_accounts_router
@@ -196,6 +197,10 @@ def create_app() -> FastAPI:
         linked_draft_task: asyncio.Task | None = None
         market_task: asyncio.Task | None = None
         maintenance_tasks=[]
+        if settings.shopify_waitlist_sync_enabled:
+            maintenance_tasks.append(asyncio.create_task(
+                run_shopify_waitlist_sync(app.state.db_pool, settings)
+            ))
         from .r2_reference_images import worker_enabled, run_reference_mirror_loop
         if worker_enabled() and settings.catalogue_maintenance_actor_user_id:
             maintenance_tasks.append(asyncio.create_task(run_reference_mirror_loop(

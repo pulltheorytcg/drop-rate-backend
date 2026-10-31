@@ -27,6 +27,7 @@
           email: document.getElementById('waitlist-email').value,
           interest: document.getElementById('waitlist-interest').value,
           consent: document.getElementById('waitlist-consent').checked,
+          shopify_contact_consent: document.getElementById('waitlist-consent').checked,
           website: document.getElementById('waitlist-website').value
         })
       });

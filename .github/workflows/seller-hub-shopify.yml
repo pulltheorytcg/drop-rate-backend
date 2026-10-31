@@ -1,0 +1,33 @@
+name: Seller Hub Shopify contact sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'database/migrations/*seller_hub*'
+      - 'backend/app/seller_hub_launch.py'
+      - 'backend/app/seller_hub_shopify_sync.py'
+      - 'tests/seller_hub_shopify_pglite.mjs'
+  pull_request:
+    paths:
+      - 'database/migrations/*seller_hub*'
+      - 'backend/app/seller_hub_launch.py'
+      - 'backend/app/seller_hub_shopify_sync.py'
+      - 'tests/seller_hub_shopify_pglite.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  private-outbox-sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tools/history-archive-verify/package-lock.json
+      - run: npm ci --prefix tools/history-archive-verify --no-audit --no-fund
+      - run: node tests/seller_hub_shopify_pglite.mjs
