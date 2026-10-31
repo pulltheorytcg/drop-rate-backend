@@ -1,3 +1,23 @@
+## 31 October 2026 — Seller Hub prelaunch registration (release in progress)
+
+Built the existing Railway/FastAPI public landing at `app.droprate.co.uk`
+(host-aware root and explicit `/seller-hub` route) with approved Drop Rate
+Seller Hub artwork, prelaunch feature descriptions, a consent-based launch
+list, and a clearly separate link to existing early seller account creation.
+Invitation-token onboarding, founder root on the Railway origin, Seller Hub
+auth and all commerce paths are retained.
+
+Canonical Supabase migration `20261031190234_seller_hub_launch_waitlist`
+creates a unique opt-in table with forced RLS, no direct `anon`/`authenticated`
+or `tcg_api` table privileges, and a private validated/idempotent registration
+function. No customer credentials or inventory are collected. Actual launch
+emails remain off until sender, unsubscribe and delivery gates are approved.
+No new Railway service, checkout change, store publication, n8n automation,
+owner grant, stock or financial mutation is included. See
+[the launch runbook](docs/SELLER_HUB_LAUNCH.md). CI, migration, production
+deployment, Squarespace subdomain, Shopify live Sell With Us link and mobile
+visual checks must be verified separately before claiming launch-list go-live.
+
 ## 30 October 2026 — Resumable R2 reference image migration
 
 The existing API can now run the exact-reference image copier continuously in
