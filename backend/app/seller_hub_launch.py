@@ -44,10 +44,11 @@ async def join_seller_hub_waitlist(payload: SellerHubLaunchSignup, request: Requ
     try:
         async with request.app.state.db_pool.acquire() as connection:
             await connection.fetchval(
-                "select tcg_private.register_seller_hub_interest($1, $2, $3)",
+                "select tcg_private.register_seller_hub_interest($1, $2, $3, $4)",
                 payload.email,
                 payload.name,
                 payload.interest,
+                payload.consent,
             )
     except (asyncpg.PostgresError, asyncpg.InterfaceError, OSError, TimeoutError) as exc:
         # Database exceptions can include values from a rejected row. Do not

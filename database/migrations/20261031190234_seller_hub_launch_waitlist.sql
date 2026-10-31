@@ -35,7 +35,8 @@ revoke all on tcg.seller_hub_launch_waitlist from public, anon, authenticated, s
 create or replace function tcg_private.register_seller_hub_interest(
     p_email text,
     p_display_name text,
-    p_interest text
+    p_interest text,
+    p_consent boolean
 )
 returns boolean
 language plpgsql
@@ -47,7 +48,8 @@ declare
     v_display_name text := btrim(coalesce(p_display_name, ''));
     v_created_id uuid;
 begin
-    if length(v_email) < 5 or length(v_email) > 254
+    if p_consent is distinct from true
+       or length(v_email) < 5 or length(v_email) > 254
        or v_email !~ '^[^[:space:]@]+@[^[:space:]@.]+(\.[^[:space:]@.]+)+$'
        or length(v_display_name) > 120
        or p_interest is null
@@ -70,8 +72,8 @@ begin
 end;
 $function$;
 
-revoke all on function tcg_private.register_seller_hub_interest(text,text,text)
+revoke all on function tcg_private.register_seller_hub_interest(text,text,text,boolean)
     from public, anon, authenticated, service_role, tcg_api;
-grant execute on function tcg_private.register_seller_hub_interest(text,text,text) to tcg_api;
+grant execute on function tcg_private.register_seller_hub_interest(text,text,text,boolean) to tcg_api;
 
 commit;

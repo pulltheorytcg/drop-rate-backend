@@ -103,7 +103,7 @@ async def test_waitlist_signup_normalises_email_and_uses_private_sql_function(la
     assert len(connection.calls) == 1
     query, args = connection.calls[0]
     assert "tcg_private.register_seller_hub_interest" in query
-    assert args == ("collector+cards@example.com", "Jamie", "COMICS_MANGA")
+    assert args == ("collector+cards@example.com", "Jamie", "COMICS_MANGA", True)
     assert "collector+cards@example.com" not in query
 
 
@@ -161,6 +161,7 @@ def test_private_sql_grants_rls_and_idempotent_opt_in():
     assert "grant execute on function tcg_private.register_seller_hub_interest" in sql
     assert "on conflict (email) do update" in sql
     assert "where seller_hub_launch_waitlist.status = 'unsubscribed'" in sql
+    assert "p_consent is distinct from true" in sql
     assert "consented_at" in sql and "consent_version" in sql
 
 
