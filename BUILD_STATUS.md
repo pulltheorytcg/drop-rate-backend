@@ -1,4 +1,4 @@
-## 31 October 2026 — Official Japanese Pokémon R2 mirror repair (live, backlog draining)
+## 31 October 2026 — Official Japanese Pokémon R2 mirror repair (recovered batch complete)
 
 Production reference-image batches had been failing 20/20 with
 `InsufficientPrivilegeError` because forced-RLS mirror receipt policies did
@@ -9,9 +9,8 @@ to canonical repo migration `20261031230000`. Source identity, seller media
 rights, existing table grants, ownership and market values are unchanged.
 
 Live batches recovered immediately to 20/20 successful copies and zero
-failures. At 23:34 UTC, 2,493 of the 3,065 recovered official assets had
-current verified private-R2 mirrors; the existing bounded worker continues
-draining the remainder. Another 2,907 Japanese and 581 English Pokémon
+failures. At 23:36 UTC, all 3,065 recovered official assets have current
+verified private-R2 mirrors, with zero pending and zero retries. Another 2,907 Japanese and 581 English Pokémon
 references have no source art URL and remain a separate provider-data gap.
 The recorded R2 receipts do not yet constitute signed-in mobile visual QA.
 See [artwork mirror repair](docs/R2_POKEMON_OFFICIAL_POLICY_20261031.md).
