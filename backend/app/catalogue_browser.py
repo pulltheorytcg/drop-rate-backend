@@ -72,6 +72,9 @@ REFERENCE_IMAGE_PROVIDER_HOSTS = {
 
 
 def provider_reference_artwork_url(value, provider: str, system_code: str) -> bool:
+    from .pokemon_official_artwork import official_image_url
+    if (provider, system_code) == ('TCGdex', 'POKEMON_TCG') and official_image_url(value):
+        return True
     if system_code == 'ONE_PIECE_CARD_GAME' and provider in {'Punk Records', 'Bandai Official'}:
         return one_piece_artwork_url(value)
     allowed = REFERENCE_IMAGE_PROVIDER_HOSTS.get((provider, system_code))

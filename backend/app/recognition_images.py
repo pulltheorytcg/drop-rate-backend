@@ -214,7 +214,8 @@ REFERENCE_IMAGE_MAX_REDIRECTS = 3
 
 def _trusted_reference_url(url: str) -> bool:
     from .book_artwork import publisher_cover_url
-    if publisher_cover_url(url):
+    from .pokemon_official_artwork import official_image_url
+    if publisher_cover_url(url) or official_image_url(url):
         return True
     try:
         parsed = urlparse(url)

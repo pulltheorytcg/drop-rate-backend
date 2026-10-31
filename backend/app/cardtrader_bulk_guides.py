@@ -39,7 +39,7 @@ from .reference_sealed import normalized as source_normalized
 
 SOURCE = "CARDTRADER_EXPANSION_ASKING"
 JOB = "CARDTRADER_EXPANSION_GUIDES"
-REVISION = 7
+REVISION = 8
 MIN_SELLERS = 3
 MAX_PRICE_SPREAD = Decimal("3")
 MAX_SETS_PER_RUN = 30
@@ -309,14 +309,14 @@ async def asking_guide(ref, blueprint_id, expansion_id, rows, fx_provider, obser
                 base_currency=currency, quote_currency="GBP", at=observed)).validate()
         fx = fx_cache[currency]
         amount = _to_gbp_minor(minor, fx)
-        if amount >= 100:  # the catalogue's explicit £1 price floor
+        if amount > 0:  # Market evidence can be below the separate £1 selling floor.
             row = (amount, seller, listing_id, minor, currency)
             prior = per_seller.get(seller)
             if prior is None or row < prior:
                 per_seller[seller] = row
     amounts = sorted(per_seller.values())
     if diagnostics is not None:
-        diagnostics["independent_sellers_above_one_pound"] = len(amounts)
+        diagnostics["independent_sellers_with_positive_price"] = len(amounts)
     selected = amounts[:7]
     if len(selected) < MIN_SELLERS or selected[-1][0] > selected[0][0] * MAX_PRICE_SPREAD:
         if diagnostics is not None and len(selected) >= MIN_SELLERS:
@@ -324,7 +324,7 @@ async def asking_guide(ref, blueprint_id, expansion_id, rows, fx_provider, obser
         return None
     gbp_minor = int(Decimal(str(median(item[0] for item in selected))).quantize(
         Decimal("1"), rounding=ROUND_HALF_UP))
-    if gbp_minor < 100:
+    if gbp_minor <= 0:
         return None
     fx_evidence = {c: {"rate": str(fx_cache[c].rate),
                        "source": fx_cache[c].source,

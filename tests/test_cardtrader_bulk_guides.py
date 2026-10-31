@@ -158,15 +158,28 @@ async def test_median_asking_guide_labelled_not_sold_and_no_physical_reprice():
 
 
 @pytest.mark.asyncio
-async def test_spread_floor_and_distinct_seller_requirements():
+async def test_spread_and_distinct_seller_requirements():
     now = datetime.now(timezone.utc)
     for offers in (
         [listing(1, price=100), listing(2, price=200), listing(3, price=400)],
-        [listing(1, price=40), listing(2, price=70), listing(3, price=80)],
         [listing(1, price=200), listing(1, price=220), listing(2, price=210)],
     ):
         assert await asking_guide(ref(), 111, 30, offers,
                                   SameCurrencyFx(), now, {}) is None
+
+
+@pytest.mark.asyncio
+async def test_market_guide_below_selling_floor_preserves_actual_pennies():
+    now = datetime.now(timezone.utc)
+    diagnostics = {}
+    quote, amount = await asking_guide(
+        ref(), 111, 30, [listing(1, price=40), listing(2, price=70), listing(3, price=80)],
+        SameCurrencyFx(), now, {}, diagnostics=diagnostics)
+    assert amount == quote['price_gbp_minor'] == 70
+    assert quote['physical_valuation_eligible'] is False
+    assert diagnostics['independent_sellers_with_positive_price'] == 3
+    assert await asking_guide(ref(), 111, 30, [listing(1, price=0), listing(2, price=0), listing(3, price=0)],
+                              SameCurrencyFx(), now, {}) is None
 
 
 def test_masters_exact_number_name_rarity_singleton():
