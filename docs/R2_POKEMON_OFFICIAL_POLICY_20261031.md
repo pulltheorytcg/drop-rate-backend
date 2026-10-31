@@ -1,5 +1,19 @@
 # Japanese Pokémon artwork mirror permission repair — 31 October 2026
 
+## Live release checkpoint
+
+PR #843 merged after both GitHub checks passed. The canonical SQL file was
+applied to production Supabase as migration version `20261031232331`.
+Readback confirms both policies retain the exact Japanese source and identity
+guards; table grants are unchanged, and security advisors reported no new
+image-mirror finding. The existing worker immediately transitioned from
+20 failures / zero mirrors per batch to 20 verified mirrors / zero failures.
+
+At 23:36 UTC, live readback confirmed all 3,065/3,065 official assets
+mirrored with zero pending and zero retries. The worker is idle for this cohort.
+The original provider URL remains the fallback. A signed-in device image-load
+check is still required before claiming an observed visual-speed improvement.
+
 ## Production observation (read-only)
 
 - 3,065 Japanese `TCGdex` reference cards now have exact, individually verified

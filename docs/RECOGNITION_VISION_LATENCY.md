@@ -78,7 +78,7 @@ both roles' full released catalogue; a read-only Japanese OP12-106 database prob
 returned two printings in 671 ms (not an end-to-end phone timing benchmark).
 The historical vision timings above remain the latest measured scan baseline.
 
-## 31 October: preserve terminal vision-stage timing (prepared, pending release)
+## 31 October: preserve terminal vision-stage timing (deployed)
 
 A read-only review of production scan runs showed that early exits (`NO_MATCH`
 for an empty frame, `NEEDS_REVIEW` for unknown object/game) and provider errors
@@ -94,7 +94,7 @@ request (never the upstream response body, image or credentials). No change is
 made to model, photo quality, vision prompt/schema, card candidates or review
 thresholds. This change improves *diagnosis*, not latency by itself.
 
-After a verified deployment, measure the 50th/95th percentile of the provider
+Release verification: PR #844 and the unrelated test-stability fix #845 merged\nafter CI. Railway deployment `c05d1c47d` passed 8,638 backend tests,\nwith 25 optional PGlite tests skipped, and public readiness returned HTTP 200.\nNo human-labelled post-release recognition benchmark has been run.\n\nNext, measure the 50th/95th percentile of the provider
 HTTP and overall vision stage for each terminal outcome, including empty/
 unknown scans. Establish a labelled test set of cards, manga and sealed items
 before pursuing any faster-model or lower-resolution change. Do not use fewer
