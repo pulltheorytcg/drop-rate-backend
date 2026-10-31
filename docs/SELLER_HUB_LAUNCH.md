@@ -28,7 +28,9 @@ Horizon theme and password/launch gate are not changed by this backend PR.
   around real photographs; it does not fabricate slab labels or current stock.
   The hero keeps the real card photographs, heading and caption unobstructed:
   overlapping decorative floating callouts were removed at all screen widths,
-  and the mobile collage height scales to clear the bottom photo caption.
+  and the mobile collage height scales to clear the bottom photo caption. On
+  desktop, the real-photo disclosure sits below the slab frames rather than
+  being obscured by them.
 - A separate six-tile collection gallery makes the intended breadth explicit:
   raw Pokémon cards, graded cards, sealed One Piece, One Piece graded cards,
   comics and manga. The Pokémon/comics/manga photos come from named Unsplash
