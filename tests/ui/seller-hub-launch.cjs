@@ -39,6 +39,14 @@ async function settle(predicate) {
   const ids = Array.from(layout.querySelectorAll('[id]'), element => element.id);
   assert.equal(new Set(ids).size, ids.length, 'IDs must be unique');
   assert.equal(layout.querySelectorAll('.feature-card').length, 6);
+  const tickerGroups = Array.from(layout.querySelectorAll('.ticker-track .ticker-group'));
+  assert.equal(tickerGroups.length, 2, 'continuous ticker repeats one identical group for a seamless loop');
+  assert.equal(tickerGroups[0].textContent, tickerGroups[1].textContent, 'both marquee halves are identical');
+  assert.equal(layout.querySelector('.ticker-track').getAttribute('aria-hidden'), 'true', 'repeated moving copy must not be announced twice');
+  assert.ok(layout.querySelector('.ticker').getAttribute('aria-label').includes('One connected collection'), 'ticker message remains accessible without animation');
+  const tickerStyles = fs.readFileSync(path.join(root, 'backend/app/static/seller-hub-launch.css'), 'utf8');
+  assert.match(tickerStyles, /animation:ticker-scroll 38s linear infinite/, 'ticker scrolls continuously');
+  assert.match(tickerStyles, /@media\(prefers-reduced-motion:reduce\)\{\s*\.ticker-track\{animation:none/, 'reduced-motion users get a still ticker');
   assert.ok(layout.querySelector('img[src="/assets/brand-assets/seller-hub-approved.webp"]'));
   const badges = Array.from(layout.querySelectorAll('.topbar .store-badge'));
   assert.equal(badges.length, 2, 'both mobile platform badges appear only in the Seller Hub header');
