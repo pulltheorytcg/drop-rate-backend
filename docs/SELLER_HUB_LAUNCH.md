@@ -31,7 +31,9 @@ Horizon theme and password/launch gate are not changed by this backend PR.
   Lens stays featured below the tools. Repeated onboarding steps are hidden on
   mobile, keeping the actual opt-in form and all feature information available
   while reducing scrolling. Photo-source disclosure stays visible and the full
-  credits expand on request. The desktop presentation is unchanged.
+  credits expand on request. Each mobile feature card stretches to the same
+  height as the longest card, so shorter copy doesn't create a jagged swipe row.
+  The desktop presentation is unchanged.
 - The Seller Hub hero uses **actual photographed, individually certified slabs
   from Drop Rate's own Shopify product media**: PSA 10 Japanese Eevee 078/066
   (cert 113437109), PSA 10 Japanese Monkey D. Luffy P-001 (cert 165543324)
