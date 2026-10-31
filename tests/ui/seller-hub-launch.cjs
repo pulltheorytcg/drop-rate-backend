@@ -39,6 +39,12 @@ async function settle(predicate) {
   const ids = Array.from(layout.querySelectorAll('[id]'), element => element.id);
   assert.equal(new Set(ids).size, ids.length, 'IDs must be unique');
   assert.equal(layout.querySelectorAll('.feature-card').length, 6);
+  assert.equal(layout.querySelectorAll('.feature-card-list .feature-card').length, 5, 'five routine tools appear in the mobile feature carousel');
+  assert.ok(!layout.querySelector('.feature-card-auction').closest('.feature-card-list'), 'auction lens retains its own full-width mobile spotlight');
+  assert.equal(layout.querySelectorAll('.mobile-swipe-hint').length, 2, 'collection and feature rows have visible swipe directions on phones');
+  assert.equal(layout.querySelector('.collection-grid').getAttribute('tabindex'), '0', 'collecting carousel supports keyboard scrolling');
+  assert.equal(layout.querySelector('.feature-card-list').getAttribute('tabindex'), '0', 'feature carousel supports keyboard scrolling');
+  assert.ok(layout.querySelector('.hero-lede-mobile').textContent.includes('Easier selling is on the way'));
   const tickerGroups = Array.from(layout.querySelectorAll('.ticker-track .ticker-group'));
   assert.equal(tickerGroups.length, 2, 'continuous ticker repeats one identical group for a seamless loop');
   assert.equal(tickerGroups[0].textContent, tickerGroups[1].textContent, 'both marquee halves are identical');
@@ -47,6 +53,10 @@ async function settle(predicate) {
   const tickerStyles = fs.readFileSync(path.join(root, 'backend/app/static/seller-hub-launch.css'), 'utf8');
   assert.match(tickerStyles, /animation:ticker-scroll 38s linear infinite/, 'ticker scrolls continuously');
   assert.match(tickerStyles, /@media\(prefers-reduced-motion:reduce\)\{\s*\.ticker-track\{animation:none/, 'reduced-motion users get a still ticker');
+  assert.match(tickerStyles, /\.feature-card-list\{display:contents\}/, 'desktop features retain their original grid positions');
+  assert.match(tickerStyles, /\.collection-grid\{[^}]*scroll-snap-type:x mandatory/, 'mobile collection photos scroll and snap horizontally');
+  assert.match(tickerStyles, /\.feature-card-list\{[^}]*scroll-snap-type:x mandatory/, 'mobile feature cards scroll and snap horizontally');
+  assert.match(tickerStyles, /\.process-section\{display:none\}/, 'mobile hides the repeated how-it-works section');
   assert.ok(layout.querySelector('img[src="/assets/brand-assets/seller-hub-approved.webp"]'));
   const badges = Array.from(layout.querySelectorAll('.topbar .store-badge'));
   assert.equal(badges.length, 2, 'both mobile platform badges appear only in the Seller Hub header');
@@ -74,6 +84,8 @@ async function settle(predicate) {
     assert.ok(fs.existsSync(path.join(root, 'backend/app/static', image.getAttribute('src').replace('/assets/', ''))), 'all collection photos ship with the page');
   }
   assert.ok(layout.querySelector('.collection-photo-note').textContent.includes('illustrative, not a claim of stock'));
+  assert.ok(layout.querySelector('.collection-mobile-disclosure').textContent.includes('illustrative, not stock photos'));
+  assert.ok(layout.querySelector('.collection-photo-credits-mobile').querySelectorAll('a').length >= 3, 'mobile visitors can expand credited photo sources');
   const imageManifest = JSON.parse(fs.readFileSync(path.join(root, 'backend/app/static/collection-photos/sources.json'), 'utf8'));
   for (const item of imageManifest.images) {
     const bytes = fs.readFileSync(path.join(root, 'backend/app/static/collection-photos', item.file));

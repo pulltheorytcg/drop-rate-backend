@@ -24,6 +24,14 @@ Horizon theme and password/launch gate are not changed by this backend PR.
   `#early-access` opt-in form. Replace those same-page links with verified
   store listing URLs only after the corresponding mobile apps are published.
   No Shopify storefront header, page, navigation or theme is edited here.
+- On phones only, the header now has smaller balanced platform badges and a
+  clear early-access button. The hero uses a shorter introduction, while the
+  six collecting categories and five primary tools become keyboard-accessible,
+  swipeable card rows with snap points and explicit swipe cues. Live Auction
+  Lens stays featured below the tools. Repeated onboarding steps are hidden on
+  mobile, keeping the actual opt-in form and all feature information available
+  while reducing scrolling. Photo-source disclosure stays visible and the full
+  credits expand on request. The desktop presentation is unchanged.
 - The Seller Hub hero uses **actual photographed, individually certified slabs
   from Drop Rate's own Shopify product media**: PSA 10 Japanese Eevee 078/066
   (cert 113437109), PSA 10 Japanese Monkey D. Luffy P-001 (cert 165543324)
