@@ -195,6 +195,17 @@ def test_frontend_uses_local_assets_and_explicit_prelaunch_disclosures():
     js = (ASSETS / "seller-hub-launch.js").read_text()
     css = (ASSETS / "seller-hub-launch.css").read_text()
     assert html.count('<article class="feature-card') == 6
+    assert 'id="collectibles"' in html
+    assert html.count('<article class="collection-tile') == 6
+    assert 'REAL DROP RATE PRODUCT PHOTOS' in html
+    assert '/assets/collection-photos/charizard-psa10-front.webp' in html
+    assert '/assets/collection-photos/luffy-psa10-front.webp' in html
+    assert 'Editorial collection photos are illustrative, not a claim of stock' in html
+    assert all(channel in html for channel in ('Drop Rate store', 'eBay', 'Whatnot'))
+    assert 'Live Auction Lens' in html and 'PLANNED CONCEPT' in html
+    assert 'screen recording, with your permission' in html
+    assert 'under, around or over market value' in html
+    assert 'No live prices shown' in html
     assert 'id="waitlist-consent"' in html and 'type="checkbox" required' in html
     assert 'method="post" action="/api/v1/public/seller-hub/waitlist"' in html
     assert "full Seller Hub is still in development" in html

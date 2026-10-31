@@ -19,21 +19,38 @@ Horizon theme and password/launch gate are not changed by this backend PR.
   `#early-access` opt-in form. Replace those same-page links with verified
   store listing URLs only after the corresponding mobile apps are published.
   No Shopify storefront header, page, navigation or theme is edited here.
-- The Seller Hub hero replaces the large logo graphic with three **actual
-  reference-card artworks**: Umbreon VMAX 215/203 and Son Goku FB01-139 from
-  the existing collector-workspace catalogue, and **Rocks.D.Xebec OP17-118_p2
-  Pirate Crew Super Parallel** from Bandai's official card listing. The OP17
-  artwork is resized for the landing page, with its official SAMPLE marking
-  retained. Original sources, image transformations and hashes are documented
-  at `backend/app/static/grail-art/sources.json`. The card frames are
-  decorative design treatments, **not fabricated graded slabs**, certificate
-  numbers, ownership claims or current stock. The hero identifies the art as
-  reference inspiration, not inventory. Do not label an image BGS Black Label
-  or CGC 9.8 without a verified photo of that exact certified item.
-- If founder-provided, use-rights-cleared photos of Ancient Mew, an OP17
-  chase card in a genuine BGS Black Label 10 case, or a verified CGC-graded
-  Batman comic become available, they can replace the three reference images
-  without changing signup, accounts or the storefront.
+- The Seller Hub hero uses **actual photographed, individually certified slabs
+  from Drop Rate's own Shopify product media**: PSA 10 Japanese Eevee 078/066
+  (cert 113437109), PSA 10 Japanese Monkey D. Luffy P-001 (cert 165543324)
+  and PSA 10 Japanese Mega Charizard X ex 223/193 (cert 160349012). They were
+  visible with item-specific front/back media on active Shopify products when
+  checked on 31 October 2026. The landing image collage adds visual frames
+  around real photographs; it does not fabricate slab labels or current stock.
+- A separate six-tile collection gallery makes the intended breadth explicit:
+  raw Pokémon cards, graded cards, sealed One Piece, One Piece graded cards,
+  comics and manga. The Pokémon/comics/manga photos come from named Unsplash
+  photographers under the Unsplash licence and are **editorial examples, not
+  Drop Rate-owned stock**. The OP17 sealed pack is the manufacturer's product
+  picture already in Drop Rate's Shopify product media, not a photo of the
+  individual inventory copy. On-page photo credit/disclosure is included.
+  Exact original URLs, sources, provenance, transformations and SHA-256 hashes
+  are recorded in `backend/app/static/collection-photos/sources.json`.
+- The previous hero's official artworks remain in
+  `backend/app/static/grail-art/` and one exact OP17 reference image appears in
+  the clearly labelled **illustrative** live-auction UI; it retains the
+  original SAMPLE watermark. No price is invented. No Ancient Mew, BGS Black
+  Label 10 OP17 or CGC-graded Batman slab/cover photo is labelled as Drop Rate
+  inventory without item-specific proof and permission. Do not label an image
+  with an unverified grade or certification.
+- Feature copy now describes a **planned** low-admin progression from scan to
+  catalogue to listings on Drop Rate's own store and, where supported, eBay
+  and Whatnot. It does not imply unattended publishing or that all marketplace
+  integrations are live. The **Live Auction Lens** is explicitly a future
+  concept: optional user-consented screen recording, visible-card recognition,
+  and comparisons against eligible market references for under/around/over
+  value. Platform capture restrictions, exact identity and market data evidence
+  are prerequisites to any such real feature; the on-page overlay is a visual
+  concept and displays no fabricated live prices.
 
 ## Routes and ownership
 
