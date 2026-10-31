@@ -84,8 +84,18 @@ async def test_two_negative_japanese_sets_use_at_most_three_calls_and_no_price_v
     assert first["page_shape"]["full_collector_fractions"] == 2
     assert first["preview"][0]["prices"][0]["positive"]["trend"] is True
     assert first["printing_matches_claimed"] == 0
+    # Inspect the bounded price summaries, not an arbitrary substring of the
+    # whole JSON: the wall-clock checked_at timestamp can legitimately contain
+    # the characters "1.23" even when the upstream £1.23 quote is redacted.
+    summaries = [price for row in first["preview"] for price in row["prices"]]
+    assert len(summaries) == 2
+    assert all(set(price) == {"keys", "unknown_key_count", "variant_type",
+                              "positive", "updated_at"} for price in summaries)
+    assert all(set(price["positive"]) == set(probe.PRICE_FIELDS)
+               and all(type(flag) is bool for flag in price["positive"].values())
+               for price in summaries)
     output = json.dumps(result)
-    assert KEY not in output and "1.23" not in output and "price_gbp" not in output
+    assert KEY not in output and "price_gbp" not in output
 
 
 @pytest.mark.asyncio
