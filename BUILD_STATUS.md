@@ -1,3 +1,17 @@
+## 31 October 2026 — Japanese Pokémon R2 mirror RLS repair (prepared; pending release)
+
+Production logs show the reference-image worker failing every recent 20-image
+batch with `InsufficientPrivilegeError`: its forced-RLS receipt policies did
+not include the newly verified official Japanese Pokémon image URLs. The
+versioned policy repair adds only that exact TCGdex/Japanese/official path,
+preserves the existing host guards and rights/identity boundaries, and does
+not change stock or prices. At the diagnostic checkpoint, 3,008 official
+source images still lacked verified R2 mirrors, and another 2,907 Japanese
+references had no image source. The normal worker must be verified recovering
+after a reviewed migration release; no live improvement is claimed yet.
+See [artwork mirror repair](docs/R2_POKEMON_OFFICIAL_POLICY_20261031.md).
+
+## 31 October 2026 — Shopify Seller Hub launch-list contact mirror (prepared; disabled)
 ## 31 October 2026 — Shopify Seller Hub launch-list contact mirror (prepared; disabled)
 
 Added a consent-scoped customer contact mirror to the existing Seller Hub
