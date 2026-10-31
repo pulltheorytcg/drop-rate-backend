@@ -111,6 +111,14 @@ class Pool:
      'https://cardtrader.com/uploads/blueprints/image/110281/preview_porygon-103a-147-aquapolis.jpg', True),
     ('TCGdex','POKEMON_TCG','https://cardtrader.com/uploads/blueprints/image/235151/preview_miltank(2).jpg',True),
     ('TCGdex','POKEMON_TCG','https://cardtrader.com/private/1.jpg',False),
+    ('TCGdex','POKEMON_TCG',
+     'https://www.pokemon-card.com/assets/images/card_images/large/SV11W/047623_P_KURUMIRU.jpg',True),
+    ('TCGdex','POKEMON_TCG',
+     'https://www.pokemon-card.com.evil.test/assets/images/card_images/large/SV11W/047623_P_KURUMIRU.jpg',False),
+    ('TCGdex','POKEMON_TCG',
+     'https://www.pokemon-card.com/assets/images/card_images/large/SV11W/047623_P_KURUMIRU.jpg?image=other',False),
+    ('Bandai Official','POKEMON_TCG',
+     'https://www.pokemon-card.com/assets/images/card_images/large/SV11W/047623_P_KURUMIRU.jpg',False),
     ('Naruto Card Game Archive','NARUTO_KAYOU','https://narutocardgame.gg.evil.test/images/kayou/1.jpg',False),
     ('Bandai Official', 'POKEMON_TCG', ART, False),
 ])
@@ -204,6 +212,29 @@ def test_reference_cache_migration_is_backend_only_and_non_destructive():
     assert 'revoke delete on tcg.reference_image_mirrors from tcg_api' in sql
     assert 'r.image_url=reference_image_mirrors.source_url' in sql
     assert 'on delete cascade' not in sql.lower()
+
+
+def test_official_pokemon_mirror_rls_matches_the_validated_japanese_source_only():
+    migration = (Path(__file__).resolve().parents[1] / 'database/migrations/'
+                 '20261031230000_r2_pokemon_official_reference_images.sql').read_text()
+    assert migration.count('alter policy reference_image_mirrors_') == 2
+    insert, update = migration.split('alter policy reference_image_mirrors_update')
+    official_guard = (
+        "r.language='Japanese' and reference_image_mirrors.source_url ~ "
+        "'^https://www[.]pokemon-card[.]com/assets/images/card_images/large/"
+        "[A-Za-z0-9_-]+/[0-9]{6,8}_[A-Za-z0-9_-]+[.](jpg|png)$'"
+    )
+    for policy in (insert, update):
+        assert "to tcg_api" in policy
+        assert "r.provider='TCGdex' and r.system_code='POKEMON_TCG'" in policy
+        assert 'r.image_url=reference_image_mirrors.source_url' in policy
+        assert official_guard in policy
+        # Every previously permitted reference host remains available.
+        for host in ('assets.tcgdex.net', 'cardtrader[.]com', 'narutocardgame[.]gg',
+                     'www.dbs-cardgame.com', 'onepiece-cardgame.com'):
+            assert host in policy
+    assert 'revoke' not in migration.lower() and 'grant' not in migration.lower()
+    assert 'disable row level security' not in migration.lower()
 
 
 def test_new_automation_command_is_signed_bounded_and_requires_explicit_apply():
