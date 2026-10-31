@@ -46,6 +46,7 @@ async function settle(predicate) {
   assert.ok(badges.every(badge => badge.getAttribute('aria-label').includes('coming soon')), 'download buttons must not promise an available app');
   assert.deepEqual(badges.map(badge => badge.querySelector('strong').textContent), ['App Store', 'Google Play']);
   assert.equal(layout.querySelectorAll('.grail-showcase .grail-card img').length, 3, 'three photographed and verifiable graded cards replace the large hero logo');
+  assert.equal(layout.querySelectorAll('.hero-art .floating-card').length, 0, 'decorative overlays cannot obscure graded cards, headings or captions');
   assert.equal(layout.querySelectorAll('.hero-art .seller-hub-mark').length, 0, 'large hero logo was removed');
   assert.deepEqual(
     Array.from(layout.querySelectorAll('.grail-showcase .grail-card img'), image => image.getAttribute('src')),
