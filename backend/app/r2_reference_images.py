@@ -56,7 +56,7 @@ left join tcg.reference_image_mirrors m
   using(provider,system_code,language,provider_id)
 where r.image_url is not null
   and ((r.provider='TCGdex' and r.system_code='POKEMON_TCG'
-         and split_part(r.image_url,'/',3) in ('assets.tcgdex.net','cardtrader.com'))
+         and split_part(r.image_url,'/',3) in ('assets.tcgdex.net','cardtrader.com','www.pokemon-card.com'))
        or (r.provider='Naruto Card Game Archive'
            and r.system_code in ('NARUTO_BANDAI_LEGACY','NARUTO_KAYOU')
            and split_part(r.image_url,'/',3)='narutocardgame.gg')
