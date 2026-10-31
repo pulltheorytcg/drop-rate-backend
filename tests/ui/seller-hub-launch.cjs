@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { JSDOM } = require('jsdom');
 
 const root = path.resolve(__dirname, '../..');
@@ -44,18 +45,45 @@ async function settle(predicate) {
   assert.ok(badges.every(badge => badge.getAttribute('href') === '#early-access'), 'unreleased apps must direct visitors to the launch list');
   assert.ok(badges.every(badge => badge.getAttribute('aria-label').includes('coming soon')), 'download buttons must not promise an available app');
   assert.deepEqual(badges.map(badge => badge.querySelector('strong').textContent), ['App Store', 'Google Play']);
-  assert.equal(layout.querySelectorAll('.grail-showcase .grail-card img').length, 3, 'three genuine grail-card artworks replace the large hero logo');
+  assert.equal(layout.querySelectorAll('.grail-showcase .grail-card img').length, 3, 'three photographed and verifiable graded cards replace the large hero logo');
   assert.equal(layout.querySelectorAll('.hero-art .seller-hub-mark').length, 0, 'large hero logo was removed');
   assert.deepEqual(
     Array.from(layout.querySelectorAll('.grail-showcase .grail-card img'), image => image.getAttribute('src')),
-    ['/assets/grail-art/umbreon-vmax-215.webp', '/assets/grail-art/goku-fb01-139-p2.webp', '/assets/grail-art/rocks-op17-118-p2.webp'],
+    ['/assets/collection-photos/eevee-psa10-front.webp', '/assets/collection-photos/luffy-psa10-front.webp', '/assets/collection-photos/charizard-psa10-front.webp'],
   );
   for (const image of layout.querySelectorAll('.grail-showcase .grail-card img')) {
-    assert.ok(fs.existsSync(path.join(root, 'backend/app/static', image.getAttribute('src').replace('/assets/', ''))), 'referenced grail artwork must be shipped');
+    assert.ok(fs.existsSync(path.join(root, 'backend/app/static', image.getAttribute('src').replace('/assets/', ''))), 'referenced slab photo must be shipped');
   }
-  assert.ok(Array.from(layout.querySelectorAll('.grail-showcase .grail-card img')).every(image => image.alt.includes('reference artwork')));
-  assert.ok(layout.querySelector('.grail-note').textContent.includes('NOT INVENTORY'));
+  assert.ok(Array.from(layout.querySelectorAll('.grail-showcase .grail-card img')).every(image => image.alt.includes('Actual Drop Rate product photograph')));
+  assert.ok(layout.querySelector('.grail-note').textContent.includes('REAL DROP RATE PRODUCT PHOTOS'));
   assert.ok(!layout.querySelector('.grail-showcase').textContent.includes('BLACK LABEL'), 'never invent slab certifications');
+  const gallery = Array.from(layout.querySelectorAll('.collection-grid .collection-tile'));
+  assert.equal(gallery.length, 6, 'show actual photo categories including Pokémon, One Piece, sealed, slabs, comics and manga');
+  for (const tile of gallery) {
+    const image = tile.querySelector('img');
+    assert.ok(image && image.getAttribute('loading') === 'lazy');
+    assert.ok(fs.existsSync(path.join(root, 'backend/app/static', image.getAttribute('src').replace('/assets/', ''))), 'all collection photos ship with the page');
+  }
+  assert.ok(layout.querySelector('.collection-photo-note').textContent.includes('illustrative, not a claim of stock'));
+  const imageManifest = JSON.parse(fs.readFileSync(path.join(root, 'backend/app/static/collection-photos/sources.json'), 'utf8'));
+  for (const item of imageManifest.images) {
+    const bytes = fs.readFileSync(path.join(root, 'backend/app/static/collection-photos', item.file));
+    assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), item.sha256, `photo ${item.file} matches recorded source hash`);
+  }
+  assert.deepEqual(new Set(imageManifest.images.map(item => item.kind)), new Set([
+    'real_merchant_inventory_photo', 'merchant_used_manufacturer_product_image_not_physical_photo', 'editorial_photo_not_inventory',
+  ]));
+  const sellFeature = Array.from(layout.querySelectorAll('.feature-card')).find(card => /Sell with Drop Rate/.test(card.textContent));
+  assert.ok(sellFeature, 'prelaunch selling feature is explicit');
+  for (const channel of ['Drop Rate store', 'eBay', 'Whatnot']) assert.ok(sellFeature.textContent.includes(channel), `planned channel ${channel} is named`);
+  assert.ok(sellFeature.textContent.includes('PLANNED'));
+  const auction = layout.querySelector('.feature-card-auction');
+  assert.ok(auction.textContent.includes('Live Auction Lens'));
+  assert.ok(auction.textContent.includes('screen recording, with your permission'));
+  assert.ok(auction.textContent.includes('under, around or over market value'));
+  assert.ok(auction.textContent.includes('PLANNED CONCEPT'));
+  assert.ok(auction.textContent.includes('No live prices shown'), 'never fabricate the market value in a concept image');
+  assert.ok(layout.querySelector('a[href="#collectibles"]'), 'new photo gallery is reachable in the header');
   assert.ok(layout.querySelector('a[href="/owner/join"]'), 'early seller account route remains available');
   assert.ok(layout.querySelector('a[href="/owner"]'), 'existing seller login remains available');
   assert.ok(layout.getElementById('waitlist-consent').required);
