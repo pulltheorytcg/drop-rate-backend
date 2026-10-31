@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from pathlib import Path
 
 import httpx
 
 from app.recognition_vision import (
     OpenAIRecognitionVisionClient,
+    RecognitionVisionError,
     _shared_http_client,
     close_shared_vision_http_client,
 )
+from app.recognition import _vision_terminal_evidence
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -138,6 +141,41 @@ def test_recognition_pipeline_persists_transport_and_usage_telemetry() -> None:
     assert "vision.observe_with_telemetry(payload.image_data_url)" in source
     assert 'timings_ms["vision_provider_http"]' in source
     assert '"vision_telemetry": vision_telemetry' in source
+
+
+def test_unknown_or_empty_photo_keeps_vision_timings_and_hint_count() -> None:
+    timings = {"decode_image": 8.0, "vision": 24_100.0, "reference_retrieval": 44.0}
+    telemetry = {"request_ms": 23_900.0, "output_tokens": 210}
+    evidence = _vision_terminal_evidence(
+        timings_ms=timings,
+        pipeline_started=time.perf_counter() - 25,
+        vision_telemetry=telemetry,
+        reference_hints=[{"catalogue_id": "private-test-id"}],
+    )
+    assert evidence["vision_telemetry"] == telemetry
+    assert evidence["reference_index_hint_count"] == 1
+    assert evidence["timings_ms"]["vision"] == 24_100.0
+    assert evidence["timings_ms"]["pipeline_before_persist"] >= 25_000
+    assert "pipeline_before_persist" not in timings
+    assert "private-test-id" not in json.dumps(evidence)
+
+
+def test_failed_vision_records_only_sanitized_provider_status() -> None:
+    error = RecognitionVisionError(
+        "Private upstream response must not be persisted",
+        status_code=429,
+        retryable=True,
+    )
+    evidence = _vision_terminal_evidence(
+        timings_ms={"decode_image": 10.0},
+        pipeline_started=time.perf_counter() - 0.2,
+        vision_error=error,
+    )
+    assert evidence["vision_error"] == {"http_status": 429, "retryable": True}
+    assert "Private upstream" not in json.dumps(evidence)
+    source = RECOGNITION.read_text()
+    assert "provider_evidence=$5::jsonb" in source  # failed vision
+    assert source.count("provider_evidence=$6::jsonb") == 3  # no card, unknown object/game
 
 
 def test_api_shutdown_closes_shared_vision_transport() -> None:
