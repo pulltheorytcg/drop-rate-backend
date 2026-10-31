@@ -108,6 +108,31 @@ async def test_waitlist_signup_normalises_email_and_uses_private_sql_function(la
 
 
 @pytest.mark.asyncio
+async def test_disclosed_shopify_contact_opt_in_uses_separate_private_function(launch_app):
+    app, connection = launch_app
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://app.droprate.co.uk") as client:
+        response = await client.post("/api/v1/public/seller-hub/waitlist", json={
+            "email": "Buyer@Example.com", "consent": True,
+            "shopify_contact_consent": True,
+        })
+    assert response.status_code == 200
+    query, args = connection.calls[0]
+    assert "register_seller_hub_interest_for_shopify" in query
+    assert args == ("buyer@example.com", "", "CARDS", True, True)
+
+
+@pytest.mark.asyncio
+async def test_undisclosed_legacy_client_never_requests_shopify_export(launch_app):
+    app, connection = launch_app
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://app.droprate.co.uk") as client:
+        response = await client.post("/api/v1/public/seller-hub/waitlist", json={
+            "email": "legacy@example.com", "consent": True,
+        })
+    assert response.status_code == 200
+    assert "for_shopify" not in connection.calls[0][0]
+
+
+@pytest.mark.asyncio
 async def test_duplicate_email_has_indistinguishable_success_response(launch_app):
     app, connection = launch_app
     connection.inserted = False
@@ -178,6 +203,9 @@ def test_frontend_uses_local_assets_and_explicit_prelaunch_disclosures():
     assert 'fetch(\'/api/v1/public/seller-hub/waitlist\'' in js
     assert "response.ok" in js
     assert "credentials: 'omit'" in js
+    assert "shopify_contact_consent:" in js
+    assert "tagged contact in Drop Rate's Shopify customer list" in html
+    assert "unrelated store marketing" in html
     assert "@media(max-width:760px)" in css
     assert "prefers-reduced-motion" in css
 

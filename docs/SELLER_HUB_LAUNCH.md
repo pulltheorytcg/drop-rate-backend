@@ -27,6 +27,81 @@ API calls are same-origin from the launch page. `TCG_PUBLIC_APP_URL` should
 eventually be `https://app.droprate.co.uk` so *new* secure invite URLs use the
 branded origin; old Railway URLs continue to work.
 
+## Optional Shopify customer contact mirror
+
+The founder wants the opted-in Seller Hub audience available inside Shopify
+Customers for future mailing-service migration. The new form explicitly
+discloses that the contact email will also be stored in Shopify for the same
+Seller Hub launch and early-access purpose. It sends
+`shopify_contact_consent=true` only after the required checkbox is checked.
+
+- Canonical additive migration:
+  `database/migrations/20261031210000_seller_hub_shopify_contact_sync.sql`.
+  Applied in production Supabase migration history as version
+  `20261031203048` on 31 October 2026. The existing launch-list migration
+  was applied as `20261031192146`; both versions are mapped in
+  `database/migration_history_baseline.json` to prevent future reapplication.
+  RLS remained forced; neither the browser roles nor `tcg_api` can read the
+  contact table directly.
+- **Existing pre-disclosure rows** default to `NOT_REQUESTED` and are never
+  included in a Shopify export. The original four-argument registration path
+  remains Supabase-only for old browser assets. A fresh, disclosed opt-in can
+  move such a row to `PENDING`, updating its consent version/time.
+- The private `tcg_api` outbox functions claim at most 10 records with
+  `FOR UPDATE SKIP LOCKED`, use 10-minute leases and per-attempt tokens, and
+  only acknowledge a record after Shopify confirms **both** mutations.
+  Interrupted attempts back off and retry, including when customer creation
+  succeeded but tagging failed. Unsubscribed records cannot be claimed.
+- The existing server-side `ShopifyAdminClient` uses its Railway credentials
+  to call the 2026-07 GraphQL API. `customerSet` upserts using the email as
+  its unique identifier. Only the `email` input is sent: an existing name,
+  addresses, notes, tags and other customer data are preserved. A second
+  `tagsAdd` appends `Drop Rate Seller Hub - Launch List` and verifies the
+  returned customer ID. This never creates seller access or makes inventory
+  publishable.
+- **No call is made to `customerEmailMarketingConsentUpdate`.** Consent for
+  Seller Hub launch news is narrower than generic Shopify/store promotion.
+  The Shopify tag is for audience management, not proof of unlimited marketing
+  permission. Keep the Supabase consent version, timestamp and status when
+  migrating to any mailing service, and exclude `UNSUBSCRIBED` contacts. A
+  future opt-out workflow must also reconcile/remove remote Shopify tags
+  before any Shopify-only mailing or export of that audience.
+- Early **seller account creation** at `/owner/join` remains separate and
+  does not automatically turn account creation into marketing consent. A
+  seller must explicitly join the launch list to enter this audience.
+
+### Controlled activation
+
+1. Verify Python, JS, migration/security and Shopify mock tests and merge
+   through CI. The additive migration has already been applied and its grants
+   and row-level security verified; do not apply it again.
+2. In the Shopify Dev Dashboard, create/publish an app version with
+   `write_customers`, preserving existing scopes; ensure protected customer
+   data access is approved and the installation has the updated permission.
+   **The current active app version lacks `write_customers`**. Do not turn the
+   worker on until verified.
+3. In Railway's existing API service set only
+   `TCG_SHOPIFY_WAITLIST_SYNC_ENABLED=true` and deploy. Leave it `false` for
+   safe staging and rollback.
+4. Watch worker processed/success counts (without email addresses), and
+   inspect privacy-safe sync totals via read-only SQL:
+
+   ```sql
+   select shopify_sync_state, count(*)
+     from tcg.seller_hub_launch_waitlist
+    group by shopify_sync_state
+    order by shopify_sync_state;
+   ```
+
+5. With an explicitly consented real signup, verify one Shopify Customer with
+   the tag, exactly one matching Supabase `SYNCED` receipt and no change to
+   pre-existing customer marketing status. Do not make a fake production
+   customer merely to test, or delete production customer records as cleanup.
+
+If scope authorization, API calls or deployment fail, keep or set the flag
+to `false`. All signups continue to persist securely in Supabase; pending
+contact mirrors are retried when the approved worker is next enabled.
+
 ## Database and consent
 
 - Canonical migration: `database/migrations/20261031190234_seller_hub_launch_waitlist.sql`.
@@ -86,5 +161,8 @@ the founder explicitly launches the app and configures compliant sending.
   consent/validation, honeypot, database failure, SQL security contract.
 - `node tests/ui/seller-hub-launch.cjs`: browser DOM structure, success,
   retry, no duplicate submit, explicit consent.
+- `PYTHONPATH=backend pytest tests/test_seller_hub_shopify_sync.py`: customer
+  upsert+tag, duplicate replay, remote error/partial failure, leased outbox
+  acknowledgements, explicit consent and private SQL contract.
 - `PYTHONPATH=backend pytest` and `npm test --prefix tests/ui` are release
   gates, alongside native PostgreSQL migration/security verification.

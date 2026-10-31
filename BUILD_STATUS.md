@@ -1,3 +1,26 @@
+## 31 October 2026 — Shopify Seller Hub launch-list contact mirror (prepared; disabled)
+
+Added a consent-scoped customer contact mirror to the existing Seller Hub
+waitlist. A distinct explicit disclosure/version gates export. Old prelaunch
+opt-ins remain `NOT_REQUESTED` in Supabase, with no automatic Shopify sharing.
+Server-side `customerSet` upserts by email and `tagsAdd` appends the
+`Drop Rate Seller Hub - Launch List` segment without overwriting existing
+customer tags, profiles or general marketing subscription preferences.
+Postgres leases, retries and acknowledgement tokens keep the mirror safe when
+Shopify is unavailable; Supabase stays the consent record. No launch emails,
+theme publication or early seller-account marketing enrolment are enabled.
+
+Production Supabase migration `20261031203048` is applied and read-back
+verified; RLS is still forced, no browser/API table reads were granted, and
+the waitlist contains zero records as of the verification. Historical
+migration-version mappings include this and the original Seller Hub opt-in.
+
+**Activation blocked:** Installed Shopify app's active version lacks
+`write_customers`; updating its permissions/protected-customer-data approval
+and the explicit `TCG_SHOPIFY_WAITLIST_SYNC_ENABLED=true` rollout remain
+separate steps after code/CI and migration verification. See
+[Seller Hub contact sync](docs/SELLER_HUB_LAUNCH.md#optional-shopify-customer-contact-mirror).
+
 ## 31 October 2026 — Seller Hub prelaunch registration (release in progress)
 
 Built the existing Railway/FastAPI public landing at `app.droprate.co.uk`

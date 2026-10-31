@@ -13,6 +13,15 @@ remain available. This **does not** indicate the complete Seller Hub is live,
 nor does it enable automated launch emails; see the
 [Seller Hub launch deployment and consent guide](docs/SELLER_HUB_LAUNCH.md).
 
+The opt-in form now explicitly discloses an optional Shopify customer contact
+mirror for the launch list. New consent-backed emails can be upserted by email
+and tagged `Drop Rate Seller Hub - Launch List` without altering Shopify's
+general marketing subscription. Supabase remains the consent ledger. This
+outbox requires the additive Shopify contact-sync migration and
+`TCG_SHOPIFY_WAITLIST_SYNC_ENABLED=true`, which must remain **false** until the
+installed Shopify app has `write_customers` access and protected customer data
+approval. Older signups are not automatically exported.
+
 ## Inventory workflow
 
 - Search and filter owner-scoped inventory.
