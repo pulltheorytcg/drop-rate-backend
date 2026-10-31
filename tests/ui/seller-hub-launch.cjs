@@ -56,6 +56,7 @@ async function settle(predicate) {
   assert.match(tickerStyles, /\.feature-card-list\{display:contents\}/, 'desktop features retain their original grid positions');
   assert.match(tickerStyles, /\.collection-grid\{[^}]*scroll-snap-type:x mandatory/, 'mobile collection photos scroll and snap horizontally');
   assert.match(tickerStyles, /\.feature-card-list\{[^}]*scroll-snap-type:x mandatory/, 'mobile feature cards scroll and snap horizontally');
+  assert.match(tickerStyles, /\.feature-card-list\{[^}]*align-items:stretch/, 'mobile feature cards stretch to the same height as the longest card');
   assert.match(tickerStyles, /\.process-section\{display:none\}/, 'mobile hides the repeated how-it-works section');
   assert.ok(layout.querySelector('img[src="/assets/brand-assets/seller-hub-approved.webp"]'));
   const badges = Array.from(layout.querySelectorAll('.topbar .store-badge'));

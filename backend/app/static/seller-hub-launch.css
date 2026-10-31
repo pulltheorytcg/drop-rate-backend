@@ -346,7 +346,7 @@ h2{font-weight:900;font-size:clamp(39px,4.1vw,60px);letter-spacing:-.06em;line-h
 
   .feature-section{padding-block:47px 47px}
   .feature-grid{display:block}
-  .feature-card-list{display:grid;grid-template-columns:none;grid-template-rows:auto;grid-auto-flow:column;grid-auto-columns:min(82vw,320px);align-items:start;gap:11px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding-inline:1px;overscroll-behavior-inline:contain;padding:2px 1px 12px;scrollbar-width:thin;scrollbar-color:rgba(81,192,215,.4) transparent}
+  .feature-card-list{display:grid;grid-template-columns:none;grid-template-rows:auto;grid-auto-flow:column;grid-auto-columns:min(82vw,320px);align-items:stretch;gap:11px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding-inline:1px;overscroll-behavior-inline:contain;padding:2px 1px 12px;scrollbar-width:thin;scrollbar-color:rgba(81,192,215,.4) transparent}
   .feature-card-list .feature-card{grid-column:auto;width:100%;min-height:258px;padding:18px;scroll-snap-align:start}
   .feature-card-list .feature-glyph{width:42px;height:37px;margin:11px 0 3px;font-size:33px}
   .feature-card-list .scan-glyph{font-size:46px}
