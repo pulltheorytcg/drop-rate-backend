@@ -67,7 +67,15 @@ async def check(db):
             async with authorized(db,actor):
                 assert await market.read(db) is snapshot
                 owned=await owned_navigation(db,owner)
-                for options in ({},{'q':'Alpha'},{'product_type':'SEALED'},{'product_type':'COMIC'},{'owned':'owned'}):
+                for options in (
+                    {},{'q':'Alpha'},{'product_type':'SEALED'},
+                    {'product_type':'COMIC'},{'owned':'owned'},
+                    {'system_code':'POKEMON_TCG'},
+                    {'system_code':'POKEMON_TCG','language':'English'},
+                    {'system_code':'MANGA','product_type':'COMIC'},
+                    {'system_code':'POKEMON_TCG','set_id':'cache-fixture',
+                     'provider':'TCGdex','product_type':'CARD'},
+                ):
                     query,args=product_query(owner_id=owner,limit=9,**options)
                     original=[dict(r) for r in await db.fetch(query,*args)]
                     sql,params,_=indexed_catalogue_query(query,args,index,owned=owned,market=snapshot)

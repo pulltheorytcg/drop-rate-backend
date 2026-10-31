@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 import hashlib
 import json
+import re
 
 from .recognition_games import SYSTEM_BY_GAME
 
@@ -286,6 +287,53 @@ def indexed_browse_sql(query, params, snapshot, *, max_page=81, market=None):
     return _compose_indexed_sql(query,params,snapshot.page(limit,offset),market=market)
 
 
+def _static_filtered_page(tail, params, snapshot, *, limit, offset):
+    """Select a bounded newest page for exact, shared catalogue predicates.
+
+    Only the simple predicates emitted by product_query are recognised, and
+    their whole SQL WHERE clause must match. Owner/price/text conditions never
+    get prefiltered using shared data: those require the live SQL path.
+    """
+    match=re.search(
+        rf'where (.+?) order by e\.release_date desc nulls last,lower\(e\.name\),e\.key '
+        rf'limit \${len(params)-1} offset \${len(params)}',
+        tail,re.S)
+    if match is None:
+        raise ValueError('Unsupported R2 filtered newest query')
+    clause=match.group(1)
+    expected=[]
+    predicates=[]
+    for index,value in enumerate(params[1:-2],start=2):
+        checks=(
+            (f'e.system_code=any(${index}::text[])',
+             isinstance(value,list) and bool(value) and all(isinstance(v,str) for v in value),
+             lambda row, allowed=value: row['system_code'] in allowed),
+            (f'e.language=${index}',isinstance(value,str),
+             lambda row, selected=value: row['language']==selected),
+            (f'e.set_id=${index}',isinstance(value,str),
+             lambda row, selected=value: row['set_id']==selected),
+            (f'e.product_type=${index}',value in ('CARD','SEALED','COMIC'),
+             lambda row, selected=value: row['product_type']==selected),
+            (f'e.provider=${index}',isinstance(value,str),
+             lambda row, selected=value: row['provider']==selected),
+        )
+        found=next(((fragment,predicate) for fragment,valid,predicate in checks
+                    if valid and fragment in clause),None)
+        if found is None:
+            raise ValueError('Unsupported R2 filtered predicate')
+        expected.append(found[0])
+        predicates.append(found[1])
+    if not predicates or ' and '.join(expected)!=clause:
+        raise ValueError('Unverified R2 filtered query shape')
+    rows=[]
+    for row in snapshot.entries:
+        if all(predicate(row) for predicate in predicates):
+            rows.append(row)
+            if len(rows)>=offset+limit:
+                break
+    return rows
+
+
 def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidates=2000, market=None):
     """Finite R2 shortlist for text search, books, sealed and owned stock.
 
@@ -342,6 +390,9 @@ def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidat
                 rows.append(row)
                 if len(rows)>max_candidates:
                     raise ValueError("Search result exceeds bounded R2 shortlist")
+    elif 4<=len(params)<=8:
+        mode='FILTERED_NEWEST'
+        rows=_static_filtered_page(tail,params,snapshot,limit=limit,offset=offset)
     else:
         raise ValueError("Unsupported R2 browse query shape")
     return (*_compose_indexed_sql(query,params,rows,market=market),mode)
