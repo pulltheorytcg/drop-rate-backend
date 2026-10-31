@@ -9,8 +9,8 @@ guards; table grants are unchanged, and security advisors reported no new
 image-mirror finding. The existing worker immediately transitioned from
 20 failures / zero mirrors per batch to 20 verified mirrors / zero failures.
 
-At 23:34 UTC, live readback confirmed 2,493/3,065 current official assets
-mirrored and no retries; the bounded worker is still processing the remainder.
+At 23:36 UTC, live readback confirmed all 3,065/3,065 official assets
+mirrored with zero pending and zero retries. The worker is idle for this cohort.
 The original provider URL remains the fallback. A signed-in device image-load
 check is still required before claiming an observed visual-speed improvement.
 
