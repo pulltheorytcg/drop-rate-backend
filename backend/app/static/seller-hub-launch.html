@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#08142f">
   <meta name="description" content="The Drop Rate Seller Hub is coming. Register for launch updates, discover the tools we're building for collectors and sellers, or create your early seller account.">
+  <link rel="canonical" href="https://app.droprate.co.uk/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Drop Rate Seller Hub — Coming Soon">
+  <meta property="og:description" content="Collect more. Sell smarter. Register for Seller Hub launch updates and early access.">
+  <meta property="og:url" content="https://app.droprate.co.uk/">
+  <meta property="og:image" content="https://app.droprate.co.uk/assets/brand-assets/seller-hub-approved.webp">
   <title>Sell With Drop Rate | Seller Hub Coming Soon</title>
   <link rel="icon" type="image/png" href="/assets/brand-assets/drop-rate-logo.png">
   <link rel="stylesheet" href="/assets/seller-hub-launch.css?v=1">
@@ -69,7 +75,7 @@
         <div class="signup-panel">
           <div class="signup-intro"><p class="eyebrow">THE NEXT CHAPTER STARTS HERE</p><h2 id="signup-title">First in line.<br><span>Front of the pack.</span></h2><p>Drop your details below to hear when Drop Rate Seller Hub opens. Registering for notifications is free and doesn't create a seller account.</p><div class="signup-star" aria-hidden="true">✦</div></div>
           <div class="signup-form-wrap">
-            <form id="seller-hub-waitlist-form" aria-label="Join the Seller Hub launch list">
+            <form id="seller-hub-waitlist-form" method="post" action="/api/v1/public/seller-hub/waitlist" aria-label="Join the Seller Hub launch list">
               <div class="form-heading"><span class="form-step">01 — EARLY ACCESS</span><h3>Join the launch list</h3></div>
               <label for="waitlist-name">Your name <span>(optional)</span></label>
               <input id="waitlist-name" name="name" type="text" autocomplete="name" maxlength="120" placeholder="What should we call you?">

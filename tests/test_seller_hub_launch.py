@@ -171,6 +171,7 @@ def test_frontend_uses_local_assets_and_explicit_prelaunch_disclosures():
     css = (ASSETS / "seller-hub-launch.css").read_text()
     assert html.count('<article class="feature-card') == 6
     assert 'id="waitlist-consent"' in html and 'type="checkbox" required' in html
+    assert 'method="post" action="/api/v1/public/seller-hub/waitlist"' in html
     assert "full Seller Hub is still in development" in html
     assert "doesn't create a seller account" in html
     assert '/assets/brand-assets/seller-hub-approved.webp' in html
