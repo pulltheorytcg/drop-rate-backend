@@ -46,8 +46,11 @@ img{max-width:100%;height:auto}
 .seller-hub-mark{width:118%;max-width:none;filter:drop-shadow(0 30px 40px rgba(0,3,18,.7));transform:rotate(-7deg) translate(-2%,-17%);animation:brand-float 7s ease-in-out infinite}
 @keyframes brand-float{0%,100%{transform:rotate(-7deg) translate(-2%,-17%)}50%{transform:rotate(-5deg) translate(-2%,-22%)}}
 .ticker{overflow:hidden;border-block:1px solid rgba(53,226,231,.2);background:rgba(12,48,86,.54)}
-.ticker-track{display:flex;justify-content:space-around;align-items:center;gap:34px;white-space:nowrap;padding:16px 20px;font-size:11px;font-weight:850;letter-spacing:.21em;color:#b4edfa}
+.ticker-track{display:flex;width:max-content;align-items:center;white-space:nowrap;font-size:11px;font-weight:850;letter-spacing:.21em;color:#b4edfa;animation:ticker-scroll 38s linear infinite;will-change:transform}
+.ticker-group{display:flex;align-items:center;justify-content:space-around;flex:none;min-width:100vw;gap:34px;padding:16px 17px}
 .ticker-track i{color:var(--orange);font-size:16px;font-style:normal}
+.ticker:hover .ticker-track{animation-play-state:paused}
+@keyframes ticker-scroll{to{transform:translateX(-50%)}}
 .feature-section{padding-block:115px 124px}
 .section-heading{display:grid;grid-template-columns:1.3fr 1fr;gap:80px;align-items:end;margin-bottom:45px}
 h2{font-weight:900;font-size:clamp(39px,4.1vw,60px);letter-spacing:-.06em;line-height:1.12;margin:0}
@@ -279,4 +282,11 @@ h2{font-weight:900;font-size:clamp(39px,4.1vw,60px);letter-spacing:-.06em;line-h
   .collection-tile-pokemon{min-height:275px}
   .collection-tile-content{inset:auto 20px 19px}
   .collection-tile-slabs img,.collection-tile-onepiece img{height:89%}
+}
+@media(max-width:760px){
+  .ticker-track{gap:0;padding:0;overflow:visible}
+  .ticker-group{gap:18px;padding:12px 9px}
+}
+@media(prefers-reduced-motion:reduce){
+  .ticker-track{animation:none;transform:none;will-change:auto}
 }

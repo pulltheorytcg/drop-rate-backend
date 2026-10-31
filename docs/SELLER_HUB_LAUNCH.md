@@ -13,6 +13,11 @@ Horizon theme and password/launch gate are not changed by this backend PR.
 
 ## Prelaunch visuals and app badges
 
+- The collector/seller phrase strip below the hero scrolls continuously in a
+  seamless CSS-only loop. It pauses on hover, has identical repeated groups to
+  avoid a blank seam, and becomes static for reduced-motion users. Moving text
+  is hidden from assistive technology; the section itself retains a readable
+  accessible label.
 - The **Seller Hub landing page header only** shows familiar App Store and
   Google Play badges. Neither mobile app is available to download yet, so the
   badges explicitly say **Coming Soon** and take visitors to the existing
