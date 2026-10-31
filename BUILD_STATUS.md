@@ -1,15 +1,39 @@
-## 31 October 2026 — Japanese Pokémon R2 mirror RLS repair (prepared; pending release)
+## 31 October 2026 — Official Japanese Pokémon R2 mirror repair (live, backlog draining)
 
-Production logs show the reference-image worker failing every recent 20-image
-batch with `InsufficientPrivilegeError`: its forced-RLS receipt policies did
-not include the newly verified official Japanese Pokémon image URLs. The
-versioned policy repair adds only that exact TCGdex/Japanese/official path,
-preserves the existing host guards and rights/identity boundaries, and does
-not change stock or prices. At the diagnostic checkpoint, 3,008 official
-source images still lacked verified R2 mirrors, and another 2,907 Japanese
-references had no image source. The normal worker must be verified recovering
-after a reviewed migration release; no live improvement is claimed yet.
+Production reference-image batches had been failing 20/20 with
+`InsufficientPrivilegeError` because forced-RLS mirror receipt policies did
+not allow independently verified official Japanese Pokémon artwork. PR #843
+passed both GitHub checks and merged; the exact-path INSERT/UPDATE policy
+migration is applied in Supabase as version `20261031232331`, corresponding
+to canonical repo migration `20261031230000`. Source identity, seller media
+rights, existing table grants, ownership and market values are unchanged.
+
+Live batches recovered immediately to 20/20 successful copies and zero
+failures. At 23:34 UTC, 2,493 of the 3,065 recovered official assets had
+current verified private-R2 mirrors; the existing bounded worker continues
+draining the remainder. Another 2,907 Japanese and 581 English Pokémon
+references have no source art URL and remain a separate provider-data gap.
+The recorded R2 receipts do not yet constitute signed-in mobile visual QA.
 See [artwork mirror repair](docs/R2_POKEMON_OFFICIAL_POLICY_20261031.md).
+
+## 31 October 2026 — Recognition failure diagnostics live; accuracy benchmark next
+
+PR #844 persists vision HTTP timings and token telemetry even when scans
+end early as empty-frame/no game/unknown object or failed provider calls;
+provider errors save only sanitized status/retryability. No model, prompt,
+image detail, hard identity gate, review decision or inventory rule changed.
+A time-sensitive unrelated price-redaction test blocked the initial Railway
+release, and was made deterministic by PR #845 without changing pricing code.
+Both PRs passed GitHub CI; the recovered Railway deployment
+`c05d1c47d` passed 8,638 tests (25 optional PGlite tests skipped) and the
+public `/health/ready` check returned HTTP 200.
+
+The latest 19 persisted scan attempts before rollout (29 October) were all
+provider rejections; there is no subsequent real scan acceptance evidence.
+The new instrumentation alone does not speed scans or demonstrate better
+card, sealed or manga recognition. Request a consented human-labelled photo
+benchmark and investigate any fresh provider rejection before tuning model
+or image detail. See [vision latency](docs/RECOGNITION_VISION_LATENCY.md).
 
 ## 31 October 2026 — Shopify Seller Hub launch-list contact mirror (prepared; disabled)
 ## 31 October 2026 — Shopify Seller Hub launch-list contact mirror (prepared; disabled)
