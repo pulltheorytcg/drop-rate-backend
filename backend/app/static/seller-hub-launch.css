@@ -29,6 +29,7 @@ img{max-width:100%;height:auto}
 .hero h1{font-size:clamp(58px,5.7vw,90px);letter-spacing:-.078em;line-height:.99;font-weight:900;margin:0 0 29px;max-width:790px}
 .hero h1 span{background:linear-gradient(95deg,var(--cyan),#69e3ef 65%,#e5fcfe);background-clip:text;-webkit-background-clip:text;color:transparent}
 .hero-lede{color:#c2cde0;font-size:17px;line-height:1.8;max-width:610px;margin:0 0 29px}
+.hero-lede-mobile{display:none}
 .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
 .button{display:inline-flex;align-items:center;justify-content:center;gap:24px;min-height:53px;padding:14px 22px;border-radius:6px;font-size:13px;font-weight:850;letter-spacing:.015em;border:1px solid transparent;transition:transform .2s,background .2s,box-shadow .2s}
 .button:hover{transform:translateY(-2px)}
@@ -57,6 +58,7 @@ h2{font-weight:900;font-size:clamp(39px,4.1vw,60px);letter-spacing:-.06em;line-h
 .section-heading h2 span,.process-heading h2 span{color:var(--cyan)}
 .section-heading>p{color:var(--muted);font-size:16px;line-height:1.8;max-width:440px;margin:0 0 6px}
 .feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.feature-card-list{display:contents}
 .feature-card{min-height:280px;display:flex;flex-direction:column;padding:27px 28px 26px;background:linear-gradient(155deg,rgba(25,48,88,.86),rgba(11,25,53,.94));border:1px solid var(--line);border-radius:12px;transition:transform .25s,border-color .25s,box-shadow .25s}
 .feature-card:hover{transform:translateY(-5px);border-color:rgba(53,226,231,.45);box-shadow:0 20px 40px rgba(0,0,0,.16)}
 .feature-card-wide{grid-column:span 2;background:radial-gradient(ellipse at 85% 10%,rgba(43,145,159,.2),transparent 45%),linear-gradient(135deg,#173c60,#0c2346)}
@@ -219,6 +221,7 @@ h2{font-weight:900;font-size:clamp(39px,4.1vw,60px);letter-spacing:-.06em;line-h
 .collection-photo-note{font-size:11px;line-height:1.7;color:#819bbb;margin:16px 2px 0}
 .collection-photo-note a{text-decoration:underline;text-decoration-color:rgba(78,222,233,.38);text-underline-offset:2px;color:#a9c7de}
 .collection-photo-note a:hover{color:var(--cyan)}
+.mobile-swipe-hint,.collection-mobile-disclosure,.collection-photo-credits-mobile{display:none}
 
 /* Concept visualization only: no bids, price amounts or external streams are simulated. */
 .feature-card strong{color:#f1fbff;font-weight:850}
@@ -289,4 +292,110 @@ h2{font-weight:900;font-size:clamp(39px,4.1vw,60px);letter-spacing:-.06em;line-h
 }
 @media(prefers-reduced-motion:reduce){
   .ticker-track{animation:none;transform:none;will-change:auto}
+}
+
+/* Mobile-first presentation of the same Seller Hub content. Desktop is unchanged. */
+@media(max-width:760px){
+  html{scroll-padding-top:24px}
+  .wrap,.topbar{width:calc(100% - 32px)}
+  .topbar{min-height:0;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"brand nav" "badges badges";column-gap:12px;row-gap:9px;padding:11px 0 13px}
+  .topbar-brand img{width:118px}
+  .topnav{justify-self:end}
+  .nav-register{min-height:38px;padding:8px 12px;gap:7px;border-radius:999px;background:linear-gradient(115deg,#30dce8,#a4f8fa);box-shadow:0 5px 19px rgba(12,190,206,.13);font-size:11px}
+  .store-badges{gap:7px;margin:0}
+  .store-badge{width:auto;max-width:none;min-width:0;min-height:39px;flex:1;justify-content:center;gap:6px;padding:5px 7px;border-radius:7px;border-color:rgba(178,216,237,.38);box-shadow:none}
+  .store-badge .store-icon{width:19px;height:21px}
+  .store-badge .play-icon{width:18px}
+  .store-badge small{font-size:7px;letter-spacing:.03em}
+  .store-badge strong{font-size:15px;letter-spacing:-.04em}
+
+  .hero{padding:28px 0 26px;gap:0}
+  .launch-pill{font-size:9px;gap:9px;padding:6px 11px;margin-bottom:16px}
+  .hero-overline{font-size:10px;margin-bottom:8px}
+  .hero h1{font-size:clamp(42px,10.5vw,61px);letter-spacing:-.066em;line-height:1.01;margin-bottom:15px}
+  .hero-lede{font-size:13.5px;line-height:1.55;margin-bottom:17px}
+  .hero-lede-desktop{display:none}
+  .hero-lede-mobile{display:inline}
+  .hero-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:13px}
+  .hero-actions .button{min-width:0;min-height:44px;gap:5px;padding:9px 7px;font-size:11px;justify-content:space-around;white-space:nowrap}
+  .hero-disclaimer{font-size:10px;line-height:1.5}
+  .world-tags{display:none}
+  .hero-art{height:clamp(280px,75vw,410px);margin-top:10px}
+  .grail-kicker{font-size:8.5px;top:0}
+  .grail-card-left{width:29%;top:21%;left:5%}
+  .grail-card-right{width:29%;top:21%;right:5%}
+  .grail-card-centre{width:34%;top:8%;left:33%}
+  .grail-note{font-size:7px;letter-spacing:.055em;bottom:2px}
+
+  .collection-section{padding-block:44px 0}
+  .section-heading{margin-bottom:16px}
+  .section-heading h2{font-size:clamp(32px,8.6vw,41px);line-height:1.08}
+  .section-heading>p{font-size:12.5px;line-height:1.6;margin:12px 0 0}
+  .mobile-swipe-hint{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 11px;color:#91b8d7;font-size:9px;font-weight:900;letter-spacing:.12em}
+  .mobile-swipe-hint span{color:var(--cyan);white-space:nowrap}
+  .collection-grid{display:grid;grid-template-columns:none;grid-template-rows:218px;grid-auto-flow:column;grid-auto-columns:min(78vw,320px);grid-auto-rows:auto;gap:11px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding-inline:1px;overscroll-behavior-inline:contain;padding:2px 1px 12px;scrollbar-width:thin;scrollbar-color:rgba(81,192,215,.4) transparent}
+  .collection-tile,.collection-tile-pokemon{min-height:0;scroll-snap-align:start}
+  .collection-tile-content{inset:auto 15px 14px}
+  .collection-tile h3{font-size:19px}
+  .collection-photo-note{display:none}
+  .collection-mobile-disclosure{display:block;font-size:10px;line-height:1.5;color:#92b0ca;margin:8px 1px 0}
+  .collection-photo-credits-mobile{display:block;font-size:10px;line-height:1.6;color:#8daac7;margin:6px 1px 0}
+  .collection-photo-credits-mobile summary{color:#a6cadc;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .collection-photo-credits-mobile p{margin:8px 0}
+  .collection-photo-credits-mobile a{color:#bde8f2;text-decoration:underline}
+
+  .feature-section{padding-block:47px 47px}
+  .feature-grid{display:block}
+  .feature-card-list{display:grid;grid-template-columns:none;grid-template-rows:auto;grid-auto-flow:column;grid-auto-columns:min(82vw,320px);align-items:start;gap:11px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding-inline:1px;overscroll-behavior-inline:contain;padding:2px 1px 12px;scrollbar-width:thin;scrollbar-color:rgba(81,192,215,.4) transparent}
+  .feature-card-list .feature-card{grid-column:auto;width:100%;min-height:258px;padding:18px;scroll-snap-align:start}
+  .feature-card-list .feature-glyph{width:42px;height:37px;margin:11px 0 3px;font-size:33px}
+  .feature-card-list .scan-glyph{font-size:46px}
+  .feature-card-list .feature-card h3{font-size:20px;margin:5px 0 8px}
+  .feature-card-list .feature-card p{font-size:12px;line-height:1.58}
+  .feature-card-list .feature-foot{font-size:9px;padding-top:15px}
+
+  .feature-card-auction{display:block;min-height:0;width:100%;padding:0;margin-top:15px;border-radius:13px}
+  .auction-feature-copy{padding:22px}
+  .auction-feature-copy .feature-glyph{display:none}
+  .feature-card-auction h3{font-size:28px;margin:8px 0 9px}
+  .feature-card-auction p{font-size:12px;line-height:1.62}
+  .feature-card-auction .feature-foot{font-size:9px;padding-top:13px}
+  .auction-preview{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:9px;padding:13px;border-left:0}
+  .auction-preview-top{grid-column:1/-1;font-size:8px}
+  .auction-scan-window{height:142px}
+  .auction-scan-window img{height:122px;max-width:80%}
+  .auction-scan-caption{font-size:7px;right:4px}
+  .auction-value-panel{min-width:0;padding:8px}
+  .auction-value-panel>div:first-child{display:block}
+  .auction-value-panel>div:first-child span{font-size:8px}
+  .auction-value-panel strong{display:block;font-size:10px;margin-top:3px}
+  .value-scale{gap:3px;margin:7px 0 4px}
+  .value-scale span{padding:6px 1px;font-size:7px}
+  .auction-value-panel p{font-size:8px;margin-top:5px}
+
+  /* The three launch steps repeat the signup section on small screens. */
+  .process-section{display:none}
+  .signup-section{padding-block:35px 48px}
+  .signup-panel{border-radius:14px}
+  .signup-intro{min-height:0;padding:29px 25px 19px}
+  .signup-intro h2{font-size:clamp(37px,9vw,44px)}
+  .signup-intro>p:not(.eyebrow){font-size:12.5px;line-height:1.6;margin:13px 0 0}
+  .signup-star{font-size:210px;bottom:-115px;right:-65px}
+  .signup-form-wrap{padding:25px 22px}
+  .form-heading{margin-bottom:10px}
+  .form-heading h3{font-size:24px}
+  #seller-hub-waitlist-form>label:not(.consent-choice){margin:10px 0 5px}
+  #seller-hub-waitlist-form input:not([type=checkbox]),#seller-hub-waitlist-form select{min-height:44px}
+  .consent-choice{margin:17px 0 14px}
+  .existing-account{padding-top:17px;margin-top:13px}
+  .footer{padding:25px 0 32px}
+}
+@media(max-width:360px){
+  .topbar-brand img{width:106px}
+  .nav-register{font-size:10px;padding:8px 10px}
+  .store-badge{gap:5px;padding-inline:4px}
+  .store-badge strong{font-size:13px}
+  .store-badge small{font-size:6.5px}
+  .hero-actions .button{font-size:10px;padding-inline:5px}
+  .mobile-swipe-hint{font-size:8px}
 }
