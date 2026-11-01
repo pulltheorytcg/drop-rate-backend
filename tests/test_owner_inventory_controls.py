@@ -10,6 +10,8 @@ from pydantic import ValidationError
 
 from app import owner_inventory as api
 from app.access_control import require_owner_portal_request
+from app.media_resolver import resolve_storefront_media
+from app.shopify_completeness import shipping_profile_key
 
 
 @pytest.fixture
@@ -184,6 +186,29 @@ def test_seller_input_cannot_expand_authority_or_bypass_price_floor(payload):
 def test_every_inventory_control_requires_owner_portal_access():
     for route in api.router.routes:
         assert require_owner_portal_request in [dependency.call for dependency in route.dependant.dependencies]
+
+
+def test_consignor_comic_shows_physical_photo_and_shipping_blockers_not_generic_cover():
+    item = {
+        "id": uuid4(), "catalogue_id": uuid4(), "owner_type": "CONSIGNOR",
+        "product_type": "COMIC", "game": "Marvel Comics", "status": "INSPECTION",
+        "identity_ready": False, "intake_ready": False, "cost_recorded": False,
+        "location_recorded": False, "language": "English", "condition": "Mint",
+        "store_price_minor": 1000,
+        # Display-only publisher cover art is not a physical copy listing photo.
+        "image_url": "https://example.test/generic-cover.webp",
+    }
+    item["shopify_shipping_profile_key"] = shipping_profile_key(item)
+    item["shopify_shipping_ready"] = False
+    item["shopify_media_blockers"] = resolve_storefront_media(item, [])["blockers"]
+    reasons = api.approval_blockers(item)
+    assert item["shopify_shipping_profile_key"] == "COMIC_BOOK"
+    assert "Shopify media: approved first-party physical front image" in reasons
+    assert "Drop Rate must configure shipping profile COMIC_BOOK" in reasons
+    assert any("exact printing" in reason for reason in reasons)
+    assert any("Acquisition cost" in reason for reason in reasons)
+    assert any("Storage / dispatch location" in reason for reason in reasons)
+    assert not any("Catalogue image is being prepared" in reason for reason in reasons)
 
 
 @pytest.mark.asyncio

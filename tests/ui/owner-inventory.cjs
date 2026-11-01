@@ -129,6 +129,22 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='10.00';await click(f.w,'List on Shopify');
   assert.deepEqual(JSON.parse(f.calls.find(c=>c.method).body),{version:3,store_price_minor:1000});f.finish();checks++;
  }
+ {
+  const f=fixture({product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',
+    condition:'Mint',seal_status:null,store_price_minor:1000,
+    approval_blockers:['Drop Rate selling review: confirm the exact printing before publication',
+      'Shopify media: approved first-party physical front image',
+      'Drop Rate must configure shipping profile COMIC_BOOK']});
+  await f.open();
+  const details=f.w.document.querySelector('.owner-item-selling').textContent;
+  assert.match(details,/exact printing before publication/);
+  assert.match(details,/approved first-party physical front image/);
+  assert.match(details,/shipping profile COMIC_BOOK/);
+  f.run(`window.testShopifyError=errorMessage({detail:{message:'Inventory is not eligible for Shopify publication',
+    missing:['APPROVED status','identity confirmation']}})`);
+  assert.match(f.w.testShopifyError,/APPROVED status; identity confirmation/);
+  f.finish();checks++;
+ }
  for(const change of ['refresh','account','logout']){
   const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const pending=f.w.testLoadInventory();
   if(change==='logout')f.run(`clearSession();state.session={access_token:'new',user:{id:'seller-a'}};`);

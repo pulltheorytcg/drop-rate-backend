@@ -32,6 +32,7 @@ MAX_CACHE_BYTES = 16_000_000
 MAX_CACHE_KEYS = 64
 READ_TIMEOUT_SECONDS = 3.0
 MAX_INFLIGHT_READS = 4
+BULK_READ_SLOT_WAIT_SECONDS = 15.0
 NON_VALUE_SORTS = {"name", "name_desc", "newest", "oldest", "number"}
 CACHE_SYSTEMS = tuple(sorted(set(SYSTEM_BY_GAME.values())))
 SCOPE_FIELDS = ("provider", "system_code", "language", "set_id")
@@ -260,10 +261,25 @@ def _remember(digest, payload):
         _verified_input_bytes += len(payload)
 
 
-async def _read_with_budget(storage, digest):
-    """A timed-out request cannot free a slot while its read thread still runs."""
+async def _read_with_budget(storage, digest, *, wait_for_capacity=False):
+    """Bound actual read threads; let background snapshots queue without busy threads.
+
+    Interactive exact-set reads keep the existing fail-fast fallback. Whole
+    catalogue and market loaders can start together after a Railway restart:
+    their four-way downloads must share the same four slots without treating
+    normal contention as a broken R2 object. Cancellation while waiting never
+    claims a permit, and a timed-out thread retains its permit until it exits.
+    """
     slots = _read_slots
-    if not slots.acquire(blocking=False):
+    if wait_for_capacity:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + BULK_READ_SLOT_WAIT_SECONDS
+        while not slots.acquire(blocking=False):
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise ObjectStorageError("Background reference read capacity wait expired")
+            await asyncio.sleep(min(0.05, remaining))
+    elif not slots.acquire(blocking=False):
         raise ObjectStorageError("Reference cache read capacity reached")
 
     def read_and_release():

@@ -282,7 +282,7 @@ async def download(manifest, storage):
     semaphore=asyncio.Semaphore(4)
     async def part_read(part):
         async with semaphore:
-            return await _read_with_budget(storage,part['sha256'])
+            return await _read_with_budget(storage,part['sha256'],wait_for_capacity=True)
     parts=await asyncio.gather(*(part_read(p) for p in manifest['parts']))
     return assemble(manifest,parts)
 
@@ -575,12 +575,11 @@ async def publish(pool, actor, *, storage=None):
                     raise ObjectStorageError('Publication migration is not installed')
                 if state['generation']==state['published_generation']:
                     manifest=validate_manifest(state['manifest'],state['generation'])
-                    if (_current is None or _current.generation!=state['generation']
-                            or _current.manifest_digest!=manifest_digest(manifest)):
-                        # Loading after releasing the DB snapshot avoids idle leases.
-                        pass
-                    else:
-                        return {'status':'CURRENT','generation':state['generation'],'counts':manifest['counts']}
+                    # Already committed, verified and immutable. The separate
+                    # startup prewarm/read path loads it asynchronously. Do not
+                    # issue a second 161-part download from the publisher while
+                    # the prewarm and market reader compete for read capacity.
+                    return {'status':'CURRENT','generation':state['generation'],'counts':manifest['counts']}
                 else:
                     manifest={'schema':SCHEMA,'generation':state['generation'],'counts':dict.fromkeys(RELATIONS,0),
                               'parts':[],'raw_bytes':0}
