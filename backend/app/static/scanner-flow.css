@@ -225,3 +225,49 @@
 .dr-scan-optional>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:650;gap:12px}
 .dr-scan-optional>summary::after{content:'＋';margin-left:auto}
 .dr-scan-optional[open]>summary::after{content:'−'}
+
+
+/* Mobile Scan is a single camera journey: never reveal the legacy upload page
+   behind the shared scanner. Desktop upload tools remain unchanged. */
+.dr-mobile-scan-entry{display:none}
+.dr-scanner .dr-scan-gallery[hidden]{display:none!important}
+@media (max-width:900px){
+  .owner-portal-page #owner-view-scan > :not(.dr-mobile-scan-entry),
+  .recognition-scanner-panel > :not(.dr-mobile-scan-entry){display:none!important}
+  .owner-portal-page #owner-view-scan > .dr-mobile-scan-entry,
+  .recognition-scanner-panel > .dr-mobile-scan-entry{
+    display:flex!important;flex-direction:column;align-items:flex-start;
+    justify-content:center;gap:15px;min-height:min(520px,calc(100dvh - 180px));
+    padding:clamp(24px,6vw,38px);border-radius:22px;
+    border:1px solid rgba(40,215,235,.22);
+    background:radial-gradient(circle at 88% 12%,rgba(40,215,235,.17),transparent 42%),
+               linear-gradient(155deg,#0b2450,#071b3f);
+    box-shadow:0 18px 36px rgba(7,27,63,.12);color:#effaff
+  }
+  .dr-mobile-scan-entry .dr-mobile-scan-kicker{
+    font-size:11px;letter-spacing:.16em;font-weight:850;color:#74e6ef
+  }
+  .dr-mobile-scan-entry h2{
+    margin:0;font-size:clamp(25px,7vw,35px);font-weight:850;
+    line-height:1.12;color:#fff!important
+  }
+  .dr-mobile-scan-entry p{
+    margin:0;max-width:420px;font-size:14px;line-height:1.65;color:#d3e4f8
+  }
+  .dr-mobile-scan-entry .dr-mobile-scan-open{
+    width:100%;min-height:58px;margin-top:10px;display:flex;
+    align-items:center;justify-content:center;gap:14px;
+    border:1px solid rgba(255,255,255,.22);border-radius:14px;
+    background:linear-gradient(120deg,#1f7bf2,#27c7e2);
+    color:#fff;font-size:16px;font-weight:850;cursor:pointer
+  }
+  .dr-mobile-scan-entry .dr-mobile-scan-open:focus-visible{
+    outline:3px solid #fff;outline-offset:3px
+  }
+  .dr-mobile-scan-entry .dr-mobile-scan-open span{font-size:25px}
+  .dr-mobile-scan-entry .dr-mobile-scan-message{min-height:1em;color:#ffe1a1}
+  .dr-scanner .dr-scan-gallery{display:none!important}
+  .dr-scanner .dr-scan-controls{grid-template-columns:1fr auto 1fr}
+  .dr-scanner .dr-scan-shutter{grid-column:2}
+  .dr-scanner .dr-scan-next{grid-column:3}
+}
