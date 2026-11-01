@@ -5,7 +5,10 @@ import hashlib
 import json
 import logging
 import re
+from functools import wraps
 from urllib.parse import urlencode, urlsplit
+
+import asyncpg
 
 from typing import Annotated, Literal
 from uuid import UUID
@@ -552,7 +555,28 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     return query, params
 
 
+def retry_broken_catalogue_read(function):
+    """Retry one read-only browse after a broken SQL connection/transaction.
+
+    Both attempts independently acquire the authenticated owner's connection
+    and reapply the same RLS transaction, never reuse a failed transaction.
+    SQL, validation and authorization failures are not retried.
+    """
+    @wraps(function)
+    async def wrapped(*args, **kwargs):
+        for attempt in range(2):
+            try:
+                return await function(*args, **kwargs)
+            except (asyncpg.InterfaceError,asyncpg.PostgresConnectionError,TimeoutError,OSError) as exc:
+                if attempt:
+                    raise
+                logger.warning('CATALOGUE_PRODUCTS_CONNECTION_RETRY type=%s',type(exc).__name__)
+        raise AssertionError('Unreachable catalogue retry state')
+    return wrapped
+
+
 @router.get("/products")
+@retry_broken_catalogue_read
 async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                    access: Annotated[dict, Depends(browser_access)], q: str = Query(default="", max_length=160),
                    system_code: str = Query(default="", max_length=80), language: str = Query(default="", max_length=80),
