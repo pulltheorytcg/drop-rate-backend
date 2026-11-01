@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from functools import wraps
 from urllib.parse import urlencode, urlsplit
 
@@ -576,6 +577,20 @@ def retry_broken_catalogue_read(function):
     return wrapped
 
 
+def _catalogue_latency_ms(stamps: tuple[float, float, float, float, float, float, float]) -> tuple[int, ...]:
+    """Time only the fixed request stages; do not capture user search or identity.
+
+    Stages: pool/auth, shared prices, index readiness, SQL page, enrichment,
+    media-signing/serialization, and end-to-end. Durations cannot be negative.
+    """
+    if len(stamps) != 7:
+        raise ValueError("Exactly seven stage timestamps required")
+    return (*(
+        max(0, round((b-a)*1000))
+        for a, b in zip(stamps, stamps[1:])
+    ), max(0, round((stamps[-1]-stamps[0])*1000)))
+
+
 @router.get("/products")
 @retry_broken_catalogue_read
 async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -589,6 +604,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                    slab_name: str = Query(default="", max_length=160),
                    slab_set: str = Query(default="", max_length=200),
                    limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
+    t_begin = time.perf_counter()
     key_list = keys.split(",") if keys else ([] if keys is not None else None)
     if key_list is not None and len(key_list) > 100:
         raise HTTPException(422, "Watchlist is limited to 100 products")
@@ -598,11 +614,14 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     connection_options = {'readonly_snapshot': True} if cache_scope is not None or catalogue_r2_live.enabled('DELIVERY') else {}
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id,
                                **connection_options) as connection:
+        t_connection = time.perf_counter()
         # Value sorts include alias prices before pagination. Other searches
         # resolve only the missing values on their bounded visible page.
         shared = await read_shared_prices(connection, system_code=system_code, product_type=product_type, language=language) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
+        t_shared = time.perf_counter()
         live = await catalogue_r2_live.read(connection)
         snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None and live is None else None
+        t_index = time.perf_counter()
         query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
             set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list,
             limit=limit, offset=offset, shared_prices=shared)
@@ -623,6 +642,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
             live_scope = dict(systems=browse_systems(system_code) if system_code else None,
                 language=language,provider=provider,set_id=set_id) if provider else {}
             rows = await catalogue_r2_live.fetch(connection, query, params, live, **live_scope)
+        t_sql = time.perf_counter()
         if sort not in ('value_desc', 'value_asc'):
             missing = [dict(row) for row in rows[:limit] if row.get('market_value_minor') is None]
             shared = await read_shared_prices(connection, missing)
@@ -632,6 +652,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         # fields and their sort semantics unchanged, including physical values.
         rows = await add_asking_estimates(connection, rows)
         rows = await with_book_details(connection, rows)
+    t_enriched = time.perf_counter()
     # This bounded page is a suggestion pool, never a verified match. Filtering
     # is deliberately server-side and separate from ordinary manual search.
     # A translated/abbreviated label with no verified alias remains unresolved.
@@ -640,10 +661,26 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     if slab_search:
         selected_rows = [row for row in selected_rows if slab_candidate_supported(
             row, card_name=slab_name, card_number=slab_number, set_name=slab_set)]
-    return jsonable_encoder({"items": [with_artwork_path(with_signed_mirror(row)) for row in selected_rows],
+    result = jsonable_encoder({"items": [with_artwork_path(with_signed_mirror(row)) for row in selected_rows],
         "has_more": len(rows) > limit, "offset": offset,
         "slab_review_required": slab_search,
         "slab_search_bounded": slab_search and len(rows) > limit})
+    t_complete = time.perf_counter()
+    pool_ms, shared_ms, index_ms, sql_ms, enrich_ms, serialize_ms, total_ms = (
+        _catalogue_latency_ms((t_begin, t_connection, t_shared, t_index,
+                               t_sql, t_enriched, t_complete))
+    )
+    if total_ms >= 1500:
+        # Never log q, provider IDs, physical inventory, owner/user ID, or keys.
+        logger.info(
+            'CATALOGUE_PRODUCTS_TIMING total_ms=%s pool_ms=%s shared_ms=%s '
+            'index_ms=%s sql_ms=%s enrich_ms=%s serialize_ms=%s '
+            'sort=%s system=%s product_type=%s r2_ready=%s set_cache=%s rows=%s',
+            total_ms, pool_ms, shared_ms, index_ms, sql_ms, enrich_ms,
+            serialize_ms, sort, system_code or 'ALL', product_type or 'ALL',
+            live is not None, snapshot is not None, len(selected_rows),
+        )
+    return result
 
 
 BOOK_REFERENCE_IMAGE_SQL = '''select b.*,pr.identity_status as profile_status,
