@@ -641,7 +641,9 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
             # entry, so narrowing reference inputs cannot resurrect a duplicate.
             live_scope = dict(systems=browse_systems(system_code) if system_code else None,
                 language=language,provider=provider,set_id=set_id) if provider else {}
-            rows = await catalogue_r2_live.fetch(connection, query, params, live, **live_scope)
+            rows = await catalogue_r2_live.fetch(connection, query, params, live,
+                                                 shared_keys=tuple(shared) if sort in ('value_desc', 'value_asc') else (),
+                                                 **live_scope)
         t_sql = time.perf_counter()
         if sort not in ('value_desc', 'value_asc'):
             missing = [dict(row) for row in rows[:limit] if row.get('market_value_minor') is None]
