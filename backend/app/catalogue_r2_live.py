@@ -354,7 +354,7 @@ async def prewarm(pool, maintenance_actor_user_id: str | None) -> bool:
         return False
 
 
-async def fetch(connection, query, params, snapshot, **scope):
+async def fetch(connection, query, params, snapshot, *, shared_keys=(), **scope):
     from .catalogue_browser import REFERENCE_VALUES_CTE
     if REFERENCE_VALUES_CTE in query:
         # A filtered value sort must rank *all* matching printings using live
@@ -366,11 +366,16 @@ async def fetch(connection, query, params, snapshot, **scope):
                   where match_status='VERIFIED'
                     and provider_entity_type='CARD_PRINTING'
                     and provider_variant_key='')"""):
-                    sql,args=indexed_value_sql(query,params,browse_for(snapshot),filter_system=True)
-                    async with connection.transaction():
-                        rows=await connection.fetch(sql,*args)
-                    log.info('CATALOGUE_R2_FILTERED_VALUE_HIT rows=%s',len(rows))
-                    return rows
+                    from . import catalogue_r2_market
+                    market=await catalogue_r2_market.read(connection)
+                    if market is not None:
+                        sql,args=indexed_value_sql(query,params,browse_for(snapshot),
+                            filter_system=True,market=market,shared_keys=shared_keys)
+                        async with connection.transaction():
+                            rows=await connection.fetch(sql,*args)
+                        log.info('CATALOGUE_R2_VALUE_SHORTLIST_HIT rows=%s generation=%s',
+                                 len(rows),market.generation)
+                        return rows
             except (asyncpg.InterfaceError,asyncpg.PostgresConnectionError,TimeoutError,OSError):
                 raise
             except Exception as exc:
