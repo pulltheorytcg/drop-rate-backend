@@ -9,9 +9,11 @@ import pytest
 from app import collectible_reference_feed as feed
 from app.collectible_source_adapters import (
     ReferenceSourceError, figure_product, group_yugioh_printings,
-    lorcana_printing, sports_checklist_printing, yugioh_printings,
+    lego_set_product, lorcana_printing, magic_printings,
+    sports_checklist_printing, yugioh_printings,
 )
 from app.object_storage import ObjectStorageError
+from scripts.pilot_expanded_catalogues import _closed_report
 from scripts.pilot_yugioh_catalogue import private_source_snapshot, archive_private_source_snapshot
 
 
@@ -141,6 +143,13 @@ def test_sports_printing_keeps_player_manufacturer_parallel_and_print_run_distin
         sports_checklist_printing({**base, "source_url": "https://evil.example/topps"})
     with pytest.raises(ReferenceSourceError):
         sports_checklist_printing({**base, "parallel": ""})
+    with pytest.raises(ReferenceSourceError, match="does not match"):
+        sports_checklist_printing({**base, "manufacturer": "Panini"})
+    with pytest.raises(ReferenceSourceError, match="does not match"):
+        sports_checklist_printing({**base, "source_url": "https://paniniamerica.net/resources.html"})
+    panini = {**base, "manufacturer": "Panini",
+              "source_url": "https://www.paniniamerica.net/resources.html"}
+    assert sports_checklist_printing(panini)[2]["manufacturer"] == "Panini"
 
 
 def test_lorcana_uses_exact_print_id_and_never_borrows_foil_or_usd_prices():
@@ -167,6 +176,60 @@ def test_funko_import_is_metadata_only_and_never_claims_image_rights():
     assert item["image_r2_key"] is None and item["image_sha256"] is None
     with pytest.raises(ReferenceSourceError):
         figure_product({**item, "source_url": "https://fake-funko.example/item"})
+
+
+def test_magic_exact_uuid_and_finish_are_distinct_and_prices_images_discarded():
+    source_set = {"code": "FDN", "name": "Foundations", "releaseDate": "2024-11-15",
+                  "totalSetSize": 771}
+    source_card = {"uuid": "46149862-416f-563b-b854-1893b7c76d6a",
+                   "setCode": "FDN", "name": "Sire of Seven Deaths", "number": "1",
+                   "rarity": "mythic", "availability": ["paper"],
+                   "finishes": ["foil", "nonfoil"],
+                   "identifiers": {"scryfallId": "8d8432a7-1c8a-4cfb-947c-ecf9791063eb"},
+                   "prices": {"usd": "17.00"}, "image_url": "https://example.invalid/art.jpg"}
+    records = magic_printings(source_set, source_card)
+    assert len(records) == 2
+    assert {r[1]["finish"] for r in records} == {"foil", "nonfoil"}
+    assert records[0][1]["provider_id"] != records[1][1]["provider_id"]
+    assert all(r[0]["system_code"] == "MAGIC_THE_GATHERING" and
+               r[1]["image_url"] is None and "price" not in r[1] for r in records)
+    assert magic_printings(source_set, {**source_card, "availability": ["arena"]}) == []
+    with pytest.raises(ReferenceSourceError, match="different set"):
+        magic_printings(source_set, {**source_card, "setCode": "WOE"})
+    with pytest.raises(ReferenceSourceError, match="duplicate"):
+        magic_printings(source_set, {**source_card, "finishes": ["foil", "foil"]})
+    with pytest.raises(ReferenceSourceError, match="UUID"):
+        magic_printings(source_set, {**source_card, "uuid": "not-a-uuid"})
+    report = _closed_report("magic", [records], available=771, offset=0, limit=25, year=None)
+    assert report["validated_reference_candidates"] == 2
+    assert report["uploaded_r2_objects"] == report["supabase_rows_written"] == 0
+
+
+def test_lego_exact_set_edition_theme_and_pieces_never_copy_image_or_price():
+    row = {"set_num": "77256-1", "name": "Time Machine from Back to the Future",
+           "year": "2026", "theme_id": "601", "num_parts": "298",
+           "img_url": "https://cdn.rebrickable.com/media/sets/77256-1.jpg",
+           "retail_price": "70.00"}
+    source_set, product = lego_set_product(row, themes={"601": "Speed Champions"})
+    assert source_set["system_code"] == "LEGO_SETS"
+    assert product["product_type"] == "LEGO_SET" and product["provider_id"] == "77256-1"
+    assert product["set_id"] == "theme:601" and product["evidence"]["release_year"] == 2026
+    assert product["evidence"]["source_data_rights"] == "COMMERCIAL_REUSE_PENDING_REVIEW"
+    assert product["image_url"] is None and "retail_price" not in product
+    assert lego_set_product({**row, "set_num": "77256-2"},
+                            themes={"601": "Speed Champions"})[1]["provider_id"] != product["provider_id"]
+    with pytest.raises(ReferenceSourceError, match="theme"):
+        lego_set_product(row, themes={"999": "Not the declared theme"})
+    with pytest.raises(ReferenceSourceError, match="piece"):
+        lego_set_product({**row, "num_parts": "not-known"}, themes={"601": "Speed Champions"})
+    with pytest.raises(ReferenceSourceError, match="not a confirmed construction"):
+        lego_set_product({**row, "num_parts": "0"}, themes={"601": "Speed Champions"})
+    with pytest.raises(ReferenceSourceError, match="not a confirmed construction"):
+        lego_set_product({**row, "theme_id": "900"}, themes={"900": "Gear"})
+    report = _closed_report("lego", [[(source_set, product)]], available=100,
+                            offset=0, limit=25, year=2026)
+    assert report["validated_reference_candidates"] == 1
+    assert report["uploaded_r2_objects"] == report["shopify_products_created"] == 0
 
 
 def test_schema_is_additive_with_r2_generation_and_strict_rls():

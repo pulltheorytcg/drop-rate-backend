@@ -8,7 +8,9 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 import hashlib
+import re
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from .recognition_games import collector_key
 
@@ -182,6 +184,10 @@ def sports_checklist_printing(row: dict) -> tuple[dict, dict, dict]:
         raise ReferenceSourceError("Unsupported sport")
     source_url = _https(row.get("source_url"), hosts=SPORT_SOURCE_HOSTS)
     manufacturer = _text(row.get("manufacturer"), field="manufacturer", max_length=160)
+    host = urlsplit(source_url).hostname
+    expected_manufacturer = "Topps" if host in {"uk.topps.com", "www.topps.com", "topps.com"} else "Panini"
+    if manufacturer != expected_manufacturer:
+        raise ReferenceSourceError("Checklist host does not match declared manufacturer")
     series = _text(row.get("series"), field="series")
     year = row.get("year")
     if type(year) is not int or not 1900 <= year <= 2100:
@@ -247,3 +253,125 @@ def figure_product(row: dict) -> dict:
             "source_url": source_url, "reference_image_url": row.get("reference_image_url"),
             "image_rights_status": "UNVERIFIED", "image_rights_evidence_url": None,
             "image_r2_key": None, "image_sha256": None, "attributes": {}}
+
+
+MTG_SOURCE_ROOT = "https://mtgjson.com/api/v5"
+
+
+def magic_printings(set_data: dict, card: dict) -> list[tuple[dict, dict]]:
+    """Physical MTGJSON printing UUID + exact finish, never a price/image claim.
+
+    MTGJSON UUID identifies a printing; one printing can have several physical
+    finishes, which must not be collapsed to one product reference.
+    """
+    if not isinstance(set_data, dict) or not isinstance(card, dict):
+        raise ReferenceSourceError("Invalid MTGJSON set/card")
+    code = _text(set_data.get("code"), field="Magic set code", max_length=10)
+    if not re.fullmatch(r"[A-Z0-9]{2,10}", code):
+        raise ReferenceSourceError("Invalid Magic set code")
+    if card.get("setCode") is not None and card["setCode"] != code:
+        raise ReferenceSourceError("Magic printing belongs to a different set")
+    if set_data.get("isOnlineOnly") is True:
+        return []
+    availability = card.get("availability")
+    if availability is not None:
+        if not isinstance(availability, list):
+            raise ReferenceSourceError("Invalid Magic availability")
+        if "paper" not in availability:
+            return []
+    card_uuid = _text(card.get("uuid"), field="Magic printing UUID", max_length=36)
+    try:
+        if str(UUID(card_uuid)) != card_uuid:
+            raise ValueError("Noncanonical UUID")
+    except ValueError as exc:
+        raise ReferenceSourceError("Invalid Magic printing UUID") from exc
+    name = _text(card.get("name"), field="Magic card name")
+    number = _text(card.get("number"), field="Magic collector number", max_length=80)
+    rarity = _text(card.get("rarity"), field="Magic rarity", max_length=100)
+    finishes = card.get("finishes")
+    if not isinstance(finishes, list) or not 1 <= len(finishes) <= 8:
+        raise ReferenceSourceError("Magic printing lacks bounded finish evidence")
+    if len(set(finishes)) != len(finishes) or any(
+            not isinstance(finish, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{1,35}", finish)
+            for finish in finishes):
+        raise ReferenceSourceError("Invalid or duplicate Magic finish")
+    language = card.get("language", "English")
+    if language != "English":
+        raise ReferenceSourceError("Non-English Magic language needs a separate verified source")
+    released = set_data.get("releaseDate")
+    if released is not None:
+        try:
+            released = date.fromisoformat(released).isoformat()
+        except (TypeError, ValueError) as exc:
+            raise ReferenceSourceError("Invalid Magic release date") from exc
+    count = set_data.get("totalSetSize")
+    if count is not None and (type(count) is not int or count < 0):
+        raise ReferenceSourceError("Invalid Magic declared set size")
+    source_url = f"{MTG_SOURCE_ROOT}/{code}.json"
+    set_record = {"provider": "MTGJSON", "system_code": "MAGIC_THE_GATHERING",
+                  "language": language, "set_id": code,
+                  "name": _text(set_data.get("name"), field="Magic set name"),
+                  "release_date": released, "declared_card_count": count,
+                  "source_url": source_url}
+    identifiers = card.get("identifiers") or {}
+    if not isinstance(identifiers, dict):
+        raise ReferenceSourceError("Invalid Magic identifiers")
+    scryfall_id = identifiers.get("scryfallId")
+    if scryfall_id is not None:
+        try:
+            scryfall_id = str(UUID(scryfall_id))
+        except (TypeError, ValueError) as exc:
+            raise ReferenceSourceError("Invalid Magic Scryfall identity") from exc
+    return [(set_record, {
+        "provider_id": f"{card_uuid}:{finish}", "name": name,
+        "card_number": number, "number_key": collector_key(number),
+        "finish": finish, "rarity": rarity, "image_url": None,
+        "source_url": source_url,
+        "evidence": {"provider_local_id": card_uuid, "set_code": code,
+                     "finish": finish, "scryfall_id": scryfall_id,
+                     "artwork_status": "UNVERIFIED_EXACT_PRINTING",
+                     "market_value_status": "NO_VERIFIED_SOLD_EVIDENCE"}
+    }) for finish in finishes]
+
+
+def lego_set_product(row: dict, *, themes: dict[str, str]) -> tuple[dict, dict]:
+    """One Rebrickable source set, no photography, inventory or price rights.
+
+    Output goes into the existing sealed-reference model only *after* a
+    separate commercial-data-use review. Dry-run may validate the public CSV.
+    """
+    if not isinstance(row, dict) or not isinstance(themes, dict):
+        raise ReferenceSourceError("Invalid LEGO source row/theme table")
+    set_number = _text(row.get("set_num"), field="LEGO set number", max_length=56)
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,48}-[1-9][0-9]{0,2}", set_number):
+        raise ReferenceSourceError("Invalid exact LEGO set number/edition")
+    theme_id = _text(row.get("theme_id"), field="LEGO theme ID", max_length=8)
+    if not theme_id.isdecimal() or theme_id not in themes:
+        raise ReferenceSourceError("Unverified LEGO theme identity")
+    theme = _text(themes[theme_id], field="LEGO theme name")
+    name = _text(row.get("name"), field="LEGO set name")
+    year = row.get("year")
+    piece_count = row.get("num_parts")
+    if not isinstance(year, str) or not year.isdecimal() or not 1940 <= int(year) <= 2100:
+        raise ReferenceSourceError("Invalid LEGO release year")
+    if not isinstance(piece_count, str) or not piece_count.isdecimal() or int(piece_count) > 100000:
+        raise ReferenceSourceError("Invalid LEGO piece count")
+    if int(piece_count) < 2 or theme.casefold() in {"gear", "books", "non-lego"}:
+        raise ReferenceSourceError("LEGO source record is not a confirmed construction set")
+    source_url = f"https://rebrickable.com/sets/{set_number}/"
+    set_record = {"provider": "Rebrickable", "system_code": "LEGO_SETS",
+                  "language": "English", "set_id": f"theme:{theme_id}", "name": theme,
+                  "release_date": None, "declared_card_count": None,
+                  "source_url": "https://rebrickable.com/downloads/"}
+    product = {"provider": "Rebrickable", "system_code": "LEGO_SETS",
+               "language": "English", "provider_id": set_number,
+               "set_id": set_record["set_id"], "name": name,
+               "product_type": "LEGO_SET", "image_url": None,
+               "source_url": source_url,
+               "evidence": {"manufacturer": "LEGO", "set_number": set_number,
+                            "theme_id": theme_id, "theme": theme,
+                            "release_year": int(year), "piece_count": int(piece_count) or None,
+                            "photo_rights": "UNVERIFIED",
+                            "source_data_rights": "COMMERCIAL_REUSE_PENDING_REVIEW",
+                            "market_value_status": "NO_VERIFIED_SOLD_EVIDENCE"}}
+    return set_record, product

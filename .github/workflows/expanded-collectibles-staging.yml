@@ -7,6 +7,8 @@ on:
       - 'backend/app/collectible_source_adapters.py'
       - 'backend/app/reference_library.py'
       - 'backend/scripts/pilot_yugioh_catalogue.py'
+      - 'backend/scripts/pilot_expanded_catalogues.py'
+      - 'backend/app/recognition_games.py'
       - 'tests/expanded_collectibles_postgres.py'
       - 'tests/test_collectible_expansion.py'
       - '.github/workflows/expanded-collectibles-staging.yml'

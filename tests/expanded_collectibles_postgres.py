@@ -19,10 +19,13 @@ import asyncpg
 
 from app.collectible_source_adapters import (
     figure_product,
+    lego_set_product,
+    magic_printings,
     sports_checklist_printing,
     yugioh_printings,
 )
 from app.reference_library import save_reference_set
+from app.reference_sealed import save_sealed_set
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -101,6 +104,27 @@ create policy reference_sets_update on tcg.reference_sets for update to tcg_api
 create policy reference_cards_update on tcg.reference_cards for update to tcg_api
   using((select tcg.is_platform_admin())) with check((select tcg.is_platform_admin()));
 grant select,insert,update on tcg.reference_sets,tcg.reference_cards to tcg_api;
+create table tcg.reference_sealed_products(
+ provider text not null, system_code text not null references tcg.collectible_systems(code),
+ language text not null, provider_id text not null, set_id text not null,
+ name text not null, product_type text not null, image_url text,
+ source_url text not null check (source_url like 'https://%'),
+ evidence jsonb not null default '{}'::jsonb, refreshed_at timestamptz not null default now(),
+ primary key(provider,system_code,language,provider_id),
+ foreign key(provider,system_code,language,set_id)
+  references tcg.reference_sets(provider,system_code,language,set_id)
+);
+alter table tcg.reference_sealed_products enable row level security;
+alter table tcg.reference_sealed_products force row level security;
+create policy reference_sealed_admin on tcg.reference_sealed_products for all to postgres
+ using(true) with check(true);
+create policy reference_sealed_read on tcg.reference_sealed_products for select to tcg_api
+ using((select tcg.current_user_id()) is not null);
+create policy reference_sealed_insert on tcg.reference_sealed_products for insert to tcg_api
+ with check((select tcg.is_platform_admin()));
+create policy reference_sealed_update on tcg.reference_sealed_products for update to tcg_api
+ using((select tcg.is_platform_admin())) with check((select tcg.is_platform_admin()));
+grant select,insert,update on tcg.reference_sealed_products to tcg_api;
 """
 
 
@@ -133,9 +157,10 @@ async def main() -> None:
         await db.execute(BASE_SCHEMA)
         await db.execute(MIGRATION.read_text())
         await db.execute("insert into tcg.test_founder_admins values($1)", admin_id)
-        assert await db.fetchval("select count(*) from tcg.collectible_systems") == 11
+        assert await db.fetchval("select count(*) from tcg.collectible_systems") == 13
         assert await db.fetchval("select count(*) from tcg.collectible_systems where system_kind='FIGURE'") == 2
         assert await db.fetchval("select count(*) from tcg.collectible_systems where system_kind='SPORTS_CARD'") == 6
+        assert await db.fetchval("select count(*) from tcg.collectible_systems where system_kind='CONSTRUCTION_SET'") == 1
         assert await db.fetchval("select count(*) from tcg_private.reference_figures_r2_publication") == 2
         # Every new reference and publication table must force RLS.
         assert await db.fetchval("""
@@ -216,6 +241,21 @@ async def main() -> None:
                "parallel": "Red /5", "print_run": 5}
         sport_set, sport_card, details = sports_checklist_printing(row)
         await save_reference_set(admin, sport_set, [sport_card])
+        magic_set, _ = magic_printings(
+            {"code": "FDN", "name": "Foundations", "releaseDate": "2024-11-15"},
+            {"uuid": "46149862-416f-563b-b854-1893b7c76d6a", "setCode": "FDN",
+             "name": "Synthetic FDN Card", "number": "1", "rarity": "mythic",
+             "finishes": ["foil", "nonfoil"], "availability": ["paper"]})[0]
+        magic_cards = [card for _, card in magic_printings(
+            {"code": "FDN", "name": "Foundations", "releaseDate": "2024-11-15"},
+            {"uuid": "46149862-416f-563b-b854-1893b7c76d6a", "setCode": "FDN",
+             "name": "Synthetic FDN Card", "number": "1", "rarity": "mythic",
+             "finishes": ["foil", "nonfoil"], "availability": ["paper"]})]
+        await save_reference_set(admin, magic_set, magic_cards)
+        lego_set, lego_product = lego_set_product(
+            {"set_num": "77256-1", "name": "Synthetic LEGO set", "year": "2026",
+             "theme_id": "601", "num_parts": "298"}, themes={"601": "Speed Champions"})
+        await save_sealed_set(admin, lego_set, [lego_product])
         await admin.execute("""
           insert into tcg.reference_card_product_details
             (provider,system_code,language,provider_id,manufacturer,product_line,
@@ -224,12 +264,16 @@ async def main() -> None:
         """, *(details[k] for k in ("provider", "system_code", "language", "provider_id",
                                   "manufacturer", "product_line", "sport", "athlete",
                                   "parallel", "print_run", "source_url")), json.dumps(details["attributes"]))
-        assert await member.fetchval("select count(*) from tcg.reference_cards") == 2
+        assert await member.fetchval("select count(*) from tcg.reference_cards") == 4
         assert await member.fetchval("select count(*) from tcg.reference_card_product_details") == 1
+        assert await member.fetchval("select count(*) from tcg.reference_sealed_products where system_code='LEGO_SETS'") == 1
+        assert await member.fetchval("select image_url from tcg.reference_sealed_products where system_code='LEGO_SETS'") is None
+        await rejected(member, "update tcg.reference_sealed_products set name='tampered'")
         assert await member.fetchval("select count(*) from tcg.reference_cards where image_url is not null") == 0
         await rejected(member, "delete from tcg.reference_card_product_details")
         print(json.dumps({"status": "PASS", "migration": MIGRATION.name,
-                          "systems": 11, "staged_cards": 2, "staged_figures": 1,
+                          "systems": 13, "staged_cards": 4, "staged_figures": 1,
+                          "staged_sealed_sets": 1,
                           "verified_market_values": 0, "media_copies": 0,
                           "shopify_products": 0}, sort_keys=True))
     finally:

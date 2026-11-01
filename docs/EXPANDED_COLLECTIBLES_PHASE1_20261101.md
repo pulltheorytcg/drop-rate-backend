@@ -13,9 +13,10 @@ history. No new Railway service or paid subscription is introduced.
 
 | Family | Master reference | Exact-match discriminator |
 | --- | --- | --- |
-| Yu-Gi-Oh!, Lorcana, Riftbound | existing `tcg.reference_sets` + `tcg.reference_cards` | game + language + exact set + card number + rarity + print/finish/art treatment |
+| Yu-Gi-Oh!, Lorcana, Riftbound, Magic: The Gathering | existing `tcg.reference_sets` + `tcg.reference_cards` | game + language + exact set + card number + rarity + print/finish/art treatment; MTGJSON UUID **and each actual finish** |
 | Football, NFL, basketball, baseball, hockey, motorsport | existing `reference_cards` plus `reference_card_product_details` | manufacturer + season + series + athlete + printed number + parallel + autograph/numbering |
 | Funko Pop! / other figurines | new `tcg.reference_figure_products` | manufacturer + official item/SKU or GTIN + franchise + series + figure number + edition/exclusive variant |
+| LEGO construction sets | existing `tcg.reference_sets` (themes) + `tcg.reference_sealed_products` (`LEGO_SET`) | exact set number **and edition suffix** + theme ID/name + release year + piece count |
 
 The two reference families are **not** physical owner stock. Canonical
 `tcg.catalogue_products` and `tcg.inventory_items` retain existing verified
@@ -51,6 +52,21 @@ automatic Shopify product publication. That will be a separately tested phase.
   product-page parsing and image reuse require a permitted provider method.
   Collect an exact manufacturer item ID, box number, barcode, series and
   exclusive/chase edition rather than fuzzy names.
+- **Magic: The Gathering**: MTGJSON's per-set JSON files contain printing
+  UUIDs, collector numbers, set codes, rarity and supported physical finishes.
+  Its published MIT licence applies to the data/software, **not** automatically
+  to Wizards/Scryfall card artwork. The new bounded pilot reads individual
+  set JSON, skips digital-only rows and emits a separate source ID per finish;
+  image and source prices are removed. Source: <https://mtgjson.com/license/>,
+  <https://mtgjson.com/downloads/all-files/>.
+- **LEGO**: Rebrickable's public downloadable `sets.csv.gz` and
+  `themes.csv.gz` provide exact set numbers, theme IDs, years and piece counts;
+  its API explicitly recommends CSV downloads for bulk catalogue work.
+  **Commercial reuse/redistribution permission has not been established**;
+  treat this as a read-only local preview until approved. Public source image
+  URLs are discarded, as are unverified retail prices. Do not upload the
+  raw CSV or derived catalogue to R2 or Shopify without permission.
+  <https://rebrickable.com/api/>, <https://rebrickable.com/downloads/>.
 - **Market values**: use independently permitted, source-attributed UK sold
   transactions and condition/grade-specific evidence. Active listings are
   asking evidence only. Existing market-history records remain immutable.
@@ -61,7 +77,7 @@ automatic Shopify product publication. That will be a separately tested phase.
 ## Code included in phase 1
 
 1. Additive migration `20261101205040_collectible_catalogue_expansion.sql`
-   registers six sports and two figure categories, typed sports-card attributes,
+   registers six sports, two figure categories, Magic and LEGO, typed sports-card attributes,
    figure model records, append-only figure sales/listing observations, nullable
    GBP value caches and an independent R2 publication cursor. Tables use forced
    RLS, `tcg_api` founder-admin writes and no physical ownership/Shopify fields.
@@ -84,6 +100,82 @@ automatic Shopify product publication. That will be a separately tested phase.
 5. Existing reference cards imported in future YGO/sports/Lorcana/Riftbound
    pilots will use the **existing** catalogue R2 publication path. The figure
    sidecar does not alter its schema, generation or query strategies.
+6. `pilot_expanded_catalogues.py` stages **Magic** per-set MTGJSON and
+   **LEGO** public Rebrickable CSV in bounded read-only previews (default 25,
+   cap 100). Curated **Funko, Topps, Panini** official-source JSONL records
+   are supported by exact-identity normalizers and manufacturer/host matching;
+   there is no unapproved automated scrape. The pilot prints a deterministic
+   normalized-metadata SHA-256 and source quarantine report, but never uploads
+   R2, creates Supabase rows, mirrors images, invents GBP values or sends Shopify
+   products. A new importer is not a live feed until separately gated R2
+   publication, signed-in App lookup and SKU/physical stock integration pass.
+
+### Additional live-source batch receipts (1 November, read-only)
+
+| Source | Preview window | Valid exact references | Quarantined | Metadata SHA-256 |
+| --- | --- | ---: | ---: | --- |
+| MTGJSON `FDN` (Foundations) | first 25 of 771 card rows | **50 print+finish records** | 0 | `518c2a928307bd522d915f0410924e4b625356ea20f0062a0c1a0099ec2992f8` |
+| Rebrickable LEGO, `year=2026`, building-set filter | first 25 of **766 eligible** records (of 1,568 source rows) | **25 buildable-set models** | 0 | `a84fb0bef666403a64c2efdcb0a89e5d10cda2220bb75063544a8c8682b3fbf8` |
+
+Only normalized, closed metadata was hashed in memory. The MTG preview
+serialized to 35,907 bytes and corrected LEGO to 18,773 bytes. Rebrickable's
+raw `sets` file also includes zero-piece Gear merchandise, such as Jibbitz;
+those and Gear/Books/Non-LEGO theme branches are **excluded before selection**.
+Records with fewer than two recorded parts are held back for classification
+review, even if some might be legitimate single-part packages. Zero data objects were
+uploaded or externally written. LEGO source-data rights are an open gate.
+
+Reproduction commands:
+
+```sh
+PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source magic --set-code FDN --limit 25
+PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source lego --year 2026 --limit 25
+PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source funko --input-jsonl authorized_funko.jsonl --limit 25
+PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source topps --input-jsonl authorized_topps.jsonl --limit 25
+PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source panini --input-jsonl authorized_panini.jsonl --limit 25
+```
+
+For Funko rows supply `system_code=FUNKO_POP`, `manufacturer=Funko`, a unique
+official `provider_id`, `name`, and exact `source_url` on `funko.com`; optionally
+`manufacturer_sku`, `barcode_gtin`, `figure_number`, franchise and variant.
+For Topps/Panini rows supply `system_code` (one of six sports codes),
+`manufacturer` (exactly `Topps` or `Panini`), official-host `source_url`,
+`series`, integer `year`, `card_number`, `athlete`, and a declared `parallel`
+(use `Base` for confirmed base printing); add team, league, serial print run,
+autograph and memorabilia evidence only when supported by the checklist.
+File format: **one JSON object per line**. These examples are **input
+contracts, not permission to scrape**. Source/provider approvals and licenses
+remain release prerequisites.
+
+### Supabase capacity business case (updated 1 November)
+
+- Production organisation is on **Supabase Free**; read-only query returned
+  `pg_database_size()` **392,596,627 bytes** (~392.6 MB decimal) versus the
+  published Free plan's 500 MB database quota. This is a *database size*, not
+  the Supabase Storage bucket usage or all disk/WAL bytes. One existing importer
+  also conservatively stops at **400,000,000 bytes**, only ~7.4 MB above the
+  observed database size.
+- Largest tables in the review: `tcg.audit_events` ~103.2 MB,
+  `tcg.reference_cards` ~74.0 MB (69,697 rows),
+  `tcg.reference_market_prices` ~43.9 MB and
+  `tcg.reference_catalogue_prices` ~39.8 MB. A rough extra 100,000
+  `reference_cards` rows at current average size would need ~106 MB **before**
+  additional sets, details, index growth or market data, exceeding headroom.
+- **No case to increase Supabase Storage bucket capacity** for source files,
+  product photographs or image history: put rights-cleared bulk media and
+  immutable source metadata in Cloudflare R2. **Potential future case for
+  Supabase Pro database disk** when the reviewed compact-reference projection
+  exceeds remaining headroom, or query performance/availability benefits
+  justify it. Current Pro starts at **$25/month** and lists 8 GB included DB
+  disk, subject to plan and usage limits. There is **no plan upgrade now**.
+- Keep read-only batches running and count distinct indexed rows by source.
+  Before any real SQL batch, evaluate a source-specific DB growth forecast,
+  the 400 MB importer guard, Free quota, business value from search/stock
+  matching, and R2/API read-back parity. Do not bypass the guard to force data
+  into Free or silently promote unlicensed LEGO/Funko imagery.
+
+Sources: <https://supabase.com/pricing>,
+<https://supabase.com/docs/guides/platform/database-size>.
 
 ### Source pilot receipt (read-only)
 

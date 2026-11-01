@@ -6,7 +6,7 @@ alter table tcg.collectible_systems
   drop constraint collectible_systems_system_kind_check;
 alter table tcg.collectible_systems
   add constraint collectible_systems_system_kind_check
-  check (system_kind in ('TCG', 'COMICS', 'SPORTS_CARD', 'FIGURE'));
+  check (system_kind in ('TCG', 'COMICS', 'SPORTS_CARD', 'FIGURE', 'CONSTRUCTION_SET'));
 
 insert into tcg.collectible_systems
   (code, display_name, franchise, system_kind, publisher, lifecycle_status, official_url)
@@ -18,8 +18,15 @@ values
   ('SPORT_HOCKEY', 'Ice hockey cards', 'Ice Hockey', 'SPORTS_CARD', null, 'ACTIVE', null),
   ('SPORT_MOTORSPORT', 'Motorsport cards', 'Motorsport', 'SPORTS_CARD', null, 'ACTIVE', null),
   ('FUNKO_POP', 'Funko Pop!', 'Funko', 'FIGURE', 'Funko', 'ACTIVE', 'https://funko.com/gb/'),
-  ('COLLECTIBLE_FIGURES', 'Other collectible figures', 'Collectible Figures', 'FIGURE', null, 'ACTIVE', null)
+  ('COLLECTIBLE_FIGURES', 'Other collectible figures', 'Collectible Figures', 'FIGURE', null, 'ACTIVE', null),
+  ('MAGIC_THE_GATHERING', 'Magic: The Gathering', 'Magic: The Gathering', 'TCG', 'Wizards of the Coast', 'ACTIVE', 'https://magic.wizards.com/'),
+  ('LEGO_SETS', 'LEGO construction sets', 'LEGO', 'CONSTRUCTION_SET', 'LEGO', 'ACTIVE', 'https://www.lego.com/')
 on conflict (code) do nothing;
+
+-- LEGO reference models reuse the existing RLS-protected
+-- tcg.reference_sealed_products table (product_type='LEGO_SET'), grouped by
+-- source theme in reference_sets. They are NOT owned/sellable Shopify stock.
+-- No image or unlicensed source-data R2 publication is approved here.
 
 -- Optional typed attributes on existing reference_cards. A manufacturer-specific
 -- parallel is not interchangeable with the base printing or a different sport.
