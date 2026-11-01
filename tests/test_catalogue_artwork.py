@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from app import catalogue_browser as browser
 from app.auth import require_user
 from app.recognition_images import ReferenceImagePayload
+from app.catalogue_artwork import reference_version
 from scripts.seed_book_catalogue import load_seed
 
 
@@ -21,7 +22,7 @@ def test_artwork_transport_carries_only_exact_reference_identity():
     row = dict(IDENTITY,source_kind='REFERENCE',image_url=ART)
     result = browser.with_artwork_path(row)
     query = parse_qs(urlsplit(result['reference_image_path']).query)
-    assert query == {key:[value] for key,value in IDENTITY.items()}
+    assert query == {**{key:[value] for key,value in IDENTITY.items()}, 'v':[reference_version(ART)]}
     assert 'reference_image_path' not in row
     for url in [None,'https://evil.test/card.png','https://en.onepiece-cardgame.com:8443/images/cardlist/card/A.png']:
         assert 'reference_image_path' not in browser.with_artwork_path(dict(row,image_url=url))
@@ -83,12 +84,42 @@ async def test_pokemon_reference_relay_fetches_only_database_url(monkeypatch):
     async def request_id(request,call_next):request.state.request_id='test';return await call_next(request)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
         response=await client.get('/api/v1/catalogue-browser/reference-image',params={
-            **identity,'size':'grid','url':'https://evil.test/image.png'})
+            **identity,'size':'grid','url':'https://evil.test/image.png', 'v': reference_version(image_url)})
     assert response.status_code==200
     assert response.content==b'bounded-thumbnail'
-    assert response.headers['cache-control']=='private, max-age=1800'
+    assert response.headers['cache-control']=='private, max-age=604800'
     assert response.headers['x-content-type-options']=='nosniff'
     assert fetches==[image_url]
+
+
+@pytest.mark.asyncio
+async def test_image_cache_revision_is_validated_against_exact_database_source(monkeypatch):
+    user_id = uuid4()
+    image_url = 'https://assets.tcgdex.net/en/me/30th/001/high.webp'
+    class Connection:
+        async def fetch(self, sql, *args):
+            return [{'owner_id':uuid4(), 'user_id':user_id, 'role':'OWNER', 'founder_authorized':False,
+                     'display_name':'Test', 'owner_type':'CONSIGNOR', 'founder_slot':None}]
+        async def fetchval(self, sql, *args):
+            return image_url
+    @asynccontextmanager
+    async def connection(*args):
+        yield Connection()
+    async def forbidden(*args, **kwargs):
+        raise AssertionError('Stale reference image version must not fetch external art')
+    monkeypatch.setattr(browser,'user_connection',connection)
+    monkeypatch.setattr(browser,'reference_image_bytes',forbidden)
+    app = FastAPI(); app.state.db_pool = object(); app.include_router(browser.router)
+    app.dependency_overrides[require_user] = lambda: SimpleNamespace(user_id=user_id)
+    @app.middleware('http')
+    async def request_id(request,call_next):
+        request.state.request_id='test'
+        return await call_next(request)
+    params = dict(provider='TCGdex', system_code='POKEMON_TCG',
+                  language='English', provider_id='me30-1', v='0'*12)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
+        response = await client.get('/api/v1/catalogue-browser/reference-image',params=params)
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
