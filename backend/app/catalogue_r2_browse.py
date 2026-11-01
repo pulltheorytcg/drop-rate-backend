@@ -263,14 +263,31 @@ with static_page as (
     return market.sql(prefix+tail,args,rows) if market is not None else (prefix+tail,args)
 
 
-def indexed_value_sql(query, params, snapshot):
-    """Keep the whole candidate population and all original price/RLS rules."""
+def indexed_value_sql(query, params, snapshot, *, filter_system=False):
+    """Keep every eligible value-sort candidate and the original price/RLS rules.
+
+    A value sort cannot be pre-paginated by static release date. The explicit
+    system predicate, however, is a safe shared-data restriction: its result
+    remains complete within that system and PostgreSQL still sorts using the
+    *current* live owner and price overlays.
+    """
     from .catalogue_browser import SOURCE_CTE, REFERENCE_VALUES_CTE
     if (not isinstance(query,str) or not query.startswith(SOURCE_CTE)
             or REFERENCE_VALUES_CTE not in query or len(params)<3
             or len(snapshot.entries)>150000):
         raise ValueError('Unsupported R2 value ordering')
-    return _compose_indexed_sql(query,params,snapshot.entries,dynamic=True)
+    rows=snapshot.entries
+    if filter_system:
+        tail=query[len(SOURCE_CTE):]
+        if (len(params)<4 or not isinstance(params[1],list)
+                or not params[1] or not all(isinstance(v,str) for v in params[1])
+                or not re.search(r'\bwhere e\.system_code=any\(\$2::text\[\]\)',tail)):
+            raise ValueError('R2 value sort requires a verified system filter')
+        systems=set(params[1])
+        rows=tuple(row for row in rows if row['system_code'] in systems)
+        if len(rows)>60000:
+            raise ValueError('R2 value sort exceeds bounded system scope')
+    return _compose_indexed_sql(query,params,rows,dynamic=True)
 
 
 def indexed_browse_sql(query, params, snapshot, *, max_page=81, market=None):
