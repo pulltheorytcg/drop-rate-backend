@@ -16,9 +16,9 @@
 
 ## Remaining release gates
 
-1. Complete GitHub CI. An unrelated existing `tests/test_business_access.py::test_unregistered_admin_is_rejected_before_business_data` hangs in this scratch environment; an isolated run timed out at 30 seconds, whereas focused suites passed.
-2. Apply `database/migrations/20261101194856_platform_comic_photo_review.sql` through the approved Supabase migration workflow **after production DB authorization**, and verify founder versus consignor RLS.
-3. Merge and confirm exact-commit Railway deployment `SUCCESS`; inspect authenticated phone upload/review and Shopify Files readback. Keep Shopify storefront password-locked.
+1. GitHub CI completed **7/7 successful** on PR #868 at `114aa714434c15f4a90ed78c7ea6a62a8bd5a572`. An unrelated existing `tests/test_business_access.py::test_unregistered_admin_is_rejected_before_business_data` hangs only in the scratch environment; GitHub's full Python job passed.
+2. Founder authorised the scoped live Supabase change. `platform_comic_photo_review` was applied successfully, with recorded history version `20261101203926`. The canonical file is now `database/migrations/20261101203926_platform_comic_photo_review.sql`. The two scoped RLS policies and immutable-identity trigger were read back. There are currently zero pending consignment-comic photos, so positive/negative authenticated actor testing remains for the first real upload.
+3. Re-run CI after history alignment; merge and confirm exact-commit Railway deployment `SUCCESS`; inspect authenticated phone upload/review and Shopify Files readback. Keep Shopify storefront password-locked.
 4. Confirm real seller storage/dispatch, exact printing/condition, actual cost and a measured active `COMIC_BOOK`/`MANGA_BOOK` shipping profile with staff. Only then consider manual Shopify publishing through existing gates.
 
-No migration, production inventory mutation, catalogue price invention, media approval or Shopify publication is implied by this code change.
+The migration was applied with the founder's explicit authorisation; no production inventory mutation, catalogue price invention, media approval or Shopify publication occurred.

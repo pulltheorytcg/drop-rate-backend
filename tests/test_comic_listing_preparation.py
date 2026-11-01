@@ -198,7 +198,7 @@ def test_review_route_and_migration_are_explicitly_admin_and_comic_only():
     from pathlib import Path
     assert any(dependency.dependency is not None and dependency.dependency.__name__ == "require_platform_admin_request"
                for dependency in review.router.dependencies)
-    migration=Path(__file__).resolve().parents[1]/"database/migrations/20261101194856_platform_comic_photo_review.sql"
+    migration=Path(__file__).resolve().parents[1]/"database/migrations/20261101203926_platform_comic_photo_review.sql"
     sql=migration.read_text()
     for proof in ("tcg.is_platform_admin()", "source_type='CONSIGNOR_UPLOAD'",
                   "p.product_type='COMIC'", "o.owner_type='CONSIGNOR'", "with check",

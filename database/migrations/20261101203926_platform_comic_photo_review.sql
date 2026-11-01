@@ -1,3 +1,4 @@
+-- Applied to production with Supabase migration history 20261101203926.
 -- Allow verified platform administrators to inspect and decide *only* exact
 -- physical photographs submitted by consignment comic owners. A consignor
 -- retains their existing owner-scoped access; this is not a storefront grant.
