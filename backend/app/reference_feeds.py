@@ -25,6 +25,46 @@ SV11B_NUMBER_PROOF = {
 }
 
 
+# Four exact TCGdex printings whose /high.webp endpoint returned HTTP 404 on
+# 2026-11-01 while the same-card /low.webp was downloaded and visually checked
+# against its printed name/number. Never apply to a nearby printing, translated
+# card, a changed upstream image base, or an altered provider checklist entry.
+# These are reference-only images, not media rights or inventory approval.
+TCGDEX_REVIEWED_LOW_WEBP = {
+    "sv03.5-163": ("sv03.5", "Leftovers", "163", "163/165", "en/sv/sv03.5/163",
+                   "c6353512656a25d7c0ec6e30a9fc82c2759ecc03f37a9e17a03a134fefcae70b"),
+    "A2a-021": ("A2a", "Abomasnow", "021", "021/75", "en/tcgp/A2a/021",
+                 "afc837a0a18d0d44a28e49e82795a81f53e5e326262848177f1d9c76973a250d"),
+    "ex14-97": ("ex14", "Shiftry ex", "97", "97/100", "en/ex/ex14/97",
+                "c6e2d64dfaa08b95cd5ca192389d840e67589c58ef654b94e72173aee5dce34f"),
+    "A3a-072": ("A3a", "Blacephalon", "072", "072/69", "en/tcgp/A3a/072",
+                 "432a1a2ac577fde631be8bdb58525f84b3719daac3d2fd22c61d18bebfdcd804"),
+}
+
+
+def tcgdex_reviewed_image(lang, set_id, card, printed_number):
+    """Return a reviewed same-print low image, or the untouched provider high URL."""
+    base = card.get("image")
+    if not isinstance(base, str) or not base:
+        return None, None
+    high = f"{base}/high.webp"
+    reviewed = TCGDEX_REVIEWED_LOW_WEBP.get(card.get("id")) if lang == "en" else None
+    if not reviewed:
+        return high, None
+    expected_set, expected_name, expected_local, expected_print, path, digest = reviewed
+    if (set_id, card.get("name"), str(card.get("localId")), printed_number, base) != (
+            expected_set, expected_name, expected_local, expected_print,
+            f"https://assets.tcgdex.net/{path}"):
+        return high, None
+    low = f"{base}/low.webp"
+    return low, {"verification": "TCGDEX_REVIEWED_LOW_WEBP_V1",
+                 "reviewed_at": "2026-11-01", "review_method": "EXACT_PRINTED_NAME_NUMBER_AND_RASTER",
+                 "source_url": f"https://api.tcgdex.net/v2/en/cards/{card['id']}",
+                 "image_url": low, "original_high_url": high,
+                 "content_sha256": digest, "width": 245, "height": 337,
+                 "scope": "REFERENCE_ONLY_NOT_APPROVED_MEDIA"}
+
+
 def tcgdex_card_number(language, set_id, provider_id, local, official):
     """Retain the reviewed printed fraction while upstream API metadata lags."""
     if language == "ja" and set_id == "SV11B":
@@ -103,12 +143,16 @@ class ReferenceFeeds:
                 cards=[]
                 for card in payload['cards']:
                     local=str(card['localId'])
+                    number=tcgdex_card_number(lang,sid,str(card["id"]),local,total)
+                    image,review=tcgdex_reviewed_image(lang,sid,card,number)
+                    evidence={"shared_finish_artwork":True,"provider_local_id":local,
+                        "detail_level":"SET_CHECKLIST","physical_finish_unresolved":True}
+                    if review:
+                        evidence["image_reference"]=review
                     cards.append({"provider_id":card['id'],"name":card['name'],
-                        "card_number":tcgdex_card_number(lang,sid,str(card["id"]),local,total),
-                        "image_url":f"{card['image']}/high.webp" if card.get('image') else None,
+                        "card_number":number,"image_url":image,
                         "source_url":f"{base}/cards/{quote(str(card['id']),safe='')}",
-                        "evidence":{"shared_finish_artwork":True,"provider_local_id":local,
-                            "detail_level":"SET_CHECKLIST","physical_finish_unresolved":True}})
+                        "evidence":evidence})
                 if lang == "ja" and sid == "SV11B":
                     for card in cards:
                         card["evidence"]["collector_number_reference"] = dict(SV11B_NUMBER_PROOF)
