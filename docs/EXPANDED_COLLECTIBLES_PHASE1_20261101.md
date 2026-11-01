@@ -228,6 +228,35 @@ Neither result claims complete catalogue coverage.
 
 ## Production release gates
 
+### Migration-history preflight (1 November, after staging receipt)
+
+The live project has **154 recorded migration versions** through
+`20261101203926_platform_comic_photo_review` and still has only **14** current
+system codes. The repository's older history staging manifest was out of date:
+the initial read-only comparison exposed 53 remote versions not represented
+locally and 58 local timestamps missing from remote history. It was **unsafe
+to run a blind `supabase db push`** while that drift remained.
+
+The release-preparation branch now maps **52** additional canonical migration
+names to their already-applied production timestamps, and adds one history-only
+placeholder for the older of two applied payout-heartbeat versions. The
+staging script now produces 160 unique versions, covering **all 154** remote
+versions without re-running those old DDL statements. Six staged versions are
+not yet in remote history: the proposed collectible expansion; three previously
+verified history-only baselines; and two older unrelated SQL migrations
+(`automation_dispatcher_heartbeat`, `reference_japanese_source_guard`) whose
+effects are actually absent. **Do not use `--include-all`** or apply those two
+unreviewed migrations as an accidental side effect of this rollout.
+
+The project remains on Supabase Free (no paid staging branch). Complete the
+existing [Supabase migration gate](../.github/workflows/supabase-migrations.yml)
+in **`dry-run` mode on the exact reviewed branch** and inspect its output:
+it must list only the intended catalogue migration for this stage. If the
+workflow proposes old/unrelated DDL or a missing-remote-version repair,
+**stop**; the dry-run is not authorization to deploy. Source licences,
+R2/public feed flags, app/Shopify release and import capacity remain separate
+gates. As of this checkpoint, production has not been changed.
+
 1. Run PR CI, all relevant new and old reference/R2/auth/Shopify tests, and
    review migration SQL. Use the canonical Supabase migration dry-run path.
 2. Apply the migration through the existing reviewed deployment workflow;
