@@ -809,10 +809,38 @@ async function matched(scanner, quantity = 1) {
     await f.scanner.upload({target:{files:[new f.w.File(['abc'],'card.png',{type:'image/png'})],value:'card.png'}});
     assert.equal(f.scanner.items.length,0,'Mobile file uploads must not start recognition');
     assert.equal(f.scanner.find('.dr-scan-file').disabled,false);
-    f.scanner.close();
+    f.scanner.find('.dr-scan-topbar [data-action="close"]').click();
     assert.equal(closed,1);
     f.finish();assert.equal(closed,1,'Destroy must not double-fire the close callback');
     checks++;
+  }
+  // Internal comic/manga hand-off must not trigger the user's Close-to-Home
+  // callback; the full-screen review can return to its queued scan safely.
+  {
+    let exits=0, review=null;
+    const f=fixture('seller',async()=>({}),{
+      onClose:()=>exits++,
+      openBooks:options=>{review=options;return true;},
+    });
+    const s=f.scanner;
+    await s.open('COMIC',{preferCamera:true});
+    const book={id:'book-pending',mode:'COMIC',status:'unresolved',quantity:1,
+      photo:'private-book',bookResult:{status:'NEEDS_REVIEW',
+        fields:{system_code:'MANGA',series_title:'Book',issue_number:'1'}}};
+    s.items.push(book);
+    s.openDetails(book);
+    assert.ok(review,'Book review opens');
+    assert.equal(exits,0,'Internal review transition must not leave mobile Scan');
+    assert.equal(s.dialog.open,false);
+    review.onClose();
+    assert.equal(s.dialog.open,true,'Review close returns to scanner queue');
+    assert.equal(exits,0,'Resume remains internal');
+    assert.equal(s.items[0],book,'Unsaved book remains queued');
+    s.dialog.dispatchEvent(new f.w.Event('cancel',{cancelable:true}));
+    assert.equal(exits,1,'Native explicit cancel leaves mobile Scan');
+    s.close({userExit:true});
+    assert.equal(exits,1,'Repeated close does not navigate twice');
+    f.finish();checks++;
   }
   // Founder mobile Scan navigation opens the shared scanner immediately;
   // closing it returns Dashboard, not the older inline uploader.
@@ -848,7 +876,7 @@ async function matched(scanner, quantity = 1) {
     assert.equal(w.dropRateScanner.dialog.open,true);
     w.dropRateScanner.setMode('GRADED');
     await tick();
-    w.dropRateScanner.close();
+    w.dropRateScanner.find('.dr-scan-topbar [data-action="close"]').click();
     assert.equal(w.sellerView('intake').classList.contains('hidden'),true);
     assert.equal(w.sellerView('dashboard').classList.contains('hidden'),false);
     assert.ok(stopped>=1);
