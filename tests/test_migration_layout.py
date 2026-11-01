@@ -1,12 +1,12 @@
 from pathlib import Path
 import re
-
-from scripts.stage_supabase_migrations import stage
+from runpy import run_path
 
 
 ROOT = Path(__file__).parents[1]
 LEGACY_MIGRATIONS = ROOT / "migrations"
 CANONICAL_MIGRATIONS = ROOT / "database" / "migrations"
+stage = run_path(str(ROOT / "scripts/stage_supabase_migrations.py"))["stage"]
 
 
 def test_new_migrations_live_in_canonical_directory() -> None:
