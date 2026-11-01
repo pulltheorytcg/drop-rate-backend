@@ -98,6 +98,7 @@ select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
  i.condition,i.seal_status,i.grading_company,i.grade,i.certificate_number,i.condition_review_status,
  o.owner_type,p.language as catalogue_language,pr.identity_status as catalogue_identity_status,
  coalesce(i.language,p.language) as language,i.store_price_minor,i.market_value_minor,
+ i.acquisition_cost_minor,i.source_record->'comic_listing_preparation' as comic_listing_preparation,
  i.recommended_retail_minor,i.pricing_updated_at,p.product_type,p.game,p.name,p.set_name,
  p.card_number,p.variant,p.rarity,
  i.identity_confirmed as identity_ready,
@@ -191,6 +192,14 @@ async def details(inventory_id: UUID, request: Request,
             media = await connection.fetch("""select * from tcg.media_assets
                 where owner_id=$1 and inventory_id=$2 and scope='INVENTORY_ITEM'
                 order by created_at,id limit 50""",access["owner_id"],inventory_id)
+            item["comic_photos"] = [{
+                "id": str(asset["id"]), "side": asset["side"],
+                "approval_status": asset["approval_status"],
+                "shopify_file_status": asset["shopify_file_status"],
+                "photo_url": asset["shopify_cdn_url"] if asset["shopify_file_status"] == "READY" else None,
+                "retake_reason": asset["revocation_reason"] if asset["approval_status"] == "REJECTED" else None,
+                "created_at": asset["created_at"],
+            } for asset in media]
             item["shopify_media_blockers"] = resolve_storefront_media(
                 item,[dict(asset) for asset in media])["blockers"]
             profile_key = shipping_profile_key(item)
