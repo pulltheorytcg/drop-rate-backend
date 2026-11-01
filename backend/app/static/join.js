@@ -130,7 +130,8 @@ async function finishAuthenticatedOnboarding(session, displayName = null, email 
   const resolvedName = displayName || user.user_metadata?.display_name || state.invite?.invited_name;
   if (!resolvedEmail || !resolvedName) throw new Error("We could not resolve your founder profile.");
   await redeem(session, resolvedName, resolvedEmail);
-  window.location.replace("/");
+  // The public root of app.droprate.co.uk is a launch page, not Founder HQ.
+  window.location.replace("/app");
 }
 
 function showJoin() {
