@@ -40,6 +40,7 @@ from .inventory_intake import router as inventory_intake_router
 from .owner_books import router as owner_books_router
 from .book_recognition import router as book_recognition_router
 from .catalogue_browser import router as catalogue_browser_router
+from .collectible_reference_feed import router as collectible_reference_feed_router
 from .book_ebay_context import router as book_ebay_context_router
 from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
@@ -478,6 +479,7 @@ def create_app() -> FastAPI:
     app.include_router(recognition_router)
     app.include_router(reference_library_router)
     app.include_router(catalogue_browser_router)
+    app.include_router(collectible_reference_feed_router)
     app.include_router(book_ebay_context_router)
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(competitive_intelligence_router, dependencies=[Depends(require_platform_admin_request)])

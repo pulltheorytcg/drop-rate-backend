@@ -20,6 +20,12 @@ SYSTEM_BY_GAME = {
     "Yu-Gi-Oh!": "YUGIOH",
     "Riftbound": "RIFTBOUND",
     "Disney Lorcana": "DISNEY_LORCANA",
+    "Football (Soccer)": "SPORT_SOCCER",
+    "American Football": "SPORT_AMERICAN_FOOTBALL",
+    "Basketball": "SPORT_BASKETBALL",
+    "Baseball": "SPORT_BASEBALL",
+    "Ice Hockey": "SPORT_HOCKEY",
+    "Motorsport": "SPORT_MOTORSPORT",
 }
 
 SOURCE_COVERAGE = {
@@ -31,6 +37,12 @@ SOURCE_COVERAGE = {
     "Naruto Bandai Legacy": ("Naruto Card Game Archive", "Community legacy references; physical language, edition and finish require review"),
     "Naruto Bandai": (None, "Announced for 2027; released catalogue not yet available"),
     "Yu-Gi-Oh!": ("YGOPRODeck", "Set codes and rarities preserved; edition/artwork assignments require review"),
-    "Riftbound": ("Riftcodex", "Reference card and set data; language and physical finish require review"),
+    "Riftbound": (None, "Riot-authorised API key/license required for assets; no unofficial artwork"),
     "Disney Lorcana": ("Lorcast", "Card and set records; shared digital art does not establish foil finish"),
+    "Football (Soccer)": (None, "Topps/Panini official checklists; parallel and autograph evidence required"),
+    "American Football": (None, "Official manufacturer checklists; parallel and serial run must be exact"),
+    "Basketball": (None, "Official manufacturer checklists; parallel and serial run must be exact"),
+    "Baseball": (None, "Official manufacturer checklists; parallel and serial run must be exact"),
+    "Ice Hockey": (None, "Official manufacturer checklists; parallel and serial run must be exact"),
+    "Motorsport": (None, "Official manufacturer checklists; parallel and serial run must be exact"),
 }
