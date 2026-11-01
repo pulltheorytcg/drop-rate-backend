@@ -84,7 +84,9 @@ function startOAuth(provider) {
   }
   const authorizeUrl = new URL(`${state.config.supabase_url}/auth/v1/authorize`);
   authorizeUrl.searchParams.set("provider", provider);
-  authorizeUrl.searchParams.set("redirect_to", `${window.location.origin}/`);
+  // The custom app domain serves the public launch page at /. /app is the
+  // actual session callback for both seller and founder accounts.
+  authorizeUrl.searchParams.set("redirect_to", `${window.location.origin}/app`);
   window.location.assign(authorizeUrl.toString());
 }
 function parseOAuthSession() {
@@ -1305,7 +1307,7 @@ byId("request-reset-form").addEventListener("submit", async (event) => {
   const form = event.currentTarget;
   setBusy(form, true);
   try {
-    await authRequest("/recover", { method: "POST", body: JSON.stringify({ email: byId("reset-email").value.trim(), redirect_to: `${window.location.origin}/` }) });
+    await authRequest("/recover", { method: "POST", body: JSON.stringify({ email: byId("reset-email").value.trim(), redirect_to: `${window.location.origin}/app` }) });
     showMessage("reset-message", "Recovery email sent. Check your inbox and junk folder.", "success");
   } catch (error) { showMessage("reset-message", error.message, "error"); }
   finally { setBusy(form, false); }
