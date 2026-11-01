@@ -29,6 +29,8 @@ from .comic_identity import BOOK_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
 from .inventory_reference_media import add_shared_inventory_media
 from .book_research import add_saved_book_artwork
+from .media_resolver import resolve_storefront_media
+from .shopify_completeness import shipping_profile_key
 
 router = APIRouter(prefix="/api/v1/owner/inventory", tags=["owner-inventory"])
 ACTIVE = {"DRAFT", "INSPECTION", "APPROVED"}
@@ -162,7 +164,12 @@ def approval_blockers(item):
             missing.append("Book condition or grade" if item["product_type"] == "COMIC" else "Card condition or grade")
     elif not item.get("seal_status"):
         missing.append("Seal status")
-    if not item.get("image_url"):
+    if item.get("product_type") == "COMIC":
+        for reason in item.get("shopify_media_blockers") or []:
+            missing.append(f"Shopify media: {reason}")
+        if item.get("shopify_shipping_ready") is False:
+            missing.append(f"Drop Rate must configure shipping profile {item['shopify_shipping_profile_key']}")
+    elif not item.get("image_url"):
         missing.append("Catalogue image is being prepared" if sealed_seller_candidate(item) else "Listing image approval / preparation (separate from collection artwork)")
     return missing
 
@@ -177,6 +184,21 @@ async def details(inventory_id: UUID, request: Request,
             raise HTTPException(404, "Inventory item not found")
         item = dict(row)
         if item["product_type"] == "COMIC":
+            # The seller sees the same physical-copy media and shipping gates
+            # the Shopify publisher enforces, before requesting another sync.
+            # Only this owner's exact copy is queried; catalogue cover art is
+            # not allowed to stand in for a printing-specific physical photo.
+            media = await connection.fetch("""select * from tcg.media_assets
+                where owner_id=$1 and inventory_id=$2 and scope='INVENTORY_ITEM'
+                order by created_at,id limit 50""",access["owner_id"],inventory_id)
+            item["shopify_media_blockers"] = resolve_storefront_media(
+                item,[dict(asset) for asset in media])["blockers"]
+            profile_key = shipping_profile_key(item)
+            item["shopify_shipping_profile_key"] = profile_key
+            item["shopify_shipping_ready"] = bool(await connection.fetchval("""
+                select exists(select 1 from tcg.shopify_shipping_profiles
+                  where owner_id=$1 and profile_key=$2 and active)
+            """,access["owner_id"],profile_key))
             book = await connection.fetchrow("""select b.*,i.notes from tcg.comic_printing_details b
                 join tcg.inventory_items i on i.catalogue_id=b.catalogue_id
                 where i.id=$1 and i.owner_id=$2""", inventory_id, access["owner_id"])

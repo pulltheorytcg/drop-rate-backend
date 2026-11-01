@@ -1455,7 +1455,13 @@ function activateOwnerView(view, pushHistory = true, launchCameraFromClick = fal
 function errorMessage(data) {
   const detail = data?.error_description || data?.msg || data?.detail || data?.message;
   if (typeof detail === "string") return detail;
-  if (detail?.message) return detail.message;
+  if (detail?.message) {
+    // The Shopify publisher supplies the precise blockers but used to show
+    // only its generic heading, leaving sellers unsure why nothing listed.
+    const reasons=Array.isArray(detail.missing)?detail.missing:detail.blockers;
+    const safe=Array.isArray(reasons)?reasons.filter(value=>typeof value==="string" && value.trim()).slice(0,12):[];
+    return safe.length?`${detail.message} Required: ${safe.join("; ")}`:detail.message;
+  }
   return "Something went wrong. Please try again.";
 }
 

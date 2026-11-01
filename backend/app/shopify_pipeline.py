@@ -805,7 +805,7 @@ async def create_shipping_profile(
             status_code=422,
             detail=(
                 "Supported shipping profile keys are RAW_CARD, GRADED_CARD, "
-                "or SEALED_<32-character canonical catalogue id>"
+                "COMIC_BOOK, MANGA_BOOK or SEALED_<32-character canonical catalogue id>"
             ),
         )
     package_gid = _validated_shipping_package_gid(payload.shipping_package_gid)

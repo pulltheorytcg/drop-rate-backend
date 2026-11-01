@@ -155,7 +155,7 @@ async def download(manifest, storage):
     semaphore = asyncio.Semaphore(4)
     async def part_read(part):
         async with semaphore:
-            return await _read_with_budget(storage, part['sha256'])
+            return await _read_with_budget(storage, part['sha256'], wait_for_capacity=True)
     return assemble(manifest, await asyncio.gather(*(part_read(p) for p in manifest['parts'])))
 
 
@@ -216,9 +216,10 @@ async def publish(pool, actor, *, storage=None):
                     raise ObjectStorageError('Market publication migration is missing')
                 if state['generation'] == state['published_generation']:
                     manifest = validate_manifest(state['manifest'], state['generation'])
-                    if (_current is not None and _current.generation == state['generation']
-                            and _current.manifest_digest == manifest_digest(manifest)):
-                        return {'status': 'CURRENT', 'generation': state['generation'], 'counts': manifest['counts']}
+                    # The immutable generation is already committed. Market
+                    # delivery starts its own verified load on the first read;
+                    # avoid a competing bulk download during API startup.
+                    return {'status': 'CURRENT', 'generation': state['generation'], 'counts': manifest['counts']}
                 else:
                     manifest = dict(schema=SCHEMA, generation=state['generation'],
                                     counts=dict.fromkeys(RELATIONS, 0), parts=[], raw_bytes=0)
