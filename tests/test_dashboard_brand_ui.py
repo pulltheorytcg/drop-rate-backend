@@ -18,7 +18,7 @@ def test_drop_rate_brand_shell_uses_real_visual_identity_not_generic_dr_tile() -
     assert "dr-founder-label" not in html
     assert 'src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"' in html
     assert "Sign in to Drop Rate" in html
-    assert "styles.css?v=founder-v5" in html
+    assert "styles.css?v=comic-photo-review-20261101" in html
     assert logo.is_file()
     assert logo.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
     assert logo.read_bytes()[25] == 6  # PNG RGBA retains the approved transparency.

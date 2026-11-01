@@ -156,7 +156,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  {
   const comic={...item,product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',
-   condition:'Mint',seal_status:null,store_price_minor:1500,acquisition_cost_minor:null,comic_photos:[]};
+   condition:'Mint',seal_status:null,store_price_minor:1500,comic_acquisition_cost_minor:null,comic_photos:[]};
   const f=fixture(comic); await f.open();
   const input=key=>f.w.document.querySelector(`[data-comic-field="${key}"]`);
   input('holding').value='SELLER_HELD';input('dispatch_note').value='London, dispatch on request';
