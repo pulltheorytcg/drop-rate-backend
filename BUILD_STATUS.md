@@ -70,6 +70,13 @@
 - **Release/rollback:** PR on `fix/catalogue-browse-read-cache-20261101`, pending CI and approval checks. Railway watches `main`; on regression, revert this PR and redeploy the last healthy release. Do not disable readiness, finance tests or RLS.
 - **Remaining:** Cache first-load/search timing and CDNs on a real iPhone; reference source URLs still missing for some Pokémon; 35% of reference valuations remain unpriced; recognition/provider reliability is a separate follow-up.
 
+## 1 November 2026 — Correct source-backed 89% coverage reporting (in review)
+
+- **Problem:** The daily catalogue KPI counted `DROP_RATE_CALCULATED_VALUE` internal same-set/rank model estimates in `priced` and toward the 89% supported-source target. Those estimates are useful provisional display guides, not fresh external market observations; the evidence-only pricing query and founder's target already exclude them.
+- **Fix and connection:** Keep the existing query status and display values, but count only `REFERENCE_AVAILABLE` and `MIXED_LANGUAGE_GUIDE` toward the main 89% target. Add an explicitly separate `provisional_model_estimates` count, preserving the original public JSON fields for consumers. Asking-price estimates remain their own optional labelled combined metric, not a verified sold price.
+- **Failure/security:** No database table, prices, owner inventory, Shopify Store Prices, authorization, source API, or scan logic is changed. Historical reports remain unchanged; future daily receipts use the corrected classification. Watch any dashboard using `physical_cards.priced` or `coverage_target.priced` for an expected downward correction, not a loss of data.
+- **Tests and rollout:** Synthetic 85 verified + 5 model + 10 missing below the 89% gate, mixed asking/model values without double counting, original digital exclusions, and full catalogue/report suites. Compare the signed-in API receipt to the read-only verified-source SQL before declaring the production KPI correct. Revert this patch only if the published reporting schema regresses.
+
 ## 31 October 2026 — Official Japanese Pokémon R2 mirror repair (recovered batch complete)
 
 Production reference-image batches had been failing 20/20 with
