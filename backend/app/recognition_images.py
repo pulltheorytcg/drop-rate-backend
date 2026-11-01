@@ -16,6 +16,9 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 TRUSTED_REFERENCE_HOSTS = {
     "assets.tcgdex.net",
+    # Canonical sealed-product artwork is only selected from approved,
+    # storefront-licensed media_assets; some of those assets live on Shopify.
+    "cdn.shopify.com",
     "onepiece-cardgame.com",
     "www.onepiece-cardgame.com",
     "cards.tcggraph.io",

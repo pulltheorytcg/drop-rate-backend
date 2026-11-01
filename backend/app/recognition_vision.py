@@ -140,6 +140,9 @@ class RecognitionObservation(BaseModel):
     language_confidence: float = Field(ge=0, le=1)
     name_guess: str = Field(max_length=300)
     name_confidence: float = Field(ge=0, le=1)
+    # Display-only translation; never substitute for printed-language identity.
+    name_english_guess: str = Field(default="", max_length=300)
+    name_english_confidence: float = Field(default=0.0, ge=0, le=1)
     set_name_guess: str = Field(max_length=300)
     set_name_confidence: float = Field(ge=0, le=1)
     card_number: str = Field(max_length=100)
@@ -175,6 +178,7 @@ class RecognitionObservation(BaseModel):
         for field_name in (
             "product_code",
             "name_guess",
+            "name_english_guess",
             "set_name_guess",
             "card_number",
             "effect_text",
@@ -230,6 +234,7 @@ _CONFIDENCE_FIELDS = (
     "game_confidence",
     "language_confidence",
     "name_confidence",
+    "name_english_confidence",
     "set_name_confidence",
     "card_number_confidence",
     "cost_confidence",
@@ -247,6 +252,7 @@ _CONFIDENCE_FIELDS = (
 _STRING_LIMITS = {
     "product_code": 100,
     "name_guess": 300,
+    "name_english_guess": 300,
     "set_name_guess": 300,
     "card_number": 100,
     "effect_text": 1600,
@@ -319,6 +325,8 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
         "language_confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "name_guess": {"type": "string", "maxLength": 300},
         "name_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "name_english_guess": {"type": "string", "maxLength": 300},
+        "name_english_confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "set_name_guess": {"type": "string", "maxLength": 300},
         "set_name_confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "card_number": {"type": "string", "maxLength": 100},
@@ -363,6 +371,8 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
         "language_confidence",
         "name_guess",
         "name_confidence",
+        "name_english_guess",
+        "name_english_confidence",
         "set_name_guess",
         "set_name_confidence",
         "card_number",
@@ -423,6 +433,14 @@ Analyse only what is visible in the supplied photograph. Do not decide whether
 the card is safe to publish, price, buy, sell, grade, or certify as authentic.
 Do not invent unreadable text. When a field cannot be established from the image,
 return an empty string or Unknown and lower the corresponding confidence.
+
+Keep name_guess as the name actually printed on the object, in its original
+script. When the name is in Japanese, Korean or another non-English language,
+put the established English character/card name in name_english_guess only if
+it can be translated confidently from the visible name; otherwise leave it
+empty with confidence 0. An English display translation NEVER changes the
+physical card's language and must not be used as an exact-printing match.
+Do not infer a set, variant, rarity or edition from a translated name.
 
 CRITICAL: extract every field independently from pixels. A guessed card number must
 never be used to fill or "correct" the set, colour, rarity, traits, effect, power,

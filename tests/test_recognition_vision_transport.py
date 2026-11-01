@@ -8,6 +8,8 @@ from pathlib import Path
 import httpx
 
 from app.recognition_vision import (
+    OBSERVATION_SCHEMA,
+    RecognitionObservation,
     OpenAIRecognitionVisionClient,
     RecognitionVisionError,
     _shared_http_client,
@@ -60,6 +62,17 @@ def observation_payload() -> dict:
         "counterfeit_concerns": [],
         "notes": [],
     }
+
+
+def test_english_display_name_does_not_overwrite_printed_korean_identity() -> None:
+    raw = observation_payload()
+    raw.update(language="Korean", name_guess="제르네아스", name_english_guess="Xerneas",
+               name_english_confidence=0.98, card_number="042/063")
+    observed = RecognitionObservation(**raw)
+    assert observed.name_guess == "제르네아스"
+    assert observed.name_english_guess == "Xerneas"
+    assert observed.language == "Korean"
+    assert {"name_english_guess", "name_english_confidence"} <= set(OBSERVATION_SCHEMA["required"])
 
 
 def test_vision_request_contract_remains_high_detail_and_semantically_unchanged() -> None:

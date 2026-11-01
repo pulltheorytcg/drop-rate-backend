@@ -19,7 +19,14 @@ def test_market_status_distinguishes_guide_from_exact_sale():
 
 
 @pytest.mark.asyncio
-async def test_global_reference_value_reused_without_owned_inventory():
+async def test_global_reference_value_reused_without_owned_inventory(monkeypatch):
+    from app import r2_media
+    monkeypatch.setenv('TCG_R2_REFERENCE_CACHE_DELIVERY_ENABLED', 'true')
+    class FakeObjectStore:
+        def signed_media_url(self, key):
+            assert key == 'drop-rate/private-media/' + 'a' * 64 + '.webp'
+            return 'https://r2.example.test/private-object?signed=short-lived'
+    monkeypatch.setattr(r2_media, 'configured_object_storage', lambda: FakeObjectStore())
     run_id = uuid4()
     class FakeConnection:
         def __init__(self):
@@ -30,13 +37,22 @@ async def test_global_reference_value_reused_without_owned_inventory():
             if "from tcg.recognition_candidates rc" in query:
                 self.sql = query
                 return [dict(catalogue_id=None, source_kind="PROVIDER", market_value_minor=450,
-                    market_value_source="CARDMARKET_BULK_SINGLES", reference_selection=None)]
+                    market_value_source="CARDMARKET_BULK_SINGLES", reference_selection=None,
+                    r2_reference_object_key='drop-rate/private-media/' + 'a' * 64 + '.webp')]
             return []
 
     db = FakeConnection()
     response = await _run_payload(db, run_id)
     assert response["candidates"][0]["pricing_status"] == "REFERENCE_ESTIMATE"
     assert response["candidates"][0]["market_value_minor"] == 450
+    assert response["candidates"][0]["r2_image_url"].startswith('https://r2.example.test/')
+    assert "r2_reference_object_key" not in response["candidates"][0]
+    assert "tcg.reference_image_mirrors reference_mirror" in db.sql
+    assert "reference_mirror.source_url=artwork_reference.image_url" in db.sql
+    assert "reference_mirror.status='VERIFIED'" in db.sql
+    assert "c.language=rc.provider_language" in db.sql
+    assert "c.image_url=coalesce(" in db.sql
+    assert "left join lateral (" in db.sql
     assert "tcg.reference_market_prices" in db.sql
     assert "tcg.reference_catalogue_prices" in db.sql
     assert "tcg.catalogue_reference_value_v2(" in db.sql
