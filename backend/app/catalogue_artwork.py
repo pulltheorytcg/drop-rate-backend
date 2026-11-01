@@ -20,6 +20,8 @@ _inflight: dict[str, asyncio.Task] = {}
 
 def reference_version(source_url: str) -> str:
     """Stable public-reference version; changes when the verified source changes."""
+    if not isinstance(source_url, str) or not source_url:
+        return ''
     return hashlib.sha256(source_url.encode('utf-8')).hexdigest()[:12]
 
 
