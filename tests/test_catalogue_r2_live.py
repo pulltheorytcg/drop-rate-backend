@@ -192,9 +192,10 @@ async def test_system_filtered_value_sort_uses_complete_r2_candidate_set(monkeyp
 
     connection=Conn()
     assert await live.fetch(connection,query,args,object())==['bounded']
-    assert 'unnest(' in connection.query
-    assert 'tcg.reference_cards' not in connection.query
-    assert len(connection.params)>len(args)
+    # Without a verified, current price generation, no price-based
+    # shortlist is safe: use full authorised SQL, never stale cached rank.
+    assert connection.query == query
+    assert connection.params == tuple(args)
 
 
 @pytest.mark.asyncio
