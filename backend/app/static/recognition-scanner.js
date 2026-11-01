@@ -23,6 +23,13 @@ function ensureRecognitionScannerUI() {
   panel.id = "recognition-scanner-panel";
   panel.className = "inventory-panel recognition-scanner-panel";
   panel.innerHTML = `
+    <section class="dr-mobile-scan-entry" aria-label="Scan with your camera">
+      <span class="dr-mobile-scan-kicker">DROP RATE SCANNER</span>
+      <h2>Ready to scan?</h2>
+      <p>Use your camera to scan raw cards, graded slabs or sealed products. Confirm the exact match before adding it to your collection.</p>
+      <button id="recognition-mobile-scan-open" type="button" class="dr-mobile-scan-open">Open scanner <span aria-hidden="true">◎</span></button>
+      <p id="recognition-mobile-scan-message" role="status" class="dr-mobile-scan-message"></p>
+    </section>
     <div class="page-heading">
       <div>
         <p class="eyebrow">Start with a photo</p>
@@ -101,6 +108,7 @@ function ensureRecognitionScannerUI() {
 
   view.append(panel);
 
+  byId("recognition-mobile-scan-open").addEventListener("click", openRecognitionCamera);
   byId("recognition-file").addEventListener("change", handleRecognitionFile);
   byId("recognition-open-camera").addEventListener("click", openRecognitionCamera);
   byId("recognition-switch-camera").addEventListener("click", switchRecognitionCamera);
@@ -284,6 +292,13 @@ function founderSharedScanner() {
         saveSession: session => saveSession(session),
         afterSave: () => reloadDashboard(),
         viewInventory: () => activateSellerView("inventory", true),
+        onExit: () => {
+          // A full-screen scanner exit returns to Home, not the legacy upload page.
+          if (window.matchMedia?.("(max-width: 900px)").matches
+              && !recognitionView()?.classList.contains("hidden")) {
+            activateSellerView("dashboard", true);
+          }
+        },
       });
     }
   return window.dropRateScanner;
@@ -295,6 +310,11 @@ async function openRecognitionCamera() {
     founderSharedScanner();
     try { await window.dropRateScanner.open(document.querySelector('input[name="recognition-scan-mode"]:checked')?.value || "RAW"); }
     catch (error) { showMessage("recognition-message", error.message, "error"); }
+    return;
+  }
+  if (window.matchMedia?.("(max-width: 900px)").matches) {
+    byId("recognition-mobile-scan-message").textContent =
+      "Live scanner unavailable. Refresh the page and try again.";
     return;
   }
   const button = byId("recognition-open-camera");
@@ -1080,6 +1100,12 @@ activateSellerView = function activateSellerViewWithRecognition(name, updateHash
   if (name === "intake") {
     loadRecognitionStatus();
     loadRecognitionHistory();
+    // A mobile tab tap must open the full-screen scanner directly. Do not
+    // await network status (which would lose iOS camera's user gesture).
+    if (updateHash && window.matchMedia?.("(max-width: 900px)").matches
+        && !window.dropRateScanner?.dialog?.open) {
+      void openRecognitionCamera();
+    }
   }
   return result;
 };
