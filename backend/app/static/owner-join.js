@@ -7,6 +7,7 @@ const state = {
   config: null,
   token: null,
   invite: null,
+  pendingSocialSession: null,
   providers: {google: false, apple: false},
   acknowledgementVersion: 1,
 };
@@ -178,6 +179,19 @@ async function completeSellerRegistration(session, displayName) {
   return data;
 }
 
+function requestSocialDisplayName(session) {
+  // Apple web OAuth never supplies a full name. Keep the verified session
+  // only in memory until onboarding succeeds; do not save it as an owner yet.
+  state.pendingSocialSession = session;
+  byId("owner-invite-loading").classList.add("hidden");
+  byId("owner-invite-invalid").classList.add("hidden");
+  byId("owner-join-form").classList.add("hidden");
+  byId("owner-existing-login-form").classList.add("hidden");
+  byId("owner-oauth-name-form").classList.remove("hidden");
+  byId("owner-oauth-name").value = state.invite?.invited_name || "";
+  byId("owner-oauth-name").focus();
+}
+
 async function finishAuthenticatedOnboarding(session, displayName = null) {
   const pendingAck = Number(localStorage.getItem(PENDING_OWNER_ACK_KEY) || 0);
   if (pendingAck !== Number(state.acknowledgementVersion || 1)) {
@@ -187,13 +201,18 @@ async function finishAuthenticatedOnboarding(session, displayName = null) {
   }
 
   const user = await authenticatedUser(session);
-  const resolvedName =
+  const name =
     displayName
     || user.user_metadata?.display_name
     || user.user_metadata?.full_name
     || state.invite?.invited_name;
-  if (!user.email || !resolvedName) {
-    throw new Error("We could not resolve your verified seller profile.");
+  if (!user.email) {
+    throw new Error("We could not resolve your verified seller email.");
+  }
+  const resolvedName = typeof name === "string" ? name.trim() : "";
+  if (!resolvedName) {
+    requestSocialDisplayName(session);
+    return;
   }
   await completeSellerRegistration(session, resolvedName);
   window.location.replace("/owner?welcome=1");
@@ -243,6 +262,7 @@ function showInvalid(message) {
   byId("owner-invite-loading").classList.add("hidden");
   byId("owner-join-form").classList.add("hidden");
   byId("owner-existing-login-form").classList.add("hidden");
+  byId("owner-oauth-name-form").classList.add("hidden");
   byId("owner-invite-invalid").classList.remove("hidden");
   byId("owner-invite-invalid-message").textContent = message;
 }
@@ -304,6 +324,25 @@ byId("owner-existing-apple").addEventListener(
   "click",
   () => startOAuth("apple", "owner-existing")
 );
+
+byId("owner-oauth-name-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const name = byId("owner-oauth-name").value.trim();
+  if (!state.pendingSocialSession || !name) {
+    showMessage("owner-oauth-name-message", "Please enter your name to finish setting up.", "error");
+    return;
+  }
+  setBusy(form, true);
+  showMessage("owner-oauth-name-message");
+  try {
+    await finishAuthenticatedOnboarding(state.pendingSocialSession, name);
+  } catch (error) {
+    showMessage("owner-oauth-name-message", error.message, "error");
+  } finally {
+    setBusy(form, false);
+  }
+});
 
 byId("owner-join-form").addEventListener("submit", async (event) => {
   event.preventDefault();

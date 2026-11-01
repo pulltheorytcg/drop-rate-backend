@@ -107,7 +107,7 @@ def test_owner_join_route_and_router_are_wired() -> None:
 
     assert '@app.get("/owner/join", include_in_schema=False)' in main
     assert "app.include_router(owner_onboarding_router)" in main
-    assert '<script src="/assets/owner-join.js?v=public-join-3" defer></script>' in html
+    assert '<script src="/assets/owner-join.js?v=oauth-name-v1" defer></script>' in html
 
 
 def test_owner_invite_ui_discloses_commission_before_signup() -> None:
@@ -419,4 +419,4 @@ def test_seller_invitation_avoids_warning_style_owner_copy() -> None:
     assert "restricted owner account" not in html.casefold()
     assert "owner scoped" not in html.casefold()
     assert "seller account only gives me access to my own inventory" in html
-    assert "verified seller profile" in source
+    assert "verified seller email" in source
