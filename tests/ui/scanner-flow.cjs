@@ -846,6 +846,7 @@ async function matched(scanner, quantity = 1) {
     w.activateSellerView('intake',true);
     assert.equal(cameraCalls,1,'Mobile Scan press should request camera immediately');
     assert.equal(w.dropRateScanner.dialog.open,true);
+    w.dropRateScanner.setMode('GRADED');
     await tick();
     w.dropRateScanner.close();
     assert.equal(w.sellerView('intake').classList.contains('hidden'),true);
