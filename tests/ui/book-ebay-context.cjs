@@ -38,7 +38,10 @@ function fixture(handler=async row=>response(row),rows=[structuredClone(book)]) 
  }};
  const browser=new w.DropRateCatalogue.Browser({client,books:()=>{},navigate:()=>{},scan:()=>{}});
  browser.gamesLoaded=true;browser.filters.product_type='COMIC';
- const visible=()=>{const observer=observers.find(item=>item.options.rootMargin==='80px 0px');return {observer,cards:[...browser.dialog.querySelectorAll('.dr-browse-product')]};};
+ // The test's show() helper now represents deliberate keyboard focus on
+ // one tile, not automatic viewport intersection during scrolling.
+ const visible=()=>({observer:{show:target=>target.dispatchEvent(new w.Event('focusin',{bubbles:true}))},
+   cards:[...browser.dialog.querySelectorAll('.dr-browse-product')]});
  return {w,browser,rows,calls,client,visible,logout:()=>{alive=false;},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
@@ -74,12 +77,16 @@ function fixture(handler=async row=>response(row),rows=[structuredClone(book)]) 
   session.watch(book,target,()=>{throw new Error('Anonymous context must not render');},{immediate:true});await tick();
   assert.equal(calls,0);session.destroy();f.finish();checks++;
  }
- // Visible rows fetch through the authenticated app client. Successful source
- // covers stay first; asks never overwrite the book's independent market value.
+ // Passive browsing and scrolling do NOT fetch listing context. Explicit
+ // focus fetches through the authenticated client for this exact edition;
+ // publisher/community cover and market-value distinction remain intact.
  {
   const f=fixture();await f.browser.open();await tick();
   assert.equal(f.calls.filter(call=>call.url.includes('/listing-context')).length,0);
-  const {observer,cards}=f.visible();observer.show(cards[0]);await tick();
+  const {observer,cards}=f.visible();
+  assert.equal(f.calls.filter(call=>call.url.includes('/listing-context')).length,0,
+    'Merely rendering and scrolling must not cause live price/lookups');
+  observer.show(cards[0]);await tick();
   const card=cards[0],img=card.querySelector('.dr-browse-product-image img');
   assert.equal(img.src,cover.image_url);img.dispatchEvent(new f.w.Event('load'));
   assert.match(card.textContent,/eBay asking prices.*£6\.50–£10\.99/s);
@@ -127,7 +134,7 @@ function fixture(handler=async row=>response(row),rows=[structuredClone(book)]) 
   assert.equal(row.market_value_minor,2300);
   assert.equal(f.browser.sheet.querySelector('.book-ebay-range'),null);f.finish();checks++;
  }
- // Only intersecting visible cards enter the queue, at most two concurrent
+ // Only explicitly focused cards enter the queue, at most two concurrent
  // requests. Closing aborts active work and never starts the queued third job.
  {
   const rows=[1,2,3,4].map(n=>({...structuredClone(book),catalogue_id:id.slice(0,-1)+n,key:'c:'+id.slice(0,-1)+n}));
