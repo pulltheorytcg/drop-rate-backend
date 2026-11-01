@@ -70,8 +70,9 @@ from coverage group by kind,system_code,language,status order by kind,system_cod
 # mappings as verified GBP market values.
 # Explicitly track own validated model calculations; never report these as sold.
 PRICED_REFERENCE_STATUSES = frozenset({
-    "REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GUIDE", "DROP_RATE_CALCULATED_VALUE",
+    "REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GUIDE",
 })
+PROVISIONAL_REFERENCE_STATUSES = frozenset({"DROP_RATE_CALCULATED_VALUE"})
 PHYSICAL_CARD_COVERAGE_TARGET_BPS = 8900  # Current founder goal: 89%, exact integer threshold
 # Actions describe the needed evidence, not a guarantee that it can be bought
 # or that a source permits redistribution in a user-facing marketplace.
@@ -84,6 +85,7 @@ UNPRICED_REFERENCE_ACTIONS = {
     "AWAITING_DAILY_REFRESH": "Run or verify the existing daily reference refresh.",
     "STALE_EVIDENCE": "Refresh expired market evidence without rewriting price history.",
     "US_CONTEXT_ONLY": "Find a supported GBP/UK reference; USD listings alone are not GBP market value.",
+    "DROP_RATE_CALCULATED_VALUE": "An internal provisional baseline is available; collect permitted exact-print market evidence before counting it toward 89%.",
 }
 
 
@@ -97,6 +99,7 @@ def coverage_summary(rows):
     by_game = {}
     by_status = {}
     digital_cards = 0
+    provisional_cards = 0
     asking_by_game = {}
     for row in rows:
         kind = row["kind"]
@@ -108,6 +111,8 @@ def coverage_summary(rows):
         status = str(row["status"])
         if kind == "CARD" and status == "NOT_APPLICABLE_DIGITAL":
             digital_cards += count
+        if kind == "CARD" and status in PROVISIONAL_REFERENCE_STATUSES:
+            provisional_cards += count
         priced = count if status in PRICED_REFERENCE_STATUSES else 0
         asking_count = int(row.get("asking_estimates", 0))
         if asking_count < 0 or asking_count > count:
@@ -188,6 +193,14 @@ def coverage_summary(rows):
             "missing": groups["CARD"]["missing"] - digital_cards,
         },
         "non_physical_cards": digital_cards,
+        "provisional_model_estimates": {
+            "scope": "OTHERWISE_UNPRICED_PHYSICAL_REFERENCE_CARDS",
+            "count": provisional_cards,
+            "status": "DROP_RATE_CALCULATED_VALUE",
+            "source": "DROP_RATE_COMPUTED_MARKET_V1",
+            "verified_coverage_eligible": False,
+            "physical_valuation_eligible": False,
+        },
         "asking_price_estimates": {
             "scope": "OTHERWISE_UNPRICED_PHYSICAL_REFERENCE_CARDS",
             "count": asking_total,
@@ -211,7 +224,8 @@ def coverage_summary(rows):
             "disclaimer": (
                 "Counts supported dated GBP references plus separately labelled current asking-price estimates. "
                 "Asking prices are not completed sales or physical-copy valuations. "
-                "Digital Pocket records are excluded; the original reference coverage metric is unchanged."
+                "Internal model estimates do not count as source-backed evidence. "
+                "Digital Pocket records are excluded."
             ),
         },
         "coverage_target": {
@@ -229,7 +243,8 @@ def coverage_summary(rows):
             "by_game_language": target_by_game,
             "disclaimer": (
                 "This counts supported dated GBP reference values or explicitly labelled guides. "
-                "A guide is not an exact UK sold valuation; digital Pocket records are excluded."
+                "A guide is not an exact UK sold valuation; internal model estimates and "
+                "digital Pocket records are excluded."
             ),
         },
         "by_game": [

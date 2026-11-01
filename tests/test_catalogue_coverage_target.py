@@ -139,3 +139,43 @@ def test_asking_coverage_rejects_invalid_counts_and_empty_never_passes():
     combined = coverage_summary([])["combined_coverage_target"]
     assert combined["coverage_percent"] == 0.0
     assert combined["target_met"] is False
+
+
+def test_internal_model_estimates_never_pass_source_backed_89_percent_goal():
+    report = coverage_summary([
+        sample("REFERENCE_AVAILABLE", 85),
+        sample("DROP_RATE_CALCULATED_VALUE", 5),
+        sample("EXACT_QUOTE_UNAVAILABLE", 10),
+        sample("NOT_APPLICABLE_DIGITAL", 20),
+    ])
+    assert report["physical_cards"] == {"total": 100, "priced": 85, "missing": 15}
+    assert report["provisional_model_estimates"] == {
+        "scope": "OTHERWISE_UNPRICED_PHYSICAL_REFERENCE_CARDS",
+        "count": 5,
+        "status": "DROP_RATE_CALCULATED_VALUE",
+        "source": "DROP_RATE_COMPUTED_MARKET_V1",
+        "verified_coverage_eligible": False,
+        "physical_valuation_eligible": False,
+    }
+    goal = report["coverage_target"]
+    assert (goal["priced"], goal["missing"], goal["additional_needed"], goal["target_met"]) == (85, 15, 4, False)
+    assert "DROP_RATE_CALCULATED_VALUE" not in goal["priced_statuses"]
+    reasons = {row["status"]: row for row in report["missing_by_reason"]}
+    assert reasons["DROP_RATE_CALCULATED_VALUE"]["count"] == 5
+    assert "permitted exact-print market evidence" in reasons["DROP_RATE_CALCULATED_VALUE"]["next_action"]
+
+
+def test_model_and_asking_estimates_do_not_double_count_or_rescue_verified_goal():
+    report = coverage_summary([
+        sample("MIXED_LANGUAGE_GUIDE", 80),
+        {**sample("DROP_RATE_CALCULATED_VALUE", 10), "asking_estimates": 4},
+        {**sample("EXACT_QUOTE_UNAVAILABLE", 10), "asking_estimates": 8},
+    ])
+    assert report["coverage_target"]["priced"] == 80
+    assert report["provisional_model_estimates"]["count"] == 10
+    # An explicitly labelled current asking estimate may overlap an internal
+    # provisional calculation, but neither becomes an external market guide.
+    assert report["asking_price_estimates"]["count"] == 12
+    combined = report["combined_coverage_target"]
+    assert (combined["supported_reference_values"], combined["covered"]) == (80, 92)
+    assert not report["coverage_target"]["target_met"]
