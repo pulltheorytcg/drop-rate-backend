@@ -10,11 +10,13 @@ const root=path.resolve(__dirname,'../../backend/app/static');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 
-function fixture(){
+function fixture({mobile=false}={}){
  const markup=fs.readFileSync(path.join(root,'owner.html'),'utf8').replace(/<script[^>]*><\/script>/g,'');
  const dom=new JSDOM(markup,{url:'https://drop-rate.test/owner',runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window,ctx=dom.getInternalVMContext();
  w.scrollTo=()=>{};
+ if(mobile)w.matchMedia=query=>({matches:query.includes('max-width: 900px'),
+   media:query,addListener(){},removeListener(){}});
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;};
  w.HTMLMediaElement.prototype.play=async()=>{};
@@ -129,6 +131,47 @@ const stream=t=>({getTracks:()=>[t],getVideoTracks:()=>[t]});
   f.scanner().close();assert.ok(tracks[1].stopped>=1);
   f.nav().click();assert.equal(f.calls.length,3);
   await tick();assert.equal(f.scanner().dialog.open,true);
+  f.ready();await tick();f.finish();checks++;
+ }
+ // On a real mobile viewport, the full-screen scanner is the only scan UI.
+ // Exiting returns Home instead of exposing the legacy upload form.
+ {
+  const f=fixture({mobile:true}),tracks=[];
+  f.connect(async()=>{const t=track();tracks.push(t);return stream(t);});
+  assert.ok(f.w.document.getElementById('owner-mobile-open-scanner'),
+    'Deep links need a camera-only launch fallback');
+  f.nav().click();await tick();
+  assert.equal(f.calls.length,1);
+  assert.equal(f.scanner().dialog.open,true);
+  assert.equal(f.scanner().find('[data-action="gallery"]').disabled,true);
+  assert.equal(f.scanner().find('[data-action="gallery"]').hidden,false,
+    'CSS, not a permanent hidden attr, owns responsive visibility');
+  const queued={id:'queued-card',mode:'RAW',status:'unresolved',quantity:1,
+                photo:null,selected:null,guess:'Needs review'};
+  f.scanner().items.push(queued);
+  f.scanner().close();
+  assert.equal(f.scanner().dialog.open,false);
+  assert.ok(f.w.document.getElementById('owner-view-scan').classList.contains('hidden'));
+  assert.equal(f.w.location.hash,'');
+  assert.equal(f.w.document.querySelector('[data-owner-view-panel="overview"]').classList.contains('hidden'),false);
+  assert.equal(f.scanner().items[0],queued,'Closing the modal must preserve unsaved scans');
+  f.nav().click();await tick();
+  assert.equal(f.scanner().dialog.open,true);
+  assert.equal(f.calls.length,2);
+  f.scanner().close();
+  assert.ok(tracks.every(t=>t.stopped>=1));
+  f.ready();await tick();f.finish();checks++;
+ }
+ // A restored mobile #scan route has one launch button, not a forced camera grant.
+ {
+  const f=fixture({mobile:true});f.connect(async()=>stream(track()));
+  f.run("activateOwnerView('scan',false)");
+  assert.equal(f.calls.length,0);
+  f.w.document.getElementById('owner-mobile-open-scanner').click();
+  assert.equal(f.calls.length,1);
+  assert.equal(f.scanner().dialog.open,true);
+  f.scanner().close();
+  assert.equal(f.w.location.hash,'');
   f.ready();await tick();f.finish();checks++;
  }
  console.log('Seller Scan direct camera: '+checks+' navigation, permissions, late grants, re-entry and camera-switch cases passed.');
