@@ -1,3 +1,12 @@
+## 1 November 2026 — Catalogue read-only pricing and versioned reference-artwork cache (in review)
+
+- **Problem:** User-reported slow catalogue browsing despite the recovered indexed catalogue. Frontend browsing requested a second `/api/v1/catalogue-browser/market-values` refresh, and value sorts calculated unrelated shared prices. Authenticated reference-image responses were globally marked `no-store`, preventing reuse across visits.
+- **Scope:** The browser renders stored market observations only; its legacy price endpoint returns existing verified evidence without provider HTTP or database writes. Shared-price ranking limits canonical aliases to the selected game/language/product scope while retaining exact-printing and buyer/owner isolation. Exact trusted reference-art image URLs include a SHA-256 source revision and receive a 7-day **private** client cache when versioned, with server-side identity and membership checks on network requests. Unversioned requests retain the previous 30-minute route policy. All other API, account, financial, personal scan and mutation responses remain no-store.
+- **Safety:** No price, ownership, inventory, catalogue, Shopify, database migration, maintenance schedule, workflow or provider configuration change. R2 content and its signing rules are unchanged. Artwork source permissions, exact variant checks and no invented prices remain enforced.
+- **Testing gate:** Complete backend/frontend CI, targeted exact-identity/owner isolation, missing image/error, provider no-write, middleware cache headers, and real-phone page/image latency. Deployment success alone is **not** a real-device performance confirmation.
+- **Release/rollback:** PR on `fix/catalogue-browse-read-cache-20261101`, pending CI and approval checks. Railway watches `main`; on regression, revert this PR and redeploy the last healthy release. Do not disable readiness, finance tests or RLS.
+- **Remaining:** Cache first-load/search timing and CDNs on a real iPhone; reference source URLs still missing for some Pokémon; 35% of reference valuations remain unpriced; recognition/provider reliability is a separate follow-up.
+
 ## 31 October 2026 — Official Japanese Pokémon R2 mirror repair (recovered batch complete)
 
 Production reference-image batches had been failing 20/20 with

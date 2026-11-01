@@ -287,7 +287,10 @@ window.DropRateScanner = (() => {
           && !/^\/api\/v1\/owner\/books\/research\/[0-9a-f-]{36}\/cover\/[a-f0-9]{24}$/i.test(path)) throw new Error("Invalid artwork request.");
       await this.ensureSession(epoch);
       if (!this.active(epoch)) throw new Error("Your account changed.");
-      const response = await fetch(path, {signal, cache:"no-store",
+      // Shared, versioned catalogue art can use the browser's private cache.
+      // Personal book research covers and recognition-run images remain no-store.
+      const sharedReference = path.startsWith('/api/v1/catalogue-browser/reference-image?');
+      const response = await fetch(path, {signal, cache:sharedReference?"default":"no-store",
         headers:{Authorization:"Bearer " + this.options.session().access_token}});
       if (!response.ok) throw new Error("Image unavailable.");
       const blob = await response.blob();

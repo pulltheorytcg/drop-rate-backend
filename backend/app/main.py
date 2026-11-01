@@ -345,7 +345,13 @@ def create_app() -> FastAPI:
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Cache-Control"] = "no-store"
+        # Only exact, authenticated shared-reference imagery is cacheable.
+        # All API JSON, sessions, personal scans and financial data remain no-store.
+        reference_image = (request.method.upper() == 'GET'
+            and request.url.path == '/api/v1/catalogue-browser/reference-image'
+            and response.status_code == 200)
+        if not (reference_image and response.headers.get('Cache-Control', '').startswith('private, max-age=')):
+            response.headers["Cache-Control"] = "no-store"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
         response.headers["Content-Security-Policy"] = (

@@ -28,7 +28,7 @@ window.DropRateCatalogue = (() => {
     if(row.market_value_source==="DROP_RATE_COMPUTED_MARKET_V1" && Number.isInteger(row.market_value_minor))
       return "Drop Rate estimate: "+money(row.market_value_minor);
     return row.shared_price ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money)
-      : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Checking value…":"Value unavailable"):"Value: "+money(row.market_value_minor);
+      : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Value pending":"Value unavailable"):"Value: "+money(row.market_value_minor);
   };
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
@@ -150,7 +150,7 @@ window.DropRateCatalogue = (() => {
         if(!this.active()||revision!==this.revision)return;
         const row=(data.items||[]).find(item=>item.key===key);
         status.textContent=row?'':'This printing is currently unavailable. Search the catalogue to explore more cards.';
-        if(row){this.openProduct(row);this.refreshPrices([row],revision);}
+        if(row)this.openProduct(row);
       } catch(error) {if(this.active()&&revision===this.revision)status.textContent=error.message;}
       finally {if(revision===this.revision)this.loading=false;}
     }
@@ -259,46 +259,9 @@ window.DropRateCatalogue = (() => {
         if(this.page!=="sets" && !this.rows.length && this.set?.checklist_status==="UNAVAILABLE" && !this.filters.q && this.filters.owned==="all" && !this.filters.watch && !this.filters.product_type)status.textContent="This set is in the catalogue. Its card checklist is currently unavailable.";
         if(this.filters.watch)status.textContent=this.rows.length?"Watchlist saved on this device.":"Your watchlist is empty for these filters. Star a product to save it on this device.";
         this.find('[data-action="more"]').hidden=!this.hasMore;
-        if(this.page!=="sets")this.refreshPrices(this.rows,revision);
+        // Market references arrive from stored snapshots; browsing never starts provider refreshes.
       } catch(error){if(this.active()&&revision===this.revision){status.textContent=this.rows.length?'Showing recently loaded results. Refresh failed; try again shortly.':error.message;this.hasMore=false;if(!more&&!this.rows.length)this.find(".dr-browse-content").replaceChildren(button("Try again",()=>this.load()));}}
       finally{if(revision===this.revision)this.loading=false;}
-    }
-    async refreshPrices(rows,revision) {
-      const pending=rows.filter(row=>row.market_refresh_needed && (!row.shared_price || (row.shared_price.status === "STALE" && Number.isInteger(row.shared_price.last_known_minor))) && !["STORED_SNAPSHOT","CARDMARKET_ESTIMATE"].includes(row.market_value_source));
-      if(!pending.length)return;
-      try {
-        const data=await this.client.request("/api/v1/catalogue-browser/market-values",{method:"POST",body:JSON.stringify({keys:pending.slice(0,40).map(row=>row.key)}),signal:this.controller?.signal});
-        if(!this.active()||revision!==this.revision)return;
-        const updates=new Map((data.items||[]).map(row=>[row.key,row]));let changed=false;
-        for(const row of pending.slice(0,40)){
-          const update=updates.get(row.key);if(!update)continue;
-          changed=changed||row.market_value_minor!==update.market_value_minor;
-          const historical = row.shared_price?.status === "STALE" ? row.shared_price : null;
-          Object.assign(row,update,{market_refresh_failed:Boolean(update.provider_refresh_failed)});
-          // A failed/empty refresh must not erase the dated guide already shown.
-          // Fresh prices take precedence and cannot retain a historical badge.
-          if (historical) {
-            if (Number.isInteger(update.market_value_minor) && update.market_value_minor > 0) delete row.shared_price;
-            else row.shared_price = historical;
-          }
-          this.dialog.querySelectorAll('[data-price-key]').forEach(el=>{if(el.dataset.priceKey===row.key)el.textContent=marketPrice(row);});
-          const detail=this.sheet.querySelector('[data-market-details]');
-          if(detail?.dataset.marketDetails===row.key)this.renderMarketDetails(detail,row);
-        }
-        // Requery value sorts after new quotes are cached, preserving server-side
-        // ordering before pagination. Other sorts keep focus/scroll untouched.
-        if(changed&&this.filters.sort.startsWith("value_")&&this.rows.length){this.load();return;}
-        if(pending.length>40)this.refreshPrices(pending.slice(40),revision);
-      } catch(_) {
-        if(!this.active()||revision!==this.revision)return;
-        for(const row of pending){
-          row.market_refresh_failed=true;
-          for(const label of this.dialog.querySelectorAll('[data-price-key]'))if(label.dataset.priceKey===row.key)label.textContent=marketPrice(row);
-        }
-        const detail=this.sheet.querySelector('[data-market-details]');
-        const selected=pending.find(row=>row.key===detail?.dataset.marketDetails);
-        if(selected)this.renderMarketDetails(detail,selected);
-      }
     }
     renderMarketDetails(content,row) {
       const estimate=askingEstimate(row);

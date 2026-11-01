@@ -66,8 +66,8 @@ def main():
       assert page.locator('[data-price-key]').inner_text().strip()==founder
       browse_calls=page.evaluate('browseCalls')
       refreshes=[call for call in browse_calls if call['path'].endswith('/market-values')]
-      assert all(call['method']=='GET' or (call['method']=='POST' and call['path'].endswith('/market-values')) for call in browse_calls)
-      assert len(refreshes)==(2 if status in ('STALE','HISTORICAL_GUIDE') else 0),'Only dated guides should request a refresh; no inventory writes'
+      assert all(call['method']=='GET' for call in browse_calls),'Browsing should only read stored catalogue data'
+      assert not refreshes,'Even historical guides must not trigger provider calls during browsing'
       assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status,'catalogue')
       if width==390 and status=='CONDITION_REFERENCE':page.screenshot(path=str(OUT/f'{engine}-search-set-immediate-390.png'),full_page=True)
       page.evaluate('sharedBrowse.destroy()')
@@ -84,5 +84,5 @@ def main():
       page.screenshot(path=str(OUT/f'{engine}-{width}-{status}.png'),full_page=True)
      results.append({'engine':engine,'width':width,'status':status,'same_display':True});page.close()
    browser.close()
- (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} paired founder/seller display cases; synthetic responses, bounded stale-guide refresh and no inventory writes.')
+ (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} paired founder/seller display cases; synthetic responses, no browse-time provider refreshes and no inventory writes.')
 if __name__=='__main__':main()

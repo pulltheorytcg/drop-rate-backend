@@ -71,7 +71,7 @@ def shared_prices(products, references, snapshots, *, now):
     return result
 
 
-async def read_shared_prices(connection, rows=None, *, now=None):
+async def read_shared_prices(connection, rows=None, *, now=None, system_code='', product_type='', language=''):
     """Page-bounded for normal browsing; all canonical aliases for value sorts.
 
 The canonical directory is small compared with the provider catalogue. Reference
@@ -81,6 +81,18 @@ lookups use its number-key index in batches, retaining every parallel candidate.
         return {}
     now = now or datetime.now(timezone.utc)
     products = [dict(p) for p in await connection.fetch(PRODUCTS)]
+    if product_type == 'COMIC':
+        products = []
+    elif rows is None:
+        # Rankings still consider every exact alias in the requested scope,
+        # never borrow an identity or price from another game/language.
+        if system_code:
+            from .catalogue_browser import browse_systems
+            systems = set(browse_systems(system_code))
+            products = [p for p in products if catalogue_system(p) in systems]
+        if language:
+            products = [p for p in products if not clean_language(p.get('language'))
+                        or clean_language(p.get('language')) == language]
     if rows is not None:
         keys = {collector_key(r.get('card_number')) for r in rows}
         products = [p for p in products if collector_key(p.get('card_number')) in keys or catalogue_number_key(p) in keys]
@@ -94,7 +106,10 @@ lookups use its number-key index in batches, retaining every parallel candidate.
         references.extend(dict(r) for r in await connection.fetch(CACHE_SQL, json.dumps(lookups)))
         snapshots.extend(dict(r) for r in await connection.fetch(REFERENCE_VALUES_SQL, [p['id'] for p in batch], now))
     result=shared_prices(products, references, snapshots, now=now)
-    if rows is None or any(row.get('product_type')=='COMIC' for row in rows):
+    book_systems = {'COMICS', 'MANGA', 'MARVEL_COMICS', 'DC_COMICS', 'OTHER_COMICS'}
+    if (product_type not in {'CARD', 'SEALED'}
+            and (not system_code or system_code in book_systems)
+            and (rows is None or any(row.get('product_type') == 'COMIC' for row in rows))):
         result.update(await read_book_prices(connection,rows,now=now))
     return result
 

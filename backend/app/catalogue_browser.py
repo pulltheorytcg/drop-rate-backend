@@ -25,9 +25,9 @@ from .inventory_intake import create_inventory_intake, _find_exact_catalogue, _m
 from .physical_state import CARD_CONDITIONS
 from .slab_evidence import slab_candidate_supported
 from .recognition_games import SYSTEM_BY_GAME, collector_key
-from .reference_market import refresh_reference_prices
+from .reference_market import read_cached_reference_prices
 from .recognition_images import reference_image_bytes
-from .catalogue_artwork import reference_thumbnail
+from .catalogue_artwork import reference_thumbnail, reference_version
 from .book_artwork import book_cover_reference
 from .catalogue_set_artwork import resolve_set_artwork, artwork_coverage
 from .cardtrader_recognition import _cardtrader_image_url
@@ -108,7 +108,8 @@ def with_artwork_path(row):
             item.get('image_url'), item.get('provider'), item.get('system_code')))
             or (sealed and _cardtrader_image_url(item.get('image_url')))):
         item['reference_image_path'] = '/api/v1/catalogue-browser/reference-image?' + urlencode({
-            field:item[field] for field in ('provider','system_code','language','provider_id')})
+            **{field:item[field] for field in ('provider','system_code','language','provider_id')},
+            'v': reference_version(item['image_url'])})
         if sealed:item['reference_image_path']+='&reference_kind=sealed'
     return item
 
@@ -599,7 +600,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                                **connection_options) as connection:
         # Value sorts include alias prices before pagination. Other searches
         # resolve only the missing values on their bounded visible page.
-        shared = await read_shared_prices(connection) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
+        shared = await read_shared_prices(connection, system_code=system_code, product_type=product_type, language=language) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
         live = await catalogue_r2_live.read(connection)
         snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None and live is None else None
         query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
@@ -662,7 +663,8 @@ async def reference_image(request: Request, user: Annotated[AuthenticatedUser, D
                           provider: str = Query(max_length=80), system_code: str = Query(max_length=80),
                           language: str = Query(max_length=80), provider_id: str = Query(max_length=200),
                           reference_kind: Literal['card','sealed','book'] = 'card',
-                          size: Literal['grid','detail'] = 'detail'):
+                          size: Literal['grid','detail'] = 'detail',
+                          v: Annotated[str, Query(pattern=r'^(?:[a-f0-9]{12})?$')] = ''):
     # Resolve the existing exact reference on the server. Never accept a URL
     # from the client or turn reference artwork into approved inventory media.
     if reference_kind == 'book':
@@ -677,28 +679,32 @@ async def reference_image(request: Request, user: Annotated[AuthenticatedUser, D
             # not require inventing an exact publication date.
             book = await connection.fetchrow(BOOK_REFERENCE_IMAGE_SQL,catalogue_id,system_code,language)
         cover = book_cover_reference(dict(book), language) if book else None
-        if not cover:
+        if not cover or (v and v != reference_version(cover['image_url'])):
             raise HTTPException(404, 'Reference artwork not available')
         # Publisher reference thumbnails are sufficient in both browse sizes.
         payload = await reference_thumbnail(cover['image_url'])
         if payload is None:
             raise HTTPException(502, 'Reference artwork could not load')
-        return Response(payload.data,media_type=payload.content_type,headers={'Content-Disposition':'inline'})
+        return Response(payload.data,media_type=payload.content_type,headers={
+            'Content-Disposition': 'inline', 'Cache-Control': 'private, max-age=604800' if v else 'private, max-age=1800',
+            'Vary': 'Authorization', 'X-Content-Type-Options': 'nosniff'})
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
         table='reference_sealed_products' if reference_kind=='sealed' else 'reference_cards'
         url = await connection.fetchval(f'''select r.image_url from tcg.{table} r
           join tcg.reference_sets s using(provider,system_code,language,set_id)
           where r.provider=$1 and r.system_code=$2 and r.language=$3 and r.provider_id=$4
           and (s.release_date is null or s.release_date<=current_date)''',provider,system_code,language,provider_id)
-    if not (_cardtrader_image_url(url) if reference_kind=='sealed' else
-            provider_reference_artwork_url(url,provider,system_code)):
+    if ((v and v != reference_version(url)) or not
+            (_cardtrader_image_url(url) if reference_kind=='sealed' else
+             provider_reference_artwork_url(url,provider,system_code))):
         raise HTTPException(404,'Reference artwork not available')
     payload = await (reference_thumbnail(url) if size == 'grid' else reference_image_bytes(url))
     if payload is None:
         raise HTTPException(502,'Reference artwork could not load')
     return Response(payload.data,media_type=payload.content_type,headers={
-        'Content-Disposition':'inline','Cache-Control':'private, max-age=1800',
-        'X-Content-Type-Options':'nosniff',
+        'Content-Disposition':'inline',
+        'Cache-Control':'private, max-age=604800' if v else 'private, max-age=1800',
+        'Vary':'Authorization','X-Content-Type-Options':'nosniff',
     })
 
 
@@ -711,7 +717,7 @@ class ReferencePriceRequest(BaseModel):
 async def market_values(payload: ReferencePriceRequest, request: Request,
                         user: Annotated[AuthenticatedUser, Depends(require_user)],
                         access: Annotated[dict, Depends(browser_access)]):
-    items = await refresh_reference_prices(request.app.state.db_pool, user.user_id, request.state.request_id,
+    items = await read_cached_reference_prices(request.app.state.db_pool, user.user_id, request.state.request_id,
                                            list(dict.fromkeys(payload.keys)))
     return jsonable_encoder({"items": items})
 

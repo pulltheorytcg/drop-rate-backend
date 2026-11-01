@@ -87,21 +87,21 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(row.shared_price,history);assert.equal(row.market_value_minor,null);
   f.finish();checks++;
  }
- // A legacy guide refresh may omit asking evidence; it preserves it until a stronger value arrives.
- for(const outcome of ['missing','stronger']){
-  const waiting=deferred(),estimate=askingFixture(),row={...card,key:'r:0123456789abcdef0123456789abcdef',
-   source_kind:'REFERENCE',market_refresh_needed:true,asking_price_estimate:estimate};
-  const f=fixture(async url=>url.endsWith('/market-values')?waiting.promise:{items:[row],has_more:false});
+ // Stored asking evidence remains displayed; browsing never starts a market refresh.
+ for(const outcome of ['no-current-price','stored-current-price']){
+  const estimate=askingFixture(),row={...card,key:'r:0123456789abcdef0123456789abcdef',
+   source_kind:'REFERENCE',market_refresh_needed:true,asking_price_estimate:estimate,
+   market_value_minor:outcome==='stored-current-price'?900:null};
+  const f=fixture(async url=>{
+   if(url.endsWith('/market-values'))throw new Error('Browsing must not fetch quotes');
+   return {items:[row],has_more:false};
+  });
   await f.browser.open();f.browser.pickGame(games[0]);await tick();f.browser.openProduct(row);
-  assert.equal(f.browser.find('[data-price-key]').textContent,'Asking-price estimate: £12.34');
-  waiting.resolve({items:[{key:row.key,market_value_minor:outcome==='stronger'?900:null,
-   market_value_source:outcome==='stronger'?'TCGDEX_CARDMARKET':null,market_refresh_needed:false,
-   provider_refresh_failed:outcome==='missing',market_quotes:[]}]});await tick();
-  const label=outcome==='stronger'?'Value: £9.00':'Asking-price estimate: £12.34';
+  const label=outcome==='stored-current-price'?'Value: £9.00':'Asking-price estimate: £12.34';
   assert.equal(f.browser.find('[data-price-key]').textContent,label);
   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,label);
   assert.equal(row.asking_price_estimate,estimate);
-  assert.equal(row.market_value_minor,outcome==='stronger'?900:null);
+  assert.equal(f.calls.filter(call=>call.url.endsWith('/market-values')).length,0);
   f.finish();checks++;
  }
  {
@@ -326,62 +326,65 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(img.src,'https://cdn.shopify.com/exact-approved.png');img.dispatchEvent(new f.w.Event('error'));
   assert.equal(picture.textContent,'Image unavailable');f.finish();checks++;
  }
+ // A missing value remains pending; editing condition must not trigger a provider call.
  {
-  const waiting=deferred(),ref={...card,key:'r:'+'a'.repeat(32),provider:'TCGdex',source_kind:'REFERENCE',market_refresh_needed:true};
-  const f=fixture(async(url,options)=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
+  const ref={...card,key:'r:'+'a'.repeat(32),provider:'TCGdex',
+    source_kind:'REFERENCE',market_refresh_needed:true};
+  const f=fixture(async url=>{
+    if(url.endsWith('/market-values'))throw new Error('User browsing must not refresh quotes');
+    return {items:[ref]};
+  });
   f.browser.filters.q='Seel';await f.browser.open();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Checking value/);
-  f.browser.openProduct(ref);const select=f.browser.sheet.querySelector('select');select.value='Near Mint';select.dispatchEvent(new f.w.Event('change'));
-  waiting.resolve({items:[{key:ref.key,market_value_minor:7,market_value_high_minor:19,market_value_source:'TCGDEX_CARDMARKET',market_refresh_needed:false,
-    basis_condition:'Raw · Cardmarket',pricing_updated_at:'2026-10-08T12:00:00Z',market_quotes:[{finish:'Normal',price_gbp_minor:7},{finish:'Reverse Holofoil',price_gbp_minor:19}]}]});
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
+  f.browser.openProduct(ref);const select=f.browser.sheet.querySelector('select');
+  select.value='Near Mint';select.dispatchEvent(new f.w.Event('change'));
   await tick();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Value: £0.07/);
-  assert.match(f.browser.sheet.textContent,/Reverse Holofoil: £0.19/);
-  assert.match(f.browser.sheet.textContent,/converted from EUR/);
-  assert.equal(f.browser.sheet.querySelector('select'),select);assert.equal(select.value,'Near Mint');
-  const request=f.calls.find(call=>call.url.endsWith('/market-values'));
-  assert.equal(request.method,'POST');assert.deepEqual(JSON.parse(request.body).keys,[ref.key]);
+  assert.equal(select.value,'Near Mint');
+  assert.equal(f.calls.filter(call=>call.url.endsWith('/market-values')).length,0);
+  assert.equal(ref.market_value_minor,null);
   f.finish();checks++;
  }
  for (const outcome of ['empty', 'failed', 'current']) {
-  const waiting=deferred(),history={status:'STALE',last_known_minor:800,last_known_high_minor:1200,
-    checked_at:'2026-10-01T12:00:00Z',physical_valuation_eligible:false,reason:'Historical catalogue guide'};
-  const ref={...card,key:'r:'+'e'.repeat(32),provider:'TCGdex',source_kind:'REFERENCE',
-    market_refresh_needed:true,shared_price:history};
-  const f=fixture(async url=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
+  const history={status:'STALE',last_known_minor:800,last_known_high_minor:1200,
+    checked_at:'2026-10-01T12:00:00Z',physical_valuation_eligible:false,
+    reason:'Historical catalogue guide'};
+  const ref={...card,key:'r:'+'e'.repeat(32),provider:'TCGdex',
+    source_kind:'REFERENCE',market_refresh_needed:true,shared_price:history};
+  const f=fixture(async url=>{
+    if(url.endsWith('/market-values'))throw new Error('Historical values must remain dated');
+    return {items:[ref]};
+  });
   f.browser.filters.q='Stored guide';await f.browser.open();f.browser.openProduct(ref);
-  assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,1,'Historical display must not suppress refresh');
+  assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0);
+  assert.equal(ref.market_value_minor,null);
+  assert.equal(ref.shared_price,history);
   assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Value: £8.00/);
-  waiting.resolve({items:[{key:ref.key,market_value_minor:outcome==='current'?1500:null,
-    market_value_high_minor:outcome==='current'?1800:null,market_value_source:'TCGDEX_CARDMARKET',
-    shared_price:null,provider_refresh_failed:outcome==='failed',market_refresh_needed:false}]});
-  await tick();
-  if(outcome==='current') {
-    assert.equal(ref.shared_price,undefined);
-    assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Value: £15.00/);
-    assert.doesNotMatch(f.browser.find('[data-price-key]').textContent,/Last known/);
-  } else {
-    assert.equal(ref.market_value_minor,null,'History cannot become current money');
-    assert.equal(ref.shared_price,history);
-    assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Value: £8.00/);
-    assert.match(f.browser.find('[data-price-key]').textContent,/Value: £8.00/);
-  }
+  assert.match(f.browser.find('[data-price-key]').textContent,/Value: £8.00/);
   f.finish();checks++;
  }
  {
-  const waiting=deferred(),ref={...card,key:'r:'+'b'.repeat(32),market_refresh_needed:true};
-  const f=fixture(async(url)=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
+  const ref={...card,key:'r:'+'b'.repeat(32),market_refresh_needed:true};
+  const f=fixture(async url=>{
+    if(url.endsWith('/market-values'))throw new Error('No quote calls');
+    return {items:[ref]};
+  });
   f.browser.filters.q='Old search';await f.browser.open();f.browser.reset();
-  waiting.resolve({items:[{key:ref.key,market_value_minor:900,market_refresh_needed:false}]});await tick();
+  await tick();
   assert.match(f.browser.find('.dr-browse-content').textContent,/Browse cards, comics & manga/);
-  assert.equal(ref.market_value_minor,null);f.finish();checks++;
+  assert.equal(ref.market_value_minor,null);
+  assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0);
+  f.finish();checks++;
  }
  {
   const ref={...card,key:'r:'+'c'.repeat(32),market_refresh_needed:true};
-  const f=fixture(async(url)=>{if(url.endsWith('/market-values'))throw new Error('Provider down');return {items:[ref]};});
+  const f=fixture(async url=>{
+    if(url.endsWith('/market-values'))throw new Error('Provider down');
+    return {items:[ref]};
+  });
   f.browser.filters.q='Card';await f.browser.open();await tick();
   assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Value temporarily unavailable/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
+  assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0);
   f.finish();checks++;
  }
  {

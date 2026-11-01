@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from .comic_identity import ComicPrintingCreate
 from .book_artwork import book_cover_reference
+from .catalogue_artwork import reference_version
 from .book_community_artwork import KIND, community_book_covers, eligible_import
 
 
@@ -98,7 +99,7 @@ async def with_book_details(connection, rows):
             item["reference_image_path"] = "/api/v1/catalogue-browser/reference-image?" + urlencode({
                 "provider": "Official Publisher", "system_code": details["system_code"],
                 "language": item["language"], "provider_id": str(item["catalogue_id"]),
-                "reference_kind": "book"})
+                "reference_kind": "book", "v": reference_version(cover['image_url'])})
             item["artwork_kind"] = "PUBLISHER_REFERENCE"
         elif not (item.get("display_image_url") or item.get("image_url") or item.get("reference_image_path")) and eligible_import(book):
             community_ids.add(item["catalogue_id"])
