@@ -1963,3 +1963,7 @@ User clarified the required Seller Hub choices: **CGC for Marvel, DC and other c
 - Whole-catalogue delivery remains pending the new production parity readback.
   Artwork copying continues automatically; no source catalogue or inventory rows
   were deleted.
+## 1 November 2026 — Comic seller preparation and photo review (In review)
+
+- Recovered the unfinished `Resume Fixes Scanning Last` workflow. Draft PR #868 adds owner-scoped comic holding/dispatch, actual purchase cost, measured parcel details, first-party Shopify Files photo intake, and staff-only approval/retake with written reasons. Signed upload tokens and pending media cannot approve or publish a product.
+- Local focused API (118) and full dashboard UI tests passed. Full Python suite stalled at an unrelated existing HTTP guard test; GitHub CI and production migration/RLS verification remain release gates. No production database changes, physical inventory approvals, Shopify products or theme publication occurred. See `docs/COMIC_SELLER_REVIEW_HANDOFF_20261101.md` for exact diagnosis and remaining gates.
