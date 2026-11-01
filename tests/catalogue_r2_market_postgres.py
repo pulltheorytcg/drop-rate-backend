@@ -12,6 +12,7 @@ import asyncpg
 
 from app import catalogue_r2_market as market, catalogue_r2_live as live
 from app.catalogue_browser import product_query
+from app.catalogue_display_prices import read_shared_prices
 from app.catalogue_r2_browse import build_browse_index, indexed_catalogue_query, indexed_value_sql
 from app.catalogue_r2_navigation import owned_navigation
 from app.db import _init_connection
@@ -92,6 +93,26 @@ async def check(db):
                     sql,params=indexed_value_sql(query,args,index,filter_system=True)
                     actual=[dict(r) for r in await db.fetch(sql,*params)]
                     assert original==actual,(actor,options,original,actual)
+        # New bounded value-sort transport: complete top page parity with live
+        # canonical valuation, shared aliases, sealed products and both owners.
+        for actor,owner in ((ACTOR_A,OWNER_A),(ACTOR_B,OWNER_B)):
+            async with authorized(db,actor):
+                shared=await read_shared_prices(db,system_code='POKEMON_TCG',
+                                                language='English',product_type='CARD')
+                for ordering in ('value_desc','value_asc'):
+                    query,args=product_query(
+                        owner_id=owner,system_code='POKEMON_TCG',language='English',
+                        sort=ordering,shared_prices=shared,limit=1,offset=0,
+                    )
+                    original=[dict(r) for r in await db.fetch(query,*args)]
+                    shortlisted,short_args=indexed_value_sql(
+                        query,args,index,filter_system=True,market=snapshot,
+                        shared_keys=shared,
+                    )
+                    assert len(short_args)<len(args)+15, 'Bounded shortlist should use compact JSON'
+                    assert 'tcg.reference_market_prices' not in shortlisted
+                    got=[dict(r) for r in await db.fetch(shortlisted,*short_args)]
+                    assert got==original,(actor,ordering,original,got)
         generation=snapshot.generation
         await db.execute('update tcg.reference_market_prices set checked_at=checked_at')
         assert (await db.fetchrow(market.STATE_SQL))['generation']==generation
