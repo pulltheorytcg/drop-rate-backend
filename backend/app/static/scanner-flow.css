@@ -225,3 +225,71 @@
 .dr-scan-optional>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:650;gap:12px}
 .dr-scan-optional>summary::after{content:'＋';margin-left:auto}
 .dr-scan-optional[open]>summary::after{content:'−'}
+
+
+/* Mobile Scan has one full-screen camera experience. The older founder and
+   seller upload pages remain available on desktop only. On mobile, direct
+   #scan/#intake links show just this re-entry control; modal Close returns Home. */
+.dr-mobile-scan-entry { display: none; }
+@media (max-width: 900px) {
+  #recognition-scanner-panel > :not(.dr-mobile-scan-entry),
+  #owner-view-scan > :not(.dr-mobile-scan-entry) {
+    display: none !important;
+  }
+  .dr-mobile-scan-entry {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 13px;
+    min-height: min(64dvh, 480px);
+    max-width: 560px;
+    margin: 16px auto;
+    padding: 32px 22px;
+    border: 1px solid #b8d9e8;
+    border-radius: 22px;
+    background: linear-gradient(155deg, #eef8fc, #fff 58%, #f4f8fd);
+    text-align: center;
+  }
+  .dr-mobile-scan-entry .dr-mobile-scan-symbol {
+    display: grid;
+    place-items: center;
+    width: 74px;
+    height: 74px;
+    border-radius: 22px;
+    background: #081f44;
+    color: #66e0ee;
+    font-size: 48px;
+    line-height: 1;
+  }
+  .dr-mobile-scan-entry h2 {
+    margin: 0;
+    color: #102948;
+    font-size: clamp(1.35rem, 5vw, 1.8rem);
+  }
+  .dr-mobile-scan-entry p {
+    max-width: 34ch;
+    margin: 0;
+    color: #4f6681;
+    font-size: .91rem;
+    line-height: 1.55;
+  }
+  .dr-mobile-scan-entry button {
+    min-height: 52px;
+    width: min(100%, 320px);
+    margin-top: 9px;
+    border: 0;
+    border-radius: 13px;
+    background: #0c305b;
+    color: #fff;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  .dr-mobile-scan-entry button:focus-visible {
+    outline: 3px solid #29bfd0;
+    outline-offset: 3px;
+  }
+  /* Gallery/file upload is desktop-only; phones use the live camera and
+     retain scanner review, confidence checks, and unsaved scan queues. */
+  .dr-scanner .dr-scan-gallery { display: none !important; }
+}
