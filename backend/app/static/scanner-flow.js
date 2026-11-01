@@ -255,6 +255,7 @@ window.DropRateScanner = (() => {
       this.images = new Map();
       this.objectUrls = new Set();
       this.build();
+      this.configureMobileCapture();
       this.setMode(this.mode);
       this.onVisibility = () => {
         if (document.visibilityState === "hidden") this.stopCamera();
@@ -354,7 +355,7 @@ window.DropRateScanner = (() => {
       this.find('[data-action="gallery"]').innerHTML = icons.photo;
       this.dialog.querySelectorAll("[data-action]").forEach(control => control.addEventListener("click", () => {
         const actions = {
-          close: () => this.close(), settings: () => { this.find(".dr-scan-settings").hidden = !this.find(".dr-scan-settings").hidden; },
+          close: () => this.close({userExit: true}), settings: () => { this.find(".dr-scan-settings").hidden = !this.find(".dr-scan-settings").hidden; },
           resume: () => this.startCamera(), switch: () => { this.facing = this.facing === "environment" ? "user" : "environment"; this.startCamera(); },
           torch: () => this.toggleTorch(), certificate: () => this.manualSlab(),
           gallery: () => this.find(".dr-scan-file").click(), capture: () => this.capture(),
@@ -367,7 +368,7 @@ window.DropRateScanner = (() => {
       this.find(".dr-scan-file").addEventListener("change", event => this.upload(event));
       this.dialog.addEventListener("cancel", event => {
         event.preventDefault();
-        if (!this.sheet.hidden) this.closeDetails(); else this.close();
+        if (!this.sheet.hidden) this.closeDetails(); else this.close({userExit: true});
       });
       this.dialog.addEventListener("keydown", event => {
         if (event.key !== "Tab" || this.sheet.hidden) return;
@@ -380,6 +381,14 @@ window.DropRateScanner = (() => {
     }
 
     find(selector) { return this.dialog.querySelector(selector); }
+    mobileOnly() { return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 900px)").matches; }
+    configureMobileCapture() {
+      // Mobile Scan is camera-only. Desktop retains the gallery/import workflow.
+      const mobile = this.mobileOnly();
+      this.find('[data-action="gallery"]').hidden = mobile;
+      this.find('[data-action="gallery"]').disabled = mobile;
+      this.find(".dr-scan-file").disabled = mobile;
+    }
     status(text) { this.find(".dr-scan-status").textContent = text; }
     get processing() { return this.captureBusy || this.inFlight > 0 || this.recognitionQueue.length > 0; }
     atCapacity() { return this.captureBusy || this.recognitionQueue.length >= 50; }
@@ -541,19 +550,24 @@ window.DropRateScanner = (() => {
         return;
       }
       this.returnFocus = document.activeElement;
+      this.configureMobileCapture();
       this.dialog.showModal();
       document.body.classList.add("dr-scanner-open");
       if (review || (!preferCamera && this.items.some(item => item.requests))) this.showReview();
       else await this.startCamera();
     }
 
-    close() {
+    close({userExit = false} = {}) {
       if (this.saving || this.editBusy) return;
       this.closeDetails();
       this.stopCamera();
       this.dialog.close();
       document.body.classList.remove("dr-scanner-open");
       this.returnFocus?.focus();
+      // Closing a full-screen mobile scanner must not reveal the legacy
+      // photo-upload screen. Internal transitions (book review/navigation)
+      // call close() without userExit and remain on their intended view.
+      if (userExit && this.mobileOnly()) this.options.onExit?.();
     }
 
     destroy() {
@@ -604,7 +618,9 @@ window.DropRateScanner = (() => {
       const revision = this.cameraRevision;
       this.status("Opening camera…");
       try {
-        if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera unavailable. Choose a photo below.");
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error(this.mobileOnly()
+          ? "Camera unavailable in this browser. Use a browser with camera access."
+          : "Camera unavailable. Choose a photo below.");
         const stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {
           facingMode: {ideal: this.facing}, width: {ideal: 1920}, height: {ideal: 1080},
         }});
@@ -635,12 +651,18 @@ window.DropRateScanner = (() => {
       } catch (error) {
         if (revision !== this.cameraRevision || !this.active()) return;
         this.stopCamera();
-        const messages = {
+        const messages = this.mobileOnly() ? {
+          NotAllowedError: "Allow camera access in your browser settings, then tap Start camera.",
+          NotFoundError: "No camera was found on this device.",
+          NotReadableError: "Your camera is busy. Close other camera apps, then tap Start camera.",
+        } : {
           NotAllowedError: "Allow camera access, or choose a photo below.",
           NotFoundError: "No camera was found on this device. Choose a photo below to scan.",
           NotReadableError: "Your camera is busy. Close other camera apps, retry, or choose a photo below.",
         };
-        this.status(messages[error.name] || "Camera unavailable. Retry or choose a photo below to scan.");
+        this.status(messages[error.name] || (this.mobileOnly()
+          ? "Camera unavailable. Check permissions, then tap Start camera."
+          : "Camera unavailable. Retry or choose a photo below to scan."));
       }
     }
 
