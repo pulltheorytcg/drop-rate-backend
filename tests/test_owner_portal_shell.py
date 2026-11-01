@@ -235,6 +235,34 @@ def test_owner_scan_requires_confirmation_before_intake() -> None:
     assert '"CORRECTED_TO_CANDIDATE"' in js
 
 
+
+def test_mobile_scan_has_one_camera_entry_and_no_legacy_upload_screen() -> None:
+    html = HTML.read_text()
+    shared = (ROOT / "backend/app/static/scanner-flow.js").read_text()
+    shared_css = (ROOT / "backend/app/static/scanner-flow.css").read_text()
+    founder = (ROOT / "backend/app/static/recognition-scanner.js").read_text()
+    seller = RECOGNITION_JS.read_text()
+
+    # Legacy upload remains available on desktop; do not delete the controls
+    # relied on by founder/seller desktop handlers.
+    assert 'id="owner-scan-file"' in html
+    assert 'id="owner-mobile-open-scanner"' in html
+    assert 'id="recognition-mobile-open-scanner"' in founder
+    assert 'recognition-file' in founder
+    assert '@media (max-width: 900px)' in shared_css
+    assert '#owner-view-scan > :not(.dr-mobile-scan-entry)' in shared_css
+    assert '#recognition-scanner-panel > :not(.dr-mobile-scan-entry)' in shared_css
+    assert '.dr-scanner .dr-scan-gallery { display: none !important; }' in shared_css
+
+    # Closing the shared modal cannot reveal another mobile uploader. The
+    # callback must be guarded by the currently visible tab.
+    assert 'this.options.onClose?.();' in shared
+    assert 'activateOwnerView("overview", true)' in seller
+    assert 'activateSellerView("dashboard", true)' in founder
+    assert 'mobileScannerOnly() || this.atCapacity()' in shared
+    assert 'if (mobileScannerOnly()) { this.status(' in shared
+
+
 def test_mobile_batch_scanner_is_camera_first_and_locally_gated() -> None:
     html = HTML.read_text()
     js = RECOGNITION_JS.read_text()
