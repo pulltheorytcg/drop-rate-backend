@@ -83,7 +83,7 @@ def reference_value(row, market, now):
     if b is not None:
         source = bq.get("source")
         model_ok = (source is not None and source != "DROP_RATE_COMPUTED_MARKET_V1")
-        recent_model = _recent(b, 2, now)
+        recent_model = _recent(b, 2, now) if not model_ok else False
         if bq.get("reference_identity") != identity or not (model_ok or recent_model):
             b = None
     market_price = m.get("market_value_minor") if _recent(m, 7, now) else None
@@ -121,7 +121,7 @@ def complete_shortlist(rows, market, *, wanted, descending=True, shared_keys=(),
     ordered = sorted((score for score, _ in ordinary), reverse=descending)
     cutoff = ordered[wanted - 1]
     chosen = fixed + [row for score, row in ordinary
-                      if score >= cutoff if descending] if descending else (
+                      if score >= cutoff] if descending else (
         fixed + [row for score, row in ordinary if score <= cutoff]
     )
     if len(chosen) > max_rows:
