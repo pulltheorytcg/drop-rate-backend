@@ -618,7 +618,9 @@ async function ownerScanStartCamera(facingMode = "environment") {
     ownerSharedScanner();
     // A tab click always opens the LIVE view even when previous scans still
     // await review. They stay safely queued for Next / Review, not discarded.
-    await window.dropRateScanner.open(ownerScanMode().toUpperCase(), {preferCamera: true});
+    const mode = window.matchMedia?.("(max-width: 900px)")?.matches
+      ? window.dropRateScanner.mode : ownerScanMode().toUpperCase();
+    await window.dropRateScanner.open(mode, {preferCamera: true});
     return;
   }
   if (window.matchMedia?.("(max-width: 900px)")?.matches) {
