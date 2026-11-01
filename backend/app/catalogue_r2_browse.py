@@ -285,6 +285,20 @@ def indexed_value_sql(query, params, snapshot, *, filter_system=False):
             raise ValueError('R2 value sort requires a verified system filter')
         systems=set(params[1])
         rows=tuple(row for row in rows if row['system_code'] in systems)
+        # Each of these is an exact top-level AND predicate emitted by
+        # product_query. Applying them to shared identities cannot exclude a
+        # matching price/owner row; those rules remain in the original SQL.
+        where=re.search(r'\bpage as \(.*?\bwhere (.+?) order by coalesce\(v\.market_value_minor',tail,re.S)
+        if where is None or not where.group(1).startswith('e.system_code=any($2::text[])'):
+            raise ValueError('R2 value sort has an unverified WHERE clause')
+        clause=where.group(1)
+        for column in ('language','set_id','product_type','provider'):
+            match=re.search(rf'(?:^| and )e\.{column}=\$(\d+)(?= and |$)',clause)
+            if match is not None:
+                index=int(match.group(1))-1
+                if not 0<=index<len(params) or not isinstance(params[index],str):
+                    raise ValueError('R2 value sort has invalid static parameters')
+                rows=tuple(row for row in rows if row[column]==params[index])
         if len(rows)>60000:
             raise ValueError('R2 value sort exceeds bounded system scope')
     return _compose_indexed_sql(query,params,rows,dynamic=True)
