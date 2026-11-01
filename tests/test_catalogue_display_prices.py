@@ -103,6 +103,35 @@ async def test_book_only_page_without_card_number_still_resolves_book_price(monk
     assert await display.read_shared_prices(Connection(), [book], now=NOW) == expected
 
 
+@pytest.mark.asyncio
+async def test_shared_price_ranking_skips_unrelated_games_and_book_lookups(monkeypatch):
+    from app import catalogue_display_prices as display
+    one_piece, _, _ = fixtures()
+    pokemon = dict(one_piece, id=uuid4(), game='Pokémon', card_number='001/100')
+    visited = []
+    class Connection:
+        async def fetch(self, sql, *args):
+            if sql == display.PRODUCTS:
+                return [one_piece, pokemon]
+            if sql == display.CACHE_SQL:
+                lookups = __import__('json').loads(args[0])
+                visited.extend(lookups)
+                return []
+            if sql == display.REFERENCE_VALUES_SQL:
+                return []
+            raise AssertionError('Unrelated book or provider query during card ranking')
+    def system(product):
+        return 'POKEMON_TCG' if product['game'] == 'Pokémon' else 'ONE_PIECE_CARD_GAME'
+    async def forbidden(*args, **kwargs):
+        raise AssertionError('Book prices should not be loaded for card-only ranking')
+    monkeypatch.setattr(display, 'catalogue_system', system)
+    monkeypatch.setattr(display, 'read_book_prices', forbidden)
+    result = await display.read_shared_prices(Connection(), system_code='POKEMON_TCG',
+                                              product_type='CARD', now=NOW)
+    assert result == {}
+    assert [row['catalogue_id'] for row in visited] == [str(pokemon['id'])]
+
+
 @pytest.mark.parametrize('sort', ['value_asc', 'value_desc'])
 def test_value_sort_includes_shared_price_before_pagination(sort):
     import json
