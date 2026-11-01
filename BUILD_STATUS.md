@@ -1,3 +1,10 @@
+## 1 November 2026 — Defer per-book eBay context until deliberate interaction (in review)
+
+- **Problem:** Live Railway catalogue sessions showed repeated `/api/v1/catalogue-browser/books/{edition}/listing-context` requests during Manga/Comics browse, often 1–4s each; scrolling caused unnecessary owner-authorised API and permitted eBay context work for items nobody opened.
+- **Fix:** Keep the existing exact-edition, authenticated, rate-limited contextual eBay lookup and verified publisher/OL artwork. Book tiles now request their optional live asking-price/listing-photo context only after direct pointer hover or keyboard/touch focus; opening a book detail still requests it immediately. Merely rendering or scrolling a page triggers no per-book listing-context requests. The existing two-at-a-time bounded queue, cache, active-ask labels and context expiry remain.
+- **Safety:** Active eBay asks remain clearly **not UK sold valuations**, do not fill `market_value_minor`, Store Prices or inventory condition, and cannot approve a physical copy or a reference cover for Shopify. No DB, provider, workflow, paid quota, ownership or settlement changes.
+- **Testing:** Browser regression asserts no passive list-context calls, authenticated explicit-interest loading, detail lookup, zero leaks across owners, abort on close, expiry, and preserved images/links. Run CI and compare signed-in mobile network request counts and catalogue latency. Roll back by reverting this PR if details or cover fallbacks regress.
+
 ## 1 November 2026 — Read-only catalogue stage timings (in review)
 
 - **What/why:** Previously only total HTTP time and broad R2 fallback events were visible. A slow user browse could spend time waiting for the connection pool, calculating shared catalogue prices, reading the R2 publication, executing SQL, enriching prices/history, or signing artwork. Add one sanitized stage log for requests taking at least 1.5 seconds, so real usage identifies the actual bottleneck without guesswork.
