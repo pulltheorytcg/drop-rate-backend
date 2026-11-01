@@ -105,7 +105,14 @@ Neither result claims complete catalogue coverage.
 - A fresh read-only `--limit 25` YGOPRODeck request returned **25 card objects,
   94 exact printing candidates across 56 sets**, and **one set-code mismatch
   quarantined**. Zero database writes, market values, mirrored images or
-  Shopify creations. Card names/prices were not used for loose joins.
+  Shopify creations. Card names/prices were not used for loose joins. The
+  55,201-byte closed source-input projection gave content SHA-256
+  `813d3943953f9bbb33bf40f14c3951e400576e118a261bb26fac0de523e4ff57`;
+  this digest is a **dry-run receipt, not an uploaded R2 object**.
+- A separate, single-card **read-only Lorcast** lookup (`/v0/cards/1/207`)
+  matched the existing exact Lorcana ID, English language, set and number.
+  The normalizer included **no image or price**. Lorcana bulk import remains
+  disabled pending explicit review of third-party/community-code terms.
 - `tests/expanded_collectibles_postgres.py` now checks the actual migration
   and exercises reference write policies, figure R2 generation invalidation,
   append-only observation evidence and existing card upsert in a **new empty
@@ -115,6 +122,17 @@ Neither result claims complete catalogue coverage.
   for full production-schema migration replay, its current cost must be
   confirmed before provision. The separate production migration dry-run gate
   remains required before any real apply.
+- To relieve near-term database pressure, the YGOPRODeck pilot can now
+  optionally write a **private, immutable R2 source-input receipt** without
+  inserting any SQL rows. This is not a new public catalogue endpoint:
+  `--archive-private-r2` and
+  `TCG_EXPANDED_CATALOGUE_R2_SOURCE_ARCHIVE_ENABLED=true` are both required,
+  as is configured object storage. Only a closed projection of exact set and
+  printing metadata is archived, with unverified image URLs, provider prices,
+  owned stock and PII excluded. The existing R2 object writer verifies remote
+  bytes after upload and the pilot reads the payload back again before
+  reporting success. Default remains dry run. Do not activate the flag or
+  mistake a source receipt for a customer-facing live reference manifest.
 
 ## Production release gates
 

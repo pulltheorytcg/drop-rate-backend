@@ -12,6 +12,7 @@ from app.collectible_source_adapters import (
     lorcana_printing, sports_checklist_printing, yugioh_printings,
 )
 from app.object_storage import ObjectStorageError
+from scripts.pilot_yugioh_catalogue import private_source_snapshot, archive_private_source_snapshot
 
 
 def _row(**overrides):
@@ -177,3 +178,51 @@ def test_schema_is_additive_with_r2_generation_and_strict_rls():
     assert "grant select, insert on tcg.reference_figure_market_observations" in sql
     assert "drop table" not in sql.lower()
     assert "tcg.inventory_items" not in sql and "tcg.shopify_inventory_links" not in sql
+
+
+def test_yugioh_private_r2_source_snapshot_is_exact_bounded_and_unpriced():
+    source = {"id": 46986414, "name": "Dark Magician",
+              "card_images": [{"image_url": "https://images.ygoprodeck.com/unknown.jpg"}],
+              "card_prices": [{"ebay_price": "150"}],
+              "card_sets": [{"set_name": "2016 Mega-Tins", "set_code": "CT13-EN003",
+                             "set_rarity": "Ultra Rare", "set_rarity_code": "(UR)", "set_price": "120"}]}
+    set_record, printing = yugioh_printings(source, official_tcg_sets={
+        "2016 Mega-Tins": {"set_code": "CT13", "tcg_date": "2016-09-01", "num_of_cards": 12}})[0]
+    grouped = {set_record["set_id"]: [set_record, {printing["provider_id"]: printing}]}
+    report = {"cards_fetched": 1, "printing_candidates": 1, "sets": 1,
+              "quarantined_cards": 0, "quarantine_sample": []}
+    raw = private_source_snapshot(grouped, report, offset=0, limit=1)
+    parsed = __import__("json").loads(raw)
+    assert parsed["printing_candidates"] == 1 and parsed["sets"][0]["cards"][0]["provider_id"] == printing["provider_id"]
+    assert private_source_snapshot(grouped, report, offset=0, limit=1) == raw
+    assert b"image_url" not in raw and b"card_prices" not in raw and b"ebay_price" not in raw
+    assert b"owner_id" not in raw and b"store_price" not in raw
+    with pytest.raises(ReferenceSourceError):
+        private_source_snapshot(grouped, {**report, "printing_candidates": 2}, offset=0, limit=1)
+    with pytest.raises(ReferenceSourceError):
+        private_source_snapshot({set_record["set_id"]: [set_record, {printing["provider_id"]:
+            {**printing, "image_url": "https://images.ygoprodeck.com/unknown.jpg"}}]},
+            report, offset=0, limit=1)
+
+
+@pytest.mark.asyncio
+async def test_private_source_snapshot_r2_requires_explicit_flag_and_readback(monkeypatch):
+    class Store:
+        payload = None
+        def put_verified_reference_snapshot(self, payload):
+            self.payload = payload
+            return {"sha256": "a" * 64, "key": "drop-rate/catalogue-reference-inputs/fake.json.gz",
+                    "size_bytes": len(payload), "verified": True}
+        def read_verified_reference_snapshot(self, digest):
+            assert digest == "a" * 64
+            return self.payload
+    store = Store()
+    monkeypatch.delenv("TCG_EXPANDED_CATALOGUE_R2_SOURCE_ARCHIVE_ENABLED", raising=False)
+    with pytest.raises(RuntimeError):
+        await archive_private_source_snapshot(store, b"private facts")
+    monkeypatch.setenv("TCG_EXPANDED_CATALOGUE_R2_SOURCE_ARCHIVE_ENABLED", "true")
+    receipt = await archive_private_source_snapshot(store, b"private facts")
+    assert receipt["verified"] and receipt["public"] is False
+    store.read_verified_reference_snapshot = lambda digest: b"tampered"
+    with pytest.raises(ObjectStorageError):
+        await archive_private_source_snapshot(store, b"private facts")
