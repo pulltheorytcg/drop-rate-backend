@@ -86,7 +86,7 @@ async def check(db):
                 # before pagination, including owner-specific canonical values.
                 for value_sort in ('value_desc','value_asc'):
                     options={'sort':value_sort,'system_code':'POKEMON_TCG',
-                             'language':'English'}
+                             'language':'English','set_id':'cache-fixture'}
                     query,args=product_query(owner_id=owner,limit=3,**options)
                     original=[dict(r) for r in await db.fetch(query,*args)]
                     sql,params=indexed_value_sql(query,args,index,filter_system=True)
