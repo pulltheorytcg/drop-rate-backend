@@ -149,6 +149,7 @@ const stream=t=>({getTracks:()=>[t],getVideoTracks:()=>[t]});
   const queued={id:'queued-card',mode:'RAW',status:'unresolved',quantity:1,
                 photo:null,selected:null,guess:'Needs review'};
   f.scanner().items.push(queued);
+  f.scanner().setMode('SEALED');
   f.scanner().close();
   assert.equal(f.scanner().dialog.open,false);
   assert.ok(f.w.document.getElementById('owner-view-scan').classList.contains('hidden'));
