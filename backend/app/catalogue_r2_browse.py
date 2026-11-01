@@ -165,10 +165,10 @@ def _compose_indexed_sql(query, params, rows, *, dynamic=False, market=None):
     tail=query[len(SOURCE_CTE):]
     if not dynamic and "selected_page as materialized (" not in tail:
         raise ValueError("R2 browse requires a static-sort selected page")
-    if dynamic:
-        # Full value ordering must price every candidate. Bind the already
-        # indexed R2 identities once, instead of rebuilding joins between five
-        # unindexed source rowsets on every request.
+    if dynamic and len(rows)>2000:
+        # Legacy large-population transport. The proven value shortlist below
+        # instead uses one compact JSON object and the verified R2 market rows.
+        # No scoped shortcut may silently drop candidates or change ranking.
         args=list(params)
         arrays=[]
         for name,kind in _STATIC_COLUMNS:
@@ -263,7 +263,8 @@ with static_page as (
     return market.sql(prefix+tail,args,rows) if market is not None else (prefix+tail,args)
 
 
-def indexed_value_sql(query, params, snapshot, *, filter_system=False):
+def indexed_value_sql(query, params, snapshot, *, filter_system=False,
+                      market=None, shared_keys=()):
     """Keep every eligible value-sort candidate and the original price/RLS rules.
 
     A value sort cannot be pre-paginated by static release date. The explicit
@@ -292,6 +293,7 @@ def indexed_value_sql(query, params, snapshot, *, filter_system=False):
         if where is None or not where.group(1).startswith('e.system_code=any($2::text[])'):
             raise ValueError('R2 value sort has an unverified WHERE clause')
         clause=where.group(1)
+        expected_parts=['e.system_code=any($2::text[])']
         for column in ('language','set_id','product_type','provider'):
             match=re.search(rf'(?:^| and )e\.{column}=\$(\d+)(?= and |$)',clause)
             if match is not None:
@@ -299,6 +301,26 @@ def indexed_value_sql(query, params, snapshot, *, filter_system=False):
                 if not 0<=index<len(params) or not isinstance(params[index],str):
                     raise ValueError('R2 value sort has invalid static parameters')
                 rows=tuple(row for row in rows if row[column]==params[index])
+                expected_parts.append(f'e.{column}=${match.group(1)}')
+        if market is not None:
+            # Only a complete, exact static AND clause may be shortlisted.
+            # Text, owner, watchlist and slab predicates cannot be inferred
+            # from shared data and must continue through full PostgreSQL.
+            if clause != ' and '.join(expected_parts):
+                raise ValueError('Unsupported predicate for ranked shortlist')
+            match=re.search(
+                r'order by coalesce\\(v\\.market_value_minor,e\\.reference_value_minor'
+                r'(?:,d\\.market_value_minor)?\\) (asc|desc) nulls last',
+                tail,
+            )
+            if match is None:
+                raise ValueError('Unsupported dynamic value sort order')
+            from .catalogue_r2_value_rank import complete_shortlist
+            needed=params[-2]+params[-1]
+            rows=complete_shortlist(rows,market,wanted=needed,
+                                    descending=match.group(1)=='desc',
+                                    shared_keys=shared_keys)
+            return _compose_indexed_sql(query,params,rows,dynamic=True,market=market)
         if len(rows)>60000:
             raise ValueError('R2 value sort exceeds bounded system scope')
     return _compose_indexed_sql(query,params,rows,dynamic=True)
