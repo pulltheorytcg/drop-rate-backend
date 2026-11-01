@@ -857,6 +857,7 @@ async function matched(scanner, quantity = 1) {
     w.document.getElementById('recognition-mobile-open-scanner').click();
     assert.equal(cameraCalls,2);
     assert.equal(w.dropRateScanner.dialog.open,true);
+    assert.equal(w.dropRateScanner.mode,'GRADED','Founder scanner mode must survive reopen');
     w.dropRateScanner.destroy();dom.window.close();checks++;
   }
   await tick();
