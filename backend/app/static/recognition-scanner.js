@@ -308,7 +308,10 @@ async function openRecognitionCamera() {
   if (window.DropRateScanner) {
     stopRecognitionCamera();
     founderSharedScanner();
-    try { await window.dropRateScanner.open(document.querySelector('input[name="recognition-scan-mode"]:checked')?.value || "RAW"); }
+    const mode = window.matchMedia?.("(max-width: 900px)")?.matches
+      ? window.dropRateScanner.mode
+      : document.querySelector('input[name="recognition-scan-mode"]:checked')?.value || "RAW";
+    try { await window.dropRateScanner.open(mode); }
     catch (error) { showMessage("recognition-message", error.message, "error"); }
     return;
   }
