@@ -88,6 +88,18 @@ def test_computed_guides_expire_after_two_days_and_exact_cards_are_distinct():
     assert reference_value(ref,older,NOW) is None
 
 
+def test_near_expiry_price_is_retained_for_live_sql_without_broad_fallback():
+    expiry=card("expiring")
+    one,two,three=(card(str(n)) for n in range(1,4))
+    evidence=market((expiry,9999,"TCGDEX",7),
+                    (one,300,"TCGDEX",0),
+                    (two,200,"TCGDEX",0),
+                    (three,100,"TCGDEX",0))
+    kept=complete_shortlist([expiry,one,two,three],evidence,wanted=2,now=NOW)
+    assert {row["provider_id"] for row in kept}=={"expiring","1","2"}
+
+
+
 def test_expiry_edge_missing_evidence_and_large_shortlist_fail_closed():
     row=card("1")
     edge=market((row,100,"TCGDEX",7))
