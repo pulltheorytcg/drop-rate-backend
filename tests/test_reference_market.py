@@ -297,7 +297,7 @@ def test_price_route_accepts_only_bounded_reference_keys(payload):
 async def test_price_route_requires_authentication_before_provider_access(monkeypatch):
     app=FastAPI(); app.include_router(browser.router)
     async def forbidden(*args,**kwargs): raise AssertionError('provider must not run')
-    monkeypatch.setattr(browser,'refresh_reference_prices',forbidden)
+    monkeypatch.setattr(browser,'read_cached_reference_prices',forbidden)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
         assert (await client.post('/api/v1/catalogue-browser/market-values',json={'keys':[KEY]})).status_code in (401,403)
 
@@ -308,11 +308,40 @@ async def test_price_route_deduplicates_and_keeps_authenticated_context(monkeypa
     async def refresh(got_pool,user,request,keys):
         assert got_pool is pool and user==user_id and request=='request' and keys==[KEY]
         return [market.price_view(KEY,[],now=NOW)]
-    monkeypatch.setattr(browser,'refresh_reference_prices',refresh)
+    monkeypatch.setattr(browser,'read_cached_reference_prices',refresh)
     request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=pool)),state=SimpleNamespace(request_id='request'))
     result=await browser.market_values(browser.ReferencePriceRequest(keys=[KEY,KEY]),request,
         SimpleNamespace(user_id=user_id),{'owner_id':owner_id})
     assert result['items'][0]['market_value_minor'] is None
+
+
+@pytest.mark.asyncio
+async def test_cached_market_values_never_contact_provider_or_write(monkeypatch):
+    now = datetime.now(timezone.utc)
+    reference = {**REFERENCE, 'quotes': [{
+        'source': market.SOURCE, 'finish': 'Normal', 'price_gbp_minor': 42,
+        'observed_at': now.isoformat(),
+    }], 'catalogue_quotes': []}
+    calls = []
+    class Connection:
+        async def fetch(self, sql, keys):
+            assert sql == market.READ_SQL and keys == [KEY, KEY]
+            calls.append('read')
+            return [reference]
+        async def execute(self, *args):
+            raise AssertionError('Browsing must never write price observations')
+    @asynccontextmanager
+    async def connection(*args):
+        yield Connection()
+    async def forbidden(*args, **kwargs):
+        raise AssertionError('Browsing must not call an external provider')
+    monkeypatch.setattr(market, 'user_connection', connection)
+    monkeypatch.setattr(market, 'fetch_quotes', forbidden)
+    result = await market.read_cached_reference_prices(object(), uuid4(), 'read-only', [KEY, KEY])
+    assert calls == ['read']
+    assert len(result) == 1
+    assert result[0]['market_value_minor'] == 42
+    assert result[0]['market_refresh_needed'] is False
 
 
 @pytest.mark.asyncio
