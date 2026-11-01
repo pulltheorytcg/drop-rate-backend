@@ -15,6 +15,7 @@ let checks = 0;
 function fixture(role = 'seller', request = async () => ({}), options = {}) {
   const dom = new JSDOM('<button id="launch">Scan</button>', {url:'https://example.test', runScripts:'outside-only', pretendToBeVisual:true});
   const w = dom.window;
+  if(options.mobile)w.matchMedia=query=>({matches:query.includes('max-width: 900px'),media:query});
   w.HTMLDialogElement.prototype.showModal = function(){ this.open = true; };
   w.HTMLDialogElement.prototype.close = function(){ this.open = false; };
   w.HTMLMediaElement.prototype.play = async () => {};
@@ -788,6 +789,30 @@ async function matched(scanner, quantity = 1) {
     const item={selected:{reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=bad'},status:'unresolved'};
     const thumb=f.scanner.thumb(item);await tick();assert.ok(thumb.querySelector('img').hidden);
     assert.match(thumb.textContent,/Image could not load/);f.finish();checks++;
+  }
+  // Mobile Scan is camera-only. File controls remain available on desktop but
+  // cannot trigger a separate photo picker or upload while on mobile.
+  {
+    let closed=0, fileChooser=0;
+    const f=fixture('seller',async()=>({}),{mobile:true,onClose:()=>closed++});
+    f.scanner.find('.dr-scan-file').click=()=>fileChooser++;
+    Object.defineProperty(f.w.navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+      throw Object.assign(new Error('Denied'),{name:'NotAllowedError'});
+    }}});
+    await f.scanner.open();
+    assert.equal(f.scanner.dialog.open,true);
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,true);
+    assert.match(f.scanner.find('.dr-scan-status').textContent,/camera access/i);
+    assert.doesNotMatch(f.scanner.find('.dr-scan-status').textContent,/choose a photo/i);
+    f.scanner.find('[data-action="gallery"]').click();
+    assert.equal(fileChooser,0);
+    await f.scanner.upload({target:{files:[new f.w.File(['abc'],'card.png',{type:'image/png'})],value:'card.png'}});
+    assert.equal(f.scanner.items.length,0,'Mobile file uploads must not start recognition');
+    assert.equal(f.scanner.find('.dr-scan-file').disabled,false);
+    f.scanner.close();
+    assert.equal(closed,1);
+    f.finish();assert.equal(closed,1,'Destroy must not double-fire the close callback');
+    checks++;
   }
   await tick();
   console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');
