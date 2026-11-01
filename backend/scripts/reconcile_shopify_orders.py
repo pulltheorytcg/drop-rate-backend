@@ -22,6 +22,7 @@ print(
 try:
     import asyncpg
 
+    from app.db import retry_database_connection
     from app.shopify_client import ShopifyAdminClient
     from app.shopify_reconciliation import reconcile_shopify_orders
 except Exception as exc:
@@ -54,16 +55,19 @@ async def _run() -> int:
         api_version=os.getenv("TCG_SHOPIFY_API_VERSION", "2026-07").strip() or "2026-07",
     )
 
-    connection = await asyncpg.connect(
-        dsn=_required("TCG_DATABASE_URL"),
-        timeout=15,
-        command_timeout=30,
-        server_settings={
-            "application_name": "drop-rate-shopify-reconciliation",
-            "search_path": "pg_catalog,tcg",
-            "statement_timeout": "30000",
-            "idle_in_transaction_session_timeout": "10000",
-        },
+    connection = await retry_database_connection(
+        lambda: asyncpg.connect(
+            dsn=_required("TCG_DATABASE_URL"),
+            timeout=15,
+            command_timeout=30,
+            server_settings={
+                "application_name": "drop-rate-shopify-reconciliation",
+                "search_path": "pg_catalog,tcg",
+                "statement_timeout": "30000",
+                "idle_in_transaction_session_timeout": "10000",
+            },
+        ),
+        context="shopify_reconciliation",
     )
     try:
         result = await reconcile_shopify_orders(connection, client=client)
