@@ -1,3 +1,11 @@
+## 1 November 2026 — Read-only catalogue stage timings (in review)
+
+- **What/why:** Previously only total HTTP time and broad R2 fallback events were visible. A slow user browse could spend time waiting for the connection pool, calculating shared catalogue prices, reading the R2 publication, executing SQL, enriching prices/history, or signing artwork. Add one sanitized stage log for requests taking at least 1.5 seconds, so real usage identifies the actual bottleneck without guesswork.
+- **Connection:** Existing `/api/v1/catalogue-browser/products` FastAPI handler. Captures monotonic timing and logs only the fixed sort/game/product-type labels, R2 availability flags, stage durations and bounded returned-row count.
+- **Security:** Never log user/customer/owner IDs, search text, card/provider IDs, watchlist keys, raw SQL, prices, financial data or private records. No query, retry, RLS, store price, physical inventory, provider, database or scheduled-workflow changes.
+- **Tests:** Pure timing calculation and AST-based no-private-log check, then full backend/dashboard/native Postgres release workflows. After Railway deployment, review stage logs from real signed-in browsing before attempting a new performance shortcut.
+- **Failure/rollback:** Logging only when slow limits volume; timing overhead is small but nonzero. Revert PR and redeploy if unexpected latency or any sensitive log data appears. No schema migration.
+
 ## 1 November 2026 — Distinguish mobile scanner user exit from internal review hand-off (in review)
 
 - **Defect:** PR #852's shared scanner called its workspace `onClose` callback on every `Scanner.close()`. A comic/manga hand-off and the successful-save inventory transition also call `close()`, so those internal operations could incorrectly navigate the mobile Scan view to Home.
