@@ -38,6 +38,7 @@ from .recognition_images import (
     reference_image_bytes,
 )
 from .r2_media import with_signed_mirror
+from .catalogue_display_prices import read_shared_prices
 from .recognition_learning import (
     attach_learning_visual_evidence,
     discover_learning_candidate_hints,
@@ -203,6 +204,44 @@ def _candidate_review_payload(candidate: dict[str, Any]) -> dict[str, Any]:
     return candidate
 
 
+async def _add_shared_candidate_prices(connection, candidates):
+    """Attach exact canonical display guides without pricing a physical copy.
+
+    Catalogue recognition candidates often have no physical market snapshot,
+    even when a current, identity-matched provider guide exists. Resolve only
+    the bounded candidate set via the same alias safety rules as catalogue
+    browsing; never turn a raw reference into a graded/condition valuation.
+    """
+    rows = [dict(row) for row in candidates]
+    pending, matches = [], []
+    for row in rows:
+        if row.get('market_value_minor') is not None or not row.get('catalogue_id'):
+            continue
+        identity = row.get('candidate_snapshot') or {}
+        if isinstance(identity, str):
+            try:
+                identity = json.loads(identity)
+            except ValueError:
+                continue
+        if (row.get('source_kind') != 'CATALOGUE'
+                or not isinstance(identity, dict)
+                or identity.get('product_type', 'CARD') != 'CARD'
+                or not identity.get('card_number')):
+            continue
+        key = 'c:' + str(row['catalogue_id'])
+        pending.append({'key': key, 'catalogue_id': row['catalogue_id'],
+                        'product_type': 'CARD', 'card_number': identity['card_number']})
+        matches.append((row, key))
+    if not pending:
+        return rows
+    shared = await read_shared_prices(connection, pending, product_type='CARD')
+    for row, key in matches:
+        guide = shared.get(key, {}).get('shared_price')
+        if guide is not None:
+            row['shared_price'] = guide
+    return rows
+
+
 async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     run = await connection.fetchrow(
         """
@@ -359,6 +398,7 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
         """,
         run_id,
     )
+    candidates = await _add_shared_candidate_prices(connection, candidates)
     feedback = await connection.fetch(
         """
         select

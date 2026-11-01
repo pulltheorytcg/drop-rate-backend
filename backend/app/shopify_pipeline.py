@@ -442,6 +442,19 @@ def _test_sync_missing(
                 missing.append("photo-backed Near Mint verification")
         if not (item["language"] or item["catalogue_language"]):
             missing.append("card language")
+    elif item["product_type"] == "COMIC":
+        # A comic is not sealed TCG stock. Its issue and edition must be
+        # explicit; the founder still confirms identity and physical media.
+        if not str(item.get("card_number") or "").strip():
+            missing.append("comic issue / volume number")
+        if not str(item.get("variant") or "").strip():
+            missing.append("comic printing / cover variant")
+        if not (str(item.get("condition") or "").strip() or
+                (str(item.get("grading_company") or "").strip() and
+                 str(item.get("grade") or "").strip())):
+            missing.append("comic condition / grade")
+        if not (item.get("language") or item.get("catalogue_language")):
+            missing.append("comic language")
     elif item["seal_status"] is None:
         missing.append("seal status")
 
@@ -512,6 +525,7 @@ def _build_media_intake_queue(
     raw_pending = 0
     graded_pending = 0
     sealed_pending = 0
+    comic_pending = 0
 
     for source in items:
         item = dict(source)
@@ -552,7 +566,9 @@ def _build_media_intake_queue(
         if not missing:
             continue
 
-        if is_sealed:
+        if product_type == "COMIC":
+            comic_pending += 1
+        elif is_sealed:
             sealed_pending += 1
         elif is_graded:
             graded_pending += 1
@@ -622,11 +638,13 @@ def _build_media_intake_queue(
         "raw_items_pending": raw_pending,
         "graded_items_pending": graded_pending,
         "sealed_items_pending": sealed_pending,
+        "comic_items_pending": comic_pending,
         "policy": {
             "existing_image_first": True,
             "physical_photo_threshold_minor": physical_photo_threshold_minor,
             "low_risk_raw_cards_use_canonical_storefront_media": True,
             "sealed_products_use_exact_first_party_front_photo": True,
+            "comic_books_use_exact_first_party_photo": True,
         },
     }
 
@@ -701,7 +719,7 @@ async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
 
 def _supported_shipping_profile_key(value: str) -> bool:
     key = str(value or "").strip().upper()
-    if key in {"RAW_CARD", "GRADED_CARD"}:
+    if key in {"RAW_CARD", "GRADED_CARD", "COMIC_BOOK", "MANGA_BOOK"}:
         return True
     if not key.startswith("SEALED_"):
         return False
@@ -1120,7 +1138,7 @@ async def media_intake_queue(
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
               and i.sale_intent='FOR_SALE'
-              and p.product_type in ('CARD','SEALED','COLLECTION')
+              and p.product_type in ('CARD','SEALED','COLLECTION','COMIC')
             order by p.game,p.set_name,p.name,p.card_number,i.inventory_code
             """,
             owner["id"],

@@ -376,6 +376,113 @@ async def price_coverage(request: Request, user: Annotated[AuthenticatedUser, De
                              'summary':coverage_summary(items)})
 
 
+# Slab labels already provide a printed number, name and/or set. Their
+# suggestion pool does not need the full catalogue browser, market-value
+# functions, R2 catalogue snapshot or owner counts (which can be slow when
+# shared reference prices are being rebuilt). Only the literal number narrows
+# the SQL pool; the conservative label corroboration remains in Python.
+SLAB_CATALOGUE_SQL = """
+with selected as materialized (
+  select p.id,p.product_type,p.game,p.name,p.set_name,p.card_number,
+         p.variant,p.rarity,p.language,pr.system_code,pr.set_code,
+         pr.release_date
+  from tcg.catalogue_products p
+  left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+  where p.product_type='CARD'
+    and ($1::text='' or p.language=$1 or p.language is null)
+    and (upper(btrim(p.card_number))=upper($2)
+      or ($3::boolean and upper(btrim(p.card_number)) like upper($2)||'/%'))
+  order by (lower(p.name)=lower($4)) desc,
+           (lower(p.set_name)=lower($5)) desc,p.name,p.set_name,p.id
+  limit 300
+)
+select 'c:'||p.id::text as key,p.id as catalogue_id,p.product_type,
+       p.game,p.name,p.set_name,coalesce(nullif(p.set_code,''),p.set_name) as set_id,
+       p.card_number,p.variant,p.rarity,coalesce(p.language,'Unknown') as language,
+       p.system_code,p.release_date,'CATALOGUE'::text as source_kind,
+       media.url as display_image_url,media.url as fallback_image_url,
+       media.r2_object_key
+from selected p left join lateral (
+  select coalesce(m.shopify_cdn_url,m.public_source_url) as url,
+         mirror.object_key as r2_object_key
+  from tcg.media_assets m
+  left join tcg.media_object_mirrors mirror
+    on mirror.media_asset_id=m.id and mirror.source_url=m.public_source_url
+  where m.catalogue_id=p.id and m.scope='CANONICAL_CARD' and m.side='FRONT'
+    and m.media_kind='IMAGE' and m.approval_status='APPROVED'
+    and m.rights_status='VERIFIED' and m.rights_tier='STOREFRONT_ALLOWED'
+    and m.source_status='ACTIVE' and m.revoked_at is null
+  order by m.approved_at desc nulls last,m.created_at desc,m.id limit 1
+) media on true
+"""
+
+SLAB_REFERENCE_SQL = """
+select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key,
+       null::uuid as catalogue_id,'CARD'::text as product_type,r.system_code,
+       r.name,r.card_number,r.rarity,r.language,r.set_id,r.provider,r.provider_id,
+       r.image_url,r.source_url,s.name as set_name,
+       s.release_date,r.provider_id as variant,'REFERENCE'::text as source_kind,
+       mirror.object_key as r2_reference_object_key
+from tcg.reference_cards r
+join tcg.reference_sets s using(provider,system_code,language,set_id)
+left join tcg.reference_image_mirrors mirror
+  on (mirror.provider,mirror.system_code,mirror.language,mirror.provider_id)=
+     (r.provider,r.system_code,r.language,r.provider_id)
+ and mirror.source_url=r.image_url and mirror.status='VERIFIED'
+where (s.release_date is null or s.release_date<=current_date)
+  and ($1::text='' or r.language=$1)
+  and (upper(btrim(r.card_number))=upper($2)
+    or ($3::boolean and upper(btrim(r.card_number)) like upper($2)||'/%'))
+order by (lower(r.name)=lower($4)) desc,
+         (lower(s.name)=lower($5)) desc,r.name,s.name,r.provider,r.provider_id
+limit 300
+"""
+
+
+def corroborated_slab_suggestions(canonical, references, *, card_name, card_number, set_name, limit):
+    """Suggestions only; neither a certificate check nor a physical approval."""
+    rows = [dict(row) for row in canonical] + [dict(row) for row in references]
+    result, seen = [], set()
+    for row in rows:
+        if not slab_candidate_supported(row, card_name=card_name, card_number=card_number,
+                                         set_name=set_name):
+            continue
+        # Preserve distinct provider printings; only discard identical IDs.
+        if row['key'] in seen:
+            continue
+        seen.add(row['key'])
+        result.append(row)
+    return result[:limit]
+
+
+@router.get('/slab-suggestions')
+async def slab_suggestions(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
+                           access: Annotated[dict, Depends(browser_access)],
+                           slab_number: str = Query(min_length=1, max_length=80),
+                           slab_name: str = Query(default='', max_length=160),
+                           slab_set: str = Query(default='', max_length=200),
+                           language: str = Query(default='', max_length=80),
+                           limit: int = Query(default=40, ge=1, le=80)):
+    number = slab_number.strip().lstrip('#').strip()
+    name, set_name = slab_name.strip(), slab_set.strip()
+    if not number or not (name or set_name):
+        raise HTTPException(422, 'Slab number and name or set are required')
+    numeric = bool(re.fullmatch(r'[0-9]+', number))
+    args = (language, number, numeric, name, set_name)
+    started = time.perf_counter()
+    async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id,
+                               readonly_snapshot=True) as connection:
+        canonical = await connection.fetch(SLAB_CATALOGUE_SQL,*args)
+        references = await connection.fetch(SLAB_REFERENCE_SQL,*args)
+    rows = corroborated_slab_suggestions(canonical,references,card_name=name,
+                                         card_number=number,set_name=set_name,limit=limit)
+    duration_ms = round((time.perf_counter()-started)*1000)
+    if duration_ms >= 1000:
+        logger.info('SLAB_SUGGESTIONS_TIMING ms=%s candidates=%s',duration_ms,len(rows))
+    return jsonable_encoder({'items':[with_artwork_path(with_signed_mirror(row)) for row in rows],
+                             'slab_review_required':True,'has_more':len(rows)==limit})
+
+
 @router.get("/set-artwork-coverage")
 async def set_artwork_coverage(
     request: Request,

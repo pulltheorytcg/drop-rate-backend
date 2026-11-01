@@ -486,11 +486,11 @@ window.DropRateScanner = (() => {
       if (!item.searchSeed || item.searchSeed.length < 2 || item.slab?.conflicts?.length) return;
       const label = item.label || {};
       if (!label.card_number || (!label.card_name && !label.set_name)) return;
-      const params = new URLSearchParams({q: item.searchSeed.slice(0, 160), limit: "80", product_type: "CARD", owned: "all",
+      const params = new URLSearchParams({limit: "80",
         slab_number: label.card_number.slice(0, 80), slab_name: (label.card_name || "").slice(0, 160),
         slab_set: (label.set_name || "").slice(0, 200)});
       if (["English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish"].includes(label.language)) params.set("language", label.language);
-      const data = await this.request("/api/v1/catalogue-browser/products?" + params, {signal});
+      const data = await this.request("/api/v1/catalogue-browser/slab-suggestions?" + params, {signal});
       item.candidates = (data.items || []).filter(row => row.product_type !== "SEALED")
         .map(row => this.searchCandidate(row));
       item.suggested = item.candidates[0] || null;
@@ -1016,12 +1016,27 @@ window.DropRateScanner = (() => {
         ? "/api/v1/recognition/runs/" + encodeURIComponent(item.run.id) + "/candidates/" + encodeURIComponent(candidate.id) + "/image" : null;
       const local = path?.startsWith("/api/v1/catalogue-browser/reference-image?") || (book(item) && path === bookCover(item)) ? path : runPath;
       const placeholder = image.parentElement?.querySelector(".dr-scan-image-placeholder");
+      const captureLabel = image.parentElement?.querySelector(".dr-scan-capture-label");
       const missing = text => { image.hidden = true; if (placeholder) placeholder.textContent = text; };
+      const scannedFallback = reason => {
+        // A customer's own scan is useful while exact reference art is being
+        // sourced, but is neither an approved catalogue image nor sales media.
+        if (item.photo && /^data:image\/(?:jpeg|png|webp);base64,/i.test(item.photo)
+            && image.dataset.scannedFallback !== "true") {
+          image.dataset.scannedFallback = "true";
+          image.alt = "Your scanned photo — reference artwork unavailable";
+          image.title = "Scanned photo, not verified catalogue artwork";
+          image.hidden = false; image.src = item.photo;
+          if (captureLabel) captureLabel.hidden = false;
+          return;
+        }
+        missing(reason);
+      };
       if (!local) {
         if (direct && /^https:\/\//i.test(direct)) {
-          image.addEventListener("error", () => missing("Image could not load"), {once: true});
+          image.addEventListener("error", () => scannedFallback("Image could not load"), {once: true});
           image.src = direct;
-        } else missing("No verified reference artwork");
+        } else scannedFallback("No verified reference artwork");
         return;
       }
       // The signed private R2 mirror is the fastest source for an exact
@@ -1061,7 +1076,7 @@ window.DropRateScanner = (() => {
       const url = await this.images.get(key);
       if (!this.active(epoch)) return;
       if (url) { image.hidden = false; image.src = url; }
-      else { this.images.delete(key); missing("Image could not load · reopen to retry"); }
+      else { this.images.delete(key); scannedFallback("Image could not load · reopen to retry"); }
     }
 
     thumb(item, className = "dr-scan-thumb", candidate = selected(item), captured = false) {
@@ -1071,7 +1086,9 @@ window.DropRateScanner = (() => {
       const wrap = node("div", className);
       const image = node("img"); image.alt = captured ? "Your scanned photo" : name({...item, selected: candidate});
       image.addEventListener("error", () => { image.hidden = true; });
-      wrap.append(node("span", "dr-scan-image-placeholder", captured ? "Photo cleared" : "Loading reference image…"), image);
+      const captureLabel = node("span", "dr-scan-capture-label", "Scan photo");
+      captureLabel.hidden = !captured;
+      wrap.append(node("span", "dr-scan-image-placeholder", captured ? "Photo cleared" : "Loading reference image…"), image, captureLabel);
       if (captured || item.status === "processing") { if (item.photo) image.src = item.photo; else image.hidden = true; }
       else this.artwork(image, item, candidate);
       return wrap;

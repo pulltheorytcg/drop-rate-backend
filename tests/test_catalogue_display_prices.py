@@ -89,6 +89,48 @@ def test_cached_reference_price_and_identity_take_precedence_over_alias_fallback
 
 
 @pytest.mark.asyncio
+async def test_page_shared_price_fetches_only_number_matched_ids_including_padded_siblings():
+    from app import catalogue_display_prices as display
+    ids = [uuid4(), uuid4(), uuid4()]
+    products = [dict(id=ids[0], card_number="OP04-083", product_type="CARD"),
+                dict(id=ids[1], card_number="OP4-83", product_type="CARD"),
+                dict(id=ids[2], card_number="OP04-084", product_type="CARD")]
+    calls = []
+    class Connection:
+        async def fetch(self, sql, *args):
+            calls.append(sql)
+            if sql == display.PAGE_IDS_SQL:
+                assert "OP04083" in args[0] and "OP483" in args[0]
+                return products
+            if sql == display.PRODUCTS_SQL:
+                assert list(args[0]) == ids[:2]
+                return products[:2]
+            raise AssertionError("Page lookup must never read every catalogue product")
+    found = await display._page_products(Connection(), [dict(product_type="CARD",card_number="OP04-083")])
+    assert [p['id'] for p in found] == ids[:2]
+    assert calls == [display.PAGE_IDS_SQL, display.PRODUCTS_SQL]
+
+
+@pytest.mark.asyncio
+async def test_legacy_58_102_does_not_price_any_unrelated_number_58():
+    from app import catalogue_display_prices as display
+    ids = [uuid4(), uuid4()]
+    legacy = dict(id=ids[0], product_type='CARD', game='Pokemon',
+                  name='Pikachu', set_name='Base Set (Unlimited)',
+                  card_number='58', variant='Normal', rarity='Common', language='English')
+    unrelated = dict(legacy, id=ids[1], name='Other')
+    class Connection:
+        async def fetch(self, sql, *args):
+            if sql == display.PAGE_IDS_SQL:
+                assert '58' in args[0]
+                return [legacy,unrelated]
+            assert sql == display.PRODUCTS_SQL
+            return [legacy,unrelated]
+    found = await display._page_products(Connection(), [dict(card_number='58/102')])
+    assert [p['id'] for p in found] == [ids[0]]
+
+
+@pytest.mark.asyncio
 async def test_book_only_page_without_card_number_still_resolves_book_price(monkeypatch):
     from app import catalogue_display_prices as display
     book = dict(catalogue_id=uuid4(), product_type='COMIC', card_number=None)

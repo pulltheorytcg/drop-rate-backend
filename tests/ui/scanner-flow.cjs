@@ -124,6 +124,21 @@ async function matched(scanner, quantity = 1) {
     assert.match(proxyCalls[0],/\/api\/v1\/recognition\/runs\/run-1\/candidates\/candidate-1\/image/);
     f.finish();checks++;
   }
+  // Missing exact art shows only the user's clearly marked temporary scan,
+  // never silently presents it as approved catalogue or Shopify imagery.
+  {
+    const f=fixture('seller',async()=>result());
+    const s=f.scanner;await s.recognise('data:image/jpeg;base64,AA==');
+    const item=s.items[0];
+    const wrap=s.thumb(item,'dr-scan-thumb',{source_kind:'CATALOGUE',candidate_snapshot:{name:'No art'}});
+    const image=wrap.querySelector('img'),label=wrap.querySelector('.dr-scan-capture-label');
+    assert.equal(image.src,'data:image/jpeg;base64,AA==');
+    assert.equal(label.hidden,false);
+    assert.equal(label.textContent,'Scan photo');
+    assert.match(image.title,/not verified catalogue artwork/);
+    assert.equal(item.selected?.r2_image_url,undefined);
+    f.finish();checks++;
+  }
   // A PSA slab photographed under Auto must never display a raw-card price or
   // become ready to save without checking its grader, certificate and grade.
   {
@@ -840,7 +855,9 @@ async function matched(scanner, quantity = 1) {
     } : {items:[]});
     f.scanner.setMode('GRADED');await f.scanner.recognise('photo');const item=f.scanner.items[0];
     assert.equal(item.grade,'10');assert.equal(item.certificate_number,'130649012');assert.equal(item.suggested,null);
-    const lookup=f.calls.find(c=>c.url.includes('/products?'));const params=new URL(lookup.url,'https://test').searchParams;
+    const lookup=f.calls.find(c=>c.url.includes('/slab-suggestions?'));assert.ok(lookup);
+    assert.ok(!f.calls.some(c=>c.url.includes('/products?')),'Slab labels must not load the priced catalogue browser');
+    const params=new URL(lookup.url,'https://test').searchParams;
     assert.equal(params.get('slab_name'),'Mega Charizard X ex');assert.equal(params.get('language'),'Japanese');
     assert.equal(lookup.signal,f.calls.find(c=>c.url.endsWith('/scan')).signal,'The deadline covers catalogue read too');
     f.scanner.openDetails(item);assert.equal(f.scanner.details.querySelector('[aria-label="Grade"]').value,'10');

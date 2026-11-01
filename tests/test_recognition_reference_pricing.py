@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.recognition import _candidate_review_payload, _run_payload
+from app.recognition import _add_shared_candidate_prices, _candidate_review_payload, _run_payload
 from app.catalogue_coverage import coverage_summary
 
 
@@ -16,6 +16,43 @@ def test_market_status_distinguishes_guide_from_exact_sale():
         assert result["catalogue_id"] is None
     assert _candidate_review_payload({**base, "market_value_minor": 132, "market_value_source": "STORED_SNAPSHOT"})["pricing_status"] == "AVAILABLE"
     assert _candidate_review_payload({**base, "market_value_minor": None, "market_value_source": "TCGDEX_CARDMARKET"})["pricing_status"] == "NO_VERIFIED_VALUATION"
+
+
+@pytest.mark.asyncio
+async def test_recognition_reuses_only_exact_card_reference_as_display_guide(monkeypatch):
+    from app import recognition
+
+    card_id = uuid4()
+    graded_id = uuid4()
+    queries = []
+
+    async def fake_shared_prices(_connection, rows, *, product_type):
+        queries.append((rows, product_type))
+        return {"c:" + str(card_id): {"shared_price": {
+            "status": "REFERENCE_ESTIMATE",
+            "label": "Near-mint reference",
+            "market_value_minor": 125,
+            "physical_valuation_eligible": False,
+            "recommended_retail_minor": None,
+        }}}
+
+    monkeypatch.setattr(recognition, "read_shared_prices", fake_shared_prices)
+    candidates = [
+        {"catalogue_id": card_id, "source_kind": "CATALOGUE", "market_value_minor": None,
+         "candidate_snapshot": {"card_number": "OP04-083", "name": "Sabo"}},
+        {"catalogue_id": graded_id, "source_kind": "CATALOGUE", "market_value_minor": None,
+         "candidate_snapshot": {"card_number": "OP04-083", "product_type": "GRADED"}},
+        {"catalogue_id": None, "source_kind": "PROVIDER", "market_value_minor": None,
+         "candidate_snapshot": {"card_number": "OP04-083"}},
+    ]
+    output = await _add_shared_candidate_prices(object(), candidates)
+    assert len(queries) == 1
+    assert queries[0][1] == "CARD"
+    assert [row["catalogue_id"] for row in queries[0][0]] == [card_id]
+    assert output[0]["shared_price"]["market_value_minor"] == 125
+    assert output[0]["market_value_minor"] is None
+    assert output[1].get("shared_price") is None
+    assert output[2].get("shared_price") is None
 
 
 @pytest.mark.asyncio
