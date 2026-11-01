@@ -549,7 +549,8 @@ window.DropRateScanner = (() => {
     }
 
     close({userExit=false}={}) {
-      if (this.saving || this.editBusy || !this.dialog.open) return;
+      if (this.saving || this.editBusy) return;
+      const wasOpen = Boolean(this.dialog.open);
       this.closeDetails();
       this.stopCamera();
       this.dialog.close();
@@ -558,7 +559,7 @@ window.DropRateScanner = (() => {
       // An internal transition into comic/manga review or saved inventory
       // must NOT act like the user tapped Close. Only explicit close/cancel
       // leaves mobile Scan for Home.
-      if (userExit) this.options.onClose?.();
+      if (userExit && wasOpen) this.options.onClose?.();
     }
 
     destroy() {
