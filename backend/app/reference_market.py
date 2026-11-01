@@ -284,6 +284,28 @@ def price_view(key: str, quotes: list[dict], *, now: datetime) -> dict:
             "market_quotes": current, "market_refresh_needed": False}
 
 
+async def read_cached_reference_prices(pool, user_id, request_id, keys: list[str]) -> list[dict]:
+    """Read existing exact-reference quotes only; a browse must never call providers.
+
+    Background maintenance owns collection and persistence of new evidence.
+    This keeps the old /market-values request shape safe for cached clients.
+    """
+    async with user_connection(pool, user_id, request_id) as connection:
+        references = [dict(row) for row in await connection.fetch(READ_SQL, keys)]
+    now = datetime.now(timezone.utc)
+    by_key = {}
+    for reference in references:
+        view = price_view(reference["key"], reference.get("quotes") or [], now=now)
+        identity = {field: reference[field] for field in ("name", "set_id", "card_number", "set_name")}
+        fallback = [quote for quote in reference.get("catalogue_quotes") or []
+                    if quote.get("source") == CATALOGUE_SOURCE
+                    and quote.get("reference_identity") == identity]
+        if view["market_value_minor"] is None and fallback:
+            view.update(price_view(reference["key"], fallback + view["market_quotes"], now=now))
+        by_key[reference["key"]] = view
+    return [by_key[key] for key in dict.fromkeys(keys) if key in by_key]
+
+
 async def fetch_quotes(client, reference, fx, *, now):
     # Never fetch a caller-supplied URL. Exact IDs come from the master catalogue.
     locale = LOCALES[reference["language"]]
