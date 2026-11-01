@@ -66,6 +66,73 @@ class Connection:
 
 
 @pytest.mark.asyncio
+async def test_startup_prewarm_uses_existing_rls_actor_and_never_waits_for_r2(monkeypatch):
+    from uuid import uuid4
+    manifest, raw = fixture()
+    state = dict(generation=1, published_generation=1, manifest=manifest)
+    started = asyncio.Event()
+    release = asyncio.Event()
+    actor = str(uuid4())
+    calls = []
+
+    @asynccontextmanager
+    async def scoped_connection(pool, user_id, request_id, *, readonly_snapshot=False):
+        assert pool == 'existing-api-pool'
+        assert user_id == actor
+        assert request_id == 'catalogue-startup-prewarm'
+        assert readonly_snapshot is True
+        calls.append('rls')
+        yield Connection(state)
+
+    async def slow_r2_download(*args):
+        started.set()
+        await release.wait()
+        return live.assemble(manifest, [raw])
+
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED','true')
+    monkeypatch.setattr(live,'_current',None)
+    monkeypatch.setattr(live,'_loading',None)
+    monkeypatch.setattr(live,'user_connection',scoped_connection)
+    monkeypatch.setattr(live,'configured_object_storage',lambda: object())
+    monkeypatch.setattr(live,'download',slow_r2_download)
+    assert await live.prewarm('existing-api-pool',actor) is True
+    await asyncio.wait_for(started.wait(),1)
+    assert calls == ['rls']
+    assert live._current is None, 'Startup must not wait for R2 downloads'
+    release.set()
+    await live._loading
+    assert live._current.generation == 1
+    assert (1,live.datetime.now(live.timezone.utc).date()) in live._browse_cache
+
+
+@pytest.mark.asyncio
+async def test_startup_prewarm_is_optional_and_fails_open_to_authorised_sql(monkeypatch):
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED','false')
+    async def forbidden_connection(*args,**kwargs):
+        raise AssertionError('Disabled cache must not open database connections')
+    monkeypatch.setattr(live,'user_connection',forbidden_connection)
+    assert await live.prewarm(object(),'maintenance-actor') is False
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED','true')
+    assert await live.prewarm(object(),None) is False
+
+    @asynccontextmanager
+    async def unavailable_connection(*args,**kwargs):
+        raise OSError('Network temporarily unavailable')
+        yield
+    monkeypatch.setattr(live,'user_connection',unavailable_connection)
+    assert await live.prewarm(object(),'maintenance-actor') is False
+
+
+def test_api_boot_requests_optional_prewarm_without_holding_readiness():
+    from pathlib import Path
+    main=(Path(__file__).resolve().parents[1]/'backend/app/main.py').read_text()
+    assert "catalogue_r2_live.enabled('DELIVERY')" in main
+    assert 'settings.catalogue_maintenance_actor_user_id' in main
+    assert 'maintenance_tasks.append(asyncio.create_task(' in main
+    assert 'catalogue_r2_live.prewarm(' in main
+
+
+@pytest.mark.asyncio
 async def test_full_value_sort_keeps_live_sql_without_a_whole_catalogue_bind():
     from app.catalogue_browser import product_query
     from uuid import uuid4

@@ -329,6 +329,31 @@ async def read(connection):
         return None
 
 
+async def prewarm(pool, maintenance_actor_user_id: str | None) -> bool:
+    """Start verified owner-free R2 catalogue loading before the first visitor.
+
+    The short publication lookup runs under the existing maintenance actor's
+    normal RLS context. The potentially expensive R2 download/index build is
+    already launched by read() off the customer transaction. This is best
+    effort: cold readers still retain the normal live SQL fallback.
+    """
+    if not enabled('DELIVERY') or not maintenance_actor_user_id:
+        return False
+    try:
+        async with user_connection(
+            pool, maintenance_actor_user_id, 'catalogue-startup-prewarm',
+            readonly_snapshot=True,
+        ) as connection:
+            await read(connection)
+        log.info('CATALOGUE_R2_STARTUP_PREWARM_REQUESTED')
+        return True
+    except Exception as exc:
+        # A cache warm-up must never turn an otherwise healthy API into a
+        # startup failure. Requests retain live SQL and RLS enforcement.
+        log.warning('CATALOGUE_R2_STARTUP_PREWARM_FALLBACK type=%s', type(exc).__name__)
+        return False
+
+
 async def fetch(connection, query, params, snapshot, **scope):
     from .catalogue_browser import REFERENCE_VALUES_CTE
     if REFERENCE_VALUES_CTE in query:
