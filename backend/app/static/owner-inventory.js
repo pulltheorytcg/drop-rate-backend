@@ -217,6 +217,134 @@ window.DropRateInventory = (() => {
     finally { if (alive(rev, owner)) trigger.disabled = false; }
   }
 
+  function renderComicPreparation(item) {
+    const section = el("section", "owner-comic-preparation owner-item-section");
+    section.dataset.comicPreparation = "true";
+    section.append(el("h3", "", "Prepare your comic for Shopify"),
+      el("p", "owner-item-note", "Tell Drop Rate where this exact copy is held, what you paid and the measured parcel size. Staff must verify the details and approve the photos before anything is listed."));
+    const prep = item.comic_listing_preparation || {};
+    const fields = el("div", "owner-comic-preparation-fields");
+    const field = (caption, type, key, options = {}) => {
+      const label = el("label", "", caption), input = el(type === "textarea" ? "textarea" : "input");
+      if (type !== "textarea") input.type = type;
+      input.dataset.comicField = key;
+      if (options.min != null) input.min = String(options.min);
+      if (options.max != null) input.max = String(options.max);
+      if (options.step != null) input.step = String(options.step);
+      if (options.placeholder) input.placeholder = options.placeholder;
+      if (type === "textarea") input.rows = 2;
+      input.value = options.value ?? "";
+      label.append(input); fields.append(label);
+      return input;
+    };
+    const locationLabel = el("label", "", "Where is this copy held?"), location = el("select");
+    location.dataset.comicField = "holding";
+    [["", "Choose where it is held"], ["SELLER_HELD", "With me — I will dispatch it"],
+      ["DROP_RATE_HELD", "Already with Drop Rate — staff to verify"]].forEach(([value, title]) => {
+      const option = el("option", "", title); option.value = value; location.append(option);
+    });
+    location.value = prep.holding || ""; locationLabel.append(location); fields.append(locationLabel);
+    const dispatch = field("Dispatch / holding notes", "textarea", "dispatch_note",
+      {value:prep.dispatch_note || "", placeholder:"e.g. London, ready to dispatch — no full home address needed"});
+    dispatch.maxLength = 200;
+    const reportedCost = prep.acquisition_cost_minor ?? item.comic_acquisition_cost_minor;
+    const cost = field("What you paid (£) — for staff confirmation", "number", "cost", {min:0,max:1000000,step:0.01,
+      value:reportedCost == null ? "" : (reportedCost / 100).toFixed(2)});
+    const weight = field("Packed weight (g)", "number", "weight", {min:1,max:100000,step:1,
+      value:prep.parcel_weight_grams ?? ""});
+    const length = field("Parcel length (mm)", "number", "length", {min:1,max:10000,step:1,
+      value:prep.parcel_length_mm ?? ""});
+    const width = field("Parcel width (mm)", "number", "width", {min:1,max:10000,step:1,
+      value:prep.parcel_width_mm ?? ""});
+    const height = field("Parcel height (mm)", "number", "height", {min:1,max:10000,step:1,
+      value:prep.parcel_height_mm ?? ""});
+    section.append(fields);
+    const save = button("Save preparation details", () => {
+      if (!location.value) {status("Choose where this physical comic is held.", true);location.focus();return;}
+      const number = (input, scale = 1) => {
+        if (!input.value.trim()) return null;
+        const numeric = Number(input.value);
+        if (!input.checkValidity() || !Number.isFinite(numeric) || numeric <= (scale === 100 ? -1 : 0))
+          throw new Error("Check the cost and parcel measurements before saving.");
+        return Math.round(numeric * scale);
+      };
+      let values;
+      try {
+        values = {version:item.version,holding:location.value,dispatch_note:dispatch.value.trim(),
+          acquisition_cost_minor:number(cost,100),parcel_weight_grams:number(weight),
+          parcel_length_mm:number(length),parcel_width_mm:number(width),parcel_height_mm:number(height)};
+      } catch (error) {status(error.message,true);return;}
+      run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/comic-preparation`,
+        {method:"PATCH",body:JSON.stringify(values)}));
+    }, "owner-primary-action");
+    save.disabled = !active(item);
+    section.append(save, el("p", "owner-item-note", "Parcel measurements are for review, not an approved shipping rate. Drop Rate will confirm the COMIC_BOOK or MANGA_BOOK shipping profile."));
+
+    const photos = el("div", "owner-comic-photo-section");
+    photos.append(el("h4", "", "Photographs of your exact copy"),
+      el("p", "owner-item-note", "Upload a clear front cover. Include the back for a graded comic; an ungraded back is helpful too. Catalogue covers and scanner snapshots are not listing photos."));
+    const graded = Boolean(item.grading_company && item.grade);
+    for (const side of ["FRONT", "BACK"]) {
+      const assets = (item.comic_photos || []).filter(asset => asset.side === side);
+      const latest = assets[assets.length - 1], row = el("div", "owner-comic-photo-row");
+      const label = el("strong", "", `${side === "FRONT" ? "Front cover" : "Back cover"}${side === "BACK" && !graded ? " (recommended)" : " (required)"}`);
+      row.append(label);
+      if (latest?.approval_status === "APPROVED") {
+        row.append(el("p", "owner-item-note", "Approved by Drop Rate for this exact copy."));
+      } else if (latest?.approval_status === "PENDING") {
+        row.append(el("p", "owner-item-note", latest.shopify_file_status === "READY"
+          ? "Photo submitted — awaiting staff review."
+          : "Photo submitted — processing for staff review."));
+      } else {
+        if (latest?.approval_status === "REJECTED") row.append(el("p", "owner-comic-retake-reason",
+          "Retake requested: " + (latest.retake_reason || "Please submit a clearer photo.")));
+        const file = el("input"); file.type = "file"; file.accept = "image/jpeg,image/png,image/webp";
+        file.setAttribute("aria-label", `Choose ${side.toLowerCase()} comic photo`);
+        const fileLabel = el("label", "", `Choose ${side.toLowerCase()} photo`); fileLabel.append(file);
+        const rightsLabel = el("label", "owner-comic-rights", ""), rights = el("input");
+        rights.type = "checkbox";
+        rightsLabel.append(rights, el("span", "", "This is my own photograph, or I am authorised to use it."));
+        const upload = button(latest ? "Resubmit photo" : "Submit photo for review", () => {
+          const selectedFile = file.files?.[0];
+          if (!selectedFile || !["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)
+              || selectedFile.size < 1 || selectedFile.size > 12 * 1024 * 1024) {
+            status("Choose one JPG, PNG or WebP photo up to 12 MB.", true); file.focus(); return;
+          }
+          if (!rights.checked) {status("Confirm that you own or can use this photograph.",true);rights.focus();return;}
+          const owner = account(), rev = revision;
+          run(async () => {
+            const staged = await apiRequest(`/api/v1/owner/inventory/${item.id}/comic-photo/upload-target`,
+              {method:"POST",body:JSON.stringify({side,filename:selectedFile.name,mime_type:selectedFile.type,file_size:selectedFile.size})});
+            if (!alive(rev, owner)) throw new Error("Account or item changed before the photo was uploaded.");
+            const form = new FormData();
+            (staged.target.parameters || []).forEach(part => form.append(part.name,part.value));
+            form.append("file",selectedFile);
+            const uploaded = await fetch(staged.target.url,{method:"POST",body:form});
+            if (!uploaded.ok) throw new Error("Photo transfer failed. Please retry; nothing was published.");
+            if (!alive(rev, owner)) throw new Error("Account or item changed before confirmation.");
+            return apiRequest(`/api/v1/owner/inventory/${item.id}/comic-photo/complete`,
+              {method:"POST",body:JSON.stringify({ticket:staged.ticket,rights_confirmed:true})});
+          });
+        }, "owner-secondary-action");
+        upload.disabled = !active(item);
+        row.append(fileLabel,rightsLabel,upload);
+      }
+      if (latest?.photo_url) {
+        try {
+          const url = new URL(latest.photo_url);
+          if (url.protocol === "https:" && (url.hostname === "cdn.shopify.com" || url.hostname.endsWith(".shopifycdn.com") || url.hostname.endsWith(".shopifycdn.net"))) {
+            const preview = el("img", "owner-comic-photo-preview"); preview.src = url.href;
+            preview.alt = `${side.toLowerCase()} submitted comic photograph`; preview.loading = "lazy";
+            row.append(preview);
+          }
+        } catch (_) { /* Never render an arbitrary submitted image URL. */ }
+      }
+      photos.append(row);
+    }
+    section.append(photos,el("p", "owner-item-note", "Submitting this evidence cannot approve a comic or publish it. Drop Rate will confirm identity, condition, intake, shipping and photography."));
+    return section;
+  }
+
   function render(data) {
     const item = data.item, copies = data.copies || [];
     const sellingOpen = content.querySelector(".owner-item-selling")?.open === true;
@@ -284,7 +412,7 @@ window.DropRateInventory = (() => {
     const publishedOnShopify=item.shopify_state==="PUBLISHED";
     const approvedForSale=item.status==="APPROVED" && item.sale_intent==="FOR_SALE";
     const sale = el("details", "owner-item-section owner-item-selling");
-    sale.open = sellingOpen;
+    sale.open = sellingOpen || (item.product_type === "COMIC" && item.sale_intent === "FOR_SALE");
     sale.append(el("summary", "", publishedOnShopify ? "Manage listing" : "Sell this item"));
     sale.append(el("p", "owner-item-note", "Choose a price and condition when you’re ready to sell."));
     if (item.product_type === "CARD" && item.ebay_preparation) {
@@ -306,6 +434,7 @@ window.DropRateInventory = (() => {
       sale.append(checklist);
     }
     sale.append(recommendationNote);
+    if (item.product_type === "COMIC") sale.append(renderComicPreparation(item));
     let saleCondition;
     if (["CARD", "COMIC"].includes(item.product_type) && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
       const label = el("label", "", "Condition when selling"); saleCondition = el("select");

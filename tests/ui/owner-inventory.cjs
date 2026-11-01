@@ -143,6 +143,55 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.run(`window.testShopifyError=errorMessage({detail:{message:'Inventory is not eligible for Shopify publication',
     missing:['APPROVED status','identity confirmation']}})`);
   assert.match(f.w.testShopifyError,/APPROVED status; identity confirmation/);
+  const section=f.w.document.querySelector('[data-comic-preparation="true"]');
+  assert.ok(section,'The comic seller must have an in-app preparation form');
+  assert.match(section.textContent,/where this exact copy is held/);
+  assert.match(section.textContent,/Photographs of your exact copy/);
+  assert.match(section.textContent,/not an approved shipping rate/);
+  assert.equal(f.w.document.querySelector('.owner-item-selling').open,true);
+  await click(f.w,'Save preparation details');
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/where this physical comic is held/);
+  assert.equal(f.calls.filter(c=>c.method==='PATCH').length,0);
+  f.finish();checks++;
+ }
+ {
+  const comic={...item,product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',
+   condition:'Mint',seal_status:null,store_price_minor:1500,comic_acquisition_cost_minor:null,comic_photos:[]};
+  const f=fixture(comic); await f.open();
+  const input=key=>f.w.document.querySelector(`[data-comic-field="${key}"]`);
+  input('holding').value='SELLER_HELD';input('dispatch_note').value='London, dispatch on request';
+  input('cost').value='7.25';input('weight').value='190';input('length').value='320';
+  input('width').value='240';input('height').value='18';
+  await click(f.w,'Save preparation details');
+  const sent=f.calls.find(c=>c.url.endsWith('/comic-preparation')&&c.method==='PATCH');
+  assert.ok(sent);assert.deepEqual(JSON.parse(sent.body),{version:3,holding:'SELLER_HELD',
+   dispatch_note:'London, dispatch on request',acquisition_cost_minor:725,
+   parcel_weight_grams:190,parcel_length_mm:320,parcel_width_mm:240,parcel_height_mm:18});
+  assert.equal(f.calls.filter(c=>c.url.includes('/channels/shopify/sync')).length,0);
+  f.finish();checks++;
+ }
+ {
+  const comic={...item,product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',condition:'Mint',
+   seal_status:null,store_price_minor:1500,comic_photos:[{id:'rejected',side:'FRONT',
+    approval_status:'REJECTED',retake_reason:'Glare hides the printing'}]};
+  const f=fixture(comic); await f.open();
+  const front=f.w.document.querySelector('.owner-comic-photo-row');
+  assert.match(front.textContent,/Retake requested: Glare hides the printing/);
+  assert.ok(btn(f.w,'Resubmit photo'));assert.equal(f.calls.filter(c=>c.method).length,0);
+  const file=new f.w.File(['photo bytes'],'cover.jpg',{type:'image/jpeg'});
+  Object.defineProperty(front.querySelector('input[type="file"]'),'files',{configurable:true,value:[file]});
+  front.querySelector('input[type="checkbox"]').checked=true;
+  f.setHandler(async(url,options={})=>{
+   if(url.endsWith('/comic-photo/upload-target'))return {target:{url:'https://upload.test/target',parameters:[]},ticket:'signed-test-ticket'};
+   if(url.endsWith('/comic-photo/complete'))return {asset:{approval_status:'PENDING'},message:'Photo received for staff review'};
+   return {item:comic,copies:[comic]};
+  });
+  await click(f.w,'Resubmit photo');
+  const stage=f.calls.find(c=>c.url.endsWith('/comic-photo/upload-target'));
+  const complete=f.calls.find(c=>c.url.endsWith('/comic-photo/complete'));
+  assert.ok(stage&&complete);assert.equal(JSON.parse(stage.body).side,'FRONT');
+  assert.deepEqual(JSON.parse(complete.body),{ticket:'signed-test-ticket',rights_confirmed:true});
+  assert.equal(f.calls.filter(c=>c.url.includes('/channels/shopify/sync')).length,0);
   f.finish();checks++;
  }
  for(const change of ['refresh','account','logout']){

@@ -81,6 +81,8 @@ from .shopify_client import ShopifyApiError
 from .shopify_catalogue_bootstrap import run_shopify_catalogue_bootstrap
 from .shopify_linked_draft_reconciliation import run_linked_draft_reconciliation
 from .shopify_pipeline import router as shopify_pipeline_router
+from .comic_listing_preparation import router as comic_listing_preparation_router
+from .comic_photo_review import router as comic_photo_review_router
 from .shopify_pooling import router as shopify_pooling_router
 from .shopify_published_pooling import router as shopify_published_pooling_router
 from .shopify_readiness import router as shopify_readiness_router
@@ -118,7 +120,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/recognition-scanner.js?v=shared-value-v1" defer></script>',
         '<script src="/assets/reference-library.js?v=2" defer></script>',
         '<script src="/assets/shopify-settings.js?v=comic-photo-20261101" defer></script>',
-        '<script src="/assets/media-condition.js" defer></script>',
+        '<script src="/assets/media-condition.js?v=comic-photo-review-20261101" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/reference-value-display.js?v=catalogue-history-v1" defer></script>',
@@ -430,6 +432,7 @@ def create_app() -> FastAPI:
     app.include_router(founder_accounts_router)
     app.include_router(seller_channel_sync_router)
     app.include_router(owner_inventory_router)
+    app.include_router(comic_listing_preparation_router)
     app.include_router(owner_books_router)
     app.include_router(book_recognition_router)
     app.include_router(owner_csv_imports_router)
@@ -481,6 +484,7 @@ def create_app() -> FastAPI:
     app.include_router(competitive_intelligence_automation_router)
     app.include_router(shopify_router)
     app.include_router(shopify_pipeline_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(comic_photo_review_router)
     app.include_router(shopify_pooling_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_published_pooling_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_readiness_router, dependencies=[Depends(require_platform_admin_request)])
