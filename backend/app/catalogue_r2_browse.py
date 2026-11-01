@@ -165,10 +165,10 @@ def _compose_indexed_sql(query, params, rows, *, dynamic=False, market=None):
     tail=query[len(SOURCE_CTE):]
     if not dynamic and "selected_page as materialized (" not in tail:
         raise ValueError("R2 browse requires a static-sort selected page")
-    if dynamic and len(rows)>2000:
-        # Legacy large-population transport. The proven value shortlist below
-        # instead uses one compact JSON object and the verified R2 market rows.
-        # No scoped shortcut may silently drop candidates or change ranking.
+    if dynamic and market is None:
+        # Keep the established full-population transport untouched for callers
+        # without verified R2 market evidence. The proven bounded shortlist
+        # uses compact JSON only alongside a current, verified market snapshot.
         args=list(params)
         arrays=[]
         for name,kind in _STATIC_COLUMNS:
