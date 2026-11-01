@@ -16,6 +16,10 @@ MAX_SHORTLIST = 1800
 EDGE_WINDOW = timedelta(minutes=3)
 
 
+class PriceExpiryBoundary(ValueError):
+    """An expiry-adjacent candidate must be retained for PostgreSQL."""
+
+
 def _quote(record):
     if record is None:
         return {}
@@ -47,7 +51,7 @@ def _recent(record, days, now):
     # The database compares to its own clock. Never short-list around the
     # cutoff if the two clocks could disagree.
     if abs(parsed - boundary) < EDGE_WINDOW:
-        raise ValueError("Price expiry boundary needs original SQL")
+        raise PriceExpiryBoundary("Price expiry boundary needs original SQL")
     return parsed >= boundary
 
 
@@ -110,7 +114,13 @@ def complete_shortlist(rows, market, *, wanted, descending=True, shared_keys=(),
         if row.get("catalogue_id") is not None or row["key"] in aliases or row["source_kind"] == "CATALOGUE":
             fixed.append(row)
             continue
-        score = reference_value(row, market, now)
+        try:
+            score = reference_value(row, market, now)
+        except PriceExpiryBoundary:
+            # Either side of the 7-day / 2-day cutoff could be correct as
+            # clocks advance. Retain this identity, then let live SQL decide.
+            fixed.append(row)
+            continue
         if score is not None:
             if type(score) is not int:
                 raise ValueError("Non-integer market price")
