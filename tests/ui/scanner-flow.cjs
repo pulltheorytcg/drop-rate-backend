@@ -80,7 +80,7 @@ async function matched(scanner, quantity = 1) {
     f.w.matchMedia=()=>({matches:true});
     await f.scanner.open('RAW',{preferCamera:true});
     assert.equal(f.scanner.find('.dr-scan-file').disabled,true);
-    assert.match(f.scanner.find('.dr-scan-status').textContent,/Camera unavailable in this browser/);
+    assert.match(f.scanner.find('.dr-scan-status').textContent,/Camera unavailable.*Start camera/);
     assert.doesNotMatch(f.scanner.find('.dr-scan-status').textContent,/Choose a photo/);
     f.finish();checks++;
   }
