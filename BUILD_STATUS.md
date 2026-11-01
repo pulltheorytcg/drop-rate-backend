@@ -1,3 +1,12 @@
+## 1 November 2026 — Mobile Scan-only release verification (Deployed, iPhone smoke pending)
+
+- **Merged:** PR #852 (https://github.com/pulltheorytcg/drop-rate-backend/pull/852), squash commit `b868ef3dea619087b6ee4bad7e126b4cf497a3c5`. Applies to Founder HQ and Seller Hub mobile Scan only. Desktop photo uploads are unchanged.
+- **GitHub release checks:** Six workflows completed successfully: Backend checks, Collection-first confirmation, Shared inventory images, Shared inventory reference consistency, Immediate owner imports and Seller inventory persistence.
+- **Railway deployment:** `6c69c404-28f4-4ebc-809e-8c5c9006b0d1` on production `drop-rate-api-live` was `SUCCESS` at 2026-11-01 02:25 UTC, matching commit `b868ef3`. The deployment pre-check reported `8665 passed, 25 skipped`; `/health/ready`, `/owner` and `/assets/scanner-flow.js?v=catalogue-history-v1` subsequently returned HTTP 200 in deploy/runtime logs.
+- **Environment snapshot:** 8 Railway services, zero recent failures and no services with issues at the verification check. Scanner navigation and gallery rules are client-side; this state does not prove every phone/browser layout.
+- **Outstanding real-device acceptance:** Founder and seller mobile: tap Scan → full-screen live camera; scan/confirm/review; close → Home, not upload page; reopen with same RAW/GRADED/SEALED mode and unsaved queue; launch from Search and close without route change; failed camera permission remains in scanner with retry; desktop upload remains available. A real iPhone smoke is still **UNKNOWN**; do not mark `Live verified` until checked.
+- **No impact:** No DB migration, RLS/policy change, new service, pricing calculation, inventory or Shopify write, payment or provider subscription. Roll back by reverting PR #852 if camera permission, navigation, session isolation or saving regresses.
+
 ## 1 November 2026 — Mobile scanner-only navigation and exit cleanup (in review)
 
 - **User issue:** On iPhone, closing the full-screen scanner exposed the older card-photo upload form. The application carried two overlapping scan interfaces, creating an unnecessary extra screen.
