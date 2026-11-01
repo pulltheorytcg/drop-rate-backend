@@ -1,3 +1,11 @@
+## 1 November 2026 — Warm verified R2 catalogue before the first customer browse (in review)
+
+- **What/why:** The R2 catalogue download and 75k-row in-memory browse index were started lazily by the first signed-in catalogue request after a Railway restart; cold users could fall back to expensive PostgreSQL queries. Reuse the existing authorised maintenance identity to start warming the shared R2 index during API startup, before a visitor reaches Search.
+- **Connection:** `main.py` schedules a best-effort `catalogue_r2_live.prewarm` task only with the current `TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED` gate and authorised `catalogue_maintenance_actor_user_id`. It runs the existing publication/version RLS check and verified R2 loader. Prices, ownership, mappings, exact identity, permissions and stock remain live in PostgreSQL.
+- **Safety/failure:** No database, price or Shopify writes; no new service or extra provider. Startup readiness is not blocked by a slow/missing R2 object; logged failures still fall back to the authorised SQL browse path. Download remains bounded and validated by existing R2 SHA-256 checks. Prewarming may compete briefly for I/O and CPU during a new deployment; monitor CPU, DB connections and readiness.
+- **Tests/release:** Test prewarm uses the existing RLS actor, returns without waiting for slow R2, warms the existing index when ready, and skips/handles unavailable dependencies. Run full backend, UI and real-PostgreSQL parity gates; inspect Railway deployment, cold-start logs and signed-in timings. A passing test does not establish a live speedup.
+- **Rollback:** Revert this PR and redeploy previous healthy API if startup resource pressure or catalogue failures increase. No migration or data rollback required.
+
 ## 1 November 2026 — Mobile Scan-only release verification (Deployed, iPhone smoke pending)
 
 - **Merged:** PR #852 (https://github.com/pulltheorytcg/drop-rate-backend/pull/852), squash commit `b868ef3dea619087b6ee4bad7e126b4cf497a3c5`. Applies to Founder HQ and Seller Hub mobile Scan only. Desktop photo uploads are unchanged.
