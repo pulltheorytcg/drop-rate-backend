@@ -26,6 +26,7 @@ class FakeR2:
     def __init__(self):
         self.objects = {}
         self.puts = 0
+        self.signs = 0
 
     def get_object(self, *, Bucket, Key):
         if Key not in self.objects:
@@ -41,8 +42,9 @@ class FakeR2:
 
     def generate_presigned_url(self, operation, *, Params, ExpiresIn):
         assert operation == 'get_object' and Params['Bucket'] == 'drop-rate-private'
-        assert ExpiresIn == 3600
-        return f"https://account.eu.r2.cloudflarestorage.com/drop-rate-private/{Params['Key']}?X-Amz-Signature=test"
+        assert 60 <= ExpiresIn <= 3600
+        self.signs += 1
+        return f"https://account.eu.r2.cloudflarestorage.com/drop-rate-private/{Params['Key']}?X-Amz-Signature=test-{self.signs}"
 
 
 @pytest.fixture
@@ -76,6 +78,46 @@ def test_private_media_roundtrip_is_idempotent_and_signed_by_exact_key(store):
             storage.signed_media_url(key)
     with pytest.raises(ObjectStorageError,match='lifetime'):
         storage.signed_media_url(receipt['key'],expires_seconds=86400)
+
+
+def test_signed_public_media_links_are_reused_briefly_and_never_past_expiry(monkeypatch,store):
+    from app import object_storage
+    storage, fake = store
+    clock = [1000.0]
+    monkeypatch.setattr(object_storage,'_media_sign_cache_clock',lambda:clock[0])
+    key='drop-rate/private-media/'+'a'*64+'.webp'
+
+    first=storage.signed_media_url(key)
+    clock[0]+=299
+    assert storage.signed_media_url(key)==first
+    assert fake.signs==1
+    clock[0]+=2
+    assert storage.signed_media_url(key)!=first
+    assert fake.signs==2
+    # The narrower expiry is independently signed and cached for only 30s.
+    short=storage.signed_media_url(key,expires_seconds=60)
+    assert fake.signs==3
+    clock[0]+=29
+    assert storage.signed_media_url(key,expires_seconds=60)==short
+    clock[0]+=2
+    assert storage.signed_media_url(key,expires_seconds=60)!=short
+    assert fake.signs==4
+
+
+def test_signed_link_cache_is_bounded_and_cannot_bypass_key_validation(monkeypatch,store):
+    from app import object_storage
+    storage, fake = store
+    monkeypatch.setattr(object_storage,'MEDIA_SIGN_CACHE_MAX_ENTRIES',2)
+    keys=['drop-rate/private-media/'+char*64+'.webp' for char in 'abc']
+    for key in keys:
+        storage.signed_media_url(key)
+    assert len(storage._signed_media_cache)==2
+    assert fake.signs==3
+    assert storage.signed_media_url(keys[0]) is not None
+    assert fake.signs==4, 'An evicted signed link must be minted again'
+    with pytest.raises(ObjectStorageError,match='unrecognised'):
+        storage.signed_media_url('drop-rate/private-media/not-an-image.webp')
+    assert fake.signs==4
 
 
 def test_preexisting_corrupt_mirror_is_never_overwritten(store):
@@ -128,6 +170,11 @@ def test_signed_row_strips_private_object_key_and_falls_back(monkeypatch,store):
 async def test_verified_mirror_batch_checks_source_and_rights_again_after_remote_io(monkeypatch,store):
     storage,_=store
     monkeypatch.setattr(r2_media,'configured_object_storage',lambda:storage)
+    # Test the byte-verification path without depending on executor threads in
+    # restricted CI/sandbox workers; concurrency is covered by worker tests.
+    async def inline_thread(function,*args,**kwargs):
+        return function(*args,**kwargs)
+    monkeypatch.setattr(r2_media.asyncio,'to_thread',inline_thread)
     scanned=[]
     candidate={'id':uuid4(),'public_source_url':'https://assets.tcgdex.net/en/base/card.png',
                'source_provider':'TCGdex','source_type':'LICENSED_PROVIDER'}
