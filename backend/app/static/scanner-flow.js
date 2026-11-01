@@ -14,6 +14,7 @@ window.DropRateScanner = (() => {
     element.addEventListener("click", action);
     return element;
   };
+  const mobileScannerOnly = () => Boolean(window.matchMedia?.("(max-width: 900px)")?.matches);
   const money = value => value == null ? "—" : new Intl.NumberFormat("en-GB", {
     style: "currency", currency: "GBP",
   }).format(value / 100);
@@ -357,7 +358,7 @@ window.DropRateScanner = (() => {
           close: () => this.close(), settings: () => { this.find(".dr-scan-settings").hidden = !this.find(".dr-scan-settings").hidden; },
           resume: () => this.startCamera(), switch: () => { this.facing = this.facing === "environment" ? "user" : "environment"; this.startCamera(); },
           torch: () => this.toggleTorch(), certificate: () => this.manualSlab(),
-          gallery: () => this.find(".dr-scan-file").click(), capture: () => this.capture(),
+          gallery: () => { if (!mobileScannerOnly()) this.find(".dr-scan-file").click(); }, capture: () => this.capture(),
           next: () => this.showReview(), back: () => this.startCamera(), save: () => this.saveAll(),
         };
         actions[control.dataset.action]();
@@ -554,6 +555,9 @@ window.DropRateScanner = (() => {
       this.dialog.close();
       document.body.classList.remove("dr-scanner-open");
       this.returnFocus?.focus();
+      // User-initiated close may leave an older scan-upload page underneath.
+      // Each workspace decides whether to leave its Scan tab on mobile.
+      this.options.onClose?.();
     }
 
     destroy() {
@@ -604,7 +608,9 @@ window.DropRateScanner = (() => {
       const revision = this.cameraRevision;
       this.status("Opening camera…");
       try {
-        if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera unavailable. Choose a photo below.");
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error(mobileScannerOnly()
+          ? "Live camera unavailable. Check browser camera permissions and retry."
+          : "Camera unavailable. Choose a photo below.");
         const stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {
           facingMode: {ideal: this.facing}, width: {ideal: 1920}, height: {ideal: 1080},
         }});
@@ -636,11 +642,13 @@ window.DropRateScanner = (() => {
         if (revision !== this.cameraRevision || !this.active()) return;
         this.stopCamera();
         const messages = {
-          NotAllowedError: "Allow camera access, or choose a photo below.",
-          NotFoundError: "No camera was found on this device. Choose a photo below to scan.",
-          NotReadableError: "Your camera is busy. Close other camera apps, retry, or choose a photo below.",
+          NotAllowedError: mobileScannerOnly() ? "Allow camera access in browser settings, then tap Start camera." : "Allow camera access, or choose a photo below.",
+          NotFoundError: mobileScannerOnly() ? "No camera found. Check device camera access and retry." : "No camera was found on this device. Choose a photo below to scan.",
+          NotReadableError: mobileScannerOnly() ? "Your camera is busy. Close other camera apps and retry." : "Your camera is busy. Close other camera apps, retry, or choose a photo below.",
         };
-        this.status(messages[error.name] || "Camera unavailable. Retry or choose a photo below to scan.");
+        this.status(messages[error.name] || (mobileScannerOnly()
+          ? "Camera unavailable. Tap Start camera to retry."
+          : "Camera unavailable. Retry or choose a photo below to scan."));
       }
     }
 
@@ -779,6 +787,7 @@ window.DropRateScanner = (() => {
 
     async upload(event, retryItem = null) {
       const file = event.target.files?.[0]; event.target.value = "";
+      if (mobileScannerOnly()) { this.status("Use the live scanner to capture your item."); return; }
       if (!file || this.atCapacity() || this.editBusy || (retryItem && !this.editable(retryItem))) return;
       const epoch = this.epoch;
       let url, prepared;
@@ -1079,7 +1088,7 @@ window.DropRateScanner = (() => {
         : "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
       this.find('[data-action="next"]').disabled = !this.items.length;
       this.find('[data-action="capture"]').disabled = this.atCapacity() || !this.stream;
-      this.find('[data-action="gallery"]').disabled = this.atCapacity();
+      this.find('[data-action="gallery"]').disabled = mobileScannerOnly() || this.atCapacity();
       this.dialog.querySelectorAll('[data-mode]').forEach(control => { control.disabled = this.processing || this.saving; });
       this.find('[data-action="certificate"]').disabled = this.processing || this.saving;
       if (this.view === "review") this.renderReview();
@@ -1248,7 +1257,7 @@ window.DropRateScanner = (() => {
       if (allCandidates.length > shortlist.length) content.append(button(edit.showAllCandidates ? "Show closest matches" : "Show other suggestions", () => {
         edit.showAllCandidates = !edit.showAllCandidates; this.renderDetails();
       }));
-      if (item.photo && this.editable(item)) {
+      if (item.photo && this.editable(item) && !mobileScannerOnly()) {
         const replacement = node("input"); replacement.type = "file"; replacement.hidden = true;
         replacement.accept = "image/jpeg,image/png,image/webp"; replacement.setAttribute("capture", "environment");
         replacement.addEventListener("change", event => this.upload(event, item));
