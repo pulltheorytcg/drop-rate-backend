@@ -1101,7 +1101,7 @@ window.DropRateScanner = (() => {
         : "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
       this.find('[data-action="next"]').disabled = !this.items.length;
       this.find('[data-action="capture"]').disabled = this.atCapacity() || !this.stream;
-      this.find('[data-action="gallery"]').disabled = this.atCapacity();
+      this.find('[data-action="gallery"]').disabled = this.mobileOnly() || this.atCapacity();
       this.dialog.querySelectorAll('[data-mode]').forEach(control => { control.disabled = this.processing || this.saving; });
       this.find('[data-action="certificate"]').disabled = this.processing || this.saving;
       if (this.view === "review") this.renderReview();
