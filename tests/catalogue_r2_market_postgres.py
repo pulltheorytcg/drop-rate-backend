@@ -12,7 +12,7 @@ import asyncpg
 
 from app import catalogue_r2_market as market, catalogue_r2_live as live
 from app.catalogue_browser import product_query
-from app.catalogue_r2_browse import build_browse_index, indexed_catalogue_query
+from app.catalogue_r2_browse import build_browse_index, indexed_catalogue_query, indexed_value_sql
 from app.catalogue_r2_navigation import owned_navigation
 from app.db import _init_connection
 from app import r2_reference_images as images
@@ -80,6 +80,16 @@ async def check(db):
                     original=[dict(r) for r in await db.fetch(query,*args)]
                     sql,params,_=indexed_catalogue_query(query,args,index,owned=owned,market=snapshot)
                     assert 'tcg.reference_market_prices' not in sql
+                    actual=[dict(r) for r in await db.fetch(sql,*params)]
+                    assert original==actual,(actor,options,original,actual)
+                # Value sorts must price the entire requested game's population
+                # before pagination, including owner-specific canonical values.
+                for value_sort in ('value_desc','value_asc'):
+                    options={'sort':value_sort,'system_code':'POKEMON_TCG',
+                             'language':'English','set_id':'cache-fixture'}
+                    query,args=product_query(owner_id=owner,limit=3,**options)
+                    original=[dict(r) for r in await db.fetch(query,*args)]
+                    sql,params=indexed_value_sql(query,args,index,filter_system=True)
                     actual=[dict(r) for r in await db.fetch(sql,*params)]
                     assert original==actual,(actor,options,original,actual)
         generation=snapshot.generation

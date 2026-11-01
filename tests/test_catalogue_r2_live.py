@@ -97,6 +97,37 @@ async def test_cold_read_returns_immediately_and_rechecks_generation_after_downl
     assert await live.read(connection) is None
     state['generation']=1
     assert (await live.read(connection)).generation==1
+    assert (1,live.datetime.now(live.timezone.utc).date()) in live._browse_cache
+
+
+@pytest.mark.asyncio
+async def test_system_filtered_value_sort_uses_complete_r2_candidate_set(monkeypatch):
+    from datetime import date
+    from uuid import uuid4
+    from app.catalogue_browser import product_query
+    from app.catalogue_r2_browse import build_browse_index
+    from test_catalogue_r2_browse import fixture as browse_fixture
+
+    idx=build_browse_index(browse_fixture(),today=date(2026,10,30))
+    query,args=product_query(owner_id=uuid4(),sort='value_desc',
+                             system_code='ONE_PIECE_CARD_GAME',limit=1)
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_EXTENDED_BROWSE_ENABLED','true')
+    monkeypatch.setattr(live,'browse_for',lambda _:idx)
+
+    class Conn:
+        def __init__(self):self.query=None;self.params=None
+        @asynccontextmanager
+        async def transaction(self):yield
+        async def fetchval(self,*args):return False
+        async def fetch(self,sql,*params):
+            self.query=sql;self.params=params
+            return ['bounded']
+
+    connection=Conn()
+    assert await live.fetch(connection,query,args,object())==['bounded']
+    assert 'unnest(' in connection.query
+    assert 'tcg.reference_cards' not in connection.query
+    assert len(connection.params)>len(args)
 
 
 @pytest.mark.asyncio

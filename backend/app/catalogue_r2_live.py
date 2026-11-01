@@ -18,12 +18,14 @@ import re
 import time
 from uuid import UUID, uuid4
 
+import asyncpg
+
 from .access_control import require_platform_admin
 from .db import user_connection
 from .object_storage import ObjectStorageError, configured_object_storage
 from .catalogue_r2_index import SharedReferenceIndex
 from .catalogue_r2_navigation import build_navigation, owned_navigation
-from .catalogue_r2_browse import build_browse_index, indexed_browse_sql, indexed_catalogue_query
+from .catalogue_r2_browse import build_browse_index, indexed_browse_sql, indexed_catalogue_query, indexed_value_sql
 
 log = logging.getLogger(__name__)
 
@@ -289,8 +291,15 @@ async def _load(manifest,storage):
     global _current
     try:
         loaded=await download(manifest,storage)
+        # Building 75k shared identities is pure CPU work. Warm the immutable
+        # browse index off the request path, not while an owner-scoped SQL
+        # transaction is idle and subject to Postgres' 10s idle timeout.
+        today=datetime.now(timezone.utc).date()
+        warm=await asyncio.to_thread(build_browse_index,loaded.rows,today=today)
         if _current is None or loaded.generation>=_current.generation:
             _current=loaded
+            _browse_cache.clear()
+            _browse_cache[(loaded.generation,today)]=warm
         log.warning('CATALOGUE_R2_LIVE_LOADED generation=%s counts=%s',loaded.generation,manifest['counts'])
     except Exception as exc:
         log.warning('CATALOGUE_R2_LIVE_LOAD_FAILED type=%s',type(exc).__name__)
@@ -323,6 +332,24 @@ async def read(connection):
 async def fetch(connection, query, params, snapshot, **scope):
     from .catalogue_browser import REFERENCE_VALUES_CTE
     if REFERENCE_VALUES_CTE in query:
+        # A filtered value sort must rank *all* matching printings using live
+        # prices, but need not rebuild unrelated games' source rows in SQL.
+        if snapshot is not None and extended_browse_enabled():
+            try:
+                if not await connection.fetchval("""select exists(
+                  select 1 from tcg.provider_catalogue_mappings
+                  where match_status='VERIFIED'
+                    and provider_entity_type='CARD_PRINTING'
+                    and provider_variant_key='')"""):
+                    sql,args=indexed_value_sql(query,params,browse_for(snapshot),filter_system=True)
+                    async with connection.transaction():
+                        rows=await connection.fetch(sql,*args)
+                    log.info('CATALOGUE_R2_FILTERED_VALUE_HIT rows=%s',len(rows))
+                    return rows
+            except (asyncpg.InterfaceError,asyncpg.PostgresConnectionError,TimeoutError,OSError):
+                raise
+            except Exception as exc:
+                log.warning('CATALOGUE_R2_FILTERED_VALUE_FALLBACK type=%s',type(exc).__name__)
         rows=await connection.fetch(query,*params)
         log.info('CATALOGUE_DYNAMIC_VALUE_DATABASE rows=%s',len(rows))
         return rows
@@ -370,6 +397,8 @@ async def fetch(connection, query, params, snapshot, **scope):
                     log.info('CATALOGUE_R2_MARKET_HIT generation=%s rows=%s',market.generation,len(rows))
                 return rows
         except Exception as exc:
+            if isinstance(exc,(asyncpg.InterfaceError,asyncpg.PostgresConnectionError,TimeoutError,OSError)):
+                raise
             log.warning('CATALOGUE_R2_INDEXED_BROWSE_FALLBACK type=%s',
                         type(exc).__name__)
     if snapshot is not None:
@@ -378,6 +407,8 @@ async def fetch(connection, query, params, snapshot, **scope):
             log.info('CATALOGUE_R2_LIVE_HIT generation=%s rows=%s',snapshot.generation,len(rows))
             return rows
         except Exception as exc:
+            if isinstance(exc,(asyncpg.InterfaceError,asyncpg.PostgresConnectionError,TimeoutError,OSError)):
+                raise
             log.warning('CATALOGUE_R2_LIVE_QUERY_FALLBACK type=%s',type(exc).__name__)
     return await connection.fetch(query,*params)
 
