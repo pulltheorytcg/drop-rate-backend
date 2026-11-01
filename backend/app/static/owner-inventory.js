@@ -247,8 +247,9 @@ window.DropRateInventory = (() => {
     const dispatch = field("Dispatch / holding notes", "textarea", "dispatch_note",
       {value:prep.dispatch_note || "", placeholder:"e.g. London, ready to dispatch — no full home address needed"});
     dispatch.maxLength = 200;
-    const cost = field("Actual cost paid (£)", "number", "cost", {min:0,max:1000000,step:0.01,
-      value:item.comic_acquisition_cost_minor == null ? "" : (item.comic_acquisition_cost_minor / 100).toFixed(2)});
+    const reportedCost = prep.acquisition_cost_minor ?? item.comic_acquisition_cost_minor;
+    const cost = field("What you paid (£) — for staff confirmation", "number", "cost", {min:0,max:1000000,step:0.01,
+      value:reportedCost == null ? "" : (reportedCost / 100).toFixed(2)});
     const weight = field("Packed weight (g)", "number", "weight", {min:1,max:100000,step:1,
       value:prep.parcel_weight_grams ?? ""});
     const length = field("Parcel length (mm)", "number", "length", {min:1,max:10000,step:1,

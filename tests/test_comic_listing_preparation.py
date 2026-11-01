@@ -28,6 +28,39 @@ def settings():
                            shopify_client_secret="test-server-secret",shopify_api_version="2026-10")
 
 
+@pytest.mark.asyncio
+async def test_seller_reported_cost_does_not_change_authoritative_intake_or_finance(monkeypatch):
+    owner, inventory_id, user_id = uuid4(), uuid4(), uuid4()
+    writes = []
+
+    class Connection:
+        async def fetchrow(self, sql, *args):
+            if "from tcg.inventory_items i" in sql:
+                return comic(owner, version=3)
+            writes.append((sql, args))
+            return {"id": inventory_id, "version": 4, "acquisition_cost_minor": None,
+                    "preparation": {"acquisition_cost_minor": 725, "staff_verified": False}}
+
+    @asynccontextmanager
+    async def connection(*args):
+        yield Connection()
+
+    monkeypatch.setattr(preparation, "user_connection", connection)
+    payload = preparation.ComicPreparation(version=3, holding="SELLER_HELD",
+        acquisition_cost_minor=725, parcel_weight_grams=190)
+    result = await preparation.save_comic_preparation(inventory_id, payload, request(),
+        SimpleNamespace(user_id=user_id), {"owner_id": owner})
+    assert len(writes) == 1
+    sql, args = writes[0]
+    assert "acquisition_cost_minor=" not in sql, "Seller evidence must not update official cost"
+    assert "source_record=jsonb_set" in sql
+    source = preparation.json.loads(args[3])
+    assert source["acquisition_cost_minor"] == 725
+    assert source["staff_verified"] is False
+    assert source["submitted_by"] == str(user_id)
+    assert result["item"]["acquisition_cost_minor"] is None
+
+
 def test_signed_photo_ticket_is_owner_and_expiry_bound(monkeypatch):
     monkeypatch.setattr(preparation, "get_settings", settings)
     owner, inventory = uuid4(), uuid4()

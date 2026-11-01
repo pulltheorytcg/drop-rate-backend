@@ -139,28 +139,28 @@ async def save_comic_preparation(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     access: Annotated[dict, Depends(require_owner_portal_request)],
 ):
-    preparation = payload.model_dump(exclude={"version", "acquisition_cost_minor"})
+    preparation = payload.model_dump(exclude={"version"})
     preparation["submitted_by"] = str(user.user_id)
-    # These measurements are suggestions. They NEVER configure or select an
-    # active Shopify shipping profile or assert actual physical possession.
+    # Seller-reported purchase cost, physical holding and measurements are
+    # evidence, not authoritative finance/intake records. They NEVER configure
+    # a shipping profile, set verified acquisition cost or assert possession.
     preparation["staff_verified"] = False
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         item = await _comic(connection, inventory_id, access["owner_id"], lock=True)
         if item["version"] != payload.version:
             raise HTTPException(409, "Comic details changed. Refresh before saving preparation.")
         row = await connection.fetchrow("""update tcg.inventory_items set
-            acquisition_cost_minor=coalesce($4::integer,acquisition_cost_minor),
             source_record=jsonb_set(coalesce(source_record,'{}'::jsonb),
-              '{comic_listing_preparation}',$5::jsonb,true),
+              '{comic_listing_preparation}',$4::jsonb,true),
             version=version+1,updated_at=clock_timestamp()
             where id=$1 and owner_id=$2 and version=$3
             returning id,version,acquisition_cost_minor,source_record->'comic_listing_preparation' as preparation""",
             inventory_id, access["owner_id"], payload.version,
-            payload.acquisition_cost_minor, json.dumps(preparation))
+            json.dumps(preparation))
         if row is None:
             raise HTTPException(409, "Comic details changed. Refresh before saving preparation.")
     return jsonable_encoder({"item": dict(row), "message":
-        "Preparation saved for Drop Rate review. Holding and parcel details are not shipping approval."})
+        "Preparation saved for Drop Rate review. Purchase cost, holding and parcel details are not verified intake or shipping approval."})
 
 
 @router.post("/{inventory_id}/comic-photo/upload-target")
