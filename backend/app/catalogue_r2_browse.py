@@ -309,8 +309,8 @@ def indexed_value_sql(query, params, snapshot, *, filter_system=False,
             if clause != ' and '.join(expected_parts):
                 raise ValueError('Unsupported predicate for ranked shortlist')
             match=re.search(
-                r'order by coalesce\\(v\\.market_value_minor,e\\.reference_value_minor'
-                r'(?:,d\\.market_value_minor)?\\) (asc|desc) nulls last',
+                r'order by coalesce\(v\.market_value_minor,e\.reference_value_minor'
+                r'(?:,d\.market_value_minor)?\) (asc|desc) nulls last',
                 tail,
             )
             if match is None:
