@@ -664,7 +664,7 @@ async def reference_image(request: Request, user: Annotated[AuthenticatedUser, D
                           language: str = Query(max_length=80), provider_id: str = Query(max_length=200),
                           reference_kind: Literal['card','sealed','book'] = 'card',
                           size: Literal['grid','detail'] = 'detail',
-                          v: str = Query(default='', pattern=r'^(?:[a-f0-9]{12})?$')):
+                          v: Annotated[str, Query(pattern=r'^(?:[a-f0-9]{12})?$')] = ''):
     # Resolve the existing exact reference on the server. Never accept a URL
     # from the client or turn reference artwork into approved inventory media.
     if reference_kind == 'book':
