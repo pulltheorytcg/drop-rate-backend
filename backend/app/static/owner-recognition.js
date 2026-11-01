@@ -598,6 +598,13 @@ function ownerSharedScanner() {
         saveSession: session => saveSession(session),
         afterSave: () => Promise.all([loadOwnerOverview(), loadOwnerInventory()]),
         viewInventory: () => activateOwnerView("inventory"),
+        onExit: () => {
+          // Mobile Scan has no secondary photo-upload page to return to.
+          if (window.matchMedia?.("(max-width: 900px)").matches
+              && !byId("owner-view-scan")?.classList.contains("hidden")) {
+            activateOwnerView("overview");
+          }
+        },
         openBooks: options => window.DropRateBooks?.open(options) ?? false,
       });
     }
@@ -612,6 +619,9 @@ async function ownerScanStartCamera(facingMode = "environment") {
     // await review. They stay safely queued for Next / Review, not discarded.
     await window.dropRateScanner.open(ownerScanMode().toUpperCase(), {preferCamera: true});
     return;
+  }
+  if (window.matchMedia?.("(max-width: 900px)").matches) {
+    throw new Error("Live scanner unavailable. Refresh this page and try opening the scanner again.");
   }
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
     throw new Error("Live camera is not supported in this browser. Upload a photo instead.");
@@ -2119,17 +2129,24 @@ async function ownerBatchAddAll() {
 function ownerRecognitionLaunchCamera() {
   if (!state.session?.access_token || byId("owner-view-scan")?.classList.contains("hidden")) return;
   if (window.dropRateScanner?.dialog?.open) return;
+  const mobile = Boolean(window.matchMedia?.("(max-width: 900px)").matches);
+  const mobileMessage = byId("owner-mobile-scan-message");
+  if (mobileMessage) mobileMessage.textContent = "";
   void ownerScanStartCamera("environment").catch(error => {
     const reason = error?.name === "NotAllowedError"
-      ? "Allow camera access in your browser, or choose a photo instead."
-      : error?.message || "Camera unavailable. Choose a photo instead.";
+      ? mobile ? "Allow camera access in your browser settings, then reopen the scanner."
+        : "Allow camera access in your browser, or choose a photo instead."
+      : error?.message || (mobile ? "Camera unavailable. Please retry opening the scanner."
+        : "Camera unavailable. Choose a photo instead.");
     if (!byId("owner-view-scan")?.classList.contains("hidden")) {
       ownerScanMessage(reason, "error");
       window.dropRateScanner?.status?.(reason);
+      if (mobileMessage) mobileMessage.textContent = reason;
     }
   });
 }
 window.ownerRecognitionLaunchCamera = ownerRecognitionLaunchCamera;
+byId("owner-mobile-scan-open")?.addEventListener("click", ownerRecognitionLaunchCamera);
 
 function ownerRecognitionLeave() {
   // Invalidate pending camera permission grants, even on browser Back/hash
