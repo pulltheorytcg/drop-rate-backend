@@ -1,3 +1,10 @@
+## 1 November 2026 — Expanded collectibles staging follow-up (isolated, not released)
+
+- **Live-source pilot:** 25 YGOPRODeck card objects yielded 94 exact-printing candidates in 56 sets; one conflicting set code was quarantined. No database, verified-price, media, R2 or Shopify writes. Earlier 100-card dry-run remains a separate receipt.
+- **Capacity:** Read-only production query found 69,697 reference cards, 1,472 reference sets and a 389,418,131-byte database. The new importer's 400,000,000-byte cutoff leaves only approximately 10.6 MB before it stops. The planned large-scale expansion must not rely on unconstrained Supabase row growth; private, content-verified R2 reference snapshots are still required.
+- **Staging:** Added a disposable local-Postgres-17 workflow and integration test that apply the actual migration, exercise founder-only writes and read RLS, verify append-only price evidence, check figure generation triggers, and import synthetic exact YGO/sports reference records without publishing a shop item. These tests are run in GitHub CI without production or Cloudflare credentials. No paid Supabase branch, production migration or live feed flag change was made.
+- **Next gates:** Dedicated staging CI pass, reviewed production `supabase db push --dry-run`, real source-terms approval, image proof and valued UK sold evidence, controlled capacity-limited import, then separate R2/App/Shopify rollout decision. See [phase 1 design and runbook](docs/EXPANDED_COLLECTIBLES_PHASE1_20261101.md).
+
 ## 1 November 2026 — Expanded collectibles phase 1 (implementation, not released)
 
 - **Scope:** Begin source-backed Yu-Gi-Oh!, Disney Lorcana, Riftbound, football/sports and Funko/figure catalogue expansion without changing existing Shopify inventory, owner accounting, scanner publication or market-value rules. Existing `YUGIOH`, `DISNEY_LORCANA` and `RIFTBOUND` system registrations had zero reference cards; 69,697 card references existed across the established games. New sports/figure system codes and typed reference tables are additive, with forced RLS and nullable market values.

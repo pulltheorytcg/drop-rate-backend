@@ -93,6 +93,29 @@ set-code conflict. No DB write, image mirror, verified market price or Shopify
 product was made. A separate 10-card read returned 17 candidates in 10 sets.
 Neither result claims complete catalogue coverage.
 
+### Phase 2 staging receipt (1 November, subsequent review)
+
+- The live database remains **unchanged** at 69,697 shared reference cards,
+  1,472 reference sets and 14 pre-expansion system codes. A read-only size
+  query returned **389,418,131 bytes** against the importer guard at
+  **400,000,000 bytes** (approximately 10.6 MB available before that guard).
+  No bulk import may be assumed safe merely because the count of missing cards
+  is high. R2 snapshots reduce pressure but do not replace the small indexed
+  database references needed by the current live API.
+- A fresh read-only `--limit 25` YGOPRODeck request returned **25 card objects,
+  94 exact printing candidates across 56 sets**, and **one set-code mismatch
+  quarantined**. Zero database writes, market values, mirrored images or
+  Shopify creations. Card names/prices were not used for loose joins.
+- `tests/expanded_collectibles_postgres.py` now checks the actual migration
+  and exercises reference write policies, figure R2 generation invalidation,
+  append-only observation evidence and existing card upsert in a **new empty
+  local PostgreSQL 17 database only**. The dedicated CI workflow never uses
+  production credentials and has no R2/Shopify write access.
+- A paid Supabase development branch was **not** created. If one is required
+  for full production-schema migration replay, its current cost must be
+  confirmed before provision. The separate production migration dry-run gate
+  remains required before any real apply.
+
 ## Production release gates
 
 1. Run PR CI, all relevant new and old reference/R2/auth/Shopify tests, and
