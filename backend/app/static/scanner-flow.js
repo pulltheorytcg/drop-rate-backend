@@ -355,7 +355,7 @@ window.DropRateScanner = (() => {
       this.find('[data-action="gallery"]').innerHTML = icons.photo;
       this.dialog.querySelectorAll("[data-action]").forEach(control => control.addEventListener("click", () => {
         const actions = {
-          close: () => this.close(), settings: () => { this.find(".dr-scan-settings").hidden = !this.find(".dr-scan-settings").hidden; },
+          close: () => this.close({userExit:true}), settings: () => { this.find(".dr-scan-settings").hidden = !this.find(".dr-scan-settings").hidden; },
           resume: () => this.startCamera(), switch: () => { this.facing = this.facing === "environment" ? "user" : "environment"; this.startCamera(); },
           torch: () => this.toggleTorch(), certificate: () => this.manualSlab(),
           gallery: () => { if (!mobileScannerOnly()) this.find(".dr-scan-file").click(); }, capture: () => this.capture(),
@@ -368,7 +368,7 @@ window.DropRateScanner = (() => {
       this.find(".dr-scan-file").addEventListener("change", event => this.upload(event));
       this.dialog.addEventListener("cancel", event => {
         event.preventDefault();
-        if (!this.sheet.hidden) this.closeDetails(); else this.close();
+        if (!this.sheet.hidden) this.closeDetails(); else this.close({userExit:true});
       });
       this.dialog.addEventListener("keydown", event => {
         if (event.key !== "Tab" || this.sheet.hidden) return;
@@ -548,16 +548,18 @@ window.DropRateScanner = (() => {
       else await this.startCamera();
     }
 
-    close() {
+    close({userExit=false}={}) {
       if (this.saving || this.editBusy) return;
+      const wasOpen = Boolean(this.dialog.open);
       this.closeDetails();
       this.stopCamera();
       this.dialog.close();
       document.body.classList.remove("dr-scanner-open");
       this.returnFocus?.focus();
-      // User-initiated close may leave an older scan-upload page underneath.
-      // Each workspace decides whether to leave its Scan tab on mobile.
-      this.options.onClose?.();
+      // An internal transition into comic/manga review or saved inventory
+      // must NOT act like the user tapped Close. Only explicit close/cancel
+      // leaves mobile Scan for Home.
+      if (userExit && wasOpen) this.options.onClose?.();
     }
 
     destroy() {

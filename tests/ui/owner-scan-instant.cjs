@@ -150,7 +150,7 @@ const stream=t=>({getTracks:()=>[t],getVideoTracks:()=>[t]});
                 photo:null,selected:null,guess:'Needs review'};
   f.scanner().items.push(queued);
   f.scanner().setMode('SEALED');
-  f.scanner().close();
+  f.scanner().find('.dr-scan-topbar [data-action="close"]').click();
   assert.equal(f.scanner().dialog.open,false);
   assert.ok(f.w.document.getElementById('owner-view-scan').classList.contains('hidden'));
   assert.equal(f.w.location.hash,'');
@@ -160,7 +160,7 @@ const stream=t=>({getTracks:()=>[t],getVideoTracks:()=>[t]});
   assert.equal(f.scanner().dialog.open,true);
   assert.equal(f.calls.length,2);
   assert.equal(f.scanner().mode,'SEALED','Mobile scanner mode must survive close/reopen');
-  f.scanner().close();
+  f.scanner().find('.dr-scan-topbar [data-action="close"]').click();
   assert.ok(tracks.every(t=>t.stopped>=1));
   f.ready();await tick();f.finish();checks++;
  }
@@ -172,7 +172,7 @@ const stream=t=>({getTracks:()=>[t],getVideoTracks:()=>[t]});
   f.w.document.getElementById('owner-mobile-open-scanner').click();
   assert.equal(f.calls.length,1);
   assert.equal(f.scanner().dialog.open,true);
-  f.scanner().close();
+  f.scanner().find('.dr-scan-topbar [data-action="close"]').click();
   assert.equal(f.w.location.hash,'');
   f.ready();await tick();f.finish();checks++;
  }
