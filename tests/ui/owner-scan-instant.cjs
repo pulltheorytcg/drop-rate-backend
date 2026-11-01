@@ -159,6 +159,7 @@ const stream=t=>({getTracks:()=>[t],getVideoTracks:()=>[t]});
   f.nav().click();await tick();
   assert.equal(f.scanner().dialog.open,true);
   assert.equal(f.calls.length,2);
+  assert.equal(f.scanner().mode,'SEALED','Mobile scanner mode must survive close/reopen');
   f.scanner().close();
   assert.ok(tracks.every(t=>t.stopped>=1));
   f.ready();await tick();f.finish();checks++;
