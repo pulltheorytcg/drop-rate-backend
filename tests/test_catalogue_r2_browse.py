@@ -231,3 +231,31 @@ def test_value_ordering_keeps_unpaged_population_and_live_price_owner_predicates
         assert 'e.language=$2' in sql
         assert 'tcg.reference_image_mirrors' in sql
         assert args[:len(params)]==params
+
+
+def test_filtered_value_sort_keeps_every_printing_from_requested_system_only():
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_value_sql, _STATIC_COLUMNS
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    owner=UUID('10000000-0000-0000-0000-000000000001')
+    for direction in ('value_desc','value_asc'):
+        query,params=product_query(owner_id=owner,sort=direction,
+            system_code='ONE_PIECE_CARD_GAME',limit=1)
+        sql,args=indexed_value_sql(query,params,idx,filter_system=True)
+        ids=args[len(params)+[name for name,_ in _STATIC_COLUMNS].index('provider_id')]
+        assert sorted(ids)==['OP15-001','OP15-001_p1']
+        assert len(ids)>1  # A value sort must not select a newest-first page.
+        assert 'tcg.reference_market_prices' in sql
+        assert 'tcg.inventory_items' in sql
+        assert 'tcg.catalogue_reference_value_v2' in sql
+        assert 'tcg.reference_cards' not in sql
+
+
+def test_value_sort_without_exact_system_constraint_refuses_prefilter():
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_value_sql
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    query,params=product_query(owner_id=UUID('10000000-0000-0000-0000-000000000001'),
+                               sort='value_desc',product_type='CARD')
+    with pytest.raises(ValueError,match='system filter'):
+        indexed_value_sql(query,params,idx,filter_system=True)
