@@ -814,6 +814,50 @@ async function matched(scanner, quantity = 1) {
     f.finish();assert.equal(closed,1,'Destroy must not double-fire the close callback');
     checks++;
   }
+  // Founder mobile Scan navigation opens the shared scanner immediately;
+  // closing it returns Dashboard, not the older inline uploader.
+  {
+    const markup='<main data-seller-view="dashboard"></main>' +
+      '<section data-seller-view="intake" class="hidden"></section>';
+    const dom=new JSDOM(markup,{url:'https://example.test/app',
+      runScripts:'outside-only',pretendToBeVisual:true});
+    const w=dom.window;let cameraCalls=0,stopped=0;
+    w.matchMedia=query=>({matches:query.includes('max-width: 900px'),media:query});
+    w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+    w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+    w.HTMLMediaElement.prototype.play=async()=>{};
+    w.state={session:{access_token:'founder-token',user:{id:'founder-a'}}};
+    w.byId=id=>w.document.getElementById(id);
+    w.sellerView=view=>w.document.querySelector('[data-seller-view="'+view+'"]');
+    w.apiRequest=async path=>path.endsWith('/status')?{configured:true,vision_model:'fixture'}:{items:[]};
+    w.showMessage=()=>{};
+    w.activateSellerView=(name)=>{
+      w.document.querySelectorAll('[data-seller-view]').forEach(panel=>{
+        panel.classList.toggle('hidden',panel.dataset.sellerView!==name);
+      });
+    };
+    Object.defineProperty(w.navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+      cameraCalls++;return {getTracks:()=>[{stop:()=>stopped++}],
+        getVideoTracks:()=>[{getCapabilities:()=>({torch:false})}]};
+    }}});
+    w.eval(priceSource);w.eval(source);
+    w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/recognition-scanner.js'),'utf8'));
+    assert.ok(w.document.getElementById('recognition-mobile-open-scanner'));
+    w.activateSellerView('intake',true);
+    assert.equal(cameraCalls,1,'Mobile Scan press should request camera immediately');
+    assert.equal(w.dropRateScanner.dialog.open,true);
+    await tick();
+    w.dropRateScanner.close();
+    assert.equal(w.sellerView('intake').classList.contains('hidden'),true);
+    assert.equal(w.sellerView('dashboard').classList.contains('hidden'),false);
+    assert.ok(stopped>=1);
+    w.activateSellerView('intake',false);
+    assert.equal(cameraCalls,1,'A restored intake deep link needs an explicit user gesture');
+    w.document.getElementById('recognition-mobile-open-scanner').click();
+    assert.equal(cameraCalls,2);
+    assert.equal(w.dropRateScanner.dialog.open,true);
+    w.dropRateScanner.destroy();dom.window.close();checks++;
+  }
   await tick();
   console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
