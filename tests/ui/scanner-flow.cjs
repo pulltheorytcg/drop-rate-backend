@@ -44,6 +44,46 @@ async function matched(scanner, quantity = 1) {
 }
 
 (async () => {
+  // Mobile has one camera journey, no gallery/upload and no legacy scan page
+  // after user exit. Internal transitions and desktop remain unchanged.
+  for (const role of ['seller', 'founder']) {
+    let exits=0;
+    const f=fixture(role,async()=>({}),{onExit:()=>{exits++;}});
+    const scanner=f.scanner;
+    f.w.matchMedia=()=>({matches:true});
+    scanner.configureMobileCapture();
+    assert.equal(scanner.find('[data-action="gallery"]').hidden,true);
+    assert.equal(scanner.find('.dr-scan-file').disabled,true);
+    scanner.items.push({id:'queued-unsaved'});
+    scanner.dialog.showModal();
+    scanner.find('.dr-scan-topbar [data-action="close"]').click();
+    assert.equal(exits,1,'Explicit mobile close returns to workspace once');
+    assert.equal(scanner.dialog.open,false);
+    assert.equal(scanner.items.length,1,'Closing preserves the unsaved scan queue');
+    scanner.dialog.showModal();
+    scanner.close();
+    assert.equal(exits,1,'Internal scanner close must never navigate the workspace');
+    scanner.dialog.showModal();
+    scanner.dialog.dispatchEvent(new f.w.Event('cancel',{cancelable:true}));
+    assert.equal(exits,2,'Native dialog cancellation is also an explicit user exit');
+    f.w.matchMedia=()=>({matches:false});
+    scanner.configureMobileCapture();
+    assert.equal(scanner.find('[data-action="gallery"]').hidden,false);
+    assert.equal(scanner.find('.dr-scan-file').disabled,false);
+    scanner.dialog.showModal();
+    scanner.find('.dr-scan-topbar [data-action="close"]').click();
+    assert.equal(exits,2,'Desktop close keeps its existing upload workspace');
+    f.finish();checks++;
+  }
+  {
+    const f=fixture();
+    f.w.matchMedia=()=>({matches:true});
+    await f.scanner.open('RAW',{preferCamera:true});
+    assert.equal(f.scanner.find('.dr-scan-file').disabled,true);
+    assert.match(f.scanner.find('.dr-scan-status').textContent,/Camera unavailable in this browser/);
+    assert.doesNotMatch(f.scanner.find('.dr-scan-status').textContent,/Choose a photo/);
+    f.finish();checks++;
+  }
   // The exact failing entry point: leave the default tab selected, then scan
   // books and a card. A book result must never open the ungraded-card sheet.
   {
