@@ -1,3 +1,11 @@
+## 1 November 2026 — Mobile scanner-only entry and exit (in review)
+
+- **Problem:** On mobile, the full-screen scanner opens over legacy founder/seller scan pages with photo-upload controls. Closing the scanner exposes those unwanted secondary upload pages.
+- **Change:** At ≤900px, both founder and seller Scan tabs open the full-screen camera scanner directly on a user click; the legacy upload panel is visually absent and the separate photo gallery input inside the scanner is disabled. A camera-only entry with an explicit **Open scanner** button supports direct links and camera-permission retries. Closing via the scanner Close button or native dialog cancellation navigates back to that account's Home; internal scanner transitions (book review, save and navigation) keep their existing destination.
+- **Scope/safety:** Desktop upload and existing batch/import flows remain intact. Scanner queue, exact-printing review, authenticated owner scope, idempotent inventory saves, RLS, prices and payments are unchanged. No new service, migration, scheduled job or provider.
+- **Tests:** Added mobile/desktop scanner close, ESC cancellation, pending-queue preservation and camera-denial coverage in the browser suite; added responsive markup and route contracts. Full backend/UI CI plus mobile smoke are required before release. Confirm iOS Camera → Close → Home, Scan tab → immediate camera, permission denied → Retry, and desktop upload unaffected.
+- **Rollback:** Revert the dedicated PR and redeploy the last healthy API release. No database rollback necessary. A merged PR or passing CI is not proof of a live mobile test.
+
 ## 1 November 2026 — Catalogue read-only pricing and versioned reference-artwork cache (in review)
 
 - **Problem:** User-reported slow catalogue browsing despite the recovered indexed catalogue. Frontend browsing requested a second `/api/v1/catalogue-browser/market-values` refresh, and value sorts calculated unrelated shared prices. Authenticated reference-image responses were globally marked `no-store`, preventing reuse across visits.
