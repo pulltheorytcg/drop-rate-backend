@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import hashlib
 import time
 from collections import OrderedDict
 
@@ -15,6 +16,11 @@ MAX_ENTRIES = 1024
 TTL = 6 * 60 * 60
 _cache: OrderedDict[str, tuple[float, ReferenceImagePayload]] = OrderedDict()
 _inflight: dict[str, asyncio.Task] = {}
+
+
+def reference_version(source_url: str) -> str:
+    """Stable public-reference version; changes when the verified source changes."""
+    return hashlib.sha256(source_url.encode('utf-8')).hexdigest()[:12]
 
 
 def thumbnail(payload):
