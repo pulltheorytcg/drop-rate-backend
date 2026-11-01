@@ -428,11 +428,11 @@ window.DropRateCatalogue = (() => {
       }
       return wrap;
     }
-    watchBookContext(row,target,panel,artwork,{detail=false,current=()=>true}={}) {
+    watchBookContext(row,target,panel,artwork,{detail=false,immediate=detail,current=()=>true}={}) {
       if(!this.bookContexts || !window.DropRateBookEbay.identity(row))return ()=>{};
       return this.bookContexts.watch(row,target,(data,options)=>{
         window.DropRateBookEbay.render(panel,row,data,{...options,detail});artwork.setListingContext?.(data);
-      },{immediate:detail,current,allowPriced:detail});
+      },{immediate,current,allowPriced:detail});
     }
     renderRows(start=0) {
       const content=this.find(".dr-browse-content");
@@ -498,7 +498,17 @@ window.DropRateCatalogue = (() => {
         card.append(listingCredit);
         if(row.product_type==="COMIC" && row.market_value_minor==null && window.DropRateBookEbay?.identity(row)){
           const panel=node("div");card.append(panel);
-          queueMicrotask(()=>{if(card.isConnected)this.watchBookContext(row,card,panel,artwork);});
+          // Browsing and scrolling never triggers a book-by-book provider
+          // lookup. Only a deliberate hover/focus (or opening book details)
+          // requests current eBay asking context for this exact edition.
+          let requested=false;
+          const onInterest=()=>{
+            if(requested||!card.isConnected||!this.active())return;
+            requested=true;
+            this.watchBookContext(row,card,panel,artwork,{immediate:true});
+          };
+          card.addEventListener("focusin",onInterest,{once:true});
+          card.addEventListener("pointerenter",onInterest,{once:true});
         }
         const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
         copy.append(price,node("small","","Qty: "+row.owned_quantity));
