@@ -12,6 +12,8 @@ import gzip
 import io
 import os
 import re
+import time
+from collections import OrderedDict
 from functools import lru_cache
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +23,17 @@ from urllib.parse import urlsplit
 
 class ObjectStorageError(RuntimeError):
     """A storage operation could not be verified; no cleanup is authorised."""
+
+
+# The same immutable, rights-checked public reference image appears in many
+# owner-scoped browse responses. Reusing a short-lived signed link lets the
+# browser reuse its private HTTP cache without extending the S3 grant lifetime.
+MEDIA_SIGN_CACHE_TTL_SECONDS = 300
+MEDIA_SIGN_CACHE_MAX_ENTRIES = 2048
+
+
+def _media_sign_cache_clock() -> float:
+    return time.monotonic()
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +95,7 @@ class S3ObjectStorage:
         self.config = config
         self._injected_client = client is not None
         self._reference_read_client = None
+        self._signed_media_cache = OrderedDict()
         if client is None:
             # Import only for enabled storage, so existing deployments stay inert.
             import boto3
@@ -331,12 +345,22 @@ class S3ObjectStorage:
 
         Returned URLs are bearer links for approved *public-facing* catalogue
         media only. Do not sign scans, archives or arbitrary client-supplied keys.
+        A bounded per-process cache keeps URLs stable for repeat browser visits;
+        entries expire well before the signed GET itself does.
         """
         prefix = re.escape(f"{self.config.prefix}/private-media/")
         if not isinstance(key, str) or not re.fullmatch(prefix + r"[0-9a-f]{64}\.webp", key):
             raise ObjectStorageError("Refusing to sign an unrecognised media object key")
         if not isinstance(expires_seconds, int) or not 60 <= expires_seconds <= 3600:
             raise ObjectStorageError("Media link lifetime must be between 1 and 60 minutes")
+        cache_key = (key, expires_seconds)
+        now = _media_sign_cache_clock()
+        cached = self._signed_media_cache.get(cache_key)
+        if cached is not None:
+            if cached[0] > now:
+                self._signed_media_cache.move_to_end(cache_key)
+                return cached[1]
+            self._signed_media_cache.pop(cache_key, None)
         url = self.client.generate_presigned_url(
             "get_object",
             Params={"Bucket": self.config.bucket, "Key": key},
@@ -346,6 +370,11 @@ class S3ObjectStorage:
         allowed = urlsplit(self.config.endpoint)
         if destination.scheme != "https" or destination.hostname != allowed.hostname:
             raise ObjectStorageError("Storage client produced an untrusted signed URL")
+        ttl = min(MEDIA_SIGN_CACHE_TTL_SECONDS, expires_seconds // 2)
+        self._signed_media_cache[cache_key] = (now + ttl, url)
+        self._signed_media_cache.move_to_end(cache_key)
+        while len(self._signed_media_cache) > MEDIA_SIGN_CACHE_MAX_ENTRIES:
+            self._signed_media_cache.popitem(last=False)
         return url
 
 
