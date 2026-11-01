@@ -1,3 +1,10 @@
+## 1 November 2026 — Distinguish mobile scanner user exit from internal review hand-off (in review)
+
+- **Defect:** PR #852's shared scanner called its workspace `onClose` callback on every `Scanner.close()`. A comic/manga hand-off and the successful-save inventory transition also call `close()`, so those internal operations could incorrectly navigate the mobile Scan view to Home.
+- **Fix:** Explicit top-bar/review Close and native dialog cancel pass `{userExit:true}`; internal book review and save call `close()` without navigation. A close notification fires at most once for an open dialog. All existing camera cleanup, saved mode, pending queue, session isolation and desktop upload behaviour remain unchanged.
+- **Verification:** New JS tests assert book review opens without Home navigation, returns to the same unsaved scan queue, and native cancel navigates once. Existing founder/seller mobile close tests are updated to use the actual user action. Full CI, Railway readiness and real phone smoke remain release gates.
+- **Rollback:** Revert the dedicated PR if mobile navigation or book review regresses. No database, price, ownership, service or schedule changes.
+
 ## 1 November 2026 — Warm verified R2 catalogue before the first customer browse (in review)
 
 - **What/why:** The R2 catalogue download and 75k-row in-memory browse index were started lazily by the first signed-in catalogue request after a Railway restart; cold users could fall back to expensive PostgreSQL queries. Reuse the existing authorised maintenance identity to start warming the shared R2 index during API startup, before a visitor reaches Search.
