@@ -76,6 +76,7 @@
 .dr-scan-thumb, .dr-scan-review-thumb, .dr-scan-detail-thumb, .dr-scan-alternative-thumb { position: relative; flex-shrink: 0; overflow: hidden; border-radius: 4px; background: var(--scan-soft); }
 .dr-scan-thumb { width: 37px; height: 52px; }
 .dr-scan-image-placeholder { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-size: 9px; color: var(--scan-muted); }
+.dr-scan-capture-label:not([hidden]) { position: absolute; z-index: 1; bottom: 0; inset-inline: 0; padding: 2px 1px; font-size: 8px; line-height: 1.1; text-align: center; color: #fff; background: rgb(0 0 0 / 70%); pointer-events: none; }
 .dr-scanner img { position: relative; display: block; width: 100%; height: 100%; object-fit: contain; background: var(--scan-surface); }
 .dr-scan-strip-empty { align-self: center; text-align: center; width: 100%; font-size: 13px; color: #fff; text-shadow: 0 1px 4px var(--scan-navy); }
 .dr-scanner .dr-scan-total { text-align: right; padding: 0 18px 9px; font-size: 13px; }

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -18,6 +19,56 @@ from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 
 PRODUCTS = PRODUCTS_SQL.replace('where p.id=any($1::uuid[])', "where p.product_type='CARD'")
+# The indexed catalogue-number expression avoids evaluating the expensive
+# provider-mapping / rejection predicates for every canonical card whenever a
+# user opens a normal (non-value-sorted) catalogue page or slab suggestion.
+# Include all padded spellings before checking collector_key in Python: an
+# unpriced sibling must never be omitted to make a price match appear unique.
+PAGE_IDS_SQL = """select p.id,p.card_number from tcg.catalogue_products p
+    where p.product_type='CARD'
+      and upper(regexp_replace(coalesce(p.card_number,''),'[^A-Za-z0-9]','','g'))
+          = any($1::text[])"""
+
+
+def _number_forms(number: object) -> set[str]:
+    """Index probes for all practical collector-number zero-padding variants.
+
+    SQL's index removes separators only to find a small candidate superset.
+    The authoritative collector_key comparison below keeps /, +, ◇ and
+    trailing - significant, exactly as before.
+    """
+    parts = re.findall(r"[A-Z]+|[0-9]+", str(number or "").upper())
+    if not parts:
+        return set()
+    forms = [""]
+    for token in parts:
+        if token.isdecimal():
+            value = str(int(token))
+            spellings = {value.zfill(width) for width in range(len(value), max(4, len(token)) + 1)}
+        else:
+            spellings = {token}
+        forms = [prefix + part for prefix in forms for part in spellings]
+    return set(forms)
+
+
+async def _page_products(connection, rows):
+    keys = {collector_key(row.get('card_number')) for row in rows if row.get('card_number')}
+    if not keys:
+        return []
+    probes = set().union(*(_number_forms(row.get('card_number')) for row in rows))
+    # One known verified legacy printing is stored as '58' but mapped to
+    # '58/102'; keep it in the candidate pool without relaxing identity.
+    if collector_key('58/102') in keys:
+        probes.update(_number_forms('58'))
+    candidates = await connection.fetch(PAGE_IDS_SQL, sorted(probes))
+    ids = [row['id'] for row in candidates
+           if collector_key(row['card_number']) in keys or
+           (collector_key('58/102') in keys and collector_key(row['card_number']) == collector_key('58'))]
+    products = []
+    for start in range(0, len(ids), 100):
+        products.extend(dict(p) for p in await connection.fetch(PRODUCTS_SQL, ids[start:start+100]))
+    return [p for p in products if collector_key(p.get('card_number')) in keys
+            or catalogue_number_key(p) in keys]
 
 
 def reference_key(row):
@@ -80,10 +131,12 @@ lookups use its number-key index in batches, retaining every parallel candidate.
     if rows is not None and not any(row.get('card_number') or row.get('product_type') == 'COMIC' for row in rows):
         return {}
     now = now or datetime.now(timezone.utc)
-    products = [dict(p) for p in await connection.fetch(PRODUCTS)]
     if product_type == 'COMIC':
         products = []
-    elif rows is None:
+    elif rows is not None:
+        products = await _page_products(connection, rows)
+    else:
+        products = [dict(p) for p in await connection.fetch(PRODUCTS)]
         # Rankings still consider every exact alias in the requested scope,
         # never borrow an identity or price from another game/language.
         if system_code:
@@ -93,9 +146,6 @@ lookups use its number-key index in batches, retaining every parallel candidate.
         if language:
             products = [p for p in products if not clean_language(p.get('language'))
                         or clean_language(p.get('language')) == language]
-    if rows is not None:
-        keys = {collector_key(r.get('card_number')) for r in rows}
-        products = [p for p in products if collector_key(p.get('card_number')) in keys or catalogue_number_key(p) in keys]
     products = [p for p in products if not p.get('blocked') and catalogue_system(p)
                 and collector_key(p.get('card_number'))]
     references, snapshots = [], []

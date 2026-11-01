@@ -71,6 +71,21 @@ def physical_photo_policy(
             "reasons": ["sealed product requires exact packaging photo"],
             "thresholdMinor": threshold_minor,
         }
+    if product_type == "COMIC":
+        # Cover variants/printings and copy-specific condition must not inherit
+        # a generic publisher cover, even when that image can be displayed in
+        # the private catalogue. Slabbed comics also need a physical back.
+        graded = bool(_text(item.get("grading_company")) and _text(item.get("grade")))
+        return {
+            "mediaPolicy": "PHYSICAL_ITEM_REQUIRED",
+            "physicalPhotosRequired": True,
+            "requiredSides": ["FRONT", "BACK"] if graded else ["FRONT"],
+            # Until the media registry has a dedicated book capture context,
+            # use its permitted raw-item context (the copy photo still gates).
+            "captureContext": "GRADED_SLAB" if graded else "RAW_UNSLEEVED",
+            "reasons": ["comic printing and copy-specific condition require physical photography"],
+            "thresholdMinor": threshold_minor,
+        }
     if product_type != "CARD":
         return {
             "mediaPolicy": "CANONICAL_STOREFRONT_ALLOWED",

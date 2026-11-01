@@ -58,6 +58,57 @@ def test_corresponding_name_number_and_set_not_printing_approval():
     assert not slab_candidate_supported(row, card_name="Nico Robin", card_number="OP01-017", set_name="Other set")
 
 
+@pytest.mark.asyncio
+async def test_fast_slab_suggestions_do_not_fetch_catalogue_prices_or_guess_printing(monkeypatch):
+    """The scanner receives only corroborated label suggestions, with no price pass."""
+    owner_id, user_id = uuid4(), uuid4()
+    canonical = [dict(key="c:wrong", catalogue_id=str(uuid4()), product_type="CARD",
+                      name="Wrong Card", card_number="223", set_name="Other", set_id="Other",
+                      language="Japanese", source_kind="CATALOGUE"),
+                 dict(key="c:right", catalogue_id=str(uuid4()), product_type="CARD",
+                      name="Mega Charizard X ex", card_number="223/193", set_name="M2a",
+                      set_id="M2a", language="Japanese", source_kind="CATALOGUE")]
+    reference = [dict(key="r:right", catalogue_id=None, product_type="CARD",
+                      name="Mega Charizard X ex", card_number="223/193", set_name="M2a",
+                      set_id="M2a", language="Japanese", source_kind="REFERENCE",
+                      provider="TCGdex", system_code="POKEMON_TCG", provider_id="test-223",
+                      image_url="https://assets.tcgdex.net/en/example/image/high.webp")]
+    calls = []
+    class Connection:
+        async def fetch(self, sql, *args):
+            calls.append(sql)
+            assert args == ("Japanese", "223", True, "Mega Charizard X ex", "M2a")
+            return canonical if sql == browser.SLAB_CATALOGUE_SQL else reference
+    @asynccontextmanager
+    async def connection(*args, readonly_snapshot=False):
+        assert readonly_snapshot is True
+        yield Connection()
+    monkeypatch.setattr(browser, "user_connection", connection)
+    app = FastAPI(); app.state.db_pool = object(); app.include_router(browser.router)
+    app.dependency_overrides[require_user] = lambda: SimpleNamespace(user_id=user_id)
+    app.dependency_overrides[browser.browser_access] = lambda: {"owner_id": owner_id}
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "synthetic"
+        return await call_next(request)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url="http://test") as client:
+        response = await client.get("/api/v1/catalogue-browser/slab-suggestions",
+                                    params=dict(slab_number="223", slab_name="Mega Charizard X ex",
+                                                slab_set="M2a", language="Japanese"))
+    assert response.status_code == 200
+    assert [row["key"] for row in response.json()["items"]] == ["c:right", "r:right"]
+    assert response.json()["slab_review_required"] is True
+    assert len(calls) == 2
+    assert all("catalogue_reference_value" not in sql and "market_prices" not in sql
+               for sql in calls)
+
+
+def test_scanner_uses_bounded_label_suggestion_endpoint():
+    from pathlib import Path
+    source = (Path(__file__).parents[1] / "backend/app/static/scanner-flow.js").read_text()
+    assert 'this.request("/api/v1/catalogue-browser/slab-suggestions?"' in source
+
+
 def observation(**changes):
     data = dict(grader="PSA", certificate_number="160349012", grade="GEM MT 10", card_name="Mega Charizard X ex",
                 card_number="223", set_name="MEGA DREAM EX", year="2025", language="Japanese", confidence=.99, label_lines=[])
@@ -119,8 +170,8 @@ async def test_slab_filter_is_in_authenticated_http_read_and_manual_search_uncha
             dict(product_type="CARD",name="Mega Charizard X ex",card_number="223/193",set_name="Dream",set_id="M2a")]
     class Connection:
         async def fetch(self, sql, *args):
-            from app.catalogue_display_prices import PRODUCTS
-            if sql == PRODUCTS:
+            from app.catalogue_display_prices import PAGE_IDS_SQL
+            if sql == PAGE_IDS_SQL:
                 return []  # No matching shared-price alias in this scan fixture.
             assert args[0] == owner_id and "i.owner_id=$1" in sql
             assert "Japanese" in args

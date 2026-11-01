@@ -415,7 +415,8 @@ function mediaQueueLabel(item) {
   ].filter(Boolean).join(" · ");
   if (item.required_scope === "INVENTORY_ITEM") {
     const grade = [item.grading_company, item.grade].filter(Boolean).join(" ");
-    const kind = item.is_sealed ? "sealed product" : grade || "raw card";
+    const kind = item.product_type === "COMIC" ? (grade ? `graded comic · ${grade}` : "comic book")
+      : item.is_sealed ? "sealed product" : grade || "raw card";
     return [identity, kind, item.inventory_code, `needs ${(item.missing_sides || []).join(" + ")}`]
       .filter(Boolean)
       .join(" · ");
@@ -543,13 +544,15 @@ function renderMediaCandidateSummary() {
     .join(" + ");
   container.append(
     shopifyStatusRow(
-      option.dataset.cardName || "Trading card",
+      option.dataset.cardName || (option.dataset.productType === "COMIC" ? "Comic book" : "Trading card"),
       sides || "MEDIA",
       [
         option.dataset.cardNumber,
         option.dataset.language,
         option.dataset.inventoryCode,
-        option.dataset.isSealed === "true"
+        option.dataset.productType === "COMIC"
+          ? "comic book"
+          : option.dataset.isSealed === "true"
           ? "sealed product"
           : option.dataset.isGraded === "true"
             ? "graded slab"
@@ -619,6 +622,7 @@ function renderShopifyMedia(capability, data, queueData) {
         `${queueData?.raw_items_pending || 0} raw physical cards`,
         `${queueData?.graded_items_pending || 0} graded slabs`,
         `${queueData?.sealed_items_pending || 0} sealed products`,
+        `${queueData?.comic_items_pending || 0} comic books`,
       ].join(" · ")
     )
   );
@@ -901,7 +905,8 @@ function refreshBatchMediaPreview() {
 function batchMediaAltText(option, side) {
   return [
     option.dataset.cardName
-      || (option.dataset.isSealed === "true" ? "Sealed trading card product" : "Trading card"),
+      || (option.dataset.productType === "COMIC" ? "Comic book"
+        : option.dataset.isSealed === "true" ? "Sealed trading card product" : "Trading card"),
     option.dataset.cardNumber || "",
     option.dataset.language || "",
     String(side || "FRONT").toLowerCase(),

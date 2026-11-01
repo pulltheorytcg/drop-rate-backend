@@ -105,6 +105,21 @@ def test_test_sync_gate_reports_exact_local_blockers() -> None:
     ]
 
 
+def test_comic_operational_gate_never_requires_seal_status() -> None:
+    comic = {
+        "status": "APPROVED", "sale_intent": "FOR_SALE", "identity_confirmed": True,
+        "acquisition_cost_minor": 250, "product_type": "COMIC", "card_number": "1",
+        "variant": "Single Issue · Printing 2 · Ryan Stegman Variant",
+        "condition": "Mint", "grading_company": None, "grade": None,
+        "seal_status": None, "language": "English", "catalogue_language": "English",
+        "store_price_minor": 1000, "storage_location_id": "location-id",
+        "registered_location_id": "location-id", "registered_location_active": True,
+    }
+    assert _test_sync_missing(comic) == []
+    assert _test_sync_missing({**comic, "variant": ""}) == ["comic printing / cover variant"]
+    assert _test_sync_missing({**comic, "condition": None}) == ["comic condition / grade"]
+
+
 def test_shopify_test_status_exposes_same_gate_blockers_to_dashboard() -> None:
     source = PIPELINE.read_text()
     frontend = SHOPIFY_SETTINGS.read_text()
@@ -763,6 +778,40 @@ def test_media_intake_queue_only_contains_policy_required_physical_cards() -> No
     assert "graded card" in slab["policy_reasons"]
 
 
+def test_comic_copy_is_in_founder_media_queue_until_approved_photo() -> None:
+    comic = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000004",
+        catalogue_id="10000000-0000-0000-0000-000000000004",
+        inventory_code="INV-DEADPOOL-BATMAN-1",
+        product_type="COMIC",
+        game="Marvel Comics",
+        name="Deadpool/Batman #1",
+        card_number="1",
+        variant="Printing 2",
+        store_price_minor=500,
+        condition="Near Mint",
+    )
+    queue = _build_media_intake_queue([comic], [], physical_photo_threshold_minor=5000)
+    assert queue["queue_count"] == 1
+    assert queue["comic_items_pending"] == 1
+    assert queue["raw_items_pending"] == 0
+    assert queue["items"][0]["missing_sides"] == ["FRONT"]
+    assert "comic printing" in queue["items"][0]["policy_reasons"][0]
+
+    # A generic publisher cover or wrong-copy photo cannot clear this gate.
+    generic = [{"scope": "CANONICAL_PRODUCT", "catalogue_id": comic["catalogue_id"],
+                "side": "FRONT", "approval_status": "APPROVED", "rights_status": "VERIFIED",
+                "rights_tier": "STOREFRONT_ALLOWED", "source_status": "ACTIVE",
+                "shopify_file_status": "READY"}]
+    assert _build_media_intake_queue([comic], generic)["queue_count"] == 1
+    own_photo = [{"scope": "INVENTORY_ITEM", "inventory_id": comic["id"],
+                  "side": "FRONT", "capture_context": "RAW_UNSLEEVED",
+                  "approval_status": "APPROVED", "rights_status": "VERIFIED",
+                  "rights_tier": "FIRST_PARTY_CAPTURE", "source_status": "ACTIVE",
+                  "shopify_file_status": "READY"}]
+    assert _build_media_intake_queue([comic], own_photo)["queue_count"] == 0
+
+
 def test_media_intake_queue_does_not_recapture_approved_processing_physical_media() -> None:
     raw = _media_queue_card(store_price_minor=5000)
     assets = [
@@ -894,13 +943,13 @@ def test_sealed_wrong_capture_context_does_not_clear_queue() -> None:
     assert ready["queue_count"] == 0
 
 
-def test_media_intake_endpoint_includes_sealed_and_collection_inventory() -> None:
+def test_media_intake_endpoint_includes_sealed_collection_and_founder_comics() -> None:
     source = PIPELINE.read_text()
     start = source.index('@router.get("/media-assets/intake-queue")')
     end = source.index('@router.get("/media-assets")', start)
     block = source[start:end]
 
-    assert "p.product_type in ('CARD','SEALED','COLLECTION')" in block
+    assert "p.product_type in ('CARD','SEALED','COLLECTION','COMIC')" in block
     assert "p.product_type='CARD'" not in block
 
 

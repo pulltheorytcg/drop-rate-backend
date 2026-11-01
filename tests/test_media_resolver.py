@@ -86,6 +86,23 @@ def test_low_value_raw_card_uses_exact_storefront_allowed_canonical_media() -> N
     assert result["selectedMedia"][0]["mediaLanguage"] == "English"
 
 
+def test_comic_requires_approved_photo_of_this_copy_not_reference_cover() -> None:
+    comic = _item(product_type="COMIC", game="Marvel Comics", name="Deadpool / Batman #1",
+                  variant="2nd Printing", condition="Mint", store_price_minor=1000)
+    canonical = _asset(scope="CANONICAL_PRODUCT", variant="2nd Printing")
+    blocked = resolve_storefront_media(comic, [canonical])
+    assert not blocked["complete"]
+    assert blocked["physicalPhotosRequired"]
+    assert "approved first-party physical front image" in blocked["blockers"]
+
+    photo = _asset(scope="INVENTORY_ITEM", rights_tier=FIRST_PARTY_CAPTURE,
+                   inventory_id="inventory-1", variant="2nd Printing",
+                   capture_context="RAW_UNSLEEVED")
+    ready = resolve_storefront_media(comic, [canonical, photo])
+    assert ready["complete"]
+    assert ready["resolutionSource"] == "FIRST_PARTY_CAPTURE"
+
+
 def test_marketplace_native_and_internal_reference_media_never_satisfy_storefront() -> None:
     for tier in (MARKETPLACE_NATIVE_ONLY, INTERNAL_REFERENCE_ONLY):
         result = resolve_storefront_media(
