@@ -197,6 +197,16 @@ def create_app() -> FastAPI:
         linked_draft_task: asyncio.Task | None = None
         market_task: asyncio.Task | None = None
         maintenance_tasks=[]
+        # Owner-free catalogue data should be warmed before customers browse.
+        # The existing maintenance identity supplies RLS context; index
+        # downloading/building stays asynchronous and never blocks readiness.
+        from . import catalogue_r2_live
+        if settings.catalogue_maintenance_actor_user_id and catalogue_r2_live.enabled('DELIVERY'):
+            maintenance_tasks.append(asyncio.create_task(
+                catalogue_r2_live.prewarm(
+                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id,
+                )
+            ))
         if settings.shopify_waitlist_sync_enabled:
             maintenance_tasks.append(asyncio.create_task(
                 run_shopify_waitlist_sync(app.state.db_pool, settings)
