@@ -15,6 +15,7 @@ let checks = 0;
 function fixture(role = 'seller', request = async () => ({}), options = {}) {
   const dom = new JSDOM('<button id="launch">Scan</button>', {url:'https://example.test', runScripts:'outside-only', pretendToBeVisual:true});
   const w = dom.window;
+  if(options.mobile)w.matchMedia=query=>({matches:query.includes('max-width: 900px'),media:query});
   w.HTMLDialogElement.prototype.showModal = function(){ this.open = true; };
   w.HTMLDialogElement.prototype.close = function(){ this.open = false; };
   w.HTMLMediaElement.prototype.play = async () => {};
@@ -788,6 +789,76 @@ async function matched(scanner, quantity = 1) {
     const item={selected:{reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=bad'},status:'unresolved'};
     const thumb=f.scanner.thumb(item);await tick();assert.ok(thumb.querySelector('img').hidden);
     assert.match(thumb.textContent,/Image could not load/);f.finish();checks++;
+  }
+  // Mobile Scan is camera-only. File controls remain available on desktop but
+  // cannot trigger a separate photo picker or upload while on mobile.
+  {
+    let closed=0, fileChooser=0;
+    const f=fixture('seller',async()=>({}),{mobile:true,onClose:()=>closed++});
+    f.scanner.find('.dr-scan-file').click=()=>fileChooser++;
+    Object.defineProperty(f.w.navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+      throw Object.assign(new Error('Denied'),{name:'NotAllowedError'});
+    }}});
+    await f.scanner.open();
+    assert.equal(f.scanner.dialog.open,true);
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,true);
+    assert.match(f.scanner.find('.dr-scan-status').textContent,/camera access/i);
+    assert.doesNotMatch(f.scanner.find('.dr-scan-status').textContent,/choose a photo/i);
+    f.scanner.find('[data-action="gallery"]').click();
+    assert.equal(fileChooser,0);
+    await f.scanner.upload({target:{files:[new f.w.File(['abc'],'card.png',{type:'image/png'})],value:'card.png'}});
+    assert.equal(f.scanner.items.length,0,'Mobile file uploads must not start recognition');
+    assert.equal(f.scanner.find('.dr-scan-file').disabled,false);
+    f.scanner.close();
+    assert.equal(closed,1);
+    f.finish();assert.equal(closed,1,'Destroy must not double-fire the close callback');
+    checks++;
+  }
+  // Founder mobile Scan navigation opens the shared scanner immediately;
+  // closing it returns Dashboard, not the older inline uploader.
+  {
+    const markup='<main data-seller-view="dashboard"></main>' +
+      '<section data-seller-view="intake" class="hidden"></section>';
+    const dom=new JSDOM(markup,{url:'https://example.test/app',
+      runScripts:'outside-only',pretendToBeVisual:true});
+    const w=dom.window;let cameraCalls=0,stopped=0;
+    w.matchMedia=query=>({matches:query.includes('max-width: 900px'),media:query});
+    w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+    w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+    w.HTMLMediaElement.prototype.play=async()=>{};
+    w.state={session:{access_token:'founder-token',user:{id:'founder-a'}}};
+    w.byId=id=>w.document.getElementById(id);
+    w.sellerView=view=>w.document.querySelector('[data-seller-view="'+view+'"]');
+    w.apiRequest=async path=>path.endsWith('/status')?{configured:true,vision_model:'fixture'}:{items:[]};
+    w.showMessage=()=>{};
+    w.activateSellerView=(name)=>{
+      w.document.querySelectorAll('[data-seller-view]').forEach(panel=>{
+        panel.classList.toggle('hidden',panel.dataset.sellerView!==name);
+      });
+    };
+    Object.defineProperty(w.navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+      cameraCalls++;return {getTracks:()=>[{stop:()=>stopped++}],
+        getVideoTracks:()=>[{getCapabilities:()=>({torch:false})}]};
+    }}});
+    w.eval(priceSource);w.eval(source);
+    w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/recognition-scanner.js'),'utf8'));
+    assert.ok(w.document.getElementById('recognition-mobile-open-scanner'));
+    w.activateSellerView('intake',true);
+    assert.equal(cameraCalls,1,'Mobile Scan press should request camera immediately');
+    assert.equal(w.dropRateScanner.dialog.open,true);
+    w.dropRateScanner.setMode('GRADED');
+    await tick();
+    w.dropRateScanner.close();
+    assert.equal(w.sellerView('intake').classList.contains('hidden'),true);
+    assert.equal(w.sellerView('dashboard').classList.contains('hidden'),false);
+    assert.ok(stopped>=1);
+    w.activateSellerView('intake',false);
+    assert.equal(cameraCalls,1,'A restored intake deep link needs an explicit user gesture');
+    w.document.getElementById('recognition-mobile-open-scanner').click();
+    assert.equal(cameraCalls,2);
+    assert.equal(w.dropRateScanner.dialog.open,true);
+    assert.equal(w.dropRateScanner.mode,'GRADED','Founder scanner mode must survive reopen');
+    w.dropRateScanner.destroy();dom.window.close();checks++;
   }
   await tick();
   console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');

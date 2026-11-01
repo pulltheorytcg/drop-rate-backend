@@ -1,3 +1,12 @@
+## 1 November 2026 — Mobile scanner-only navigation and exit cleanup (in review)
+
+- **User issue:** On iPhone, closing the full-screen scanner exposed the older card-photo upload form. The application carried two overlapping scan interfaces, creating an unnecessary extra screen.
+- **Fix:** On mobile widths ≤900px, both seller and founder Scan views expose only a small re-entry control, not the legacy upload/preview/results panels. Selecting the mobile Scan tab opens the shared full-screen live camera; closing its dialog returns the active Scan tab to Home. Opening the scanner from another page does not redirect that page. The scanner's mobile gallery/picker and file-replacement controls are disabled; desktop upload tools remain unchanged.
+- **Additional continuity:** Preserve the selected RAW/GRADED/SEALED/COMIC scanning mode and in-memory unsaved queue when reopening after a close. Failed camera permission stays inside the full-screen scanner with explicit permission/retry wording; no hidden legacy fallback starts on mobile.
+- **Connections:** Shared scanner presentation (`scanner-flow.js/css`), founder scanner launch (`recognition-scanner.js`), seller scanner launch (`owner-recognition.js`) and seller Scan markup (`owner.html`). Supabase/Railway inventory, recognition, financial and ownership rules are untouched.
+- **Failure checks:** Mobile/desktop nav, direct `#scan` entry, Escape/Close, stale camera grants, camera-denied state, unsaved queue retention, multi-mode reopen, gallery/file-picker gating, owner session changes. Run the existing UI and backend CI before merge, then verify Railway and an actual phone.
+- **Release and rollback:** PR `fix/mobile-scan-only-exit-20261101` pending CI. Revert that single PR if mobile Scan or intake regresses. No database migration, service, worker schedule, provider or payment change.
+
 ## 1 November 2026 — Catalogue read-only pricing and versioned reference-artwork cache (in review)
 
 - **Problem:** User-reported slow catalogue browsing despite the recovered indexed catalogue. Frontend browsing requested a second `/api/v1/catalogue-browser/market-values` refresh, and value sorts calculated unrelated shared prices. Authenticated reference-image responses were globally marked `no-store`, preventing reuse across visits.

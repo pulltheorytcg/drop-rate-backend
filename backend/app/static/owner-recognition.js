@@ -599,6 +599,14 @@ function ownerSharedScanner() {
         afterSave: () => Promise.all([loadOwnerOverview(), loadOwnerInventory()]),
         viewInventory: () => activateOwnerView("inventory"),
         openBooks: options => window.DropRateBooks?.open(options) ?? false,
+        onClose: () => {
+          // Closing the mobile modal must not expose the legacy photo-upload page.
+          // Do not redirect if another tab already closed this scanner.
+          if (window.matchMedia?.("(max-width: 900px)")?.matches
+              && !byId("owner-view-scan")?.classList.contains("hidden")) {
+            activateOwnerView("overview", true);
+          }
+        },
       });
     }
   return window.dropRateScanner;
@@ -610,8 +618,13 @@ async function ownerScanStartCamera(facingMode = "environment") {
     ownerSharedScanner();
     // A tab click always opens the LIVE view even when previous scans still
     // await review. They stay safely queued for Next / Review, not discarded.
-    await window.dropRateScanner.open(ownerScanMode().toUpperCase(), {preferCamera: true});
+    const mode = window.matchMedia?.("(max-width: 900px)")?.matches
+      ? window.dropRateScanner.mode : ownerScanMode().toUpperCase();
+    await window.dropRateScanner.open(mode, {preferCamera: true});
     return;
+  }
+  if (window.matchMedia?.("(max-width: 900px)")?.matches) {
+    throw new Error("Live scanner is temporarily unavailable. Reload the page and try again.");
   }
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
     throw new Error("Live camera is not supported in this browser. Upload a photo instead.");
@@ -2121,8 +2134,10 @@ function ownerRecognitionLaunchCamera() {
   if (window.dropRateScanner?.dialog?.open) return;
   void ownerScanStartCamera("environment").catch(error => {
     const reason = error?.name === "NotAllowedError"
-      ? "Allow camera access in your browser, or choose a photo instead."
-      : error?.message || "Camera unavailable. Choose a photo instead.";
+      ? (window.matchMedia?.("(max-width: 900px)")?.matches
+          ? "Allow camera access in your browser settings, then reopen Scan."
+          : "Allow camera access in your browser, or choose a photo instead.")
+      : error?.message || "Camera unavailable. Try opening Scan again.";
     if (!byId("owner-view-scan")?.classList.contains("hidden")) {
       ownerScanMessage(reason, "error");
       window.dropRateScanner?.status?.(reason);
@@ -2130,6 +2145,7 @@ function ownerRecognitionLaunchCamera() {
   });
 }
 window.ownerRecognitionLaunchCamera = ownerRecognitionLaunchCamera;
+byId("owner-mobile-open-scanner")?.addEventListener("click", ownerRecognitionLaunchCamera);
 
 function ownerRecognitionLeave() {
   // Invalidate pending camera permission grants, even on browser Back/hash

@@ -23,6 +23,12 @@ function ensureRecognitionScannerUI() {
   panel.id = "recognition-scanner-panel";
   panel.className = "inventory-panel recognition-scanner-panel";
   panel.innerHTML = `
+    <section class="dr-mobile-scan-entry" aria-labelledby="recognition-mobile-scan-heading">
+      <span class="dr-mobile-scan-symbol" aria-hidden="true">◎</span>
+      <h2 id="recognition-mobile-scan-heading">Scan your collection</h2>
+      <p>Use your camera to scan cards, graded slabs, sealed products, comics or manga. Check the exact match before saving.</p>
+      <button id="recognition-mobile-open-scanner" type="button">Open scanner</button>
+    </section>
     <div class="page-heading">
       <div>
         <p class="eyebrow">Start with a photo</p>
@@ -103,6 +109,7 @@ function ensureRecognitionScannerUI() {
 
   byId("recognition-file").addEventListener("change", handleRecognitionFile);
   byId("recognition-open-camera").addEventListener("click", openRecognitionCamera);
+  byId("recognition-mobile-open-scanner").addEventListener("click", openRecognitionCamera);
   byId("recognition-switch-camera").addEventListener("click", switchRecognitionCamera);
   byId("recognition-torch").addEventListener("click", toggleRecognitionTorch);
   byId("recognition-capture-scan").addEventListener("click", captureAndRecogniseCard);
@@ -284,6 +291,14 @@ function founderSharedScanner() {
         saveSession: session => saveSession(session),
         afterSave: () => reloadDashboard(),
         viewInventory: () => activateSellerView("inventory", true),
+        onClose: () => {
+          // On phones, the legacy photo-upload panel must not be the exit screen.
+          // Leave the current tab alone when Scan was opened from Search.
+          if (window.matchMedia?.("(max-width: 900px)")?.matches
+              && !recognitionView()?.classList.contains("hidden")) {
+            activateSellerView("dashboard", true);
+          }
+        },
       });
     }
   return window.dropRateScanner;
@@ -293,8 +308,15 @@ async function openRecognitionCamera() {
   if (window.DropRateScanner) {
     stopRecognitionCamera();
     founderSharedScanner();
-    try { await window.dropRateScanner.open(document.querySelector('input[name="recognition-scan-mode"]:checked')?.value || "RAW"); }
+    const mode = window.matchMedia?.("(max-width: 900px)")?.matches
+      ? window.dropRateScanner.mode
+      : document.querySelector('input[name="recognition-scan-mode"]:checked')?.value || "RAW";
+    try { await window.dropRateScanner.open(mode); }
     catch (error) { showMessage("recognition-message", error.message, "error"); }
+    return;
+  }
+  if (window.matchMedia?.("(max-width: 900px)")?.matches) {
+    showMessage("recognition-message", "Live scanner unavailable. Reload the page and try again.", "error");
     return;
   }
   const button = byId("recognition-open-camera");
@@ -1080,6 +1102,11 @@ activateSellerView = function activateSellerViewWithRecognition(name, updateHash
   if (name === "intake") {
     loadRecognitionStatus();
     loadRecognitionHistory();
+    // A mobile Scan-tab press opens the shared camera within its user gesture.
+    // A restored #intake deep link (updateHash=false) shows the single launch CTA.
+    if (updateHash && window.matchMedia?.("(max-width: 900px)")?.matches) {
+      void openRecognitionCamera();
+    }
   }
   return result;
 };
