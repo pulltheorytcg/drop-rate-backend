@@ -102,7 +102,7 @@ async def check(db):
                 for ordering in ('value_desc','value_asc'):
                     query,args=product_query(
                         owner_id=owner,system_code='POKEMON_TCG',language='English',
-                        sort=ordering,shared_prices=shared,limit=1,offset=0,
+                        set_id='cache-fixture',sort=ordering,shared_prices=shared,limit=1,offset=0,
                     )
                     original=[dict(r) for r in await db.fetch(query,*args)]
                     shortlisted,short_args=indexed_value_sql(
