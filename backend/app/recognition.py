@@ -37,6 +37,7 @@ from .recognition_images import (
     decode_image_data_url,
     reference_image_bytes,
 )
+from .r2_media import with_signed_mirror
 from .recognition_learning import (
     attach_learning_visual_evidence,
     discover_learning_candidate_hints,
@@ -237,6 +238,7 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
             rc.provider,rc.provider_id,rc.provider_language,rc.rank,rc.score,
             rc.hard_rejected,rc.rejection_reasons,rc.signals,
             rc.candidate_snapshot,rc.created_at,
+            reference_mirror.object_key as r2_reference_object_key,
             case when reference.provider_id is not null then jsonb_build_object(
                 'provider',reference.provider,'system_code',reference.system_code,
                 'language',reference.language,'provider_id',reference.provider_id
@@ -272,7 +274,8 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
         ) provider_map on true
         left join lateral (
             select c.provider,c.system_code,c.language,c.provider_id,
-                   c.name,c.set_id,c.card_number,c.rarity,s.name as set_name
+                   c.name,c.set_id,c.card_number,c.rarity,c.image_url,
+                   s.name as set_name
             from tcg.reference_cards c
             join tcg.reference_sets s using(provider,system_code,language,set_id)
             where c.provider=rc.provider and c.provider_id=rc.provider_id
@@ -281,6 +284,33 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
               and (s.release_date is null or s.release_date<=current_date)
             limit 1
         ) reference on true
+        -- Art can also be attached to a mapped catalogue candidate. Keep this
+        -- lookup separate from the PROVIDER-only price join, so art delivery
+        -- cannot accidentally broaden which valuations are eligible.
+        left join lateral (
+            select c.provider,c.system_code,c.language,c.provider_id,c.image_url
+            from tcg.reference_cards c
+            join tcg.reference_sets s using(provider,system_code,language,set_id)
+            where c.provider=rc.provider and c.provider_id=rc.provider_id
+              and c.system_code=rc.system_code and c.language=rc.provider_language
+              and not rc.hard_rejected
+              and (s.release_date is null or s.release_date<=current_date)
+              and c.image_url is not null
+              and (coalesce(nullif(rc.candidate_snapshot->>'reference_image_url',''),
+                            nullif(rc.candidate_snapshot->>'image_url','')) is null
+                   or c.image_url=coalesce(nullif(rc.candidate_snapshot->>'reference_image_url',''),
+                                           nullif(rc.candidate_snapshot->>'image_url','')))
+            limit 1
+        ) artwork_reference on true
+        -- A verified private R2 copy must belong to this exact provider printing
+        -- and the card's current source URL; a different language or art is unsafe.
+        left join tcg.reference_image_mirrors reference_mirror
+          on (reference_mirror.provider,reference_mirror.system_code,
+              reference_mirror.language,reference_mirror.provider_id)=
+             (artwork_reference.provider,artwork_reference.system_code,
+              artwork_reference.language,artwork_reference.provider_id)
+         and reference_mirror.source_url=artwork_reference.image_url
+         and reference_mirror.status='VERIFIED'
         -- Owner-independent reference guide for exactly matched provider card and printing.
         left join tcg.reference_market_prices ref_market
           on (ref_market.provider,ref_market.system_code,ref_market.language,ref_market.provider_id)=
@@ -342,7 +372,7 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     )
     return {
         "run": dict(run),
-        "candidates": [_candidate_review_payload(dict(row)) for row in candidates],
+        "candidates": [_candidate_review_payload(with_signed_mirror(row)) for row in candidates],
         "feedback": [dict(row) for row in feedback],
         "engine_version": ENGINE_VERSION,
         "auto_applied": False,

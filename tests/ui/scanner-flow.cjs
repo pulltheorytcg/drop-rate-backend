@@ -70,6 +70,112 @@ async function matched(scanner, quantity = 1) {
     assert.equal(s.items[0].bookResult.research.selected_candidate_id,'a'.repeat(24));
     f.finish();checks++;
   }
+  // An unmatched Korean card keeps its physical language, while its safely
+  // translated character name is presented in English. No English price/art.
+  {
+    const f=fixture('seller',async()=>({run:{id:'korean-run',decision:'NO_MATCH',
+      ai_observation:{object_type:'CARD',object_type_confidence:0.99,game:'Pokemon',
+        language:'Korean',name_guess:'제르네아스',name_english_guess:'Xerneas',
+        name_english_confidence:0.98,card_number:'042/063'}},candidates:[]}));
+    const s=f.scanner;await s.recognise('photo');const item=s.items[0];
+    assert.equal(item.mode,'RAW');assert.equal(item.guess,'Xerneas');
+    assert.equal(item.selected,null);assert.equal(s.ready(item),false);
+    s.openDetails(item);
+    assert.match(s.details.textContent,/Xerneas/);
+    assert.match(s.details.textContent,/Korean printing/);
+    assert.match(s.details.textContent,/No verified GBP value/);
+    assert.doesNotMatch(s.details.textContent,/English · Holofoil/);
+    f.finish();checks++;
+  }
+  // A Japanese catalogue identity keeps its Japanese printing and evidence,
+  // but the customer-facing title uses the explicitly labelled translation.
+  {
+    const candidate={id:'jp-candidate',rank:1,source_kind:'CATALOGUE',
+      catalogue_id:'jp-card',market_value_minor:null,
+      candidate_snapshot:{name:'ピカチュウ',language:'Japanese',game:'Pokemon',card_number:'025/100',product_type:'CARD'}};
+    const f=fixture('seller',async()=>({run:{id:'jp-run',decision:'NEEDS_REVIEW',
+      ai_observation:{object_type:'CARD',object_type_confidence:0.99,language:'Japanese',
+        name_guess:'ピカチュウ',name_english_guess:'Pikachu',name_english_confidence:0.99}},
+      candidates:[candidate]}));
+    const s=f.scanner;await s.recognise('photo');const item=s.items[0];
+    assert.equal(item.suggested.catalogue_id,'jp-card');
+    assert.match(s.find('.dr-scan-strip').textContent,/Pikachu/);
+    s.openDetails(item);
+    assert.match(s.details.textContent,/Japanese printing/);
+    assert.match(s.details.textContent,/Pikachu/);
+    assert.equal(s.totals().value,null);
+    f.finish();checks++;
+  }
+  // An exact R2 mirror uses the existing signed URL for fast artwork delivery;
+  // failed/expired signatures fall back to the run-scoped authenticated proxy.
+  {
+    const signed='https://r2.example.test/private-object?signed=short-lived';
+    const candidate={...result().candidates[0],r2_image_url:signed};
+    const f=fixture('seller',async()=>result({candidates:[candidate]}));
+    const s=f.scanner;await s.recognise('photo');
+    const wrap=f.w.document.createElement('div');
+    const image=f.w.document.createElement('img');wrap.append(image);
+    await s.artwork(image,s.items[0],candidate);
+    assert.equal(image.src,signed);
+    const proxyCalls=[];
+    f.w.fetch=async url=>{proxyCalls.push(url);return {ok:false};};
+    image.dispatchEvent(new f.w.Event('error'));await tick();await tick();
+    assert.equal(proxyCalls.length,1);
+    assert.match(proxyCalls[0],/\/api\/v1\/recognition\/runs\/run-1\/candidates\/candidate-1\/image/);
+    f.finish();checks++;
+  }
+  // A PSA slab photographed under Auto must never display a raw-card price or
+  // become ready to save without checking its grader, certificate and grade.
+  {
+    const gradedRun={id:'graded-run',decision:'NEEDS_REVIEW',ai_observation:{
+      object_type:'GRADED_CARD',object_type_confidence:0.99,name_guess:'Charizard V',
+      language:'English',card_number:'019/189',set_name_guess:'Darkness Ablaze',
+      visible_markers:['PSA logo on grading label','Grading label: MINT 9',
+        'Grading label certificate number: 62398872']}};
+    const f=fixture('seller',async()=>result({run:gradedRun}));
+    const s=f.scanner;await s.recognise('photo');const item=s.items[0];
+    assert.equal(item.mode,'GRADED');assert.equal(item.grading_company,'PSA');
+    assert.equal(item.grade,'9');assert.equal(item.certificate_number,'62398872');
+    assert.equal(item.selected,null);assert.equal(s.totals().value,null);
+    assert.equal(f.calls.length,1,'Auto does not silently buy a second vision call');
+    s.openDetails(item);
+    assert.match(s.details.textContent,/No verified value is available here for this grader/);
+    assert.doesNotMatch(s.details.textContent,/£15\.00/);
+    assert.match(s.details.textContent,/Graded slab detected/);
+    f.finish();checks++;
+  }
+  // The default Auto tab must retain a verified sealed candidate for review,
+  // while the missing product code prevents silent sealed intake.
+  {
+    const candidate={id:'sealed-candidate',rank:1,source_kind:'CATALOGUE',
+      catalogue_id:'sealed-id',candidate_snapshot:{name:'Premium Card Collection -6 assort vol.1-',
+        language:'Japanese',product_type:'COLLECTION',collectible_type:'SEALED',
+        sealed_product_type:'PREMIUM_CARD_COLLECTION'}};
+    const f=fixture('seller',async()=>({run:{id:'sealed-run',decision:'NEEDS_REVIEW',
+      ai_observation:{object_type:'SEALED_PRODUCT',object_type_confidence:0.97,
+        name_guess:'Premium Card Collection',language:'Japanese'}},candidates:[candidate]}));
+    const s=f.scanner;await s.recognise('photo');const item=s.items[0];
+    assert.equal(item.mode,'SEALED');assert.equal(item.suggested.catalogue_id,'sealed-id');
+    assert.equal(item.selected,null);assert.equal(s.ready(item),false);
+    s.openDetails(item);
+    assert.match(s.details.textContent,/Japanese printing/);
+    assert.match(s.details.textContent,/sealed product needs identity review/i);
+    f.finish();checks++;
+  }
+  // A publisher comic cover that was not photo-matched remains a review cue,
+  // never an implied verified artwork match.
+  {
+    const id='a'.repeat(24),run='11111111-1111-4111-8111-111111111111';
+    const f=fixture('seller',async()=>({run:{id:run,decision:'NEEDS_REVIEW'},candidates:[],
+      book_result:{run_id:run,status:'NEEDS_REVIEW',fields:{series_title:'Deadpool / Batman',issue_number:'1'},
+        research:{status:'CANDIDATES',selected_candidate_id:id,candidates:[{
+          id,image_path:`/api/v1/owner/books/research/${run}/cover/${id}`,cover_matches_photo:false}]}}}),
+      {openBooks:()=>true});
+    const s=f.scanner;await s.recognise('photo');
+    assert.match(s.find('.dr-scan-strip').textContent,/Review publisher cover/);
+    assert.doesNotMatch(s.find('.dr-scan-strip').textContent,/Ready to add/);
+    f.finish();checks++;
+  }
   // Slow publisher research never occupies a photo-reading slot. Removed,
   // saved, or owner-switched items cannot accept its late response.
   for (const outcome of ['complete','remove','saved','owner-change']) {
@@ -153,12 +259,12 @@ async function matched(scanner, quantity = 1) {
     const run='11111111-1111-4111-8111-111111111111',id='aaaaaaaaaaaaaaaaaaaaaaaa';
     const path='/api/v1/owner/books/research/'+run+'/cover/'+id;let review;const imageCalls=[];
     const data={status:'NEEDS_REVIEW',run_id:run,fields:{series_title:'Book',issue_number:'1'},
-      research:{selected_candidate_id:id,candidates:[{id,image_path:path}]}};
+      research:{selected_candidate_id:id,candidates:[{id,image_path:path,cover_matches_photo:true}]}};
     const f=fixture('seller',async()=>data,{openBooks:opts=>{review=opts;return true;}}),s=f.scanner;
     f.w.fetch=async url=>{imageCalls.push(url);return {ok:true,blob:async()=>new f.w.Blob(['cover'],{type:'image/png'})};};
     s.setMode('COMIC');await s.recognise('photo');await tick();await tick();
     assert.equal(s.find('.dr-scan-thumb img').src,'blob:preview');assert.deepEqual(imageCalls,[path]);
-    assert.ok(s.find('.dr-scan-strip').textContent.includes('Ready to add'));
+    assert.ok(s.find('.dr-scan-strip').textContent.includes('Review and add'));
     const item=s.items[0];s.openDetails(item);review.onSaveState(true);assert.equal(s.removable(item),false);
     const newRun='22222222-2222-4222-8222-222222222222',newId='bbbbbbbbbbbbbbbbbbbbbbbb';
     const newPath='/api/v1/owner/books/research/'+newRun+'/cover/'+newId;

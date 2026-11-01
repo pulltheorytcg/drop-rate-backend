@@ -55,21 +55,44 @@ window.DropRateScanner = (() => {
     return candidate && /^[0-9a-f-]{36}$/i.test(result.run_id || "") && /^[a-f0-9]{24}$/.test(candidate.id)
       && path === `/api/v1/owner/books/research/${result.run_id}/cover/${candidate.id}` ? path : null;
   };
+  const bookCoverVerified = item => {
+    const research = item.bookResult?.research;
+    return research?.candidates?.some(candidate => candidate.id === research.selected_candidate_id
+      && candidate.cover_matches_photo === true);
+  };
   const sealed = item => [snapshot(selected(item)).product_type,
     snapshot(selected(item)).collectible_type].includes("SEALED");
-  const name = item => snapshot(selected(item)).name || item.guess || "Check this match";
+  const nativeScript = value => /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/u.test(value || "");
+  const englishScanName = item => {
+    const observed = item.run?.ai_observation, candidate = snapshot(selected(item));
+    if (!observed || ["English", "Unknown"].includes(observed.language)
+        || !observed.name_english_guess?.trim() || Number(observed.name_english_confidence || 0) < 0.80
+        || (candidate.language && candidate.language !== observed.language)
+        || (candidate.name && (!nativeScript(candidate.name) || !nativeScript(observed.name_guess)))) return "";
+    return observed.name_english_guess.trim();
+  };
+  const name = item => englishScanName(item) || snapshot(selected(item)).name || item.guess || "Check this match";
   const meta = item => {
     if (book(item)) {
       const fields = item.bookResult?.fields || {};
       return [fields.publisher, fields.language, fields.volume_identifier].filter(Boolean).join(" · ");
     }
     const card = snapshot(selected(item));
-    return [card.game, card.set_name, card.product_code || card.card_number || card.base_card_id,
-      card.language, card.variant || card.art_treatment].filter(Boolean).join(" · ");
+    const observed = item.run?.ai_observation || {};
+    return [card.game || observed.game, card.set_name,
+      card.product_code || card.card_number || card.base_card_id || observed.card_number,
+      card.language || observed.language, card.variant || card.art_treatment].filter(Boolean).join(" · ");
   };
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const graded = item => item.mode === "GRADED";
   const graders = ["PSA", "BGS", "CGC", "TAG", "ACE", "BVG", "BCCG"];
+  const slabLabelHints = observation => {
+    const markers = (observation?.visible_markers || []).join(" | ");
+    const company = graders.find(grader => new RegExp(`\\b${grader}\\b`, "i").test(markers)) || "";
+    const certificate = markers.match(/certificate\s*(?:number)?\s*[:#]?\s*(\d{7,10})\b/i)?.[1] || "";
+    const grade = markers.match(/grading\s+label\s*:\s*(?:gem mint|mint|nm-mt|pristine|near mint|excellent)?\s*(\d{1,2}(?:\.5)?)\b/i)?.[1] || "";
+    return {company, certificate, grade};
+  };
   const gradeOptions = company => {
     const whole = Array.from({length: company === "BCCG" ? 6 : 10}, (_, index) => String(10 - index));
     const values = ["ACE", "TAG", "BCCG"].includes(company) ? whole
@@ -864,6 +887,24 @@ window.DropRateScanner = (() => {
           this.acceptBookResult(item, data.book_result, photo, epoch);
           return;
         }
+        const observed = item.run.ai_observation || {};
+        const detectedObject = Number(observed.object_type_confidence || 0) >= 0.90
+          ? observed.object_type : "UNKNOWN";
+        // Auto is a camera mode, not a declaration that every photographed
+        // object is an ungraded card. Route confidently identified packaging
+        // and slabs before filtering the recognition candidates.
+        if (item.mode === "RAW" && detectedObject === "SEALED_PRODUCT") item.mode = "SEALED";
+        if (item.mode === "RAW" && detectedObject === "GRADED_CARD") {
+          item.mode = "GRADED";
+          const hints = slabLabelHints(observed);
+          item.grading_company = hints.company;
+          item.grade = hints.grade;
+          item.certificate_number = hints.certificate;
+          item.label = {card_name: observed.name_english_guess || observed.name_guess,
+            card_number: observed.card_number, set_name: observed.set_name_guess, language: observed.language};
+          // Vision transcription is never certificate-provider verification.
+          item.slab = {verified: false, conflicts: [], observation: {source: "vision_label_only"}};
+        }
         item.candidates = (data.candidates || []).filter(candidate => !candidate.hard_rejected
           && (candidate.catalogue_id || candidate.source_kind === "PROVIDER"))
           .sort((a, b) => Number(a.rank || 9999) - Number(b.rank || 9999));
@@ -871,12 +912,14 @@ window.DropRateScanner = (() => {
           ? sealed({selected: candidate}) : !sealed({selected: candidate}));
         const top = item.candidates[0] || null;
         item.suggested = top;
-        item.selected = item.run.decision === "EXACT_CANDIDATE" && top?.catalogue_id === item.run.top_catalogue_id
+        item.selected = item.mode !== "GRADED" && item.run.decision === "EXACT_CANDIDATE" && top?.catalogue_id === item.run.top_catalogue_id
           && top?.catalogue_id ? top : null;
         item.status = item.selected ? "matched" : "unresolved";
-        item.guess = item.run.ai_observation?.name_guess || "No match found";
+        item.guess = englishScanName(item) || observed.name_guess || "No match found";
         if (!top && data.candidates?.length) item.error = "This item does not match " + item.mode + ". Choose the correct scan type and scan it again.";
         if (!usableRun(item)) item.error = "Recognition could not complete. Retry this photo before choosing a match.";
+        if (item.mode === "GRADED" && detectedObject === "GRADED_CARD") item.error =
+          "Graded slab detected. Confirm the label, certificate and exact printing before adding. An ungraded card price is not a slab valuation.";
         this.status(item.selected ? "Match found · tap its thumbnail to check details" : "Check the match · tap its thumbnail");
       } catch (error) {
         if (!this.active(epoch) || !this.items.includes(item)) return;
@@ -968,7 +1011,7 @@ window.DropRateScanner = (() => {
       if (!this.active()) { image.hidden = true; return; }
       const card = snapshot(candidate);
       const path = candidate?.reference_image_path || card.reference_image_path;
-      const direct = candidate?.image_url || card.display_image_url || card.image_url;
+      const direct = candidate?.r2_image_url || candidate?.image_url || card.display_image_url || card.image_url;
       const runPath = item.run?.id && candidate?.id
         ? "/api/v1/recognition/runs/" + encodeURIComponent(item.run.id) + "/candidates/" + encodeURIComponent(candidate.id) + "/image" : null;
       const local = path?.startsWith("/api/v1/catalogue-browser/reference-image?") || (book(item) && path === bookCover(item)) ? path : runPath;
@@ -978,15 +1021,16 @@ window.DropRateScanner = (() => {
         if (direct && /^https:\/\//i.test(direct)) {
           image.addEventListener("error", () => missing("Image could not load"), {once: true});
           image.src = direct;
-        } else missing("Reference image unavailable");
+        } else missing("No verified reference artwork");
         return;
       }
-      // Approved direct/CDN images keep their fast path. Only use the
-      // authenticated run image on failure; provider reference paths use our
-      // existing proxy first to avoid hotlink-denial and external credentials.
-      if (direct && !path && /^https:\/\//i.test(direct)) {
+      // The signed private R2 mirror is the fastest source for an exact
+      // provider printing. Retain the authenticated image proxy as fallback.
+      // Otherwise, provider reference paths use the proxy before hotlinks.
+      if (direct && (!path || candidate?.r2_image_url) && /^https:\/\//i.test(direct)) {
         image.addEventListener("error", () => {
-          const retry = {...candidate, image_url: null, candidate_snapshot: {...card, image_url: null, display_image_url: null}};
+          const retry = {...candidate, r2_image_url: null, image_url: null,
+            candidate_snapshot: {...card, image_url: null, display_image_url: null}};
           this.artwork(image, item, retry);
         }, {once: true});
         image.src = direct; return;
@@ -1076,7 +1120,7 @@ window.DropRateScanner = (() => {
         copy.append(node("strong", "", item.status === "processing" ? item.guess : name(item)));
         const card = snapshot(selected(item));
         if (!["processing", "queued"].includes(item.status)) copy.append(node("span", "", card.card_number || card.product_code || ""),
-          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : researching(item.bookResult) ? "Finding publisher cover…" : item.bookResult?.research?.selected_candidate_id ? "Ready to add" : "Review book") : item.status === "unresolved" ? "Check match" : priceText(item)));
+          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : researching(item.bookResult) ? "Finding publisher cover…" : bookCoverVerified(item) ? "Review and add" : "Review publisher cover") : item.status === "unresolved" ? "Check match" : priceText(item)));
         tile.append(copy);
         const queued = node("div", "dr-scan-queued"), remove = this.removeControl(item, "dr-scan-remove-queued");
         remove.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>';
@@ -1235,7 +1279,9 @@ window.DropRateScanner = (() => {
       heading.append(title, close); this.details.append(heading);
       const content = node("div", "dr-scan-details-content");
       const pair = node("div", "dr-scan-photo-pair");
-      for (const [label, captured] of [["Your Picture", true], [item.status === "matched" ? "Selected match" : "Suggested match", false]]) {
+      for (const [label, captured] of [["Your Picture", true],
+        [!edit.selected ? "No verified reference artwork" : graded(edit) ? "Card art · not slab photo"
+          : item.status === "matched" ? "Selected match" : "Suggested match", false]]) {
         const figure = node("figure"); figure.append(this.thumb(item, "dr-scan-detail-thumb", edit.selected, captured), node("figcaption", "", label)); pair.append(figure);
       }
       content.append(pair, node("p", "dr-scan-results-label", "Suggested matches · check the artwork"));
@@ -1272,10 +1318,14 @@ window.DropRateScanner = (() => {
       const info = node("div", "dr-scan-detail-identity");
       info.append(node("h3", "", name(candidateItem)), node("strong", "", priceText(candidateItem)),
         node("p", "", meta(candidateItem)));
+      const printingLanguage = snapshot(edit.selected).language || item.run?.ai_observation?.language;
+      if (printingLanguage && !["English", "Unknown"].includes(printingLanguage)) {
+        info.append(node("span", "dr-scan-language-chip", printingLanguage + " printing"));
+      }
       content.append(info);
       if (marketValue == null) content.append(node("p", "dr-scan-review-note", isGraded
         ? "No verified value is available here for this grader and grade. You can still add the slab."
-        : "A current market value isn’t available yet. You can still add this item."));
+        : "No verified GBP value is available for this exact printing, language and format. A different language or grade cannot be substituted."));
       else if (edit.selected.recommended_retail_minor != null) content.append(node("p", "dr-scan-review-note",
         "Suggested retail: " + money(edit.selected.recommended_retail_minor) + " · guide only, not a live quote"));
       if (!isGraded && edit.selected?.shared_price && window.DropRateReferenceValue) content.append(node("p", "dr-scan-review-note",

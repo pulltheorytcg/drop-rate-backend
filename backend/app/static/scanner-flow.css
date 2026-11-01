@@ -134,6 +134,7 @@
 .dr-scan-detail-identity { grid-template-columns: minmax(0, 1fr) minmax(75px, 32%); }
 .dr-scan-detail-identity strong { font-size: 14px; text-align: right; overflow-wrap: anywhere; }
 .dr-scan-detail-identity p { grid-column: 1 / -1; color: var(--scan-muted); font-size: 12px; line-height: 1.4; }
+.dr-scan-language-chip { grid-column: 1 / -1; justify-self: start; border: 1px solid var(--scan-muted); border-radius: 4px; padding: 3px 8px; color: var(--scan-muted); font-size: 12px; }
 .dr-scan-type-chip { display: inline-block; padding: 8px 14px; border: 1px solid var(--scan-accent); border-radius: 5px; color: var(--scan-accent); font-size: 13px; }
 .dr-scan-detail-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin: 20px 0 10px; }
 .dr-scan-detail-fields label { display: grid; gap: 7px; font-size: 12px; color: var(--scan-muted); min-width: 0; }

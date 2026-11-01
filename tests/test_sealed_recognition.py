@@ -4,6 +4,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.owner_portal_api import _owner_scan_inventory_payload
+from app.recognition_images import _trusted_reference_url
 from app.recognition_sealed import resolve_sealed_candidates
 from app.recognition_vision import OBSERVATION_SCHEMA, RecognitionObservation, VISION_INSTRUCTIONS
 
@@ -140,6 +141,50 @@ def test_pack_scan_cannot_exact_match_a_booster_box() -> None:
     assert result["top"] is None
     assert result["candidates"][0]["hard_rejected"] is True
     assert "sealed product type mismatch" in result["candidates"][0]["rejection_reasons"]
+
+
+def test_generic_collection_can_suggest_exact_catalogue_family_but_never_autoconfirm() -> None:
+    """The video showed a Premium Card Collection rejected as a type mismatch."""
+    row = op17_row(
+        product_type="COLLECTION",
+        name="Premium Card Collection -6 assort vol.1-",
+        set_name=None,
+        sealed_product_type="PREMIUM_CARD_COLLECTION",
+        set_code=None,
+        manufacturer_sku=None,
+    )
+    photo = observation(
+        sealed_product_type="COLLECTION",
+        sealed_product_type_confidence=0.93,
+        name_guess="Premium Card Collection",
+        name_confidence=0.81,
+        set_name_guess="",
+        set_name_confidence=0,
+        product_code="",
+        product_code_confidence=0,
+        language_confidence=0.68,
+    )
+    result = resolve_sealed_candidates(photo, [row])
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert result["top"]["catalogue_id"] == row["catalogue_id"]
+    assert result["top"]["signals"]["sealed_product_type"]["match"] == 0.75
+    assert "SEALED_PRODUCT_CODE_UNRESOLVED" in result["risk_flags"]
+    assert "SEALED_TYPE_UNRESOLVED" in result["risk_flags"]
+
+
+def test_generic_collection_never_matches_a_booster_pack() -> None:
+    result = resolve_sealed_candidates(
+        observation(sealed_product_type="COLLECTION", sealed_product_type_confidence=0.98),
+        [op17_row()],
+    )
+    assert result["decision"] == "NO_MATCH"
+    assert result["candidates"][0]["hard_rejected"]
+
+
+def test_approved_shopify_cdn_sealed_artwork_can_use_authenticated_image_proxy() -> None:
+    assert _trusted_reference_url("https://cdn.shopify.com/s/files/1/collection.jpg")
+    assert not _trusted_reference_url("https://cdn.shopify.com.evil.example/collection.jpg")
+    assert not _trusted_reference_url("http://cdn.shopify.com/s/files/1/collection.jpg")
 
 
 def test_sealed_exact_match_requires_verified_identity() -> None:
