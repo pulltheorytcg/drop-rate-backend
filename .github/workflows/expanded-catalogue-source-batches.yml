@@ -13,17 +13,17 @@ on:
       magic_offset:
         description: 'Starting MTGJSON FDN row (0-200000)'
         required: true
-        default: '250'
+        default: '350'
         type: string
       lego_offset:
         description: 'Starting eligible LEGO 2026 row (0-200000)'
         required: true
-        default: '250'
+        default: '350'
         type: string
       yugioh_offset:
         description: 'Starting YGOPRODeck TCG card row (0-200000)'
         required: true
-        default: '125'
+        default: '175'
         type: string
 
 permissions:
@@ -38,9 +38,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      MAGIC_OFFSET: ${{ inputs.magic_offset || '250' }}
-      LEGO_OFFSET: ${{ inputs.lego_offset || '250' }}
-      YUGIOH_OFFSET: ${{ inputs.yugioh_offset || '125' }}
+      MAGIC_OFFSET: ${{ inputs.magic_offset || '350' }}
+      LEGO_OFFSET: ${{ inputs.lego_offset || '350' }}
+      YUGIOH_OFFSET: ${{ inputs.yugioh_offset || '175' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
