@@ -18,6 +18,8 @@ from uuid import UUID
 import asyncpg
 
 from app import catalogue_r2_live as live
+from app import reference_library as ref_library
+from app import reference_library_r2 as ref_library_r2
 from app.catalogue_r2_navigation import build_navigation, owned_navigation
 from app.catalogue_browser import GAMES_SQL, SETS_SQL, product_query
 from app.db import _init_connection
@@ -137,6 +139,25 @@ async def check(db):
         report=await live.publish(Pool(),ACTOR_A,storage=storage)
         assert report['status']=='PUBLISHED'
         snapshot=live._current
+        # Opt-in reference library reads must exactly match native PostgreSQL
+        # (including empty sets, future releases, language cohorts and RLS).
+        for actor in (ACTOR_A, ACTOR_B):
+            async with authorized(db, actor):
+                expected=[dict(r) for r in await db.fetch(ref_library.COVERAGE_SQL)]
+                actual=await ref_library_r2.indexed_coverage(db,snapshot)
+                assert actual==expected,(actor,'library coverage',expected,actual)
+                for system,query,limit,offset in (
+                    ('POKEMON_TCG','',80,0),
+                    ('POKEMON_TCG','30th',80,0),
+                    ('POKEMON_TCG','not present',80,0),
+                    ('POKEMON_TCG','',1,1),
+                    ('ONE_PIECE_CARD_GAME','',80,0),
+                ):
+                    args=(system,query,limit,offset)
+                    expected=[dict(r) for r in await db.fetch(ref_library.SETS_SQL,*args)]
+                    rows=await db.fetch(ref_library.SETS_R2_SQL,*args)
+                    actual=ref_library_r2.indexed_set_page(rows,snapshot)
+                    assert actual==expected,(actor,'library sets',args,expected,actual)
         # Global navigation is precomputed from R2 shared facts in Railway;
         # only current owner-visible inventory aggregations come from SQL.
         # Compare exact native PostgreSQL results, not mocked navigation data.
