@@ -17,7 +17,8 @@ from app.collectible_source_adapters import (
 from app.object_storage import ObjectStorageError
 from scripts.pilot_expanded_catalogues import (
     _closed_report, _preview_lego_set, _preview_magic_printings,
-    archive_magic_private_snapshot,
+    archive_magic_private_snapshot, save_magic_staging_snapshot,
+    validate_magic_closed_snapshot,
 )
 from scripts.pilot_yugioh_catalogue import private_source_snapshot, archive_private_source_snapshot
 
@@ -281,6 +282,41 @@ def test_lego_exact_set_edition_theme_and_pieces_never_copy_image_or_price():
                             offset=0, limit=25, year=2026)
     assert report["validated_reference_candidates"] == 1
     assert report["uploaded_r2_objects"] == report["shopify_products_created"] == 0
+
+
+def test_magic_private_staging_artifact_is_immutable_verifiable_and_unpriced(tmp_path, monkeypatch):
+    source_set = {"code": "FDN", "name": "Foundations"}
+    source_card = {"uuid": "46149862-416f-563b-b854-1893b7c76d6a",
+                   "setCode": "FDN", "name": "Test Print", "number": "7",
+                   "rarity": "rare", "availability": ["paper"],
+                   "finishes": ["foil", "nonfoil"],
+                   "prices": {"usd": "400.00"},
+                   "image_url": "https://example.invalid/unlicensed-art"}
+    report, payload = _closed_report("magic", [magic_printings(source_set, source_card)],
+                                     available=771, offset=0, limit=1,
+                                     year=None, with_snapshot=True)
+    monkeypatch.chdir(tmp_path)
+    receipt = save_magic_staging_snapshot(payload, set_code="FDN", offset=0, limit=1)
+    path = tmp_path / "reports" / receipt["file_name"]
+    assert path.read_bytes() == payload
+    assert receipt["sha256"] == report["normalised_metadata_sha256"]
+    assert receipt["r2_uploaded"] is False and receipt["private"] is True
+    assert receipt["bytes"] == len(payload)
+    assert receipt == save_magic_staging_snapshot(payload, set_code="FDN", offset=0, limit=1)
+    assert len(json.loads(payload)["records"]) == 2
+    assert b"400.00" not in payload and b"unlicensed-art" not in payload
+    assert b"owner_id" not in payload and b"shopify" not in payload
+    assert list((tmp_path / "reports").iterdir()) == [path]
+
+    tampered = json.loads(payload)
+    tampered["records"][0]["card"]["market_value_gbp_minor"] = 40000
+    with pytest.raises(ReferenceSourceError, match="unreviewed provider"):
+        validate_magic_closed_snapshot(json.dumps(tampered).encode())
+    with pytest.raises(ReferenceSourceError, match="staging identity"):
+        save_magic_staging_snapshot(payload, set_code="../../BAD", offset=0, limit=1)
+    with pytest.raises(ReferenceSourceError, match="empty"):
+        save_magic_staging_snapshot(b'{"version":1,"source":"magic","records":[]}',
+                                    set_code="FDN", offset=1, limit=1)
 
 
 def test_bounded_lego_preview_quarantines_bad_editions_but_keeps_valid_sets():
