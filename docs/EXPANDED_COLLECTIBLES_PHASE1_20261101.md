@@ -245,6 +245,32 @@ remain release prerequisites.
 Sources: <https://supabase.com/pricing>,
 <https://supabase.com/docs/guides/platform/database-size>.
 
+### Verified FDN bundle — private R2 archive handoff (2 November)
+
+- The source-preview CI emits **eight immutable MTGJSON Foundations (FDN)**
+  normalized metadata windows, spanning 771 source cards / 1,179 exact
+  printing-and-finish references, plus `magic-fdn-private-r2-input-index.json`.
+  The source files contain no images, valuations, owned items or Shopify data.
+- `backend/scripts/archive_magic_staging_bundle.py --directory reports` is a
+  **local verification-only dry run**. It independently checks the full 771-row
+  coverage, 1,179 unique printing IDs, exact offsets, a closed metadata schema,
+  matching filename/content SHA-256, source identity, no quarantined rows and
+  zero-write source receipts. Missing, modified or partial bundles fail closed.
+- Running with `--apply` is an **explicit, separate operation** requiring
+  `TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED=true` and already-configured private
+  R2 credentials in a controlled runtime. Every immutable private part is
+  uploaded and downloaded again for byte verification. A final private bundle
+  index is archived **last**, and only if all parts read back exactly.
+  Interrupted writes may leave harmless private content-addressed parts;
+  retries are idempotent and never create live database pointers.
+- CI exercises the dry-run and corruption, duplicate, source tampering,
+  disabled-flag and remote readback failures. CI is deliberately **not given
+  R2 secrets**. Only a controlled follow-up with an approved archive runtime
+  can perform the actual upload; no production upload is claimed here.
+- This is a private source-data archive, **not** a public card feed. Supabase
+  canonical references, verified GBP valuations, licensed images and Shopify
+  listings remain separate gated jobs subject to DB capacity and legal rights.
+
 ### Source pilot receipt (read-only)
 
 YGOPRODeck `format=tcg` at offset 0, limit 100: **100 card objects**, **270
