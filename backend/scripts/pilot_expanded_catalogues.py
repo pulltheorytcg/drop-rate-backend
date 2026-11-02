@@ -219,10 +219,8 @@ def _closed_report(source: str, batches: list, *, available: int, offset: int, l
     return (report, snapshot) if with_snapshot else report
 
 
-async def archive_magic_private_snapshot(storage: S3ObjectStorage, payload: bytes) -> dict:
-    """Verified private R2 receipt; never a public feed, image or price import."""
-    if os.getenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", "false").lower() != "true":
-        raise RuntimeError("Private Magic metadata R2 archiving is disabled")
+def validate_magic_closed_snapshot(payload: bytes) -> None:
+    """Reject artwork, prices, owner data or new fields before any export."""
     try:
         document = json.loads(payload)
     except (TypeError, ValueError) as exc:
@@ -248,6 +246,43 @@ async def archive_magic_private_snapshot(storage: S3ObjectStorage, payload: byte
                 or row["set"].get("system_code") != "MAGIC_THE_GATHERING"
                 or row["card"].get("image_url") is not None):
             raise ReferenceSourceError("Magic snapshot includes unreviewed provider fields")
+
+
+def save_magic_staging_snapshot(payload: bytes, *, set_code: str,
+                                offset: int, limit: int) -> dict:
+    """Emit immutable, schema-checked MTGJSON metadata to a CI-local artifact.
+
+    Does not access R2, PostgreSQL or Shopify. Later an explicit R2 job can
+    use these exact bytes after checking the SHA-256 and licensed source.
+    """
+    if (not re.fullmatch(r"[A-Z0-9]{2,10}", set_code)
+            or not 0 <= offset <= 200000 or not 1 <= limit <= MAX_BATCH):
+        raise ReferenceSourceError("Invalid bounded Magic staging identity")
+    validate_magic_closed_snapshot(payload)
+    if not json.loads(payload)["records"]:
+        raise ReferenceSourceError("Do not stage an empty Magic metadata window")
+    digest = hashlib.sha256(payload).hexdigest()
+    file_name = f"mtgjson-{set_code}-{offset}-{limit}-{digest[:16]}.json"
+    destination = Path("reports") / file_name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with destination.open("xb") as stream:
+            stream.write(payload)
+    except FileExistsError:
+        if destination.read_bytes() != payload:
+            raise ReferenceSourceError("Existing Magic metadata artifact content mismatch")
+    if destination.read_bytes() != payload:
+        raise ReferenceSourceError("Staged Magic metadata readback mismatch")
+    return {"file_name": file_name, "sha256": digest,
+            "bytes": len(payload), "private": True,
+            "format": "CLOSED_MTGJSON_METADATA_V1", "r2_uploaded": False}
+
+
+async def archive_magic_private_snapshot(storage: S3ObjectStorage, payload: bytes) -> dict:
+    """Verified private R2 receipt; never a public feed, image or price import."""
+    if os.getenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", "false").lower() != "true":
+        raise RuntimeError("Private Magic metadata R2 archiving is disabled")
+    validate_magic_closed_snapshot(payload)
     receipt = await asyncio.to_thread(storage.put_verified_reference_snapshot, payload)
     if (not receipt.get("verified") or not isinstance(receipt.get("sha256"), str)
             or await asyncio.to_thread(
@@ -263,6 +298,8 @@ async def main(args):
         raise ReferenceSourceError("Offsets and batches must be bounded")
     if args.archive_private_r2 and args.source != "magic":
         raise ReferenceSourceError("Only reviewed Magic metadata may be privately archived")
+    if args.emit_magic_staging_artifact and args.source != "magic":
+        raise ReferenceSourceError("Only licensed Magic metadata may be locally staged")
     if (args.archive_private_r2 and
             os.getenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", "false").lower() != "true"):
         raise RuntimeError("Private Magic metadata R2 archiving is disabled")
@@ -289,6 +326,9 @@ async def main(args):
     report, snapshot = _closed_report(args.source, batches, available=available,
                                       offset=args.offset, limit=args.limit,
                                       year=args.year, with_snapshot=True)
+    if args.emit_magic_staging_artifact:
+        report["staging_artifact"] = save_magic_staging_snapshot(
+            snapshot, set_code=args.set_code, offset=args.offset, limit=args.limit)
     if args.archive_private_r2:
         config = ObjectStorageConfig.from_env()
         if config is None:
@@ -309,6 +349,8 @@ if __name__ == "__main__":
     parser.add_argument("--input-jsonl", help="Authorised official-source JSONL for Funko/Topps/Panini")
     parser.add_argument("--archive-private-r2", action="store_true",
                         help="Flagged private metadata receipt for Magic only; no DB, media or Shopify writes")
+    parser.add_argument("--emit-magic-staging-artifact", action="store_true",
+                        help="Write verified MIT-licensed Magic metadata into reports/ for a 7-day CI artifact; no R2 upload")
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=25)
     asyncio.run(main(parser.parse_args()))
