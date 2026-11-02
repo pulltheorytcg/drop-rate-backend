@@ -8,8 +8,9 @@ Examples:
 The Funko/Topps/Panini batch requires an authorised, source-attributed input
 file; the pilot does NOT scrape product pages or claim upstream licensing.
 No source images, asking prices, raw provider dumps, physical inventory or
-Shopify objects are imported. R2 source archiving is separately flagged and
-available only for MIT-licensed MTGJSON metadata after review.
+Shopify objects are imported. Optional private R2 source archiving is separately
+flagged and available only for normalized MIT-licensed MTGJSON metadata. It is
+not a customer-facing R2 catalogue feed.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ import gzip
 import hashlib
 import io
 import json
+import os
 import re
 from pathlib import Path
 
@@ -29,6 +31,7 @@ from app.collectible_source_adapters import (
     ReferenceSourceError, figure_product, lego_set_product,
     magic_printings, sports_checklist_printing,
 )
+from app.object_storage import ObjectStorageConfig, ObjectStorageError, S3ObjectStorage
 
 
 MAX_BATCH = 100
@@ -144,7 +147,8 @@ def _approved_input(source: str, path: Path, *, offset: int, limit: int):
     return batch, len(rows)
 
 
-def _closed_report(source: str, batches: list, *, available: int, offset: int, limit: int, year: int | None):
+def _closed_report(source: str, batches: list, *, available: int, offset: int, limit: int,
+                   year: int | None, with_snapshot: bool = False):
     output = []
     identities = {}
     problems = []
@@ -181,7 +185,7 @@ def _closed_report(source: str, batches: list, *, available: int, offset: int, l
                           ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     if len(snapshot) > 2_000_000:
         raise ReferenceSourceError("Normalized reference snapshot exceeds safe bound")
-    return {
+    report = {
         "source": source, "mode": "DRY_RUN_ONLY", "source_rows_available": available,
         "source_rows_examined": len(batches), "offset": offset, "limit": limit,
         "year_filter": year, "validated_reference_candidates": len(output),
@@ -195,11 +199,56 @@ def _closed_report(source: str, batches: list, *, available: int, offset: int, l
                               else "OFFICIAL_CURATED_INPUT_PERMISSION_REQUIRED" if source in {"funko", "topps", "panini"}
                               else "MTGJSON_METADATA_LICENSE_REVIEWED_IMAGES_EXCLUDED",
     }
+    return (report, snapshot) if with_snapshot else report
+
+
+async def archive_magic_private_snapshot(storage: S3ObjectStorage, payload: bytes) -> dict:
+    """Verified private R2 receipt; never a public feed, image or price import."""
+    if os.getenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", "false").lower() != "true":
+        raise RuntimeError("Private Magic metadata R2 archiving is disabled")
+    try:
+        document = json.loads(payload)
+    except (TypeError, ValueError) as exc:
+        raise ReferenceSourceError("Invalid Magic source snapshot") from exc
+    if (not isinstance(document, dict) or set(document) != {"version", "source", "records"}
+            or document["version"] != 1 or document["source"] != "magic"
+            or not isinstance(document["records"], list)
+            or len(document["records"]) > MAX_BATCH * 8):
+        raise ReferenceSourceError("Only a closed Magic metadata snapshot may be archived")
+    source_fields = {"provider", "system_code", "language", "set_id", "name",
+                     "release_date", "declared_card_count", "source_url"}
+    card_fields = {"provider_id", "name", "card_number", "number_key", "finish",
+                   "rarity", "image_url", "source_url", "evidence"}
+    evidence_fields = {"provider_local_id", "set_code", "finish", "scryfall_id",
+                       "artwork_status", "market_value_status"}
+    for row in document["records"]:
+        if (not isinstance(row, dict) or set(row) != {"set", "card"}
+                or not isinstance(row["set"], dict) or not isinstance(row["card"], dict)
+                or set(row["set"]) != source_fields or set(row["card"]) != card_fields
+                or not isinstance(row["card"].get("evidence"), dict)
+                or set(row["card"]["evidence"]) != evidence_fields
+                or row["set"].get("provider") != "MTGJSON"
+                or row["set"].get("system_code") != "MAGIC_THE_GATHERING"
+                or row["card"].get("image_url") is not None):
+            raise ReferenceSourceError("Magic snapshot includes unreviewed provider fields")
+    receipt = await asyncio.to_thread(storage.put_verified_reference_snapshot, payload)
+    if (not receipt.get("verified") or not isinstance(receipt.get("sha256"), str)
+            or await asyncio.to_thread(
+                storage.read_verified_reference_snapshot, receipt["sha256"]) != payload):
+        raise ObjectStorageError("Magic source archive failed full R2 readback")
+    return {"key": receipt["key"], "sha256": receipt["sha256"],
+            "compressed_bytes": receipt["size_bytes"], "verified": True,
+            "public": False}
 
 
 async def main(args):
     if not 0 <= args.offset <= 200000 or not 1 <= args.limit <= MAX_BATCH:
         raise ReferenceSourceError("Offsets and batches must be bounded")
+    if args.archive_private_r2 and args.source != "magic":
+        raise ReferenceSourceError("Only reviewed Magic metadata may be privately archived")
+    if (args.archive_private_r2 and
+            os.getenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", "false").lower() != "true"):
+        raise RuntimeError("Private Magic metadata R2 archiving is disabled")
     if args.source in {"funko", "topps", "panini"}:
         if not args.input_jsonl:
             raise ReferenceSourceError("Curated Funko/Topps/Panini batch requires --input-jsonl")
@@ -220,8 +269,17 @@ async def main(args):
                     raise ReferenceSourceError("LEGO does not use a Magic set code")
                 batches, available = await _lego(client, year=args.year,
                                                  offset=args.offset, limit=args.limit)
-    report = _closed_report(args.source, batches, available=available,
-                            offset=args.offset, limit=args.limit, year=args.year)
+    report, snapshot = _closed_report(args.source, batches, available=available,
+                                      offset=args.offset, limit=args.limit,
+                                      year=args.year, with_snapshot=True)
+    if args.archive_private_r2:
+        config = ObjectStorageConfig.from_env()
+        if config is None:
+            raise RuntimeError("Private R2 archive requested without configured object storage")
+        report["private_r2_archive"] = await archive_magic_private_snapshot(
+            S3ObjectStorage(config), snapshot)
+        report["mode"] = "PRIVATE_R2_ARCHIVE"
+        report["uploaded_r2_objects"] = 1
     print(json.dumps(report, sort_keys=True, indent=2))
 
 
@@ -232,6 +290,8 @@ if __name__ == "__main__":
     parser.add_argument("--set-code", help="Exact MTGJSON set code, e.g. FDN")
     parser.add_argument("--year", type=int, help="LEGO filter; does not imply popularity")
     parser.add_argument("--input-jsonl", help="Authorised official-source JSONL for Funko/Topps/Panini")
+    parser.add_argument("--archive-private-r2", action="store_true",
+                        help="Flagged private metadata receipt for Magic only; no DB, media or Shopify writes")
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=25)
     asyncio.run(main(parser.parse_args()))
