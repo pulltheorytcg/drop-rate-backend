@@ -15,7 +15,10 @@ from app.collectible_source_adapters import (
     sports_checklist_printing, yugioh_printings,
 )
 from app.object_storage import ObjectStorageError
-from scripts.pilot_expanded_catalogues import _closed_report, archive_magic_private_snapshot
+from scripts.pilot_expanded_catalogues import (
+    _closed_report, _preview_lego_set, _preview_magic_printings,
+    archive_magic_private_snapshot,
+)
 from scripts.pilot_yugioh_catalogue import private_source_snapshot, archive_private_source_snapshot
 
 
@@ -278,6 +281,44 @@ def test_lego_exact_set_edition_theme_and_pieces_never_copy_image_or_price():
                             offset=0, limit=25, year=2026)
     assert report["validated_reference_candidates"] == 1
     assert report["uploaded_r2_objects"] == report["shopify_products_created"] == 0
+
+
+def test_bounded_lego_preview_quarantines_bad_editions_but_keeps_valid_sets():
+    row = {"set_num": "77256-1", "name": "Time Machine from Back to the Future",
+           "year": "2026", "theme_id": "601", "num_parts": "298"}
+    themes = {"601": "Speed Champions"}
+    # Source can contain nonstandard set numbers; do not drop their evidence
+    # silently or loosen the edition guard.
+    broken = _preview_lego_set({**row, "set_num": "77256-0"}, themes=themes)
+    accepted = _preview_lego_set(row, themes=themes)
+    assert isinstance(broken, ReferenceSourceError)
+    report = _closed_report("lego", [broken, accepted], available=766,
+                            offset=650, limit=100, year=2026)
+    assert report["source_rows_examined"] == 2
+    assert report["validated_reference_candidates"] == 1
+    assert report["quarantined_source_rows"] == 1
+    assert report["quarantine_sample"][0] == {
+        "source_position": 650, "reason": "Invalid exact LEGO set number/edition"}
+    assert report["supabase_rows_written"] == 0
+    assert report["uploaded_r2_objects"] == 0
+    assert report["shopify_products_created"] == 0
+
+
+def test_bounded_magic_preview_quarantines_bad_uuid_without_aborting_batch():
+    details = {"code": "FDN", "name": "Foundations"}
+    valid = {"uuid": "46149862-416f-563b-b854-1893b7c76d6a",
+             "name": "Test Card", "number": "11", "rarity": "rare",
+             "availability": ["paper"], "finishes": ["nonfoil"]}
+    bad = _preview_magic_printings(details, {**valid, "uuid": "invalid"})
+    good = _preview_magic_printings(details, valid)
+    assert isinstance(bad, ReferenceSourceError)
+    report = _closed_report("magic", [bad, good], available=771,
+                            offset=650, limit=100, year=None)
+    assert report["validated_reference_candidates"] == 1
+    assert report["quarantined_source_rows"] == 1
+    assert report["quarantine_sample"][0]["source_position"] == 650
+    assert report["uploaded_r2_objects"] == 0
+    assert report["verified_market_prices"] == 0
 
 
 def test_schema_is_additive_with_r2_generation_and_strict_rls():
