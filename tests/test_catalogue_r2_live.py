@@ -66,6 +66,74 @@ class Connection:
 
 
 @pytest.mark.asyncio
+async def test_failed_live_catalogue_load_backs_off_and_recovers(monkeypatch):
+    manifest,raw=fixture()
+    connection=Connection(dict(generation=1,published_generation=1,manifest=manifest))
+    attempts=[]
+
+    async def missing_part(*_):
+        attempts.append('attempt')
+        raise ObjectStorageError('synthetic missing R2 part')
+
+    async def repaired_part(*_):
+        attempts.append('repaired')
+        return live.assemble(manifest,[raw])
+
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED','true')
+    monkeypatch.setattr(live,'_current',None)
+    monkeypatch.setattr(live,'_loading',None)
+    monkeypatch.setattr(live,'_load_failure',None)
+    monkeypatch.setattr(live,'configured_object_storage',lambda:object())
+    monkeypatch.setattr(live,'download',missing_part)
+
+    assert await live.read(connection) is None
+    first=live._loading
+    await first
+    assert attempts==['attempt']
+    assert live._load_failure is not None
+    assert live._load_failure[0]==(1,live.manifest_digest(manifest))
+    for _ in range(8):
+        assert await live.read(connection) is None
+    assert live._loading is first, 'Do not hammer 161 R2 parts on every browse'
+    assert await live.fetch(connection,'select 1',[],None)==['original']
+
+    # An operator repairs the missing part: same generation retries after
+    # bounded cooldown, without a fresh deploy or changing SQL source rows.
+    monkeypatch.setattr(live,'download',repaired_part)
+    monkeypatch.setattr(live,'_load_failure',(live._load_failure[0],0.0))
+    assert await live.read(connection) is None
+    await live._loading
+    assert attempts==['attempt','repaired']
+    assert live._load_failure is None
+    assert await live.read(connection) is live._current
+
+
+@pytest.mark.asyncio
+async def test_new_live_catalogue_publication_ignores_old_failure_cooldown(monkeypatch):
+    manifest,_=fixture()
+    connection=Connection(dict(generation=1,published_generation=1,manifest=manifest))
+    attempts=[]
+
+    async def unavailable(*_):
+        attempts.append('download')
+        raise ObjectStorageError('synthetic R2 outage')
+
+    monkeypatch.setenv('TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED','true')
+    monkeypatch.setattr(live,'_current',None)
+    monkeypatch.setattr(live,'_loading',None)
+    monkeypatch.setattr(live,'_load_failure',None)
+    monkeypatch.setattr(live,'configured_object_storage',lambda:object())
+    monkeypatch.setattr(live,'download',unavailable)
+    assert await live.read(connection) is None
+    await live._loading
+    manifest2={**manifest,'generation':2}
+    connection.state=dict(generation=2,published_generation=2,manifest=manifest2)
+    assert await live.read(connection) is None
+    await live._loading
+    assert len(attempts)==2, 'New verified generation must not inherit old cooldown'
+
+
+@pytest.mark.asyncio
 async def test_startup_prewarm_uses_existing_rls_actor_and_never_waits_for_r2(monkeypatch):
     from uuid import uuid4
     manifest, raw = fixture()

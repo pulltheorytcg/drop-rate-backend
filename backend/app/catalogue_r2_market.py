@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import time
 from uuid import UUID, uuid4
 
 from .access_control import require_platform_admin
@@ -161,16 +162,24 @@ async def download(manifest, storage):
 
 _current = None
 _loading = None
+LOAD_FAILURE_RETRY_SECONDS = 60
+_load_failure = None  # ((generation, manifest_digest), next_retry_monotonic)
 
 
 async def _load(manifest, storage):
-    global _current
+    global _current, _load_failure
+    identity=(manifest['generation'],manifest_digest(manifest))
     try:
         candidate = await download(manifest, storage)
         if _current is None or candidate.generation >= _current.generation:
             _current = candidate
+        if _load_failure is not None and _load_failure[0] == identity:
+            _load_failure = None
         log.warning('CATALOGUE_R2_MARKET_LOADED generation=%s counts=%s', candidate.generation, manifest['counts'])
     except Exception as exc:
+        # Do not repeatedly download the whole price publication if one
+        # private object is unavailable. Dynamic SQL remains authoritative.
+        _load_failure = (identity, time.monotonic() + LOAD_FAILURE_RETRY_SECONDS)
         log.warning('CATALOGUE_R2_MARKET_LOAD_FAILED type=%s', type(exc).__name__)
 
 
@@ -184,10 +193,14 @@ async def read(connection):
         if not state or state['generation'] != state['published_generation']:
             return None
         manifest = validate_manifest(state['manifest'], state['generation'])
-        if (_current is not None and _current.generation == state['generation']
-                and _current.manifest_digest == manifest_digest(manifest)):
+        identity = (state['generation'],manifest_digest(manifest))
+        if (_current is not None and _current.generation == identity[0]
+                and _current.manifest_digest == identity[1]):
             return _current
         if _loading is None or _loading.done():
+            if (_load_failure is not None and _load_failure[0] == identity
+                    and time.monotonic() < _load_failure[1]):
+                return None
             storage = configured_object_storage()
             if storage is not None:
                 _loading = asyncio.create_task(_load(manifest, storage))

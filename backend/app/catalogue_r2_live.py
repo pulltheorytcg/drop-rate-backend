@@ -221,6 +221,8 @@ def assemble(manifest, parts):
 
 _current = None
 _loading = None
+LOAD_FAILURE_RETRY_SECONDS = 60
+_load_failure = None  # ((generation, manifest_digest), next_retry_monotonic)
 _nav_cache = {}
 _browse_cache = {}
 
@@ -288,7 +290,8 @@ async def download(manifest, storage):
 
 
 async def _load(manifest,storage):
-    global _current
+    global _current, _load_failure
+    identity=(manifest['generation'],manifest_digest(manifest))
     try:
         loaded=await download(manifest,storage)
         # Building 75k shared identities is pure CPU work. Warm the immutable
@@ -300,8 +303,14 @@ async def _load(manifest,storage):
             _current=loaded
             _browse_cache.clear()
             _browse_cache[(loaded.generation,today)]=warm
+        if _load_failure is not None and _load_failure[0]==identity:
+            _load_failure=None
         log.warning('CATALOGUE_R2_LIVE_LOADED generation=%s counts=%s',loaded.generation,manifest['counts'])
     except Exception as exc:
+        # A missing/corrupt part must use SQL fallback without launching a new
+        # 161-part download on every visitor request. New publications retry
+        # immediately; this generation retries after a bounded cooling period.
+        _load_failure=(identity,time.monotonic()+LOAD_FAILURE_RETRY_SECONDS)
         log.warning('CATALOGUE_R2_LIVE_LOAD_FAILED type=%s',type(exc).__name__)
 
 
@@ -316,10 +325,14 @@ async def read(connection):
         if not state or state['generation']!=state['published_generation']:
             return None
         manifest=validate_manifest(state['manifest'],state['generation'])
-        if (_current is not None and _current.generation==state['generation']
-                and _current.manifest_digest==manifest_digest(manifest)):
+        identity=(state['generation'],manifest_digest(manifest))
+        if (_current is not None and _current.generation==identity[0]
+                and _current.manifest_digest==identity[1]):
             return _current
         if _loading is None or _loading.done():
+            if (_load_failure is not None and _load_failure[0]==identity
+                    and time.monotonic()<_load_failure[1]):
+                return None
             storage=configured_object_storage()
             if storage is not None:
                 _loading=asyncio.create_task(_load(manifest,storage))
