@@ -37,6 +37,36 @@ earlier states, not the current production state.
   source rights, capacity, R2 readback and owner/Shopify sync remain gated.
 
 
+## R2-input preparation checkpoint — 2 November 2026
+
+- [Successful closed-Magic-metadata bundle run](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/41526033446)
+  processed **all 771 MTGJSON Foundations (`FDN`) source card rows**
+  into **1,179 unique UUID-plus-finish printing references**, with **zero
+  quarantines**. A bounded set of eight immutable, content-addressed local
+  metadata files and an integrity/index receipt were archived as a 7-day
+  GitHub Actions artifact (expiration 9 November 2026). No provider image,
+  unverified price, physical inventory, owner information or Shopify ID
+  enters the payload. Each part has SHA-256 verification and a strict closed
+  schema. This is an **R2-ready source-input bundle, not an R2 upload**.
+- The source-data licence is [MTGJSON MIT](https://www.mtgjson.com/license/).
+  That covers the selected metadata; it **does not** grant third-party Magic
+  artwork redistribution rights. Any public reference feed must still pass
+  image and pricing rights checks. Closed private R2 source archiving is
+  separately flagged and already verifies actual remote upload/readback
+  when deliberately invoked. No flag was enabled here.
+- Existing Railway production service `drop-rate-api-live` has the
+  configured Cloudflare-compatible object-storage variable **names** and
+  current R2 catalogue publications show 69,697 reference cards.
+  We did **not** read secret values, create a new bucket, add a service,
+  change production flags or deploy this draft branch.
+- An existing live reference-media refresh continues to report
+  `BULK_REFRESH_DEFERRED_CAPACITY` with the same 419,220,627 database
+  bytes. R2 archiving licensed metadata helps with bulk-storage cost, but
+  does **not** remove the need for an indexed database footprint/capacity
+  decision to activate new canonical records and app search.
+
+
+
 ## Verified starting point
 
 Production had 69,697 shared reference cards. `YUGIOH`, `DISNEY_LORCANA`
