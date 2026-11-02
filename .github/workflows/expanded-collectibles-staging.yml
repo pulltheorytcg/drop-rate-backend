@@ -5,12 +5,16 @@ on:
     paths:
       - 'database/migrations/20261101205040_collectible_catalogue_expansion.sql'
       - 'backend/app/collectible_source_adapters.py'
+      - 'backend/app/collectible_capacity_forecast.py'
+      - 'backend/app/database_capacity.py'
       - 'backend/app/reference_library.py'
       - 'backend/scripts/pilot_yugioh_catalogue.py'
       - 'backend/scripts/pilot_expanded_catalogues.py'
+      - 'backend/scripts/forecast_collectible_capacity.py'
       - 'backend/app/recognition_games.py'
       - 'tests/expanded_collectibles_postgres.py'
       - 'tests/test_collectible_expansion.py'
+      - 'tests/test_collectible_capacity_forecast.py'
       - '.github/workflows/expanded-collectibles-staging.yml'
   workflow_dispatch:
 
@@ -42,7 +46,11 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --requirement requirements-dev.txt
       - name: Check exact-match reference contracts
-        run: PYTHONPATH=backend python -m pytest -q tests/test_collectible_expansion.py
+        run: >-
+          PYTHONPATH=backend python -m pytest -q
+          tests/test_collectible_expansion.py
+          tests/test_collectible_capacity_forecast.py
+          tests/test_database_capacity_guard.py
       - name: Apply real migration and stage references in disposable PostgreSQL
         run: PYTHONPATH=backend python tests/expanded_collectibles_postgres.py
         env:
