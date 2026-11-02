@@ -4,6 +4,8 @@ on:
     paths:
       - 'backend/app/catalogue_r2_cache.py'
       - 'backend/app/catalogue_r2_live.py'
+      - 'backend/app/reference_library.py'
+      - 'backend/app/reference_library_r2.py'
       - 'backend/app/catalogue_r2_market.py'
       - 'backend/app/catalogue_r2_browse.py'
       - 'database/migrations/*r2_live_market_data.sql'
@@ -15,6 +17,7 @@ on:
       - 'backend/app/db.py'
       - 'tests/*catalogue_r2_cache*'
       - 'tests/*catalogue_r2_live*'
+      - 'tests/test_reference_library_r2.py'
       - 'tests/*catalogue_r2_market*'
       - 'tests/shared_reference_fixture.py'
       - '.github/workflows/catalogue-r2-cache.yml'
