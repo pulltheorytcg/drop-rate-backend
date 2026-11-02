@@ -1,6 +1,8 @@
 """New category contracts: exact identity, provenance, R2 parity and no phantom value."""
 from datetime import datetime, timedelta, timezone
 import copy
+import hashlib
+import json
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -13,7 +15,7 @@ from app.collectible_source_adapters import (
     sports_checklist_printing, yugioh_printings,
 )
 from app.object_storage import ObjectStorageError
-from scripts.pilot_expanded_catalogues import _closed_report
+from scripts.pilot_expanded_catalogues import _closed_report, archive_magic_private_snapshot
 from scripts.pilot_yugioh_catalogue import private_source_snapshot, archive_private_source_snapshot
 
 
@@ -203,6 +205,52 @@ def test_magic_exact_uuid_and_finish_are_distinct_and_prices_images_discarded():
     report = _closed_report("magic", [records], available=771, offset=0, limit=25, year=None)
     assert report["validated_reference_candidates"] == 2
     assert report["uploaded_r2_objects"] == report["supabase_rows_written"] == 0
+
+
+@pytest.mark.asyncio
+async def test_magic_closed_metadata_snapshot_is_only_privately_archivable_with_flag(monkeypatch):
+    source_set = {"code": "FDN", "name": "Foundations"}
+    card = {"uuid": "46149862-416f-563b-b854-1893b7c76d6a", "name": "Test Card",
+            "number": "11", "rarity": "rare", "availability": ["paper"],
+            "finishes": ["nonfoil"], "prices": {"usd": "100.00"},
+            "image_url": "https://example.invalid/licensed-artwork.jpg"}
+    report, payload = _closed_report("magic", [magic_printings(source_set, card)],
+                                     available=1, offset=0, limit=1, year=None,
+                                     with_snapshot=True)
+    snapshot = json.loads(payload)
+    assert report["normalised_metadata_sha256"] == hashlib.sha256(payload).hexdigest()
+    assert snapshot["source"] == "magic" and len(snapshot["records"]) == 1
+    assert snapshot["records"][0]["card"]["image_url"] is None
+    assert b"100.00" not in payload and b"licensed-artwork" not in payload
+
+    class MemoryStorage:
+        def __init__(self):
+            self.payloads = {}
+
+        def put_verified_reference_snapshot(self, data):
+            digest = hashlib.sha256(data).hexdigest()
+            self.payloads[digest] = data
+            return {"sha256": digest, "key": "private/test-snapshot.json.gz",
+                    "size_bytes": len(data), "verified": True}
+
+        def read_verified_reference_snapshot(self, digest):
+            return self.payloads[digest]
+
+    storage = MemoryStorage()
+    monkeypatch.delenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", raising=False)
+    with pytest.raises(RuntimeError, match="disabled"):
+        await archive_magic_private_snapshot(storage, payload)
+    assert storage.payloads == {}
+
+    monkeypatch.setenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", "true")
+    receipt = await archive_magic_private_snapshot(storage, payload)
+    assert receipt["verified"] and receipt["public"] is False
+    assert receipt["sha256"] == report["normalised_metadata_sha256"]
+    with pytest.raises(ReferenceSourceError, match="Only a closed Magic"):
+        await archive_magic_private_snapshot(storage, b'{"version":1,"source":"lego","records":[]}')
+    storage.read_verified_reference_snapshot = lambda digest: b"corrupt"
+    with pytest.raises(ObjectStorageError, match="readback"):
+        await archive_magic_private_snapshot(storage, payload)
 
 
 def test_lego_exact_set_edition_theme_and_pieces_never_copy_image_or_price():
