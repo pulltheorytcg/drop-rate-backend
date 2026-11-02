@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/expanded-catalogue-source-batches.yml'
       - 'backend/scripts/pilot_expanded_catalogues.py'
+      - 'backend/scripts/archive_magic_staging_bundle.py'
+      - 'tests/test_magic_staging_bundle.py'
       - 'backend/scripts/pilot_yugioh_catalogue.py'
       - 'backend/app/collectible_source_adapters.py'
   workflow_dispatch:
@@ -141,6 +143,10 @@ jobs:
           print("MTGJSON_PRIVATE_BUNDLE_VERIFIED", examined, len(identities),
                 manifest["quarantined_source_rows"])
           PY
+      - name: Independently verify all eight MTGJSON windows with fail-closed archive guard
+        run: PYTHONPATH=backend python backend/scripts/archive_magic_staging_bundle.py --directory reports > reports/magic-fdn-upload-dry-run.json
+      - name: Test rejected metadata, duplication, corrupted R2 readback and explicit flag
+        run: PYTHONPATH=backend pytest -q tests/test_magic_staging_bundle.py
       - name: LEGO 2025 - 100 eligible construction sets (rights hold)
         run: PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source lego --year "$LEGO_YEAR" --offset "$LEGO_OFFSET" --limit 100 > reports/lego.json
       - name: Yu-Gi-Oh TCG - 50 source cards
