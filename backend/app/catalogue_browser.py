@@ -367,13 +367,11 @@ async def browser_access(request: Request, user: Annotated[AuthenticatedUser, De
 @router.get("/coverage")
 async def price_coverage(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                          access: Annotated[dict, Depends(browser_access)]):
-    from .catalogue_coverage import COVERAGE_SQL, coverage_summary
-    async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
-        rows = await connection.fetch(COVERAGE_SQL)
-    items = [dict(row) for row in rows]
-    return jsonable_encoder({'scope':'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS','items':items,
-                             'total':sum(row['products'] for row in items),
-                             'summary':coverage_summary(items)})
+    from .catalogue_coverage import shared_price_coverage
+    # browser_access has already authorised this request. The result is global
+    # shared evidence coverage, never a user's physical stock or pricing.
+    return await shared_price_coverage(request.app.state.db_pool, user.user_id,
+                                       request.state.request_id)
 
 
 # Slab labels already provide a printed number, name and/or set. Their
