@@ -1,5 +1,42 @@
 # Expanded collectibles — phase 1, 1 November 2026
 
+## Live deployment checkpoint — 2 November 2026
+
+**Supabase schema deployed; provider imports, R2 figure publishing and
+Shopify/App integration NOT deployed.** Dated checkpoints below document
+earlier states, not the current production state.
+
+- [Guarded dry-run](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/41495317302)
+  and [production migration apply](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/41495891502)
+  succeeded. All six expected versions are recorded (160 migrations in total);
+  three old versions are history-only no-op baselines, two older SQL repairs
+  were reviewed and checksum-pinned, plus the additive collectible schema.
+- Post-deploy readback: ten new category codes, six new tables with forced RLS,
+  validated Japanese One Piece source-language constraint and both dispatcher
+  heartbeat functions. Original physical inventory, owners, orders, Shopify
+  records and media were untouched. Figure-products count remains zero.
+- Production `pg_database_size()` is **419,220,627 bytes** (~419.2 MB),
+  **19,220,627 bytes beyond** the YGO importer stop at 400,000,000 bytes.
+  Headroom before the Free plan's 500 MB database quota is only **80,779,373
+  bytes**. Do **not** bypass this guard. R2 remains the destination for
+  permissioned bulk assets; a future Supabase **Pro database** upgrade needs
+  a separate cost/ROI decision, not more Supabase Storage buckets.
+- [Source window 650/650/325](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/41496879400):
+  100 MTG Foundations rows yielded **101** exact printing/finish references;
+  100 eligible LEGO 2026 rows yielded **98** valid sets and **2 quarantines**;
+  50 Yu-Gi-Oh TCG source cards yielded **154** exact printings. The LEGO
+  preview now quarantines invalid rows instead of failing the whole batch,
+  without loosening exact edition checks; new regression tests pass.
+- [Tail window 750/750/375](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/41497113039):
+  **21** Magic cards, **16** remaining eligible 2026 LEGO sets and **158**
+  Yu-Gi-Oh exact printings from 50 more source cards. All previews reported
+  zero Supabase/R2/Shopify writes, verified prices or image mirrors.
+- [Draft PR #869](https://github.com/pulltheorytcg/drop-rate-backend/pull/869)
+  remains unmerged. No Railway/App code rollout, public figure feed,
+  newly imported owner inventory or Shopify catalogue launch. Commercial
+  source rights, capacity, R2 readback and owner/Shopify sync remain gated.
+
+
 ## Verified starting point
 
 Production had 69,697 shared reference cards. `YUGIOH`, `DISNEY_LORCANA`
@@ -150,17 +187,18 @@ remain release prerequisites.
 ### Supabase capacity business case (updated 1 November)
 
 - Production organisation is on **Supabase Free**; read-only query returned
-  `pg_database_size()` **392,596,627 bytes** (~392.6 MB decimal) versus the
-  published Free plan's 500 MB database quota. This is a *database size*, not
-  the Supabase Storage bucket usage or all disk/WAL bytes. One existing importer
-  also conservatively stops at **400,000,000 bytes**, only ~7.4 MB above the
-  observed database size.
-- Largest tables in the review: `tcg.audit_events` ~103.2 MB,
-  `tcg.reference_cards` ~74.0 MB (69,697 rows),
-  `tcg.reference_market_prices` ~43.9 MB and
-  `tcg.reference_catalogue_prices` ~39.8 MB. A rough extra 100,000
-  `reference_cards` rows at current average size would need ~106 MB **before**
-  additional sets, details, index growth or market data, exceeding headroom.
+  `pg_database_size()` **419,220,627 bytes** (~419.2 MB decimal) at the
+  2 November live readback, versus the published Free plan's 500 MB database
+  quota. This is *database size*, not Supabase Storage bucket usage or all
+  disk/WAL bytes. One importer conservatively stops at **400,000,000 bytes**,
+  so real catalogue SQL batches remain blocked by this safety guard.
+- Largest live tables: `tcg.audit_events` **105,152,512 bytes**,
+  `tcg.reference_cards` **77,152,256 bytes** (69,697 rows),
+  `tcg.reference_market_prices` **58,867,712 bytes** and
+  `tcg.reference_catalogue_prices` **44,638,208 bytes**. Roughly 100,000
+  more reference-card rows at the current per-row average could add ~111 MB
+  *for that table alone*, before sets, sports details, price evidence or indexes,
+  beyond remaining ~80.8 MB database-quota headroom.
 - **No case to increase Supabase Storage bucket capacity** for source files,
   product photographs or image history: put rights-cleared bulk media and
   immutable source metadata in Cloudflare R2. **Potential future case for
@@ -226,57 +264,36 @@ Neither result claims complete catalogue coverage.
   reporting success. Default remains dry run. Do not activate the flag or
   mistake a source receipt for a customer-facing live reference manifest.
 
-## Production release gates
+## Remaining production release gates — after live schema deployment
 
-### Migration-history preflight (1 November, after staging receipt)
+The additive database schema and guarded migration-history reconciliation are
+**complete**. The former 154-version preflight reflects historical drift, now
+resolved. CI pins reviewed historical SQL hashes, allows only explicit
+history-only exceptions and fails closed if unexpected migrations appear.
 
-The live project has **154 recorded migration versions** through
-`20261101203926_platform_comic_photo_review` and still has only **14** current
-system codes. The repository's older history staging manifest was out of date:
-the initial read-only comparison exposed 53 remote versions not represented
-locally and 58 local timestamps missing from remote history. It was **unsafe
-to run a blind `supabase db push`** while that drift remained.
-
-The release-preparation branch now maps **52** additional canonical migration
-names to their already-applied production timestamps, and adds one history-only
-placeholder for the older of two applied payout-heartbeat versions. The
-staging script now produces 160 unique versions, covering **all 154** remote
-versions without re-running those old DDL statements. Six staged versions are
-not yet in remote history: the proposed collectible expansion; three previously
-verified history-only baselines; and two older unrelated SQL migrations
-(`automation_dispatcher_heartbeat`, `reference_japanese_source_guard`) whose
-effects are actually absent. **Do not use `--include-all`** or apply those two
-unreviewed migrations as an accidental side effect of this rollout.
-
-The project remains on Supabase Free (no paid staging branch). Complete the
-existing [Supabase migration gate](../.github/workflows/supabase-migrations.yml)
-in **`dry-run` mode on the exact reviewed branch** and inspect its output:
-it must list only the intended catalogue migration for this stage. If the
-workflow proposes old/unrelated DDL or a missing-remote-version repair,
-**stop**; the dry-run is not authorization to deploy. Source licences,
-R2/public feed flags, app/Shopify release and import capacity remain separate
-gates. As of this checkpoint, production has not been changed.
-
-1. Run PR CI, all relevant new and old reference/R2/auth/Shopify tests, and
-   review migration SQL. Use the canonical Supabase migration dry-run path.
-2. Apply the migration through the existing reviewed deployment workflow;
-   read back new categories, table RLS and no changes to original row counts.
-3. In the configured admin worker, run YGO `--limit 25` **without** `--apply`,
-   inspect quarantine report, then consider one ≤1,000-printing batch under
-   capacity guard. Capture exact inserted identities and source counts.
-4. Check existing card R2 generation parity after each accepted card import;
-   a delayed publisher is a hold, not a reason to bypass the R2 checks.
-5. Only after permitted figure metadata is available, enable the independent
-   figure API/publisher, run readback and signed-in lookup comparisons. Feature
-   flags default `false`: `TCG_REFERENCE_FIGURES_ENABLED`,
+1. Keep source previews bounded, reproducible and non-overlapping. Inspect
+   quarantine reasons instead of correcting unknown identifiers automatically.
+2. Obtain permitted commercial reuse rights for any LEGO, Funko, Topps/Panini,
+   Lorcana and Riftbound data/images before cataloguing for customers.
+   Verified GBP values require separately approved sold-sale evidence.
+3. Estimate indexed per-source reference and price growth before importing.
+   Do not bypass the 400 MB importer stop while the database is 419.2 MB.
+   Supabase Pro database disk requires explicit ROI approval; no storage-bucket
+   upgrade or other paid plan has been made.
+4. Once capacity and source rights are approved, test a small replay-safe,
+   deduplicated SQL batch, audit/quarantine results and the existing reference
+   card R2 generation/readback. A stale R2 publisher is a hold.
+5. After approved figure references exist, test independent authenticated
+   figure feed, private R2 sidecar publication and remote readback. Flags
+   `TCG_REFERENCE_FIGURES_ENABLED`,
    `TCG_REFERENCE_FIGURES_R2_DELIVERY_ENABLED`,
-   `TCG_REFERENCE_FIGURES_R2_PUBLISH_ENABLED`.
-6. Test false-positive joins, parallel separation, expired/unknown values,
-   missing artwork, provider outage, R2 corruption, stale generation,
-   repeated imports, duplicate observations and cross-owner boundaries.
-7. Do not enable figure Shopify listing, auto-publish, image mirroring or new
-   pricing schedules until their separate rights, physical-media, shipping and
-   pricing gates have been implemented and verified.
+   `TCG_REFERENCE_FIGURES_R2_PUBLISH_ENABLED` stay false until verified.
+6. Test false-positive joins, parallels, stale/missing values, image rights,
+   outages, R2 corruption, webhook replay and founder/consignor ownership.
+7. Separately deploy FastAPI/App and Shopify integrations only after
+   signed-in search, owned-stock matching, pricing and settlement tests.
+   Never turn a canonical reference into a sellable physical item by default.
 
-Rollback is a normal code revert and feature flags `false`; keep additive
-schema/history intact. Do not delete provider history, R2 objects or owner data.
+Rollback is an application-code revert with publication flags false; keep
+additive schema/history. Do not delete market evidence, R2 objects, inventory,
+owner data or audit logs.
