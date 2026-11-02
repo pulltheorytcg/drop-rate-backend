@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import gzip
+import hashlib
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -114,6 +115,45 @@ def test_round_trip_sha256_and_idempotency(config, tmp_path):
     assert fake.puts == 1
     assert store.put_verified_file(source, category="reference-history", content_type="application/gzip") == receipt
     assert fake.puts == 1, "Retries must not create duplicates"
+
+
+@pytest.mark.parametrize("category,suffix", [
+    ("reference-history", "ndjson.gz"),
+    ("reference-history", "json"),
+    ("exports", "ndjson.gz"),
+    ("exports", "manifest.json"),
+])
+def test_verified_private_archive_readback_uses_content_hash(config, tmp_path, category, suffix):
+    payload = b"verified private archive bytes"
+    digest = hashlib.sha256(payload).hexdigest()
+    key = f"drop-rate/{category}/{digest}.{suffix}"
+    fake = FakeS3()
+    fake.objects[key] = payload
+    destination = tmp_path / "readback"
+    S3ObjectStorage(config, client=fake).download_verified_file(
+        key, destination, expected_sha256=digest, expected_size=len(payload),
+    )
+    assert destination.read_bytes() == payload
+
+
+@pytest.mark.parametrize("category,suffix", [
+    ("exports", "json"),
+    ("exports", "webp"),
+    ("private-media", "ndjson.gz"),
+])
+def test_private_archive_readback_rejects_unapproved_prefix_and_suffix(
+    config, tmp_path, category, suffix,
+):
+    payload = b"verified private archive bytes"
+    digest = hashlib.sha256(payload).hexdigest()
+    key = f"drop-rate/{category}/{digest}.{suffix}"
+    fake = FakeS3()
+    fake.objects[key] = payload
+    with pytest.raises(ObjectStorageError, match="Invalid private archive object identity"):
+        S3ObjectStorage(config, client=fake).download_verified_file(
+            key, tmp_path / "readback", expected_sha256=digest,
+            expected_size=len(payload),
+        )
 
 
 def test_preexisting_corrupt_data_must_not_be_replaced(config, tmp_path):
