@@ -74,7 +74,8 @@ async def _magic(client: httpx.AsyncClient, *, set_code: str, offset: int, limit
     rows = details["cards"]
     if len(rows) > 30_000:
         raise ReferenceSourceError("MTGJSON set row count exceeds expected bound")
-    return [magic_printings(details, row) for row in rows[offset:offset + limit]], len(rows)
+    # An unusual printing must not abort other independent, exact-identity rows.
+    return [_preview_magic_printings(details, row) for row in rows[offset:offset + limit]], len(rows)
 
 
 async def _lego(client: httpx.AsyncClient, *, year: int | None, offset: int, limit: int):
@@ -110,7 +111,23 @@ async def _lego(client: httpx.AsyncClient, *, year: int | None, offset: int, lim
     sets = [row for row in sets if row.get("num_parts", "").isdecimal()
             and int(row["num_parts"]) >= 2
             and not is_non_building_theme(row.get("theme_id", ""))]
-    return [[lego_set_product(row, themes=themes)] for row in sets[offset:offset + limit]], len(sets)
+    # Keep a rejected set in the receipt with its source position; never relax
+    # exact edition validation to make a preview pass.
+    return [_preview_lego_set(row, themes=themes) for row in sets[offset:offset + limit]], len(sets)
+
+
+def _preview_magic_printings(details: dict, row: dict):
+    try:
+        return magic_printings(details, row)
+    except ReferenceSourceError as exc:
+        return exc
+
+
+def _preview_lego_set(row: dict, *, themes: dict[str, str]):
+    try:
+        return [lego_set_product(row, themes=themes)]
+    except ReferenceSourceError as exc:
+        return exc
 
 
 def _approved_input(source: str, path: Path, *, offset: int, limit: int):
