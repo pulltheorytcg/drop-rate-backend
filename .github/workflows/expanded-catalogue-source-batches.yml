@@ -52,6 +52,83 @@ jobs:
         run: mkdir -p reports
       - name: Magic Foundations - 100 source cards
         run: PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source magic --set-code FDN --offset "$MAGIC_OFFSET" --limit 100 > reports/magic.json
+      - name: Package MTGJSON Foundations 771-card source into immutable, private R2-ready windows
+        run: |
+          for magic_window in 0 100 200 300 400 500 600 700; do
+            PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source magic --set-code FDN --offset "$magic_window" --limit 100 --emit-magic-staging-artifact > "reports/magic-fdn-window-$magic_window.json"
+          done
+      - name: Verify closed source-data bundle and offset coverage (no backend credentials)
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          report_dir = Path("reports")
+          windows = []
+          identities = set()
+          source_rows = None
+          examined = 0
+          for offset in range(0, 800, 100):
+              receipt = json.loads((report_dir / f"magic-fdn-window-{offset}.json").read_text())
+              assert receipt["mode"] == "DRY_RUN_ONLY" and receipt["source"] == "magic"
+              assert receipt["offset"] == offset and receipt["limit"] == 100
+              assert receipt["source_rights_gate"] == "MTGJSON_METADATA_LICENSE_REVIEWED_IMAGES_EXCLUDED"
+              assert receipt["supabase_rows_written"] == receipt["uploaded_r2_objects"] == 0
+              assert receipt["images_mirrored"] == receipt["verified_market_prices"] == 0
+              assert receipt["shopify_products_created"] == 0
+              available = receipt["source_rows_available"]
+              if source_rows is None:
+                  source_rows = available
+              assert source_rows == available and 700 < source_rows <= 800
+              assert receipt["source_rows_examined"] == min(100, max(0, available-offset))
+              examined += receipt["source_rows_examined"]
+              artifact = receipt["staging_artifact"]
+              assert artifact["private"] is True and artifact["r2_uploaded"] is False
+              assert artifact["format"] == "CLOSED_MTGJSON_METADATA_V1"
+              file = report_dir / artifact["file_name"]
+              raw = file.read_bytes()
+              assert hashlib.sha256(raw).hexdigest() == artifact["sha256"]
+              assert len(raw) == artifact["bytes"]
+              snapshot = json.loads(raw)
+              assert set(snapshot) == {"version", "source", "records"}
+              assert snapshot["version"] == 1 and snapshot["source"] == "magic"
+              assert len(snapshot["records"]) == receipt["validated_reference_candidates"]
+              for row in snapshot["records"]:
+                  assert set(row) == {"set", "card"}
+                  assert row["set"]["provider"] == "MTGJSON"
+                  assert row["card"]["image_url"] is None
+                  identity = row["card"]["provider_id"]
+                  assert identity not in identities
+                  identities.add(identity)
+              windows.append({
+                  "offset": offset,
+                  "source_rows_examined": receipt["source_rows_examined"],
+                  "validated_printings": len(snapshot["records"]),
+                  "quarantined_source_rows": receipt["quarantined_source_rows"],
+                  "artifact": artifact,
+              })
+          assert examined == source_rows and len(windows) == 8
+          manifest = {
+              "kind": "PRIVATE_MTGJSON_R2_INPUT_BUNDLE_NOT_UPLOADED",
+              "schema_version": 1,
+              "set_code": "FDN",
+              "provider": "MTGJSON",
+              "license_url": "https://www.mtgjson.com/license/",
+              "source_rows_examined": examined,
+              "validated_printing_refs": len(identities),
+              "quarantined_source_rows": sum(w["quarantined_source_rows"] for w in windows),
+              "private": True,
+              "r2_objects_uploaded": 0,
+              "supabase_rows_written": 0,
+              "shopify_products_created": 0,
+              "windows": windows,
+          }
+          (report_dir / "magic-fdn-private-r2-input-index.json").write_text(
+              json.dumps(manifest, sort_keys=True, indent=2))
+          print("MTGJSON_PRIVATE_BUNDLE_VERIFIED", examined, len(identities),
+                manifest["quarantined_source_rows"])
+          PY
       - name: LEGO 2026 - 100 eligible construction sets
         run: PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source lego --year 2026 --offset "$LEGO_OFFSET" --limit 100 > reports/lego.json
       - name: Yu-Gi-Oh TCG - 50 source cards
