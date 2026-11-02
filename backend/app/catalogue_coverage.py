@@ -1,9 +1,80 @@
 """Catalogue-wide coverage receipts: missing evidence is never a zero price."""
+import asyncio
+import logging
+import time
 from uuid import uuid4
+
+from fastapi.encoders import jsonable_encoder
 
 from .db import user_connection
 from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_asking_display import asking_cache_join
+
+logger = logging.getLogger(__name__)
+
+
+class SharedCoverageCache:
+    """Briefly reuse the *global* price-coverage report, never owner data.
+
+    The full 70k-card, exact-evidence aggregation is expensive on a small PG
+    instance. Coalesce concurrent readers and cap staleness at two minutes;
+    failed queries are never cached, and a cancelled HTTP request does not
+    cancel a refresh that other authorised readers are awaiting.
+    """
+
+    def __init__(self, *, ttl_seconds=120, clock=time.monotonic):
+        self.ttl_seconds = ttl_seconds
+        self.clock = clock
+        self._value = None
+        self._expires_at = 0
+        self._pending = None
+        self._lock = asyncio.Lock()
+
+    async def get(self, load):
+        if self._value is not None and self.clock() < self._expires_at:
+            return self._value
+        async with self._lock:
+            if self._value is not None and self.clock() < self._expires_at:
+                return self._value
+            if self._pending is None:
+                self._pending = asyncio.create_task(self._refresh(load))
+            pending = self._pending
+        return await asyncio.shield(pending)
+
+    async def _refresh(self, load):
+        try:
+            value = await load()
+            self._value = value
+            self._expires_at = self.clock() + self.ttl_seconds
+            return value
+        finally:
+            async with self._lock:
+                if self._pending is asyncio.current_task():
+                    self._pending = None
+
+
+_shared_coverage_cache = SharedCoverageCache()
+
+
+async def shared_price_coverage(pool, user_id, request_id):
+    """Use only after the request's normal authentication and access checks."""
+    async def load():
+        started = time.perf_counter()
+        async with user_connection(pool, user_id, request_id) as connection:
+            rows = await connection.fetch(COVERAGE_SQL)
+        items = [dict(row) for row in rows]
+        duration_ms = round((time.perf_counter() - started) * 1000)
+        if duration_ms >= 500:
+            logger.info('CATALOGUE_COVERAGE_REFRESH_TIMING duration_ms=%s groups=%s',
+                        duration_ms, len(items))
+        return jsonable_encoder({
+            'scope': 'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS',
+            'items': items,
+            'total': sum(row['products'] for row in items),
+            'summary': coverage_summary(items),
+        })
+
+    return await _shared_coverage_cache.get(load)
 
 COVERAGE_SQL = f'''with coverage as (
  select 'CARD'::text as kind,r.system_code,r.language,
