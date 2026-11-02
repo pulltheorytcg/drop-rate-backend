@@ -1,0 +1,87 @@
+name: Expanded catalogue source batch preview
+
+# Source previews only. No database, R2, Shopify or deployment secrets.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/expanded-catalogue-source-batches.yml'
+      - 'backend/scripts/pilot_expanded_catalogues.py'
+      - 'backend/scripts/pilot_yugioh_catalogue.py'
+      - 'backend/app/collectible_source_adapters.py'
+  workflow_dispatch:
+    inputs:
+      magic_offset:
+        description: 'Starting MTGJSON FDN row (0-200000)'
+        required: true
+        default: '150'
+        type: string
+      lego_offset:
+        description: 'Starting eligible LEGO 2026 row (0-200000)'
+        required: true
+        default: '150'
+        type: string
+      yugioh_offset:
+        description: 'Starting YGOPRODeck TCG card row (0-200000)'
+        required: true
+        default: '75'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expanded-catalogue-source-previews-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  read-only-source-batches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MAGIC_OFFSET: ${{ inputs.magic_offset || '150' }}
+      LEGO_OFFSET: ${{ inputs.lego_offset || '150' }}
+      YUGIOH_OFFSET: ${{ inputs.yugioh_offset || '75' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned project test dependencies
+        run: python -m pip install --requirement requirements-dev.txt
+      - name: Prepare receipts directory
+        run: mkdir -p reports
+      - name: Magic Foundations - 100 source cards
+        run: PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source magic --set-code FDN --offset "$MAGIC_OFFSET" --limit 100 > reports/magic.json
+      - name: LEGO 2026 - 100 eligible construction sets
+        run: PYTHONPATH=backend python backend/scripts/pilot_expanded_catalogues.py --source lego --year 2026 --offset "$LEGO_OFFSET" --limit 100 > reports/lego.json
+      - name: Yu-Gi-Oh TCG - 50 source cards
+        run: PYTHONPATH=backend python backend/scripts/pilot_yugioh_catalogue.py --offset "$YUGIOH_OFFSET" --limit 50 > reports/yugioh.json
+      - name: Assert preview cannot report production writes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          for source in ("magic", "lego", "yugioh"):
+              report = json.loads((Path("reports") / f"{source}.json").read_text())
+              assert report["mode"] in {"DRY_RUN", "DRY_RUN_ONLY"}
+              assert report["shopify_products_created"] == 0
+              assert report["images_mirrored"] == 0
+              if source == "yugioh":
+                  assert report["printings_saved"] == 0
+                  assert report["verified_prices_added"] == 0
+              else:
+                  assert report["supabase_rows_written"] == 0
+                  assert report["uploaded_r2_objects"] == 0
+                  assert report["verified_market_prices"] == 0
+              print(source, "validated:", report.get("validated_reference_candidates",
+                   report.get("printing_candidates")))
+          PY
+      - name: Attach source-count and quarantine receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expanded-catalogue-read-only-previews
+          path: reports/*.json
+          if-no-files-found: warn
+          retention-days: 7
