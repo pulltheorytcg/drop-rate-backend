@@ -202,10 +202,16 @@ def create_app() -> FastAPI:
         # Owner-free catalogue data should be warmed before customers browse.
         # The existing maintenance identity supplies RLS context; index
         # downloading/building stays asynchronous and never blocks readiness.
-        from . import catalogue_r2_live
+        from . import catalogue_r2_live, catalogue_r2_market
         if settings.catalogue_maintenance_actor_user_id and catalogue_r2_live.enabled('DELIVERY'):
             maintenance_tasks.append(asyncio.create_task(
                 catalogue_r2_live.prewarm(
+                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id,
+                )
+            ))
+        if settings.catalogue_maintenance_actor_user_id and catalogue_r2_market.enabled('DELIVERY'):
+            maintenance_tasks.append(asyncio.create_task(
+                catalogue_r2_market.prewarm(
                     app.state.db_pool, settings.catalogue_maintenance_actor_user_id,
                 )
             ))
