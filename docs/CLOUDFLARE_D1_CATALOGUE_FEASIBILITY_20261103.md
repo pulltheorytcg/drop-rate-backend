@@ -162,3 +162,37 @@ Next gates:
 
 The existing **69,697-row restorable R2 backup** and its manifest are retained.
 This pilot does not overwrite or replace that archive.
+
+## Manual remote D1 pilot (prepared, pending a real GitHub Actions run)
+
+`tools/d1_remote_catalogue_pilot.py` and
+`.github/workflows/d1-catalogue-synthetic-pilot.yml` implement a **manual-only**
+Cloudflare API test. It has two choices, exposed under GitHub Actions:
+
+- `inspect` (default): use a D1-scoped token to list existing database
+  metadata in the documented R2 Cloudflare account. **No writes.**
+- `pilot`: after validating account access, create one **new** database named
+  `drop-rate-d1-synthetic-<github-run-id>-<attempt>`. Load exactly 1,200
+  synthetic cards and 840 synthetic quote rows (no real customer, card, price
+  or ownership data), check three query types and FK integrity, and benchmark
+  20 repetitions per query using D1 SQL duration and GitHub-runner HTTP RTT.
+
+The script refuses to reuse an existing database, has no deletion function,
+cannot target another Cloudflare account, enforces D1's 100-parameter limit,
+and caps total synthetic inserts well below Workers Free's daily row-write
+allowance. The test DB **remains after execution** for inspection; it will not
+be deleted without permission. GitHub Actions uploads a JSON report for 14
+days. Test creation does not upgrade billing or route production traffic.
+
+The secret is already stored under the existing user-supplied spelling
+`CLOUDFARE_D1_PILOT_TOKEN` in GitHub Actions. The workflow deliberately uses
+that exact name; never print or copy the secret into workflow logs. It may
+expire within seven days according to the selected token settings.
+
+Important limitations: these are a remote API feasibility measurement from
+the **GitHub runner**, not a genuine end-user or Railway application latency
+test; the small fixture cannot prove full 70k-card scale; Supabase master
+ownership and price data are unchanged, and PostgreSQL space is not freed.
+The workflow first needs to be available on the repository default branch to
+be selectable via manual GitHub Actions dispatch. Offline test coverage is in
+`tests/test_d1_remote_catalogue_pilot.py`.
