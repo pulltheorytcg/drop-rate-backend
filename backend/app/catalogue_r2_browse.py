@@ -342,12 +342,12 @@ def indexed_browse_sql(query, params, snapshot, *, max_page=81, market=None):
     return _compose_indexed_sql(query,params,snapshot.page(limit,offset),market=market)
 
 
-def _static_filtered_page(tail, params, snapshot, *, limit, offset):
-    """Select a bounded newest page for exact, shared catalogue predicates.
+def _static_filtered_predicates(tail, params):
+    """Verify exact, shared catalogue predicates before selecting identities.
 
     Only the simple predicates emitted by product_query are recognised, and
-    their whole SQL WHERE clause must match. Owner/price/text conditions never
-    get prefiltered using shared data: those require the live SQL path.
+    their whole SQL WHERE clause must match. Owner and price predicates are
+    never prefiltered here; literal text uses a separately verified query.
     """
     match=re.search(
         rf'where (.+?) order by e\.release_date desc nulls last,lower\(e\.name\),e\.key '
@@ -386,6 +386,11 @@ def _static_filtered_page(tail, params, snapshot, *, limit, offset):
         predicates.append(found[1])
     if not predicates or ' and '.join(expected)!=clause:
         raise ValueError('Unverified R2 filtered query shape')
+    return predicates
+
+
+def _static_filtered_page(tail, params, snapshot, *, limit, offset):
+    predicates=_static_filtered_predicates(tail,params)
     rows=[]
     for row in snapshot.entries:
         if all(predicate(row) for predicate in predicates):
@@ -393,6 +398,65 @@ def _static_filtered_page(tail, params, snapshot, *, limit, offset):
             if len(rows)>=offset+limit:
                 break
     return rows
+
+
+def _category_text_search_page(query, params, snapshot, *, max_candidates):
+    """Recognise only an exact category/system/type literal-name query.
+
+    Reconstruct both the complete SQL and its static filters with product_query.
+    Category visibility, ranking, owner facts and prices stay in the real SQL;
+    a new or ambiguous predicate must fall back rather than lose identities.
+    """
+    from .catalogue_browser import BROWSE_FAMILIES, SOURCE_CTE, product_query
+
+    terms,exact=params[-4:-2]
+    if (not isinstance(terms,list) or not terms
+            or not isinstance(exact,str)
+            or not all(isinstance(term,str) and term and term.strip()==term
+                       and term.isascii() and not any(c.isdigit() for c in term)
+                       for term in terms)
+            or ' '.join(terms).lower()!=exact):
+        raise ValueError('Category search requires an unambiguous literal query')
+    filters=params[1:-4]
+    for category in ('TCG','SPORTS','COMICS','MANGA','FIGURES'):
+        _,category_params=product_query(owner_id=params[0],category=category)
+        category_filters=category_params[1:-2]
+        if filters[:len(category_filters)]!=category_filters:
+            continue
+        remaining=filters[len(category_filters):]
+        system=''
+        if remaining and isinstance(remaining[0],list):
+            systems=remaining[0]
+            if not systems or not all(isinstance(s,str) for s in systems):
+                continue
+            system=(systems[0] if len(systems)==1 else next(
+                (family for family,members in BROWSE_FAMILIES.items()
+                 if list(members)==systems),None))
+            if system is None:
+                continue
+            remaining=remaining[1:]
+        if len(remaining)>1 or (remaining and remaining[0] not in ('CARD','SEALED','COMIC','FIGURE')):
+            continue
+        options=dict(owner_id=params[0],category=category,system_code=system,
+                     product_type=remaining[0] if remaining else '',
+                     limit=params[-2]-1,offset=params[-1])
+        if product_query(q=' '.join(terms),**options)!=(query,params):
+            continue
+        static_query,static_params=product_query(**options)
+        predicates=_static_filtered_predicates(static_query[len(SOURCE_CTE):],static_params)
+        lowered=[term.lower() for term in terms]
+        rows=[]
+        for row in snapshot.entries:
+            if not all(predicate(row) for predicate in predicates):
+                continue
+            body=' '.join(str(row.get(field) or '') for field in (
+                'name','set_name','card_number','game','variant','language','rarity')).lower()
+            if all(term in body for term in lowered):
+                rows.append(row)
+                if len(rows)>max_candidates:
+                    raise ValueError('Category search exceeds the verified R2 shortlist bound')
+        return rows
+    raise ValueError('Category text query no longer matches verified SQL')
 
 
 def _system_text_search_page(query, params, snapshot, *, max_candidates):
@@ -504,10 +568,15 @@ def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidat
                 if len(rows)>max_candidates:
                     raise ValueError("Search result exceeds bounded R2 shortlist")
     elif (len(params) == 6 and isinstance(params[1], list)
-          and isinstance(params[2], list)):
+          and isinstance(params[2], list)
+          and ' and (false or not exists (' in tail):
         mode='SEARCH_SYSTEM_TEXT'
         rows=_system_text_search_page(query,params,snapshot,
                                       max_candidates=max_candidates)
+    elif 6<=len(params)<=9 and ' and (false or not exists (' in tail:
+        mode='SEARCH_CATEGORY_TEXT'
+        rows=_category_text_search_page(query,params,snapshot,
+                                        max_candidates=max_candidates)
     elif 4<=len(params)<=8:
         mode='FILTERED_NEWEST'
         rows=_static_filtered_page(tail,params,snapshot,limit=limit,offset=offset)
