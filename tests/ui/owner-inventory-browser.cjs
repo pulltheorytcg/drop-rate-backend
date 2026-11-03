@@ -247,10 +247,16 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.ok(Math.abs(cardBottoms[0]-cardBottoms[1])<1,
      'Cards in a row must align without a padded action footer');
    assert.equal(await page.locator('.owner-inventory-details').count(),0);
-   await page.waitForFunction(()=>{
-    const images=[...document.querySelectorAll('.owner-card-thumb img')];
-    return images.length===4&&images.every(img=>img.naturalWidth>0);
-   });
+   // Thumbnails are intentionally lazy-loaded. On a 320px screen the fourth
+   // card starts well below the viewport; scroll each card into the observer
+   // area before asserting that its exact-reference image decoded.
+   const thumbs=page.locator('.owner-card-thumb');
+   assert.equal(await thumbs.count(),4);
+   for(let index=0;index<4;index++){
+    await thumbs.nth(index).scrollIntoViewIfNeeded();
+    await page.waitForFunction(i=>document.querySelectorAll('.owner-card-thumb')[i]
+      ?.querySelector('img')?.naturalWidth>0,index);
+   }
    await page.locator('.owner-card-thumb img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
    await page.screenshot({path:path.join(out,`inventory-mixed-${viewport.width}.png`),fullPage:true});
    await page.evaluate(()=>{
