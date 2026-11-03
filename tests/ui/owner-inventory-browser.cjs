@@ -3,7 +3,7 @@ const {chromium,webkit}=require('playwright'),fs=require('node:fs'),path=require
 const engine=process.env.INVENTORY_BROWSER||'chromium';
 const base=path.resolve(__dirname,'../../backend/app/static'),out='/tmp/inventory-layout/'+engine;
 const artwork='https://www.onepiece-cardgame.com/products/boosters/op17/images/others/product_pack.webp';
-const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op17-catalogue',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
+const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op17-catalogue',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,reference_image_path:'/api/v1/owner/inventory/d715b0e9-b3c4-451b-a909-5fa233f8a0e5/reference-image',approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
 (async()=>{
  fs.mkdirSync(out,{recursive:true});
  const response=await fetch(artwork);assert.equal(response.ok,true,'Official pack image unavailable');const pack=Buffer.from(await response.arrayBuffer());
@@ -17,7 +17,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.route(/^https?:\/\//,async route=>{
     const u=new URL(route.request().url());
     if(u.href===artwork)return route.fulfill({body:pack,contentType:'image/webp'});
-    if(/^\/api\/v1\/inventory\/[^/]+\/image$/.test(u.pathname)){
+    if(/^\/api\/v1\/(?:inventory\/[^/]+\/image|owner\/inventory\/[^/]+\/reference-image)$/.test(u.pathname)){
      assert.equal(route.request().headers().authorization,'Bearer isolated-fixture');
      const file=u.pathname.includes('/75e288a1-8252-414f-912d-b82b253447c7/')?'luffy-op05-119-p2.png':u.pathname.includes('/60cf7078-2925-47df-8df2-3c0c28d8d788/')?'umbreon-vmax-215.webp':null;
      return file?route.fulfill({path:path.join(base,'grail-art',file)}):route.fulfill({body:pack,contentType:'image/webp'});
