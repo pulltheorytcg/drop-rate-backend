@@ -550,6 +550,29 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(calls.length,1);assert.equal(calls[0].options.headers.Authorization,'Bearer secret-session');img.dispatchEvent(new f.w.Event('load'));assert.deepEqual(revoked,['blob:safe']);assert.equal(picture.querySelector('span').hidden,true);f.finish();checks++;
  }
  {
+  // A reference-only copy has no assigned media; fetch its exact reference
+  // directly, never probe the shared media route which would repeat work.
+  const f=fixture(),calls=[];f.w.URL.createObjectURL=()=> 'blob:reference';
+  f.w.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,blob:async()=>new f.w.Blob(['image'],{type:'image/webp'})};};
+  const picture=f.w.DropRateInventory.image({...item,image_url:null},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,`/api/v1/owner/inventory/${id}/reference-image`);
+  assert.equal(calls[0].options.headers.Authorization,'Bearer secret-session');
+  f.finish();checks++;
+ }
+ {
+  // When the database confirms no exact artwork, don't send a doomed image
+  // fetch for every visible card. Absence is explicit, never a generic image.
+  const f=fixture(),calls=[];f.w.fetch=async url=>{calls.push(url);throw new Error('unexpected image fetch');};
+  const picture=f.w.DropRateInventory.image({...item,image_url:null,
+    reference_image_url:null,reference_image_path:null},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();
+  assert.equal(calls.length,0);
+  assert.match(picture.textContent,/Image unavailable/);
+  f.finish();checks++;
+ }
+ {
   const f=fixture({name:'<img src=x onerror=alert(1)>',market_value_minor:null});await f.open();assert.match(f.w.document.querySelector('dialog').textContent,/Value unavailable/);assert.equal(f.w.document.querySelector('dialog img[src="x"]'),null);f.finish();checks++;
  }
  console.log(`Seller inventory: ${checks} detail, image, approval, sync, quantity, retry and isolation scenarios passed.`);

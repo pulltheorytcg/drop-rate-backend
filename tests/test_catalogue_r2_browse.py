@@ -195,13 +195,71 @@ def test_extended_search_rejects_ambiguous_or_unbounded_work():
     for options in (
         dict(q="OP15-001"),dict(q="クリエグ"),
         dict(q="Krieg",owned="owned"),
-        dict(q="Krieg",system_code="ONE_PIECE_CARD_GAME"),
         dict(sort="value_asc"),
         dict(owned="not_owned"),dict(owned="owned",offset=1000),
     ):
         query,params=product_query(owner_id=owner,limit=9,**options)
         with pytest.raises(ValueError):
             indexed_catalogue_query(query,params,idx,owned={})
+
+
+def test_game_scoped_text_search_shortlists_all_exact_printings_without_prices():
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_catalogue_query
+    owner=UUID('10000000-0000-0000-0000-000000000001')
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    query,params=product_query(owner_id=owner,q='Krieg',
+                               system_code='ONE_PIECE_CARD_GAME',limit=1)
+    sql,args,mode=indexed_catalogue_query(query,params,idx)
+    assert mode=='SEARCH_SYSTEM_TEXT'
+    selected=json.loads(args[-1])
+    assert {row['provider_id'] for row in selected}=={'OP15-001','OP15-001_p1'}
+    assert all('market_value_minor' not in row and 'owner_id' not in row for row in selected)
+    assert 'where e.system_code=any($2::text[]) and (false or not exists (' in sql
+    assert 'tcg.reference_market_prices' in sql and 'tcg.inventory_items' in sql
+    # Price overlays and SQL ordering remain authoritative after full shortlist.
+    assert 'order by case when false then 0 when lower(e.name)=$4' in sql
+
+
+def test_game_scoped_text_search_excludes_other_games_and_handles_pagination():
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_catalogue_query
+    from copy import deepcopy
+    data=deepcopy(fixture())
+    data['reference_sets'].append(dict(provider='TCGdex',system_code='POKEMON_TCG',
+        language='English',set_id='test',name='Test',release_date='2026-02-01'))
+    data['reference_cards'].append(dict(provider='TCGdex',system_code='POKEMON_TCG',
+        language='English',set_id='test',provider_id='test-1',name='Krieg',
+        card_number='001',rarity='C',image_url=None,source_url=None))
+    idx=build_browse_index(data,today=date(2026,10,30))
+    query,params=product_query(owner_id=UUID('10000000-0000-0000-0000-000000000001'),
+                               q='Krieg',system_code='ONE_PIECE_CARD_GAME',
+                               limit=1,offset=1)
+    _,args,mode=indexed_catalogue_query(query,params,idx)
+    assert mode=='SEARCH_SYSTEM_TEXT'
+    assert {row['provider_id'] for row in json.loads(args[-1])}=={'OP15-001','OP15-001_p1'}
+    # The 2 matches must be passed to SQL *before* offset/pagination.
+    assert args[:len(params)]==params
+
+
+def test_game_scoped_text_search_fail_closes_on_numeric_sort_and_extra_filters():
+    from uuid import UUID
+    from app.catalogue_r2_browse import indexed_catalogue_query
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    owner=UUID('10000000-0000-0000-0000-000000000001')
+    for options in (
+        dict(q='OP15-001',system_code='ONE_PIECE_CARD_GAME'),
+        dict(q='Krieg',system_code='ONE_PIECE_CARD_GAME',owned='owned'),
+        dict(q='Krieg',system_code='ONE_PIECE_CARD_GAME',language='English'),
+        dict(q='Krieg',system_code='ONE_PIECE_CARD_GAME',sort='name'),
+        dict(q='Krieg',system_code='ONE_PIECE_CARD_GAME',offset=513),
+    ):
+        query,params=product_query(owner_id=owner,limit=9,**options)
+        with pytest.raises(ValueError):
+            indexed_catalogue_query(query,params,idx,owned={})
+    query,params=product_query(owner_id=owner,q='Krieg',system_code='ONE_PIECE_CARD_GAME',limit=9)
+    with pytest.raises(ValueError,match='shortlist bound'):
+        indexed_catalogue_query(query,params,idx,max_candidates=1)
 
 
 def test_extended_live_reader_does_not_enable_itself_by_default(monkeypatch):
