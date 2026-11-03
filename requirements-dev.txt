@@ -1,2 +1,1 @@
 -r requirements.txt
-graphql-core==3.2.6
