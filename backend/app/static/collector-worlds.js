@@ -22,7 +22,7 @@
   hero.classList.add('collector-hero');
   const greeting=el('p','collector-greeting',seller?'YOUR SELLER WORKSPACE':'YOUR DAILY OVERVIEW');
   const title=el('h1','collector-headline');
-  if(seller)title.textContent='Your collection.';
+  if(seller)title.append('Your ',el('em','','collection.'));
   else title.append('Your collection.',el('br',''),el('em','','Under control.'));
   const intro=el('p','collector-intro',seller?'Every find, in one place.':'Your stock, reviews and sales, in one place.');
   const buttons=el('div','collector-hero-actions');

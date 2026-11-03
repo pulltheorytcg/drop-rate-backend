@@ -115,7 +115,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
-        '<script src="/assets/dashboard-shell.js?v=shared-reference-v5" defer></script>',
+        '<script src="/assets/dashboard-shell.js?v=shared-movers-20261103" defer></script>',
         '<script src="/assets/seller-invites.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
         '<script src="/assets/scanner-flow.js?v=scan-review-20261103" defer></script>',
@@ -133,9 +133,9 @@ def _dashboard_html() -> str:
         '<script src="/assets/catalogue-browser.js?v=ux-20261103" defer></script>',
         '<script src="/assets/catalogue-browser-entry.js?v=ux-20261103" defer></script>',
         '<script src="/assets/workspace-shell.js?v=ux-20261103" defer></script>',
-        '<script src="/assets/collector-worlds.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/collector-worlds.js?v=premium-navy-20261103" defer></script>',
         '<script src="/assets/account-experience.js?v=ux-20261103" defer></script>',
-        '<script src="/assets/hub-experience.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/hub-experience.js?v=premium-navy-20261103" defer></script>',
         '<script src="/assets/owner-collectibles.js?v=ux-20261103" defer></script>',
     )
     for script in scripts:
