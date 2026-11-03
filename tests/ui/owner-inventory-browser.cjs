@@ -6,7 +6,9 @@ const artwork='https://www.onepiece-cardgame.com/products/boosters/op17/images/o
 const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op17-catalogue',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,reference_image_path:'/api/v1/owner/inventory/d715b0e9-b3c4-451b-a909-5fa233f8a0e5/reference-image',approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
 (async()=>{
  fs.mkdirSync(out,{recursive:true});
- const response=await fetch(artwork);assert.equal(response.ok,true,'Official pack image unavailable');const pack=Buffer.from(await response.arrayBuffer());
+ // The external provider URL is intercepted; keep the browser fixture offline
+ // and deterministic while exercising the same authenticated reference path.
+ const pack=fs.readFileSync(path.join(base,'collection-photos/one-piece-op17-sealed.webp'));
  const browser=await ({chromium,webkit})[engine].launch({headless:true});
  try{
   for(const viewport of [{width:320,height:800},{width:390,height:844},{width:430,height:932},{width:1440,height:1000}]){
