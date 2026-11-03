@@ -75,6 +75,7 @@ async def check(db):
       ('30000000-0000-0000-0000-000000000021','DC_COMICS','COMIC','Future Series',current_date+1)""")
     await db.execute((ROOT/'database/migrations/20261030002930_live_catalogue_r2_publication.sql').read_text())
     await db.execute((ROOT/'database/migrations/20261030085900_r2_relevant_change_invalidation.sql').read_text())
+    await db.execute((ROOT/'database/migrations/20261103150140_catalogue_review_visibility_r2.sql').read_text())
     # No-op upserts and refresh timestamps must not make a previously
     # published immutable source generation disappear from the app.
     gen_sql = "select generation from tcg_private.live_catalogue_r2_publication where singleton"

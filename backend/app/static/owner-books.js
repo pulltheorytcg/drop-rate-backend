@@ -5,6 +5,7 @@
   let photos = [], scanRevision = 0, scanning = false, scanController = null, priceRevision = 0;
   let marketTimer = null;
   let reviewContext = null;
+  let savedReceipt = null;
   let identityEdited = false;
   let research = null, researchRunId = null, selectedResearch = null, coverRevision = 0, choosingCover = false;
   const coverUrls = new Set(), coverControllers = new Set(), coverCleanups = new Set();
@@ -118,7 +119,8 @@
         </section>
         <p class="owner-book-explanation">Add confirms this is your book. You can add condition and cost later.</p>
         <p id="owner-book-message" role="status" aria-live="polite"></p>
-        <div class="owner-book-actions"><button type="button" id="owner-book-remove" class="owner-secondary-action" hidden>Remove scan</button><button type="button" id="owner-book-cancel" class="owner-secondary-action">Cancel</button><button type="submit" id="owner-book-save" class="owner-primary-action">Add to collection</button></div>
+        <div class="owner-book-actions" id="owner-book-actions"><button type="button" id="owner-book-remove" class="owner-secondary-action" hidden>Remove scan</button><button type="button" id="owner-book-cancel" class="owner-secondary-action">Cancel</button><button type="submit" id="owner-book-save" class="owner-primary-action">Add to collection</button></div>
+        <div class="owner-book-actions" id="owner-book-success" hidden><button type="button" id="owner-book-view-item" class="owner-primary-action">View item</button><button type="button" id="owner-book-add-another" class="owner-secondary-action">Add another</button></div>
       </form>
       <datalist id="owner-book-languages"><option value="English"><option value="Japanese"><option value="French"><option value="German"><option value="Spanish"><option value="Italian"></datalist>`;
     document.body.append(dialog);
@@ -126,6 +128,19 @@
     for (const id of ["category", "state"]) node(id).addEventListener("change", update);
     node("grader").addEventListener("change", clearGradingDetails);
     for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving) { cancelScan(); dialog.close(); } });
+    node("view-item").addEventListener("click",()=>{
+      if(!saved||actorId!==state.session?.user?.id)return;
+      const item=savedReceipt?.inventory||{};
+      if(reviewContext)reviewContext.onClose=null;
+      dialog.close();
+      if(typeof activateOwnerView==="function")activateOwnerView("inventory");
+      document.dispatchEvent(new CustomEvent("hub:inventory-open",{detail:{inventoryId:item.id||item.inventory_id,inventoryCode:item.inventory_code}}));
+    });
+    node("add-another").addEventListener("click",()=>{
+      if(!saved||actorId!==state.session?.user?.id)return;
+      const next=reviewContext?.onAddAnother,scannerReturn=reviewContext?.onClose,category=value("category")==="MANGA"?"MANGA":"COMICS";
+      dialog.close();if(next)next();else if(!scannerReturn)open({category});
+    });
     node("remove").addEventListener("click", () => {
       if (saving || pending || saved || actorId !== state.session?.user?.id || !reviewContext?.onRemove) return;
       const remove = reviewContext.onRemove;
@@ -525,9 +540,13 @@
       const result = await apiRequest("/api/v1/owner/books/intake", {method: "POST", headers: {"Idempotency-Key": requestKey}, body});
       if (state.session?.user?.id !== savingActor) { dialog.close(); return; }
       pending = false; saved = true; renderPhotos();
+      savedReceipt=result;
       node("message").textContent = `${result.catalogue.name} added to your collection.`;
       node("save").textContent = "Added to collection";
       node("cancel").textContent = "Done";
+      node("title").textContent="Added to your collection";
+      node("details").open=false;node("copy-details").open=false;node("photo-details").open=false;
+      node("actions").hidden=true;node("success").hidden=false;
       // The scanner only receives a receipt after explicit, successful book intake.
       // A presentation callback must never turn a committed save into a retry.
       try { reviewContext?.onSaved?.(result, JSON.parse(body), {run_id:researchRunId,research}); } catch (_) { /* Inventory already saved. */ }
@@ -561,7 +580,7 @@
       reviewContext = {...reviewContext, onClose: options.onClose};
       dialog.showModal(); renderResearch(); return true;
     }
-    actorId = state.session?.user?.id; pending = false; saved = false;
+    actorId = state.session?.user?.id; pending = false; saved = false;savedReceipt=null;
     identityEdited = false;
     reviewContext = {...options};
     cancelScan(); photos = [];
@@ -571,6 +590,8 @@
     // Keep exact catalogue/recognition fields authoritative when supplied.
     if (!options.book && options.category === "MANGA") node("category").value = "MANGA";
     else if (!options.book && options.category === "COMICS") node("category").value = "";
+    if(!options.book&&typeof options.query==="string")node("series").value=options.query.slice(0,140);
+    node("actions").hidden=false;node("success").hidden=true;
     node("fields").disabled = false; node("save").disabled = false;
     node("save").textContent = "Add to collection"; node("cancel").textContent = "Cancel";
     node("message").textContent = "";

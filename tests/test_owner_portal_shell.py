@@ -17,7 +17,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=simple-v1" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=ux-20261103" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=books-v4" defer></script>' in html
 
     for founder_script in (
@@ -39,7 +39,8 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
         "function renderOverviewLatestInventory(items) {", 1
     )[0]
     assert "owner-card-meta" not in card_block
-    assert "body.append(heading, prices);" in card_block
+    assert "body.append(heading, identity, prices);" in card_block
+    assert '"owner-card-identity"' in card_block
     assert "owner-card-image-wrap" in card_block
     assert "owner-card-prices" in card_block
     assert "owner-card-open-overlay" in card_block
@@ -62,8 +63,8 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
         assert f'"{value}"' in details
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
-    assert 'href="/assets/owner-inventory.css?v=comic-preparation-20261101"' in html
-    assert 'src="/assets/owner-inventory.js?v=comic-preparation-20261101"' in html
+    assert 'href="/assets/owner-inventory.css?v=ux-20261103"' in html
+    assert 'src="/assets/owner-inventory.js?v=ux-20261103"' in html
 
 
 def test_owner_portal_requires_owner_role_and_redirects_platform_admin() -> None:
@@ -126,7 +127,8 @@ def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
     assert "/api/v1/finance/" not in js
 
     assert 'apiRequest("/api/v1/owner/overview")' in js
-    assert 'apiRequest(`/api/v1/owner/inventory?${params.toString()}`)' in js
+    assert 'apiRequest(`/api/v1/owner/inventory?${params.toString()}`,{signal:controller.signal})' in js
+    assert "state.inventory.controller?.abort()" in js
     assert '/api/v1/owner/overview", {' not in js
     assert '/api/v1/owner/inventory?", {' not in js
 

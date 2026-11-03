@@ -5,6 +5,26 @@ window.DropRateInventory = (() => {
   const button = (label, action, cls = "") => { const n = el("button", cls, label); n.type = "button"; n.addEventListener("click", action); return n; };
   const account = () => state.session?.user?.id || state.session?.access_token;
   let dialog, content, message, selected, revision = 0, busy = false, returnFocus, channels = [];
+  let listingIntent = false, listingStep = "condition", returnScroll = 0;
+  const draftKey = id => state.session?.user?.id ? `drop_rate_listing_draft:${state.session.user.id}:${id}` : null;
+  function listingDraft(item) {
+    const key=draftKey(item.id);if(!key)return null;
+    try{
+      const value=JSON.parse(sessionStorage.getItem(key));if(!value || value.version!==item.version)return null;
+      return {version:item.version,step:["condition","preparation","price","review"].includes(value.step)?value.step:"condition",
+        price:typeof value.price==="string" && value.price.length<=20?value.price:"",
+        condition:typeof value.condition==="string" && value.condition.length<=80?value.condition:""};
+    }catch(_){return null;}
+  }
+  function saveListingDraft(item, values={}) {
+    const key=draftKey(item.id);if(!key)return;
+    const next={...listingDraft(item),step:listingStep,...values};
+    try{sessionStorage.setItem(key,JSON.stringify({version:item.version,
+      step:["condition","preparation","price","review"].includes(next.step)?next.step:"condition",
+      price:typeof next.price==="string" && next.price.length<=20?next.price:"",
+      condition:typeof next.condition==="string" && next.condition.length<=80?next.condition:""}));}catch(_){/* The current form stays usable without session storage. */}
+  }
+  function clearListingDraft(item) {const key=draftKey(item?.id);if(key)try{sessionStorage.removeItem(key);}catch(_){} }
   // Transparent original brand wordmarks, not reconstructed symbols or app icons.
   // All three use the same secure image source and visual alignment rules.
   const channelLogos=Object.freeze({
@@ -104,9 +124,15 @@ window.DropRateInventory = (() => {
 
   function close(force = false) {
     if (busy && !force) return;
-    revision++; busy = false; selected = null; channels = [];
+    revision++; busy = false; selected = null; channels = [];listingIntent=false;
     if (dialog?.open) dialog.close();
-    content?.replaceChildren(); returnFocus?.focus();
+    content?.replaceChildren();
+    const visibleTarget=node=>node?.isConnected && !node.disabled
+      && node.matches("button,input,select,textarea,a[href],[tabindex]")
+      && !node.closest('[hidden],.hidden,[aria-hidden="true"],dialog:not([open])');
+    [returnFocus,document.querySelector("#owner-inventory-search"),document.querySelector(".owner-nav-item.active")]
+      .find(visibleTarget)?.focus({preventScroll:true});
+    window.scrollTo({top:returnScroll,behavior:"instant"});
   }
 
   function ensureDialog() {
@@ -125,7 +151,10 @@ window.DropRateInventory = (() => {
 
   async function open(item, options = {}) {
     if (!item?.id || busy) return;
-    ensureDialog(); returnFocus = document.activeElement;
+    ensureDialog();
+    if(!dialog.open){returnFocus=document.activeElement;returnScroll=window.scrollY || 0;}
+    listingIntent=options.selling===true || options.prepareEbay===true;
+    listingStep=["condition","preparation","price","review"].includes(options.step)?options.step:options.prepareEbay?"preparation":"condition";
     if (!dialog.open) dialog.showModal();
     const rev = ++revision, owner = account(); selected = item;
     content.replaceChildren(); status("Loading item details…");
@@ -136,7 +165,10 @@ window.DropRateInventory = (() => {
       // details on an unrelated provider connection or a slow external API.
       channels=state.ownerChannelAccount===owner && Array.isArray(state.ownerChannelSummaries)
         ?state.ownerChannelSummaries:[];
-      selected = data.item; render(data); status("");
+      selected = data.item;
+      const saved=listingDraft(selected);
+      if(!options.step && !options.prepareEbay && saved?.step && ["condition","preparation","price","review"].includes(saved.step))listingStep=saved.step;
+      render(data);status(saved && listingIntent ? "Your listing draft is ready to continue. Nothing has been published." : "");
       if (options.prepareEbay) {
         const selling = content.querySelector(".owner-item-selling");
         if (selling) selling.open = true;
@@ -146,10 +178,11 @@ window.DropRateInventory = (() => {
     } catch (error) { if (alive(rev, owner)) status(error.message, true); }
   }
 
-  async function run(action) {
+  async function run(action, options = {}) {
     if (busy || !selected) return;
     busy = true;
     const rev = revision, owner = account(), id = selected.id;
+    const previous=selected,draft=listingDraft(selected);
     dialog.querySelectorAll("button,input,select").forEach(n => { n.disabled = true; });
     status("Saving…");
     let result, failure;
@@ -160,6 +193,10 @@ window.DropRateInventory = (() => {
     try {
       const data = await apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(id)}`);
       if (!alive(rev, owner)) return;
+      if(!failure && options.clearPricingDraft)clearListingDraft(selected);
+      else if(!failure && draft && active(data.item) && ["catalogue_id","product_type","condition","seal_status","language","grading_company","grade"].every(key=>previous[key]===data.item[key])){
+        saveListingDraft(data.item,{step:draft.step,price:draft.price,condition:draft.condition});
+      }
       selected = data.item; busy = false; render(data);
     } catch (_) {
       busy = false; content.replaceChildren(button("Reload item", () => open({id})));
@@ -167,6 +204,7 @@ window.DropRateInventory = (() => {
     if (alive(rev, owner)) {
       dialog.querySelector("header button").disabled = false;
       status(failure ? failure.message : result?.message || "Saved.", Boolean(failure));
+      if(!failure)document.dispatchEvent(new CustomEvent("hub:inventory-saved",{detail:{inventoryId:id,message:result?.message||"Saved."}}));
       await Promise.allSettled([loadOwnerInventory(), loadOwnerOverview(), loadOwnerChannels(), loadOwnerInsights()]);
     }
   }
@@ -349,10 +387,105 @@ window.DropRateInventory = (() => {
     return section;
   }
 
+  function collectibleIdentityRows(item) {
+    if(item.product_type==="FIGURE" && item.figure_details){
+      const figure=item.figure_details;
+      return [["Manufacturer",figure.manufacturer],["Franchise",figure.franchise],["Character",figure.character],
+        ["Product line",figure.product_line],["Edition",figure.edition],["Scale",figure.scale],
+        ["Release year",figure.release_year],["Manufacturer code",figure.manufacturer_sku],["Barcode",figure.barcode_gtin]];
+    }
+    if(item.product_type==="CARD" && item.sports_card){
+      const card=item.sports_card;
+      return [["Sport",card.sport],["League",card.league],["Release year",card.release_year],["Season",card.season],
+        ["Manufacturer",card.manufacturer],["Set",card.set_name],["Player / subject",card.subject_name],
+        ["Team",card.team],["Card number",card.card_number],["Parallel",card.parallel],["Print run",card.print_run]];
+    }
+    return [];
+  }
+
+  function installListingFlow(item, sale, {saleCondition,priceInput,priceLabel,recommendationNote,save,actions}) {
+    const summary=sale.querySelector("summary"), existing=[...sale.children].filter(child=>child!==summary);
+    const flow=el("div","owner-listing-flow"),nav=el("nav","owner-listing-steps");nav.setAttribute("aria-label","Listing preparation steps");
+    const stages=[["condition","Item"],["preparation","Preparation"],["price","Price"],["review","Review"]];
+    const panels=Object.fromEntries(stages.map(([key,label])=>{const panel=el("section","owner-listing-stage");panel.dataset.listingStep=key;panel.setAttribute("aria-label",label);return[key,panel];}));
+    panels.review.append(...existing);
+    panels.condition.append(el("h3","","Confirm the copy you want to sell"),el("p","owner-item-note",`${item.inventory_code} · ${item.language || "Language not recorded"}`));
+    const structuredIdentity=collectibleIdentityRows(item).filter(([,value])=>value!=null && String(value).trim());
+    if(structuredIdentity.length){
+      const details=el("dl","owner-item-facts-grid");
+      for(const [label,value] of structuredIdentity){const pair=el("div","owner-item-fact");pair.append(el("dt","",label),el("dd","",String(value)));details.append(pair);}
+      panels.condition.append(details);
+    }
+    if(saleCondition)panels.condition.append(saleCondition.parentElement);
+    else panels.condition.append(el("p","",`${inventoryTypeLabel(item)} · ${conditionLabel(item)}`));
+    panels.condition.append(el("p","owner-item-note","Check the item, printing and language above. Selling applies only to the selected physical copy."));
+    panels.preparation.append(el("h3","","Photos and preparation"));
+    const comic=panels.review.querySelector(".owner-comic-preparation"),ebay=panels.review.querySelector(".owner-ebay-preparation");
+    if(comic)panels.preparation.append(comic);
+    if(ebay)panels.preparation.append(ebay);
+    if(!comic && !ebay)panels.preparation.append(el("p","owner-item-note",item.seller_approval_available
+      ?"This sealed product can use its approved catalogue artwork. Confirm that you hold this exact product before listing."
+      :"Drop Rate checks the identity, intake details and listing photographs of this exact copy before publication."));
+    const remaining=el("div","owner-listing-readiness");
+    remaining.append(el("strong","",item.approval_blockers?.length ? `${item.approval_blockers.length} check${item.approval_blockers.length===1?"":"s"} before publication` : "Final channel checks run before publication"));
+    if(item.approval_blockers?.length){
+      const wording={"Drop Rate intake review":"We need to check this item before it can be listed", "An approved listing photo":"Add a clear photo for the listing", "Identity confirmation":"Check that the item details are correct"};
+      const checks=el("ul");for(const reason of item.approval_blockers){const row=el("li");row.append(el("span","",wording[reason]||reason));
+        const step=/price/i.test(reason)?"price":/condition|grade|language/i.test(reason)?"condition":null;
+        if(step)row.append(button(step==="price"?"Set price":"Review item",()=>showStep(step)));checks.append(row);
+      }remaining.append(checks);
+    }
+    panels.preparation.append(remaining);
+    panels.price.append(el("h3","","Set your selling price"),recommendationNote,priceLabel,save,
+      el("p","owner-item-note","Your asking price is separate from the market estimate. Final proceeds reflect the actual sale, commission and any applicable deductions."));
+    const reviewHeading=el("h3","","Review your listing"),reviewFacts=el("dl","owner-listing-review-facts");
+    const updateReview=()=>{
+      reviewFacts.replaceChildren();
+      for(const [label,value] of [["Physical copy",item.inventory_code],["Language",item.language || "Not recorded"],["Condition / grade",saleCondition?.value || conditionLabel(item)],["Selling price",priceInput.value.trim()?`£${priceInput.value}`:"Not set"]]){
+        const pair=el("div");pair.append(el("dt","",label),el("dd","",value));reviewFacts.append(pair);
+      }
+    };
+    panels.review.prepend(reviewHeading,reviewFacts);
+    if(actions.children.length===0)actions.remove();
+    const buttons=new Map();for(const [index,[key,label]] of stages.entries()){
+      const control=button(`${index+1}. ${label}`,()=>showStep(key));control.setAttribute("aria-controls",`owner-listing-stage-${key}`);buttons.set(key,control);nav.append(control);panels[key].id=`owner-listing-stage-${key}`;
+    }
+    const footer=el("div","owner-listing-navigation"),back=button("Back",()=>showStep(stages[Math.max(0,stages.findIndex(([key])=>key===listingStep)-1)][0])),next=button("Continue",()=>{
+      if(listingStep==="condition" && saleCondition && !saleCondition.value){status("Choose the condition of this copy before continuing.",true);saleCondition.focus();return;}
+      if(listingStep==="price" && (!/^\d+(\.\d{1,2})?$/.test(priceInput.value)||Number(priceInput.value)<1||Number(priceInput.value)>1_000_000)){status("Enter a selling price of at least £1, with no more than two decimal places.",true);priceInput.focus();return;}
+      const index=stages.findIndex(([key])=>key===listingStep);showStep(stages[Math.min(stages.length-1,index+1)][0]);
+    },"primary");
+    footer.append(back,next);
+    const draftNote=el("p","owner-listing-draft-note","Your progress stays in this browser session. Save your details or submit for review when you’re ready.");
+    function showStep(key,{focus=true,persist=true}={}){
+      listingStep=stages.some(([name])=>name===key)?key:"condition";updateReview();
+      for(const [name,panel]of Object.entries(panels)){panel.hidden=name!==listingStep;buttons.get(name).toggleAttribute("data-active",name===listingStep);if(name===listingStep)buttons.get(name).setAttribute("aria-current","step");else buttons.get(name).removeAttribute("aria-current");}
+      const index=stages.findIndex(([name])=>name===listingStep);back.hidden=index===0;next.hidden=index===stages.length-1;next.textContent=index===stages.length-2?"Review listing":"Continue";
+      if(persist)saveListingDraft(item,{step:listingStep,price:priceInput.value,condition:saleCondition?.value||""});
+      if(focus){
+        panels[listingStep].tabIndex=-1;panels[listingStep].focus({preventScroll:true});
+        const headerHeight=dialog.querySelector("header").getBoundingClientRect().height;
+        const top=dialog.scrollTop+flow.getBoundingClientRect().top-dialog.getBoundingClientRect().top-headerHeight-8;
+        dialog.scrollTo?.({top:Math.max(0,top),behavior:"auto"});status("");
+      }
+    }
+    const saveDraft=()=>{saveListingDraft(item,{price:priceInput.value,condition:saleCondition?.value||"",step:listingStep});updateReview();};
+    priceInput.addEventListener("input",saveDraft);saleCondition?.addEventListener("change",saveDraft);
+    nav.style.top=`${Math.ceil(dialog.querySelector("header").getBoundingClientRect().height)}px`;
+    flow.append(nav,...Object.values(panels),footer,draftNote);sale.append(flow);
+    sale.showListingStep=showStep;
+    showStep(listingStep,{focus:false,persist:false});
+    sale.addEventListener("toggle",()=>{if(sale.open){listingIntent=true;dialog.classList.add("is-listing");dialog.querySelector("#owner-item-title").textContent=item.shopify_state==="PUBLISHED"?"Manage listing":"Prepare listing";}});
+    const backToItem=button("← Item overview",()=>{listingIntent=false;dialog.classList.remove("is-listing");sale.open=false;dialog.querySelector("#owner-item-title").textContent="Item details";dialog.scrollTop=0;},"owner-listing-back");
+    flow.prepend(backToItem);
+  }
+
   function render(data) {
     const item = data.item, copies = data.copies || [];
-    const sellingOpen = content.querySelector(".owner-item-selling")?.open === true;
+    const sellingOpen = listingIntent || content.querySelector(".owner-item-selling")?.open === true;
     content.replaceChildren();
+    dialog.classList.toggle("is-listing",listingIntent);
+    dialog.querySelector("#owner-item-title").textContent=listingIntent?"Prepare listing":"Item details";
     const hero = el("section", "owner-item-hero"), figure = el("figure");
     figure.append(image(item, "owner-item-art"), el("figcaption", "", item.image_url ? "Item image" : "Reference image · not a photo of your copy"));
     const community = window.DropRateBookArtwork?.reference(item, true);
@@ -373,9 +506,9 @@ window.DropRateInventory = (() => {
     facts.append(el("summary", "", "Item details"));
     const list = el("dl", "owner-item-facts-grid");
     const rows = [
-      [item.product_type === "COMIC" ? "Category" : "Game", item.game],
-      [item.product_type === "COMIC" ? "Series / edition" : "Set", item.set_name],
-      [item.product_type === "COMIC" ? (item.game === "Manga" ? "Volume" : "Issue / book number") : "Card number", item.card_number],
+      [["COMIC","FIGURE"].includes(item.product_type) || item.sports_card ? "Category" : "Game", item.game],
+      [item.product_type === "COMIC" ? "Series / edition" : item.product_type==="FIGURE"?"Range / series":"Set", item.set_name],
+      [item.product_type === "COMIC" ? (item.game === "Manga" ? "Volume" : "Issue / book number") : item.product_type==="FIGURE"?"Model / product code":"Card number", item.card_number],
       ["Language", item.language],
       [item.product_type === "SEALED" ? "Seal" : "Condition", conditionLabel(item)],
       ["Type", inventoryTypeLabel(item)],
@@ -384,6 +517,8 @@ window.DropRateInventory = (() => {
       ["Certificate", item.certificate_number],
       ["Inventory ID", item.inventory_code],
     ];
+    rows.push(...collectibleIdentityRows(item));
+    if(item.identity_source==="SELLER_ENTERED")rows.push(["Identity source","Seller entered"]);
     if (item.comic_printing) {
       const book = item.comic_printing;
       rows.push(["Publisher", book.attributes?.publisher], ["Publication year", book.release_year],
@@ -418,7 +553,6 @@ window.DropRateInventory = (() => {
     const sale = el("details", "owner-item-section owner-item-selling");
     sale.open = sellingOpen || (item.product_type === "COMIC" && item.sale_intent === "FOR_SALE");
     sale.append(el("summary", "", publishedOnShopify ? "Manage listing" : "Sell this item"));
-    sale.append(el("p", "owner-item-note", "Choose a price and condition when you’re ready to sell."));
     if (item.product_type === "CARD" && item.ebay_preparation) {
       const preparation = item.ebay_preparation;
       const checklist = el("details", "owner-ebay-preparation");
@@ -440,19 +574,21 @@ window.DropRateInventory = (() => {
     sale.append(recommendationNote);
     if (item.product_type === "COMIC") sale.append(renderComicPreparation(item));
     let saleCondition;
-    if (["CARD", "COMIC"].includes(item.product_type) && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
+    if (["CARD", "COMIC", "FIGURE"].includes(item.product_type) && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
       const label = el("label", "", "Condition when selling"); saleCondition = el("select");
       saleCondition.setAttribute("aria-label", "Condition when selling");
-      const conditions = item.product_type === "COMIC" ? ["", "Mint", "Near Mint", "Very Fine", "Fine", "Very Good", "Good", "Fair", "Poor"] : ["", "Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
+      const conditions = item.product_type === "FIGURE" ? ["","New","Like New","Very Good","Good","Fair","Damaged"] : item.product_type === "COMIC" ? ["", "Mint", "Near Mint", "Very Fine", "Fine", "Very Good", "Good", "Fair", "Poor"] : ["", "Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
       for (const value of conditions) {
         const option = el("option", "", value || "Choose condition"); option.value = value; saleCondition.append(option);
       }
-      saleCondition.value = item.condition || ""; label.append(saleCondition); sale.append(label);
+      const saved=listingDraft(item);
+      saleCondition.value = saved?.condition || item.condition || ""; label.append(saleCondition); sale.append(label);
     }
     const priceLabel = el("label", "", "Your selling price (£)"), priceInput = el("input");
     priceInput.type = "number"; priceInput.min = "1"; priceInput.step = "0.01"; priceInput.inputMode = "decimal";
     const initialPrice = item.store_price_minor ?? recommended;
-    priceInput.value = initialPrice == null ? "" : (initialPrice / 100).toFixed(2);
+    const savedDraft=listingDraft(item);
+    priceInput.value = typeof savedDraft?.price==="string" && savedDraft.price.length<=20 ? savedDraft.price : initialPrice == null ? "" : (initialPrice / 100).toFixed(2);
     let suggestionPrefilled = item.store_price_minor == null && recommended != null;
     let priceEdited = false;
     const recommendationText = recommendationNote.textContent;
@@ -482,13 +618,13 @@ window.DropRateInventory = (() => {
       return Math.round(Number(priceInput.value) * 100);
     };
     const priceAction = (path, method) => {
-      let minor; try { minor = value(); } catch (error) { status(error.message, true); priceInput.focus(); return; }
+      let minor; try { minor = value(); } catch (error) { sale.showListingStep?.("price");status(error.message, true); priceInput.focus(); return; }
       if (path === "approval-request" && saleCondition && !saleCondition.value) {
-        status("Choose the condition for your listing. The card is already saved in inventory.", true); saleCondition.focus(); return;
+        sale.showListingStep?.("condition");status("Choose the condition for your listing. The item is already saved in your collection.", true); saleCondition.focus(); return;
       }
       const body = {version: item.version, store_price_minor: minor};
       if (path === "approval-request" && saleCondition) body.condition = saleCondition.value;
-      run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/${path}`, {method, body: JSON.stringify(body)}));
+      run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/${path}`, {method, body: JSON.stringify(body)}),{clearPricingDraft:path==="approval-request"});
     };
     const actions=el("div","owner-item-actions");
     const save=button("Save selling price",()=>priceAction("selling-price","PATCH"));
@@ -509,17 +645,10 @@ window.DropRateInventory = (() => {
     if(publishedOnShopify){
       sale.append(el("p","owner-item-note","This copy is already published on Shopify. You can still update your selling price."));
     }else{
-      if(item.approval_blockers?.length){
-        sale.append(el("p","","Known next steps before selling (channel checks run again before publication):"));
-        const list=el("ul");
-        const wording={"Drop Rate intake review":"We need to check this item before it can be listed", "An approved listing photo":"Add a clear photo for the listing", "Identity confirmation":"Check that the item details are correct"};
-        item.approval_blockers.forEach(reason=>list.append(el("li","",wording[reason] || reason)));
-        sale.append(list);
-      }
       if(!approvedForSale) {
         sale.append(el("p","owner-item-note",item.seller_approval_available
           ?"List on Shopify confirms that you hold this exact sealed product and want it offered for sale. Your stock stays with you and uses approved catalogue artwork."
-          :"This selling request is separate from adding the card. Drop Rate selling review still applies to this item; approval can then trigger Shopify publication."));
+          :"Your item is already saved in your collection. This request sends the selected copy for Drop Rate selling review; approval can then trigger Shopify publication."));
       }
       if(!item.shopify_sync_enabled) sale.append(el("p","owner-item-note","Shopify publishing is currently unavailable."));
     }
@@ -535,7 +664,7 @@ window.DropRateInventory = (() => {
       ebayChecks.every(check=>check.complete===true);
     const ebayEligible=Boolean(ebay.connected && ebay.sync_enabled) &&
       !ebayScopeBlocker && ebayPrepared && item.product_type==="CARD" && approvedForSale;
-    const ebayReason=item.product_type!=="CARD"?(item.product_type === "COMIC" ? "Comics and manga aren't supported here yet" : "Sealed packs aren't supported yet"):
+    const ebayReason=item.product_type!=="CARD"?(item.product_type === "COMIC" ? "Comics and manga aren't supported here yet" : item.product_type==="FIGURE"?"Figure publishing is not available yet":"Sealed packs aren't supported yet"):
       ebayScopeBlocker?ebayScopeBlocker:
       !ebay.connected?"eBay account not connected":
       !ebay.sync_enabled?"Seller publishing not enabled":
@@ -609,7 +738,7 @@ window.DropRateInventory = (() => {
       const label = el("label", "", "Choose the copy to manage"), select = el("select");
       select.setAttribute("aria-label", "Choose inventory copy");
       copies.forEach(copy => { const option = el("option", "", `${copy.inventory_code} · ${collectionStatus(copy)}`); option.value = copy.id; select.append(option); });
-      select.value = item.id; select.addEventListener("change", () => open({id: select.value})); label.append(select); stock.append(label);
+      select.value = item.id; select.addEventListener("change", () => open({id: select.value},{selling:listingIntent,step:listingStep})); label.append(select);label.className="owner-exact-copy-picker";content.insertBefore(label,hero.nextSibling);
     }
     // A tap changes the VISIBLE proposed number; only explicit confirmation
     // changes physical inventory. Never display a draft copy as Shopify stock.
@@ -661,19 +790,21 @@ window.DropRateInventory = (() => {
       actions.append(button("Cancel change", resetQuantity));
       confirmation.append(actions);
     };
-    add = button("+", () => { if (delta < 1) { delta++; updateQuantity(); } });
-    add.setAttribute("aria-label", "Increase quantity by one");
-    remove = button("−", () => { if (delta > -1) { delta--; updateQuantity(); } });
-    remove.setAttribute("aria-label", "Decrease quantity by withdrawing this copy");
-    controls.append(remove, quantity, add);
+    add = button("Add another copy", () => { delta=1; updateQuantity(); });
+    add.setAttribute("aria-label", "Add another copy");
+    remove = button("Remove this copy", () => { delta=-1; updateQuantity(); });
+    remove.setAttribute("aria-label", "Remove this copy");
+    controls.append(quantity, add, remove);
     stock.append(controls, feedback, confirmation);
     updateQuantity();
     stock.append(el("p", "owner-item-note",
       item.grading_company
         ? (item.product_type === "COMIC" ? "Add each graded book through Comic / manga with its own certificate. Withdrawing a copy keeps its history." : "Add each graded slab through Scan with its own certificate. Withdrawing a copy keeps its history.")
-        : "Change the quantity, then confirm to save it."));
+        : "Add another matching copy, or remove the selected copy. Confirm the change before your collection is updated."));
     content.insertBefore(values, facts);
     content.insertBefore(stock, facts);
+    stock.classList.add("owner-item-stock");
+    installListingFlow(item,sale,{saleCondition,priceInput,priceLabel,recommendationNote,save,actions});
   }
   return {image, open, close, reset: () => close(true)};
 })();

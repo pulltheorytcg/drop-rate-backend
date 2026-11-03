@@ -21,7 +21,15 @@
             if(row.catalogue_id&&current.edit){const candidate={...row,catalogue_id:row.catalogue_id,candidate_snapshot:row,market_value_minor:null,image_url:row.display_image_url};
               current.edit.item.candidates=[candidate];current.edit.selected=candidate;current.renderSlabDetails();}},
           books:options=>seller?window.DropRateBooks?.open(options):navigate("inventory"),
+          collectibles:options=>{const intake=seller?window.DropRateOwnerCollectibles:window.DropRateCollectibles;return intake?intake.open(options):false;},
+          returnToSearch:()=>window.openDropRateCatalogue(),
           afterSave:()=>seller?Promise.all([loadOwnerOverview(),loadOwnerInventory()]):reloadDashboard(),
+          viewCollection:()=>navigate("inventory"),
+          viewItem:receipt=>{
+            navigate("inventory");
+            const item=receipt?.inventory||{};
+            document.dispatchEvent(new CustomEvent("hub:inventory-open",{detail:{inventoryId:item.id||item.inventory_id,inventoryCode:item.inventory_code}}));
+          },
         });
       }
       if(reset || systemCode || productKey){
@@ -39,7 +47,7 @@
     status.textContent=error.message;
   });
   document.querySelectorAll('[data-browse-products]:not([data-owner-view])').forEach(control=>control.addEventListener('click',launch));
-  const shortcut=document.createElement('button');shortcut.type='button';shortcut.className='dr-browse-launch';shortcut.textContent='Search cards & sets';shortcut.addEventListener('click',launch);
+  const shortcut=document.createElement('button');shortcut.type='button';shortcut.className='dr-browse-launch';shortcut.textContent='Search catalogue';shortcut.addEventListener('click',launch);
   document.getElementById(seller?'owner-view-scan':'recognition-scanner-panel')?.prepend(shortcut);
   document.addEventListener(seller?'owner-view-changed':'seller-view-changed',event=>{
     if(event.detail.view==='search')launch();

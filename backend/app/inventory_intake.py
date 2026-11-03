@@ -58,6 +58,10 @@ def _manual_identity_key(product: ManualCatalogueCreate) -> str:
     }
     if product.comic_printing is not None:
         payload["comic_printing"] = product.comic_printing.identity()
+    if product.sports_card is not None:
+        payload["sports_card"] = product.sports_card.identity()
+    if product.figure_details is not None:
+        payload["figure_details"] = product.figure_details.identity()
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -66,9 +70,11 @@ def _manual_identity_key(product: ManualCatalogueCreate) -> str:
 
 def _manual_intake_payload_hash(payload: ManualInventoryCreate) -> str:
     canonical = payload.model_dump(mode="json")
-    # Preserve receipt hashes for card/sealed requests issued before books.
-    if canonical.get("new_catalogue") and canonical["new_catalogue"].get("comic_printing") is None:
-        canonical["new_catalogue"].pop("comic_printing", None)
+    # Preserve earlier receipt hashes when new optional identity models are added.
+    if canonical.get("new_catalogue"):
+        for field in ("comic_printing", "sports_card", "figure_details"):
+            if canonical["new_catalogue"].get(field) is None:
+                canonical["new_catalogue"].pop(field, None)
     return hashlib.sha256(
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -119,6 +125,13 @@ async def _find_exact_catalogue(
         return await connection.fetchrow(
             "select * from tcg.catalogue_products where identity_key=$1 and product_type='COMIC'",
             _manual_identity_key(product),
+        )
+    if product.sports_card is not None or product.figure_details is not None:
+        # Display fields alone cannot distinguish a parallel, team, figure
+        # franchise, scale or edition. Match the entire structured identity.
+        return await connection.fetchrow(
+            "select * from tcg.catalogue_products where identity_key=$1 and product_type=$2",
+            _manual_identity_key(product), product.product_type,
         )
     rows = await connection.fetch(
         """
@@ -265,7 +278,13 @@ async def search_catalogue(
                 id, product_type, game, name, set_name, card_number,
                 variant, rarity, language
             from tcg.catalogue_products p
-            where not exists (
+            where (
+                not exists(select 1 from tcg.catalogue_product_profiles cp
+                    where cp.catalogue_id=p.id and cp.system_code in ('SPORTS_CARDS','FIGURES')
+                      and cp.identity_status='NEEDS_REVIEW'
+                      and cp.attributes->>'identity_source'='SELLER_ENTERED')
+                or exists(select 1 from tcg.inventory_items own where own.catalogue_id=p.id)
+            ) and not exists (
                 select 1
                 from unnest($1::text[]) as search(term)
                 where not (
@@ -383,6 +402,19 @@ async def create_inventory_intake(
                     catalogue_reused = True
                 else:
                     catalogue_created = True
+
+            if catalogue_created and (payload.new_catalogue.sports_card is not None or payload.new_catalogue.figure_details is not None):
+                product = payload.new_catalogue
+                identity = product.sports_card or product.figure_details
+                field = "sports_card" if product.sports_card is not None else "figure_details"
+                attributes = json.dumps({field: identity.model_dump(mode="json"),
+                                         "identity_source": "SELLER_ENTERED",
+                                         "submitted_by_user_id": str(user.user_id)})
+                await connection.execute("""
+                    insert into tcg.catalogue_product_profiles
+                      (catalogue_id,system_code,collectible_type,identity_status,attributes)
+                    values ($1,$2,$3,'NEEDS_REVIEW',$4::jsonb)
+                    """, catalogue["id"], identity.system_code, product.product_type, attributes)
 
             if catalogue_created and payload.new_catalogue.comic_printing is not None:
                 book = payload.new_catalogue.comic_printing

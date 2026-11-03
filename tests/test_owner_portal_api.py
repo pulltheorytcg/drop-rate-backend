@@ -68,6 +68,7 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
         assert field in query
 
     assert "as image_url" in query
+    assert "case when {PUBLISHED_SQL} then 'PUBLISHED' end as shopify_state" in query
     assert "m.scope='INVENTORY_ITEM'" in query
     assert "m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in query
     assert "m.approval_status='APPROVED'" in query
@@ -142,9 +143,10 @@ def test_owner_inventory_and_channels_bind_pagination_parameters() -> None:
 
     assert "page_params = [*params, limit, offset]" in channels
     assert 'limit ${len(page_params)-1} offset ${len(page_params)}' in channels
-    assert 'page_params = params if group_copies else [*params, limit, offset]' in inventory
+    assert 'page_params = params if group_copies or value_page is not None else [*params, limit, offset]' in inventory
     assert 'limit ${len(params)+1} offset ${len(params)+2}' in inventory
     assert 'inventory_group_page(' in inventory
+    assert 'inventory_value_page(' in inventory
     assert 'where += f" and i.id=any(${len(params)}::uuid[])"' in inventory
 
 

@@ -4,8 +4,8 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=premium-20261103'), 'Seller Hub must load the current book artwork and listing-context script');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=premium-20261103'), 'Seller Hub must load the fresh mobile sort styles');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=ux-20261103'), 'Seller Hub must load the current discovery and saved-reference script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=ux-20261103'), 'Seller Hub must load the current discovery styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
@@ -19,12 +19,14 @@ let checks=0;
 function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a',embedded=false,gameHandler=async()=>({items:games})){
  const dom=new JSDOM('',{runScripts:'outside-only',url:'https://example.test',pretendToBeVisual:true});const w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
- w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/reference-value-display.js'),'utf8'));w.eval(titleArt);w.eval(source);let alive=true;const calls=[];
- const client={owner,active:()=>alive,request:async(url,options)=>{calls.push({url,...options});return url.endsWith('/games')?gameHandler():handler(url,options);}};
+ w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/reference-value-display.js'),'utf8'));w.eval(titleArt);w.eval(source);let alive=true;const calls=[],savedCalls=[],savedKeys=new Set();
+ const client={owner,active:()=>alive,request:async(url,options={})=>{
+  if(url.includes('/catalogue-browser/saved')){savedCalls.push({url,...options});if(options.method==='PUT')savedKeys.add(JSON.parse(options.body).key);if(options.method==='DELETE')savedKeys.delete(decodeURIComponent(url.split('/').at(-1)));return {keys:[...savedKeys]};}
+  calls.push({url,...options});return url.endsWith('/games')?gameHandler():handler(url,options);}};
  let host;
  if(embedded){w.document.body.innerHTML='<header class="topbar"></header><nav class="seller-nav"></nav><aside class="owner-sidebar"></aside><header class="owner-page-header"></header><main id="catalogue-host"></main>';host=w.document.getElementById('catalogue-host');}
  const browser=new w.DropRateCatalogue.Browser({host,client,navigate:()=>{},scan:()=>{},graded:()=>{},afterSave:async()=>{}});
- return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
+ return {browser,w,calls,savedCalls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
  {
@@ -156,26 +158,18 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  {
   const f=fixture(async()=>({items:[card],has_more:false}));
   await f.browser.open();f.browser.pickGame(games[0]);await tick();
-  const sort=f.browser.find('[data-action="sort-visible"]');
   const filters=f.browser.find('[data-action="filters-visible"]');
   assert.equal(f.browser.find('.dr-browse-toolbar').hidden,false);
-  assert.match(sort.textContent,/Sort: Newest first/);
-  assert.equal(filters.textContent,'Filters');
-  sort.click();assert.match(f.browser.sheet.textContent,/Name Z–A/);
-  [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Name Z–A')).click();await tick();
-  assert.match(f.calls.at(-1).url,/sort=name_desc/);
-  assert.match(sort.textContent,/Name Z–A/);
-  sort.click();
-  [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Value: high to low')).click();await tick();
-  assert.match(f.calls.at(-1).url,/sort=value_desc/);
-  assert.match(sort.textContent,/Value: high to low/);
-  sort.click();
-  [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Oldest first')).click();await tick();
-  assert.match(f.calls.at(-1).url,/sort=oldest/);
-  assert.match(sort.textContent,/Oldest first/);
-  filters.click();assert.match(f.browser.sheet.textContent,/Product Type/);
+  assert.equal(f.browser.find('[data-action="sort-visible"]'),null);
+  assert.match(filters.textContent,/Filter & sort/);
+  for(const order of ['name_desc','value_desc','oldest']){
+   filters.click();const control=f.browser.sheet.querySelector('[data-filter="sort"]');control.value=order;control.dispatchEvent(new f.w.Event('change'));
+   [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent==='Show results').click();await tick();
+   assert.match(f.calls.at(-1).url,new RegExp('sort='+order));
+  }
+  filters.click();assert.match(f.browser.sheet.textContent,/In your collection/);
   f.browser.closeSheet();f.browser.reset();
-  assert.equal(f.browser.find('.dr-browse-toolbar').hidden,true);
+  assert.equal(f.browser.find('.dr-browse-toolbar').hidden,false);
   f.finish();checks++;
  }
  // No Naruto sealed products: be explicit that the verified index is missing,
@@ -415,7 +409,8 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  {
   const f=fixture();await f.browser.open();assert.match(f.browser.find('.dr-browse-content').textContent,/Browse by game/);
   assert.equal(f.calls.length,1);f.browser.filters.product_type='SEALED';await f.browser.load();
-  assert.match(f.calls.at(-1).url,/product_type=SEALED/);assert.match(f.browser.find('.dr-browse-chips').textContent,/Sealed Only/);
+  assert.match(f.calls.at(-1).url,/product_type=SEALED/);assert.equal(f.browser.find('[data-type="SEALED"]').getAttribute('aria-pressed'),'true');
+  assert.doesNotMatch(f.browser.find('.dr-browse-chips').textContent,/Sealed Only/);
   f.browser.reset();assert.equal(f.browser.filters.product_type,'CARD');assert.match(f.browser.find('.dr-browse-content').textContent,/Browse by game/);
   f.finish();checks++;
  }
@@ -496,7 +491,8 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.browser.sheet.querySelector('[data-add]').disabled,false);await f.browser.save();
   const body=JSON.parse(f.calls.find(c=>c.url.endsWith('/intake')).body);
   assert.equal(body.language,'Japanese');assert.equal(body.seal_status,'SEALED');assert.equal(body.condition,null);
-  assert.equal(f.browser.sheet.querySelector('[aria-label="Product language"]').disabled,true);f.finish();checks++;
+  assert.equal(f.browser.sheet.querySelector('[aria-label="Product language"]'),null);
+  assert.match(f.browser.sheet.textContent,/Added to your collection/);assert.ok(f.browser.sheet.querySelector('[data-added-action="view"]'));f.finish();checks++;
  }
  // Leaving Search with a sheet open dismisses it without stealing destination focus.
  {
@@ -529,8 +525,9 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  }
  {
   const f=fixture();await f.browser.open();f.browser.openProduct(card);
-  f.browser.toggleWatch(card,f.browser.sheet.querySelector('.dr-browse-watch-product'));
-  assert.deepEqual(JSON.parse(f.w.localStorage.getItem('drop-rate-watchlist:account-a')),[card.key]);
+  await f.browser.toggleWatch(card,f.browser.sheet.querySelector('.dr-browse-watch-product'));
+  assert.equal(f.savedCalls.at(-1).method,'PUT');assert.deepEqual(JSON.parse(f.savedCalls.at(-1).body),{key:card.key});
+  assert.equal(f.w.localStorage.getItem('drop-rate-watchlist:account-a'),null);
   assert.equal(f.w.localStorage.getItem('drop-rate-watchlist:account-b'),null);
   f.browser.closeSheet();f.browser.filters.watch=true;await f.browser.load();assert.match(f.calls.at(-1).url,/keys=c%3A/);
   f.finish();checks++;
@@ -560,21 +557,21 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.logout();pending.resolve({items:[card]});await p;assert.equal(f.w.document.querySelector('.dr-browser'),null);f.finish();checks++;
  }
  {
-  const f=fixture();await f.browser.open();f.browser.openFilters();
-  const sealed=[...f.browser.sheet.querySelectorAll('input')].find(i=>i.getAttribute('aria-label')==='Sealed Only');sealed.click();await tick();
-  const raw=[...f.browser.sheet.querySelectorAll('input')].find(i=>i.getAttribute('aria-label')==='Cards Only');raw.click();await tick();
+  const f=fixture();await f.browser.open();
+  f.browser.find('[data-type="SEALED"]').click();await tick();
+  f.browser.find('[data-type="CARD"]').click();await tick();
   assert.equal(f.browser.filters.product_type,'CARD');
-  assert.equal([...f.browser.sheet.querySelectorAll('input')].find(i=>i.getAttribute('aria-label')==='Sealed Only').checked,false);
+  assert.equal(f.browser.find('[data-type="SEALED"]').getAttribute('aria-pressed'),'false');
   assert.match(f.calls.at(-1).url,/product_type=CARD/);f.finish();checks++;
  }
  // Updating an embedded sheet must not leave the surrounding workspace disabled.
- for(const exit of ['Show results','Close Filters','Escape']){
+ for(const exit of ['Show results','Close Filter & sort','Escape']){
   const f=fixture(undefined,undefined,true);await f.browser.open();
   const outside=[...f.w.document.querySelectorAll('.topbar,.seller-nav,.owner-sidebar,.owner-page-header')];
   outside.forEach((el,index)=>{el.inert=index===2;});
   f.browser.openFilters();
-  for(const label of ['Cards Only','Items you own','Watchlist']){
-   [...f.browser.sheet.querySelectorAll('input')].find(input=>input.getAttribute('aria-label')===label).click();await tick();
+  for(const [key,value] of [['owned','owned'],['language','Japanese'],['sort','name']]){
+   const control=f.browser.sheet.querySelector(`[data-filter="${key}"]`);control.value=value;control.dispatchEvent(new f.w.Event('change'));await tick();
    assert.ok(outside.every(el=>el.inert===true));
   }
   if(exit==='Escape')f.browser.sheet.dispatchEvent(new f.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));

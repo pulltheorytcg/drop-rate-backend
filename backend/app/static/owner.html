@@ -11,16 +11,19 @@
   <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=4">
   <link rel="stylesheet" href="/assets/owner-imports.css?v=review-v2">
   <link rel="stylesheet" href="/assets/owner-books.css?v=book-auto-v6">
-  <link rel="stylesheet" href="/assets/owner-inventory.css?v=comic-preparation-20261101">
+  <link rel="stylesheet" href="/assets/owner-inventory.css?v=ux-20261103">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
   <link rel="stylesheet" href="/assets/scanner-flow.css?v=slab-book-20261101">
-  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=premium-20261103">
+  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=ux-20261103">
   <link rel="stylesheet" href="/assets/book-community-artwork.css?v=1">
   <link rel="stylesheet" href="/assets/book-ebay-context.css?v=1">
   <link rel="stylesheet" href="/assets/workspace-shell.css?v=1">
   <link rel="stylesheet" href="/assets/collector-worlds.css?v=simple-v1">
   <link rel="stylesheet" href="/assets/premium-hub.css?v=20261103">
+  <link rel="stylesheet" href="/assets/account-experience.css?v=ux-20261103">
+  <link rel="stylesheet" href="/assets/hub-experience.css?v=ux-20261103">
+  <link rel="stylesheet" href="/assets/owner-collectibles.css?v=ux-20261103">
 </head>
 <body class="owner-portal-page hub-restoring premium-hub">
   <div class="hub-loading" role="status"><span class="hub-loading-mark"><img src="/assets/brand-assets/storefront-logo.png" alt="Drop Rate"></span><strong>Opening Drop Rate…</strong><a href="/app">Back to sign in</a></div>
@@ -139,7 +142,7 @@
 
           <section id="owner-view-selling" class="owner-view hidden" data-owner-view-panel="selling">
             <section class="owner-panel owner-selling-intro"><h2>Selling</h2><p>Choose an item from your collection when you're ready to sell.</p>
-              <div class="owner-hero-actions"><button type="button" class="owner-hero-primary" data-owner-jump="inventory">Choose an item to sell</button><button type="button" class="owner-hero-secondary" data-owner-jump="sales">View sales</button></div>
+              <div class="owner-hero-actions"><button type="button" class="owner-hero-primary" data-owner-jump="inventory" data-owner-selling-start>Choose an item to sell</button><button type="button" class="owner-hero-secondary" data-owner-jump="sales">View orders</button></div>
             </section>
             <section class="owner-payout-tracker" aria-label="Next payout">
               <div class="owner-payout-tracker-icon">£</div>
@@ -173,13 +176,14 @@
               </article></div><div class="owner-overview-grid">
               <section class="owner-panel owner-pipeline-panel">
                 <div class="owner-panel-heading">
-                  <div><span class="owner-section-kicker">Listing progress</span><h3>Preparing your listings</h3></div>
+                  <div><span class="owner-section-kicker">Listing progress</span><h3>Your items for sale</h3></div>
                   <button type="button" class="owner-link-button" data-owner-jump="inventory">Open collection →</button>
                 </div>
                 <div class="owner-pipeline-list">
-                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot draft"></span><strong>Not listed</strong></div><span id="owner-pipeline-draft">0</span><div class="owner-stage-bar"><i id="owner-pipeline-draft-bar"></i></div></div>
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot draft"></span><strong>Preparing to sell</strong></div><span id="owner-pipeline-draft">0</span><div class="owner-stage-bar"><i id="owner-pipeline-draft-bar"></i></div></div>
                   <div class="owner-pipeline-row"><div><span class="owner-stage-dot inspection"></span><strong>Listing review</strong></div><span id="owner-pipeline-inspection">0</span><div class="owner-stage-bar"><i id="owner-pipeline-inspection-bar"></i></div></div>
                   <div class="owner-pipeline-row"><div><span class="owner-stage-dot approved"></span><strong>Ready to sell</strong></div><span id="owner-pipeline-approved">0</span><div class="owner-stage-bar"><i id="owner-pipeline-approved-bar"></i></div></div>
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot approved"></span><strong>Listed on Drop Rate</strong></div><span id="owner-pipeline-listed">0</span><div class="owner-stage-bar"><i id="owner-pipeline-listed-bar"></i></div></div>
                   <div class="owner-pipeline-row"><div><span class="owner-stage-dot reserved"></span><strong>Reserved</strong></div><span id="owner-pipeline-reserved">0</span><div class="owner-stage-bar"><i id="owner-pipeline-reserved-bar"></i></div></div>
                 </div>
               </section>
@@ -206,7 +210,7 @@
                 <span>Scan or search for your first item, or import your existing collection.</span>
               </div>
               <div class="owner-onboarding-actions">
-                <button id="owner-welcome-inventory" type="button">View collection</button>
+                <button id="owner-welcome-inventory" type="button" data-hub-add>Add your first item</button>
                 <button id="owner-welcome-search" type="button">Search & add</button>
                 <button id="owner-welcome-dismiss" class="icon-only" type="button" aria-label="Dismiss onboarding message">×</button>
               </div>
@@ -522,7 +526,7 @@
             <section class="owner-panel owner-inventory-panel">
               <div class="owner-section-header">
                 <div>
-                  <h2>Collection</h2><div class="owner-collection-add"><button type="button" class="owner-secondary-action" data-owner-jump="scan">Scan</button><button type="button" class="owner-secondary-action" data-owner-jump="search">Search & add</button></div>
+                  <h2>Collection</h2><div class="owner-collection-add"><button type="button" class="owner-primary-action" data-hub-add>Add item</button><button type="button" class="owner-secondary-action" data-owner-jump="scan">Scan</button></div>
                   <p>Your items, artwork and market values.</p>
                 </div>
                 <div class="owner-inventory-total"><strong id="owner-inventory-total-label">—</strong><span>items</span></div>
@@ -542,7 +546,7 @@
                   <option value="SOLD">Sold</option>
                   <option value="WITHDRAWN">Withdrawn</option>
                 </select>
-                <div class="owner-import-menu-wrap">
+                <div class="owner-import-menu-wrap hub-legacy-add">
                   <button class="owner-secondary-action owner-add-book" type="button" data-owner-add-book>+ Comic / manga</button>
                   <button id="owner-import-trigger" class="owner-import-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="owner-import-menu">Import <span aria-hidden="true">⌄</span></button>
                   <div id="owner-import-menu" class="owner-import-menu" hidden>
@@ -580,12 +584,12 @@
             <div class="owner-kpi-grid owner-finance-kpis">
               <article class="owner-kpi-card featured"><span>Sales revenue</span><strong id="owner-sales-revenue">—</strong><small>Gross item revenue before deductions</small></article>
               <article class="owner-kpi-card"><span>Commission</span><strong id="owner-commission-total">—</strong><small id="owner-commission-rate">Drop Rate commission</small></article>
-              <article class="owner-kpi-card"><span>Owner proceeds</span><strong id="owner-lifetime-proceeds">—</strong><small>Ledger proceeds before payouts</small></article>
-              <article class="owner-kpi-card"><span>Reconciliation</span><strong id="owner-financial-completeness">—</strong><small>Fee and shipping completeness</small></article>
+              <article class="owner-kpi-card"><span>Your proceeds</span><strong id="owner-lifetime-proceeds">—</strong><small>Sale proceeds before payouts</small></article>
+              <article class="owner-kpi-card"><span>Sale breakdowns</span><strong id="owner-financial-completeness">—</strong><small>Fees and shipping confirmed</small></article>
             </div>
             <section id="owner-dispatch-review" class="owner-panel" aria-labelledby="owner-dispatch-heading">
               <div class="owner-section-header compact">
-                <div><span class="owner-section-kicker">Shopify dispatch</span><h3 id="owner-dispatch-heading">To ship <span id="owner-dispatch-count" aria-label="Items for dispatch review">—</span></h3><p>Your exact physical order items, checked against your own seller account. No shipping label is purchased from this page yet.</p></div>
+                <div><span class="owner-section-kicker">Your next orders</span><h3 id="owner-dispatch-heading">To prepare <span id="owner-dispatch-count" aria-label="Items for dispatch review">—</span></h3><p>Review each order and print its packing slip when ready. Shipping-label purchase and dispatch confirmation are not available in the app yet.</p></div>
                 <div class="owner-dispatch-actions">
                   <button id="owner-dispatch-shopify-check" type="button">Verify Shopify</button>
                   <button id="owner-dispatch-refresh" type="button">Refresh ↻</button>
@@ -617,9 +621,9 @@
           <section id="owner-view-balance" class="owner-view hidden" data-owner-view-panel="balance">
             <div class="owner-kpi-grid owner-finance-kpis">
               <article class="owner-kpi-card featured"><span>Available to withdraw</span><strong id="owner-available-balance">—</strong><small>Available minus reserved requests</small></article>
-              <article class="owner-kpi-card"><span>Pending</span><strong id="owner-pending-balance">—</strong><small>Not yet available for payout</small></article>
-              <article class="owner-kpi-card"><span>Reserved payouts</span><strong id="owner-reserved-payouts">—</strong><small>Requested or approved</small></article>
-              <article class="owner-kpi-card"><span>Paid out</span><strong id="owner-paid-out">—</strong><small>Completed payout history</small></article>
+              <article class="owner-kpi-card"><span>Awaiting clearance</span><strong id="owner-pending-balance">—</strong><small>Not yet available for payout</small></article>
+              <article class="owner-kpi-card"><span>Payouts in progress</span><strong id="owner-reserved-payouts">—</strong><small>Requested or approved payments</small></article>
+              <article class="owner-kpi-card"><span>Paid to you</span><strong id="owner-paid-out">—</strong><small>Completed payout history</small></article>
             </div>
 
             <div class="owner-payout-grid">
@@ -682,12 +686,8 @@
                 </div>
                 <p id="owner-channel-ebay-note">Open a card to check its listing readiness.</p>
               </article>
-              <article class="owner-channel-card planned" data-channel-card="WHATNOT">
-                <div class="owner-channel-brand"><img class="owner-channel-brandmark" src="https://upload.wikimedia.org/wikipedia/commons/9/91/Whatnot_Logo_2025.svg" alt="Whatnot logo" loading="lazy"><small>Your own Whatnot account</small></div>
-                <span class="owner-status-pill inspection">Planned</span>
-                <div class="owner-channel-planned-copy">Seller-specific Whatnot connection requires approved API access. Your Whatnot account will never be connected through the Drop Rate Shopify admin.</div>
-              </article>
             </div>
+            <details class="hub-future-channels" data-channel-card="WHATNOT"><summary>Planned channels · Whatnot</summary><p>Whatnot is not available to connect yet. We’ll show it alongside your active channels when it’s ready.</p></details>
 
             <section class="owner-panel owner-channels-panel">
               <div class="owner-section-header">
@@ -724,7 +724,7 @@
           <section id="owner-view-settlements" class="owner-view hidden" data-owner-view-panel="settlements">
             <section class="owner-panel">
               <div class="owner-section-header compact">
-                <div><span class="owner-section-kicker">Order-by-order allocation</span><h2>Settlements</h2><p>See exactly how each order is allocated to you: revenue, commission, deductions, refunds and net proceeds.</p></div>
+                <div><span class="owner-section-kicker">Your sale proceeds</span><h2>Sale breakdowns</h2><p>See the sale price, commission, deductions and proceeds for each order.</p></div>
               </div>
               <div class="owner-table-wrap">
                 <table class="owner-table">
@@ -740,7 +740,7 @@
             <div class="owner-profile-grid">
               <section class="owner-panel">
                 <div class="owner-panel-heading">
-                  <div><span class="owner-section-kicker">Public seller identity</span><h3>Profile details</h3><p>Your display name appears inside Seller Hub. Your username is a unique Drop Rate handle for future portfolio and seller features.</p></div>
+                  <div><span class="owner-section-kicker">Your Drop Rate account</span><h3>Profile details</h3><p>Your display name appears in your workspace. You can also use your unique username to sign in.</p></div>
                 </div>
                 <form id="owner-profile-form" class="owner-form-stack">
                   <label>Display name<input id="owner-profile-display-name" type="text" maxlength="120" autocomplete="name" required></label>
@@ -755,7 +755,7 @@
 
               <section class="owner-panel">
                 <div class="owner-panel-heading">
-                  <div><span class="owner-section-kicker">Account</span><h3>Email & seller account</h3><p>Your login email is managed securely by Supabase Auth. Email changes only take effect after the required verification flow completes.</p></div>
+                  <div><span class="owner-section-kicker">Account</span><h3>Email & account</h3><p>We’ll verify your new email address before changing your sign-in details.</p></div>
                 </div>
                 <div class="owner-profile-facts">
                   <div><span>Current email</span><strong id="owner-profile-current-email">—</strong><small id="owner-profile-email-status">Checking verification…</small></div>
@@ -772,7 +772,7 @@
 
               <section class="owner-panel owner-profile-security">
                 <div class="owner-panel-heading">
-                  <div><span class="owner-section-kicker">Security</span><h3>Change password</h3><p>For password accounts, we verify your current password first and then update the credential. Drop Rate never stores your password.</p></div>
+                  <div><span class="owner-section-kicker">Security</span><h3>Sign-in & security</h3><p>Confirm your current password before choosing a new one.</p></div>
                 </div>
                 <form id="owner-password-form" class="owner-form-stack">
                   <label>Current password<input id="owner-profile-current-password" type="password" autocomplete="current-password" required></label>
@@ -781,7 +781,7 @@
                   <div id="owner-password-message" class="message owner-card-message" role="status"></div>
                   <button id="owner-password-save" class="owner-secondary-action" type="submit">Change password</button>
                 </form>
-                <p class="owner-security-note">Signed in with Google or Apple and do not use a password? Keep using that provider; a separate password-reset/setup flow can be added without changing your seller ownership record.</p>
+                <p id="owner-profile-signin-help" class="owner-security-note">Use your usual sign-in method. If you’ve forgotten your password, choose “Forgot your password?” on the sign-in page.</p>
               </section>
             </div>
           </section>
@@ -879,6 +879,7 @@
         <button id="owner-fulfill-close" class="owner-fulfill-close" type="button" aria-label="Close fulfilment">✕</button>
       </div>
       <div class="owner-fulfill-content">
+        <aside class="hub-fulfilment-next"><strong>What you can do now</strong><p>Check this order and print its packing slip when the checks pass. Shipping-label purchase and dispatch confirmation are not available here yet. Any order requiring platform review is explained below.</p></aside>
         <p id="owner-fulfill-status" class="owner-fulfill-state" role="status">Checking Shopify order…</p>
         <section class="owner-fulfill-stage" aria-labelledby="owner-fulfill-step-one">
           <div class="owner-fulfill-step-head"><span class="owner-fulfill-step-number">1</span><h3 id="owner-fulfill-step-one">Verify order and pack</h3></div>
@@ -896,7 +897,7 @@
             <p id="owner-fulfill-shipping-status">Checking your share of the customer's delivery payment…</p>
             <dl id="owner-fulfill-shipping-figures"></dl>
           </div>
-          <p id="owner-fulfill-label-note">Shopify Shipping will supply the carrier-issued label after an approved purchase. Label payment, sender verification and duplicate-purchase protection are required before this step opens.</p>
+          <p id="owner-fulfill-label-note">Shipping labels are not available to purchase or print here yet. Drop Rate must verify the shipping setup before this step becomes available.</p>
           <button id="owner-fulfill-print-label" class="owner-fulfill-action" type="button" disabled>Print Shopify shipping label</button>
         </section>
         <section class="owner-fulfill-stage" aria-labelledby="owner-fulfill-step-four">
@@ -913,19 +914,22 @@
   <script src="/assets/inventory-groups.js?v=copy-quantities-v1" defer></script>
   <script src="/assets/book-community-artwork.js?v=1" defer></script>
   <script src="/assets/book-ebay-context.js?v=1" defer></script>
-  <script src="/assets/owner-inventory.js?v=comic-preparation-20261101" defer></script>
-  <script src="/assets/owner-portal.js?v=simple-v1" defer></script>
-  <script src="/assets/owner-books.js?v=premium-20261103" defer></script>
+  <script src="/assets/owner-inventory.js?v=ux-20261103" defer></script>
+  <script src="/assets/owner-portal.js?v=ux-20261103" defer></script>
+  <script src="/assets/owner-books.js?v=ux-20261103" defer></script>
   <script src="/assets/owner-imports.js?v=simple-v1" defer></script>
   <script src="/assets/owner-fulfillment.js?v=3" defer></script>
-  <script src="/assets/owner-fulfill-wizard.js?v=2" defer></script>
+  <script src="/assets/owner-fulfill-wizard.js?v=ux-20261103" defer></script>
   <script src="/assets/scanner-flow.js?v=slab-book-20261101" defer></script>
   <script src="/assets/owner-recognition.js?v=books-v4" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
   <script src="/assets/catalogue-title-art.js?v=3" defer></script>
-  <script src="/assets/catalogue-browser.js?v=premium-20261103" defer></script>
-  <script src="/assets/catalogue-browser-entry.js?v=premium-20261103" defer></script>
-  <script src="/assets/workspace-shell.js?v=premium-20261103" defer></script>
-  <script src="/assets/collector-worlds.js?v=premium-20261103" defer></script>
+  <script src="/assets/catalogue-browser.js?v=ux-20261103" defer></script>
+  <script src="/assets/catalogue-browser-entry.js?v=ux-20261103" defer></script>
+  <script src="/assets/workspace-shell.js?v=ux-20261103" defer></script>
+  <script src="/assets/collector-worlds.js?v=ux-20261103" defer></script>
+  <script src="/assets/account-experience.js?v=ux-20261103" defer></script>
+  <script src="/assets/hub-experience.js?v=ux-20261103" defer></script>
+  <script src="/assets/owner-collectibles.js?v=ux-20261103" defer></script>
 </body>
 </html>

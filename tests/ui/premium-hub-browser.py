@@ -94,7 +94,7 @@ def owner_fixture(page):
         byId('owner-auth-view').classList.add('hidden');
         byId('owner-portal-view').classList.remove('hidden');
         document.title='Synthetic preview · Drop Rate Seller Hub';
-        state.session={access_token:'offline-preview',user:{id:'preview-owner'}};
+        state.session={access_token:'offline-preview',user:{id:'preview-owner',email:'preview@example.test',email_confirmed_at:'2026-10-01T10:00:00Z'}};
         window.previewItems=items;window.previewWrites=[];
         apiRequest=async (url, options={}) => {
             if(options.method && options.method!=='GET') {
@@ -111,6 +111,10 @@ def owner_fixture(page):
             if(url.endsWith('/shopify'))return {shopify_connected:true,state:'REVIEW_REQUIRED',
                 blockers:['PHYSICAL_SHIPPER_UNVERIFIED','SHOPIFY_LABEL_QUOTE_AND_PURCHASE_JOURNAL_PENDING'],can_buy_label:false,can_confirm_dispatched:false};
             if(url.includes('/imports'))return {items:[]};
+            if(url.endsWith('/catalogue-browser/saved'))return {keys:[]};
+            if(url.includes('/owner/profile'))return {profile:{display_name:'Preview collector',username:'preview_collector',owner_type:'CONSIGNOR',membership_created_at:'2026-10-01',commission_bps:500}};
+            if(url.includes('/finance/sales'))return {total:1,items:[{sold_at:'2026-11-01',name:'Synthetic One Piece card',source:'SHOPIFY',order_number:'#PREVIEW-001',net_sale_minor:10000,commission_minor:500,owner_proceeds_minor:9500,financials_complete:true}]};
+            if(url.includes('/finance/settlements'))return {total:1,items:[{placed_at:'2026-11-01',source:'SHOPIFY',order_number:'#PREVIEW-001',sales_revenue_minor:10000,item_count:1,commission_minor:500,owner_proceeds_minor:9500,financials_complete:true}]};
             const item=items.find(row=>url.endsWith('/'+row.id))||items[0];
             return {item,copies:[item],items,total:items.length,summary:{}};
         };
@@ -136,7 +140,7 @@ def owner_fixture(page):
         byId('owner-inventory-total-label').textContent=String(items.length);
         renderInventoryPagination();
         window.previewCatalogueRequests=[];
-        window.previewClient={owner:'preview-owner',active:()=>true,request:async url=>{window.previewCatalogueRequests.push(url);return {items:url.endsWith('/games')?
+        window.previewClient={owner:'preview-owner',active:()=>true,request:async url=>{window.previewCatalogueRequests.push(url);if(url.endsWith('/saved'))return {keys:[]};return {items:url.endsWith('/games')?
             [['POKEMON_TCG','Pokémon'],['ONE_PIECE_CARD_GAME','One Piece'],['DRAGON_BALL_SUPER_MASTERS','Dragon Ball Super Masters'],
              ['DRAGON_BALL_SUPER_FUSION_WORLD','Dragon Ball Super Fusion World'],['NARUTO','Naruto'],['COMICS','Comics'],['MANGA','Manga']]
                 .map(([system_code,game])=>({system_code,game,languages:['English','Japanese']})):[],has_more:false};}};
@@ -186,6 +190,7 @@ def settle_images(page):
         await document.fonts.ready;
         await Promise.all([...document.images].filter(img=>img.getBoundingClientRect().width>0)
             .map(img=>img.decode().catch(()=>{})));
+        await Promise.all(document.getAnimations().filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})));
     }""")
 
 
@@ -296,10 +301,12 @@ def inspect_categories(page, width, reports, failures):
         page.locator(f'button[data-category="{category}"]').click()
         page.wait_for_function("c=>document.querySelector('.dr-browser-embedded').dataset.category===c", arg=category)
         if category in ("SPORTS", "FIGURES"):
-            if page.evaluate("previewCatalogueRequests.length") != previous:
-                failures.append(f"{width}px unavailable {category}: attempted catalogue API request")
-            if not page.locator('.dr-browse-searchbar').is_hidden():
-                failures.append(f"{width}px unavailable {category}: active search control remains")
+            page.wait_for_function("c=>previewCatalogueRequests.at(-1).includes('category='+c)", arg=category)
+            if page.locator('.dr-browse-searchbar').is_hidden():
+                failures.append(f"{width}px {category}: category search is hidden")
+            params = parse_qs(urlsplit(page.evaluate("previewCatalogueRequests.at(-1)")).query)
+            if params.get("product_type") != (["CARD"] if category == "SPORTS" else ["FIGURE"]):
+                failures.append(f"{width}px {category}: wrong product type")
         else:
             page.wait_for_function("c=>previewCatalogueRequests.at(-1).includes('system_code='+c)", arg=category)
             params = parse_qs(urlsplit(page.evaluate("previewCatalogueRequests.at(-1)")).query)
@@ -362,8 +369,16 @@ def main():
                 page.screenshot(path=str(OUT / f"synthetic-{width}-item-details.png"))
             page.get_by_role("button", name="Close item details", exact=True).click()
 
-            page.locator("#owner-import-trigger").click()
-            page.locator('[data-owner-import-adapter="COLLECTR"]').click()
+            page.locator('#owner-view-inventory [data-hub-add]').click()
+            settle_images(page)
+            reports.append(inspect(page, "add-item", ["#hub-add-dialog", ".hub-add-choice", ".hub-dialog-heading h2"]))
+            if width in (390,1440):
+                page.screenshot(path=str(OUT / f"synthetic-{width}-add-item.png"))
+            page.locator('#hub-add-dialog').get_by_role('button',name='Close add item',exact=True).click()
+
+            page.locator('#owner-view-inventory [data-hub-add]').click()
+            page.locator('#hub-add-dialog').get_by_role('button', name='Import a collection').click()
+            page.locator('#hub-add-dialog').get_by_role('button', name='Collectr', exact=False).click()
             page.locator("#owner-import-dialog[open]").wait_for()
             report = inspect(page, "import-dialog", ["#owner-import-dialog", "#owner-import-dialog h2", "#owner-import-dialog label", "#owner-import-dialog select", "#owner-import-dialog button"])
             reports.append(report)
@@ -450,8 +465,9 @@ def main():
             failures.append(f'{report["viewport"]}px {report["surface"]}: {label} text contrast {finding["contrast"]}:1')
         nav = report.get("navigation")
         if nav:
-            if nav["count"] != 5 or nav["active"] != 1:
-                failures.append(f'{report["viewport"]}px {report["surface"]}: expected five navigation controls with one current destination')
+            expected_active = 0 if report["surface"] in ("more", "settings", "profile") else 1
+            if nav["count"] != 5 or nav["active"] != expected_active:
+                failures.append(f'{report["viewport"]}px {report["surface"]}: expected five navigation controls with {expected_active} current destination')
             if nav["ownerHasFounderBusiness"]:
                 failures.append(f'{report["viewport"]}px owner fixture exposes founder Business controls')
             if report["viewport"] <= 1000:

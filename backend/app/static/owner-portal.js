@@ -6,7 +6,8 @@ const state = {
   config: null,
   session: null,
   providers: {google: false, apple: false},
-  inventory: {offset: 0, limit: 50, total: 0, search: "", status: "", layout: "grid"},
+  inventory: {offset: 0, limit: 50, total: 0, search: "", status: "", layout: "grid",
+    category: "", game: "", language: "", grading: "", format: "", listing_state: "", sort: "updated", selling: false},
   sales: {offset: 0, limit: 50, total: 0},
   settlements: {offset: 0, limit: 50, total: 0},
   channels: {offset: 0, limit: 60, total: 0, search: "", channel: "ALL"},
@@ -80,15 +81,17 @@ function availabilityDescription(item) {
 
 function inventoryCardSubtitle(item) {
   return [
-    ["CARD", "COMIC"].includes(item.product_type)
+    ["CARD", "COMIC", "FIGURE"].includes(item.product_type)
       ? conditionLabel(item) === "—" ? "Condition not recorded" : conditionLabel(item) : "",
     safeText(item.set_name, ""),
     item.card_number ? `#${item.card_number}` : "",
+    safeText(item.language, "Language not recorded"),
     safeText(item.variant, ""),
   ].filter(Boolean).join(" · ") || safeText(item.game);
 }
 
 function conditionLabel(item) {
+  if(item.product_type==="FIGURE")return [safeText(item.condition,"Condition not recorded"),item.seal_status==="SEALED"?"Sealed packaging":item.seal_status==="UNSEALED"?"Opened packaging":""].filter(Boolean).join(" · ");
   if (String(item.seal_status || "").toUpperCase() === "SEALED") return "Sealed";
   if (String(item.seal_status || "").toUpperCase() === "UNSEALED") return "Unsealed";
   return item.grade
@@ -97,6 +100,7 @@ function conditionLabel(item) {
 }
 
 function inventoryTypeLabel(item) {
+  if (item.product_type === "FIGURE") return "Figure";
   if (item.product_type === "COMIC") return item.game === "Manga" ? "Manga" : "Comic";
   if (item.sealed_product_type) {
     return String(item.sealed_product_type)
@@ -142,6 +146,131 @@ function ownerInventoryDisplayGroups(items) {
   return window.DropRateInventoryGroups.group(items);
 }
 
+const collectionFilterKeys = ["search", "status", "category", "game", "language", "grading", "format", "listing_state"];
+const collectionDefaults = {search:"",status:"",category:"",game:"",language:"",grading:"",format:"",listing_state:"",sort:"updated",offset:0,layout:"grid"};
+let collectionOwner = null, collectionPreviousFilters = null;
+function collectionHasFilters() { return collectionFilterKeys.some(key => Boolean(state.inventory[key])); }
+function collectionStorageKey() { return state.session?.user?.id ? `drop_rate_collection_view:${state.session.user.id}` : null; }
+function saveCollectionView() {
+  const key = collectionStorageKey(); if (!key || state.inventory.selling) return;
+  try { sessionStorage.setItem(key, JSON.stringify(Object.fromEntries(Object.keys(collectionDefaults).map(name => [name, state.inventory[name]])))); } catch (_) { /* Session memory remains usable. */ }
+}
+function restoreCollectionView() {
+  const account = state.session?.user?.id || state.session?.access_token;
+  if (collectionOwner === account) return;
+  collectionOwner = account; collectionPreviousFilters = null;
+  Object.assign(state.inventory, collectionDefaults, {selling:false,facets:null});
+  const key = collectionStorageKey();
+  if (key) try {
+    const saved = JSON.parse(sessionStorage.getItem(key));
+    if (saved && typeof saved === "object") {
+      for (const name of collectionFilterKeys) if (typeof saved[name] === "string" && saved[name].length <= 160) state.inventory[name] = saved[name];
+      if (["updated","newest","oldest","name","name_desc","value_desc","value_asc"].includes(saved.sort)) state.inventory.sort = saved.sort;
+      if (["grid","list"].includes(saved.layout)) state.inventory.layout = saved.layout;
+      if (Number.isInteger(saved.offset) && saved.offset >= 0 && saved.offset <= 100000) state.inventory.offset = saved.offset;
+    }
+  } catch (_) { /* Ignore an obsolete or corrupt view preference. */ }
+  updateCollectionControls();
+}
+function updateCollectionControls() {
+  const toolbar = document.querySelector(".owner-inventory-toolbar"); if (!toolbar) return;
+  let controls = byId("owner-collection-controls");
+  if (!controls) { controls = document.createElement("div"); controls.id = "owner-collection-controls"; toolbar.after(controls); }
+  if (!controls.dataset.ready) {
+    controls.dataset.ready = "true"; controls.className = "owner-collection-controls";
+    const details = document.createElement("details"); details.className = "owner-collection-filters";
+    const summary = document.createElement("summary"); summary.textContent = "Filters"; details.append(summary);
+    const fields = document.createElement("div"); fields.className = "owner-collection-filter-fields";
+    for (const [key,label] of [["category","Category"],["game","Game / series"],["language","Language"],["grading","Physical format"],["format","Card or sealed"],["listing_state","Selling status"]]) {
+      const field = document.createElement("label"); field.textContent = label;
+      const select = document.createElement("select"); select.id = `owner-collection-${key}`; select.setAttribute("aria-label", `Filter collection by ${label.toLowerCase()}`);
+      select.addEventListener("change", () => window.DropRateCollection.setFilters({[key]:select.value}));
+      field.append(select); fields.append(field);
+    }
+    details.append(fields); controls.append(details);
+    const sortLabel = document.createElement("label"); sortLabel.className = "owner-collection-sort"; sortLabel.textContent = "Sort";
+    const sort = document.createElement("select"); sort.id = "owner-collection-sort"; sort.setAttribute("aria-label","Sort collection");
+    for (const [value,label] of [["updated","Recently updated"],["newest","Recently added"],["oldest","Oldest added"],["name","Name A–Z"],["name_desc","Name Z–A"],["value_desc","Displayed value: high to low"],["value_asc","Displayed value: low to high"]]) { const option = document.createElement("option"); option.value=value;option.textContent=label;sort.append(option); }
+    sort.addEventListener("change", () => window.DropRateCollection.setFilters({sort:sort.value})); sortLabel.append(sort);controls.append(sortLabel);
+    const chips = document.createElement("div");chips.id="owner-collection-filter-chips";chips.className="owner-collection-filter-chips";controls.append(chips);
+    const valueNote=document.createElement("p");valueNote.id="owner-collection-value-sort-note";valueNote.className="owner-item-note";valueNote.textContent="Sorted by the displayed value, including labelled guides and historical values. Items without a value appear last.";controls.append(valueNote);
+  }
+  const facets = state.inventory.facets || {}, category = state.inventory.category || "";
+  const setOptions = (key, choices) => {
+    const field = byId(`owner-collection-${key}`); if (!field) return;
+    const current = state.inventory[key] || "";field.replaceChildren();
+    if (current && !choices.some(([value]) => value===current)) choices.push([current,current]);
+    for (const [value,label] of choices) {const option=document.createElement("option");option.value=value;option.textContent=label;field.append(option);}field.value=current;
+  };
+  setOptions("category",[["","All categories"],["TCG","Trading Card Games"],["SPORTS","Sports Cards"],["COMICS","Comics"],["MANGA","Manga"],["FIGURES","Figures"]]);
+  const combinations = (facets.combinations || []).filter(row => !category || row.category===category);
+  const games = category ? [...new Set(combinations.map(row=>row.game))] : facets.games || [];
+  setOptions("game",[["","All games / series"],...games.map(value=>[value,value])]);
+  setOptions("language",[["","All languages"],...(facets.languages || []).map(value=>[value,value])]);
+  setOptions("grading",[["","All physical formats"],["RAW","Ungraded"],["GRADED","Graded / certified"]]);
+  byId("owner-collection-grading").disabled=category==="FIGURES";
+  setOptions("format",[["","Cards and sealed"],["CARD","Cards"],["SEALED","Sealed products"]]);
+  byId("owner-collection-format").disabled = ["COMICS","MANGA","FIGURES"].includes(category);
+  setOptions("listing_state",[["","All selling states"],["PERSONAL","Personal collection"],["ALL_FOR_SALE","All items for sale"],["PREPARING","Preparing to sell"],["REVIEW","Under review"],["READY","Ready to publish"],["LISTED","Live on Drop Rate"]]);
+  byId("owner-collection-sort").value=state.inventory.sort || "updated";
+  byId("owner-collection-value-sort-note").hidden=!["value_desc","value_asc"].includes(state.inventory.sort);
+  if (byId("owner-inventory-search")) byId("owner-inventory-search").value=state.inventory.search || "";
+  if (byId("owner-inventory-status")) byId("owner-inventory-status").value=state.inventory.status || "";
+  const active = collectionFilterKeys.filter(key=>state.inventory[key]);
+  controls.querySelector("summary").textContent=`Filters${active.length ? ` · ${active.length}` : ""}`;
+  const chips=byId("owner-collection-filter-chips");chips.replaceChildren();
+  for (const key of active) {
+    const choice = byId(`owner-collection-${key}`)?.selectedOptions?.[0]?.textContent || (key==="status" ? byId("owner-inventory-status")?.selectedOptions?.[0]?.textContent : null) || state.inventory[key];
+    const chip=document.createElement("button");chip.type="button";chip.textContent=`${key==="search" ? "Search: " : ""}${choice} ×`;chip.setAttribute("aria-label",`Clear ${key.replaceAll("_"," ")} filter`);
+    chip.addEventListener("click",()=>window.DropRateCollection.setFilters({[key]:""}));chips.append(chip);
+  }
+  if(active.length){const clear=document.createElement("button");clear.type="button";clear.textContent="Clear filters";clear.addEventListener("click",()=>window.DropRateCollection.clearFilters());chips.append(clear);}
+  chips.hidden=!active.length;
+  let picker=byId("owner-selling-picker-status");
+  if(!picker){picker=document.createElement("section");picker.id="owner-selling-picker-status";controls.after(picker);}
+  picker.className="owner-selling-picker-status";picker.hidden=!state.inventory.selling;picker.replaceChildren();
+  if(state.inventory.selling){
+    const copy=document.createElement("div"),heading=document.createElement("strong"),note=document.createElement("p");
+    heading.textContent="Choose the item you want to sell";note.textContent="Select an item, then confirm the exact copy. Your collection stays private until you choose a selling action.";copy.append(heading,note);
+    const cancel=document.createElement("button");cancel.type="button";cancel.textContent="Back to collection";cancel.addEventListener("click",()=>window.DropRateCollection.cancelSelling());picker.append(copy,cancel);
+  }
+}
+function collectionOpenItem(item) {
+  if (!item?.id) return;
+  const options={selling:state.inventory.selling===true};
+  window.DropRateInventory?.open(item,options);
+}
+window.DropRateCollection = {
+  setFilters: async (changes={}, {reset=false,navigate=false}={}) => {
+    window.clearTimeout(ownerInventorySearchTimer);
+    const previousSort=state.inventory.sort,previousOffset=state.inventory.offset;
+    if(reset) Object.assign(state.inventory,collectionDefaults);
+    if(navigate){state.inventory.selling=false;collectionPreviousFilters=null;}
+    for(const key of [...collectionFilterKeys,"sort"]) if(Object.hasOwn(changes,key))state.inventory[key]=String(changes[key]??"");
+    if(Object.hasOwn(changes,"category")){if(!Object.hasOwn(changes,"game"))state.inventory.game="";if(["COMICS","MANGA","FIGURES"].includes(state.inventory.category))state.inventory.format="";if(state.inventory.category==="FIGURES")state.inventory.grading="";}
+    if(Object.hasOwn(changes,"listing_state"))state.inventory.status="";
+    if(Object.hasOwn(changes,"status"))state.inventory.listing_state="";
+    state.inventory.offset=0;updateCollectionControls();saveCollectionView();
+    if(navigate)activateOwnerView("inventory");
+    try{await loadOwnerInventory();}catch(error){if(Object.hasOwn(changes,"sort")){state.inventory.sort=previousSort;state.inventory.offset=previousOffset;updateCollectionControls();saveCollectionView();}showPortalMessage(error.message||"Your collection could not load. Try again.","error");}
+  },
+  clearFilters(){return this.setFilters({...collectionDefaults},{reset:true});},
+  async startSelling(){
+    if(!state.inventory.selling)collectionPreviousFilters=Object.fromEntries(Object.keys(collectionDefaults).map(key=>[key,state.inventory[key]]));
+    Object.assign(state.inventory,collectionDefaults,{selling:true});updateCollectionControls();activateOwnerView("inventory");
+    try{await loadOwnerInventory();}catch(error){showPortalMessage(error.message||"Your collection could not load. Try again.","error");}
+  },
+  async cancelSelling(){state.inventory.selling=false;Object.assign(state.inventory,collectionPreviousFilters||collectionDefaults);collectionPreviousFilters=null;updateCollectionControls();saveCollectionView();await loadOwnerInventory();},
+  openItem:collectionOpenItem,
+  async openItemById(id){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||"")))return;await window.DropRateInventory?.open({id});},
+};
+document.addEventListener("hub:inventory-open",event=>window.DropRateCollection.openItemById(event.detail?.inventoryId));
+document.addEventListener("owner-inventory-changed",()=>{
+  if(!state.session?.access_token)return;
+  state.inventory.facets=null;
+  Promise.allSettled([loadOwnerInventory(),loadOwnerOverview()]);
+});
+
 function renderInventoryRows(items) {
   const body = byId("owner-inventory-body");
   body.replaceChildren();
@@ -177,7 +306,7 @@ function renderInventoryRows(items) {
       open.type = "button"; open.className = "owner-inventory-open";
       open.setAttribute("aria-label", `View ${item.name}`);
       open.append(...cardCopy.childNodes); cardCopy.append(open);
-      open.addEventListener("click", () => window.DropRateInventory.open(item));
+      open.addEventListener("click", () => collectionOpenItem(item));
     }
     cardWrap.append(cardCopy);
     cardCell.append(cardWrap);
@@ -222,14 +351,19 @@ function renderInventoryCards(items) {
     icon.className = "owner-inventory-empty-icon";
     icon.textContent = "▣";
     const title = document.createElement("strong");
-    title.textContent = state.inventory.search || state.inventory.status
+    title.textContent = collectionHasFilters()
       ? "No items match these filters"
-      : "Your collection starts here";
+      : state.inventory.selling ? "No items available to prepare for sale" : "Your collection starts here";
     const copy = document.createElement("span");
-    copy.textContent = state.inventory.search || state.inventory.status
-      ? "Try clearing your search or choosing another status."
-      : "Scan an item or search for it, then tap Add to collection.";
+    copy.textContent = collectionHasFilters()
+      ? "Your items are still saved. Clear a filter to see more of your collection."
+      : state.inventory.selling ? "Add an item to your collection first. Sold, reserved and removed copies cannot be prepared for a new listing."
+        : "Scan, search the catalogue or import a collection to get started.";
     empty.append(icon, title, copy);
+    const action=document.createElement("button");action.type="button";action.className="owner-primary-action";
+    action.textContent=collectionHasFilters()?"Clear filters":"Add an item";
+    action.addEventListener("click",()=>collectionHasFilters()?window.DropRateCollection.clearFilters():document.dispatchEvent(new CustomEvent("hub:add-requested",{detail:{source:"collection"}})));
+    empty.append(action);
     grid.append(empty);
     return;
   }
@@ -303,7 +437,11 @@ function renderInventoryCards(items) {
       prices.append(box);
     }
 
-    body.append(heading, prices);
+    const identity = document.createElement("div");identity.className="owner-card-identity";
+    for(const value of [safeText(item.language,"Language not recorded"),inventoryTypeLabel(item)]){
+      const detail=document.createElement("span");detail.textContent=value;identity.append(detail);
+    }
+    body.append(heading, identity, prices);
     const actions = document.createElement("div");
     actions.className = "owner-card-actions";
     // One button stretches over the entire tile. The independent refresh
@@ -312,8 +450,8 @@ function renderInventoryCards(items) {
     openDetails.type="button";
     openDetails.className="owner-card-open-overlay";
     openDetails.setAttribute("aria-label",
-      `View details for ${item.grouped_quantity>1 ? item.grouped_quantity+" copies of " : ""}${item.name}`);
-    openDetails.addEventListener("click",()=>window.DropRateInventory?.open(item));
+      `${state.inventory.selling ? "Prepare listing for" : "View details for"} ${item.grouped_quantity>1 ? item.grouped_quantity+" copies of " : ""}${item.name}`);
+    openDetails.addEventListener("click",()=>collectionOpenItem(item));
 
     if (item.can_refresh_market) {
       const refresh = document.createElement("button");
@@ -772,8 +910,12 @@ function renderInventoryPagination() {
 }
 
 async function loadOwnerOverview() {
+  const revision=state.overviewRequestRevision=(state.overviewRequestRevision||0)+1;
+  const account=state.session?.user?.id || state.session?.access_token;
   const data = await apiRequest("/api/v1/owner/overview");
+  if(revision!==state.overviewRequestRevision || account!==(state.session?.user?.id || state.session?.access_token))return;
   const summary = data.summary || {};
+  state.hubOverview={userId:state.session?.user?.id || null,summary};
   const total = Number(summary.total_inventory_count || 0);
   byId("owner-total-inventory").textContent = total.toLocaleString("en-GB");
   const cardCount = summary.total_card_count, sealedCount = summary.total_sealed_count;
@@ -839,11 +981,15 @@ async function loadOwnerOverview() {
     if (value) value.textContent = count.toLocaleString("en-GB");
     if (bar) bar.style.width = `${total ? Math.min(100, Math.max(4, (count / total) * 100)) : 0}%`;
   }
+  document.dispatchEvent(new CustomEvent("hub:overview-updated",{detail:{summary}}));
 }
 
 async function loadOwnerInventory() {
   const revision = state.inventory.requestRevision = (state.inventory.requestRevision || 0) + 1;
   const account = state.session?.user?.id || state.session?.access_token;
+  const current=()=>revision===state.inventory.requestRevision && account===(state.session?.user?.id || state.session?.access_token);
+  state.inventory.controller?.abort();
+  const controller=new AbortController();state.inventory.controller=controller;
   const params = new URLSearchParams({
     limit: String(state.inventory.limit),
     offset: String(state.inventory.offset),
@@ -851,15 +997,29 @@ async function loadOwnerInventory() {
   });
   if (state.inventory.search) params.set("search", state.inventory.search);
   if (state.inventory.status) params.set("status", state.inventory.status);
+  for(const key of ["category","game","language","grading","format","listing_state","sort"]){if(state.inventory[key])params.set(key,state.inventory[key]);}
+  if(state.inventory.selling)params.set("prepare_selling","true");
+  if(!state.inventory.facets)params.set("include_facets","true");
+  byId("owner-inventory-grid")?.setAttribute("aria-busy","true");
 
-  const data = await apiRequest(`/api/v1/owner/inventory?${params.toString()}`);
-  if (revision !== state.inventory.requestRevision || account !== (state.session?.user?.id || state.session?.access_token)) return;
+  let data;
+  try{data=await apiRequest(`/api/v1/owner/inventory?${params.toString()}`,{signal:controller.signal});}
+  catch(error){if(!current() || error.name==="AbortError")return;throw error;}
+  finally{if(current())byId("owner-inventory-grid")?.removeAttribute("aria-busy");}
+  if (!current()) return;
   state.inventory.total = Number(data.total || 0);
+  if(data.facets)state.inventory.facets=data.facets;
+  // Removing the last item on a page returns to the nearest real page.
+  if(state.inventory.offset>0 && !(data.items||[]).length && state.inventory.total>0){state.inventory.offset=Math.floor((state.inventory.total-1)/state.inventory.limit)*state.inventory.limit;return loadOwnerInventory();}
   const items = data.items || [];
   const displayGroups=ownerInventoryDisplayGroups(items);
   renderInventoryRows(displayGroups);
   renderInventoryCards(displayGroups);
   renderInventoryPagination();
+  updateCollectionControls();saveCollectionView();
+  const layout=state.inventory.layout || "grid";
+  byId("owner-inventory-grid")?.classList.toggle("hidden",layout!=="grid");
+  byId("owner-inventory-table-wrap")?.classList.toggle("hidden",layout!=="list");
   const totalLabel = byId("owner-inventory-total-label");
   if (totalLabel) {
     totalLabel.textContent = displayGroups.length.toLocaleString("en-GB");
@@ -871,9 +1031,10 @@ async function loadOwnerInventory() {
         (fullyLoaded? (displayGroups.length===1?"product":"products") : "products shown")+
         " · "+units+" "+(copyTotal===1?"copy":"copies");
   }
-  if (state.inventory.offset === 0 && !state.inventory.search && !state.inventory.status) {
+  if (state.inventory.offset === 0 && !collectionHasFilters() && !state.inventory.selling && ["updated","newest"].includes(state.inventory.sort||"updated")) {
     renderOverviewLatestInventory(displayGroups);
   }
+  document.dispatchEvent(new CustomEvent("hub:inventory-updated",{detail:{items:displayGroups,total:state.inventory.total,copyTotal:data.copy_total,filtered:collectionHasFilters()||state.inventory.selling}}));
 }
 
 async function reloadOwnerDashboard() {
@@ -922,6 +1083,7 @@ function renderOwnerProfile(profile) {
   const verified = Boolean(user.email_confirmed_at || user.confirmed_at);
   byId("owner-profile-email-status").textContent =
     verified ? "Verified email" : "Email verification pending";
+  window.DropRateAccountExperience?.setAccount(user);
 }
 
 async function loadOwnerProfile() {
@@ -1407,10 +1569,10 @@ function activateOwnerView(view, pushHistory = true, launchCameraFromClick = fal
     inventory: ["Collection", "Everything you've added, in one place."],
     scan: ["Scan", "Take a photo, check the match and add it to your collection."],
     selling: ["Selling", "List items and manage your sales when you're ready."],
-    sales: ["Sales", "Understand every sale, deduction and penny allocated to you."],
+    sales: ["Orders", "Prepare orders and review each sale."],
     balance: ["Payouts", "Manage your payout account, balance and preferred payout schedule."],
     channels: ["Channels", "See exactly where your inventory is synced and whether each channel is healthy."],
-    settlements: ["Settlements", "Follow order-by-order allocation and reconciliation."],
+    settlements: ["Sale breakdowns", "See each sale, fee and your proceeds."],
     more: ["More", "Selling, payouts and your account."],
     profile: ["Profile", "Manage your Seller Hub identity, login email and password securely."],
     settings: ["Settings", "Make your workspace feel like yours."],
@@ -1423,7 +1585,8 @@ function activateOwnerView(view, pushHistory = true, launchCameraFromClick = fal
     panel.classList.toggle("hidden", panel.dataset.ownerViewPanel !== target);
   });
   document.querySelectorAll(".owner-nav-item[data-owner-view]").forEach((button) => {
-    const primary = ["overview", "search", "inventory", "scan", "more"].includes(target) ? target : "more";
+    const primary = ["overview", "search", "inventory", "scan", "selling"].includes(target) ? target
+      : ["sales","balance","channels","settlements"].includes(target)?"selling":null;
     button.classList.toggle("active", button.dataset.ownerView === primary);
     if (button.dataset.ownerView === primary) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
@@ -1441,6 +1604,11 @@ function activateOwnerView(view, pushHistory = true, launchCameraFromClick = fal
   if(location.pathname+location.hash!==destination) history[pushHistory?"pushState":"replaceState"]({}, document.title, destination);
   document.dispatchEvent(new CustomEvent("owner-view-changed", {detail:{view:target}}));
   window.scrollTo({top: 0, behavior: "instant"});
+  if(target!=="inventory" && state.inventory.selling){
+    state.inventory.selling=false;Object.assign(state.inventory,collectionPreviousFilters||collectionDefaults);collectionPreviousFilters=null;
+    updateCollectionControls();saveCollectionView();
+    if(state.session?.access_token)loadOwnerInventory().catch(error=>showPortalMessage(error.message||"Your collection could not load. Try again.","error"));
+  }
   if (target === "scan") {
     // Readiness checks must never delay a user-initiated camera permission
     // request: getUserMedia must begin within this original click handler.
@@ -1502,6 +1670,9 @@ function saveSession(session) {
 }
 
 function clearSession() {
+  state.overviewRequestRevision=(state.overviewRequestRevision||0)+1;
+  window.clearTimeout(ownerInventorySearchTimer);
+  state.inventory.controller?.abort();
   state.inventory.requestRevision = (state.inventory.requestRevision || 0) + 1;
   state.channels.requestRevision = (state.channels.requestRevision || 0) + 1;
   state.ownerChannelAccount = null;
@@ -1509,6 +1680,9 @@ function clearSession() {
   state.financeSummary = null;
   state.payoutPreference = null;
   state.profile = null;
+  state.hubOverview = null;
+  collectionOwner=null;collectionPreviousFilters=null;
+  Object.assign(state.inventory,collectionDefaults,{selling:false,facets:null});
   window.DropRateInventory?.reset();
   window.DropRateBooks?.reset();
   window.dropRateCatalogue?.destroy();
@@ -1632,7 +1806,8 @@ function showOwnerOnboardingWelcome() {
   if (!panel) return;
   panel.classList.remove("hidden");
 
-  byId("owner-welcome-inventory").addEventListener("click", () => {
+  const firstItem=byId("owner-welcome-inventory");
+  if(!firstItem.hasAttribute("data-hub-add"))firstItem.addEventListener("click", () => {
     activateOwnerView("inventory");
   }, {once: true});
   byId("owner-welcome-search").addEventListener("click", () => {
@@ -1666,8 +1841,9 @@ async function openOwnerPortal() {
 
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
+  restoreCollectionView();
   const hashView = window.location.hash.replace("#", "");
-  activateOwnerView(["search", "inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "settings", "more"].includes(hashView) ? hashView : "overview", false);
+  activateOwnerView(["search", "inventory", "scan", "selling", "sales", "balance", "channels", "settlements", "profile", "settings", "more"].includes(hashView) ? hashView : "overview", false);
   document.body.classList.remove("hub-restoring");
   document.dispatchEvent(new Event("hub-ready"));
   await reloadOwnerDashboard();
@@ -1773,13 +1949,13 @@ byId("owner-inventory-refresh").addEventListener("click", async () => {
 });
 
 byId("owner-inventory-search").addEventListener("keydown", async (event) => {
-  if (event.key !== "Enter") return;
+  if (event.key !== "Enter" || event.isComposing || event.keyCode===229) return;
   event.preventDefault();
   window.clearTimeout(ownerInventorySearchTimer);
   state.inventory.search = event.currentTarget.value.trim();
   state.inventory.status = byId("owner-inventory-status").value;
   state.inventory.offset = 0;
-  await reloadOwnerDashboard();
+  try{await loadOwnerInventory();}catch(error){showPortalMessage(error.message||"Search could not load. Try again.","error");}
 });
 
 let ownerInventorySearchTimer = null;
@@ -1798,6 +1974,7 @@ byId("owner-inventory-search").addEventListener("input", (event) => {
 byId("owner-inventory-status").addEventListener("change", async (event) => {
   window.clearTimeout(ownerInventorySearchTimer);
   state.inventory.status = event.currentTarget.value;
+  state.inventory.listing_state="";
   state.inventory.search = byId("owner-inventory-search").value.trim();
   state.inventory.offset = 0;
   await loadOwnerInventory();
@@ -1821,15 +1998,16 @@ document.querySelectorAll(".owner-nav-item[data-owner-view]").forEach((button) =
 });
 
 document.querySelectorAll("[data-owner-jump]").forEach((button) => {
-  button.addEventListener("click", () => activateOwnerView(
-    button.dataset.ownerJump, true, button.dataset.ownerJump === "scan"
-  ));
+  button.addEventListener("click", () => button.hasAttribute("data-owner-selling-start")
+    ? window.DropRateCollection.startSelling()
+    : activateOwnerView(button.dataset.ownerJump, true, button.dataset.ownerJump === "scan"));
 });
 
 document.querySelectorAll("[data-owner-inventory-layout]").forEach((button) => {
   button.addEventListener("click", () => {
     const layout = button.dataset.ownerInventoryLayout === "list" ? "list" : "grid";
     state.inventory.layout = layout;
+    saveCollectionView();
     byId("owner-inventory-grid").classList.toggle("hidden", layout !== "grid");
     byId("owner-inventory-table-wrap").classList.toggle("hidden", layout !== "list");
     document.querySelectorAll("[data-owner-inventory-layout]").forEach((toggle) => {
@@ -1903,4 +2081,5 @@ byId("owner-logout-button").addEventListener("click", () => {
 });
 
 window.addEventListener("hashchange",()=>{if(state.session && !byId("owner-portal-view").classList.contains("hidden"))activateOwnerView(location.hash.slice(1)||"overview",false);});
+updateCollectionControls();
 initialise();

@@ -73,6 +73,11 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
               "market_value_minor": None, "recommended_retail_minor": None, "last_known_minor": None, "snapshot_id": None,
               "checked_at": None, "method": None, "basis": None,
               "reason": "No suitable shared market evidence for this exact version."}
+    kind = item.get("product_type")
+    # Unsupported pricing categories remain unavailable; a valid figure's
+    # condition must not be mistaken for an incomplete card or sealed record.
+    if kind not in {"CARD", "COMIC", "SEALED", "COLLECTION"}:
+        return result
     language = clean_language(item.get("language")) or clean_language(item.get("catalogue_language"))
     catalogue_language = clean_language(item.get("catalogue_language"))
     if not language or (catalogue_language and catalogue_language != language):
@@ -80,12 +85,9 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
         return result
     company, grade = _text(item.get("grading_company")), _text(item.get("grade"))
     condition, seal = _condition(item.get("condition")), _text(item.get("seal_status"))
-    kind = item.get("product_type")
     if (bool(company) != bool(grade) or (company and (condition or seal))
             or (kind in {"CARD","COMIC"} and seal) or (kind not in {"CARD","COMIC"} and (company or condition))):
         result.update(status="NEEDS_DETAILS", reason="Check the raw, graded or sealed details for this copy.")
-        return result
-    if kind not in {"CARD", "COMIC", "SEALED", "COLLECTION"}:
         return result
     if kind == "COMIC":
         from .book_market import eligibility as book_eligibility

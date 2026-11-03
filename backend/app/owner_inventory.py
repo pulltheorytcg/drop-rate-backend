@@ -26,6 +26,7 @@ from .settings import get_settings
 from .seller_inventory_policy import sealed_seller_candidate, ebay_preparation
 from .physical_state import CARD_CONDITIONS, validate_physical_state
 from .comic_identity import BOOK_CONDITIONS
+from .manual_collectible_identity import FIGURE_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
 from .inventory_reference_media import add_shared_inventory_media
 from .book_research import add_saved_book_artwork
@@ -97,6 +98,8 @@ DETAIL_SQL = """
 select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
  i.condition,i.seal_status,i.grading_company,i.grade,i.certificate_number,i.condition_review_status,
  o.owner_type,p.language as catalogue_language,pr.identity_status as catalogue_identity_status,
+ pr.attributes->'sports_card' as sports_card,pr.attributes->'figure_details' as figure_details,
+ pr.attributes->>'identity_source' as identity_source,
  coalesce(i.language,p.language) as language,i.store_price_minor,i.market_value_minor,
  case when p.product_type='COMIC' then i.acquisition_cost_minor else null end as comic_acquisition_cost_minor,
  to_jsonb(i)->'source_record'->'comic_listing_preparation' as comic_listing_preparation,
@@ -148,6 +151,30 @@ order by c.created_at,c.id
 """
 
 
+def public_collectible_identity(item):
+    """Keep typed edition details, excluding submitter IDs and private metadata."""
+    fields = {
+        "sports_card": ("sport", "league", "release_year", "season", "manufacturer", "set_name",
+                        "subject_name", "team", "card_number", "parallel", "print_run"),
+        "figure_details": ("manufacturer", "franchise", "character", "product_line", "edition",
+                           "scale", "release_year", "manufacturer_sku", "barcode_gtin"),
+    }
+    for name, allowed in fields.items():
+        values = item.pop(name, None)
+        if isinstance(values, str):
+            try:
+                values = json.loads(values)
+            except (TypeError, ValueError):
+                values = None
+        expected_type = "FIGURE" if name == "figure_details" else "CARD"
+        if isinstance(values, dict) and item.get("product_type") == expected_type:
+            item[name] = {key: values[key] for key in allowed if key in values
+                          and isinstance(values[key], (str, int)) and not isinstance(values[key], bool)}
+    if item.get("identity_source") != "SELLER_ENTERED":
+        item.pop("identity_source", None)
+    return item
+
+
 def approval_blockers(item):
     missing = []
     if not item.get("identity_ready") and not sealed_seller_candidate(item):
@@ -164,6 +191,9 @@ def approval_blockers(item):
     if item["product_type"] in {"CARD", "COMIC"}:
         if not ((item.get("grading_company") and item.get("grade")) or item.get("condition")):
             missing.append("Book condition or grade" if item["product_type"] == "COMIC" else "Card condition or grade")
+    elif item["product_type"] == "FIGURE":
+        if item.get("condition") not in FIGURE_CONDITIONS:
+            missing.append("Figure condition")
     elif not item.get("seal_status"):
         missing.append("Seal status")
     if item.get("product_type") == "COMIC":
@@ -184,7 +214,7 @@ async def details(inventory_id: UUID, request: Request,
         row = await connection.fetchrow(DETAIL_SQL, inventory_id, access["owner_id"])
         if row is None:
             raise HTTPException(404, "Inventory item not found")
-        item = dict(row)
+        item = public_collectible_identity(dict(row))
         if item["product_type"] == "COMIC":
             # The seller sees the same physical-copy media and shipping gates
             # the Shopify publisher enforces, before requesting another sync.
@@ -299,9 +329,9 @@ async def save_selling_price(inventory_id, payload, request, user, access, *, ap
                 if item["status"] not in {"DRAFT", "INSPECTION"}:
                     raise HTTPException(409, "Condition changes on approved stock need Drop Rate review")
                 kind = await connection.fetchval("select product_type from tcg.catalogue_products where id=$1", item["catalogue_id"])
-                allowed = BOOK_CONDITIONS if kind == "COMIC" else CARD_CONDITIONS
+                allowed = {"COMIC": BOOK_CONDITIONS, "FIGURE": FIGURE_CONDITIONS}.get(kind, CARD_CONDITIONS)
                 if proposed_condition not in allowed:
-                    raise HTTPException(422, "Choose a valid book condition" if kind == "COMIC" else "Choose a valid raw-card condition")
+                    raise HTTPException(422, {"COMIC": "Choose a valid book condition", "FIGURE": "Choose a valid figure condition"}.get(kind, "Choose a valid raw-card condition"))
                 try:
                     validate_physical_state(product_type=kind, condition=proposed_condition,
                         seal_status=item.get("seal_status"), grading_company=item.get("grading_company"),
@@ -309,7 +339,7 @@ async def save_selling_price(inventory_id, payload, request, user, access, *, ap
                 except ValueError as exc:
                     raise HTTPException(422, str(exc)) from exc
             context = await connection.fetchrow(DETAIL_SQL, inventory_id, access["owner_id"])
-            if (context and context["product_type"] in {"CARD", "COMIC"} and not context.get("grading_company")
+            if (context and context["product_type"] in {"CARD", "COMIC", "FIGURE"} and not context.get("grading_company")
                     and not (proposed_condition or context.get("condition"))):
                 raise HTTPException(422, "Choose the condition for this listing; your item is already saved")
             if context and sealed_seller_candidate(dict(context)):
