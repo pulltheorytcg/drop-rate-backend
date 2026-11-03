@@ -31,6 +31,7 @@ jobs:
       - name: Verify saved items and collectible security in PostgreSQL
         run: |
           node tests/catalogue_saved_pglite.mjs
+          node tests/r2_first_registry_pglite.mjs
           node tests/collectibles_intake_pglite.mjs
           node tests/collectible_catalogue_seed_pglite.mjs
           node tests/inventory_physical_readiness_pglite.mjs

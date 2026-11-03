@@ -1,3 +1,21 @@
+## 3 November 2026 — Direct-to-R2 catalogue expansion (in review; activation gated)
+
+- New metadata catalogues ingest straight into private R2; no bulk insert into
+  Supabase reference cards/sets/quotes. PostgreSQL retains the approved version
+  pointer, publication audit, on-demand canonical IDs and all physical/financial
+  records. Existing catalogues and Shopify publication gates stay unchanged.
+- Immutable verified shards/manifests, cold-rebuildable Railway search index,
+  bounded pagination, owner-scoped exact links, saved references and atomic
+  inventory receipts. Empty/corrupt/stale imports cannot replace a good source.
+- Yu-Gi-Oh! metadata is the first explicitly opt-in source. Lorcana/Magic offline
+  adapters are prepared but data-use review remains; Riftbound/sports/Funko are
+  not claimed imported. No new artwork or verified prices are inferred.
+- Reader/import flags default off. Local/unit, real PostgreSQL, full CI and
+  exact Railway deployment/import evidence are distinct release gates.
+- Earlier lossless quote-table compaction recovered 23,248,896 bytes; the two
+  source tables retained all 87,369 rows. This is not a destructive quote offload.
+- See [architecture, bounds, source permissions and rollout](docs/R2_FIRST_EXPANSION_20261103.md).
+
 ## 1 November 2026 — R2 startup reload capacity and exact comic listing blockers (in review)
 
 - **R2 diagnosis:** The production catalogue and market generations were already fully published. Background `ObjectStorageError` events on cold Railway startup are consistent with overlapping catalogue/market reloads exceeding a shared four-thread read budget; the log does not identify a narrower error reason. Whole-catalogue and market readers now wait asynchronously for that budget, while interactive exact-set reads retain their fail-fast SQL fallback. Publishers return `CURRENT` for an already-committed generation rather than duplicating a bulk download alongside startup prewarm. Newly changed generations still require byte-verified upload, full readback, SQL parity and atomic generation commit. No object deletion, manual cache invalidation, new R2 permissions or database mutation.

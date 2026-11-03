@@ -5,7 +5,7 @@ const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catal
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const card={key:'c:00000000-0000-4000-8000-000000000001',catalogue_id:'00000000-0000-4000-8000-000000000001',name:'Pikachu',system_code:'POKEMON_TCG',game:'Pokémon',set_id:'base1',set_name:'Base Set',card_number:'58/102',language:'English',product_type:'CARD',owned_quantity:0,source_kind:'CATALOGUE'};
 const other='r:'+'a'.repeat(32);
-const games=[{system_code:'POKEMON_TCG',game:'Pokémon',languages:['English','Japanese']},{system_code:'COMICS',game:'Comics',languages:['English']},{system_code:'MANGA',game:'Manga',languages:['English','Japanese']}];
+const games=[{system_code:'POKEMON_TCG',game:'Pokémon',languages:['English','Japanese']},{system_code:'YUGIOH',game:'Yu-Gi-Oh!',languages:['English']},{system_code:'COMICS',game:'Comics',languages:['English']},{system_code:'MANGA',game:'Manga',languages:['English','Japanese']}];
 function fixture({account='a',server=new Map(),device=[],products,saveOverride}={}){
  const dom=new JSDOM('',{runScripts:'outside-only',url:'https://discovery.example.test',pretendToBeVisual:true}),w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
@@ -36,6 +36,28 @@ function fixture({account='a',server=new Map(),device=[],products,saveOverride}=
 }
 (async()=>{
  let groups=0;
+ {
+  const expansionKey='x:'+'b'.repeat(64),server=new Map([['a',new Set([expansionKey])]]);
+  const f=fixture({server,device:[expansionKey,'x:invalid']});await f.browser.open();await tick();
+  assert.deepEqual([...f.browser.watchlist],[expansionKey]);
+  assert.deepEqual([...f.browser.deviceSaved],[expansionKey]);
+  f.browser.find('[data-action="watch"]').click();await tick();
+  assert.equal(new URL(f.lastProduct().url,'https://test').searchParams.get('keys'),expansionKey);
+  const row={...card,key:expansionKey,catalogue_id:null,source_kind:'REFERENCE',system_code:'YUGIOH',game:'Yu-Gi-Oh!',metadata_only:true,identity_review_required:true};
+  f.browser.openProduct(row);await f.browser.toggleWatch(row,f.browser.sheet.querySelector('[data-saved-key]'));
+  assert.match(f.browser.sheet.textContent,/Printing details need review/);
+  assert.match(f.browser.sheet.textContent,/Artwork and market value are not verified/);
+  assert.equal(f.browser.watchlist.size,0);assert.equal(server.get('a').size,0);f.finish();groups++;
+ }
+ {
+  const f=fixture({products:params=>({items:[{...card}],has_more:false,...(!params.get('system_code')?{catalogue_scope:'LEGACY_WITH_SEPARATE_R2_SYSTEMS',additional_catalogue_systems:['YUGIOH']}:{catalogue_scope:'R2_FIRST_SYSTEM'})})});
+  await f.browser.open();await f.submit('Blue-Eyes');
+  const scope=f.browser.find('.dr-browse-r2-scope');assert.ok(scope);assert.match(scope.textContent,/separate game search/);
+  scope.querySelector('button').click();await tick();
+  const request=new URL(f.lastProduct().url,'https://test').searchParams;
+  assert.equal(request.get('system_code'),'YUGIOH');assert.equal(request.get('q'),'Blue-Eyes');
+  assert.equal(f.browser.find('.dr-browse-r2-scope'),null);f.finish();groups++;
+ }
  {
   const f=fixture();await f.browser.open();await f.submit('Pikachu');
   assert.doesNotMatch(f.browser.find('.dr-browse-chips').textContent,/Cards Only/);
