@@ -42,8 +42,9 @@ the same tokens. `premium-auth.css` applies the palette to the supported `/app`
 sign-in and registration entry. The legacy `/owner` login stays hidden by the
 existing workspace shell and redirects to that supported entry.
 
-Both HTML entrypoints use the charcoal browser theme colour and versioned
-stylesheet URLs (`premium-orange-20261103`) to refresh cached assets. The home
+The workspace, sign-in and both registration entrypoints use versioned
+stylesheet URLs (`premium-orange-20261103`) to refresh cached assets. Existing
+browser theme colours now use charcoal. The home
 Known market value card now uses the existing featured-card class. Selected
 listing steps have a warm background and orange underline; light image frames
 have explicitly scoped dark placeholders.
