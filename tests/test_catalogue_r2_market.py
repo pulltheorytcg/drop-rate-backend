@@ -151,3 +151,77 @@ def test_duplicate_rows_across_verified_parts_are_rejected():
     manifest['parts'].append(part);manifest['counts']['reference_market_prices']=2
     manifest['raw_bytes']+=len(other)
     with pytest.raises(ObjectStorageError,match='Duplicate'):market.assemble(manifest,[raw,other])
+
+
+@pytest.mark.asyncio
+async def test_failed_market_load_backs_off_sql_fallback_and_recovers(monkeypatch):
+    manifest,raw=fixture()
+    calls=[]
+
+    class Connection:
+        state=dict(generation=1,published_generation=1,manifest=manifest)
+        @asynccontextmanager
+        async def transaction(self):yield
+        async def fetchrow(self,_sql):return self.state
+
+    async def missing_part(*_):
+        calls.append('failed')
+        raise ObjectStorageError('missing market object')
+
+    async def repaired_part(*_):
+        calls.append('repaired')
+        return market.assemble(manifest,[raw])
+
+    monkeypatch.setenv('TCG_R2_MARKET_DELIVERY_ENABLED','true')
+    monkeypatch.setattr(market,'_current',None)
+    monkeypatch.setattr(market,'_loading',None)
+    monkeypatch.setattr(market,'_load_failure',None)
+    monkeypatch.setattr(market,'configured_object_storage',lambda:object())
+    monkeypatch.setattr(market,'download',missing_part)
+    connection=Connection()
+    assert await market.read(connection) is None
+    first=market._loading
+    await first
+    for _ in range(8):
+        assert await market.read(connection) is None
+    assert calls==['failed']
+    assert market._loading is first
+
+    monkeypatch.setattr(market,'download',repaired_part)
+    monkeypatch.setattr(market,'_load_failure',(market._load_failure[0],0.0))
+    assert await market.read(connection) is None
+    await market._loading
+    assert calls==['failed','repaired']
+    assert market._load_failure is None
+    assert await market.read(connection) is market._current
+
+
+@pytest.mark.asyncio
+async def test_new_market_generation_bypasses_failed_generation_cooldown(monkeypatch):
+    manifest,_=fixture()
+    calls=[]
+
+    class Connection:
+        state=dict(generation=1,published_generation=1,manifest=manifest)
+        @asynccontextmanager
+        async def transaction(self):yield
+        async def fetchrow(self,_sql):return self.state
+
+    async def unavailable(*_):
+        calls.append('failed')
+        raise ObjectStorageError('R2 unavailable')
+
+    monkeypatch.setenv('TCG_R2_MARKET_DELIVERY_ENABLED','true')
+    monkeypatch.setattr(market,'_current',None)
+    monkeypatch.setattr(market,'_loading',None)
+    monkeypatch.setattr(market,'_load_failure',None)
+    monkeypatch.setattr(market,'configured_object_storage',lambda:object())
+    monkeypatch.setattr(market,'download',unavailable)
+    connection=Connection()
+    assert await market.read(connection) is None
+    await market._loading
+    generation2={**manifest,'generation':2}
+    connection.state=dict(generation=2,published_generation=2,manifest=generation2)
+    assert await market.read(connection) is None
+    await market._loading
+    assert len(calls)==2
