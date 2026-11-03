@@ -19,6 +19,8 @@ from .channel_sync_wakeup import request_shopify_sync
 from .inventory_display_groups import inventory_group_page
 from .db import user_connection
 from .physical_state import validate_physical_state
+from .comic_identity import BOOK_CONDITIONS
+from .manual_collectible_identity import FIGURE_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
 from .inventory_reference_media import add_shared_inventory_media, shared_media_assets
 from .schemas import (
@@ -54,20 +56,35 @@ GRADED_CARD_READY_SQL = """
     and i.seal_status is null
 """
 NON_CARD_READY_SQL = """
-    p.product_type <> 'CARD'
+    p.product_type in ('SEALED', 'COLLECTION')
     and i.seal_status is not null
     and (i.condition is null or btrim(i.condition) = '')
     and i.grading_company is null
     and i.grade is null
 """
+RAW_BOOK_READY_SQL = RAW_CARD_READY_SQL.replace("= 'CARD'", "= 'COMIC'") + (
+    " and (i.certificate_number is null or btrim(i.certificate_number) = '')"
+    " and i.condition in (" + ",".join("'" + value + "'" for value in sorted(BOOK_CONDITIONS)) + ")"
+)
+GRADED_BOOK_READY_SQL = GRADED_CARD_READY_SQL.replace("= 'CARD'", "= 'COMIC'") + """
+    and case when i.grade ~ '^[0-9]+([.][0-9]+)?$'
+        then i.grade::numeric between 0.5 and 10 else false end
+"""
+FIGURE_READY_SQL = """
+    p.product_type = 'FIGURE'
+    and i.grading_company is null and i.grade is null
+    and (i.certificate_number is null or btrim(i.certificate_number) = '')
+    and (i.seal_status is null or i.seal_status in ('SEALED', 'UNSEALED'))
+    and i.condition in (""" + ",".join("'" + value + "'" for value in sorted(FIGURE_CONDITIONS)) + ")"
 PHYSICAL_STATE_READY_SQL = f"""
-    (({RAW_CARD_READY_SQL}) or ({GRADED_CARD_READY_SQL}) or ({NON_CARD_READY_SQL}))
+    (({RAW_CARD_READY_SQL}) or ({GRADED_CARD_READY_SQL}) or ({NON_CARD_READY_SQL})
+     or ({RAW_BOOK_READY_SQL}) or ({GRADED_BOOK_READY_SQL}) or ({FIGURE_READY_SQL}))
 """
 READY_SQL = f"""
     i.acquisition_cost_minor is not null
     and ({PHYSICAL_STATE_READY_SQL})
     and i.storage_location_id is not null
-    and (p.product_type <> 'CARD' or (i.language is not null and btrim(i.language) <> ''))
+    and (i.language is not null and btrim(i.language) <> '')
     and i.store_price_minor is not null
     and i.identity_confirmed
     and {ACTIVE_INVENTORY_SQL}
@@ -243,15 +260,15 @@ async def _fetch_inventory_image(
 ISSUE_FILTERS = {
     "missing_cost": f"({WORK_INVENTORY_SQL}) and i.acquisition_cost_minor is null",
     "missing_condition": f"""({WORK_INVENTORY_SQL})
-        and p.product_type = 'CARD'
+        and p.product_type in ('CARD', 'COMIC', 'FIGURE')
         and i.grading_company is null
         and i.grade is null
         and (i.condition is null or btrim(i.condition) = '')""",
     "missing_seal_status": f"""({WORK_INVENTORY_SQL})
-        and p.product_type <> 'CARD'
+        and p.product_type in ('SEALED', 'COLLECTION')
         and i.seal_status is null""",
     "missing_location": f"({WORK_INVENTORY_SQL}) and i.storage_location_id is null",
-    "missing_language": f"({WORK_INVENTORY_SQL}) and p.product_type = 'CARD' and (i.language is null or btrim(i.language) = '')",
+    "missing_language": f"({WORK_INVENTORY_SQL}) and (i.language is null or btrim(i.language) = '')",
     "missing_price": f"({WORK_INVENTORY_SQL}) and i.store_price_minor is null",
     "identity_unconfirmed": f"({WORK_INVENTORY_SQL}) and not i.identity_confirmed",
     "approval_ready": f"i.status in ('DRAFT', 'INSPECTION') and i.sale_intent='FOR_SALE' and ({READY_SQL})",
@@ -745,10 +762,13 @@ async def approve_inventory(
 
         missing = []
         if item["acquisition_cost_minor"] is None: missing.append("acquisition cost")
-        if item["product_type"] == "CARD":
+        if item["product_type"] in {"CARD", "COMIC"}:
             is_graded = bool((item["grading_company"] or "").strip() and (item["grade"] or "").strip())
             if not is_graded and not (item["condition"] or "").strip():
-                missing.append("raw card condition")
+                missing.append("book condition" if item["product_type"] == "COMIC" else "raw card condition")
+        elif item["product_type"] == "FIGURE":
+            if not (item["condition"] or "").strip():
+                missing.append("figure condition")
         elif item["seal_status"] is None:
             missing.append("seal status")
         if item["storage_location_id"] is None: missing.append("registered storage location")

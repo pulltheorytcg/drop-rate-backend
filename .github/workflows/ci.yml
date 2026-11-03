@@ -33,6 +33,7 @@ jobs:
           node tests/catalogue_saved_pglite.mjs
           node tests/collectibles_intake_pglite.mjs
           node tests/collectible_catalogue_seed_pglite.mjs
+          node tests/inventory_physical_readiness_pglite.mjs
           PYTHONPATH=backend python tests/catalogue_categories_postgres.py
 
   dashboard-ui:

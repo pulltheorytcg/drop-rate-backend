@@ -378,7 +378,7 @@ async def _save_review_price(connection, inventory_id, payload, item, access, ap
     if row is None:
         raise HTTPException(409, "Inventory changed. Refresh and try again.")
     return jsonable_encoder({"item": dict(row), "message":
-    "Your selling approval is saved. Drop Rate review is required before publication."
+    "Your listing request is saved. Drop Rate will review this copy before Shopify publication."
     if approval_request and target != "APPROVED" else "Selling price saved. Approved For Sale stock will sync automatically."})
 
 @router.patch("/{inventory_id}/selling-price")
