@@ -76,8 +76,16 @@ async def check(db):
                     {'system_code':'MANGA','product_type':'COMIC'},
                     {'system_code':'POKEMON_TCG','set_id':'cache-fixture',
                      'provider':'TCGdex','product_type':'CARD'},
+                    {'category':'TCG','product_type':'CARD'},
+                    {'category':'SPORTS','system_code':'SPORTS_CARDS','product_type':'CARD'},
+                    {'category':'COMICS','system_code':'COMICS','product_type':'COMIC'},
+                    {'category':'MANGA','system_code':'MANGA','product_type':'COMIC'},
+                    {'category':'FIGURES','system_code':'FIGURES','product_type':'FIGURE'},
+                    {'category':'TCG','system_code':'POKEMON_TCG'},
+                    {'category':'TCG','system_code':'POKEMON_TCG','product_type':'CARD','q':'Alpha'},
+                    {'category':'TCG','q':'Fixture','limit':1,'offset':1},
                 ):
-                    query,args=product_query(owner_id=owner,limit=9,**options)
+                    query,args=product_query(owner_id=owner,**dict({'limit':9},**options))
                     original=[dict(r) for r in await db.fetch(query,*args)]
                     sql,params,_=indexed_catalogue_query(query,args,index,owned=owned,market=snapshot)
                     assert 'tcg.reference_market_prices' not in sql

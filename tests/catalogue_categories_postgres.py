@@ -11,7 +11,7 @@ from app import catalogue_r2_live as live
 from app.catalogue_browser import product_query
 from app.catalogue_r2_browse import build_browse_index, indexed_catalogue_query
 from app.catalogue_r2_navigation import build_navigation
-from catalogue_r2_cache_postgres import PGliteConnection, seed, authorized, ACTOR_A, OWNER_A
+from catalogue_r2_cache_postgres import PGliteConnection, seed, authorized, ACTOR_A, ACTOR_B, OWNER_A, OWNER_B
 
 ROOT = Path(__file__).resolve().parents[1]
 IDS = [UUID(f"30000000-0000-0000-0000-0000000000{n}") for n in (41, 42, 43, 44)]
@@ -35,6 +35,15 @@ async def check():
               values($1,$2,$3,$4,current_date-1,$5::jsonb)""", item_id, system, kind,
                              "VERIFIED" if index % 2 == 0 else "NEEDS_REVIEW",
                              json.dumps({"identity_source": "OFFICIAL_CATALOGUE" if index % 2 == 0 else "SELLER_ENTERED", "submitted_by_user_id": str(ACTOR_A)}))
+        for number, system in enumerate(('MARVEL_COMICS', 'DC_COMICS', 'OTHER_COMICS', 'MANGA'), start=50):
+            item_id = UUID(f'30000000-0000-0000-0000-{number:012d}')
+            await db.execute("""insert into tcg.catalogue_products
+              (id,product_type,game,name,set_name,card_number,variant,rarity,language)
+              values($1,'COMIC',$2,'Synthetic book','Synthetic series','1','First','','English')""",
+                             item_id, system)
+            await db.execute("""insert into tcg.catalogue_product_profiles
+              (catalogue_id,system_code,collectible_type,identity_status,release_date)
+              values($1,$2,'COMIC','VERIFIED',current_date-1)""", item_id, system)
         for migration in ("20261030002930_live_catalogue_r2_publication.sql", "20261030085900_r2_relevant_change_invalidation.sql", "20261103150140_catalogue_review_visibility_r2.sql"):
             await db.execute((ROOT / "database/migrations" / migration).read_text())
         shared = {relation: json.loads(await db.fetchval(live.chunk_sql(relation), 1000, 0))
@@ -59,6 +68,36 @@ async def check():
                 assert mode == "FILTERED_NEWEST", mode
             actual_new = {str(row["catalogue_id"]) for row in actual if str(row.get("catalogue_id")) in {str(item_id) for item_id in IDS}}
             assert actual_new == expected
+        # These are the complete requests emitted by the five UI defaults.
+        # Category-only requests above do not expose the old six-parameter
+        # collision between two static lists and system/text search.
+        requests = [
+            dict(category='TCG', product_type='CARD'),
+            dict(category='SPORTS', system_code='SPORTS_CARDS', product_type='CARD'),
+            dict(category='COMICS', system_code='COMICS', product_type='COMIC'),
+            dict(category='MANGA', system_code='MANGA', product_type='COMIC'),
+            dict(category='FIGURES', system_code='FIGURES', product_type='FIGURE'),
+            dict(category='TCG', system_code='POKEMON_TCG'),
+            dict(category='TCG', system_code='POKEMON_TCG', product_type='SEALED'),
+            dict(category='COMICS', system_code='DC_COMICS', product_type='COMIC'),
+        ]
+        checked = 0
+        for actor, owner in ((ACTOR_A, OWNER_A), (ACTOR_B, OWNER_B)):
+            async with authorized(db, actor):
+                for scope in requests:
+                    text = 'Fixture' if scope['category'] == 'TCG' else 'Synthetic'
+                    for search in ({}, dict(q=text), dict(q=text, limit=1, offset=1)):
+                        query, args = product_query(owner_id=owner, **scope, **search)
+                        actual = [dict(row) for row in await db.fetch(query, *args)]
+                        bounded_sql, bounded_args, mode = indexed_catalogue_query(query, args, index)
+                        bounded = [dict(row) for row in await db.fetch(bounded_sql, *bounded_args)]
+                        assert actual == bounded, (actor, scope, search, mode, actual, bounded)
+                        assert mode == ('SEARCH_CATEGORY_TEXT' if search else 'FILTERED_NEWEST')
+                        if not search.get('offset'):
+                            assert actual, ('Category fixture must not pass vacuously', scope, search)
+                        assert not {str(IDS[1]), str(IDS[3])}.intersection(
+                            str(row['catalogue_id']) for row in bounded)
+                        checked += 1
         async with authorized(db, ACTOR_A):
             query, args = product_query(owner_id=OWNER_A, keys=[f"c:{IDS[0]}", f"c:{IDS[2]}"])
             assert len(await db.fetch(query, *args)) == 2, "Unscoped saved references must cross categories"
@@ -71,7 +110,7 @@ async def check():
         assert await db.fetchval("select generation from tcg_private.live_catalogue_r2_publication where singleton") == generation + 1
         assert str(IDS[0]) not in {row["id"] for row in json.loads(await db.fetchval(live.chunk_sql("catalogue_products"), 1000, 0))}
         assert not await db.fetchval("select has_function_privilege('tcg_api','tcg_private.invalidate_live_catalogue_r2()','EXECUTE')")
-        print("PASS: actual PostgreSQL category isolation, live/R2/bounded-page parity, private identity exclusion, saved cross-category lookup and review invalidation")
+        print(f"PASS: {checked} complete UI category/search SQL parity checks across two owners, plus category isolation, private identity exclusion, saved cross-category lookup and review invalidation")
     finally:
         await db.close()
 
