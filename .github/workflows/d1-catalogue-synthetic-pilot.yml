@@ -1,0 +1,46 @@
+name: D1 synthetic catalogue pilot (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'inspect checks the scoped token; pilot creates one NEW synthetic-only D1 database'
+        required: true
+        type: choice
+        options:
+          - inspect
+          - pilot
+        default: inspect
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-catalogue-synthetic-pilot
+  cancel-in-progress: false
+
+jobs:
+  isolated-d1-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Local offline safety tests
+        run: python -m unittest discover -s tests -p 'test_d1_*feasibility.py' && python -m unittest discover -s tests -p 'test_d1_remote_catalogue_pilot.py'
+      - name: Scoped Cloudflare D1 API test
+        env:
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+          D1_PILOT_MODE: ${{ inputs.mode }}
+        run: python tools/d1_remote_catalogue_pilot.py --mode "$D1_PILOT_MODE" --rows-per-game 200
+      - name: Save verification or synthetic benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-synthetic-pilot-report
+          path: d1-pilot-report.json
+          if-no-files-found: ignore
+          retention-days: 14
