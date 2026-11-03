@@ -208,7 +208,9 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    // Exercise the actual narrow-card actions with mixed statuses and long values.
    await page.evaluate(original=>{
     const approved={...original,status:'APPROVED',store_price_minor:1000};
-    const draft={...original,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',can_refresh_market:true,recommended_retail_minor:866};
+    const draft={...original,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+      reference_image_path:'/api/v1/owner/inventory/55fe97fc-7bfa-4a73-a269-664ec56d3004/reference-image',
+      can_refresh_market:true,recommended_retail_minor:866};
     const pending={...original,id:'75e288a1-8252-414f-912d-b82b253447c7',name:'Monkey.D.Luffy — Manga alternate art [OP05-119]',
       set_name:'Awakening of the New Era · Japanese',product_type:'RAW',
       reference_image_url:'/assets/grail-art/luffy-op05-119-p2.png',
