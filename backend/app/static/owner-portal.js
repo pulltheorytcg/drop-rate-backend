@@ -172,28 +172,79 @@ function restoreCollectionView() {
   } catch (_) { /* Ignore an obsolete or corrupt view preference. */ }
   updateCollectionControls();
 }
+function collectionControlIcon(name) {
+  const paths = {
+    filters:"M4 7h16M7 4v6M4 17h16M16 14v6",
+    grid:"M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
+    list:"M4 5h3v3H4zM11 6.5h9M4 16h3v3H4zM11 17.5h9",
+    refresh:"M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-2L20 8M4 16l2.3 3A7 7 0 0 0 17.9 17",
+    close:"m6 6 12 12M6 18 18 6",
+  };
+  const icon=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  for(const [key,value] of Object.entries({viewBox:"0 0 24 24",fill:"none",stroke:"currentColor","stroke-width":"1.6","stroke-linecap":"round","stroke-linejoin":"round","aria-hidden":"true",focusable:"false"}))icon.setAttribute(key,value);
+  const path=document.createElementNS("http://www.w3.org/2000/svg","path");path.setAttribute("d",paths[name]||paths.filters);icon.append(path);return icon;
+}
+function closeCollectionFilters({restoreFocus=true}={}) {
+  const dialog=byId("owner-collection-filter-dialog");
+  if(dialog?.open)dialog.close();
+  const trigger=byId("owner-collection-filter-trigger");
+  trigger?.setAttribute("aria-expanded","false");
+  if(restoreFocus && trigger?.getClientRects().length)trigger.focus({preventScroll:true});
+}
 function updateCollectionControls() {
   const toolbar = document.querySelector(".owner-inventory-toolbar"); if (!toolbar) return;
   let controls = byId("owner-collection-controls");
   if (!controls) { controls = document.createElement("div"); controls.id = "owner-collection-controls"; toolbar.after(controls); }
   if (!controls.dataset.ready) {
     controls.dataset.ready = "true"; controls.className = "owner-collection-controls";
-    const details = document.createElement("details"); details.className = "owner-collection-filters";
-    const summary = document.createElement("summary"); summary.textContent = "Filters"; details.append(summary);
-    const fields = document.createElement("div"); fields.className = "owner-collection-filter-fields";
-    for (const [key,label] of [["category","Category"],["game","Game / series"],["language","Language"],["grading","Physical format"],["format","Card or sealed"],["listing_state","Selling status"]]) {
+    const filterButton=document.createElement("button");filterButton.type="button";filterButton.id="owner-collection-filter-trigger";filterButton.className="owner-collection-filter-trigger";
+    filterButton.setAttribute("aria-haspopup","dialog");filterButton.setAttribute("aria-controls","owner-collection-filter-dialog");filterButton.setAttribute("aria-expanded","false");
+    const caption=document.createElement("span");caption.textContent="Filter & sort";
+    const badge=document.createElement("span");badge.id="owner-collection-filter-count";badge.className="owner-collection-filter-count";badge.hidden=true;
+    filterButton.append(collectionControlIcon("filters"),caption,badge);
+    const layout=toolbar.querySelector(".owner-layout-toggle"),refresh=byId("owner-inventory-refresh");
+    toolbar.append(filterButton);
+    if(layout){
+      layout.setAttribute("role","group");layout.setAttribute("aria-label","Collection view");
+      for(const control of layout.querySelectorAll("button"))control.replaceChildren(collectionControlIcon(control.dataset.ownerInventoryLayout));
+      toolbar.append(layout);
+    }
+    if(refresh){refresh.replaceChildren(collectionControlIcon("refresh"));refresh.title="Refresh collection";refresh.setAttribute("aria-label","Refresh collection");toolbar.append(refresh);}
+    const dialog=document.createElement("dialog");dialog.id="owner-collection-filter-dialog";dialog.className="owner-collection-filter-dialog";dialog.setAttribute("aria-labelledby","owner-collection-filter-title");
+    const heading=document.createElement("header"),headingCopy=document.createElement("div"),title=document.createElement("h2"),intro=document.createElement("p");
+    title.id="owner-collection-filter-title";title.textContent="Filter & sort";intro.textContent="Find the right items in your collection.";headingCopy.append(title,intro);
+    const close=document.createElement("button");close.type="button";close.className="owner-collection-filter-close";close.setAttribute("aria-label","Close collection filters");close.append(collectionControlIcon("close"));close.addEventListener("click",()=>closeCollectionFilters());heading.append(headingCopy,close);
+    const body=document.createElement("div");body.className="owner-collection-filter-body";
+    const section=(label)=>{const area=document.createElement("section"),heading=document.createElement("h3");area.className="owner-collection-filter-section";heading.textContent=label;area.append(heading);body.append(area);return area;};
+    const order=section("Sort order");
+    const sortLabel = document.createElement("label"); sortLabel.className = "owner-collection-sort"; sortLabel.textContent = "Order your items";
+    const sort = document.createElement("select"); sort.id = "owner-collection-sort"; sort.setAttribute("aria-label","Sort collection");
+    for (const [value,label] of [["updated","Recently updated"],["newest","Recently added"],["oldest","Oldest added"],["name","Name A–Z"],["name_desc","Name Z–A"],["value_desc","Displayed value: high to low"],["value_asc","Displayed value: low to high"]]) { const option = document.createElement("option"); option.value=value;option.textContent=label;sort.append(option); }
+    sort.addEventListener("change", () => window.DropRateCollection.setFilters({sort:sort.value}));sortLabel.append(sort);order.append(sortLabel);
+    const valueNote=document.createElement("p");valueNote.id="owner-collection-value-sort-note";valueNote.className="owner-item-note";valueNote.textContent="Uses the displayed value, including labelled guides and historical values. Items without a value appear last.";order.append(valueNote);
+    const items=section("Items"),fields=document.createElement("div");fields.className="owner-collection-filter-fields";items.append(fields);
+    for (const [key,label] of [["category","Category"],["game","Game / series"],["language","Language"],["grading","Physical format"],["format","Card or sealed"]]) {
       const field = document.createElement("label"); field.textContent = label;
       const select = document.createElement("select"); select.id = `owner-collection-${key}`; select.setAttribute("aria-label", `Filter collection by ${label.toLowerCase()}`);
       select.addEventListener("change", () => window.DropRateCollection.setFilters({[key]:select.value}));
       field.append(select); fields.append(field);
     }
-    details.append(fields); controls.append(details);
-    const sortLabel = document.createElement("label"); sortLabel.className = "owner-collection-sort"; sortLabel.textContent = "Sort";
-    const sort = document.createElement("select"); sort.id = "owner-collection-sort"; sort.setAttribute("aria-label","Sort collection");
-    for (const [value,label] of [["updated","Recently updated"],["newest","Recently added"],["oldest","Oldest added"],["name","Name A–Z"],["name_desc","Name Z–A"],["value_desc","Displayed value: high to low"],["value_asc","Displayed value: low to high"]]) { const option = document.createElement("option"); option.value=value;option.textContent=label;sort.append(option); }
-    sort.addEventListener("change", () => window.DropRateCollection.setFilters({sort:sort.value})); sortLabel.append(sort);controls.append(sortLabel);
+    const selling=section("Selling & availability"),sellingFields=document.createElement("div");sellingFields.className="owner-collection-filter-fields";selling.append(sellingFields);
+    const sellingLabel=document.createElement("label");sellingLabel.textContent="Selling status";
+    const sellingState=document.createElement("select");sellingState.id="owner-collection-listing_state";sellingState.setAttribute("aria-label","Filter collection by selling status");sellingState.addEventListener("change",()=>window.DropRateCollection.setFilters({listing_state:sellingState.value}));sellingLabel.append(sellingState);sellingFields.append(sellingLabel);
+    const status=byId("owner-inventory-status");
+    if(status){const label=document.createElement("label");label.textContent="Inventory status";label.append(status);sellingFields.append(label);}
+    const footer=document.createElement("footer"),clear=document.createElement("button"),done=document.createElement("button");
+    clear.type=done.type="button";clear.id="owner-collection-clear-filters";clear.className="owner-collection-filter-reset";clear.textContent="Clear filters";clear.addEventListener("click",()=>window.DropRateCollection.clearFilters());
+    done.className="owner-collection-filter-done";done.textContent="Show collection";done.addEventListener("click",()=>closeCollectionFilters());footer.append(clear,done);
+    dialog.append(heading,body,footer);document.body.append(dialog);
+    filterButton.addEventListener("click",()=>{if(!dialog.open)dialog.showModal();filterButton.setAttribute("aria-expanded","true");});
+    dialog.addEventListener("cancel",event=>{event.preventDefault();closeCollectionFilters();});
+    dialog.addEventListener("close",()=>filterButton.setAttribute("aria-expanded","false"));
+    document.addEventListener("owner-view-changed",()=>closeCollectionFilters({restoreFocus:false}));
+    window.addEventListener("hub-session-cleared",()=>closeCollectionFilters({restoreFocus:false}));
+    const context=document.createElement("p");context.id="owner-collection-context";context.className="owner-collection-context";context.setAttribute("role","status");controls.append(context);
     const chips = document.createElement("div");chips.id="owner-collection-filter-chips";chips.className="owner-collection-filter-chips";controls.append(chips);
-    const valueNote=document.createElement("p");valueNote.id="owner-collection-value-sort-note";valueNote.className="owner-item-note";valueNote.textContent="Sorted by the displayed value, including labelled guides and historical values. Items without a value appear last.";controls.append(valueNote);
   }
   const facets = state.inventory.facets || {}, category = state.inventory.category || "";
   const setOptions = (key, choices) => {
@@ -205,23 +256,34 @@ function updateCollectionControls() {
   setOptions("category",[["","All categories"],["TCG","Trading Card Games"],["SPORTS","Sports Cards"],["COMICS","Comics"],["MANGA","Manga"],["FIGURES","Figures"]]);
   const combinations = (facets.combinations || []).filter(row => !category || row.category===category);
   const games = category ? [...new Set(combinations.map(row=>row.game))] : facets.games || [];
-  setOptions("game",[["","All games / series"],...games.map(value=>[value,value])]);
+  setOptions("game",[["",["COMICS","MANGA"].includes(category)?"All series":"All games"],...games.map(value=>[value,value])]);
   setOptions("language",[["","All languages"],...(facets.languages || []).map(value=>[value,value])]);
-  setOptions("grading",[["","All physical formats"],["RAW","Ungraded"],["GRADED","Graded / certified"]]);
+  setOptions("grading",[["","All formats"],["RAW","Ungraded"],["GRADED","Graded / certified"]]);
   byId("owner-collection-grading").disabled=category==="FIGURES";
-  setOptions("format",[["","Cards and sealed"],["CARD","Cards"],["SEALED","Sealed products"]]);
+  byId("owner-collection-grading").closest("label").hidden=category==="FIGURES";
+  setOptions("format",[["","Cards & sealed"],["CARD","Cards"],["SEALED","Sealed products"]]);
   byId("owner-collection-format").disabled = ["COMICS","MANGA","FIGURES"].includes(category);
-  setOptions("listing_state",[["","All selling states"],["PERSONAL","Personal collection"],["ALL_FOR_SALE","All items for sale"],["PREPARING","Preparing to sell"],["REVIEW","Under review"],["READY","Ready to publish"],["LISTED","Live on Drop Rate"]]);
+  byId("owner-collection-format").closest("label").hidden=byId("owner-collection-format").disabled;
+  setOptions("listing_state",[["","All states"],["PERSONAL","Personal collection"],["ALL_FOR_SALE","All items for sale"],["PREPARING","Preparing to sell"],["REVIEW","Under review"],["READY","Ready to publish"],["LISTED","Live on Drop Rate"]]);
   byId("owner-collection-sort").value=state.inventory.sort || "updated";
   byId("owner-collection-value-sort-note").hidden=!["value_desc","value_asc"].includes(state.inventory.sort);
   if (byId("owner-inventory-search")) byId("owner-inventory-search").value=state.inventory.search || "";
   if (byId("owner-inventory-status")) byId("owner-inventory-status").value=state.inventory.status || "";
   const active = collectionFilterKeys.filter(key=>state.inventory[key]);
-  controls.querySelector("summary").textContent=`Filters${active.length ? ` · ${active.length}` : ""}`;
+  const filterCount=active.filter(key=>key!=="search").length;
+  const badge=byId("owner-collection-filter-count");badge.textContent=String(filterCount);badge.hidden=!filterCount;
+  byId("owner-collection-filter-trigger").setAttribute("aria-label",`Filter and sort collection${filterCount?`, ${filterCount} active ${filterCount===1?"filter":"filters"}`:""}`);
+  byId("owner-collection-clear-filters").disabled=!active.length;
+  const sortText=byId("owner-collection-sort").selectedOptions[0]?.textContent || "Recently updated";
+  const total=Number(state.inventory.total||0);
+  byId("owner-collection-context").textContent=`${total.toLocaleString("en-GB")} ${total===1?"product":"products"}${active.length?" found":""} · ${sortText}`;
+  document.querySelectorAll("[data-owner-inventory-layout]").forEach(control=>{
+    const selected=control.dataset.ownerInventoryLayout===(state.inventory.layout||"grid");control.classList.toggle("active",selected);control.setAttribute("aria-pressed",String(selected));
+  });
   const chips=byId("owner-collection-filter-chips");chips.replaceChildren();
   for (const key of active) {
     const choice = byId(`owner-collection-${key}`)?.selectedOptions?.[0]?.textContent || (key==="status" ? byId("owner-inventory-status")?.selectedOptions?.[0]?.textContent : null) || state.inventory[key];
-    const chip=document.createElement("button");chip.type="button";chip.textContent=`${key==="search" ? "Search: " : ""}${choice} ×`;chip.setAttribute("aria-label",`Clear ${key.replaceAll("_"," ")} filter`);
+    const chip=document.createElement("button");chip.type="button";const label=document.createElement("span");label.textContent=`${key==="search" ? "Search: " : ""}${choice}`;chip.append(label,collectionControlIcon("close"));chip.setAttribute("aria-label",`Clear ${key.replaceAll("_"," ")} filter`);
     chip.addEventListener("click",()=>window.DropRateCollection.setFilters({[key]:""}));chips.append(chip);
   }
   if(active.length){const clear=document.createElement("button");clear.type="button";clear.textContent="Clear filters";clear.addEventListener("click",()=>window.DropRateCollection.clearFilters());chips.append(clear);}
@@ -254,7 +316,7 @@ window.DropRateCollection = {
     if(navigate)activateOwnerView("inventory");
     try{await loadOwnerInventory();}catch(error){if(Object.hasOwn(changes,"sort")){state.inventory.sort=previousSort;state.inventory.offset=previousOffset;updateCollectionControls();saveCollectionView();}showPortalMessage(error.message||"Your collection could not load. Try again.","error");}
   },
-  clearFilters(){return this.setFilters({...collectionDefaults},{reset:true});},
+  clearFilters(){return this.setFilters(Object.fromEntries(collectionFilterKeys.map(key=>[key,""])));},
   async startSelling(){
     if(!state.inventory.selling)collectionPreviousFilters=Object.fromEntries(Object.keys(collectionDefaults).map(key=>[key,state.inventory[key]]));
     Object.assign(state.inventory,collectionDefaults,{selling:true});updateCollectionControls();activateOwnerView("inventory");
@@ -274,9 +336,10 @@ document.addEventListener("owner-inventory-changed",()=>{
 function renderInventoryRows(items) {
   const body = byId("owner-inventory-body");
   body.replaceChildren();
+  body.closest("table")?.classList.add("owner-collection-table");
 
   if (!items.length) {
-    const row = document.createElement("tr");
+    const row = document.createElement("tr");row.className="owner-collection-empty-row";
     const cell = document.createElement("td");
     cell.colSpan = 4;
     cell.className = "muted";
@@ -287,41 +350,48 @@ function renderInventoryRows(items) {
   }
 
   for (const item of items) {
-    const row = document.createElement("tr");
+    const row = document.createElement("tr");row.className="owner-collection-row";
 
-    const cardCell = document.createElement("td");
-    const cardWrap = document.createElement("div");
-    cardWrap.className = "owner-table-card";
-    cardWrap.append(createCardImage(item, "owner-table-mini-image"));
+    const cardCell = document.createElement("td");cardCell.className="owner-collection-product-cell";
+    const canOpen=Boolean(item.id && window.DropRateInventory);
+    const cardWrap = document.createElement(canOpen?"button":"div");
+    cardWrap.className = "owner-table-card" + (canOpen?" owner-inventory-open":"");
+    const image=createCardImage(item,"owner-table-mini-image");
+    if((item.grouped_quantity||1)>1){const quantity=document.createElement("span");quantity.className="owner-list-quantity";quantity.textContent="×"+item.grouped_quantity;image.append(quantity);}
+    cardWrap.append(image);
     const cardCopy = document.createElement("div");
     cardCopy.className = "owner-table-card-copy";
     const cardName = document.createElement("strong");
     cardName.textContent = safeText(item.name);
-    const cardCode = document.createElement("small");
-    cardCode.textContent = inventoryCardSubtitle(item);
-    if((item.grouped_quantity||1)>1)cardCode.textContent+=" · Qty "+item.grouped_quantity;
-    cardCopy.append(cardName, cardCode);
-    if (item.id && window.DropRateInventory) {
-      const open = document.createElement("button");
-      open.type = "button"; open.className = "owner-inventory-open";
-      open.setAttribute("aria-label", `View ${item.name}`);
-      open.append(...cardCopy.childNodes); cardCopy.append(open);
-      open.addEventListener("click", () => collectionOpenItem(item));
+    cardName.title=safeText(item.name);
+    const edition=document.createElement("small");edition.className="owner-list-edition";
+    edition.textContent=[safeText(item.set_name,""),item.card_number?`#${item.card_number}`:"",safeText(item.variant,"")].filter(Boolean).join(" · ") || inventoryTypeLabel(item);
+    edition.title=edition.textContent;
+    const cardCode = document.createElement("small");cardCode.className="owner-list-copy-details";
+    cardCode.textContent=[safeText(item.language,"Language not recorded"),conditionLabel(item)==="—"?"Condition not recorded":conditionLabel(item)].join(" · ");
+    cardCode.title=cardCode.textContent;
+    cardCopy.append(cardName,edition,cardCode);
+    if (canOpen) {
+      cardWrap.type="button";
+      cardWrap.setAttribute("aria-label",`View ${item.name} · ${cardCode.textContent}${(item.grouped_quantity||1)>1?` · ${item.grouped_quantity} copies`:""}`);
+      cardWrap.addEventListener("click",()=>collectionOpenItem(item));
     }
     cardWrap.append(cardCopy);
     cardCell.append(cardWrap);
 
-    const statusCell = document.createElement("td");
+    const statusCell = document.createElement("td");statusCell.className="owner-collection-status-cell";
     const status = document.createElement("span");
     status.className = `owner-status-pill ${statusClass(collectionStatus(item) === "Mixed availability" ? "mixed" : item.status)}`;
     status.textContent = collectionStatus(item);
     status.title = availabilityDescription(item);
     statusCell.append(status);
 
-    const marketCell = document.createElement("td");
-    marketCell.textContent = item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null
-      ? "Value pending"
-      : "Value: " + formatMoney(item.market_value_minor);
+    const marketCell = document.createElement("td");marketCell.className="owner-collection-market-cell";
+    marketCell.dataset.label=(window.DropRateReferenceValue?.label(item)||"Market value")+((item.grouped_quantity||1)>1?" · each":"");
+    const valueText=item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null
+      ? "Value unavailable" : "Value: " + formatMoney(item.market_value_minor);
+    const value=document.createElement("strong");value.textContent=valueText.replace(/^Value:\s*/,"");
+    value.className=/^Value:\s*£/.test(valueText)?"owner-list-value":"owner-list-value is-unavailable";marketCell.append(value);
     // Keep source age discoverable without putting a long timestamp in a
     // narrow inventory list cell. Full evidence/date remain in item details.
     if(item.reference_value && window.DropRateReferenceValue?.isHistorical(item)){
@@ -331,9 +401,10 @@ function renderInventoryRows(items) {
       marketCell.append(age);
     }
     if((item.grouped_quantity||1)>1 && item.group_valued_count>0 && item.group_valued_count<item.grouped_quantity)
-      marketCell.append(document.createTextNode(" · "+item.group_valued_count+"/"+item.grouped_quantity+" copies valued"));
-    const storeCell = document.createElement("td");
+      {const coverage=document.createElement("small");coverage.className="owner-list-value-coverage";coverage.textContent=item.group_valued_count+"/"+item.grouped_quantity+" copies valued";marketCell.append(coverage);}
+    const storeCell = document.createElement("td");storeCell.className="owner-collection-price-cell";storeCell.dataset.label="Selling price";
     storeCell.textContent = sellingPriceText(item);
+    storeCell.classList.toggle("is-personal",!sellingCopies(item).length);
 
     row.append(cardCell, statusCell, marketCell, storeCell);
     body.append(row);
@@ -1001,11 +1072,13 @@ async function loadOwnerInventory() {
   if(state.inventory.selling)params.set("prepare_selling","true");
   if(!state.inventory.facets)params.set("include_facets","true");
   byId("owner-inventory-grid")?.setAttribute("aria-busy","true");
+  byId("owner-inventory-table-wrap")?.setAttribute("aria-busy","true");
+  if(byId("owner-collection-context"))byId("owner-collection-context").textContent="Updating collection…";
 
   let data;
   try{data=await apiRequest(`/api/v1/owner/inventory?${params.toString()}`,{signal:controller.signal});}
-  catch(error){if(!current() || error.name==="AbortError")return;throw error;}
-  finally{if(current())byId("owner-inventory-grid")?.removeAttribute("aria-busy");}
+  catch(error){if(!current() || error.name==="AbortError")return;if(byId("owner-collection-context"))byId("owner-collection-context").textContent="Collection could not update. Try again.";throw error;}
+  finally{if(current()){byId("owner-inventory-grid")?.removeAttribute("aria-busy");byId("owner-inventory-table-wrap")?.removeAttribute("aria-busy");}}
   if (!current()) return;
   state.inventory.total = Number(data.total || 0);
   if(data.facets)state.inventory.facets=data.facets;
@@ -2012,6 +2085,7 @@ document.querySelectorAll("[data-owner-inventory-layout]").forEach((button) => {
     byId("owner-inventory-table-wrap").classList.toggle("hidden", layout !== "list");
     document.querySelectorAll("[data-owner-inventory-layout]").forEach((toggle) => {
       toggle.classList.toggle("active", toggle.dataset.ownerInventoryLayout === layout);
+      toggle.setAttribute("aria-pressed",String(toggle.dataset.ownerInventoryLayout === layout));
     });
   });
 });

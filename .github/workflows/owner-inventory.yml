@@ -20,6 +20,7 @@ on:
       - 'tests/*import_catalogue_search*'
       - 'tests/*seller*postgres.py'
       - 'tests/ui/owner-inventory*'
+      - 'tests/ui/owner-collection*'
       - '.github/workflows/owner-inventory.yml'
 permissions:
   contents: read
@@ -65,6 +66,7 @@ jobs:
       - run: npm install --prefix /tmp/inventory-browser --no-save playwright@1.55.1
       - run: node /tmp/inventory-browser/node_modules/playwright/cli.js install --with-deps ${{ matrix.browser }}
       - run: NODE_PATH=/tmp/inventory-browser/node_modules INVENTORY_BROWSER=${{ matrix.browser }} node tests/ui/owner-inventory-browser.cjs
+      - run: NODE_PATH=/tmp/inventory-browser/node_modules INVENTORY_BROWSER=${{ matrix.browser }} node tests/ui/owner-collection-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -6,6 +6,23 @@ window.DropRateInventory = (() => {
   const account = () => state.session?.user?.id || state.session?.access_token;
   let dialog, content, message, selected, revision = 0, busy = false, returnFocus, channels = [];
   let listingIntent = false, listingStep = "condition", returnScroll = 0;
+  // Files stay only in this open, account-scoped item dialog. A failed upload
+  // must not erase the other side or the seller's unsaved preparation fields.
+  let comicDraft = null;
+  const comicPreviewUrls = new Set();
+  function releaseComicPreviews() {
+    for (const url of comicPreviewUrls) URL.revokeObjectURL(url);
+    comicPreviewUrls.clear();
+  }
+  function comicDraftFor(item) {
+    const identity = JSON.stringify([account(), item.id, item.catalogue_id, item.product_type,
+      item.language, item.condition, item.grading_company, item.grade, item.certificate_number,
+      item.comic_printing?.printing_number, item.comic_printing?.cover_code, item.comic_printing?.barcode_gtin]);
+    if (!comicDraft || comicDraft.identity !== identity) {
+      comicDraft = {identity, owner:account(), id:item.id, values:{}, photos:{}};
+    }
+    return comicDraft;
+  }
   const draftKey = id => state.session?.user?.id ? `drop_rate_listing_draft:${state.session.user.id}:${id}` : null;
   function listingDraft(item) {
     const key=draftKey(item.id);if(!key)return null;
@@ -125,6 +142,7 @@ window.DropRateInventory = (() => {
   function close(force = false) {
     if (busy && !force) return;
     revision++; busy = false; selected = null; channels = [];listingIntent=false;
+    comicDraft = null; releaseComicPreviews();
     if (dialog?.open) dialog.close();
     content?.replaceChildren();
     const visibleTarget=node=>node?.isConnected && !node.disabled
@@ -157,6 +175,8 @@ window.DropRateInventory = (() => {
     listingStep=["condition","preparation","price","review"].includes(options.step)?options.step:options.prepareEbay?"preparation":"condition";
     if (!dialog.open) dialog.showModal();
     const rev = ++revision, owner = account(); selected = item;
+    if (comicDraft?.owner !== owner || comicDraft?.id !== item.id) comicDraft = null;
+    releaseComicPreviews();
     content.replaceChildren(); status("Loading item details…");
     try {
       const data = await apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(item.id)}`);
@@ -183,8 +203,9 @@ window.DropRateInventory = (() => {
     busy = true;
     const rev = revision, owner = account(), id = selected.id;
     const previous=selected,draft=listingDraft(selected);
-    dialog.querySelectorAll("button,input,select").forEach(n => { n.disabled = true; });
-    status("Saving…");
+    const scrollTop = dialog.scrollTop;
+    dialog.querySelectorAll("button,input,select,textarea").forEach(n => { n.disabled = true; });
+    status(options.pendingMessage || "Saving…");
     let result, failure;
     try { result = await action(); } catch (error) { failure = error; }
     if (!alive(rev, owner)) return;
@@ -193,11 +214,15 @@ window.DropRateInventory = (() => {
     try {
       const data = await apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(id)}`);
       if (!alive(rev, owner)) return;
+      const recovered = failure && options.recoveredMessage?.(data.item);
+      if (recovered) {failure = null;result = {message:recovered};}
       if(!failure && options.clearPricingDraft)clearListingDraft(selected);
       else if(!failure && draft && active(data.item) && ["catalogue_id","product_type","condition","seal_status","language","grading_company","grade"].every(key=>previous[key]===data.item[key])){
         saveListingDraft(data.item,{step:draft.step,price:draft.price,condition:draft.condition});
       }
       selected = data.item; busy = false; render(data);
+      if (options.preserveScroll) dialog.scrollTop = scrollTop;
+      if (failure && options.focusSelector) content.querySelector(options.focusSelector)?.focus({preventScroll:true});
     } catch (_) {
       busy = false; content.replaceChildren(button("Reload item", () => open({id})));
     }
@@ -260,6 +285,7 @@ window.DropRateInventory = (() => {
   }
 
   function renderComicPreparation(item) {
+    const draft = comicDraftFor(item);
     const section = el("section", "owner-comic-preparation owner-item-section");
     section.dataset.comicPreparation = "true";
     section.append(el("h3", "", "Prepare your comic for Shopify"),
@@ -270,22 +296,27 @@ window.DropRateInventory = (() => {
       const label = el("label", "", caption), input = el(type === "textarea" ? "textarea" : "input");
       if (type !== "textarea") input.type = type;
       input.dataset.comicField = key;
+      input.dataset.comicSavedValue = String(options.value ?? "");
       if (options.min != null) input.min = String(options.min);
       if (options.max != null) input.max = String(options.max);
       if (options.step != null) input.step = String(options.step);
       if (options.placeholder) input.placeholder = options.placeholder;
       if (type === "textarea") input.rows = 2;
-      input.value = options.value ?? "";
+      input.value = draft.values[key] ?? options.value ?? "";
+      input.addEventListener("input", () => {draft.values[key] = input.value;});
       label.append(input); fields.append(label);
       return input;
     };
     const locationLabel = el("label", "", "Where is this copy held?"), location = el("select");
     location.dataset.comicField = "holding";
+    location.dataset.comicSavedValue = prep.holding || "";
     [["", "Choose where it is held"], ["SELLER_HELD", "With me — I will dispatch it"],
       ["DROP_RATE_HELD", "Already with Drop Rate — staff to verify"]].forEach(([value, title]) => {
       const option = el("option", "", title); option.value = value; location.append(option);
     });
-    location.value = prep.holding || ""; locationLabel.append(location); fields.append(locationLabel);
+    location.value = draft.values.holding ?? prep.holding ?? "";
+    location.addEventListener("change", () => {draft.values.holding = location.value;});
+    locationLabel.append(location); fields.append(locationLabel);
     const dispatch = field("Dispatch / holding notes", "textarea", "dispatch_note",
       {value:prep.dispatch_note || "", placeholder:"e.g. London, ready to dispatch — no full home address needed"});
     dispatch.maxLength = 200;
@@ -300,8 +331,12 @@ window.DropRateInventory = (() => {
       value:prep.parcel_width_mm ?? ""});
     const height = field("Parcel height (mm)", "number", "height", {min:1,max:10000,step:1,
       value:prep.parcel_height_mm ?? ""});
+    const rememberFields = () => fields.querySelectorAll("[data-comic-field]").forEach(input => {
+      draft.values[input.dataset.comicField] = input.value;
+    });
     section.append(fields);
     const save = button("Save preparation details", () => {
+      rememberFields();
       if (!location.value) {status("Choose where this physical comic is held.", true);location.focus();return;}
       const number = (input, scale = 1) => {
         if (!input.value.trim()) return null;
@@ -316,8 +351,12 @@ window.DropRateInventory = (() => {
           acquisition_cost_minor:number(cost,100),parcel_weight_grams:number(weight),
           parcel_length_mm:number(length),parcel_width_mm:number(width),parcel_height_mm:number(height)};
       } catch (error) {status(error.message,true);return;}
-      run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/comic-preparation`,
-        {method:"PATCH",body:JSON.stringify(values)}));
+      run(async () => {
+        const result = await apiRequest(`/api/v1/owner/inventory/${item.id}/comic-preparation`,
+          {method:"PATCH",body:JSON.stringify(values)});
+        draft.values = {};
+        return result;
+      }, {preserveScroll:true});
     }, "owner-primary-action");
     save.disabled = !active(item);
     section.append(save, el("p", "owner-item-note", "Parcel measurements are for review, not an approved shipping rate. Drop Rate will confirm the COMIC_BOOK or MANGA_BOOK shipping profile."));
@@ -329,47 +368,96 @@ window.DropRateInventory = (() => {
     for (const side of ["FRONT", "BACK"]) {
       const assets = (item.comic_photos || []).filter(asset => asset.side === side);
       const latest = assets[assets.length - 1], row = el("div", "owner-comic-photo-row");
+      const processingFailed = latest?.shopify_file_status === "FAILED";
+      row.dataset.comicSide = side;
       const label = el("strong", "", `${side === "FRONT" ? "Front cover" : "Back cover"}${side === "BACK" && !graded ? " (recommended)" : " (required)"}`);
       row.append(label);
-      if (latest?.approval_status === "APPROVED") {
+      if (latest?.approval_status === "APPROVED" && !processingFailed) {
+        delete draft.photos[side];
         row.append(el("p", "owner-item-note", "Approved by Drop Rate for this exact copy."));
-      } else if (latest?.approval_status === "PENDING") {
-        row.append(el("p", "owner-item-note", latest.shopify_file_status === "READY"
+      } else if (latest?.approval_status === "PENDING" && !processingFailed) {
+        delete draft.photos[side];
+        row.append(el("p", "owner-item-note", latest.shopify_file_status === "NOT_UPLOADED"
+          ? "Photo received. Drop Rate needs to finish processing it before review."
+          : latest.shopify_file_status === "READY"
           ? "Photo submitted — awaiting staff review."
           : "Photo submitted — processing for staff review."));
       } else {
+        if (processingFailed) row.append(el("p", "owner-comic-retake-reason",
+          "This photo could not be processed. Choose and submit the photo again."));
         if (latest?.approval_status === "REJECTED") row.append(el("p", "owner-comic-retake-reason",
           "Retake requested: " + (latest.retake_reason || "Please submit a clearer photo.")));
+        const photo = draft.photos[side] ||= {file:null,rights:false,error:"",requestKey:null};
         const file = el("input"); file.type = "file"; file.accept = "image/jpeg,image/png,image/webp";
         file.setAttribute("aria-label", `Choose ${side.toLowerCase()} comic photo`);
-        const fileLabel = el("label", "", `Choose ${side.toLowerCase()} photo`); fileLabel.append(file);
+        file.disabled = !active(item);
+        const fileLabel = el("label", "owner-comic-file-picker", `Choose ${side.toLowerCase()} photo`); fileLabel.append(file);
+        const selection = el("div", "owner-comic-file-selection");
+        const feedback = el("p", "owner-comic-upload-error", photo.error); feedback.setAttribute("role", "alert");
         const rightsLabel = el("label", "owner-comic-rights", ""), rights = el("input");
-        rights.type = "checkbox";
+        rights.type = "checkbox"; rights.checked = photo.rights; rights.disabled = !active(item);
+        rights.setAttribute("aria-label", `I own or can use this ${side.toLowerCase()} photograph`);
+        rights.addEventListener("change", () => {photo.rights = rights.checked;});
         rightsLabel.append(rights, el("span", "", "This is my own photograph, or I am authorised to use it."));
-        const upload = button(latest ? "Resubmit photo" : "Submit photo for review", () => {
-          const selectedFile = file.files?.[0];
+        let previewUrl = null;
+        const showSelection = () => {
+          if (previewUrl) {URL.revokeObjectURL(previewUrl);comicPreviewUrls.delete(previewUrl);previewUrl = null;}
+          selection.replaceChildren();
+          if (photo.file && ["image/jpeg","image/png","image/webp"].includes(photo.file.type) && photo.file.size <= 12 * 1024 * 1024) {
+            previewUrl = URL.createObjectURL(photo.file);comicPreviewUrls.add(previewUrl);
+            const preview = el("img");preview.src = previewUrl;preview.alt = `Selected ${side.toLowerCase()} photo, not yet submitted`;
+            selection.append(preview);
+          }
+          const filename = el("p", "", photo.file ? `${photo.file.name} · Selected, not yet submitted` : "JPG, PNG or WebP · up to 12 MB");
+          filename.setAttribute("role", "status");selection.append(filename);
+          fileLabel.firstChild.textContent = photo.file ? `Change ${side.toLowerCase()} photo` : `Choose ${side.toLowerCase()} photo`;
+        };
+        file.addEventListener("change", () => {
+          photo.file = file.files?.[0] || null; photo.rights = false;rights.checked = false;
+          photo.requestKey = null;photo.error = "";feedback.textContent = "";showSelection();
+        });
+        showSelection();
+        const upload = button(photo.error ? `Retry ${side.toLowerCase()} photo` : latest ? "Resubmit photo" : "Submit photo for review", () => {
+          const selectedFile = file.files?.[0] || photo.file;
           if (!selectedFile || !["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)
               || selectedFile.size < 1 || selectedFile.size > 12 * 1024 * 1024) {
             status("Choose one JPG, PNG or WebP photo up to 12 MB.", true); file.focus(); return;
           }
           if (!rights.checked) {status("Confirm that you own or can use this photograph.",true);rights.focus();return;}
+          if (photo.file !== selectedFile) photo.requestKey = null;
+          photo.file = selectedFile;photo.rights = true;photo.error = "";
+          photo.requestKey ||= crypto.randomUUID();
+          rememberFields();
           const owner = account(), rev = revision;
           run(async () => {
-            const staged = await apiRequest(`/api/v1/owner/inventory/${item.id}/comic-photo/upload-target`,
-              {method:"POST",body:JSON.stringify({side,filename:selectedFile.name,mime_type:selectedFile.type,file_size:selectedFile.size})});
-            if (!alive(rev, owner)) throw new Error("Account or item changed before the photo was uploaded.");
-            const form = new FormData();
-            (staged.target.parameters || []).forEach(part => form.append(part.name,part.value));
-            form.append("file",selectedFile);
-            const uploaded = await fetch(staged.target.url,{method:"POST",body:form});
-            if (!uploaded.ok) throw new Error("Photo transfer failed. Please retry; nothing was published.");
-            if (!alive(rev, owner)) throw new Error("Account or item changed before confirmation.");
-            return apiRequest(`/api/v1/owner/inventory/${item.id}/comic-photo/complete`,
-              {method:"POST",body:JSON.stringify({ticket:staged.ticket,rights_confirmed:true})});
-          });
+            try {
+              const query = new URLSearchParams({side,version:String(item.version),filename:selectedFile.name,
+                rights_confirmed:"true",request_key:photo.requestKey});
+              const result = await apiRequest(`/api/v1/owner/inventory/${item.id}/comic-photo/upload?${query}`,
+                {method:"POST",headers:{"Content-Type":selectedFile.type},body:selectedFile});
+              if (!alive(rev, owner)) return result;
+              delete draft.photos[side];
+              return result;
+            } catch (error) {
+              const transport = error instanceof TypeError || /load failed|failed to fetch|network.*(?:error|fail)/i.test(error.message || "");
+              photo.error = transport
+                ? "The photo upload was interrupted. Your photo and details are still here. Retry this photo."
+                : `${error.message || "The photo could not be uploaded."} Your selected photo is still here; check the message and retry.`;
+              throw new Error(photo.error);
+            }
+          }, {preserveScroll:true,focusSelector:`[data-comic-upload="${side}"]`,
+            pendingMessage:`Uploading ${side.toLowerCase()} photo… Keep this window open.`,
+            recoveredMessage:updated => {
+              const saved = (updated.comic_photos || []).filter(asset => asset.side === side).at(-1);
+              if (saved?.shopify_file_status === "FAILED") return null;
+              return saved?.approval_status === "PENDING" ? `${side === "FRONT" ? "Front" : "Back"} photo received — awaiting Drop Rate review.`
+                : saved?.approval_status === "APPROVED" ? `${side === "FRONT" ? "Front" : "Back"} photo is approved for this copy.` : null;
+            }});
         }, "owner-secondary-action");
+        upload.dataset.comicUpload = side;
+        upload.setAttribute("aria-label", `Submit ${side.toLowerCase()} photo for review`);
         upload.disabled = !active(item);
-        row.append(fileLabel,rightsLabel,upload);
+        row.append(selection,fileLabel,rightsLabel,feedback,upload);
       }
       if (latest?.photo_url) {
         try {
@@ -384,6 +472,41 @@ window.DropRateInventory = (() => {
       photos.append(row);
     }
     section.append(photos,el("p", "owner-item-note", "Submitting this evidence cannot approve a comic or publish it. Drop Rate will confirm identity, condition, intake, shipping and photography."));
+    return section;
+  }
+
+  function comicReviewStatus(item, onPrepare) {
+    const section = el("section", "owner-comic-review-status");
+    const prep = item.comic_listing_preparation || {}, draft = comicDraftFor(item);
+    section.append(el("h4", "", item.status === "INSPECTION" ? "Listing review in progress" : "Before this comic can go live"),
+      el("p", "", item.status === "INSPECTION"
+        ? "Your listing request is saved. Your remaining steps and Drop Rate's checks are shown below."
+        : "Submit the details and photos of this physical copy. Drop Rate then checks them before Shopify publication."));
+    const next = [];
+    if (!prep.holding && !item.location_recorded) next.push("Save where this copy is held and your dispatch details.");
+    if (prep.acquisition_cost_minor == null && item.comic_acquisition_cost_minor == null && !item.cost_recorded) next.push("Save what you paid for this copy.");
+    const requiredSides = item.grading_company && item.grade ? ["FRONT","BACK"] : ["FRONT"];
+    for (const side of ["FRONT","BACK"]) {
+      const photo = (item.comic_photos || []).filter(asset => asset.side === side).at(-1);
+      if (draft.photos[side]?.file) next.push(`Submit your selected ${side.toLowerCase()} photo.`);
+      else if (requiredSides.includes(side) && (photo?.shopify_file_status === "FAILED" || !["PENDING","APPROVED"].includes(photo?.approval_status))) {
+        next.push(`${photo?.approval_status === "REJECTED" ? "Retake and submit" : "Upload"} the ${side.toLowerCase()} photo of this copy.`);
+      }
+    }
+    if (next.length) {
+      section.append(el("strong", "", "Your next steps"));
+      const list = el("ul");next.forEach(text => list.append(el("li", "", text)));
+      section.append(list,button("Continue preparation", onPrepare));
+    } else section.append(el("p", "", "Your required preparation details and photos are saved for review."));
+    const checks = item.approval_blockers || [], staff = [];
+    if (checks.some(reason => /exact printing|identity confirmation/i.test(reason))) staff.push("Verify the exact printing and item details.");
+    if (checks.some(reason => /acquisition cost|storage|dispatch location|intake review/i.test(reason))) staff.push("Confirm the purchase cost and where this copy is held.");
+    if (checks.some(reason => /Shopify media|approved.*photo|approved.*image/i.test(reason))) staff.push("Review and approve the physical-copy photographs.");
+    if (checks.some(reason => /shipping profile/i.test(reason))) staff.push("Confirm the comic shipping profile.");
+    if (staff.length) {
+      section.append(el("strong", "", "Drop Rate checks"));
+      const list = el("ul");staff.forEach(text => list.append(el("li", "", text)));section.append(list);
+    }
     return section;
   }
 
@@ -439,13 +562,15 @@ window.DropRateInventory = (() => {
     panels.price.append(el("h3","","Set your selling price"),recommendationNote,priceLabel,save,
       el("p","owner-item-note","Your asking price is separate from the market estimate. Final proceeds reflect the actual sale, commission and any applicable deductions."));
     const reviewHeading=el("h3","","Review your listing"),reviewFacts=el("dl","owner-listing-review-facts");
+    const comicStatus = item.product_type === "COMIC" && item.status !== "APPROVED" ? el("div") : null;
     const updateReview=()=>{
       reviewFacts.replaceChildren();
       for(const [label,value] of [["Physical copy",item.inventory_code],["Language",item.language || "Not recorded"],["Condition / grade",saleCondition?.value || conditionLabel(item)],["Selling price",priceInput.value.trim()?`£${priceInput.value}`:"Not set"]]){
         const pair=el("div");pair.append(el("dt","",label),el("dd","",value));reviewFacts.append(pair);
       }
+      if (comicStatus) comicStatus.replaceChildren(comicReviewStatus(item, () => showStep("preparation")));
     };
-    panels.review.prepend(reviewHeading,reviewFacts);
+    panels.review.prepend(reviewHeading,reviewFacts,...(comicStatus ? [comicStatus] : []));
     if(actions.children.length===0)actions.remove();
     const buttons=new Map();for(const [index,[key,label]] of stages.entries()){
       const control=button(`${index+1}. ${label}`,()=>showStep(key));control.setAttribute("aria-controls",`owner-listing-stage-${key}`);buttons.set(key,control);nav.append(control);panels[key].id=`owner-listing-stage-${key}`;
@@ -456,7 +581,9 @@ window.DropRateInventory = (() => {
       const index=stages.findIndex(([key])=>key===listingStep);showStep(stages[Math.min(stages.length-1,index+1)][0]);
     },"primary");
     footer.append(back,next);
-    const draftNote=el("p","owner-listing-draft-note","Your progress stays in this browser session. Save your details or submit for review when you’re ready.");
+    const draftNote=el("p","owner-listing-draft-note",item.product_type === "COMIC"
+      ? "Keep this window open until your photos and preparation details are saved. Your price and current step stay in this browser session."
+      : "Your progress stays in this browser session. Save your details or submit for review when you’re ready.");
     function showStep(key,{focus=true,persist=true}={}){
       listingStep=stages.some(([name])=>name===key)?key:"condition";updateReview();
       for(const [name,panel]of Object.entries(panels)){panel.hidden=name!==listingStep;buttons.get(name).toggleAttribute("data-active",name===listingStep);if(name===listingStep)buttons.get(name).setAttribute("aria-current","step");else buttons.get(name).removeAttribute("aria-current");}
@@ -483,6 +610,7 @@ window.DropRateInventory = (() => {
   function render(data) {
     const item = data.item, copies = data.copies || [];
     const sellingOpen = listingIntent || content.querySelector(".owner-item-selling")?.open === true;
+    releaseComicPreviews();
     content.replaceChildren();
     dialog.classList.toggle("is-listing",listingIntent);
     dialog.querySelector("#owner-item-title").textContent=listingIntent?"Prepare listing":"Item details";
@@ -622,6 +750,16 @@ window.DropRateInventory = (() => {
       if (path === "approval-request" && saleCondition && !saleCondition.value) {
         sale.showListingStep?.("condition");status("Choose the condition for your listing. The item is already saved in your collection.", true); saleCondition.focus(); return;
       }
+      if (path === "approval-request" && item.product_type === "COMIC" && Object.values(comicDraftFor(item).photos).some(photo => photo.file)) {
+        sale.showListingStep?.("preparation");
+        status("Submit your selected photos before updating the listing request. Your photos and details are still here.", true);
+        return;
+      }
+      if (path === "approval-request" && item.product_type === "COMIC" && [...content.querySelectorAll("[data-comic-field]")].some(input => input.value !== input.dataset.comicSavedValue)) {
+        sale.showListingStep?.("preparation");
+        status("Save your preparation details before updating the listing request. Your changes are still here.", true);
+        return;
+      }
       const body = {version: item.version, store_price_minor: minor};
       if (path === "approval-request" && saleCondition) body.condition = saleCondition.value;
       run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/${path}`, {method, body: JSON.stringify(body)}),{clearPricingDraft:path==="approval-request"});
@@ -674,7 +812,8 @@ window.DropRateInventory = (() => {
       {
         code:"SHOPIFY",label:"Shopify",state:publishedOnShopify?"Published":
           !item.shopify_sync_enabled?"Unavailable":
-          !approvedForSale?(item.seller_approval_available?"Not listed — use List on Shopify":"Not listed — request listing review above"):"Awaiting channel checks",
+          !approvedForSale?(item.seller_approval_available?"Not listed — use List on Shopify":
+            item.status === "INSPECTION" ? "Awaiting Drop Rate review — not live yet" : "Submit for Drop Rate review above"):"Awaiting channel checks",
         action:!publishedOnShopify && item.shopify_sync_enabled && approvedForSale?"Check & sync to Shopify":null,
         click:()=>run(async()=>{
           const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`,
@@ -714,8 +853,9 @@ window.DropRateInventory = (() => {
         action.setAttribute("aria-label",channel.action==="Set up"?"Set up "+channel.label:channel.action);
         block.append(action);
       }else{
-        const availability=el("span","owner-item-channel-availability",channel.code==="SHOPIFY" && publishedOnShopify
-          ?"Already live":"Not available yet");
+        const availability=el("span","owner-item-channel-availability",channel.code==="SHOPIFY"
+          ? publishedOnShopify ? "Already live" : !item.shopify_sync_enabled ? "Publishing paused" : item.status === "INSPECTION" ? "In review" : "Preparation needed"
+          : "Not available yet");
         availability.setAttribute("aria-label",channel.code==="SHOPIFY" && publishedOnShopify
           ?"Already published on Shopify":"No publishing action available for "+channel.label);
         block.append(availability);

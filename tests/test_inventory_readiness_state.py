@@ -2,6 +2,9 @@ from pathlib import Path
 
 from app.api import (
     GRADED_CARD_READY_SQL,
+    GRADED_BOOK_READY_SQL,
+    RAW_BOOK_READY_SQL,
+    FIGURE_READY_SQL,
     ISSUE_FILTERS,
     NON_CARD_READY_SQL,
     RAW_CARD_READY_SQL,
@@ -22,17 +25,29 @@ def test_graded_card_readiness_does_not_require_raw_condition() -> None:
 
 
 def test_non_card_readiness_uses_seal_status_only() -> None:
-    assert "p.product_type <> 'CARD'" in NON_CARD_READY_SQL
+    assert "p.product_type in ('SEALED', 'COLLECTION')" in NON_CARD_READY_SQL
     assert "i.seal_status is not null" in NON_CARD_READY_SQL
     assert "i.grading_company is null" in NON_CARD_READY_SQL
     assert "i.condition is null" in NON_CARD_READY_SQL
 
 
 def test_action_required_separates_raw_condition_from_seal_status() -> None:
-    assert "p.product_type = 'CARD'" in ISSUE_FILTERS["missing_condition"]
+    assert "p.product_type in ('CARD', 'COMIC', 'FIGURE')" in ISSUE_FILTERS["missing_condition"]
     assert "i.grading_company is null" in ISSUE_FILTERS["missing_condition"]
-    assert "p.product_type <> 'CARD'" in ISSUE_FILTERS["missing_seal_status"]
+    assert "p.product_type in ('SEALED', 'COLLECTION')" in ISSUE_FILTERS["missing_seal_status"]
     assert "i.seal_status is null" in ISSUE_FILTERS["missing_seal_status"]
+
+
+def test_book_and_figure_readiness_use_their_own_physical_state_contract() -> None:
+    assert "p.product_type = 'COMIC'" in RAW_BOOK_READY_SQL
+    assert "'Mint'" in RAW_BOOK_READY_SQL
+    assert "i.seal_status is null" in RAW_BOOK_READY_SQL
+    assert "p.product_type = 'COMIC'" in GRADED_BOOK_READY_SQL
+    assert "between 0.5 and 10" in GRADED_BOOK_READY_SQL
+    assert "i.condition is null" in GRADED_BOOK_READY_SQL
+    assert "p.product_type = 'FIGURE'" in FIGURE_READY_SQL
+    assert "i.seal_status is null or" in FIGURE_READY_SQL
+    assert "'Like New'" in FIGURE_READY_SQL
 
 
 def test_inventory_ui_exposes_core_readiness_per_item() -> None:

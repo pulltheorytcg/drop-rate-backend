@@ -20,6 +20,8 @@ on:
       - 'tests/ui/shared-reference-display.py'
       - 'tests/ui/recommendation-summary.py'
       - 'tests/ui/journey-regressions.py'
+      - 'tests/ui/comic-listing-recovery.py'
+      - 'backend/app/comic_listing_preparation.py'
       - 'backend/app/seller_inventory_policy.py'
       - 'backend/app/seller_channel_sync.py'
       - '.github/workflows/shared-reference-consistency.yml'
@@ -100,9 +102,11 @@ jobs:
           python tests/ui/shared-reference-display.py
           python tests/ui/recommendation-summary.py
           python tests/ui/journey-regressions.py
+          python tests/ui/comic-listing-recovery.py
         env:
           RECOMMENDATION_LAYOUT_DIR: /tmp/reference-layout/recommendations
           JOURNEY_LAYOUT_DIR: /tmp/reference-layout/journeys
+          COMIC_RECOVERY_LAYOUT_DIR: /tmp/reference-layout/comic-recovery
       - uses: actions/upload-artifact@v4
         if: always()
         with:

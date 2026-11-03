@@ -125,8 +125,8 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  {
   const f=fixture({seller_approval_available:true,approval_blockers:[],image_url:'https://cdn.shopify.com/op17.webp'});await f.open();
-  assert.match(f.w.document.querySelector('dialog').textContent,/Your stock stays with you/);
-  assert.doesNotMatch(f.w.document.querySelector('dialog').textContent,/requests Drop Rate review/);
+  assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/Your stock stays with you/);
+  assert.doesNotMatch(f.w.document.querySelector('.owner-item-dialog').textContent,/requests Drop Rate review/);
   f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='10.00';await click(f.w,'List on Shopify');
   assert.deepEqual(JSON.parse(f.calls.find(c=>c.method).body),{version:3,store_price_minor:1000});f.finish();checks++;
  }
@@ -183,17 +183,34 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   Object.defineProperty(front.querySelector('input[type="file"]'),'files',{configurable:true,value:[file]});
   front.querySelector('input[type="checkbox"]').checked=true;
   f.setHandler(async(url,options={})=>{
-   if(url.endsWith('/comic-photo/upload-target'))return {target:{url:'https://upload.test/target',parameters:[]},ticket:'signed-test-ticket'};
-   if(url.endsWith('/comic-photo/complete'))return {asset:{approval_status:'PENDING'},message:'Photo received for staff review'};
+   if(url.includes('/comic-photo/upload?'))return {asset:{approval_status:'PENDING'},message:'Photo received for staff review'};
    return {item:comic,copies:[comic]};
   });
   await click(f.w,'Resubmit photo');
-  const stage=f.calls.find(c=>c.url.endsWith('/comic-photo/upload-target'));
-  const complete=f.calls.find(c=>c.url.endsWith('/comic-photo/complete'));
-  assert.ok(stage&&complete);assert.equal(JSON.parse(stage.body).side,'FRONT');
-  assert.deepEqual(JSON.parse(complete.body),{ticket:'signed-test-ticket',rights_confirmed:true});
+  const upload=f.calls.find(c=>c.url.includes('/comic-photo/upload?'));
+  assert.ok(upload);assert.equal(upload.body,file);
+  const params=new URL(upload.url,'https://example.test').searchParams;
+  assert.equal(params.get('side'),'FRONT');assert.equal(params.get('version'),'3');
+  assert.equal(params.get('rights_confirmed'),'true');assert.equal(params.get('filename'),'cover.jpg');
+  assert.match(params.get('request_key'),/^[0-9a-f-]{36}$/);
+  assert.equal(upload.headers['Content-Type'],'image/jpeg');
+  assert.equal(f.calls.filter(c=>/comic-photo\/(upload-target|complete)/.test(c.url)).length,0);
   assert.equal(f.calls.filter(c=>c.url.includes('/channels/shopify/sync')).length,0);
   f.finish();checks++;
+ }
+ for(const fileStatus of ['FAILED','NOT_UPLOADED']){
+  const f=fixture({product_type:'COMIC',condition:'Mint',seal_status:null,status:'INSPECTION',
+   comic_photos:[{id:'pending-front',side:'FRONT',approval_status:'PENDING',shopify_file_status:fileStatus}]});
+  await f.open();
+  const front=f.w.document.querySelector('.owner-comic-photo-row');
+  if(fileStatus==='FAILED'){
+   assert.match(front.textContent,/could not be processed/);assert.ok(btn(f.w,'Resubmit photo'));
+   assert.ok(front.querySelector('input[type="file"]'),'A failed provider image must offer a new submission');
+  }else{
+   assert.match(front.textContent,/Drop Rate needs to finish processing/);
+   assert.equal(front.querySelector('input[type="file"]'),null,'An existing receipt must not invite duplicate uploads');
+  }
+  assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
  }
  for(const change of ['refresh','account','logout']){
   const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const pending=f.w.testLoadInventory();
@@ -226,7 +243,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.match(inventoryRow.textContent,/Japanese/);
   assert.match(inventoryRow.textContent,/£8.66/);
   f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
-  assert.equal(f.w.document.querySelector('dialog').open,true);assert.match(f.w.document.querySelector('dialog').textContent,/INV-EXACT-COPY/);
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/INV-EXACT-COPY/);
   const facts=f.w.document.querySelector('.owner-item-facts');
   assert.ok(facts,'Full inventory identity must be visible only inside details');
   const entries=[...facts.querySelectorAll('.owner-item-fact')].map(n=>[
@@ -235,8 +252,8 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
     ['Type','Sealed product'],['Inventory ID','INV-EXACT-COPY']])
     assert.ok(entries.some(entry=>entry[0]===label&&entry[1]===value),label+' missing from item details');
   assert.equal(tile.querySelector('.owner-item-facts'),null);
-  f.w.DropRateInventory.close();f.w.document.querySelector('.owner-inventory-open').click();await tick();assert.equal(f.w.document.querySelector('dialog').open,true);
-  assert.match(f.w.document.querySelector('dialog').textContent,/We need to check this item/);assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
+  f.w.DropRateInventory.close();f.w.document.querySelector('.owner-inventory-open').click();await tick();assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);
+  assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/We need to check this item/);assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
   assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
  }
  // The screenshot showed a giant "Last known 08/10/2026" block. A
@@ -401,7 +418,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
     shopify_state:'PUBLISHED',seller_approval_available:true,
     is_consignment:true,store_price_minor:1000,shopify_sync_enabled:true});
   await f.open();
-  const modal=f.w.document.querySelector('dialog');
+  const modal=f.w.document.querySelector('.owner-item-dialog');
   assert.equal(modal.querySelector('.owner-item-selling summary').textContent,'Manage listing');
   assert.equal(modal.querySelector('.owner-item-selling').open,false);
   assert.equal(btn(f.w,'List on Shopify'),undefined);
@@ -424,7 +441,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.finish();checks++;
  }
  {
-  const f=fixture({product_type:'CARD',grading_company:'PSA',grade:'10',certificate_number:'123'});await f.open();assert.equal(btn(f.w,'Add another copy').disabled,true);assert.match(f.w.document.querySelector('dialog').textContent,/own certificate/);f.finish();checks++;
+  const f=fixture({product_type:'CARD',grading_company:'PSA',grade:'10',certificate_number:'123'});await f.open();assert.equal(btn(f.w,'Add another copy').disabled,true);assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/own certificate/);f.finish();checks++;
  }
  {
   const f=fixture({product_type:'CARD',seal_status:null,condition:'Near Mint',
@@ -540,11 +557,11 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  {
   const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const waiting=f.open();f.run('clearSession()');resolve({item,copies:[item]});await waiting;
-  assert.equal(f.w.document.querySelector('dialog').open,false);assert.equal(f.w.document.querySelector('.owner-item-content').textContent,'');f.finish();checks++;
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,false);assert.equal(f.w.document.querySelector('.owner-item-content').textContent,'');f.finish();checks++;
  }
  {
   const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const waiting=f.open();f.w.DropRateInventory.close();resolve({item,copies:[item]});await waiting;
-  assert.equal(f.w.document.querySelector('dialog').open,false);assert.equal(f.w.document.querySelector('.owner-item-content').textContent,'');f.finish();checks++;
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,false);assert.equal(f.w.document.querySelector('.owner-item-content').textContent,'');f.finish();checks++;
  }
  {
   const f=fixture(),calls=[],revoked=[];f.w.URL.createObjectURL=()=> 'blob:safe';f.w.URL.revokeObjectURL=x=>revoked.push(x);
@@ -577,7 +594,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.finish();checks++;
  }
  {
-  const f=fixture({name:'<img src=x onerror=alert(1)>',market_value_minor:null});await f.open();assert.match(f.w.document.querySelector('dialog').textContent,/Value unavailable/);assert.equal(f.w.document.querySelector('dialog img[src="x"]'),null);f.finish();checks++;
+  const f=fixture({name:'<img src=x onerror=alert(1)>',market_value_minor:null});await f.open();assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/Value unavailable/);assert.equal(f.w.document.querySelector('.owner-item-dialog img[src="x"]'),null);f.finish();checks++;
  }
  // Rich collection filters are submitted together before server pagination.
  {
@@ -740,7 +757,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   await f.w.DropRateInventory.open(item,{selling:true});await click(f.w,'4. Review');
   const stored=JSON.parse(f.w.sessionStorage.getItem(`drop_rate_listing_draft:seller-a:${id}`));
   assert.deepEqual(Object.keys(stored).sort(),['condition','price','step','version']);
-  assert.doesNotMatch(f.w.document.querySelector('dialog').textContent,/private note|private-image|must-not-persist/);
+  assert.doesNotMatch(f.w.document.querySelector('.owner-item-dialog').textContent,/private note|private-image|must-not-persist/);
   f.w.DropRateInventory.close();f.setItem({version:4});await f.w.DropRateInventory.open({...item,version:4},{selling:true});
   assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'');
   f.finish();checks++;

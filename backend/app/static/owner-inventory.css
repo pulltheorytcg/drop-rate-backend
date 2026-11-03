@@ -275,3 +275,22 @@ body.premium-hub .owner-item-quantity-value{font-size:20px}
  body.premium-hub .owner-item-quantity-value{flex-basis:100%;place-items:start}
 }
 @media(max-width:360px){body.premium-hub .owner-collection-filter-fields{grid-template-columns:1fr}}
+
+/* Preparation stays readable and keeps the seller's selected photos visible. */
+body.premium-hub .owner-comic-preparation :is(h3,h4){color:var(--hub-text,#f4f7fb);font-weight:550}
+body.premium-hub :is(.owner-comic-preparation-fields label,.owner-comic-photo-row>label){color:var(--hub-muted,#a6b4c8);font-size:13px;line-height:1.5}
+body.premium-hub .owner-comic-photo-row .owner-comic-rights{min-height:44px;align-items:flex-start;padding:8px 0;color:var(--hub-text,#f4f7fb);cursor:pointer}
+body.premium-hub .owner-comic-rights input{margin:2px 0 0;width:20px;height:20px;min-height:20px;padding:0}
+body.premium-hub .owner-comic-photo-row .owner-comic-file-picker{position:relative;display:flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--hub-line,#26364a);border-radius:9px;color:var(--hub-link,#8dbdff);background:var(--hub-panel,#101c2c);overflow:hidden;cursor:pointer}
+body.premium-hub .owner-comic-file-picker input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+body.premium-hub .owner-comic-file-picker:focus-within{outline:2px solid var(--hub-link,#8dbdff);outline-offset:3px}
+body.premium-hub .owner-comic-file-selection{display:flex;align-items:center;gap:12px;min-width:0}
+body.premium-hub .owner-comic-file-selection img{width:56px;height:72px;object-fit:contain;flex:none;border-radius:6px;background:var(--hub-panel,#101c2c)}
+body.premium-hub .owner-comic-file-selection p{font-size:13px;color:var(--hub-muted,#a6b4c8);overflow-wrap:anywhere;min-width:0}
+body.premium-hub .owner-comic-upload-error{padding:12px;border:1px solid #70434a;border-radius:8px;background:#39232a;color:#ffb5b5;font-size:13px;line-height:1.5}
+body.premium-hub .owner-comic-upload-error:empty{display:none}
+body.premium-hub .owner-comic-review-status{display:grid;gap:12px;padding:16px;border:1px solid var(--hub-line,#26364a);border-radius:10px;background:var(--hub-input,#0c1726)}
+body.premium-hub .owner-comic-review-status h4{margin:0;font-size:14px;font-weight:550}
+body.premium-hub .owner-comic-review-status p{font-size:13px;color:var(--hub-muted,#a6b4c8);line-height:1.6}
+body.premium-hub .owner-comic-review-status ul{display:grid;gap:8px;padding-left:20px;font-size:13px;color:var(--hub-muted,#a6b4c8)}
+body.premium-hub .owner-comic-review-status button{justify-self:start;min-height:44px}
