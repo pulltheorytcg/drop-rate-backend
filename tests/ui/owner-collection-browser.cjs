@@ -84,6 +84,7 @@ const samples=[
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.getByRole('button',{name:'Filter and sort collection',exact:true}).click();
    const dialog=page.getByRole('dialog',{name:'Filter & sort',exact:true});await dialog.waitFor();
+   await dialog.evaluate(async node=>{await Promise.all(node.getAnimations().map(animation=>animation.finished.catch(()=>{})));});
    assert.equal(await dialog.evaluate(node=>node.scrollWidth<=node.clientWidth+1),true,'Filter sheet overflows');
    const box=await dialog.boundingBox();assert.ok(box.x>=-1&&box.y>=-1&&box.x+box.width<=viewport.width+1&&box.y+box.height<=viewport.height+1,JSON.stringify(box));
    const close=dialog.getByRole('button',{name:'Close collection filters',exact:true}),done=dialog.getByRole('button',{name:'Show collection',exact:true});

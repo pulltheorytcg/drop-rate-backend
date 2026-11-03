@@ -68,7 +68,8 @@ and [media guide](https://shopify.dev/docs/apps/build/product-merchandising/prod
   and refresh. The current product count and order remain visible.
 - A native modal groups sorting, item filters and selling/availability filters.
   It becomes a bottom sheet on phones, with an independently scrolling body and
-  reachable dismissal and confirmation controls.
+  reachable dismissal and confirmation controls. Its short entrance transition
+  uses the existing motion controller and respects both motion preferences.
 - Active filters have removable chips. Clearing filters preserves the chosen
   sort and grid/list layout. Server-side filtering, sorting, pagination and
   account guards remain authoritative.

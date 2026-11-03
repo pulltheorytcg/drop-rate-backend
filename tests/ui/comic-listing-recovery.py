@@ -9,6 +9,9 @@ import json
 import mimetypes
 import os
 import re
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -16,7 +19,6 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2] / "backend/app/static"
 OUT = Path(os.getenv("COMIC_RECOVERY_LAYOUT_DIR", "/tmp/comic-listing-recovery"))
-ORIGIN = "https://comic-listing-recovery.test"
 FIRST = "00000000-0000-4000-8000-000000000111"
 
 FIXTURE = r"""
@@ -97,6 +99,98 @@ async () => {
 """
 
 
+@contextmanager
+def fixture_server():
+    """Receive real browser File bytes; WebKit's debug protocol omits them."""
+    html = re.sub(r"<script[^>]*>.*?</script>", "", (ROOT / "owner.html").read_text(), flags=re.S)
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def reply(self, body, content_type, status=200):
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Security-Policy", "connect-src 'self'")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def json_reply(self, data, status=200):
+            self.reply(json.dumps(data).encode(), "application/json", status)
+
+        def handle_api(self):
+            transport = self.server.transport
+            try:
+                assert transport is not None, "Unexpected API request before wire verification"
+                url = urlsplit(self.path)
+                transport["requests"].append({"path": url.path, "method": self.command})
+                assert self.headers.get("Authorization") == "Bearer " + transport["token"], "Wrong account Authorization on the wire"
+                if self.command == "GET" and url.path == f"/api/v1/owner/inventory/{FIRST}":
+                    self.json_reply({"item": transport["item"], "copies": [transport["item"]]})
+                    return
+                assert self.command == "POST" and url.path == f"/api/v1/owner/inventory/{FIRST}/comic-photo/upload", "Unexpected write or publication request"
+                query = parse_qs(url.query)
+                side = query["side"][0]
+                assert side in transport["expected"] and query["rights_confirmed"] == ["true"], "Missing side or consent"
+                expected = transport["expected"][side]
+                assert int(query["version"][0]) == transport["item"]["version"], "Stale inventory version on the wire"
+                assert query["filename"] == [expected["name"]], "Wrong filename on the wire"
+                assert re.fullmatch(r"[0-9a-f-]{36}", query["request_key"][0], re.I), "Missing upload request key"
+                assert self.headers.get("Content-Type") == "image/png", "Wrong photo MIME type on the wire"
+                length = int(self.headers.get("Content-Length", "0"))
+                assert length == len(expected["buffer"]), "Wrong photo length on the wire"
+                received = self.rfile.read(length)
+                assert received == expected["buffer"], "Received photograph bytes differ from the selected File"
+                digest = hashlib.sha256(received).hexdigest()
+                assert digest == hashlib.sha256(expected["buffer"]).hexdigest()
+                transport["transfers"].append({"side": side, "key": query["request_key"][0], "sha256": digest, "bytes": len(received)})
+                asset = {"id": "real-transport-" + side.lower(), "version": 1, "side": side,
+                         "approval_status": "PENDING", "rights_status": "PENDING", "shopify_file_status": "READY"}
+                transport["item"]["comic_photos"].append(asset)
+                transport["item"]["version"] += 1
+                self.json_reply({"asset": asset, "replayed": False, "message": "Photo received for staff review."}, 201)
+            except Exception as error:
+                self.server.errors.append(str(error) or type(error).__name__)
+                self.json_reply({"detail": "Synthetic receiver rejected the request: " + str(error)}, 422)
+
+        def do_GET(self):
+            path = urlsplit(self.path).path
+            if path.startswith("/api/"):
+                self.handle_api()
+            elif path == "/":
+                self.reply(html.encode(), "text/html")
+            elif path.startswith("/assets/"):
+                asset = (ROOT / path.removeprefix("/assets/")).resolve()
+                if asset.is_relative_to(ROOT.resolve()) and asset.is_file():
+                    self.reply(asset.read_bytes(), mimetypes.guess_type(asset.name)[0] or "application/octet-stream")
+                else:
+                    self.reply(b"Not found", "text/plain", 404)
+            else:
+                self.reply(b"Not found", "text/plain", 404)
+
+        def do_POST(self):
+            self.handle_api()
+
+        do_PATCH = do_POST
+        do_PUT = do_POST
+        do_DELETE = do_POST
+        do_OPTIONS = do_POST
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server.origin = f"http://127.0.0.1:{server.server_port}"
+    server.transport = None
+    server.errors = []
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
 def photo(page, filename, color):
     encoded = page.evaluate("""color=>{const canvas=document.createElement('canvas');canvas.width=240;canvas.height=360;
       const ctx=canvas.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,240,360);
@@ -134,66 +228,48 @@ def no_photo_storage(page, front, back):
     assert "Synthetic dispatch note" not in saved
 
 
-def real_transport(page, front, back):
+def real_transport(page, front, back, server):
     """Exercise actual apiRequest + fetch under connect-src 'self'."""
     page.evaluate("freshComic()")
-    server_item = page.evaluate("structuredClone(currentItem)")
-    expected = {"FRONT": front, "BACK": back}
-    transfers = []
     transport_requests = []
     account_token = page.evaluate("state.session.access_token")
+    server.transport = {"item": page.evaluate("structuredClone(currentItem)"), "token": account_token,
+                        "expected": {"FRONT": front, "BACK": back}, "requests": [], "transfers": []}
 
     def capture(request):
         if request.resource_type in ("fetch", "xhr"):
-            transport_requests.append({"url": request.url, "method": request.method, "headers": request.headers})
-
-    def respond(route):
-        request = route.request
-        url = urlsplit(request.url)
-        if request.method == "GET" and url.path == f"/api/v1/owner/inventory/{FIRST}":
-            route.fulfill(json={"item": server_item, "copies": [server_item]})
-        elif request.method == "POST" and url.path == f"/api/v1/owner/inventory/{FIRST}/comic-photo/upload":
-            query = parse_qs(url.query)
-            side = query["side"][0]
-            assert side in expected and query["rights_confirmed"] == ["true"]
-            assert int(query["version"][0]) == server_item["version"]
-            assert query["filename"] == [expected[side]["name"]]
-            assert re.fullmatch(r"[0-9a-f-]{36}", query["request_key"][0], re.I)
-            assert request.headers["authorization"] == "Bearer " + account_token
-            assert request.headers["content-type"] == "image/png"
-            assert request.post_data_buffer == expected[side]["buffer"]
-            transfers.append({"side": side, "key": query["request_key"][0]})
-            asset = {"id": "real-transport-" + side.lower(), "version": 1, "side": side,
-                     "approval_status": "PENDING", "rights_status": "PENDING", "shopify_file_status": "READY"}
-            server_item["comic_photos"].append(asset)
-            server_item["version"] += 1
-            route.fulfill(json={"asset": asset, "replayed": False, "message": "Photo received for staff review."})
-        else:
-            raise AssertionError(f"Unexpected transport call: {request.method} {url.path}")
+            transport_requests.append({"url": request.url, "method": request.method})
 
     page.on("request", capture)
-    page.route("**/api/v1/owner/inventory/**", respond)
     page.evaluate("() => {apiRequest=realApiRequest;}")
     choose_photos(page, front, back)
     for side in ("front", "back"):
         page.get_by_role("button", name=f"Submit {side} photo for review", exact=True).click()
-        side_row(page, side).get_by_text("Photo submitted — awaiting staff review.", exact=True).wait_for()
+        try:
+            side_row(page, side).get_by_text("Photo submitted — awaiting staff review.", exact=True).wait_for()
+        except Exception:
+            assert not server.errors, server.errors
+            raise
+    transfers = server.transport["transfers"]
+    assert not server.errors, server.errors
     assert len(transfers) == 2 and len({record["key"] for record in transfers}) == 2
     assert [record["side"] for record in transfers] == ["FRONT", "BACK"]
     assert len(transport_requests) == 4, transport_requests  # two POSTs + two owner-scoped rereads
-    assert all(request["url"].startswith(ORIGIN + "/api/v1/owner/inventory/") for request in transport_requests)
+    assert all(request["url"].startswith(server.origin + "/api/v1/owner/inventory/") for request in transport_requests)
     assert all(request["method"] in ("POST", "GET") for request in transport_requests)
-    assert all(request["headers"].get("authorization") == "Bearer " + account_token for request in transport_requests)
+    assert [request["method"] for request in server.transport["requests"]] == ["POST", "GET", "POST", "GET"]
     assert page.evaluate("cspViolations") == []
+    server_item = server.transport["item"]
     assert server_item["status"] == "INSPECTION" and all(asset["approval_status"] == "PENDING" for asset in server_item["comic_photos"])
     no_photo_storage(page, front, back)
     page.remove_listener("request", capture)
+    return transfers
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     results = []
-    with sync_playwright() as p:
+    with fixture_server() as server, sync_playwright() as p:
         for engine in os.getenv("BROWSER_ENGINES", "chromium,webkit").split(","):
             launch = {"headless": True}
             if engine == "chromium" and os.getenv("CHROMIUM_EXECUTABLE"):
@@ -205,26 +281,13 @@ def main():
                 page.set_default_timeout(10000)
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
-                source = (ROOT / "owner.html").read_text()
-                html = re.sub(r"<script[^>]*>.*?</script>", "", source, flags=re.S)
-
-                def route(request):
-                    url = urlsplit(request.request.url)
-                    if request.request.url == ORIGIN + "/":
-                        request.fulfill(body=html, content_type="text/html", headers={"Content-Security-Policy": "connect-src 'self'"})
-                    elif url.netloc == "comic-listing-recovery.test" and url.path.startswith("/assets/"):
-                        path = (ROOT / url.path.removeprefix("/assets/")).resolve()
-                        if path.is_relative_to(ROOT.resolve()) and path.is_file():
-                            request.fulfill(body=path.read_bytes(), content_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream")
-                        else:
-                            request.abort()
-                    else:
-                        request.abort()
-
-                # WebKit routes blob previews too when given **/*; only
-                # intercept network traffic and let selected File URLs render.
-                page.route(re.compile(r"^https?://"), route)
-                page.goto(ORIGIN + "/")
+                # Do not intercept loopback traffic: the receiver checks the
+                # wire bytes, even when WebKit omits File bodies in its debug
+                # protocol. Only external HTTP(S) requests are blocked; blob
+                # previews stay entirely inside the browser.
+                page.route(re.compile(r"^(?!" + re.escape(server.origin) + r"/)https?://"), lambda route: route.abort())
+                page.goto(server.origin + "/")
+                assert page.evaluate("isSecureContext && !!crypto.subtle && !!crypto.randomUUID")
                 # Use the deployed stylesheet order, including dark overrides.
                 page.add_script_tag(content=(ROOT / "hub-session.js").read_text())
                 page.add_script_tag(content=(ROOT / "reference-value-display.js").read_text())
@@ -372,7 +435,7 @@ def main():
                   await DropRateInventory.open(currentItem,{selling:true,step:'preparation'});} """)
                 no_staged_photos(page, front, back)
                 no_photo_storage(page, front, back)
-                real_transport(page, front, back)
+                wire_transfers = real_transport(page, front, back, server)
                 assert not errors, errors
                 results.append({"engine": engine, "width": width, "passed": True,
                                 "scenarios": ["failure before receipt retains both files, consents and preparation",
@@ -382,6 +445,7 @@ def main():
                                               "unsent photos and unsaved preparation block review with recovery",
                                               "close, item, printing and account changes discard photo buffers",
                                               "actual authenticated raw File transport obeys same-origin CSP"],
+                                "wire_transfers": wire_transfers,
                                 "publication_requests": 0, "photo_storage_writes": 0, "javascript_errors": 0})
                 page.close()
             browser.close()

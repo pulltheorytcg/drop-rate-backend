@@ -238,7 +238,13 @@ function updateCollectionControls() {
     clear.type=done.type="button";clear.id="owner-collection-clear-filters";clear.className="owner-collection-filter-reset";clear.textContent="Clear filters";clear.addEventListener("click",()=>window.DropRateCollection.clearFilters());
     done.className="owner-collection-filter-done";done.textContent="Show collection";done.addEventListener("click",()=>closeCollectionFilters());footer.append(clear,done);
     dialog.append(heading,body,footer);document.body.append(dialog);
-    filterButton.addEventListener("click",()=>{if(!dialog.open)dialog.showModal();filterButton.setAttribute("aria-expanded","true");});
+    filterButton.addEventListener("click",()=>{
+      if(!dialog.open){
+        dialog.showModal();
+        window.DropRateHub?.animate(dialog,[{opacity:0,transform:"translateY(12px)"},{opacity:1,transform:"translateY(0)"}],280);
+      }
+      filterButton.setAttribute("aria-expanded","true");
+    });
     dialog.addEventListener("cancel",event=>{event.preventDefault();closeCollectionFilters();});
     dialog.addEventListener("close",()=>filterButton.setAttribute("aria-expanded","false"));
     document.addEventListener("owner-view-changed",()=>closeCollectionFilters({restoreFocus:false}));
