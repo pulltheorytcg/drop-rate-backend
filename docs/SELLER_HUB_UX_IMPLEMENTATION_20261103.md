@@ -1,6 +1,6 @@
 # Seller Hub — premium interaction and UX implementation
 
-**Status on 3 November 2026: implementation and local verification complete; native GitHub CI and live release pending. This release has not been deployed.**
+**Pre-release record, captured on 3 November 2026:** implementation and local verification were complete before native GitHub CI and live release. Current release and deployment evidence is tracked in [pull request #883](https://github.com/pulltheorytcg/drop-rate-backend/pull/883).
 
 The user authorised the reviewed UI/UX improvements, premium motion, GitHub publication, CI and Railway deployment after checks pass. The implementation preserves exact collectible identity, physical-copy ownership, truthful price evidence, deliberate sale submission, and existing review, payment and fulfilment protections.
 
@@ -76,7 +76,7 @@ The committed screenshots show representative synthetic states from the responsi
 
 **Real-device acceptance has not yet been performed.** Responsive desktop-browser emulation does not establish physical iOS/Android behaviour, camera permission/rotation handling, real email delivery, external OAuth handoffs or payment/fulfilment integration acceptance.
 
-Pending release work:
+Release work remaining when this pre-release record was captured:
 
 - [ ] Publish the reviewed branch and complete native GitHub CI.
 - [ ] Apply the ordered database migrations and reviewed metadata seed during the coordinated release.
@@ -84,4 +84,4 @@ Pending release work:
 - [ ] Complete read-only live health, authentication, navigation and catalogue smoke checks.
 - [ ] Perform and record real-device acceptance separately.
 
-Local implementation and verification are complete. Native CI, database release, deployment and live verification remain pending at this record's date.
+The linked pull request records subsequent CI, database release, deployment and live verification outcomes.

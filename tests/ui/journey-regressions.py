@@ -186,15 +186,18 @@ def main():
             for name in ('reference-value-display.js','owner-inventory.js'):
                 page.add_script_tag(content=(ROOT/name).read_text())
             page.evaluate('''()=>{window.currentItem={id:'00000000-0000-4000-8000-000000000001',name:'Synthetic',catalogue_id:'synthetic-card',product_type:'CARD',language:'Japanese',condition:'Near Mint',status:'DRAFT',sale_intent:'PERSONAL_COLLECTION',version:1,store_price_minor:null,reference_value:{status:'AVAILABLE',market_value_minor:1200,recommended_retail_minor:1200}};
-              apiRequest=async()=>({item:currentItem,copies:[currentItem]});DropRateInventory.open(currentItem);}''')
-            page.wait_for_selector('dialog .owner-item-selling');page.locator('.owner-item-selling summary').click()
+              apiRequest=async()=>({item:currentItem,copies:[currentItem]});DropRateInventory.open(currentItem,{selling:true,step:'condition'});}''')
+            page.wait_for_selector('[data-listing-step="condition"]')
             field=page.get_by_label('Your selling price in pounds')
             page.get_by_label('Condition when selling').select_option('Lightly Played')
+            page.get_by_role('button',name='3. Price',exact=True).click()
             check(engine,'seller','wrong-condition-clears-automatic-suggestion',field.input_value()=='',field.input_value())
+            page.get_by_role('button',name='1. Item',exact=True).click()
             page.get_by_label('Condition when selling').select_option('Near Mint')
+            page.get_by_role('button',name='3. Price',exact=True).click()
             actual={'value':field.input_value(),'note':page.locator('[data-recommended-retail]').inner_text()}
             check(engine,'seller','returning-to-matched-condition-restores-untouched-suggestion',actual['value']=='12.00' and 'does not apply' not in actual['note'],actual)
-            field.fill('18.25');page.get_by_label('Condition when selling').select_option('Lightly Played');page.get_by_label('Condition when selling').select_option('Near Mint')
+            field.fill('18.25');page.get_by_role('button',name='1. Item',exact=True).click();page.get_by_label('Condition when selling').select_option('Lightly Played');page.get_by_label('Condition when selling').select_option('Near Mint');page.get_by_role('button',name='3. Price',exact=True).click()
             check(engine,'seller','manual-price-survives-condition-round-trip',field.input_value()=='18.25',field.input_value())
             page.close();browser.close()
     (OUT/'results.json').write_text(json.dumps(results,indent=2))

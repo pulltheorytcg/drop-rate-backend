@@ -3,7 +3,11 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
+from urllib.parse import quote, unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -195,3 +199,91 @@ def test_seller_hub_release_migrations_keep_canonical_versions_and_sql(
         staged = tmp_path / filename
         assert staged.read_bytes() == canonical.read_bytes()
         assert "Intentionally no SQL" not in staged.read_text()
+
+
+def _pooler_setup_code() -> str:
+    step = WORKFLOW.read_text().split(
+        "- name: Prepare masked IPv4 session-pooler connection\n", 1
+    )[1].split("\n      - name:", 1)[0]
+    return textwrap.dedent(
+        step.split("python - <<'PY'\n", 1)[1].rsplit("\n          PY", 1)[0]
+    )
+
+
+def test_production_workflow_routes_all_database_commands_through_session_pooler() -> None:
+    workflow = WORKFLOW.read_text()
+    commands = re.findall(
+        r'^\s+run: (supabase (?:migration list|db push)[^\n]*)$',
+        workflow,
+        flags=re.MULTILINE,
+    )
+    assert len(commands) == 4
+    assert all('--db-url "${SUPABASE_POOLER_URL}"' in command for command in commands)
+    assert sum("--dry-run" in command for command in commands) == 1
+    assert "--include-all" not in workflow
+    assert "tests/test_supabase_migration_staging.py" in workflow
+
+
+def test_pooler_url_preserves_reserved_password_characters_and_masks_them(
+    tmp_path: Path,
+) -> None:
+    # Synthetic credential only. Percent characters also require escaping in
+    # GitHub's add-mask command, independently of URL percent-encoding.
+    password = "synthetic:@/?#[] $%25&=example"
+    env_file = tmp_path / "github-env"
+    result = subprocess.run(
+        [sys.executable, "-c", _pooler_setup_code()],
+        env={
+            "SUPABASE_PROJECT_ID": "ozrxenrdladkooixutmm",
+            "SUPABASE_DB_PASSWORD": password,
+            "GITHUB_ENV": str(env_file),
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    exported = env_file.read_text()
+    assert exported.count("\n") == 1
+    assert exported.startswith("SUPABASE_POOLER_URL=")
+    db_url = exported.removeprefix("SUPABASE_POOLER_URL=").rstrip("\n")
+    parsed = urlsplit(db_url)
+    assert parsed.username == "postgres.ozrxenrdladkooixutmm"
+    assert unquote(parsed.password or "") == password
+    assert parsed.hostname == "aws-0-eu-west-2.pooler.supabase.com"
+    assert parsed.port == 5432
+    assert parsed.path == "/postgres"
+    assert parsed.query == "sslmode=require"
+    mask_lines = result.stdout.splitlines()
+    assert len(mask_lines) == 2
+    assert all(line.startswith("::add-mask::") for line in mask_lines)
+    # Decode the workflow command protocol in the same order as GitHub Actions.
+    masked_values = {
+        line.removeprefix("::add-mask::")
+        .replace("%0D", "\r")
+        .replace("%0A", "\n")
+        .replace("%25", "%")
+        for line in mask_lines
+    }
+    assert masked_values == {quote(password, safe=""), db_url}
+    assert result.stderr == ""
+
+
+def test_pooler_setup_rejects_line_breaks_before_exporting_credentials(
+    tmp_path: Path,
+) -> None:
+    for password in ("synthetic\npassword", "synthetic\rpassword"):
+        env_file = tmp_path / "github-env"
+        result = subprocess.run(
+            [sys.executable, "-c", _pooler_setup_code()],
+            env={
+                "SUPABASE_PROJECT_ID": "ozrxenrdladkooixutmm",
+                "SUPABASE_DB_PASSWORD": password,
+                "GITHUB_ENV": str(env_file),
+            },
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "Database password must not contain a newline" in result.stderr
+        assert result.stdout == ""
+        assert not env_file.exists()

@@ -21,7 +21,12 @@ SIZES = [(320, 640), (360, 740), (390, 844), (430, 932), (660, 800), (768, 900),
 
 
 def rectangle(locator):
-    return locator.evaluate('el => { const r=el.getBoundingClientRect(); return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}; }')
+    # Measure settled layout while still exercising the real entrance motion.
+    return locator.evaluate('''async el => {
+        await Promise.all(el.getAnimations().map(animation => animation.finished.catch(() => {})));
+        const r=el.getBoundingClientRect();
+        return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};
+    }''')
 
 
 def main():
@@ -30,7 +35,7 @@ def main():
     html = re.sub(r'<script\b[^>]*>.*?</script>', '', original, flags=re.S | re.I)
     results = []
     with sync_playwright() as p:
-        for engine in ('chromium', 'webkit'):
+        for engine in os.getenv('BROWSER_ENGINES', 'chromium,webkit').split(','):
             browser = getattr(p, engine).launch(headless=True)
             for width, height in SIZES:
                 context = browser.new_context(viewport={'width': width, 'height': height})
@@ -53,28 +58,36 @@ def main():
                         route.abort()
                 page.route('**/*', route_request)
                 page.goto('http://import-layout.test/owner', wait_until='load')
+                for name in ('hub-session.js', 'owner-inventory.js', 'owner-portal.js'):
+                    code = (STATIC / name).read_text()
+                    if name == 'owner-portal.js':
+                        code = re.sub(r'\ninitialise\(\);\s*$', '', code)
+                    page.add_script_tag(content=code)
                 page.evaluate('''() => {
                     document.body.classList.remove('hub-restoring');
                     document.querySelector('.hub-loading')?.remove();
-                    document.getElementById('owner-auth-view').remove();
+                    document.getElementById('owner-auth-view').classList.add('hidden');
                     document.getElementById('owner-portal-view').classList.remove('hidden');
-                    document.querySelectorAll('[id^="owner-view-"]').forEach(el => {
-                        el.classList.add('hidden'); el.style.display='none';
-                    });
+                    state.session={access_token:'fixture-only',user:{id:'fixture-owner'}};
+                    apiRequest=async () => ({items:[],summary:{}});
+                    activateOwnerView('inventory',false);
                     const view=document.getElementById('owner-view-inventory');
-                    view.classList.remove('hidden'); view.style.display='block';
                     const spacer=document.createElement('div'); spacer.style.height='1400px'; view.append(spacer);
-                    window.apiRequest=async () => ({items:[]});
                 }''')
-                page.add_script_tag(content=(STATIC / 'owner-imports.js').read_text())
-                trigger = page.locator('#owner-import-trigger')
+                for name in ('owner-imports.js', 'workspace-shell.js', 'hub-experience.js'):
+                    page.add_script_tag(content=(STATIC / name).read_text())
+                # Exercise the visible Add entry and explicit provider choice.
+                # The legacy menu remains an internal handoff, not a user entry.
+                trigger = page.locator('#owner-view-inventory [data-hub-add]')
                 trigger.scroll_into_view_if_needed()
                 trigger.click()
-                menu = page.locator('#owner-import-menu')
+                menu = page.locator('#hub-add-dialog')
+                menu.get_by_role('button', name=re.compile('^Import a collection')).click()
+                assert page.locator('#owner-import-dialog').count() == 0, 'A provider must be chosen before opening an import'
                 menu_box = rectangle(menu)
                 assert menu_box['left'] >= -1 and menu_box['right'] <= width + 1, (engine, width, menu_box)
                 labels = []
-                for button in menu.locator('button').all():
+                for button in menu.locator('.hub-add-choice').all():
                     box = rectangle(button)
                     assert box['left'] >= -1 and box['right'] <= width + 1, (engine, width, box)
                     for label in button.locator('strong,small').all():
@@ -84,9 +97,11 @@ def main():
                 assert any('Collectr' in label for label in labels), labels
                 if width == 390 and height == 844:
                     page.screenshot(path=str(OUT / f'{engine}-menu-{width}.png'))
-                menu.locator('[data-owner-import-adapter="COLLECTR"]').click()
+                menu.get_by_role('button', name=re.compile('^Collectr')).click()
                 dialog = page.locator('#owner-import-dialog')
                 dialog.wait_for(state='visible')
+                assert not menu.is_visible()
+                assert page.locator('#owner-import-adapter').input_value() == 'COLLECTR'
                 assert dialog.evaluate("el => getComputedStyle(el).colorScheme") == 'dark', 'Native dropdowns must use the dark dialog palette'
                 box = rectangle(dialog)
                 assert box['left'] >= -1 and box['right'] <= width + 1, (engine, width, box)
@@ -152,7 +167,7 @@ def main():
                 context.close()
             browser.close()
     (OUT / 'geometry.json').write_text(json.dumps(results, indent=2))
-    print(f'PASS: {len(results)} Chromium/WebKit actual-template layout cases; menu labels inside viewport, dialog/close visible, inner content scrollable. Mocked history; no production requests.')
+    print(f'PASS: {len(results)} real-browser actual-template layout cases; provider labels inside viewport, dialog/close visible, inner content scrollable. Mocked history; no production requests.')
 
 
 if __name__ == '__main__':

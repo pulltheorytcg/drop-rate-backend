@@ -6,9 +6,10 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const render = spawnSync(root + '.venv/bin/python', ['backend/scripts/seed_collectible_catalogue.py'], {
+const render = spawnSync(process.env.PYTHON || 'python3', ['backend/scripts/seed_collectible_catalogue.py'], {
   cwd:root,env:{...process.env,PYTHONPATH:'backend'},encoding:'utf8',maxBuffer:2*1024*1024,
 });
+assert.ifError(render.error);
 assert.equal(render.status,0,render.stderr);
 const sql = render.stdout;
 const manifest = JSON.parse(await readFile(new URL('../backend/data/collectible_catalogue_starter_20261103.json', import.meta.url),'utf8'));
