@@ -38,7 +38,11 @@ window.DropRateInventory = (() => {
     // in a browser. Send credentials ONLY to our owned-item API, never a CDN.
     const direct = directUrl(item.image_url);
     if (direct) attempts.push({url: direct});
-    if (validId && (!community || item.image_url || item.reference_image_url)) attempts.push({path: `/api/v1/inventory/${inventoryId}/image`});
+    // The shared proxy is for assigned physical/canonical media only. If a
+    // copy has no assigned asset, calling it for every card repeats ownership
+    // and exact-reference lookups (often ending in a legitimate 404). Prefer
+    // the already-resolved exact reference below, without guessing artwork.
+    if (validId && item.image_url) attempts.push({path: `/api/v1/inventory/${inventoryId}/image`});
     const reference = directUrl(item.reference_image_url);
     if (reference && reference !== direct) attempts.push({url: reference});
     const referencePath = `/api/v1/owner/inventory/${inventoryId}/reference-image`;

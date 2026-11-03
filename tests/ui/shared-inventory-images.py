@@ -68,9 +68,10 @@ def main():
                     if mode=='stale_session':
                         page.wait_for_function('window.pending!==null');page.evaluate('''() => {state.session={access_token:'fixture-b',user:{id:'seller-b'}};pending(new Response(new Blob(['private'],{type:'image/png'})));}''');page.wait_for_timeout(50)
                         assert page.locator('img[src^="blob:"]').count()==0
-                    elif mode in ('denied','bad_mime'):
+                    elif mode in ('denied','bad_mime','missing_metadata'):
                         page.wait_for_function('document.getElementById("images").textContent.includes("Image unavailable")')
-                        assert page.locator('#images img').count()==0 and len(calls)==1
+                        assert page.locator('#images img').count()==0
+                        assert len(calls)==(0 if mode=='missing_metadata' else 1)
                     else:
                         try:page.wait_for_function('document.querySelector("#images img")?.naturalWidth>0')
                         except Exception:

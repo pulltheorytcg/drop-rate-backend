@@ -3,10 +3,12 @@ const {chromium,webkit}=require('playwright'),fs=require('node:fs'),path=require
 const engine=process.env.INVENTORY_BROWSER||'chromium';
 const base=path.resolve(__dirname,'../../backend/app/static'),out='/tmp/inventory-layout/'+engine;
 const artwork='https://www.onepiece-cardgame.com/products/boosters/op17/images/others/product_pack.webp';
-const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op17-catalogue',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
+const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op17-catalogue',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,reference_image_path:'/api/v1/owner/inventory/d715b0e9-b3c4-451b-a909-5fa233f8a0e5/reference-image',approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
 (async()=>{
  fs.mkdirSync(out,{recursive:true});
- const response=await fetch(artwork);assert.equal(response.ok,true,'Official pack image unavailable');const pack=Buffer.from(await response.arrayBuffer());
+ // The external provider URL is intercepted; keep the browser fixture offline
+ // and deterministic while exercising the same authenticated reference path.
+ const pack=fs.readFileSync(path.join(base,'collection-photos/one-piece-op17-sealed.webp'));
  const browser=await ({chromium,webkit})[engine].launch({headless:true});
  try{
   for(const viewport of [{width:320,height:800},{width:390,height:844},{width:430,height:932},{width:1440,height:1000}]){
@@ -17,7 +19,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.route(/^https?:\/\//,async route=>{
     const u=new URL(route.request().url());
     if(u.href===artwork)return route.fulfill({body:pack,contentType:'image/webp'});
-    if(/^\/api\/v1\/inventory\/[^/]+\/image$/.test(u.pathname)){
+    if(/^\/api\/v1\/(?:inventory\/[^/]+\/image|owner\/inventory\/[^/]+\/reference-image)$/.test(u.pathname)){
      assert.equal(route.request().headers().authorization,'Bearer isolated-fixture');
      const file=u.pathname.includes('/75e288a1-8252-414f-912d-b82b253447c7/')?'luffy-op05-119-p2.png':u.pathname.includes('/60cf7078-2925-47df-8df2-3c0c28d8d788/')?'umbreon-vmax-215.webp':null;
      return file?route.fulfill({path:path.join(base,'grail-art',file)}):route.fulfill({body:pack,contentType:'image/webp'});
@@ -206,15 +208,20 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    // Exercise the actual narrow-card actions with mixed statuses and long values.
    await page.evaluate(original=>{
     const approved={...original,status:'APPROVED',store_price_minor:1000};
-    const draft={...original,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',can_refresh_market:true,recommended_retail_minor:866};
+    const draft={...original,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+      reference_image_path:'/api/v1/owner/inventory/55fe97fc-7bfa-4a73-a269-664ec56d3004/reference-image',
+      can_refresh_market:true,recommended_retail_minor:866};
     const pending={...original,id:'75e288a1-8252-414f-912d-b82b253447c7',name:'Monkey.D.Luffy — Manga alternate art [OP05-119]',
       set_name:'Awakening of the New Era · Japanese',product_type:'RAW',
-      reference_image_url:'/assets/grail-art/luffy-op05-119-p2.png',market_value_minor:null,
+      reference_image_url:'/assets/grail-art/luffy-op05-119-p2.png',
+      reference_image_path:'/api/v1/owner/inventory/75e288a1-8252-414f-912d-b82b253447c7/reference-image',
+      market_value_minor:null,
       reference_value:{status:'NEEDS_DETAILS'},catalogue_reference:{status:'CONDITION_REFERENCE',
         market_value_minor:132,label:'Near-mint reference',checked_at:'2026-10-15T00:46:00Z'}};
     renderInventoryCards([approved,draft,pending,{...pending,id:'60cf7078-2925-47df-8df2-3c0c28d8d788',
       name:'Umbreon VMAX — Evolving Skies alternate art [215/203]',
       reference_image_url:'/assets/grail-art/umbreon-vmax-215.webp',
+      reference_image_path:'/api/v1/owner/inventory/60cf7078-2925-47df-8df2-3c0c28d8d788/reference-image',
       catalogue_reference:{status:'CATALOGUE_GUIDE',market_value_minor:85000,market_value_high_minor:99000,
         label:'Catalogue guide',checked_at:'2026-10-15T00:46:00Z'}}]);
    },item);
@@ -242,10 +249,23 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.ok(Math.abs(cardBottoms[0]-cardBottoms[1])<1,
      'Cards in a row must align without a padded action footer');
    assert.equal(await page.locator('.owner-inventory-details').count(),0);
-   await page.waitForFunction(()=>{
-    const images=[...document.querySelectorAll('.owner-card-thumb img')];
-    return images.length===4&&images.every(img=>img.naturalWidth>0);
-   });
+   // Thumbnails are intentionally lazy-loaded. On a 320px screen the fourth
+   // card starts well below the viewport; scroll each card into the observer
+   // area before asserting that its exact-reference image decoded.
+   const thumbs=page.locator('.owner-card-thumb');
+   assert.equal(await thumbs.count(),4);
+   for(let index=0;index<4;index++){
+    await thumbs.nth(index).scrollIntoViewIfNeeded();
+    try{
+     await page.waitForFunction(i=>document.querySelectorAll('.owner-card-thumb')[i]
+       ?.querySelector('img')?.naturalWidth>0,index,{timeout:8000});
+    }catch(error){
+     console.error('Mixed artwork diagnostic',viewport.width,index,
+       await thumbs.evaluateAll(nodes=>nodes.map(n=>({html:n.outerHTML.slice(0,550),
+         imageWidth:n.querySelector('img')?.naturalWidth??null}))),errors);
+     throw error;
+    }
+   }
    await page.locator('.owner-card-thumb img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
    await page.screenshot({path:path.join(out,`inventory-mixed-${viewport.width}.png`),fullPage:true});
    await page.evaluate(()=>{

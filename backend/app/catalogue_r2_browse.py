@@ -387,6 +387,58 @@ def _static_filtered_page(tail, params, snapshot, *, limit, offset):
     return rows
 
 
+def _system_text_search_page(query, params, snapshot, *, max_candidates):
+    """Shortlist a literal name search within one verified browse family.
+
+    This is the common Charizard/Pikachu/Luffy flow after selecting a game.
+    Rebuild the original query before eliminating any identities: an added
+    owner/price predicate, numeric collector lookup, or changed SQL template
+    must fall back to PostgreSQL, never silently truncate a candidate set.
+    PostgreSQL still owns ranking, pagination, prices, media and RLS overlays.
+    """
+    from .catalogue_browser import BROWSE_FAMILIES, product_query
+
+    if (len(params) != 6 or not isinstance(params[1], list)
+            or not isinstance(params[2], list) or not params[2]
+            or not isinstance(params[3], str)
+            or type(params[4]) is not int or type(params[5]) is not int):
+        raise ValueError('Not a system-scoped text search')
+    terms = params[2]
+    if (not all(isinstance(term, str) and term.isascii()
+                and not any(character.isdigit() for character in term)
+                for term in terms)
+            or not all(term.strip() == term and term for term in terms)
+            or ' '.join(terms).lower() != params[3]):
+        raise ValueError('Text search requires an unambiguous literal query')
+    systems = params[1]
+    if (not systems or not all(isinstance(system, str) for system in systems)
+            or len(set(systems)) != len(systems)):
+        raise ValueError('Invalid system scope')
+    system = (systems[0] if len(systems) == 1 else next(
+        (family for family, members in BROWSE_FAMILIES.items()
+         if list(members) == systems), None))
+    if system is None or params[4] < 1 or params[4] > 81 or not 0 <= params[5] <= 512:
+        raise ValueError('Text search outside the bounded index')
+    expected = product_query(owner_id=params[0], q=' '.join(terms),
+                             system_code=system, limit=params[4]-1, offset=params[5])
+    if expected != (query, params):
+        raise ValueError('System text query no longer matches verified SQL')
+    allowed = set(systems)
+    lowered = [term.lower() for term in terms]
+    rows = []
+    for row in snapshot.entries:
+        if row['system_code'] not in allowed:
+            continue
+        body = ' '.join(str(row.get(field) or '') for field in (
+            'name', 'set_name', 'card_number', 'game',
+            'variant', 'language', 'rarity')).lower()
+        if all(term in body for term in lowered):
+            rows.append(row)
+            if len(rows) > max_candidates:
+                raise ValueError('Search exceeds the verified R2 shortlist bound')
+    return rows
+
+
 def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidates=2000, market=None):
     """Finite R2 shortlist for text search, books, sealed and owned stock.
 
@@ -443,6 +495,11 @@ def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidat
                 rows.append(row)
                 if len(rows)>max_candidates:
                     raise ValueError("Search result exceeds bounded R2 shortlist")
+    elif (len(params) == 6 and isinstance(params[1], list)
+          and isinstance(params[2], list)):
+        mode='SEARCH_SYSTEM_TEXT'
+        rows=_system_text_search_page(query,params,snapshot,
+                                      max_candidates=max_candidates)
     elif 4<=len(params)<=8:
         mode='FILTERED_NEWEST'
         rows=_static_filtered_page(tail,params,snapshot,limit=limit,offset=offset)
