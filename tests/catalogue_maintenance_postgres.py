@@ -36,7 +36,11 @@ async def main():
           create table tcg.provider_catalogue_mappings(source_provider text,system_code text,provider_language text,provider_id text,
             catalogue_id uuid,provider_entity_type text,provider_variant_key text,match_status text);
           create table tcg.catalogue_products(id uuid,product_type text,game text,name text,set_name text,card_number text,variant text,rarity text,language text);
-          create table tcg.catalogue_product_profiles(catalogue_id uuid,system_code text,set_code text,release_date date,collectible_type text);
+          -- The real profile schema includes review status; catalogue queries
+          -- use it to keep unreviewed Sports/Figures out of reference discovery.
+          create table tcg.catalogue_product_profiles(catalogue_id uuid,system_code text,set_code text,release_date date,collectible_type text,
+            identity_status text not null default 'LEGACY_UNREVIEWED'
+              check(identity_status in ('LEGACY_UNREVIEWED','STRUCTURED','VERIFIED','NEEDS_REVIEW')));
           create table tcg.inventory_items(id uuid,owner_id uuid,catalogue_id uuid,status text,sale_intent text,version int,market_value_minor bigint,
             inventory_code text,store_price_minor bigint,updated_at timestamptz default now());
           create table tcg.owners(id uuid,active boolean);

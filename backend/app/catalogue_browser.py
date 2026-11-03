@@ -37,6 +37,7 @@ from .catalogue_display_prices import read_shared_prices, with_shared_price
 from .catalogue_price_history import add_reference_history
 from .reference_asking_display import add_asking_estimates
 from .book_catalogue import with_book_details
+from .catalogue_collectibles import with_collectible_details
 from .r2_media import with_signed_mirror
 from . import catalogue_r2_live
 from .catalogue_r2_cache import (
@@ -165,12 +166,16 @@ with reference_base as not materialized (
  on m.source_provider=r.provider and m.system_code=r.system_code
  and m.provider_language=r.language and m.provider_id=r.provider_id
  and m.provider_entity_type='CARD_PRINTING' and m.provider_variant_key='' and m.match_status='VERIFIED'
+ left join tcg.catalogue_product_profiles link_profile on link_profile.catalogue_id=m.catalogue_id
+ where coalesce(link_profile.system_code,'') not in ('SPORTS_CARDS','FIGURES') or link_profile.identity_status='VERIFIED'
  union
  select r.provider,r.system_code,r.language,r.provider_id,p.id
  from reference_base r join tcg.catalogue_products p
  on p.product_type='CARD' and p.game=r.game and p.name=r.name
  and p.set_name=r.set_name and p.card_number=r.card_number and p.language=r.language
  and p.variant=r.provider_id and p.rarity=coalesce(nullif(r.rarity,''),'Unknown')
+ left join tcg.catalogue_product_profiles link_profile on link_profile.catalogue_id=p.id
+ where coalesce(link_profile.system_code,'') not in ('SPORTS_CARDS','FIGURES') or link_profile.identity_status='VERIFIED'
 ), exact_links as (
  select provider,system_code,language,provider_id,(array_agg(catalogue_id))[1] as catalogue_id
  from links group by provider,system_code,language,provider_id having count(distinct catalogue_id)=1
@@ -220,10 +225,11 @@ with reference_base as not materialized (
         coalesce(p.language,'Unknown'),null::text,pr.release_date,''::text,''::text,null::text,'CATALOGUE'::text,
         null::bigint,null::bigint,null::timestamptz,'[]'::jsonb,false
  from tcg.catalogue_products p left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
- where (p.product_type in ('CARD','SEALED') or (p.product_type='COLLECTION' and pr.collectible_type='SEALED')
+ where (p.product_type in ('CARD','SEALED','FIGURE') or (p.product_type='COLLECTION' and pr.collectible_type='SEALED')
           or (p.product_type='COMIC' and pr.collectible_type='COMIC'
                and pr.system_code in ('MARVEL_COMICS','DC_COMICS','OTHER_COMICS','MANGA')))
    and (pr.release_date is null or pr.release_date<=current_date)
+   and (coalesce(pr.system_code,'') not in ('SPORTS_CARDS','FIGURES') or pr.identity_status='VERIFIED')
    and not exists(select 1 from exact_links l where l.catalogue_id=p.id)
 ), owned as (
  select i.catalogue_id,count(*)::int as quantity,sum(i.market_value_minor) as owned_value_minor,
@@ -387,6 +393,7 @@ with selected as materialized (
   from tcg.catalogue_products p
   left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
   where p.product_type='CARD'
+    and (coalesce(pr.system_code,'') not in ('SPORTS_CARDS','FIGURES') or pr.identity_status='VERIFIED')
     and ($1::text='' or p.language=$1 or p.language is null)
     and (upper(btrim(p.card_number))=upper($2)
       or ($3::boolean and upper(btrim(p.card_number)) like upper($2)||'/%'))
@@ -514,7 +521,7 @@ async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(req
     items=browse_games(rows)
     # These are two real catalogue sections even when the first physical
     # seller books have not yet been added. A zero count is not fake stock.
-    for system,game in (("COMICS","Comics"),("MANGA","Manga")):
+    for system,game in (("COMICS","Comics"),("MANGA","Manga"),("SPORTS_CARDS","Sports"),("FIGURES","Figures")):
         if not any(item["system_code"]==system for item in items):
             items.append({"system_code":system,"game":game,"languages":[],"products":0,"sets":0})
     return jsonable_encoder({"items": items})
@@ -535,7 +542,7 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
                              "coverage": "MASTER_SET_CATALOGUE"})
 
 
-def product_query(*, owner_id, q="", system_code="", language="", set_id="", provider=None,
+def product_query(*, owner_id, q="", system_code="", language="", set_id="", provider=None, category="",
                   product_type="", owned="all", sort="newest", keys=None, limit=40, offset=0,
                   shared_prices=None, reference_snapshot=None):
     params = [owner_id]
@@ -543,6 +550,14 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     def bind(value):
         params.append(value)
         return f"${len(params)}"
+    if category == "TCG":
+        where.append(f"e.product_type=any({bind(['CARD','SEALED'])}::text[])")
+        where.append(f"coalesce(e.system_code,'')<>all({bind(['SPORTS_CARDS','FIGURES','MARVEL_COMICS','DC_COMICS','OTHER_COMICS','MANGA'])}::text[])")
+    elif category in ("SPORTS", "FIGURES", "COMICS", "MANGA"):
+        systems = {"SPORTS": ["SPORTS_CARDS"], "FIGURES": ["FIGURES"], "COMICS": ["MARVEL_COMICS", "DC_COMICS", "OTHER_COMICS"], "MANGA": ["MANGA"]}
+        where.append(f"e.system_code=any({bind(systems[category])}::text[])")
+    elif category:
+        raise ValueError("Unknown catalogue category")
     if system_code:
         where.append(f"e.system_code=any({bind(browse_systems(system_code))}::text[])")
     for column, value in (("language", language), ("set_id", set_id), ("product_type", product_type)):
@@ -702,7 +717,8 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                    access: Annotated[dict, Depends(browser_access)], q: str = Query(default="", max_length=160),
                    system_code: str = Query(default="", max_length=80), language: str = Query(default="", max_length=80),
                    set_id: str = Query(default="", max_length=200), provider: str | None = Query(default=None, max_length=80),
-                   product_type: Literal["", "CARD", "SEALED", "COMIC"] = "", owned: Literal["all", "owned", "not_owned"] = "all",
+                   product_type: Literal["", "CARD", "SEALED", "COMIC", "FIGURE"] = "", owned: Literal["all", "owned", "not_owned"] = "all",
+                   category: Literal["", "TCG", "SPORTS", "COMICS", "MANGA", "FIGURES"] = "",
                    sort: Literal["name", "name_desc", "newest", "oldest", "number", "value_desc", "value_asc"] = "newest",
                    keys: str | None = Query(default=None, max_length=5000),
                    slab_number: str = Query(default="", max_length=80),
@@ -727,7 +743,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         live = await catalogue_r2_live.read(connection)
         snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None and live is None else None
         t_index = time.perf_counter()
-        query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
+        query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language, category=category,
             set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list,
             limit=limit, offset=offset, shared_prices=shared)
         if snapshot is not None:
@@ -759,6 +775,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         # fields and their sort semantics unchanged, including physical values.
         rows = await add_asking_estimates(connection, rows)
         rows = await with_book_details(connection, rows)
+        rows = await with_collectible_details(connection, rows)
     t_enriched = time.perf_counter()
     # This bounded page is a suggestion pool, never a verified match. Filtering
     # is deliberately server-side and separate from ordinary manual search.

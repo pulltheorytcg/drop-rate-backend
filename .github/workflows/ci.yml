@@ -26,6 +26,14 @@ jobs:
       - name: Check dashboard JavaScript syntax
         run: find backend/app/static -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - run: PYTHONPATH=backend pytest
+      - name: Install disposable PostgreSQL runtime
+        run: npm ci --prefix tools/history-archive-verify --ignore-scripts
+      - name: Verify saved items and collectible security in PostgreSQL
+        run: |
+          node tests/catalogue_saved_pglite.mjs
+          node tests/collectibles_intake_pglite.mjs
+          node tests/collectible_catalogue_seed_pglite.mjs
+          PYTHONPATH=backend python tests/catalogue_categories_postgres.py
 
   dashboard-ui:
     runs-on: ubuntu-latest

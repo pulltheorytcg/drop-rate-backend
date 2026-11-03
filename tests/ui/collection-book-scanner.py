@@ -124,14 +124,14 @@ def main():
                 assert page.locator('#owner-book-dialog').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-scanner.png'))
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button',name='Added to collection').wait_for()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
                 writes=page.evaluate("calls.filter(x=>x.url.endsWith('/intake'))")
                 assert len(writes)==1
                 body=json.loads(writes[0]['body'])
                 assert body['condition']=='Near Mint' and body['store_price_minor'] is None and body['acquisition_cost_minor'] is None
                 assert body['new_catalogue']['comic_printing']['system_code']=='MANGA'
                 assert page.locator('#owner-book-recognize').is_disabled()
-                page.locator('#owner-book-cancel').click()
+                page.locator('#owner-book-close').click()
                 page.wait_for_function('scanner.dialog.open && scanner.view === "review"')
                 assert page.evaluate('scanner.items[0].status')=='added'
                 assert page.evaluate('scanner.items[0].photo') is None

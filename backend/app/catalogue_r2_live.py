@@ -73,7 +73,7 @@ def public_set_parity_diff(original, computed):
                 differences=items)
 
 
-SCHEMA = 'drop-rate-live-catalogue-v1'
+SCHEMA = 'drop-rate-live-catalogue-v2'
 MAX_BYTES = 64_000_000
 MAX_PARTS = 300
 CHUNK_ROWS = 500
@@ -94,7 +94,7 @@ RELATIONS = {
     'catalogue_products': (('id','uuid'),('product_type','text'),('game','text'),('name','text'),
         ('set_name','text'),('card_number','text'),('variant','text'),('rarity','text'),('language','text')),
     'catalogue_product_profiles': (('catalogue_id','uuid'),('system_code','text'),
-        ('collectible_type','text'),('set_code','text'),('release_date','date')),
+        ('collectible_type','text'),('set_code','text'),('release_date','date'),('identity_status','text')),
 }
 KEYS = {name: ('provider','system_code','language', 'set_id' if name=='reference_sets' else 'provider_id')
         for name in RELATIONS if name.startswith('reference_')}
@@ -108,8 +108,18 @@ def enabled(kind):
 def chunk_sql(relation):
     fields = ','.join(name for name, _ in RELATIONS[relation])
     order = ','.join(KEYS[relation])
+    # Seller-entered identities remain in their owner's collection until review.
+    # Neither their metadata nor attribution belongs in a shared R2 catalogue.
+    guard = ''
+    if relation == 'catalogue_products':
+        guard = """where not exists(select 1 from tcg.catalogue_product_profiles private_profile
+          where private_profile.catalogue_id=catalogue_products.id
+          and private_profile.system_code in ('SPORTS_CARDS','FIGURES')
+          and private_profile.identity_status is distinct from 'VERIFIED')"""
+    elif relation == 'catalogue_product_profiles':
+        guard = "where coalesce(system_code,'') not in ('SPORTS_CARDS','FIGURES') or identity_status='VERIFIED'"
     return f'''select coalesce(jsonb_agg(to_jsonb(page) order by {order}),'[]'::jsonb)::text as payload
-      from (select {fields} from tcg.{relation} order by {order} limit $1 offset $2) page'''
+      from (select {fields} from tcg.{relation} {guard} order by {order} limit $1 offset $2) page'''
 
 
 def parse_part(raw, relation, digest, size, count):
@@ -573,7 +583,7 @@ async def publish(pool, actor, *, storage=None):
                 state=await connection.fetchrow(STATE_SQL)
                 if state is None:
                     raise ObjectStorageError('Publication migration is not installed')
-                if state['generation']==state['published_generation']:
+                if state['generation']==state['published_generation'] and (state['manifest'] or {}).get('schema') == SCHEMA:
                     manifest=validate_manifest(state['manifest'],state['generation'])
                     # Already committed, verified and immutable. The separate
                     # startup prewarm/read path loads it asynchronously. Do not

@@ -40,11 +40,11 @@
     selling: ['Selling', 'Choose items to list and manage their progress'],
     verification: ['Review cards', 'Confirm identities and prepare your stock'],
     media: ['Photos & condition', 'Check artwork, photos and physical condition'],
-    sales: ['Sales', 'Orders, fees and owner proceeds'],
+    sales: ['Orders', 'Prepare orders and see your sale proceeds'],
     balance: ['Payouts', 'Balances, payout history and schedules'],
-    settlements: ['Settlements', 'Order allocations and reconciliation'],
+    settlements: ['Sale breakdowns', 'See how each sale contributes to your proceeds'],
     reports: ['Reports', 'Track performance and inventory value'],
-    channels: ['Sales channels', 'Shopify, eBay and channel status'],
+    channels: ['Sales channels', 'Your listing destinations and their availability'],
     settings: [seller ? 'Settings' : 'Settings & channels', seller ? 'Appearance and workspace settings' : 'Appearance, store connections and workspace settings'],
     accounts: ['Business', 'Company overview, sellers and stock ownership'],
     profile: ['Your account', 'Profile, contact details and sign-in settings'],
@@ -96,23 +96,35 @@
     : [...document.querySelectorAll('[data-seller-view]')];
   for (const panel of panels) {
     const key = seller ? panel.dataset.ownerViewPanel : panel.dataset.sellerView;
-    if (!tools[key]) continue;
+    if (!tools[key] || key === 'selling') continue;
+    const sellingArea = ['sales', 'balance', 'settlements', 'channels'].includes(key);
+    const parent = sellingArea && buttons.has('selling') ? 'selling' : 'more';
     const back = document.createElement('button');
     back.type = 'button';
     back.className = 'workspace-back';
-    back.append(icon('back'), document.createTextNode('More tools'));
+    back.append(icon('back'), document.createTextNode(parent === 'selling' ? 'Selling' : 'Account & tools'));
     back.addEventListener('click', () => {
-      navigate('more');
+      navigate(parent);
       buttons.get(key)?.focus();
     });
     panel.prepend(back);
   }
 
-  // Preserve the five primary destinations and their existing click/keyboard handlers.
-  const primaryKeys = {overview: 'home', dashboard: 'home', inventory: 'collection', intake: 'scan', scan: 'scan', search: 'search', more: 'more'};
+  // Keep the role's existing handlers. Selling becomes a first-class destination;
+  // secondary tools remain reachable from the account menu and desktop sidebar.
+  const primaryKeys = {overview: 'home', dashboard: 'home', inventory: 'collection', intake: 'scan', scan: 'scan', search: 'search', selling: 'selling', more: 'more'};
   const primaryButtons = [...document.querySelectorAll(seller ? '.owner-nav .owner-nav-item' : '.seller-nav .seller-nav-tab')];
   for (const button of primaryButtons) {
-    const key = seller ? button.dataset.ownerView : button.dataset.targetView;
+    let key = seller ? button.dataset.ownerView : button.dataset.targetView;
+    if (key === 'more' && buttons.has('selling')) {
+      key = 'selling';
+      if (seller) button.dataset.ownerView = key;
+      else button.dataset.targetView = key;
+      button.setAttribute('aria-label', 'Selling');
+      button.setAttribute('aria-controls', seller ? 'owner-view-selling' : 'seller-view-selling');
+      const label = button.querySelector('.seller-nav-label') || button.querySelector('span:last-child');
+      if (label) label.textContent = 'Selling';
+    }
     const previousIcon = button.querySelector(seller ? 'svg, span[aria-hidden="true"]' : '.seller-nav-icon');
     const symbol = icon(primaryKeys[key]);
     if (previousIcon) previousIcon.replaceWith(symbol);
@@ -124,6 +136,9 @@
   }
   const nav = document.querySelector(seller ? '.owner-sidebar' : '.seller-nav');
   if (nav) {
+    const order = ['home', 'collection', 'scan', 'search', 'selling', 'more'];
+    primaryButtons.sort((a, b) => order.indexOf(primaryKeys[seller ? a.dataset.ownerView : a.dataset.targetView]) - order.indexOf(primaryKeys[seller ? b.dataset.ownerView : b.dataset.targetView]));
+    if (seller) document.querySelector('.owner-nav')?.append(...primaryButtons);
     if (!seller) {
       // Keep navigation shortcuts outside the five-tab ARIA set.
       const primary = document.createElement('div');
@@ -147,8 +162,8 @@
     heading.className = 'workspace-nav-heading';
     heading.textContent = 'Selling & payouts';
     secondary.append(heading);
-    for (const key of ['selling', 'sales', 'balance']) {
-      const source = buttons.get(key);
+    for (const key of seller ? ['sales', 'balance', 'more'] : ['sales', 'balance']) {
+      const source = key === 'more' ? more : buttons.get(key);
       if (!source || source.hidden || source.disabled || source.getAttribute('aria-hidden') === 'true') continue;
       const button = document.createElement('button');
       button.type = 'button';
@@ -156,7 +171,7 @@
       button.dataset.workspaceView = key;
       button.setAttribute('aria-controls', seller ? `owner-view-${key}` : `seller-view-${key}`);
       const label = document.createElement('span');
-      label.textContent = tools[key][0];
+      label.textContent = key === 'more' ? 'Account & tools' : tools[key][0];
       button.append(icon(key), label);
       button.addEventListener('click', () => navigate(key));
       secondary.append(button);
@@ -171,6 +186,24 @@
     document.addEventListener(seller ? 'owner-view-changed' : 'seller-view-changed', event => updateSecondary(event.detail.view));
     const active = panels.find(panel => !panel.classList.contains('hidden'));
     updateSecondary(seller ? active?.dataset.ownerViewPanel : active?.dataset.sellerView);
+    const updatePrimary = view => {
+      const ownPrimary = primaryButtons.some(button => (seller ? button.dataset.ownerView : button.dataset.targetView) === view);
+      const parent = seller ? (['sales', 'balance', 'settlements', 'channels'].includes(view) ? 'selling' : view) : ownPrimary ? view : 'more';
+      for (const button of primaryButtons) {
+        const key = seller ? button.dataset.ownerView : button.dataset.targetView;
+        const active = key === parent;
+        button.classList.toggle('active', active);
+        if (active) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+        if (!seller) {
+          button.setAttribute('aria-selected', String(active));
+          button.tabIndex = active ? 0 : -1;
+        }
+      }
+      if (!seller && !primaryButtons.some(button => button.tabIndex === 0)) primaryButtons[0].tabIndex = 0;
+    };
+    document.addEventListener(seller ? 'owner-view-changed' : 'seller-view-changed', event => updatePrimary(event.detail.view));
+    updatePrimary(seller ? active?.dataset.ownerViewPanel : active?.dataset.sellerView);
   }
 
   const area = seller ? document.querySelector('.owner-page-header .eyebrow') : null;
@@ -191,4 +224,5 @@
     oldSearch.classList.add('workspace-inventory-search');
     oldSearch.querySelector('input').placeholder = 'Search your inventory…';
   }
+  window.DropRateWorkspace = {navigate, icon, toolButtons: buttons, seller};
 })();

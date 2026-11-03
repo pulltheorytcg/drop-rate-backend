@@ -138,7 +138,9 @@ def build_browse_index(shared, *, today=None, verified_mappings=None):
     for p in shared["catalogue_products"]:
         pr=profiles.get(p["id"])
         kind=pr["collectible_type"] if pr else None
-        if not (p["product_type"] in ("CARD","SEALED")
+        if pr and pr["system_code"] in ("SPORTS_CARDS", "FIGURES") and pr.get("identity_status") != "VERIFIED":
+            continue
+        if not (p["product_type"] in ("CARD","SEALED","FIGURE")
                 or (p["product_type"]=="COLLECTION" and kind=="SEALED")
                 or (p["product_type"]=="COMIC" and kind=="COMIC" and pr
                     and pr["system_code"] in _BOOKS)):
@@ -358,6 +360,12 @@ def _static_filtered_page(tail, params, snapshot, *, limit, offset):
     predicates=[]
     for index,value in enumerate(params[1:-2],start=2):
         checks=(
+            (f'e.product_type=any(${index}::text[])',
+             isinstance(value,list) and bool(value) and all(v in ('CARD','SEALED','COMIC','FIGURE') for v in value),
+             lambda row, allowed=value: row['product_type'] in allowed),
+            (f"coalesce(e.system_code,'')<>all(${index}::text[])",
+             isinstance(value,list) and bool(value) and all(isinstance(v,str) for v in value),
+             lambda row, excluded=value: (row['system_code'] or '') not in excluded),
             (f'e.system_code=any(${index}::text[])',
              isinstance(value,list) and bool(value) and all(isinstance(v,str) for v in value),
              lambda row, allowed=value: row['system_code'] in allowed),
@@ -365,7 +373,7 @@ def _static_filtered_page(tail, params, snapshot, *, limit, offset):
              lambda row, selected=value: row['language']==selected),
             (f'e.set_id=${index}',isinstance(value,str),
              lambda row, selected=value: row['set_id']==selected),
-            (f'e.product_type=${index}',value in ('CARD','SEALED','COMIC'),
+            (f'e.product_type=${index}',value in ('CARD','SEALED','COMIC','FIGURE'),
              lambda row, selected=value: row['product_type']==selected),
             (f'e.provider=${index}',isinstance(value,str),
              lambda row, selected=value: row['provider']==selected),

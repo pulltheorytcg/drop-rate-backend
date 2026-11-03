@@ -19,12 +19,13 @@ const manga = {...card,key:"c:00000000-0000-4000-8000-000000000003",catalogue_id
 
 function fixture(override) {
   const dom = new JSDOM("", {runScripts:"outside-only",url:"https://categories.example.test"});
-  const w = dom.window, calls = [], bookIntakes = [];
+  const w = dom.window, calls = [], bookIntakes = [], collectibleIntakes=[];
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   w.HTMLDialogElement.prototype.close=function(){this.open=false;};
   w.eval(fs.readFileSync(path.join(root,"backend/app/static/reference-value-display.js"),"utf8"));
   w.eval(source);
   const client={owner:"fixture-owner",active:()=>true,request:async(url,options={})=>{
+    if(url.includes("/catalogue-browser/saved"))return {keys:[]};
     calls.push({url,...options});
     if(url.endsWith("/games"))return {items:games};
     if(url.endsWith("/intake"))return {inventory:{inventory_code:"INV-FIXTURE-1"}};
@@ -36,7 +37,7 @@ function fixture(override) {
       query.get("product_type")==="SEALED"?{...card,product_type:"SEALED",name:"Pokémon sealed box"}:card;
     return {items:[row],has_more:false};
   }};
-  const browser=new w.DropRateCatalogue.Browser({client,navigate:()=>{},scan:()=>{},graded:()=>{},books:options=>bookIntakes.push(options),afterSave:async()=>{}});
+  const browser=new w.DropRateCatalogue.Browser({client,navigate:()=>{},scan:()=>{},graded:()=>{},books:options=>bookIntakes.push(options),collectibles:options=>collectibleIntakes.push(options),afterSave:async()=>{}});
   const lastQuery=()=>new URL(calls.at(-1).url,"https://categories.example.test").searchParams;
   const choose=async id=>{browser.find(`[data-category="${id}"]`).click();await tick();};
   const search=async query=>{
@@ -45,7 +46,7 @@ function fixture(override) {
     browser.input.dispatchEvent(new w.KeyboardEvent("keydown",{key:"Enter",bubbles:true,cancelable:true}));
     await tick();
   };
-  return {browser,w,calls,bookIntakes,lastQuery,choose,search,finish:()=>{browser.destroy();w.close();}};
+  return {browser,w,calls,bookIntakes,collectibleIntakes,lastQuery,choose,search,finish:()=>{browser.destroy();w.close();}};
 }
 
 (async()=>{
@@ -137,20 +138,22 @@ function fixture(override) {
     f.browser.back();await tick();assert.equal(f.lastQuery().get("product_type"),"COMIC");
     f.finish();checks++;
   }
-  // Unsupported catalogues have a clear empty state, not manufactured records,
-  // unsupported API filters or an unscoped fallback to TCG products.
+  // Newly supported categories use explicit API scopes and offer honest manual
+  // entry when no verified catalogue reference matches the retained query.
   {
-    const f=fixture();await f.browser.open();await f.search("Pikachu");
-    for(const id of ["SPORTS","FIGURES"]){
-      const count=f.calls.length;await f.choose(id);
-      assert.equal(f.calls.length,count);assert.equal(f.browser.input.disabled,true);
-      assert.equal(f.browser.find(".dr-browse-searchbar").hidden,true);
-      assert.match(f.browser.find(".dr-browse-content").textContent,/Catalogue unavailable/);
+    const f=fixture((_url,query)=>["SPORTS","FIGURES"].includes(query.get("category"))?{items:[],has_more:false}:undefined);await f.browser.open();await f.search("Michael Jordan");
+    for(const [id,system,type,label] of [["SPORTS","SPORTS_CARDS","CARD","Add a sports card"],["FIGURES","FIGURES","FIGURE","Add a figure"]]){
+      await f.choose(id);assert.equal(f.browser.input.disabled,false);
+      assert.equal(f.browser.find(".dr-browse-searchbar").hidden,false);
+      assert.equal(f.lastQuery().get("category"),id);assert.equal(f.lastQuery().get("system_code"),system);assert.equal(f.lastQuery().get("product_type"),type);
+      assert.equal(f.lastQuery().get("q"),"Michael Jordan");assert.equal(f.browser.find('[data-action="sets"]').hidden,true);
       assert.equal(f.browser.find(".dr-browse-product"),null);
-      await f.browser.load();assert.equal(f.calls.length,count);
+      [...f.browser.find(".dr-browse-content").querySelectorAll("button")].find(button=>button.textContent===label).click();
+      assert.equal(f.collectibleIntakes.at(-1).category,id.toLowerCase());assert.equal(f.collectibleIntakes.at(-1).query,"Michael Jordan");assert.equal(f.collectibleIntakes.at(-1).catalogue,undefined);
+      assert.equal(f.calls.filter(call=>call.method==="POST").length,0);await f.browser.open();
     }
     await f.choose("TCG");assert.equal(f.browser.input.disabled,false);
-    assert.equal(f.browser.input.value,"Pikachu");assert.equal(f.lastQuery().get("product_type"),"CARD");
+    assert.equal(f.browser.input.value,"Michael Jordan");assert.equal(f.lastQuery().get("product_type"),"CARD");assert.equal(f.lastQuery().get("category"),"TCG");
     f.finish();checks++;
   }
   // A late previous-category request cannot replace newer results, even when
@@ -164,6 +167,19 @@ function fixture(override) {
     assert.match(f.browser.find(".dr-browse-content").textContent,/One Piece Volume 1/);
     assert.doesNotMatch(f.browser.find(".dr-browse-content").textContent,/Batman/);
     assert.equal(f.browser.categoryId,"MANGA");f.finish();checks++;
+  }
+  // Exact sports/figure references use their purpose-built copy intake, never
+  // the TCG scanner or a blind generic card save.
+  {
+    const f=fixture();await f.browser.open();
+    for(const [system,kind,category] of [["SPORTS_CARDS","CARD","sports"],["FIGURES","FIGURE","figures"]]){
+      const row={...card,system_code:system,product_type:kind,name:category==="sports"?"Michael Jordan — 1991 card":"Luffy figure"};
+      f.browser.openProduct(row);assert.match(f.browser.sheet.textContent,kind==="FIGURE"?/Figure details/:/Sports card details/);
+      [...f.browser.sheet.querySelectorAll("button")].find(button=>button.textContent==="Add to collection").click();
+      assert.equal(f.collectibleIntakes.at(-1).category,category);assert.equal(f.collectibleIntakes.at(-1).catalogue,row);
+      assert.equal(f.calls.filter(call=>call.method==="POST").length,0);await f.browser.open();
+    }
+    f.finish();checks++;
   }
   // The empty-state action opens the real intake form in Manga mode without
   // inventing an edition, language, value or publisher. Exact rows still win.
@@ -189,5 +205,37 @@ function fixture(override) {
     assert.match(doc.getElementById("owner-book-selected").textContent,/Batman #1/);
     f.w.DropRateBooks.reset();f.finish();checks++;
   }
-  console.log(`Catalogue categories: ${checks} interaction groups passed (real-card search, Enter/IME, scoped formats, exact intake, category navigation, empty Manga intake, unavailable catalogues and stale responses).`);
+  // Typed official edition facts remain visible before copy intake. Only the
+  // explicit reference fields render; private provenance and HTML stay inert.
+  {
+    const f=fixture();await f.browser.open();
+    const seeds=JSON.parse(fs.readFileSync(path.join(root,"backend/data/collectible_catalogue_starter_20261103.json"),"utf8")).entries;
+    for(const seed of [seeds[0],seeds[5]]){
+      const field=seed.sports_card?"sports_card":"figure_details",category=seed.sports_card?"sports":"figures";
+      const row={...seed.catalogue,key:"c:"+seed.id,catalogue_id:seed.id,system_code:seed[field].system_code,
+        [field]:{...seed[field],submitted_by_user_id:"private-user",source_url:"https://private.test/hidden"}};
+      f.browser.openProduct(row);
+      const facts=f.browser.sheet.querySelector(`[data-collectible-reference="${category}"]`);
+      assert.ok(facts);
+      assert.ok(f.browser.sheet.querySelector(".dr-browse-detail-no-art"));
+      const values=Object.fromEntries([...facts.querySelectorAll("dt")].map(dt=>[dt.textContent,dt.nextElementSibling.textContent]));
+      if(category==="sports"){
+        assert.equal(values.Sport,"Football");assert.equal(values.Team,"Arsenal");assert.equal(values.Season,"2025/26");
+        assert.equal(values["Card number"],"12");assert.equal(values.Parallel,"Base");assert.equal(values["Print run"],"Not stated");
+      }else{
+        assert.equal(values.Franchise,"Character Vocal Series 01: Hatsune Miku");assert.equal(values.Edition,"3.0 [Basic]");
+        assert.equal(values["Barcode / JAN"],"4580828662797");assert.equal(values["Manufacturer SKU"],"Not stated");
+      }
+      assert.doesNotMatch(facts.textContent,/private-user|private\.test|submitted_by/);
+      [...f.browser.sheet.querySelectorAll("button")].find(button=>button.textContent==="Add to collection").click();
+      assert.equal(f.collectibleIntakes.at(-1).catalogue,row);await f.browser.open();
+    }
+    const row={...card,system_code:"SPORTS_CARDS",sports_card:{system_code:"SPORTS_CARDS",subject_name:'<img src=x onerror="alert(1)">',team:"Test"}};
+    f.browser.openProduct(row);const facts=f.browser.sheet.querySelector("[data-collectible-reference]");
+    assert.match(facts.textContent,/<img/);assert.equal(facts.querySelector("img"),null);
+    f.browser.openProduct({...row,sports_card:{...row.sports_card,system_code:"FIGURES"}});
+    assert.equal(f.browser.sheet.querySelector("[data-collectible-reference]"),null);
+    f.finish();checks++;
+  }
+  console.log(`Catalogue categories: ${checks} interaction groups passed (real-card search, Enter/IME, scoped formats, exact intake, category navigation, empty Manga intake, sports/figure manual recovery and stale responses).`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

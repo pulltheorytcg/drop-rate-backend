@@ -33,6 +33,9 @@ def main():
                 page.add_script_tag(content='''
                     const state={session:{user:{id:'seller-a'}}};
                     window.calls=[];window.marketCalls=[];window.mode='success';
+                    window.openedItems=[];
+                    document.addEventListener('hub:inventory-open',event=>openedItems.push(event.detail));
+                    function activateOwnerView(view){window.destination=view;}
                     async function loadOwnerInventory(){if(mode==='refresh-error')throw new Error('Refresh failed');}
                     async function loadOwnerOverview(){}
                     async function apiRequest(url,options){
@@ -40,7 +43,7 @@ def main():
                       calls.push({url,...options});
                       if(mode==='lost'){mode='success';throw new Error('Response lost');}
                       if(mode==='invalid'){const e=new Error('Check issue number');e.status=422;throw e;}
-                      return {catalogue:{name:'Fixture comic'},inventory:{id:'fixture-copy'}};
+                      return {catalogue:{name:'Fixture comic'},inventory:{id:'33333333-3333-4333-8333-333333333333'}};
                     }
                 ''')
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
@@ -79,14 +82,18 @@ def main():
                 page.evaluate("document.querySelector('[data-owner-add-book]').click()")
                 assert page.locator('#owner-book-series').input_value() == 'Amazing Spider-Man'
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button', name='Added to collection').wait_for()
+                page.get_by_role('button', name='View item', exact=True).wait_for()
                 writes = page.evaluate('calls')
                 assert len(writes) == 2 and writes[0]['body'] == writes[1]['body']
                 assert writes[0]['headers']['Idempotency-Key'] == writes[1]['headers']['Idempotency-Key']
                 body = json.loads(writes[0]['body'])
                 assert body['grading_company'] == 'CGC' and body['grade'] == '9.8' and body['condition'] is None
                 assert body['new_catalogue']['comic_printing']['system_code'] == 'MARVEL_COMICS'
-                page.locator('#owner-book-cancel').click()
+                page.get_by_role('button', name='View item', exact=True).click()
+                assert not page.locator('#owner-book-dialog').is_visible()
+                assert page.evaluate('destination') == 'inventory'
+                assert page.evaluate('openedItems[0].inventoryId') == '33333333-3333-4333-8333-333333333333'
+                assert len(page.evaluate('calls')) == 2, 'Viewing the saved item must not repeat intake'
                 page.evaluate("document.querySelector('[data-owner-add-book]').click();mode='refresh-error'")
                 page.locator('#owner-book-category').select_option('MANGA')
                 page.locator('#owner-book-series').fill('One Piece')
@@ -100,13 +107,19 @@ def main():
                 assert page.locator('#owner-book-number-text').inner_text() == 'Volume number'
                 page.screenshot(path=str(OUT/f'{engine}-{width}-manga.png'))
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button', name='Added to collection').wait_for()
+                page.get_by_role('button', name='View item', exact=True).wait_for()
                 assert page.locator('#owner-book-save').is_disabled()
                 body = json.loads(page.evaluate('calls.at(-1).body'))
                 assert body['new_catalogue']['comic_printing']['book_format'] == 'MANGA'
                 assert body['condition'] == 'Very Good' and body['grading_company'] is None
                 assert not any('/sync' in call['url'] for call in page.evaluate('calls'))
-                page.locator('#owner-book-cancel').click()
+                page.get_by_role('button', name='Add another', exact=True).click()
+                assert page.locator('#owner-book-dialog').is_visible()
+                assert page.locator('#owner-book-category').input_value() == 'MANGA'
+                assert page.locator('#owner-book-series').input_value() == ''
+                assert page.locator('#owner-book-save').is_enabled()
+                assert len(page.evaluate('calls')) == 3, 'Add another must start an unsaved copy'
+                page.locator('#owner-book-close').click()
                 for company, grade in (('CGC', '9.8'), ('BGS', '9.5')):
                     page.evaluate("document.querySelector('[data-owner-add-book]').click();mode='success'")
                     page.locator('#owner-book-category').select_option('MANGA')
@@ -134,12 +147,12 @@ def main():
                     page.locator('#owner-book-grade').fill(grade)
                     page.locator('#owner-book-certificate').fill(f'fixture-manga-{company}')
                     page.locator('#owner-book-save').click()
-                    page.get_by_role('button', name='Added to collection').wait_for()
+                    page.get_by_role('button', name='View item', exact=True).wait_for()
                     body = json.loads(page.evaluate('calls.at(-1).body'))
                     assert body['new_catalogue']['comic_printing']['system_code'] == 'MANGA'
                     assert body['grading_company'] == company and body['grade'] == grade
                     assert body['certificate_number'] == f'fixture-manga-{company}' and body['condition'] is None
-                    page.locator('#owner-book-cancel').click()
+                    page.locator('#owner-book-close').click()
                 page.evaluate("document.querySelector('[data-owner-add-book]').click();state.session={user:{id:'seller-b'}}")
                 page.locator('#owner-book-form').dispatch_event('submit')
                 assert not page.locator('#owner-book-dialog').is_visible()

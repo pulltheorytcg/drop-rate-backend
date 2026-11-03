@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 import re
 
 from .comic_identity import BOOK_CONDITIONS
+from .manual_collectible_identity import FIGURE_CONDITIONS
 
 
 CARD_CONDITIONS = frozenset(
@@ -45,6 +46,15 @@ def validate_physical_state(
 
     if certificate_number is not None and grading_company is None:
         raise ValueError("Certificate number requires grading company and grade")
+
+    if product_type == "FIGURE":
+        if condition is not None and condition not in FIGURE_CONDITIONS:
+            raise ValueError("Choose a valid figure condition")
+        if seal_status is not None and seal_status not in {"SEALED", "UNSEALED"}:
+            raise ValueError("Choose sealed or unsealed packaging")
+        if grading_company is not None or grade is not None or certificate_number is not None:
+            raise ValueError("Figures do not use card or comic grading fields")
+        return
 
     if product_type == "COMIC":
         if seal_status is not None:

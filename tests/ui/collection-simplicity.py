@@ -1,6 +1,7 @@
 """Actual home/search/collection HTML and assets; synthetic owner/API, no live writes."""
 import json
 import mimetypes
+import os
 import re
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -15,7 +16,7 @@ def main():
     html=re.sub(r'<script\b[^>]*>.*?</script>','',(ROOT/'owner.html').read_text(),flags=re.S|re.I)
     receipts=[]
     with sync_playwright() as p:
-        for engine in ('chromium','webkit'):
+        for engine in os.getenv('BROWSER_ENGINES','chromium,webkit').split(','):
             browser=getattr(p,engine).launch()
             for width in (320,390,1440):
                 page=browser.new_page(viewport={'width':width,'height':844})
@@ -36,7 +37,7 @@ def main():
                 page.evaluate('''() => {
                   document.body.classList.remove('hub-restoring');document.querySelector('.hub-loading')?.remove();
                   byId('owner-auth-view').classList.add('hidden');byId('owner-portal-view').classList.remove('hidden');
-                  state.session={access_token:'fixture-only',user:{id:'fixture-owner'}};window.writes=[];window.failOnce=false;
+                  state.session={access_token:'fixture-only',user:{id:'fixture-owner'}};window.writes=[];window.viewed=[];window.failOnce=false;
                   window.sample={id:'11111111-1111-4111-8111-111111111111',key:'c:11111111-1111-4111-8111-111111111111',
                     catalogue_id:'11111111-1111-4111-8111-111111111111',name:'Monkey D. Luffy',product_type:'CARD',game:'One Piece',
                     set_name:'Awakening of the New Era',card_number:'OP05-119',language:'English',variant:'Alternate art',
@@ -47,11 +48,12 @@ def main():
                   byId('owner-total-inventory').textContent='1';byId('owner-market-value').textContent='Unavailable';byId('owner-market-value').classList.add('owner-value-unavailable');
                   window.client={owner:'fixture-owner',active:()=>true,request:async(url,options)=>{
                     if(url.endsWith('/intake')){writes.push({url,...options});if(failOnce){failOnce=false;throw new Error('Connection interrupted');}
-                      renderInventoryCards([sample]);return {inventory:{inventory_code:'INV-FIXTURE'}};}
+                      renderInventoryCards([sample]);return {inventory:{id:sample.id,inventory_code:'INV-FIXTURE'}};}
                     return {items:[]};
                   }};
                   window.browser=new DropRateCatalogue.Browser({host:byId('owner-view-search'),client,navigate:activateOwnerView,
-                    scan:()=>{},graded:()=>{},afterSave:async()=>{}});
+                    scan:()=>{},graded:()=>{},afterSave:async()=>{},
+                    viewItem:async receipt=>{viewed.push(receipt.inventory.id);activateOwnerView('inventory')}});
                 }''')
                 assert not page.locator('#owner-next-payout-amount').is_visible()
                 assert not page.locator('#owner-store-value').is_visible()
@@ -76,12 +78,15 @@ def main():
                 page.wait_for_function('document.querySelector(".dr-browse-detail-image img").naturalWidth>0')
                 assert page.locator('.dr-browse-sheet').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
                 if width in (390,1440):page.screenshot(path=str(OUT/f'{engine}-{width}-simple-add.png'))
-                add.click();page.get_by_role('button',name='Done',exact=True).wait_for()
+                add.click();page.get_by_role('button',name='View item',exact=True).wait_for()
                 body=json.loads(page.evaluate('writes[0].body'))
                 assert body['confirmed'] is True and body['condition'] is None
                 assert len(page.evaluate('writes'))==1 and 'price' not in body and 'owner_id' not in body
-                assert 'added to your collection' in page.locator('.dr-browse-detail-message').inner_text()
-                page.get_by_role('button',name='Done',exact=True).click()
+                assert page.get_by_role('heading',name='Added to your collection',exact=True).is_visible()
+                assert 'personal collection' in page.locator('.dr-browse-added').inner_text()
+                page.get_by_role('button',name='View item',exact=True).click()
+                assert page.locator('#owner-view-inventory').is_visible()
+                assert page.evaluate('viewed') == [page.evaluate('sample.id')]
                 # Collection tile has no listing setup; selling remains an explicit disclosure.
                 page.evaluate("activateOwnerView('inventory');renderInventoryCards([sample]);")
                 assert 'Selling price' not in page.locator('.owner-inventory-card').inner_text()
@@ -92,16 +97,20 @@ def main():
                 page.get_by_role('button',name='Add to collection',exact=True).click()
                 page.get_by_role('button',name='Retry remaining saves',exact=True).wait_for()
                 page.get_by_role('button',name='Retry remaining saves',exact=True).click()
-                page.get_by_role('button',name='Done',exact=True).wait_for()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
                 writes=page.evaluate('writes')
                 assert len(writes)==3 and writes[1]['body']==writes[2]['body']
                 assert writes[1]['headers']['Idempotency-Key']==writes[2]['headers']['Idempotency-Key']
+                page.get_by_role('button',name='Add another',exact=True).click()
+                assert not page.get_by_role('heading',name='Added to your collection',exact=True).is_visible()
+                assert page.evaluate('document.activeElement===browser.input')
+                assert len(page.evaluate('writes'))==3, 'Add another must not create an extra copy'
                 assert not errors,errors
                 receipts.append({'engine':engine,'width':width,'one_click_add':True,'null_condition':True,'retry_safe':True})
                 page.close()
             browser.close()
     (OUT/'simplicity.json').write_text(json.dumps(receipts,indent=2))
-    print('PASS: six real-browser collection-first journeys; one-click card add, optional details, separate selling and lost-response retry.')
+    print(f'PASS: {len(receipts)} real-browser collection-first journeys; one-click card add, optional details, separate selling and lost-response retry.')
 
 
 if __name__=='__main__':main()

@@ -16,6 +16,11 @@ from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
 from .inventory_display_groups import inventory_group_page
+from .inventory_value_sort import inventory_value_page
+from .inventory_collection_filters import (
+    CollectionCategory, CollectionFormat, CollectionGrading, CollectionSort, ListingState, PUBLISHED_SQL,
+    append_collection_filters, collection_facets, collection_order_sql, collection_state_counts,
+)
 from .db import user_connection
 from .ebay_sealed_pricing import refresh_verified_sealed_ebay_market
 from .grading_certificates import (
@@ -342,6 +347,7 @@ async def owner_overview(
         shared = await reference_portfolio(connection, [owner_id])
         refs = reference_totals(shared)
         summary = dict(summary)
+        summary["collection_states"] = await collection_state_counts(connection, owner_id)
         summary.update(recommended_totals(shared))
         summary.update(active_market_value_minor=refs["total_minor"], active_valued_count=refs["valued_count"],
                        active_unvalued_count=refs["unvalued_count"], guide_estimate_count=refs["estimate_count"],
@@ -1071,6 +1077,15 @@ async def owner_inventory(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     group_copies: bool = False,
+    category: CollectionCategory = "",
+    game: str = Query(default="", max_length=80),
+    language: str = Query(default="", max_length=80),
+    grading: CollectionGrading = "",
+    format: CollectionFormat = "",
+    listing_state: ListingState = "",
+    prepare_selling: bool = False,
+    sort: CollectionSort = "updated",
+    include_facets: bool = False,
 ) -> dict:
     owner_id = access["owner_id"]
     search_value = (search or "").strip()
@@ -1099,17 +1114,29 @@ async def owner_inventory(
             params.append(status_value)
             filters.append(f"i.status=${len(params)}")
 
+    append_collection_filters(filters, params, category=category, game=game,
+        language=language, grading=grading, format=format, listing_state=listing_state,
+        prepare_selling=prepare_selling)
     where = " and ".join(filters)
 
     async with user_connection(
         request.app.state.db_pool,
         user.user_id,
         request.state.request_id,
+        readonly_snapshot=sort in {"value_desc", "value_asc"},
     ) as connection:
         copy_total = None
-        if group_copies:
+        facets = await collection_facets(connection, owner_id) if include_facets else None
+        value_page = None
+        if sort in {"value_desc", "value_asc"}:
+            value_page = await inventory_value_page(connection, where, params, limit, offset,
+                grouped=group_copies, descending=sort == "value_desc")
+            total, copy_total, group_ids = value_page.total, value_page.copy_total, value_page.ids
+            params.append(group_ids)
+            where += f" and i.id=any(${len(params)}::uuid[])"
+        elif group_copies:
             total, copy_total, group_ids = await inventory_group_page(
-                connection, where, params, limit, offset
+                connection, where, params, limit, offset, sort=sort
             )
             params.append(group_ids)
             where += f" and i.id=any(${len(params)}::uuid[])"
@@ -1136,13 +1163,14 @@ async def owner_inventory(
                 *params,
             )
 
-        pagination = "" if group_copies else f"limit ${len(params)+1} offset ${len(params)+2}"
-        page_params = params if group_copies else [*params, limit, offset]
+        pagination = "" if group_copies or value_page is not None else f"limit ${len(params)+1} offset ${len(params)+2}"
+        page_params = params if group_copies or value_page is not None else [*params, limit, offset]
         rows = await connection.fetch(
             f"""
             select
                 i.inventory_code,
                 i.id,i.catalogue_id,i.version,i.sale_intent,
+                case when {PUBLISHED_SQL} then 'PUBLISHED' end as shopify_state,
                 (nullif(btrim(i.certificate_number),'') is not null) as has_certificate,
                 p.product_type,
                 p.game,
@@ -1227,15 +1255,25 @@ async def owner_inventory(
                 limit 1
             ) sealed_type on true
             where {where}
-            order by i.updated_at desc,i.inventory_code
+            order by {collection_order_sql(sort)}
             {pagination}
             """,
             *page_params,
         )
 
-        items = await add_reference_artwork(connection, [dict(row) for row in rows])
+        items = [dict(row) for row in rows]
+        if value_page is not None:
+            value_page.apply(items)
+        else:
+            await add_shared_reference_values(connection, items)
+        await add_reference_artwork(connection, items)
         await add_shared_inventory_media(connection, items)
-        await add_shared_reference_values(connection, items)
+
+        # Preserve the selected group order after fetching all exact copies.
+        # Otherwise a name-sorted page would be silently reordered by updates.
+        if group_copies or value_page is not None:
+            positions = {str(identifier): position for position, identifier in enumerate(group_ids)}
+            items.sort(key=lambda item: positions.get(str(item["id"]), len(positions)))
 
     return jsonable_encoder(
         {
@@ -1249,6 +1287,8 @@ async def owner_inventory(
             "items": items,
             "grouped": group_copies,
             "copy_total": copy_total if group_copies else int(total or 0),
+            "facets": facets,
+            "sort": sort,
         }
     )
 

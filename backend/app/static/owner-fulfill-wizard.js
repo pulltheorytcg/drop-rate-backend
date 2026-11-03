@@ -145,7 +145,7 @@
     printPacking.disabled = true;
     printLabel.disabled = true;
     confirm.disabled = true;
-    text("owner-fulfill-title", "Fulfill " + (item.order_number || "Shopify order"));
+    text("owner-fulfill-title", "Prepare " + (item.order_number || "Shopify order"));
     text("owner-fulfill-caption", "Verify your own stock and prepare printable documents.");
     summary.replaceChildren(
       node("strong", [item.card_name, item.card_number ? "#" + item.card_number : ""].filter(Boolean).join(" ")),
@@ -169,7 +169,7 @@
       printPacking.disabled = !eligible;
       text("owner-fulfill-status",
         eligible
-          ? "Shopify order verified. You can print a seller-only packing slip. Label purchasing and dispatch remain locked."
+          ? "Order verified. Your packing slip is ready to print. Shipping labels and dispatch confirmation are not available here yet."
           : "This order needs verification before anything can be printed or dispatched."
       );
       if (!eligible) {

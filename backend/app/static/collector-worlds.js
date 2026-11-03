@@ -24,9 +24,9 @@
   const title=el('h1','collector-headline');
   if(seller)title.textContent='Your collection.';
   else title.append('Your collection.',el('br',''),el('em','','Under control.'));
-  const intro=el('p','collector-intro',seller?'Everything you collect, in one place. Add your next find and sell when you’re ready.':'Manage your inventory, review your stock and keep track of every sale.');
+  const intro=el('p','collector-intro',seller?'Every find, in one place.':'Your stock, reviews and sales, in one place.');
   const buttons=el('div','collector-hero-actions');
-  buttons.append(action('Scan an item',()=>navigate('scan'),'collector-button collector-primary'),action(seller?'Search & add':'Browse catalogue',()=>browseGame(),'collector-button collector-secondary'));
+  buttons.append(action('Add item',()=>window.DropRateHub?.openAdd?.() || browseGame(),'collector-button collector-primary'),action('Scan',()=>seller?activateOwnerView('scan',true,true):navigate('scan'),'collector-button collector-secondary'));
   const name=hero.querySelector('#owner-overview-name');
   if(name){const hello=el('span','collector-hello','Welcome back, ');hello.append(name);greeting.replaceChildren(hello);}
   copy.replaceChildren(greeting,title,intro,buttons);

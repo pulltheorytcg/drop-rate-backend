@@ -51,14 +51,15 @@ function fixture(role,saved='electric',missingTools=[]){
    ?[['selling','sales','channels'],['balance','settlements'],['profile','settings']]
    :[['verification','media'],['sales'],['balance','reports'],['settings','accounts']]);
   const shortcuts=[...doc.querySelectorAll('.workspace-secondary-link')];
-  assert.deepEqual(shortcuts.map(button=>button.dataset.workspaceView),seller?['selling','sales','balance']:['sales','balance']);
+  assert.deepEqual(shortcuts.map(button=>button.dataset.workspaceView),seller?['sales','balance','more']:['sales','balance']);
   for(const shortcut of shortcuts){
    shortcut.click();const view=shortcut.dataset.workspaceView;
    assert.equal(w.location.hash,'#'+view);
    assert.equal(doc.getElementById((seller?'owner-view-':'seller-view-')+view).classList.contains('hidden'),false);
    assert.equal(shortcut.getAttribute('aria-current'),'page');
    assert.equal(doc.querySelectorAll('.workspace-secondary-link[aria-current="page"]').length,1);
-   assert.equal(doc.querySelector(seller?'.owner-nav-item.active':'.seller-nav-tab.active').dataset[seller?'ownerView':'targetView'],'more');
+   const current=doc.querySelector(seller?'.owner-nav-item.active':'.seller-nav-tab.active');
+   assert.equal(current?.dataset[seller?'ownerView':'targetView'],seller?(view==='more'?undefined:'selling'):'more');
   }
   if(!seller){
    const tabs=doc.querySelector('.workspace-primary-nav');
@@ -88,7 +89,7 @@ function fixture(role,saved='electric',missingTools=[]){
    assert.equal(home.querySelectorAll('.owner-kpi-card').length,2);
    assert.ok(doc.querySelector('#owner-view-selling #owner-next-payout-amount'));
    home.querySelector('.collector-secondary').click();await tick();await tick();
-   assert.equal(w.location.hash,'#search');
+   assert.equal(w.location.hash,'#scan');
   }
   for(const b of home.querySelectorAll('.collector-game[data-system-code]:not([data-system-code=""])')){
    b.click();await tick();await tick();
@@ -96,9 +97,15 @@ function fixture(role,saved='electric',missingTools=[]){
    assert.ok(w.catalogueRequests.some(url=>url.includes('system_code='+b.dataset.systemCode)));
    assert.equal(doc.body.dataset.collectorVibe,'ninja');assert.equal(w.localStorage.getItem('drop-rate-collector-vibe'),'ninja');
   }
+  if(!w.dropRateCatalogue)await w.openDropRateCatalogue();
   Object.assign(w.dropRateCatalogue.filters,{q:'stale',language:'Japanese',owned:'owned',product_type:'SEALED',watch:true});
   w.dropRateCatalogue.set={set_id:'old'};
-  home.querySelector(seller?'.collector-secondary':'.collector-game[data-system-code=""]').click();await tick();await tick();
+  if(seller){
+   home.querySelector('.collector-primary').click();
+   [...doc.querySelectorAll('#hub-add-dialog button')].find(button=>button.textContent.includes('Search the catalogue')).click();await tick();await tick();
+   assert.equal(w.dropRateCatalogue.filters.q,'stale','Add item catalogue handoff preserves the current search');
+   await w.openDropRateCatalogue('', '', {reset:true});
+  }else{home.querySelector('.collector-game[data-system-code=""]').click();await tick();await tick();}
   assert.equal(w.dropRateCatalogue.filters.system_code,'');assert.equal(w.dropRateCatalogue.filters.q,'');
   assert.equal(w.dropRateCatalogue.filters.language,'');assert.equal(w.dropRateCatalogue.filters.owned,'all');
   assert.equal(w.dropRateCatalogue.filters.watch,false);assert.equal(w.dropRateCatalogue.filters.product_type,'CARD');assert.equal(w.dropRateCatalogue.set,null);

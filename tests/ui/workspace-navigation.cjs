@@ -42,7 +42,7 @@ function expiredSessionFixture(role,refreshResponse){
   const tabs=[
    ['inventory','.owner-inventory-panel .owner-section-header h2','Collection'],
    ['sales','#owner-view-sales .owner-section-header h2','Your sold cards'],
-   ['settlements','#owner-view-settlements .owner-section-header h2','Settlements'],
+   ['settlements','#owner-view-settlements .owner-section-header h2','Sale breakdowns'],
    ['scan','#owner-view-scan .owner-scan-hero h2','Scan it. Confirm it. Add it.'],
    ['channels','#owner-view-channels .owner-channel-main-title','Channels'],
   ];
@@ -136,7 +136,7 @@ function expiredSessionFixture(role,refreshResponse){
  {
   const dom=new JSDOM('<header class="topbar"></header><section id="host"></section>',{url:'https://example.test/app',runScripts:'outside-only'}),w=dom.window;
   w.eval(fs.readFileSync(path.join(base,'catalogue-browser.js'),'utf8'));let release,requests=0;
-  const browser=new w.DropRateCatalogue.Browser({host:w.document.getElementById('host'),client:{owner:'a',active:()=>true,request:async()=>{requests++;return new Promise(r=>release=r);}}});
+  const browser=new w.DropRateCatalogue.Browser({host:w.document.getElementById('host'),client:{owner:'a',active:()=>true,request:async url=>{if(url.endsWith('/saved'))return {keys:[]};requests++;return new Promise(r=>release=r);}}});
   const first=browser.open();assert.equal(browser.dialog.tagName,'SECTION');assert.equal(browser.dialog.querySelectorAll('.dr-browse-game').length,5,'TCG game directory paints before metadata');
   assert.equal(browser.dialog.querySelectorAll('.dr-browse-categories button').length,5,'All collectible categories are immediately available');
   assert.equal(browser.dialog.querySelector('.dr-browse-categories [data-category="COMICS"]').textContent,'Comics');

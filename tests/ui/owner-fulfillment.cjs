@@ -180,7 +180,7 @@ function fixture(handler=async()=>result()){
     await tick();await tick();
     const modal=f.w.document.getElementById("owner-fulfill-dialog");
     assert.equal(modal.open,true);
-    assert.match(modal.textContent,/Fulfill #1009/);
+    assert.match(modal.textContent,/Prepare #1009/);
     const packing=f.w.document.getElementById("owner-fulfill-print-packing");
     assert.equal(packing.disabled,false,"Paid Shopify items should allow verified packing slip printing");
     assert.equal(f.w.document.getElementById("owner-fulfill-shipping-figures").textContent,

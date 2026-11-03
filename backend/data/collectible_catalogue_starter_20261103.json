@@ -1,0 +1,439 @@
+{
+  "batch_id": "official_collectible_starter_20261103",
+  "entries": [
+    {
+      "id": "e06b3faa-cf40-56f0-b08f-44204c87f1f0",
+      "identity_key": "official-collectible:v1:f3707a6bf72bf7a69d1b9eae1c237ee6a7a0d5140a225f2befcd2b940c034910",
+      "source_id": "topps:premier-league:2025-26:base:12",
+      "source_url": "https://cdn.shopify.com/s/files/1/0739/2015/1805/files/Topps_Premier_League_2026_Hobby_Checklist.pdf?v=1756731624",
+      "source_checked_at": "2026-11-03",
+      "source_evidence": [
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0739/2015/1805/files/Topps_Premier_League_2026_Hobby_Checklist.pdf?v=1756731624",
+          "locator": "PDF page 1; BASE PLAYERS row 12, Saka, Arsenal. Page numbers are one-based.",
+          "fields": [
+            "card_number",
+            "team",
+            "parallel"
+          ]
+        },
+        {
+          "url": "https://www.topps.com/pages/checklists/topps-premier-league-2025-26",
+          "locator": "Checklist heading and official Download Checklist link.",
+          "fields": [
+            "season",
+            "set_name",
+            "manufacturer"
+          ]
+        },
+        {
+          "url": "https://uk.topps.com/products/topps%C2%AE-premier-league-2026-hobby-box",
+          "locator": "Specs: Product Year 2025; Brand Topps; Sub Brand Premier League; Sub Categories Football. Hobby release date is not assigned to individual cards.",
+          "fields": [
+            "release_year",
+            "manufacturer",
+            "league",
+            "sport"
+          ]
+        },
+        {
+          "url": "https://www.arsenal.com/news/bukayo-saka-signs-new-long-term-contract-aFcin3f65ht4",
+          "locator": "Official club page heading or introduction giving the full player name; team affiliation for this card comes only from the season checklist.",
+          "fields": [
+            "subject_name"
+          ]
+        }
+      ],
+      "catalogue": {
+        "product_type": "CARD",
+        "game": "Sports Cards",
+        "name": "Bukayo Saka",
+        "set_name": "2025 Topps Premier League 2025/26",
+        "card_number": "12",
+        "variant": "Base",
+        "rarity": "",
+        "language": "English"
+      },
+      "sports_card": {
+        "system_code": "SPORTS_CARDS",
+        "sport": "Football",
+        "league": "Premier League",
+        "release_year": 2025,
+        "season": "2025/26",
+        "manufacturer": "Topps",
+        "set_name": "Premier League 2025/26",
+        "subject_name": "Bukayo Saka",
+        "team": "Arsenal",
+        "card_number": "12",
+        "parallel": "Base",
+        "print_run": null
+      },
+      "figure_details": null,
+      "identity_status": "VERIFIED",
+      "verification_scope": "OFFICIAL_REFERENCE_METADATA_ONLY",
+      "release_date": null,
+      "release_month": null,
+      "release_region": null,
+      "language_scope": "English catalogue scope from the official English UK checklist; the collector must confirm the physical copy language before listing."
+    },
+    {
+      "id": "500dea5a-7a55-56c0-98ec-68de109dce3a",
+      "identity_key": "official-collectible:v1:af64df1be1a7bae7188d27de3b299d0e8be24acdbf59df3ed22b598715ec5c2c",
+      "source_id": "topps:premier-league:2025-26:base:100",
+      "source_url": "https://cdn.shopify.com/s/files/1/0739/2015/1805/files/Topps_Premier_League_2026_Hobby_Checklist.pdf?v=1756731624",
+      "source_checked_at": "2026-11-03",
+      "source_evidence": [
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0739/2015/1805/files/Topps_Premier_League_2026_Hobby_Checklist.pdf?v=1756731624",
+          "locator": "PDF page 2; BASE PLAYERS row 100, Palmer, Chelsea. Page numbers are one-based.",
+          "fields": [
+            "card_number",
+            "team",
+            "parallel"
+          ]
+        },
+        {
+          "url": "https://www.topps.com/pages/checklists/topps-premier-league-2025-26",
+          "locator": "Checklist heading and official Download Checklist link.",
+          "fields": [
+            "season",
+            "set_name",
+            "manufacturer"
+          ]
+        },
+        {
+          "url": "https://uk.topps.com/products/topps%C2%AE-premier-league-2026-hobby-box",
+          "locator": "Specs: Product Year 2025; Brand Topps; Sub Brand Premier League; Sub Categories Football. Hobby release date is not assigned to individual cards.",
+          "fields": [
+            "release_year",
+            "manufacturer",
+            "league",
+            "sport"
+          ]
+        },
+        {
+          "url": "https://www.chelseafc.com/en/teams/profile/cole-palmer",
+          "locator": "Official club page heading or introduction giving the full player name; team affiliation for this card comes only from the season checklist.",
+          "fields": [
+            "subject_name"
+          ]
+        }
+      ],
+      "catalogue": {
+        "product_type": "CARD",
+        "game": "Sports Cards",
+        "name": "Cole Palmer",
+        "set_name": "2025 Topps Premier League 2025/26",
+        "card_number": "100",
+        "variant": "Base",
+        "rarity": "",
+        "language": "English"
+      },
+      "sports_card": {
+        "system_code": "SPORTS_CARDS",
+        "sport": "Football",
+        "league": "Premier League",
+        "release_year": 2025,
+        "season": "2025/26",
+        "manufacturer": "Topps",
+        "set_name": "Premier League 2025/26",
+        "subject_name": "Cole Palmer",
+        "team": "Chelsea",
+        "card_number": "100",
+        "parallel": "Base",
+        "print_run": null
+      },
+      "figure_details": null,
+      "identity_status": "VERIFIED",
+      "verification_scope": "OFFICIAL_REFERENCE_METADATA_ONLY",
+      "release_date": null,
+      "release_month": null,
+      "release_region": null,
+      "language_scope": "English catalogue scope from the official English UK checklist; the collector must confirm the physical copy language before listing."
+    },
+    {
+      "id": "a104dd55-6653-59a9-8cf4-fa6135b23728",
+      "identity_key": "official-collectible:v1:58f088703f5358669d5b986ec8183a52cfbbee08d4df35e0c84c66927948d648",
+      "source_id": "topps:premier-league:2025-26:base:174",
+      "source_url": "https://cdn.shopify.com/s/files/1/0739/2015/1805/files/Topps_Premier_League_2026_Hobby_Checklist.pdf?v=1756731624",
+      "source_checked_at": "2026-11-03",
+      "source_evidence": [
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0739/2015/1805/files/Topps_Premier_League_2026_Hobby_Checklist.pdf?v=1756731624",
+          "locator": "PDF page 3; BASE PLAYERS row 174, Salah, Liverpool FC. Page numbers are one-based.",
+          "fields": [
+            "card_number",
+            "team",
+            "parallel"
+          ]
+        },
+        {
+          "url": "https://www.topps.com/pages/checklists/topps-premier-league-2025-26",
+          "locator": "Checklist heading and official Download Checklist link.",
+          "fields": [
+            "season",
+            "set_name",
+            "manufacturer"
+          ]
+        },
+        {
+          "url": "https://uk.topps.com/products/topps%C2%AE-premier-league-2026-hobby-box",
+          "locator": "Specs: Product Year 2025; Brand Topps; Sub Brand Premier League; Sub Categories Football. Hobby release date is not assigned to individual cards.",
+          "fields": [
+            "release_year",
+            "manufacturer",
+            "league",
+            "sport"
+          ]
+        },
+        {
+          "url": "https://www.liverpoolfc.com/info/mohamed-salah",
+          "locator": "Official club page heading or introduction giving the full player name; team affiliation for this card comes only from the season checklist.",
+          "fields": [
+            "subject_name"
+          ]
+        }
+      ],
+      "catalogue": {
+        "product_type": "CARD",
+        "game": "Sports Cards",
+        "name": "Mohamed Salah",
+        "set_name": "2025 Topps Premier League 2025/26",
+        "card_number": "174",
+        "variant": "Base",
+        "rarity": "",
+        "language": "English"
+      },
+      "sports_card": {
+        "system_code": "SPORTS_CARDS",
+        "sport": "Football",
+        "league": "Premier League",
+        "release_year": 2025,
+        "season": "2025/26",
+        "manufacturer": "Topps",
+        "set_name": "Premier League 2025/26",
+        "subject_name": "Mohamed Salah",
+        "team": "Liverpool FC",
+        "card_number": "174",
+        "parallel": "Base",
+        "print_run": null
+      },
+      "figure_details": null,
+      "identity_status": "VERIFIED",
+      "verification_scope": "OFFICIAL_REFERENCE_METADATA_ONLY",
+      "release_date": null,
+      "release_month": null,
+      "release_region": null,
+      "language_scope": "English catalogue scope from the official English UK checklist; the collector must confirm the physical copy language before listing."
+    },
+    {
+      "id": "98c3f682-863c-5d3e-9a3f-37946a35e567",
+      "identity_key": "official-collectible:v1:d98fdcf768789fe5e84ea5df428514f8737bcf75e913023a36002f252f4b5065",
+      "source_id": "topps:premier-league:2025-26:base:195",
+      "source_url": "https://cdn.shopify.com/s/files/1/0739/2015/1805/files/Topps_Premier_League_2026_Hobby_Checklist.pdf?v=1756731624",
+      "source_checked_at": "2026-11-03",
+      "source_evidence": [
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0739/2015/1805/files/Topps_Premier_League_2026_Hobby_Checklist.pdf?v=1756731624",
+          "locator": "PDF page 4; BASE PLAYERS row 195, Haaland, Manchester City. Page numbers are one-based.",
+          "fields": [
+            "card_number",
+            "team",
+            "parallel"
+          ]
+        },
+        {
+          "url": "https://www.topps.com/pages/checklists/topps-premier-league-2025-26",
+          "locator": "Checklist heading and official Download Checklist link.",
+          "fields": [
+            "season",
+            "set_name",
+            "manufacturer"
+          ]
+        },
+        {
+          "url": "https://uk.topps.com/products/topps%C2%AE-premier-league-2026-hobby-box",
+          "locator": "Specs: Product Year 2025; Brand Topps; Sub Brand Premier League; Sub Categories Football. Hobby release date is not assigned to individual cards.",
+          "fields": [
+            "release_year",
+            "manufacturer",
+            "league",
+            "sport"
+          ]
+        },
+        {
+          "url": "https://www.mancity.com/news/mens/erling-haaland-manchester-city-transfer-complete-63790702",
+          "locator": "Official club page heading or introduction giving the full player name; team affiliation for this card comes only from the season checklist.",
+          "fields": [
+            "subject_name"
+          ]
+        }
+      ],
+      "catalogue": {
+        "product_type": "CARD",
+        "game": "Sports Cards",
+        "name": "Erling Haaland",
+        "set_name": "2025 Topps Premier League 2025/26",
+        "card_number": "195",
+        "variant": "Base",
+        "rarity": "",
+        "language": "English"
+      },
+      "sports_card": {
+        "system_code": "SPORTS_CARDS",
+        "sport": "Football",
+        "league": "Premier League",
+        "release_year": 2025,
+        "season": "2025/26",
+        "manufacturer": "Topps",
+        "set_name": "Premier League 2025/26",
+        "subject_name": "Erling Haaland",
+        "team": "Manchester City",
+        "card_number": "195",
+        "parallel": "Base",
+        "print_run": null
+      },
+      "figure_details": null,
+      "identity_status": "VERIFIED",
+      "verification_scope": "OFFICIAL_REFERENCE_METADATA_ONLY",
+      "release_date": null,
+      "release_month": null,
+      "release_region": null,
+      "language_scope": "English catalogue scope from the official English UK checklist; the collector must confirm the physical copy language before listing."
+    },
+    {
+      "id": "53864387-6e86-5eda-962d-857d69b44fe9",
+      "identity_key": "official-collectible:v1:95932f7a525935bdfcd13b50a08439fef80e8caac5d3b3d04beefa1f6bf53937",
+      "source_id": "goodsmile:1136133",
+      "source_url": "https://www.goodsmile.com/en/product/1136133/Nendoroid%2BHatsune%2BMiku%2B3.0",
+      "source_checked_at": "2026-11-03",
+      "source_evidence": [
+        {
+          "url": "https://www.goodsmile.com/en/product/1136133/Nendoroid%2BHatsune%2BMiku%2B3.0",
+          "locator": "Product heading, Product Details and specifications; shipping 2026/02. Website product ID is provenance, not a manufacturer SKU.",
+          "fields": [
+            "manufacturer",
+            "franchise",
+            "character",
+            "product_line",
+            "edition",
+            "scale",
+            "release_year"
+          ]
+        },
+        {
+          "url": "https://info.goodsmile.com/sp/nendoroid_hatsunemiku_3/en/",
+          "locator": "Separate Nendoroid Hatsune Miku 3.0 and 3.0 [Basic] sections. Basic omits face plates and optional parts; February 2026 release.",
+          "fields": [
+            "edition",
+            "release_month"
+          ]
+        },
+        {
+          "url": "https://www.goodsmile.com/en/news/6706",
+          "locator": "Release Dates for February 2026 Products; shipping out from 19 February 2026 lists this exact product title and JAN. Retail dates vary by region; only the release month is recorded.",
+          "fields": [
+            "barcode_gtin",
+            "release_month"
+          ]
+        }
+      ],
+      "catalogue": {
+        "product_type": "FIGURE",
+        "game": "Figures",
+        "name": "Hatsune Miku · 3.0",
+        "set_name": "Good Smile Company · Nendoroid",
+        "card_number": null,
+        "variant": "3.0 · Non-scale · 2026",
+        "rarity": "",
+        "language": null
+      },
+      "sports_card": null,
+      "figure_details": {
+        "system_code": "FIGURES",
+        "manufacturer": "Good Smile Company",
+        "franchise": "Character Vocal Series 01: Hatsune Miku",
+        "character": "Hatsune Miku",
+        "product_line": "Nendoroid",
+        "edition": "3.0",
+        "scale": "Non-scale",
+        "release_year": 2026,
+        "manufacturer_sku": null,
+        "barcode_gtin": "4571697188655"
+      },
+      "identity_status": "VERIFIED",
+      "verification_scope": "OFFICIAL_REFERENCE_METADATA_ONLY",
+      "release_date": null,
+      "release_month": "2026-02",
+      "release_region": null,
+      "language_scope": "Language is not assigned to this figure reference; packaging language and regional variants must be checked on the physical item."
+    },
+    {
+      "id": "5e6ea8e6-72a9-5e34-b82b-7e0589efe4e9",
+      "identity_key": "official-collectible:v1:fc68cb0a9d3fec97724c4ed3bbc3d514b60c4fca218c5db04087bb17b8f2cb70",
+      "source_id": "goodsmile:1139898",
+      "source_url": "https://www.goodsmile.com/en/product/1139898/Nendoroid%2BHatsune%2BMiku%2B3.0%2BBasic%2B",
+      "source_checked_at": "2026-11-03",
+      "source_evidence": [
+        {
+          "url": "https://www.goodsmile.com/en/product/1139898/Nendoroid%2BHatsune%2BMiku%2B3.0%2BBasic%2B",
+          "locator": "Product heading, Product Details and specifications; shipping 2026/02. Website product ID is provenance, not a manufacturer SKU.",
+          "fields": [
+            "manufacturer",
+            "franchise",
+            "character",
+            "product_line",
+            "edition",
+            "scale",
+            "release_year"
+          ]
+        },
+        {
+          "url": "https://info.goodsmile.com/sp/nendoroid_hatsunemiku_3/en/",
+          "locator": "Separate Nendoroid Hatsune Miku 3.0 and 3.0 [Basic] sections. Basic omits face plates and optional parts; February 2026 release.",
+          "fields": [
+            "edition",
+            "release_month"
+          ]
+        },
+        {
+          "url": "https://www.goodsmile.com/en/news/6706",
+          "locator": "Release Dates for February 2026 Products; shipping out from 19 February 2026 lists this exact product title and JAN. Retail dates vary by region; only the release month is recorded.",
+          "fields": [
+            "barcode_gtin",
+            "release_month"
+          ]
+        }
+      ],
+      "catalogue": {
+        "product_type": "FIGURE",
+        "game": "Figures",
+        "name": "Hatsune Miku · 3.0 [Basic]",
+        "set_name": "Good Smile Company · Nendoroid",
+        "card_number": null,
+        "variant": "3.0 [Basic] · Non-scale · 2026",
+        "rarity": "",
+        "language": null
+      },
+      "sports_card": null,
+      "figure_details": {
+        "system_code": "FIGURES",
+        "manufacturer": "Good Smile Company",
+        "franchise": "Character Vocal Series 01: Hatsune Miku",
+        "character": "Hatsune Miku",
+        "product_line": "Nendoroid",
+        "edition": "3.0 [Basic]",
+        "scale": "Non-scale",
+        "release_year": 2026,
+        "manufacturer_sku": null,
+        "barcode_gtin": "4580828662797"
+      },
+      "identity_status": "VERIFIED",
+      "verification_scope": "OFFICIAL_REFERENCE_METADATA_ONLY",
+      "release_date": null,
+      "release_month": "2026-02",
+      "release_region": null,
+      "language_scope": "Language is not assigned to this figure reference; packaging language and regional variants must be checked on the physical item."
+    }
+  ]
+}

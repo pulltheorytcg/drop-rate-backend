@@ -46,7 +46,7 @@ def test_comics_manga_are_real_canonical_profiles_not_fabricated_reference_games
         assert 'insert into' not in query.lower()
     # The existing browser card-intake API deliberately doesn't accept COMIC,
     # because books use the separate owner/books/intake flow with full printing.
-    assert 'product_type: Literal["", "CARD", "SEALED", "COMIC"]' in ROOT.joinpath('backend/app/catalogue_browser.py').read_text()
+    assert 'product_type: Literal["", "CARD", "SEALED", "COMIC", "FIGURE"]' in ROOT.joinpath('backend/app/catalogue_browser.py').read_text()
 
 
 def test_unpublished_brand_theme_has_real_comics_and_manga_sections():

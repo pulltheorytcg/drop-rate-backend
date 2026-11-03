@@ -72,13 +72,13 @@ def main():
                 assert save_box['height']>=44 and save_box['top']>=0 and save_box['bottom']<=save_box['viewport'],save_box
                 # The normal flow is one Add tap, with no separate cover approval.
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button',name='Added to collection').wait_for()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
                 body=json.loads(page.evaluate('calls[0].body'))
                 assert body['research_candidate_id']=='aaaaaaaaaaaaaaaaaaaaaaaa'
                 assert body['new_catalogue']['comic_printing']['cover_code']=='Cover A'
                 assert body['condition'] is None and body['store_price_minor'] is None
                 assert body['new_catalogue']['comic_printing']['printing_number'] is None
-                page.locator('#owner-book-cancel').click()
+                page.locator('#owner-book-close').click()
                 # Changing the cover is optional, and carries the chosen edition.
                 page.evaluate('DropRateBooks.open({recognition:options,onSaved:(result,copy,recognition)=>{window.savedRecognition=recognition}})')
                 page.locator('#owner-book-change-cover').click()
@@ -99,22 +99,22 @@ def main():
                 assert not page.evaluate('document.querySelector("#owner-book-dialog").scrollWidth > document.querySelector("#owner-book-dialog").clientWidth+2')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-cover-choice.png'))
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button',name='Added to collection').wait_for()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
                 body=json.loads(page.evaluate('calls.at(-1).body'))
                 assert body['research_candidate_id']=='bbbbbbbbbbbbbbbbbbbbbbbb' and body['research_run_id']==page.evaluate('run')
                 assert page.evaluate('savedRecognition.run_id===run && savedRecognition.research.candidates[1].id') == body['research_candidate_id']
                 assert body['new_catalogue']['comic_printing']['cover_code']=='Cover B'
                 assert body['condition'] is None and body['store_price_minor'] is None
                 assert 'image_url' not in json.dumps(body) and 'market_value' not in json.dumps(body)
-                page.locator('#owner-book-cancel').click()
+                page.locator('#owner-book-close').click()
                 # Editing a researched edition drops its artwork linkage.
                 page.evaluate('DropRateBooks.open({recognition:options})')
                 page.locator('#owner-book-details summary').click()
                 page.locator('#owner-book-printing').fill('3')
-                page.locator('#owner-book-save').click();page.get_by_role('button',name='Added to collection').wait_for()
+                page.locator('#owner-book-save').click();page.get_by_role('button',name='View item',exact=True).wait_for()
                 body=json.loads(page.evaluate('calls.at(-1).body'))
                 assert 'research_candidate_id' not in body and body['new_catalogue']['comic_printing']['printing_number']==3
-                page.locator('#owner-book-cancel').click()
+                page.locator('#owner-book-close').click()
                 # A pending save retains its automatic selection across reopen,
                 # background results and retries, without a second physical copy.
                 page.evaluate('''() => {
@@ -128,10 +128,10 @@ def main():
                 page.evaluate("DropRateBooks.open({scanItemId:'different',recognition:{...options,fields:{...fields,issue_number:'2'}}});DropRateBooks.updateScan('pending',{...options,research:{status:'UNAVAILABLE',candidates:[]}})")
                 assert page.locator('#owner-book-change-cover').is_disabled()
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button',name='Added to collection').wait_for()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
                 assert page.evaluate('saveAttempts[0].body===saveAttempts[1].body && saveAttempts[0].headers["Idempotency-Key"]===saveAttempts[1].headers["Idempotency-Key"]')
                 assert json.loads(page.evaluate('saveAttempts[1].body'))['research_candidate_id']=='aaaaaaaaaaaaaaaaaaaaaaaa'
-                page.locator('#owner-book-cancel').click()
+                page.locator('#owner-book-close').click()
                 page.evaluate('() => { apiRequest=normalRequest; }')
                 # Background artwork is selected automatically without erasing copy details.
                 page.evaluate("DropRateBooks.open({scanItemId:'progressive',recognition:{...options,research:{status:'PENDING',candidates:[]}}})")
@@ -141,10 +141,10 @@ def main():
                 assert page.locator('#owner-book-change-cover').is_visible()
                 assert page.locator('.owner-book-candidate').count()==1
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button',name='Added to collection').wait_for()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
                 body=json.loads(page.evaluate('calls.at(-1).body'))
                 assert body['research_candidate_id']=='aaaaaaaaaaaaaaaaaaaaaaaa' and body['condition']=='Near Mint'
-                page.locator('#owner-book-cancel').click()
+                page.locator('#owner-book-close').click()
                 # Single-cover lookup still offers another photo through Change cover.
                 page.evaluate("DropRateBooks.open({recognition:{...options,research:{...options.research,candidates:[options.research.candidates[0]]}}})")
                 page.locator('#owner-book-change-cover').click()

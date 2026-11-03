@@ -40,20 +40,21 @@ def main():
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status)
                     if width in (390,1440) and status=='partial':page.locator('#owner-view-overview .owner-kpi-grid').screenshot(path=str(OUT/f'{engine}-{width}-overview.png'))
                     results.append({'engine':engine,'width':width,'case':status,'passed':True})
-                for status,saved,expected in [('AVAILABLE',None,'12.00'),('REFERENCE_ESTIMATE',None,'12.00'),('STALE',None,''),('UNAVAILABLE',None,''),('AVAILABLE',2000,'20.00')]:
-                    item={'id':'00000000-0000-4000-8000-000000000001','catalogue_id':'cat','inventory_code':'INV-SYN','name':'Synthetic card','set_name':'Synthetic set','card_number':'SYN-1','product_type':'CARD','game':'One Piece','language':'Japanese','condition':'Near Mint','status':'DRAFT','sale_intent':'PERSONAL_COLLECTION','version':1,
+                for case_index,(status,saved,expected) in enumerate([('AVAILABLE',None,'12.00'),('REFERENCE_ESTIMATE',None,'12.00'),('STALE',None,''),('UNAVAILABLE',None,''),('AVAILABLE',2000,'20.00')],start=1):
+                    item={'id':f'00000000-0000-4000-8000-{case_index:012d}','catalogue_id':'cat','inventory_code':'INV-SYN','name':'Synthetic card','set_name':'Synthetic set','card_number':'SYN-1','product_type':'CARD','game':'One Piece','language':'Japanese','condition':'Near Mint','status':'DRAFT','sale_intent':'PERSONAL_COLLECTION','version':1,
                           'market_value_minor':1200 if status in ('AVAILABLE','REFERENCE_ESTIMATE') else None,'recommended_retail_minor':999999,'store_price_minor':saved,'approval_blockers':[],
                           'reference_value':{'status':status,'market_value_minor':1200,'recommended_retail_minor':1200,'basis':'Japanese · Near Mint'}}
-                    page.evaluate('item=>{window.currentItem=item;calls=[]}',item);page.evaluate('DropRateInventory.open(currentItem)');page.wait_for_selector('dialog .owner-item-selling')
-                    page.locator('.owner-item-selling summary').click()
+                    page.evaluate('item=>{window.currentItem=item;calls=[]}',item);page.evaluate('DropRateInventory.open(currentItem,{selling:true,step:"price"})');page.wait_for_selector('[data-listing-step="price"]')
                     price=page.get_by_label('Your selling price in pounds');assert price.input_value()==expected,(status,saved,price.input_value())
                     if status=='REFERENCE_ESTIMATE':assert 'Guide estimate' in page.locator('[data-recommended-retail]').inner_text()
+                    page.get_by_role('button',name='1. Item',exact=True).click()
                     page.get_by_label('Condition when selling').select_option('Lightly Played')
+                    page.get_by_role('button',name='3. Price',exact=True).click()
                     if saved is None and expected:assert price.input_value()==''
                     if saved:assert price.input_value()==expected
                     assert not page.evaluate("calls.some(c=>c.method!=='GET')")
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status)
-                    page.locator('dialog').evaluate('d=>d.close()');results.append({'engine':engine,'width':width,'case':status,'saved_price':saved,'passed':True})
+                    page.get_by_role('button',name='Close item details',exact=True).click();results.append({'engine':engine,'width':width,'case':status,'saved_price':saved,'passed':True})
                 assert not errors,errors;page.close()
             browser.close()
     (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} overview/recommendation/prefill/condition cases; actual source, synthetic responses, GET-only.')

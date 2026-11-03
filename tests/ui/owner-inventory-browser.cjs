@@ -79,13 +79,14 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.screenshot({path:path.join(out,`inventory-${viewport.width}.png`),fullPage:true});
    await page.locator('.owner-card-open-overlay').click();await page.getByRole('dialog').waitFor();
    await page.locator('.owner-item-selling summary').waitFor();
-   if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
    const facts=page.locator('.owner-item-facts');
    await facts.waitFor();
    await facts.locator('summary').click();
    const detail=await facts.innerText();
    for(const label of ['Game','One Piece','Language','Japanese','Seal','Sealed','Inventory ID',item.inventory_code])
     assert.ok(detail.includes(label),'Missing item detail: '+label);
+   if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
+   await page.getByRole('button',{name:'4. Review',exact:true}).click();
    assert.equal(await page.getByRole('button',{name:'Check & sync to Shopify',exact:true}).count(),0);
    assert.equal(await page.locator('.owner-item-channel-logo').count(),3);
    const channelRects=await page.locator('.owner-item-channel-visual').evaluateAll(nodes=>
@@ -98,21 +99,51 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    const box=await page.getByRole('dialog').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=viewport.width+1);
    assert.equal(await page.getByRole('dialog').evaluate(d=>d.scrollWidth<=d.clientWidth+1),true,'Details overflow');
    await page.screenshot({path:path.join(out,`details-${viewport.width}.png`)});
+   await page.getByRole('button',{name:'← Item overview',exact:true}).click();
    const counter=page.locator('.owner-item-quantity-value');
    assert.equal(await counter.innerText(),'1','Fixture starts with one saved physical copy');
-   await page.getByRole('button',{name:'Increase quantity by one',exact:true}).click();
-   assert.equal(await counter.innerText(),'2','Mobile/desktop + must preview saved quantity plus one');
+   await page.getByRole('button',{name:'Add another copy',exact:true}).click();
+   assert.equal(await counter.innerText(),'2','Add another copy must preview saved quantity plus one');
    assert.equal(await counter.getAttribute('aria-label'),'Proposed quantity 2, not saved');
    await page.getByRole('button',{name:'Confirm additional copy',exact:true}).waitFor();
    await page.screenshot({path:path.join(out,`quantity-${viewport.width}.png`)});
    await page.getByRole('button',{name:'Cancel change',exact:true}).click();
    assert.equal(await counter.innerText(),'1','Cancel must restore stored quantity');
-   await page.getByRole('button',{name:'Decrease quantity by withdrawing this copy',exact:true}).click();
-   assert.equal(await counter.innerText(),'0','Mobile/desktop − must preview saved quantity minus one');
+   await page.getByRole('button',{name:'Remove this copy',exact:true}).click();
+   assert.equal(await counter.innerText(),'0','Remove this copy must preview saved quantity minus one');
    assert.equal(await page.getByRole('button',{name:'Withdraw this copy',exact:true}).count(),1);
    await page.getByRole('button',{name:'Cancel change',exact:true}).click();
    assert.equal(await counter.innerText(),'1');
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
+   // Follow the real guided flow, then resume it without submitting a listing.
+   await page.evaluate(original=>{
+     window.fixtureItem={...original,version:4,product_type:'CARD',seal_status:null,condition:null,
+       name:'Monkey.D.Luffy · Japanese printing',store_price_minor:null};
+     renderInventoryCards([window.fixtureItem]);
+   },item);
+   await page.evaluate(()=>window.DropRateCollection.startSelling());
+   await page.locator('.owner-card-open-overlay').click();
+   await page.locator('[data-listing-step="condition"]').waitFor({state:'visible'});
+   await page.getByRole('button',{name:'Continue',exact:true}).click();
+   assert.match(await page.locator('.owner-item-message').innerText(),/Choose the condition/);
+   await page.getByRole('combobox',{name:'Condition when selling',exact:true}).selectOption('Near Mint');
+   await page.getByRole('button',{name:'Continue',exact:true}).click();
+   await page.locator('[data-listing-step="preparation"]').waitFor({state:'visible'});
+   assert.equal(await page.getByRole('dialog').evaluate(d=>d.scrollWidth<=d.clientWidth+1),true,'Preparation flow overflows');
+   await page.getByRole('button',{name:'Continue',exact:true}).click();
+   await page.getByRole('spinbutton',{name:'Your selling price in pounds',exact:true}).fill('12.50');
+   await page.getByRole('button',{name:'Review listing',exact:true}).click();
+   assert.match(await page.locator('.owner-listing-review-facts').innerText(),/Near Mint/);
+   assert.match(await page.locator('.owner-listing-review-facts').innerText(),/£12.50/);
+   assert.equal(await page.getByRole('dialog').evaluate(d=>d.scrollWidth<=d.clientWidth+1),true,'Review flow overflows');
+   await page.screenshot({path:path.join(out,`guided-listing-${viewport.width}.png`)});
+   await page.getByRole('button',{name:'Close item details',exact:true}).click();
+   await page.locator('.owner-card-open-overlay').click();
+   await page.locator('[data-listing-step="review"]').waitFor({state:'visible'});
+   assert.equal(await page.getByRole('spinbutton',{name:'Your selling price in pounds',exact:true,includeHidden:true}).inputValue(),'12.50');
+   await page.getByRole('button',{name:'Close item details',exact:true}).click();
+   await page.evaluate(()=>window.DropRateCollection.cancelSelling());
+   await page.evaluate(original=>{window.fixtureItem=original;renderInventoryCards([original]);},item);
    // The entire card, not just the picture or a tiny CTA, receives
    // keyboard and pointer interactions. All details remain in the modal.
    const tileTarget=page.locator('.owner-card-open-overlay').first();
@@ -143,6 +174,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.locator('.owner-card-open-overlay').click();
    await page.locator('.owner-item-selling summary').waitFor();
    if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
+   await page.getByRole('button',{name:'4. Review',exact:true}).click();
    assert.equal(await page.getByRole('button',{name:'List on Shopify'}).count(),0);
    assert.equal(await page.getByRole('button',{name:'Check & sync to Shopify'}).count(),0);
    assert.match(await page.locator('.owner-item-channel-shopify').innerText(),/Published/);
@@ -152,7 +184,8 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    const headings=await page.locator('#owner-inventory-table-wrap thead th').allTextContents();
    assert.deepEqual(headings,['Product','Status','Market value','Selling price']);
    assert.equal(await page.locator('#owner-inventory-body tr:first-child td').count(),4);
-   assert.doesNotMatch(await page.locator('#owner-inventory-body').innerText(),/INV-D715B0E9|Japanese/);
+   assert.doesNotMatch(await page.locator('#owner-inventory-body').innerText(),/INV-D715B0E9/);
+   assert.match(await page.locator('#owner-inventory-body').innerText(),/Japanese/);
    // Historical source-date provenance lives in the details sheet, not the
    // narrow table either. Keep its stale status obvious rather than implying
    // a verified current price.
@@ -316,5 +349,5 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.deepEqual(errors,[]);await page.close();
   }
  }finally{await browser.close();}
- console.log(`Real ${engine}: 320/390/430/1440px card bounds, actions, refresh recovery, artwork, item details, quantity confirmation and list opening passed.`);
+ console.log(`Real ${engine}: 320/390/430/1440px card bounds, guided listing validation/resume, exact copy actions, refresh recovery, artwork, item details and list opening passed.`);
 })().catch(e=>{console.error(e);process.exitCode=1;});

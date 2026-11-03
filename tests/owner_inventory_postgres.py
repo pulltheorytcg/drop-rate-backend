@@ -26,6 +26,8 @@ async def main():
           create table tcg.owner_memberships(id uuid default gen_random_uuid(),user_id uuid,owner_id uuid,role text,active bool default true,created_at timestamptz default now());
           create table tcg.catalogue_products(id uuid primary key,identity_key text,product_type text,game text,name text,set_name text,card_number text,variant text,rarity text,language text);
           create table tcg.catalogue_product_profiles(catalogue_id uuid,system_code text,identity_status text,attributes jsonb default '{}',version int default 1,updated_at timestamptz default now());
+          create table tcg.collectible_systems(code text primary key,system_kind text);
+          create table tcg.sealed_product_details(catalogue_id uuid primary key,attributes jsonb default '{}');
           create table tcg.reference_sets(provider text,system_code text,language text,set_id text,name text);
           create table tcg.reference_cards(provider text,system_code text,language text,provider_id text,set_id text,name text,card_number text,rarity text,image_url text);
           create table tcg.reference_sealed_products(provider text,system_code text,language text,provider_id text,set_id text,name text,product_type text,image_url text);

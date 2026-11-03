@@ -23,6 +23,11 @@ def harness(monkeypatch):
                      "grading_company": None, "grade": None, "certificate_number": None},
              "receipts": {}, "added": [], "writes": []}
     class Connection:
+        async def fetchval(self, sql, *args):
+            if "select product_type from tcg.catalogue_products" in sql:
+                assert args == (state["item"]["catalogue_id"],)
+                return state.get("detail", {}).get("product_type", "SEALED")
+            raise AssertionError(sql)
         async def execute(self, sql, *args):
             state["writes"].append((sql, args))
             if "insert into tcg.request_receipts" in sql:
@@ -50,6 +55,8 @@ def harness(monkeypatch):
             if "update tcg.inventory_items" in sql:
                 assert "owner_id=$2 and version=$3" in sql and args[1] == owner
                 state["item"].update(store_price_minor=args[3], status=args[4], sale_intent=args[5], version=args[2]+1)
+                if len(args)>6 and args[6] is not None:
+                    state["item"]["condition"]=args[6]
                 return {k:state["item"][k] for k in ("id","inventory_code","version","status","sale_intent","store_price_minor")}
             raise AssertionError(sql)
     @asynccontextmanager
@@ -209,6 +216,54 @@ def test_consignor_comic_shows_physical_photo_and_shipping_blockers_not_generic_
     assert any("Acquisition cost" in reason for reason in reasons)
     assert any("Storage / dispatch location" in reason for reason in reasons)
     assert not any("Catalogue image is being prepared" in reason for reason in reasons)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("condition", ["New", "Like New", "Very Good", "Good", "Fair", "Damaged"])
+async def test_figure_submission_keeps_review_gate_and_optional_packaging(harness, condition):
+    h = harness
+    h.state["item"].update(seal_status=None, condition=None, identity_confirmed=False)
+    h.state["detail"] = {**h.state["item"], "product_type": "FIGURE", "owner_type": "CONSIGNOR"}
+    result = await api.approval_request(h.id, api.ListingRequest(version=3,store_price_minor=1200,condition=condition), h.request,h.user,h.access)
+    assert result["item"]["status"] == "INSPECTION"
+    assert h.state["item"]["condition"] == condition
+    assert h.state["item"]["seal_status"] is None
+    assert h.state["item"]["identity_confirmed"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("condition", [None, "Near Mint", "PSA 10"])
+async def test_figure_submission_cannot_omit_condition_or_use_card_grading(harness, condition):
+    h = harness
+    h.state["item"].update(seal_status=None, condition=None)
+    h.state["detail"] = {**h.state["item"], "product_type": "FIGURE", "owner_type": "CONSIGNOR"}
+    with pytest.raises(HTTPException) as error:
+        await api.approval_request(h.id,api.ListingRequest(version=3,store_price_minor=1200,condition=condition),h.request,h.user,h.access)
+    assert error.value.status_code == 422
+    assert h.state["item"]["status"] == "DRAFT" and not h.wake
+
+
+def test_figure_readiness_requires_figure_condition_not_packaging():
+    item = {"product_type": "FIGURE", "identity_ready": True, "intake_ready": True,
+            "language": "English", "store_price_minor": 1000, "condition": "Like New",
+            "seal_status": None, "image_url": "https://example.test/approved-photo.webp"}
+    assert api.approval_blockers(item) == []
+    assert api.approval_blockers(dict(item,condition=None)) == ["Figure condition"]
+
+
+def test_typed_identity_keeps_edition_fields_and_excludes_private_provenance():
+    submitted_by = str(uuid4())
+    item = api.public_collectible_identity({"product_type": "FIGURE", "identity_source": "SELLER_ENTERED",
+        "figure_details": {"manufacturer": "Bandai", "edition": "First release", "release_year": 2024,
+                           "submitted_by_user_id": submitted_by, "internal": {"secret": True}},
+        "sports_card": {"team": "Wrong type"}})
+    assert item["figure_details"] == {"manufacturer": "Bandai", "edition": "First release", "release_year": 2024}
+    assert item["identity_source"] == "SELLER_ENTERED" and "sports_card" not in item
+    assert submitted_by not in str(item)
+    sports = api.public_collectible_identity({"product_type": "CARD", "identity_source": submitted_by,
+        "sports_card": '{"sport":"Basketball","parallel":"Silver","print_run":99,"submitted_by_user_id":"private"}'})
+    assert sports["sports_card"] == {"sport": "Basketball", "parallel": "Silver", "print_run": 99}
+    assert "identity_source" not in sports
 
 
 @pytest.mark.asyncio

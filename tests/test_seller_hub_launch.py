@@ -76,7 +76,8 @@ async def test_public_root_is_waitlist_but_old_railway_dashboard_is_preserved(la
         assert "owner-join.js" in invited.text
 
         early_account = await client.get("/owner/join")
-        assert "Create Seller Hub account" in early_account.text
+        assert "Create your account" in early_account.text
+        assert 'id="owner-join-form"' in early_account.text
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://drop-rate-api-live-production.up.railway.app") as client:
         dashboard = await client.get("/")

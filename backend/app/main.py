@@ -40,6 +40,8 @@ from .inventory_intake import router as inventory_intake_router
 from .owner_books import router as owner_books_router
 from .book_recognition import router as book_recognition_router
 from .catalogue_browser import router as catalogue_browser_router
+from .catalogue_saved import router as catalogue_saved_router
+from .owner_collectibles import router as owner_collectibles_router
 from .book_ebay_context import router as book_ebay_context_router
 from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
@@ -128,10 +130,13 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-workspace.js" defer></script>',
         '<script src="/assets/founder-accounts.js?v=shared-reference-v2" defer></script>',
         '<script src="/assets/catalogue-title-art.js?v=3" defer></script>',
-        '<script src="/assets/catalogue-browser.js?v=premium-20261103" defer></script>',
-        '<script src="/assets/catalogue-browser-entry.js?v=premium-20261103" defer></script>',
-        '<script src="/assets/workspace-shell.js?v=premium-20261103" defer></script>',
-        '<script src="/assets/collector-worlds.js?v=premium-20261103" defer></script>',
+        '<script src="/assets/catalogue-browser.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/catalogue-browser-entry.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/workspace-shell.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/collector-worlds.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/account-experience.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/hub-experience.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/owner-collectibles.js?v=ux-20261103" defer></script>',
     )
     for script in scripts:
         if script not in html:
@@ -484,6 +489,8 @@ def create_app() -> FastAPI:
     app.include_router(recognition_router)
     app.include_router(reference_library_router)
     app.include_router(catalogue_browser_router)
+    app.include_router(catalogue_saved_router)
+    app.include_router(owner_collectibles_router)
     app.include_router(book_ebay_context_router)
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(competitive_intelligence_router, dependencies=[Depends(require_platform_admin_request)])

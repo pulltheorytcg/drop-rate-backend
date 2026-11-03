@@ -232,7 +232,9 @@ def build_navigation(
     for p in shared["catalogue_products"]:
         pr=profile.get(p["id"])
         kind=pr["collectible_type"] if pr else None
-        if not (p["product_type"] in ("CARD","SEALED")
+        if pr and pr["system_code"] in ("SPORTS_CARDS", "FIGURES") and pr.get("identity_status") != "VERIFIED":
+            continue
+        if not (p["product_type"] in ("CARD","SEALED","FIGURE")
                 or (p["product_type"]=="COLLECTION" and kind=="SEALED")
                 or (p["product_type"]=="COMIC" and kind=="COMIC"
                     and pr and pr["system_code"] in BOOK_SYSTEMS)):

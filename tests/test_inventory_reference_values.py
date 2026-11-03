@@ -58,6 +58,15 @@ def test_details_missing_no_fake_zero_or_future_refresh_promise():
     assert result['status']=='NEEDS_DETAILS' and result['market_value_minor'] is None
     raw['language']='English';assert resolve_reference_value(raw,[snapshot()],now=NOW)['market_value_minor'] is None
 
+
+@pytest.mark.parametrize('condition,seal', [('New','SEALED'),('Like New','UNSEALED'),('Good',None),(None,None)])
+def test_figures_show_unsupported_value_without_false_card_detail_warning(condition,seal):
+    figure=item();figure.update(product_type='FIGURE',condition=condition,seal_status=seal)
+    result=resolve_reference_value(figure,[snapshot()],now=NOW)
+    assert result['status']=='UNAVAILABLE'
+    assert result['market_value_minor'] is None and result['recommended_retail_minor'] is None
+    assert 'Check the raw' not in result['reason']
+
 def test_reference_totals_and_groups_do_not_promote_unknowns():
     data=[]
     for value in (1200,1200,None):

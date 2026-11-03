@@ -19,7 +19,8 @@ def test_whatnot_readiness_is_not_false_company_shopify_install():
     assert 'action:null' in ITEM
     assert 'https://apps.shopify.com/whatnot' not in ITEM
     assert 'https://apps.shopify.com/whatnot' not in HTML
-    assert 'Your own Whatnot account' in HTML
+    assert 'Planned channels · Whatnot' in HTML
+    assert 'Whatnot is not available to connect yet' in HTML
 
 
 def test_whatnot_pending_status_does_not_expose_secrets_or_fake_oauth():
