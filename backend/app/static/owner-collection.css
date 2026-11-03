@@ -16,7 +16,7 @@ body.premium-hub #owner-view-inventory .owner-layout-toggle button {
   padding: 0; margin: 0; border-radius: 6px;
 }
 body.premium-hub #owner-view-inventory .owner-layout-toggle button[aria-pressed="true"] {
-  background: #27486c !important; color: #f5f8ff !important; box-shadow: inset 0 0 0 1px #6081a7 !important;
+  background: var(--hub-selected) !important; color: var(--hub-link) !important; box-shadow: inset 0 0 0 1px var(--hub-selected-line) !important;
 }
 body.premium-hub #owner-view-inventory .owner-inventory-toolbar svg { width: 18px; height: 18px; flex: none; }
 body.premium-hub #owner-view-inventory .owner-refresh-button {
@@ -27,13 +27,13 @@ body.premium-hub #owner-view-inventory .owner-refresh-button {
 body.premium-hub .owner-collection-filter-trigger {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   min-width: 0; min-height: 44px; height: 44px; padding: 0 12px; margin: 0;
-  border: 1px solid #425771; border-radius: 8px; background: #17283d; color: var(--hub-text);
+  border: 1px solid var(--hub-control-line); border-radius: 8px; background: var(--hub-panel-2); color: var(--hub-text);
   font-size: 13px; font-weight: 550; white-space: nowrap; cursor: pointer;
 }
 body.premium-hub .owner-collection-filter-trigger[aria-expanded="true"] { border-color: var(--hub-accent); }
 body.premium-hub .owner-collection-filter-count {
   display: grid; place-items: center; min-width: 19px; height: 19px; padding: 0 4px;
-  border-radius: 5px; color: #dfedff; background: #34587d; font-size: 11px;
+  border-radius: 5px; color: var(--hub-link); background: var(--hub-selected); font-size: 11px;
 }
 body.premium-hub .owner-collection-filter-count[hidden] { display: none; }
 body.premium-hub #owner-collection-controls {
@@ -60,11 +60,11 @@ body.premium-hub #owner-selling-picker-status { margin: 14px 18px; }
 body.premium-hub .owner-collection-filter-dialog {
   box-sizing: border-box; width: min(580px, calc(100% - 32px)); max-width: none;
   max-height: calc(100dvh - 48px); padding: 0; margin: auto; color-scheme: dark;
-  border: 1px solid #3b4f69; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--hub-line); border-radius: 16px; overflow: hidden;
   background: var(--hub-panel); color: var(--hub-text); box-shadow: 0 28px 100px #0008;
 }
 body.premium-hub .owner-collection-filter-dialog[open] { display: flex; flex-direction: column; }
-body.premium-hub .owner-collection-filter-dialog::backdrop { background: #030912b8; backdrop-filter: blur(4px); }
+body.premium-hub .owner-collection-filter-dialog::backdrop { background: color-mix(in srgb, var(--hub-bg) 75%, transparent); backdrop-filter: blur(4px); }
 body.premium-hub .owner-collection-filter-dialog > header {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
   flex: none; padding: 22px 24px 18px; border-bottom: 1px solid var(--hub-line);
@@ -86,7 +86,7 @@ body.premium-hub .owner-collection-filter-dialog :is(.owner-collection-filter-fi
 body.premium-hub .owner-collection-filter-dialog label[hidden] { display: none !important; }
 body.premium-hub .owner-collection-filter-dialog select {
   box-sizing: border-box; width: 100%; min-width: 0; min-height: 46px; margin: 0; padding: 10px 12px;
-  border: 1px solid #3b4f69; border-radius: 8px; background: var(--hub-input); color: var(--hub-text); font-size: 14px;
+  border: 1px solid var(--hub-control-line); border-radius: 8px; background: var(--hub-input); color: var(--hub-text); font-size: 14px;
 }
 body.premium-hub .owner-collection-filter-dialog #owner-collection-value-sort-note { margin: 10px 0 0; font-size: 12px; line-height: 1.6; color: var(--hub-muted); }
 body.premium-hub .owner-collection-filter-dialog > footer {
@@ -94,12 +94,12 @@ body.premium-hub .owner-collection-filter-dialog > footer {
   padding: 16px 24px; background: var(--hub-panel); border-top: 1px solid var(--hub-line);
 }
 body.premium-hub .owner-collection-filter-dialog footer button {
-  min-height: 46px; padding: 10px 15px; margin: 0; border: 1px solid #425771; border-radius: 8px;
+  min-height: 46px; padding: 10px 15px; margin: 0; border: 1px solid var(--hub-control-line); border-radius: 8px;
   font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
 }
 body.premium-hub .owner-collection-filter-reset { background: transparent; color: var(--hub-muted); }
 body.premium-hub .owner-collection-filter-reset:disabled { opacity: .45; cursor: default; }
-body.premium-hub .owner-collection-filter-done { background: var(--hub-action); color: #fff; }
+body.premium-hub .owner-collection-filter-done { background: var(--hub-action); color: var(--hub-action-ink); border-color: var(--hub-action); }
 
 /* Reset the generic small-screen table-to-card rules for this table only. */
 body.premium-hub #owner-inventory-table-wrap { overflow: visible; }
@@ -129,7 +129,7 @@ body.premium-hub #owner-inventory-table-wrap .owner-table-card-copy small {
   display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--hub-muted); font-size: 11px; line-height: 1.5;
 }
-body.premium-hub #owner-inventory-table-wrap .owner-table-card-copy .owner-list-copy-details { color: #b8cbe1; }
+body.premium-hub #owner-inventory-table-wrap .owner-table-card-copy .owner-list-copy-details { color: var(--hub-muted); }
 body.premium-hub #owner-inventory-table-wrap .owner-table-mini-image {
   display: grid; place-items: center; position: relative; width: 44px; height: 64px;
   padding: 3px; border: 1px solid var(--hub-line); border-radius: 5px; overflow: hidden;
@@ -138,7 +138,7 @@ body.premium-hub #owner-inventory-table-wrap .owner-table-mini-image img { grid-
 body.premium-hub #owner-inventory-table-wrap .owner-image-placeholder { font-size: 8px; line-height: 1.35; padding: 2px; overflow-wrap: normal; }
 body.premium-hub #owner-inventory-table-wrap .owner-list-quantity {
   position: absolute; right: 0; bottom: 0; padding: 2px 5px; border-radius: 4px 0 3px 0;
-  background: #203b59; color: #e8f2ff; font-size: 10px; line-height: 1.3; font-variant-numeric: tabular-nums;
+  background: var(--hub-panel-2); color: var(--hub-text); font-size: 10px; line-height: 1.3; font-variant-numeric: tabular-nums;
 }
 body.premium-hub #owner-inventory-table-wrap .owner-status-pill { max-width: 100%; width: fit-content; padding: 4px 7px; font-size: 10px; line-height: 1.4; text-transform: none; white-space: normal; }
 body.premium-hub #owner-inventory-table-wrap :is(.owner-collection-market-cell, .owner-collection-price-cell) { text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
