@@ -231,16 +231,26 @@ class S3ObjectStorage:
             raise ObjectStorageError("Remote object failed byte-for-byte SHA-256 verification")
 
     def download_verified_file(self, key: str, target: Path, *, expected_sha256: str, expected_size: int) -> None:
-        """Download a bounded private history object for typed restore verification.
+        """Download a bounded private archive for typed restore verification.
 
         Only trusted worker-created paths and content-addressed history keys are
         accepted. Never use this as a public arbitrary-object download endpoint.
         """
-        prefix = re.escape(f"{self.config.prefix}/reference-history/")
+        history_pattern = (
+            re.escape(f"{self.config.prefix}/reference-history/")
+            + re.escape(expected_sha256)
+            + r"\.(?:ndjson\.gz|manifest\.json|json)"
+        ) if isinstance(expected_sha256, str) else ""
+        export_pattern = (
+            re.escape(f"{self.config.prefix}/exports/")
+            + re.escape(expected_sha256)
+            + r"\.(?:ndjson\.gz|manifest\.json)"
+        ) if isinstance(expected_sha256, str) else ""
         if (not isinstance(expected_sha256, str)
                 or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
                 or not isinstance(key, str)
-                or not re.fullmatch(prefix + re.escape(expected_sha256) + r"\.(?:ndjson\.gz|manifest\.json|json)", key)):
+                or not (re.fullmatch(history_pattern, key)
+                        or re.fullmatch(export_pattern, key))):
             raise ObjectStorageError("Invalid private archive object identity")
         if type(expected_size) is not int or not 0 < expected_size <= 130_000_000:
             raise ObjectStorageError("Invalid bounded archive size")

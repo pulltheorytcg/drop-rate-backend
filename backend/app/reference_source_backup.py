@@ -39,14 +39,18 @@ FIELDS_SQL = """select attname from pg_attribute
  order by attnum"""
 EXPORT_SQL = """select row_to_json(c)::text as canonical_row
  from tcg.reference_cards c
- order by c.provider,c.system_code,c.language,c.provider_id"""
+ order by c.provider COLLATE "C",c.system_code COLLATE "C",
+          c.language COLLATE "C",c.provider_id COLLATE "C"
+"""
 RESTORE_TABLE_SQL = """create temporary table reference_cards_restore_check
  (like tcg.reference_cards including constraints) on commit drop"""
 RESTORE_INSERT_SQL = """insert into pg_temp.reference_cards_restore_check
  select * from json_populate_recordset(null::pg_temp.reference_cards_restore_check,$1::json)"""
 RESTORE_CHECK_SQL = """select row_to_json(c)::text as canonical_row
  from pg_temp.reference_cards_restore_check c
- order by c.provider,c.system_code,c.language,c.provider_id"""
+ order by c.provider COLLATE "C",c.system_code COLLATE "C",
+          c.language COLLATE "C",c.provider_id COLLATE "C"
+"""
 
 
 def _no_constant(_value):

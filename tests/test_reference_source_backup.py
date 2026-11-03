@@ -5,7 +5,9 @@ from uuid import uuid4
 import pytest
 
 from app.object_storage import ObjectStorageError
-from app.reference_source_backup import FIELDS, validate_row
+from app.reference_source_backup import (
+    EXPORT_SQL, FIELDS, IDENTITY, RESTORE_CHECK_SQL, validate_row,
+)
 
 
 def fixture_row() -> dict:
@@ -62,3 +64,13 @@ def test_incorrect_field_order_is_rejected():
     reversed_row = {name: row[name] for name in reversed(FIELDS)}
     with pytest.raises(ObjectStorageError):
         validate_row(encode(reversed_row))
+
+
+def test_export_and_restore_sort_by_binary_identity_collation():
+    """Database locale order can disagree with Python tuple ordering."""
+    for sql in (EXPORT_SQL, RESTORE_CHECK_SQL):
+        order = sql.split("order by ", 1)[1]
+        assert [part.strip() for part in order.split(",")] == [
+            f'c.{field} COLLATE "C"' for field in IDENTITY
+        ]
+    assert "583901:E-170" < "583901:E-17_p1"
