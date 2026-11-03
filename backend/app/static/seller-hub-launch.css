@@ -14,7 +14,7 @@ img{max-width:100%;height:auto}
 .skip-link:focus{top:12px}
 .topbar{height:100px;width:min(1370px,calc(100% - 72px));margin:auto;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:5;border-bottom:1px solid rgba(181,227,252,.12)}
 .topbar-brand{display:inline-flex;align-items:center}
-.topbar-brand img{width:184px;height:auto}
+.topbar-brand img{width:184px;height:65px;object-fit:contain;object-position:left center}
 .topnav{display:flex;align-items:center;gap:34px;font-size:13px;letter-spacing:.02em;font-weight:700}
 .topnav>a:not(.nav-register){color:#cbd8ec;transition:color .2s}
 .topnav>a:not(.nav-register):hover{color:var(--cyan)}
@@ -119,7 +119,7 @@ h2{font-weight:900;font-size:clamp(39px,4.1vw,60px);letter-spacing:-.06em;line-h
 .existing-account>a{font-size:11px;white-space:nowrap;color:var(--cyan);font-weight:850;text-align:right}
 .existing-account>a:hover{text-decoration:underline}
 .footer{border-top:1px solid rgba(167,216,244,.13);display:flex;gap:28px;align-items:center;justify-content:space-between;padding-block:35px 45px}
-.footer img{width:160px}
+.footer img{width:160px;height:56px;object-fit:contain;object-position:left center}
 .footer p{font-size:13px;font-weight:850;margin:0;line-height:1.8}
 .footer p span{font-size:11px;color:#8298b8;font-weight:400}
 .footer>div{display:flex;flex-direction:column;gap:8px;text-align:right}

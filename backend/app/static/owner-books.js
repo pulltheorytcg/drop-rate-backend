@@ -567,12 +567,16 @@
     cancelScan(); photos = [];
     research = null; researchRunId = null; selectedResearch = null; choosingCover = false; renderResearch(); node("details").open = true; node("photo-details").open = true;
     node("form").reset(); node("selected").hidden = true; node("selected").replaceChildren(); node("copy-details").open = false; requestKey = crypto.randomUUID(); submittedPayload = null;
+    // A category-only entry is navigation context, not an identified book.
+    // Keep exact catalogue/recognition fields authoritative when supplied.
+    if (!options.book && options.category === "MANGA") node("category").value = "MANGA";
+    else if (!options.book && options.category === "COMICS") node("category").value = "";
     node("fields").disabled = false; node("save").disabled = false;
     node("save").textContent = "Add to collection"; node("cancel").textContent = "Cancel";
     node("message").textContent = "";
     node("scan-message").textContent = "Up to 3 photos of the same book. You confirm the details before saving.";
     node("market-result").textContent = "Complete the book and copy details to check matching sold evidence.";
-    node("title").textContent = options.recognition ? "Confirm your book" : "Add a comic or manga";
+    node("title").textContent = options.recognition ? "Confirm your book" : options.category === "MANGA" ? "Add manga" : options.category === "COMICS" ? "Add a comic" : "Add a comic or manga";
     if (options.book) {
       const fields = options.book;
       const mapping = {system_code:"category", series_title:"series", issue_number:"number", volume_identifier:"volume",

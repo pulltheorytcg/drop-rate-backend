@@ -76,7 +76,7 @@ def test_join_page_supports_public_and_invite_modes() -> None:
     html = JOIN_HTML.read_text()
     source = JOIN_JS.read_text()
 
-    assert "<title>Drop Rate — Sell With Us</title>" in html
+    assert "<title>Create your account — Drop Rate Seller Hub</title>" in html
     assert "Verified accounts" in html
     assert "Create Seller Hub account" in html
 

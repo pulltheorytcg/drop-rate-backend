@@ -6,7 +6,7 @@
   const navigate = view => seller ? activateOwnerView(view === "home" ? "overview" : view)
     : activateSellerView(view === "home" ? "dashboard" : view, true);
   if(!host)return;
-  if(!seller)host.append(makeSellerHeading("Discover", "Search", "Explore every game, set and printing. Your collection starts here."));
+  if(!seller)host.append(makeSellerHeading("Discover", "Search", "Choose a category, find the exact item and add it to your collection."));
   let opening=false;
   window.openDropRateCatalogue = async (systemCode = "", productKey = "", {reset = false} = {}) => {
     if (!state.session?.access_token || opening) return;
@@ -25,8 +25,9 @@
         });
       }
       if(reset || systemCode || productKey){
-        window.dropRateCatalogue.defaults();
+        window.dropRateCatalogue.defaults(["COMICS","MANGA"].includes(systemCode)?systemCode:"TCG");
         window.dropRateCatalogue.filters.system_code=systemCode;
+        if(systemCode&&!["COMICS","MANGA"].includes(systemCode))window.dropRateCatalogue.filters.product_type="";
       }
       opening=false;
       await window.dropRateCatalogue.open(productKey);

@@ -179,7 +179,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     js = JS.read_text()
 
     assert 'href="/assets/owner-portal.css?v=recommendation-v15"' in html
-    assert 'class="owner-portal-page hub-restoring"' in html
+    assert 'class="owner-portal-page hub-restoring premium-hub"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
     assert 'id="owner-inventory-grid"' in html
@@ -432,15 +432,15 @@ def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
     css = CSS.read_text()
 
     assert "<title>Drop Rate</title>" in html
-    assert "Drop Rate Seller Hub" in html
+    assert 'alt="Drop Rate"' in html
     assert "Private workspace" not in html
     assert "Sign in to Drop Rate" in html
-    assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
+    assert '/assets/brand-assets/storefront-logo.png' in html
     assert 'drop-rate-logo.png?v=seller-hub-1' not in css
     assert 'drop-rate-founder-hq.png' not in css
     assert 'content:"SELLER HUB"' in css
 
-    assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
+    assert 'drop-rate-seller-hub-approved.png' not in html
     assert '/assets/brand-assets/drop-rate-seller-hub.png' not in html
 
 
@@ -465,8 +465,8 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
     css = CSS.read_text()
 
     assert 'class="dr-logo-image owner-topbar-logo"' in html
-    assert 'src="https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031"' in html
-    assert 'alt="Drop Rate Seller Hub"' in html
+    assert 'src="/assets/brand-assets/storefront-logo.png"' in html
+    assert 'alt="Drop Rate"' in html
     assert 'class="owner-topbar-divider"' not in html
     assert 'class="owner-topbar-product"' not in html
     assert "<small>DROP RATE</small>" not in html
@@ -483,13 +483,13 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
 def test_owner_portal_uses_integrated_seller_hub_brand_lockup() -> None:
     html = HTML.read_text()
     css = CSS.read_text()
-    assert 'src="https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031"' in html
-    assert 'alt="Drop Rate Seller Hub"' in html
+    assert 'src="/assets/brand-assets/storefront-logo.png"' in html
+    assert 'alt="Drop Rate"' in html
     assert 'class="dr-logo-image owner-topbar-logo"' in html
     assert "object-fit:contain" in css
     assert "background:none!important" in css
     assert "width:220px!important" in css
-    assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
+    assert 'drop-rate-seller-hub-approved.png' not in html
 
 
 def test_recommendation_tile_does_not_mislabel_manual_asking_totals():
