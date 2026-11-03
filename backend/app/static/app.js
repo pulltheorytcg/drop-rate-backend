@@ -256,7 +256,6 @@ function itemCoreReadiness(item) {
       ? (isGraded || Boolean((item.condition || "").trim()))
       : Boolean(item.seal_status),
   });
-  checks.push({ label: "Cost", ok: item.acquisition_cost_minor !== null && item.acquisition_cost_minor !== undefined });
   if (isCard) checks.push({ label: "Language", ok: Boolean((item.language || "").trim()) });
   checks.push({ label: "Location", ok: Boolean(item.storage_location_id) });
   checks.push({ label: "Price", ok: item.store_price_minor !== null && item.store_price_minor !== undefined });

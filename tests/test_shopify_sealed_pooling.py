@@ -121,13 +121,13 @@ def test_sealed_description_never_leaks_a_single_inventory_code():
     ("grade","10"),("identity_confirmed",False),
     ("catalogue_identity_status","UNVERIFIED"),("reserved_order_reference","old-order"),
     ("has_active_reservation",True),("has_listing_membership",True),
-    ("acquisition_cost_minor",None),
+    ("storage_location_id",None),
 ])
 def test_non_interchangeable_or_unapproved_sealed_copies_are_blocked(name,value):
     a,b=item(0),item(1)
     b[name]=value
-    if name=="acquisition_cost_minor":
-        b["source_record"]={}  # Null acquisition only permitted for verified seller-held stock.
+    if name=="storage_location_id":
+        b["source_record"]={}  # Missing warehouse still requires exact seller-held approval.
     result=evaluate_published_sealed_group([a,b])
     assert not result["ready"],(name,result)
     assert result["blockers"]

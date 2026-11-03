@@ -3,6 +3,7 @@
   const conditions = ["Mint", "Near Mint", "Very Fine", "Fine", "Very Good", "Good", "Fair", "Poor"];
   let dialog, requestKey, submittedPayload, actorId, saving = false, pending = false, saved = false;
   let photos = [], scanRevision = 0, scanning = false, scanController = null, priceRevision = 0;
+  let photoDrafts = [], photoSaving = false, photoResult = null, openRevision = 0;
   let marketTimer = null;
   let reviewContext = null;
   let savedReceipt = null;
@@ -66,18 +67,25 @@
           </div>
           <input type="file" id="owner-book-camera-file" accept="image/*" capture="environment" hidden>
           <input type="file" id="owner-book-gallery-file" accept="image/*" multiple hidden>
-          <div id="owner-book-photos" class="owner-book-photos"></div>
           <button type="button" id="owner-book-recognize" class="owner-primary-action" disabled>Identify my book</button>
           <p id="owner-book-scan-message" role="status" aria-live="polite">Up to 3 photos of the same book. You confirm the details before saving.</p>
         </details>
         <section id="owner-book-research" class="owner-book-research" aria-label="Book identification" hidden>
-          <div class="owner-book-research-heading"><h3>Matched book</h3><button type="button" id="owner-book-change-cover" class="owner-secondary-action" aria-expanded="false" aria-controls="owner-book-candidates" hidden>Change cover</button></div>
+          <div class="owner-book-research-heading"><h3 id="owner-book-research-title">Book reference</h3><button type="button" id="owner-book-change-cover" class="owner-secondary-action" aria-expanded="false" aria-controls="owner-book-candidates" hidden>Change cover</button></div>
           <p id="owner-book-research-message" role="status" aria-live="polite"></p>
           <div id="owner-book-candidates" class="owner-book-candidates"></div>
           <button type="button" id="owner-book-another-photo" class="owner-secondary-action" hidden>Try another photo</button>
           <p id="owner-book-photo-help" class="owner-book-photo-help"></p>
         </section>
         <section id="owner-book-selected" class="owner-book-selected" hidden></section>
+        <section id="owner-book-photo-save" class="owner-book-photo-save" aria-label="Your copy photos" hidden>
+          <h3>Your copy photos</h3>
+          <p id="owner-book-photo-message" role="status" aria-live="polite"></p>
+          <button type="button" id="owner-book-photo-retry" class="owner-secondary-action" hidden>Retry photo save</button>
+          <p id="owner-book-photo-permission" class="dr-scan-photo-note">Adding this book also saves the selected photos of your own copy. You confirm you have permission to use them. Photos marked “Identification only” are not saved to your collection. Selling photos still need review.</p>
+          <div id="owner-book-photos" class="owner-book-photos"></div>
+          <div id="owner-book-photo-choices"></div>
+        </section>
         <fieldset id="owner-book-fields">
           <legend class="owner-book-sr-only">Book and copy details</legend>
           <details id="owner-book-details" open><summary>Book details · edit if needed</summary>
@@ -127,9 +135,9 @@
     node("form").insertBefore(node("research"), node("form").firstElementChild);
     for (const id of ["category", "state"]) node(id).addEventListener("change", update);
     node("grader").addEventListener("change", clearGradingDetails);
-    for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving) { cancelScan(); dialog.close(); } });
+    for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving && !photoSaving) { cancelScan(); dialog.close(); } });
     node("view-item").addEventListener("click",()=>{
-      if(!saved||actorId!==state.session?.user?.id)return;
+      if(!saved||saving||photoSaving||actorId!==state.session?.user?.id)return;
       const item=savedReceipt?.inventory||{};
       if(reviewContext)reviewContext.onClose=null;
       dialog.close();
@@ -137,7 +145,7 @@
       document.dispatchEvent(new CustomEvent("hub:inventory-open",{detail:{inventoryId:item.id||item.inventory_id,inventoryCode:item.inventory_code}}));
     });
     node("add-another").addEventListener("click",()=>{
-      if(!saved||actorId!==state.session?.user?.id)return;
+      if(!saved||saving||photoSaving||actorId!==state.session?.user?.id)return;
       const next=reviewContext?.onAddAnother,scannerReturn=reviewContext?.onClose,category=value("category")==="MANGA"?"MANGA":"COMICS";
       dialog.close();if(next)next();else if(!scannerReturn)open({category});
     });
@@ -146,7 +154,7 @@
       const remove = reviewContext.onRemove;
       cancelScan(); photos = []; remove(); dialog.close();
     });
-    dialog.addEventListener("cancel", event => { if (saving) event.preventDefault(); });
+    dialog.addEventListener("cancel", event => { if (saving || photoSaving) event.preventDefault(); });
     dialog.addEventListener("close", () => {
       if (dialog.open) return;
       cancelScan();
@@ -158,6 +166,10 @@
     node("gallery").addEventListener("click", () => node("gallery-file").click());
     for (const id of ["camera-file", "gallery-file"]) node(id).addEventListener("change", addPhotos);
     node("recognize").addEventListener("click", recognize);
+    node("photo-retry").addEventListener("click", () => {
+      if (!saved || saving || photoSaving || actorId !== state.session?.user?.id) return;
+      void attachSavedPhotos(actorId, openRevision, true);
+    });
     node("change-cover").addEventListener("click", () => {
       if (scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
       choosingCover = !choosingCover; renderResearch();
@@ -176,6 +188,9 @@
     node("form").addEventListener("invalid", event => {
       if (node("identity").contains(event.target)) node("details").open = true;
       if (node("copy-details").contains(event.target)) node("copy-details").open = true;
+      node("message").textContent = event.target === node("number")
+        ? "Confirm the issue or volume number. You can choose the matching book details above, or enter it below."
+        : "Check the highlighted detail before adding your book.";
     }, true);
     for (const type of ["input", "change"]) node("identity").addEventListener(type, () => {
       identityEdited = true;
@@ -246,6 +261,8 @@
     node("research").hidden = !research;
     if (!research) return;
     const selected = (research.candidates || []).find(candidate => candidate.id === selectedResearch);
+    node("research-title").textContent = selected ? "Selected book reference"
+      : research.candidates?.length ? "Possible book matches" : "Publisher lookup";
     node("change-cover").hidden = !selected;
     node("change-cover").disabled = pending || saved || saving;
     node("change-cover").textContent = choosingCover ? "Keep selected cover" : "Change cover";
@@ -253,7 +270,7 @@
     node("another-photo").hidden = !choosingCover;
     node("another-photo").disabled = pending || saved || saving;
     node("research-message").textContent = selected && !choosingCover
-      ? "Artwork selected. Change it if it looks wrong."
+      ? "Check this reference against your copy. You can change it if needed."
       : research.message || "Choose the cover that matches your book.";
     const revision = coverRevision, actor = actorId;
     const candidates = selected && !choosingCover ? [selected] : (research.candidates || []).slice(0, 4);
@@ -269,7 +286,9 @@
       const expected = `/api/v1/owner/books/research/${researchRunId}/cover/${candidate.id}`;
       if (/^[0-9a-f-]{36}$/i.test(researchRunId || "") && candidate.image_path === expected) {
         placeholder.textContent = "Loading publisher cover…";
-        queueMicrotask(() => loadCover(image, placeholder, expected, revision, actor));
+        queueMicrotask(() => loadCover(image, placeholder, expected, revision, actor, () => {
+          if (candidate.id === selectedResearch) renderReadSummary(candidate.fields, true);
+        }));
       }
       const details = document.createElement("div"); details.className = "owner-book-candidate-copy";
       const title = document.createElement("h4");
@@ -291,10 +310,11 @@
       choose.addEventListener("click", () => {
         if (scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
         fillBookFields(candidate.fields); selectedResearch = candidate.id; choosingCover = false; identityEdited = true;
-        node("selected").hidden = true; node("details").open = !bookDetailsComplete();
+        node("details").open = !bookDetailsComplete(); node("message").textContent = "";
         node("photo-details").open = false;
         scheduleMarket();
         renderResearch();
+        renderReadSummary(candidate.fields);
       });
       details.append(title,meta,edition,why,link,choose); card.append(art,details); node("candidates").append(card);
     }
@@ -307,7 +327,7 @@
     scanRevision++; priceRevision++; scanning = false;
     scanController?.abort(); scanController = null;
     clearCoverLoads();
-    if (dialog && !saving) { node("fields").disabled = pending; node("save").disabled = false; }
+    if (dialog && !saving) { node("fields").disabled = pending || saved; node("save").disabled = saved || photoSaving; }
   }
 
   function scanActive(actor, revision) { return dialog.open && actorId === actor && state.session?.user?.id === actor && scanRevision === revision; }
@@ -328,10 +348,14 @@
 
   function renderPhotos() {
     node("photos").replaceChildren();
+    node("photo-choices").replaceChildren();
+    node("photo-save").hidden = !photos.length;
+    if (window.DropRateScanPhotos) photoDrafts = window.DropRateScanPhotos.sync(photos, photoDrafts);
     photos.forEach((photo, index) => {
       const figure = document.createElement("figure"), image = document.createElement("img"), remove = document.createElement("button");
       image.src = photo; image.alt = `Book photo ${index + 1}`;
-      remove.type = "button"; remove.textContent = "Remove"; remove.disabled = scanning || pending || saved;
+      remove.className = "owner-secondary-action";
+      remove.type = "button"; remove.textContent = "Remove"; remove.disabled = scanning || saving || photoSaving || pending || saved;
       remove.setAttribute("aria-label", `Remove book photo ${index + 1}`);
       remove.addEventListener("click", () => {
         if (scanning || saving || pending || saved) return;
@@ -339,16 +363,72 @@
         node("scan-message").textContent = photos.length ? "Photos changed. Identify your book again." : "Add a cover photo to identify your book.";
       });
       figure.append(image, remove); node("photos").append(figure);
+      if (photoDrafts[index] && window.DropRateScanPhotos) {
+        node("photo-choices").append(window.DropRateScanPhotos.choice(photoDrafts[index], {
+          number: index + 1, disabled: scanning || saving || photoSaving || pending || saved,
+          onChange: () => { node("photo-message").textContent = ""; },
+        }));
+      }
     });
     node("recognize").disabled = !photos.length || scanning || saving || pending || saved;
     for (const id of ["camera", "gallery"]) node(id).disabled = photos.length >= 3 || scanning || saving || pending || saved;
     node("remove").hidden = !reviewContext?.onRemove || saved;
     node("remove").disabled = saving || pending;
+    renderSaveControls();
   }
 
-  function renderReadSummary(fields) {
+  function renderSaveControls() {
+    const busy = saving || photoSaving;
+    for (const id of ["close", "cancel", "view-item", "add-another", "photo-retry"]) node(id).disabled = busy;
+    node("save").disabled = busy || scanning || saved;
+    node("photo-retry").hidden = !saved || !photoResult || photoResult.complete;
+  }
+
+  function currentOpen(actor, revision) {
+    return dialog.open && actor === actorId && actor === state.session?.user?.id && revision === openRevision;
+  }
+
+  async function attachSavedPhotos(actor, revision, retry = false) {
+    if (!currentOpen(actor, revision)) return;
+    const helper = window.DropRateScanPhotos;
+    if (!helper?.selected(photoDrafts).length) return;
+    photoSaving = true;
+    node("message").textContent = "Book added. Saving your photos…";
+    node("photo-message").textContent = "Saving the selected photos to this copy…";
+    renderPhotos();
+    try {
+      // A retry reads the current version in case this copy was edited in the
+      // meantime, keeping the original photograph and request key for an
+      // uncertain upload receipt.
+      const inventory = retry ? {...savedReceipt.inventory, version: undefined} : savedReceipt.inventory;
+      const result = await helper.attach({request: apiRequest, inventory, drafts: photoDrafts,
+        active: () => currentOpen(actor, revision)});
+      if (!currentOpen(actor, revision)) return;
+      photoResult = result;
+    } catch (error) {
+      if (!currentOpen(actor, revision)) return;
+      photoResult = {complete: false, failed: [{message: error.message || "Photo save interrupted. Retry your photo."}]};
+    } finally {
+      if (currentOpen(actor, revision)) {
+        photoSaving = false;
+        if (photoResult?.complete) {
+          node("message").textContent = `${savedReceipt.catalogue.name} added to your collection.`;
+          node("photo-message").textContent = "Your selected photos are saved to this copy. Selling photos still need review.";
+        } else {
+          node("message").textContent = "Book added. Photo needs retry.";
+          node("photo-message").textContent = "Book added. Photo needs retry. "
+            + ((photoResult?.failed || []).map(failure => failure.message).join(" ")
+              || "Your book is safely in your collection. Retry the photo save below.");
+        }
+        renderPhotos();
+      }
+    }
+  }
+
+  function renderReadSummary(fields, coverUnavailable = false) {
     const preview = node("selected"); preview.replaceChildren();
-    preview.hidden = !fields.series_title || !!research?.candidates?.length;
+    const selected = research?.candidates?.find(candidate => candidate.id === selectedResearch);
+    preview.hidden = !fields.series_title || (!coverUnavailable && !!selected?.image_path);
     if (preview.hidden) return;
     const art = document.createElement("div"); art.className = "owner-book-cover";
     if (photos[0]) {
@@ -358,7 +438,8 @@
     title.textContent = [fields.series_title, fields.issue_number ? (fields.system_code === "MANGA" ? "Vol. " : "#") + fields.issue_number : ""].filter(Boolean).join(" ");
     const caption = document.createElement("p");
     caption.textContent = [fields.publisher,fields.language,fields.release_year].filter(Boolean).join(" · ")
-      + (photos[0] ? " · Your photo" : "");
+      + (photos[0] ? " · Your photo" : "")
+      + (coverUnavailable ? " · Publisher cover unavailable" : "");
     preview.append(art,title,caption);
   }
 
@@ -526,8 +607,16 @@
   async function save(event) {
     event.preventDefault();
     if (!actorId || state.session?.user?.id !== actorId) { dialog.close(); return; }
-    if (saving || scanning || saved || !node("form").reportValidity()) return;
-    const savingActor = actorId;
+    if (saving || photoSaving || scanning || saved || !node("form").reportValidity()) return;
+    try {
+      if (photos.length && !window.DropRateScanPhotos) throw new Error("Refresh the app before saving this book with photos. Your book has not been added yet.");
+      window.DropRateScanPhotos?.validate(photoDrafts);
+    } catch (error) {
+      node("message").textContent = error.message;
+      node("photo-message").textContent = error.message;
+      return;
+    }
+    const savingActor = actorId, revision = openRevision;
     const body = pending ? submittedPayload : JSON.stringify(payload());
     if (submittedPayload && body !== submittedPayload) requestKey = crypto.randomUUID();
     submittedPayload = body; saving = true;
@@ -536,10 +625,25 @@
     node("remove").disabled = true;
     node("fields").disabled = true; node("save").disabled = true;
     node("message").textContent = "Saving your book…";
+    renderPhotos();
     try {
-      const result = await apiRequest("/api/v1/owner/books/intake", {method: "POST", headers: {"Idempotency-Key": requestKey}, body});
-      if (state.session?.user?.id !== savingActor) { dialog.close(); return; }
-      pending = false; saved = true; renderPhotos();
+      let result;
+      try {
+        result = await apiRequest("/api/v1/owner/books/intake", {method: "POST", headers: {"Idempotency-Key": requestKey}, body});
+      } catch (error) {
+        if (!currentOpen(savingActor, revision)) return;
+        pending = ![400, 401, 403, 404, 409, 422].includes(error.status);
+        node("message").textContent = pending
+          ? "We couldn't confirm the save. Retry this same book to check it safely. Your details have been kept."
+          : error.message || "Unable to save. Check your details and try again.";
+        node("fields").disabled = pending;
+        node("save").textContent = pending ? "Retry this book" : "Add to collection";
+        return;
+      }
+      if (!currentOpen(savingActor, revision)) return;
+      // Intake is committed. All later photo work is a separate, recoverable
+      // operation and must never re-enable or repeat this book's intake.
+      pending = false; saved = true;
       savedReceipt=result;
       node("message").textContent = `${result.catalogue.name} added to your collection.`;
       node("save").textContent = "Added to collection";
@@ -547,31 +651,30 @@
       node("title").textContent="Added to your collection";
       node("details").open=false;node("copy-details").open=false;node("photo-details").open=false;
       node("actions").hidden=true;node("success").hidden=false;
+      renderPhotos();
+      await attachSavedPhotos(savingActor, revision);
+      if (!currentOpen(savingActor, revision)) return;
       // The scanner only receives a receipt after explicit, successful book intake.
       // A presentation callback must never turn a committed save into a retry.
-      try { reviewContext?.onSaved?.(result, JSON.parse(body), {run_id:researchRunId,research}); } catch (_) { /* Inventory already saved. */ }
+      const onSaved = reviewContext?.onSaved;
       if (reviewContext) reviewContext.onSaved = null;
+      try { onSaved?.(result, JSON.parse(body), {run_id:researchRunId,research,photos:[...photos],photoResult}); } catch (_) { /* Inventory already saved. */ }
       // A failed refresh must not turn a successful save into a second intake.
-      await Promise.allSettled([loadOwnerInventory(), loadOwnerOverview()]);
-    } catch (error) {
-      if (state.session?.user?.id !== savingActor) { dialog.close(); return; }
-      pending = ![400, 401, 403, 404, 409, 422].includes(error.status);
-      node("message").textContent = pending
-        ? "We couldn't confirm the save. Retry this same book to check it safely. Your details have been kept."
-        : error.message || "Unable to save. Check your details and try again.";
-      node("fields").disabled = pending; node("save").disabled = false;
-      node("save").textContent = pending ? "Retry this book" : "Add to collection";
+      await Promise.allSettled([Promise.resolve().then(() => loadOwnerInventory()), Promise.resolve().then(() => loadOwnerOverview())]);
     } finally {
-      saving = false;
-      node("research").querySelectorAll("button").forEach(button => { button.disabled = pending || saved; });
-      reviewContext?.onSaveState?.(pending);
-      node("remove").disabled = pending || saved;
+      if (currentOpen(savingActor, revision)) {
+        saving = false;
+        node("research").querySelectorAll("button").forEach(button => { button.disabled = pending || saved; });
+        reviewContext?.onSaveState?.(pending);
+        node("remove").disabled = pending || saved;
+        renderPhotos();
+      }
     }
   }
 
   function open(options = {}) {
     ensureDialog();
-    if (saving) return false;
+    if (saving || photoSaving) return false;
     if (pending && actorId === state.session?.user?.id) {
       // Preserve the original payload, key and receipt callback even when a
       // different queued scan tries to open while the earlier save is uncertain.
@@ -580,7 +683,9 @@
       reviewContext = {...reviewContext, onClose: options.onClose};
       dialog.showModal(); renderResearch(); return true;
     }
+    openRevision++;
     actorId = state.session?.user?.id; pending = false; saved = false;savedReceipt=null;
+    photoDrafts = []; photoResult = null; photoSaving = false;
     identityEdited = false;
     reviewContext = {...options};
     cancelScan(); photos = [];
@@ -595,6 +700,7 @@
     node("fields").disabled = false; node("save").disabled = false;
     node("save").textContent = "Add to collection"; node("cancel").textContent = "Cancel";
     node("message").textContent = "";
+    node("photo-message").textContent = "";
     node("scan-message").textContent = "Up to 3 photos of the same book. You confirm the details before saving.";
     node("market-result").textContent = "Complete the book and copy details to check matching sold evidence.";
     node("title").textContent = options.recognition ? "Confirm your book" : options.category === "MANGA" ? "Add manga" : options.category === "COMICS" ? "Add a comic" : "Add a comic or manga";
@@ -675,6 +781,10 @@
   }
   window.DropRateBooks = {open, updateScan(id, result) {
     if (dialog?.open && reviewContext?.scanItemId === id && actorId === state.session?.user?.id) applyResearch(result);
-  }, reset() { reviewContext = null; cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); } }};
+  }, reset() {
+    openRevision++; reviewContext = null; saving = false; pending = false; saved = false; savedReceipt = null;
+    photoSaving = false; photoResult = null; photoDrafts = []; actorId = null;
+    cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); }
+  }};
   document.querySelectorAll("[data-owner-add-book]").forEach(button => button.addEventListener("click", open));
 })();

@@ -124,8 +124,8 @@ async function matched(scanner, quantity = 1) {
     assert.match(proxyCalls[0],/\/api\/v1\/recognition\/runs\/run-1\/candidates\/candidate-1\/image/);
     f.finish();checks++;
   }
-  // Missing exact art shows only the user's clearly marked temporary scan,
-  // never silently presents it as approved catalogue or Shopify imagery.
+  // Missing exact art shows the user's clearly marked scan, without implying
+  // catalogue verification or approval to use it for selling.
   {
     const f=fixture('seller',async()=>result());
     const s=f.scanner;await s.recognise('data:image/jpeg;base64,AA==');
@@ -137,6 +137,43 @@ async function matched(scanner, quantity = 1) {
     assert.equal(label.textContent,'Scan photo');
     assert.match(image.title,/not verified catalogue artwork/);
     assert.equal(item.selected?.r2_image_url,undefined);
+    f.finish();checks++;
+  }
+  // A saved copy receipt remains a labelled preview after temporary scan bytes
+  // are released. It is never copied into the selected catalogue identity.
+  {
+    const f=fixture(),s=f.scanner,url='https://cdn.shopify.com/s/files/1/1/files/own-scan.jpg?v=1';
+    const item={status:'added',photo:null,selected:{candidate_snapshot:{name:'Saved card'}},photoDraft:{asset:{
+      id:'own-photo',side:'FRONT',shopify_file_status:'READY',approval_status:'PENDING',photo_url:url}}};
+    const wrap=s.thumb(item),image=wrap.querySelector('img');
+    assert.equal(image.src,url);assert.equal(image.hidden,false);
+    assert.equal(image.referrerPolicy,'no-referrer');assert.equal(image.crossOrigin,'anonymous');
+    assert.equal(wrap.querySelector('.dr-scan-capture-label').hidden,false);
+    assert.equal(wrap.querySelector('.dr-scan-capture-label').textContent,'Scan photo');
+    assert.match(image.title,/not verified catalogue artwork/);
+    assert.equal(item.selected.image_url,undefined);assert.equal(item.photoDraft.asset.approval_status,'PENDING');
+    image.dispatchEvent(new f.w.Event('error'));
+    assert.equal(image.hidden,true);assert.equal(wrap.querySelector('.dr-scan-capture-label').hidden,true);
+    f.finish();checks++;
+  }
+  // Receipt previews accept only HTTPS Shopify CDN images, without credentials
+  // or a nonstandard port. Unready assets and another owner stay hidden.
+  {
+    const f=fixture(),s=f.scanner;
+    for(const url of ['http://cdn.shopify.com/scan.jpg','https://foreign.test/scan.jpg',
+      'https://cdn.shopify.com.evil.test/scan.jpg','https://user:password@cdn.shopify.com/scan.jpg',
+      'https://cdn.shopify.com:444/scan.jpg','//cdn.shopify.com/scan.jpg','javascript:alert(1)']){
+      const item={status:'added',photo:null,photoDraft:{asset:{id:'photo',shopify_file_status:'READY',photo_url:url}}};
+      const wrap=s.thumb(item);assert.equal(wrap.querySelector('img').getAttribute('src'),null,url);
+      assert.equal(wrap.querySelector('img').hidden,true,url);
+    }
+    const item={status:'added',photo:null,photoDraft:{asset:{id:'photo',shopify_file_status:'NOT_UPLOADED',
+      photo_url:'https://cdn.shopify.com/scan.jpg'}}};
+    assert.equal(s.thumb(item).querySelector('img').getAttribute('src'),null);
+    item.photoDraft.asset.shopify_file_status='READY';f.session.value={user:{id:'different-owner'}};
+    assert.equal(s.thumb(item).querySelector('img').getAttribute('src'),null);
+    item.mode='COMIC';item.savedPhotoPreview='https://cdn.shopify.com/book.jpg';
+    assert.equal(s.thumb(item).querySelector('img').getAttribute('src'),null);
     f.finish();checks++;
   }
   // A PSA slab photographed under Auto must never display a raw-card price or
@@ -284,10 +321,29 @@ async function matched(scanner, quantity = 1) {
     const newRun='22222222-2222-4222-8222-222222222222',newId='bbbbbbbbbbbbbbbbbbbbbbbb';
     const newPath='/api/v1/owner/books/research/'+newRun+'/cover/'+newId;
     review.onSaved({catalogue:{name:'Saved book'}},{new_catalogue:{comic_printing:{series_title:'Book'}},research_candidate_id:newId,language:'English'},
-      {run_id:newRun,research:{candidates:[{id:newId,image_path:newPath}]}});
+      {run_id:newRun,research:{candidates:[{id:newId,image_path:newPath}]},photoResult:{items:[{
+        id:'own-front',side:'FRONT',shopify_file_status:'READY',photo_url:'https://cdn.shopify.com/s/files/own-book.jpg'}]}});
     review.onSaveState(false);assert.equal(s.removable(item),true);review.onClose();await tick();
     assert.equal(s.find('.dr-scan-review-thumb img').src,'blob:preview');
     assert.equal(item.bookResult.run_id,newRun);assert.ok(imageCalls.includes(newPath),'A rescan must keep its new cover receipt');f.finish();checks++;
+  }
+  // A book with no publisher cover uses only its FRONT upload receipt after
+  // onSaved, preserving the one existing callback and its catalogue metadata.
+  {
+    let review;const front='https://cdn.shopify.com/s/files/front-book.jpg';
+    const f=fixture('seller',async()=>({status:'NEEDS_REVIEW',fields:{series_title:'Book',issue_number:'1'}}),
+      {openBooks:options=>{review=options;return true;}}),s=f.scanner;
+    s.setMode('COMIC');await s.recognise('data:image/jpeg;base64,AA==');const item=s.items[0];
+    s.openDetails(item);
+    review.onSaved({catalogue:{name:'Saved book'}},{new_catalogue:{comic_printing:{series_title:'Book',issue_number:'1'}},language:'English'},
+      {photoResult:{items:[{id:'back',side:'BACK',shopify_file_status:'READY',photo_url:'https://cdn.shopify.com/s/files/back-book.jpg'},
+        {id:'front',side:'FRONT',shopify_file_status:'READY',approval_status:'PENDING',photo_url:front}]}});
+    assert.equal(item.status,'added');assert.equal(item.photo,null);assert.equal(item.savedPhotoPreview,front);
+    const wrap=s.thumb(item),image=wrap.querySelector('img');
+    assert.equal(image.src,front);assert.equal(wrap.querySelector('.dr-scan-capture-label').hidden,false);
+    assert.match(image.title,/not verified catalogue artwork/);assert.equal(item.bookResult.fields.series_title,'Book');
+    assert.equal(f.calls.length,1,'Previewing a saved book cannot repeat intake or recognition');
+    f.finish();checks++;
   }
   // Failed reads retain the cover for review/retry, with no guessed identity or price.
   for(const response of ['NO_MATCH','error']) {
@@ -313,12 +369,15 @@ async function matched(scanner, quantity = 1) {
     const f=fixture('seller',async url=>{
       if(url.endsWith('/recognize'))return {status:'NEEDS_REVIEW',fields:{system_code:'MANGA',series_title:'Fixture Manga',issue_number:'1',language:'English',publisher:'Fixture publisher',book_format:'MANGA'}};
       if(url.endsWith('/intake')&&fail){fail=false;throw new Error('Response lost');}
-      return {catalogue:{name:'Saved manga'},inventory:{id:'book-copy'}};
+      if(url.includes('/photo/upload?'))return {asset:{id:'book-front',side:'FRONT',shopify_file_status:'READY',
+        approval_status:'PENDING',photo_url:'https://cdn.shopify.com/s/files/synthetic-book-front.jpg'},inventory_version:1};
+      return {catalogue:{name:'Saved manga'},inventory:{id:'book-copy',version:1}};
     },{openBooks:options=>f.w.DropRateBooks.open(options)});
     f.w.state={session:f.session.value};f.w.apiRequest=f.scanner.options.request;
     f.w.loadOwnerInventory=async()=>{};f.w.loadOwnerOverview=async()=>{};
+    f.w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/scan-photos.js'),'utf8'));
     f.w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner-books.js'),'utf8'));
-    const s=f.scanner;s.setMode('COMIC');await s.recognise('photo-one');await s.recognise('photo-two');
+    const s=f.scanner;s.setMode('COMIC');await s.recognise('data:image/jpeg;base64,AA==');await s.recognise('data:image/jpeg;base64,AQ==');
     const [first,second]=s.items;s.openDetails(first);
     const doc=f.w.document,form=doc.getElementById('owner-book-form');
     form.dispatchEvent(new f.w.Event('submit',{cancelable:true}));await tick();await tick();
@@ -331,6 +390,8 @@ async function matched(scanner, quantity = 1) {
     const saves=f.calls.filter(call=>call.url.endsWith('/intake'));
     assert.equal(saves.length,2);assert.equal(saves[0].body,saves[1].body);
     assert.equal(saves[0].headers['Idempotency-Key'],saves[1].headers['Idempotency-Key']);
+    assert.equal(f.calls.filter(call=>call.url.includes('/photo/upload?')).length,1);
+    assert.equal(first.savedPhotoPreview,'https://cdn.shopify.com/s/files/synthetic-book-front.jpg');
     assert.ok(!f.calls.some(call=>call.url.includes('recognition-intake')||call.url.includes('/feedback')));
     f.w.DropRateBooks.reset();f.finish();checks++;
   }

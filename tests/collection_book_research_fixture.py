@@ -1,6 +1,7 @@
 """Researched book -> explicit intake -> owner-scoped artwork, with real PG/RLS."""
 import json
 import asyncio
+import asyncpg
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -13,16 +14,18 @@ from collection_book_scanner_fixture import photo
 
 
 async def exercise(client,db,pool,headers,settings,ua,ub,owner_a):
-    fields=dict(system_code='MARVEL_COMICS',series_title='Fixture Research Adventure',issue_number='1',
-        publisher='Marvel',book_format='SINGLE_ISSUE',language='English',release_year=2025,
-        printing_number=2,cover_code='Cover A',cover_artist=None,volume_identifier=None,barcode_gtin=None)
-    candidate=dict(id='a'*24,fields=fields,source_url='https://www.marvel.com/comics/issue/1/fixture',
-        source_title='Fixture publisher record',image_url='https://cdn.marvel.com/u/prod/marvel/i/mg/9/03/abcd/clean.jpg',
+    # Match the failed phone journey's shape: a DC issue with unknown printing
+    # and no condition or acquisition cost. These unknowns remain optional.
+    fields=dict(system_code='DC_COMICS',series_title='Fixture Batman Archive',issue_number='463',
+        publisher='DC',book_format='SINGLE_ISSUE',language='English',release_year=1991,
+        printing_number=None,cover_code=None,cover_artist=None,volume_identifier=None,barcode_gtin=None)
+    candidate=dict(id='a'*24,fields=fields,source_url='https://www.dc.com/comics/fixture/batman-463',
+        source_title='Fixture publisher record',image_url='https://static.dc.com/2026-10/fixture.jpg',
         cover_matches_photo=False,explanation='Synthetic publisher edition reference.')
     values={key:dict(value='',visible_text='',confidence=0) for key in scanner.BookFields.model_fields}
     for key in ('series_title','issue_number','language'):
         values[key]=dict(value=str(fields[key]),visible_text=str(fields[key]),confidence=.99)
-    observed=scanner.BookObservation(object_type='BOOK',category='MARVEL_COMICS',book_format='SINGLE_ISSUE',
+    observed=scanner.BookObservation(object_type='BOOK',category=fields['system_code'],book_format='SINGLE_ISSUE',
         confidence=.99,fields=values,warnings=[])
     response=SimpleNamespace(observation=observed,telemetry=SimpleNamespace(to_dict=lambda:{}))
     researched=dict(status='CANDIDATES',candidates=[candidate],message='Compare the cover.')
@@ -33,7 +36,7 @@ async def exercise(client,db,pool,headers,settings,ua,ub,owner_a):
         r=await client.post('/api/v1/owner/books/recognize',json={'images':[photo('purple')]},headers=headers(ua,uuid4()))
     assert r.status_code==200,r.text
     result=r.json();run_id=UUID(result['run_id'])
-    assert result['research']['selected_candidate_id']=='a'*24 and result['fields']['printing_number']==2
+    assert result['research']['selected_candidate_id']=='a'*24 and result['fields'].get('printing_number') is None
     assert result['research']['candidates'][0]['cover_matches_photo'] is False
     assert 'image_url' not in result['research']['candidates'][0] and result['auto_save'] is False
     assert await db.fetchval('select count(*) from tcg.inventory_items')==before
@@ -51,13 +54,39 @@ async def exercise(client,db,pool,headers,settings,ua,ub,owner_a):
     wrong=deepcopy(payload);wrong['new_catalogue']['comic_printing']['printing_number']=3
     assert (await client.post(path,json=wrong,headers=headers(ua,uuid4()))).status_code==422
     assert await db.fetchval('select count(*) from tcg.inventory_items')==before
-    key=uuid4();r=await client.post(path,json=payload,headers=headers(ua,key))
+    # A real PostgreSQL constraint failure in the reference write must roll
+    # back the copy, identity and request receipt. Never return a false failed
+    # save after committing a physical copy, as the phone regression did.
+    key=uuid4()
+    catalogue_before=await db.fetchval('select count(*) from tcg.catalogue_products')
+    await db.execute('''create function tcg.fixture_reject_book_reference() returns trigger
+      language plpgsql as $$begin
+        if new.idempotency_key like 'book-reference:%' then
+          raise exception 'Synthetic book reference failure' using errcode='23514';
+        end if;
+        return new;
+      end$$;
+      create trigger fixture_reject_book_reference before insert on tcg.recognition_runs
+        for each row execute function tcg.fixture_reject_book_reference();''')
+    try:
+        await client.post(path,json=payload,headers=headers(ua,key))
+    except asyncpg.CheckViolationError:
+        pass
+    else:
+        raise AssertionError('The real reference-write constraint did not run')
+    assert await db.fetchval('select count(*) from tcg.inventory_items')==before
+    assert await db.fetchval('select count(*) from tcg.catalogue_products')==catalogue_before
+    assert not await db.fetchval('select exists(select 1 from tcg.request_receipts where owner_id=$1 and request_key=$2)',owner_a,key)
+    await db.execute('drop trigger fixture_reject_book_reference on tcg.recognition_runs; drop function tcg.fixture_reject_book_reference()')
+    r=await client.post(path,json=payload,headers=headers(ua,key))
     assert r.status_code==201,r.text
     saved=r.json();inventory_id=UUID(saved['inventory']['id']);catalogue_id=UUID(saved['catalogue']['id'])
     replay=await client.post(path,json=payload,headers=headers(ua,key))
     assert replay.status_code==201 and replay.json()['inventory']['id']==str(inventory_id),replay.text
     assert await db.fetchval('select count(*) from tcg.inventory_items')==before+1
     assert await db.fetchval("select count(*) from tcg.recognition_runs where idempotency_key=$1",f'book-reference:{inventory_id}')==1
+    assert await db.fetchval("select system_code from tcg.recognition_runs where idempotency_key=$1",f'book-reference:{inventory_id}')=='DC_COMICS'
+    assert await db.fetchval('select acquisition_cost_minor from tcg.inventory_items where id=$1',inventory_id) is None
     row=await db.fetchrow('select status,sale_intent,identity_confirmed,market_value_minor from tcg.inventory_items where id=$1',inventory_id)
     assert dict(row)==dict(status='DRAFT',sale_intent='PERSONAL_COLLECTION',identity_confirmed=False,market_value_minor=None)
     async with user_connection(pool,ua,'book-reference-own') as conn:

@@ -1,4 +1,4 @@
-"""Founder-reviewed consignment comic photos; never an inventory approval API."""
+"""Human review of submitted consignment photos; never inventory approval."""
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -11,11 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .access_control import require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .channel_sync_wakeup import request_shopify_sync
-from .comic_listing_preparation import _shopify
+from .comic_listing_preparation import (_shopify, _photo_preview_url, _receipt_identity_matches,
+                                        _finish_photo_import)
 from .db import user_connection
 
 
-router = APIRouter(prefix="/api/v1/shopify/comic-review", tags=["comic-photo-review"],
+router = APIRouter(prefix="/api/v1/shopify", tags=["seller-photo-review"],
                    dependencies=[Depends(require_platform_admin_request)])
 
 
@@ -45,8 +46,17 @@ REVIEW_SCOPE_SQL = """from tcg.media_assets m
       and m.scope='INVENTORY_ITEM' and m.source_type='CONSIGNOR_UPLOAD'
       and m.rights_tier='FIRST_PARTY_CAPTURE'"""
 
+PHYSICAL_REVIEW_SCOPE_SQL = """from tcg.media_assets m
+    join tcg.inventory_items i on i.id=m.inventory_id and i.owner_id=m.owner_id
+    join tcg.catalogue_products p on p.id=i.catalogue_id
+    join tcg.owners o on o.id=m.owner_id
+    where o.owner_type='CONSIGNOR' and o.active
+      and p.product_type in ('CARD','COMIC','SEALED','FIGURE','COLLECTION')
+      and m.scope='INVENTORY_ITEM' and m.source_type='CONSIGNOR_UPLOAD'
+      and m.rights_tier='FIRST_PARTY_CAPTURE' and m.source_provider='Drop Rate'"""
 
-@router.get("/queue")
+
+@router.get("/comic-review/queue")
 async def comic_photo_review_queue(request: Request,
                                    user: Annotated[AuthenticatedUser, Depends(require_user)]):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
@@ -62,16 +72,49 @@ async def comic_photo_review_queue(request: Request,
     return jsonable_encoder({"items": [dict(row) for row in rows]})
 
 
-async def _review_asset(connection, asset_id: UUID, *, lock: bool = False):
-    row = await connection.fetchrow("""select m.*,i.status as inventory_status,i.grading_company,i.grade,
-        i.inventory_code,p.name,o.display_name as seller_name
-        """ + REVIEW_SCOPE_SQL + " and m.id=$1" + (" for update of m" if lock else ""), asset_id)
+@router.get("/photo-review/queue")
+async def physical_photo_review_queue(request: Request,
+                                      user: Annotated[AuthenticatedUser, Depends(require_user)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        rows = await connection.fetch("""select m.id,m.inventory_id,m.owner_id,m.version,m.side,
+            m.shopify_file_status,m.shopify_cdn_url,m.approval_status,m.rights_status,
+            m.source_status,m.created_at,m.source_reference,m.capture_context,
+            i.inventory_code,i.status as inventory_status,i.catalogue_id,i.language,
+            i.condition,i.grading_company,i.grade,i.certificate_number,i.seal_status,
+            p.name,p.card_number,p.variant,p.product_type,o.display_name as seller_name
+            """ + PHYSICAL_REVIEW_SCOPE_SQL + """
+              and m.approval_status='PENDING' and m.source_status='ACTIVE'
+              and i.status in ('DRAFT','INSPECTION','APPROVED')
+            order by m.created_at,m.id limit 100""")
+    items = []
+    for row in rows:
+        item = dict(row)
+        item["identity_matches"] = _receipt_identity_matches(item, item)
+        item.pop("source_reference", None)
+        item["shopify_cdn_url"] = _photo_preview_url(item.get("shopify_cdn_url"))
+        items.append(item)
+    return jsonable_encoder({"items": items})
+
+
+async def _review_asset(connection, asset_id: UUID, *, lock: bool = False, comic_only: bool = True):
+    sql = """select m.*,i.status as inventory_status,i.grading_company,i.grade,
+        i.inventory_code,i.catalogue_id as physical_catalogue_id,i.language,i.condition,
+        i.certificate_number,i.seal_status,p.name,p.variant,p.product_type,o.display_name as seller_name
+        """ + (REVIEW_SCOPE_SQL if comic_only else PHYSICAL_REVIEW_SCOPE_SQL) + " and m.id=$1"
+    if lock and not comic_only:
+        # Match the owner upload/refresh lock order: inventory first, then media.
+        candidate = await connection.fetchrow(sql, asset_id)
+        if candidate is None:
+            raise HTTPException(404, "Submitted seller photo not found")
+        await connection.fetchrow("""select id from tcg.inventory_items
+            where id=$1 and owner_id=$2 for update""", candidate["inventory_id"], candidate["owner_id"])
+    row = await connection.fetchrow(sql + (" for update of m" if lock else ""), asset_id)
     if row is None:
-        raise HTTPException(404, "Consignment comic photo not found")
+        raise HTTPException(404, "Consignment comic photo not found" if comic_only else "Submitted seller photo not found")
     return dict(row)
 
 
-@router.post("/{asset_id}/refresh-file")
+@router.post("/comic-review/{asset_id}/refresh-file")
 async def refresh_comic_photo_file(
     asset_id: UUID, payload: ReviewVersion, request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -117,24 +160,58 @@ async def refresh_comic_photo_file(
     return jsonable_encoder({"asset": dict(row), "message": "Photo file refreshed; staff approval is still required."})
 
 
-@router.post("/{asset_id}/decision")
+@router.post("/photo-review/{asset_id}/refresh-file")
+async def refresh_physical_photo_file(
+    asset_id: UUID, payload: ReviewVersion, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        asset = await _review_asset(connection, asset_id, comic_only=False)
+        if asset["version"] != payload.version:
+            raise HTTPException(409, "Photo changed. Refresh the review queue.")
+        if asset["approval_status"] != "PENDING" or asset["source_status"] != "ACTIVE":
+            raise HTTPException(409, "Only active pending photo evidence can be refreshed")
+    outcome = await _finish_photo_import(asset["inventory_id"], asset_id, request, user,
+        {"owner_id": asset["owner_id"]}, expected_asset_version=payload.version)
+    return jsonable_encoder({"asset": outcome["asset"], "message": outcome["message"],
+                             "processing_status": outcome["status"]})
+
+
+@router.post("/comic-review/{asset_id}/decision")
 async def review_comic_photo(
     asset_id: UUID, payload: ReviewDecision, request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ):
+    return await _decide_photo(asset_id, payload, request, user, comic_only=True)
+
+
+@router.post("/photo-review/{asset_id}/decision")
+async def review_physical_photo(
+    asset_id: UUID, payload: ReviewDecision, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+):
+    return await _decide_photo(asset_id, payload, request, user, comic_only=False)
+
+
+async def _decide_photo(asset_id, payload, request, user, *, comic_only):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        asset = await _review_asset(connection, asset_id, lock=True)
+        asset = await _review_asset(connection, asset_id, lock=True, comic_only=comic_only)
         if asset["version"] != payload.version:
             raise HTTPException(409, "Photo changed. Refresh before deciding.")
         if asset["approval_status"] != "PENDING" or asset["source_status"] != "ACTIVE":
             raise HTTPException(409, "This photo is no longer awaiting review")
         if asset["inventory_status"] not in {"DRAFT", "INSPECTION", "APPROVED"}:
             raise HTTPException(409, "Inactive inventory cannot have photos approved")
-        expected_context = "GRADED_SLAB" if asset["grading_company"] and asset["grade"] else "RAW_UNSLEEVED"
+        expected_context = ("SEALED_PRODUCT" if asset.get("product_type") in {"SEALED", "COLLECTION"} else
+                            "GRADED_SLAB" if asset["grading_company"] and asset["grade"] else "RAW_UNSLEEVED")
         if payload.decision == "APPROVE":
+            item_identity = {**asset, "catalogue_id": asset.get("physical_catalogue_id")}
+            if not comic_only and not _receipt_identity_matches(asset, item_identity):
+                raise HTTPException(409, "Item identity changed after capture. Request a new photograph of the confirmed item.")
             if asset["capture_context"] != expected_context:
-                raise HTTPException(422, "Physical photo context does not match the graded/raw comic")
-            if asset["shopify_file_status"] != "READY" or not asset["shopify_cdn_url"]:
+                raise HTTPException(422, "Physical photo context does not match the item")
+            if (asset["shopify_file_status"] != "READY" or not asset["shopify_cdn_url"]
+                    or (not comic_only and not _photo_preview_url(asset["shopify_cdn_url"]))):
                 raise HTTPException(422, "The physical photo must be available for inspection before approval")
             if not asset["rights_basis"] or not asset["alt_text"]:
                 raise HTTPException(422, "Photo rights and description must be recorded")
@@ -142,7 +219,7 @@ async def review_comic_photo(
                 rights_status='VERIFIED',approval_status='APPROVED',
                 rights_basis=$4,approved_by_user_id=$5,approved_at=clock_timestamp(),
                 rights_verified_at=clock_timestamp(),source_checked_at=clock_timestamp(),
-                source_status_note='Exact physical comic photograph reviewed by Drop Rate',
+                source_status_note='Exact physical photograph reviewed by Drop Rate',
                 updated_at=clock_timestamp(),version=version+1
                 where id=$1 and owner_id=$2 and version=$3 returning id,version,approval_status,side""",
                 asset_id, asset["owner_id"], payload.version,
@@ -157,7 +234,7 @@ async def review_comic_photo(
                 asset_id, asset["owner_id"], payload.version, user.user_id, payload.reason.strip())
         if row is None:
             raise HTTPException(409, "Photo changed during review")
-    if payload.decision == "APPROVE":
+    if payload.decision == "APPROVE" and comic_only:
         request_shopify_sync(request)
     return jsonable_encoder({"asset": dict(row), "message":
         "Photo approved for the exact copy. Inventory and shipping still require separate approval."

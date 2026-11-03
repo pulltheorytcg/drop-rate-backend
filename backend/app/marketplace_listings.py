@@ -258,7 +258,6 @@ async def pool_state(
                     or item["status"] != "APPROVED"
                     or item["sale_intent"] != "FOR_SALE"
                     or not item["identity_confirmed"]
-                    or item["acquisition_cost_minor"] is None
                     or item["storage_location_id"] is None
                     or item["store_price_minor"] is None
                 ):
@@ -394,7 +393,6 @@ async def reserve_listing_units(
                 or item["status"] != "APPROVED"
                 or item["sale_intent"] != "FOR_SALE"
                 or not item["identity_confirmed"]
-                or item["acquisition_cost_minor"] is None
                 or item["storage_location_id"] is None
                 or item["store_price_minor"] is None
             ):
@@ -719,8 +717,6 @@ async def create_or_join_listing(
             missing.append("FOR_SALE intent")
         if not item["identity_confirmed"]:
             missing.append("identity confirmation")
-        if item["acquisition_cost_minor"] is None:
-            missing.append("acquisition cost")
         if item["storage_location_id"] is None:
             missing.append("registered storage location")
         if item["store_price_minor"] is None:

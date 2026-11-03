@@ -36,7 +36,6 @@ async () => {
     comic_listing_preparation:{},comic_photos:[],comic_acquisition_cost_minor:null,
     comic_printing:{system_code:'MARVEL_COMICS',printing_number:2,issue_number:'1',attributes:{publisher:'Marvel'}},
     approval_blockers:['Drop Rate selling review: confirm the exact printing before publication',
-      'Acquisition cost needs recording by Drop Rate before sale',
       'Storage / dispatch location needs recording by Drop Rate',
       'Shopify media: approved first-party physical front image',
       'Drop Rate must configure shipping profile COMIC_BOOK']};

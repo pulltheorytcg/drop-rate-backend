@@ -52,7 +52,7 @@ def ebay_preparation(item: Mapping) -> dict:
         ("photos", "Front and back photos approved", bool(item.get("ebay_photos_ready")), "Drop Rate needs photos of this physical copy"),
         ("condition_review", "Photo-backed condition verified",
          item.get("condition_review_status") == ("VERIFIED_GRADED" if graded else "VERIFIED_NEAR_MINT"), "Drop Rate condition review"),
-        ("intake", "Cost and dispatch location recorded", bool(item.get("intake_ready")), "Drop Rate intake review"),
+        ("intake", "Dispatch location recorded", bool(item.get("intake_ready")), "Drop Rate intake review"),
         ("shipping", "Shipping profile configured", bool(item.get("ebay_shipping_ready")), "Drop Rate shipping setup"),
     ]
     return {

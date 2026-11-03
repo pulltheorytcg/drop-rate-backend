@@ -39,6 +39,9 @@ PHOTO_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 PHOTO_TICKET_SECONDS = 15 * 60
 MAX_PHOTO_PIXELS = 40_000_000
 PHOTO_TRANSFER_SECONDS = 45
+PHOTO_PRODUCT_TYPES = {"CARD", "COMIC", "SEALED", "FIGURE", "COLLECTION"}
+PHOTO_FILE_STATES = {"UPLOADED", "PROCESSING", "READY", "FAILED"}
+PHOTO_PROCESSING_ERROR = "Image processing could not finish. The photo is saved; retry processing or contact Drop Rate."
 
 
 class ComicPreparation(BaseModel):
@@ -120,6 +123,7 @@ def _verify_ticket(ticket: str, *, owner_id: UUID, inventory_id: UUID) -> dict:
                 raise ValueError("invalid upload receipt key")
             UUID(claims["relay_request_key"])
             if (type(claims.get("version")) is not int or claims["version"] < 1
+                    or claims.get("identity_version", 1) not in (1, 2)
                     or not re.fullmatch(r"[a-f0-9]{64}", str(claims.get("content_sha256", "")))
                     or not re.fullmatch(r"[a-f0-9]{64}", str(claims.get("identity_sha256", "")))):
                 raise ValueError("invalid upload receipt")
@@ -128,32 +132,43 @@ def _verify_ticket(ticket: str, *, owner_id: UUID, inventory_id: UUID) -> dict:
         raise HTTPException(422, "Photo upload expired or was altered. Choose the photo again.") from exc
 
 
-async def _comic(connection, inventory_id: UUID, owner_id: UUID, *, lock: bool = False):
+async def _photo_item(connection, inventory_id: UUID, owner_id: UUID, *, lock: bool = False,
+                      comic_only: bool = False, active_only: bool = True):
     row = await connection.fetchrow("""select i.id,i.version,i.status,i.catalogue_id,i.language,i.condition,i.grading_company,i.grade,
-           i.acquisition_cost_minor,i.source_record,p.name,p.variant,p.product_type,o.owner_type
+           i.seal_status,i.certificate_number,i.acquisition_cost_minor,i.source_record,
+           p.name,p.variant,p.product_type,o.owner_type
         from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
         join tcg.owners o on o.id=i.owner_id
         where i.id=$1 and i.owner_id=$2""" + (" for update of i" if lock else ""),
         inventory_id, owner_id)
-    if row is None or row["product_type"] != "COMIC":
-        raise HTTPException(404, "Comic inventory item not found")
-    if row["status"] not in {"DRAFT", "INSPECTION", "APPROVED"}:
-        raise HTTPException(409, "Sold, reserved or withdrawn comics cannot be prepared")
+    if row is None or row["product_type"] not in ({"COMIC"} if comic_only else PHOTO_PRODUCT_TYPES):
+        raise HTTPException(404, "Comic inventory item not found" if comic_only else "Inventory item not found")
+    if active_only and row["status"] not in {"DRAFT", "INSPECTION", "APPROVED"}:
+        raise HTTPException(409, "Sold, reserved or withdrawn items cannot receive photo changes")
     return dict(row)
 
 
+async def _comic(connection, inventory_id: UUID, owner_id: UUID, *, lock: bool = False):
+    return await _photo_item(connection, inventory_id, owner_id, lock=lock, comic_only=True)
+
+
 async def _active_side(connection, owner_id: UUID, inventory_id: UUID, side: str):
-    return await connection.fetchrow("""select id,provider_asset_id,version,approval_status,shopify_file_status
+    return await connection.fetchrow("""select id,provider_asset_id,version,approval_status,rights_status,shopify_file_status,shopify_cdn_url
         from tcg.media_assets where owner_id=$1 and inventory_id=$2 and scope='INVENTORY_ITEM'
           and side=$3 and approval_status<>'REJECTED' and shopify_file_status<>'FAILED'
           and source_status<>'REVOKED' order by created_at desc limit 1""",
         owner_id, inventory_id, side)
 
 
-def _photo_identity(item: dict) -> str:
-    snapshot = {key: item.get(key) for key in (
-        "catalogue_id", "name", "variant", "language", "condition", "grading_company", "grade"
-    )}
+def _photo_identity(item: dict, identity_version: int = 1) -> str:
+    # Version 1 remains readable for receipts issued by the legacy comic relay.
+    keys = ["catalogue_id", "name", "variant", "language", "condition", "grading_company", "grade"]
+    if identity_version == 2:
+        # The seller may assess raw condition after scanning. That assessment
+        # is reviewed separately and does not turn this into another copy.
+        keys.remove("condition")
+        keys += ["product_type", "seal_status", "certificate_number"]
+    snapshot = {key: item.get(key) for key in keys}
     return hashlib.sha256(json.dumps(snapshot, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -164,14 +179,51 @@ def _relay_receipt_id(owner_id, inventory_id, request_key) -> str:
 
 
 def _relay_source_reference(claims: dict) -> str:
-    return json.dumps({"filename": claims["filename"],
-                       "identity_sha256": claims["identity_sha256"]}, sort_keys=True)
+    reference = {"filename": claims["filename"], "identity_sha256": claims["identity_sha256"]}
+    if claims.get("identity_version") == 2:
+        reference["identity_version"] = 2
+    return json.dumps(reference, sort_keys=True)
+
+
+def _photo_preview_url(value: object) -> str | None:
+    if not isinstance(value, str) or not 0 < len(value) <= 8192:
+        return None
+    try:
+        url = urlsplit(value)
+        if (url.scheme == "https" and url.hostname == "cdn.shopify.com"
+                and url.username is None and url.password is None
+                and url.port in (None, 443) and not url.fragment):
+            return value
+    except ValueError:
+        pass
+    return None
+
+
+def _public_photo(row) -> dict:
+    asset = {key: row.get(key) for key in (
+        "id", "version", "side", "approval_status", "rights_status", "shopify_file_status"
+    )}
+    asset["photo_url"] = (_photo_preview_url(row.get("shopify_cdn_url"))
+                          if row.get("shopify_file_status") == "READY" else None)
+    return asset
+
+
+def _receipt_identity_matches(row, item) -> bool:
+    try:
+        reference = json.loads(row["source_reference"])
+        identity_version = reference.get("identity_version", 1)
+        return (identity_version in (1, 2)
+                and reference.get("identity_sha256") == _photo_identity(item, identity_version))
+    except (ValueError, TypeError, AttributeError, KeyError):
+        # Old staged tickets without an identity fingerprint need staff review;
+        # never silently attach an unbound historic upload to the current copy.
+        return False
 
 
 async def _relay_receipt(connection, owner_id, inventory_id, claims):
     receipt_id = _relay_receipt_id(owner_id, inventory_id, claims["relay_request_key"])
     row = await connection.fetchrow("""select id,version,side,approval_status,rights_status,
-        shopify_file_status,source_status,source_reference,content_sha256
+        shopify_file_status,source_status,source_reference,content_sha256,shopify_cdn_url
         from tcg.media_assets where owner_id=$1 and inventory_id=$2
           and scope='INVENTORY_ITEM' and provider_asset_id=$3""",
         owner_id, inventory_id, receipt_id)
@@ -179,13 +231,11 @@ async def _relay_receipt(connection, owner_id, inventory_id, claims):
         return None
     if (row["side"] != claims["side"] or row["content_sha256"] != claims["content_sha256"]
             or row["source_reference"] != _relay_source_reference(claims)):
-        raise HTTPException(409, "This upload request belongs to a different photograph or comic identity. Select the photo again.")
+        raise HTTPException(409, "This upload request belongs to a different photograph or item identity. Select the photo again.")
     if (row["approval_status"] == "REJECTED" or row["source_status"] == "REVOKED"
             or row["shopify_file_status"] == "FAILED"):
         raise HTTPException(409, "This photo needs a fresh submission. Select the photo again after reviewing the retake request.")
-    asset = {key: row[key] for key in (
-        "id", "version", "side", "approval_status", "rights_status", "shopify_file_status"
-    )}
+    asset = _public_photo(row)
     message = ("Photo already received. Image processing needs staff attention; the photo remains unapproved."
                if row["shopify_file_status"] == "NOT_UPLOADED" else
                "Photo already received. Drop Rate review is still required before publication.")
@@ -269,6 +319,27 @@ async def upload_comic_photo(
     rights_confirmed: Annotated[Literal["true"], Query()],
     request_key: Annotated[UUID, Query()],
 ):
+    return await _upload_photo(inventory_id, request, user, access, side, version,
+                               filename, rights_confirmed, request_key, comic_only=True)
+
+
+@router.post("/{inventory_id}/photo/upload", status_code=201)
+async def upload_inventory_photo(
+    inventory_id: UUID, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+    side: Annotated[Literal["FRONT", "BACK"], Query()],
+    version: Annotated[int, Query(ge=1)],
+    filename: Annotated[str, Query(min_length=1, max_length=180)],
+    rights_confirmed: Annotated[Literal["true"], Query()],
+    request_key: Annotated[UUID, Query()],
+):
+    return await _upload_photo(inventory_id, request, user, access, side, version,
+                               filename, rights_confirmed, request_key, comic_only=False)
+
+
+async def _upload_photo(inventory_id, request, user, access, side, version,
+                        filename, rights_confirmed, request_key, *, comic_only):
     """Same-origin photo transfer; never a rights, stock or publish approval."""
     filename = filename.strip()
     if not filename or any(char in filename for char in ("/", "\\", "\x00", "\r", "\n")):
@@ -283,7 +354,7 @@ async def upload_comic_photo(
     except ValueError:
         raise HTTPException(413, "Choose one photograph up to 12 MB.") from None
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        await _comic(connection, inventory_id, access["owner_id"])
+        await _photo_item(connection, inventory_id, access["owner_id"], comic_only=comic_only)
     body = bytearray()
     try:
         async with asyncio.timeout(PHOTO_TRANSFER_SECONDS):
@@ -302,13 +373,15 @@ async def upload_comic_photo(
               "relay_request_key": str(request_key), "content_sha256": hashlib.sha256(image_bytes).hexdigest(),
               "version": version}
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        item = await _comic(connection, inventory_id, access["owner_id"])
-        claims["identity_sha256"] = _photo_identity(item)
+        item = await _photo_item(connection, inventory_id, access["owner_id"], comic_only=comic_only)
+        if not comic_only:
+            claims["identity_version"] = 2
+        claims["identity_sha256"] = _photo_identity(item, claims.get("identity_version", 1))
         replay = await _relay_receipt(connection, access["owner_id"], inventory_id, claims)
         if replay:
-            return replay  # A lost response may be retried after the item version changes.
+            return {**replay, "inventory_version": item["version"]}
         if item["version"] != version:
-            raise HTTPException(409, "Comic details changed. Refresh before submitting this photograph.")
+            raise HTTPException(409, "Item details changed. Refresh before submitting this photograph.")
         if await _active_side(connection, access["owner_id"], inventory_id, side):
             raise HTTPException(409, "This side is already submitted. Wait for review or a photo retake request.")
     client = _shopify()
@@ -322,8 +395,9 @@ async def upload_comic_photo(
         raise HTTPException(502, "Photo intake is temporarily unavailable. Retry the same photo; nothing was published.") from None
     claims.update(resource_url=target["resourceUrl"], nonce=str(request_key),
                   exp=int(time.time()) + PHOTO_TICKET_SECONDS)
-    return await complete_comic_photo(inventory_id,
-        ComicPhotoComplete(ticket=_sign_ticket(claims), rights_confirmed=True), request, user, access)
+    return await _complete_photo(inventory_id,
+        ComicPhotoComplete(ticket=_sign_ticket(claims), rights_confirmed=True), request, user, access,
+        comic_only=comic_only)
 
 
 @router.patch("/{inventory_id}/comic-preparation")
@@ -388,31 +462,37 @@ async def complete_comic_photo(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     access: Annotated[dict, Depends(require_owner_portal_request)],
 ):
+    return await _complete_photo(inventory_id, payload, request, user, access, comic_only=True)
+
+
+async def _complete_photo(inventory_id, payload, request, user, access, *, comic_only):
     claims = _verify_ticket(payload.ticket, owner_id=access["owner_id"], inventory_id=inventory_id)
     relayed = "relay_request_key" in claims
     ticket_digest = (_relay_receipt_id(access["owner_id"], inventory_id, claims["relay_request_key"])
                      if relayed else hashlib.sha256(payload.ticket.encode()).hexdigest())
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        item = await _comic(connection, inventory_id, access["owner_id"], lock=True)
+        item = await _photo_item(connection, inventory_id, access["owner_id"], lock=True, comic_only=comic_only)
         if relayed:
-            if _photo_identity(item) != claims["identity_sha256"]:
-                raise HTTPException(409, "Comic identity changed during upload. Refresh before submitting the photograph.")
+            if _photo_identity(item, claims.get("identity_version", 1)) != claims["identity_sha256"]:
+                raise HTTPException(409, "Item identity changed during upload. Refresh before submitting the photograph.")
             replay = await _relay_receipt(connection, access["owner_id"], inventory_id, claims)
             if replay:
-                return replay
+                return {**replay, "inventory_version": item["version"]}
             if item["version"] != claims["version"]:
-                raise HTTPException(409, "Comic details changed during upload. Refresh before submitting the photograph.")
+                raise HTTPException(409, "Item details changed during upload. Refresh before submitting the photograph.")
         current = await _active_side(connection, access["owner_id"], inventory_id, claims["side"])
         if current:
             if current["provider_asset_id"] == ticket_digest:
-                return {"asset": jsonable_encoder(dict(current)), "message": "Photo already received for staff review.", "replayed": True}
+                return {"asset": jsonable_encoder(_public_photo(current)), "message": "Photo already received for staff review.",
+                        "replayed": True, "inventory_version": item["version"]}
             raise HTTPException(409, "A photo is already awaiting review for this side")
         previous = await connection.fetchval("""select exists(select 1 from tcg.media_assets
             where owner_id=$1 and inventory_id=$2 and provider_asset_id=$3)""",
             access["owner_id"], inventory_id, ticket_digest)
         if previous:
             raise HTTPException(409, "This photo ticket was already used. Choose a fresh photo for the retake.")
-        capture_context = "GRADED_SLAB" if item["grading_company"] and item["grade"] else "RAW_UNSLEEVED"
+        capture_context = ("SEALED_PRODUCT" if item["product_type"] in {"SEALED", "COLLECTION"} else
+                           "GRADED_SLAB" if item["grading_company"] and item["grade"] else "RAW_UNSLEEVED")
         alt_text = payload.alt_text.strip() or f"{item['name']} {claims['side'].lower()} physical copy photograph"
         rights_basis = "Seller confirms they own or are authorised to submit this exact-copy photograph; staff verification pending"
         try:
@@ -422,7 +502,7 @@ async def complete_comic_photo(
                 capture_context,rights_basis,alt_text,created_by_user_id,content_sha256)
                 values($1,$2,'INVENTORY_ITEM',$3,$4,'FIRST_PARTY_CAPTURE','Drop Rate',
                   $5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id,version,approval_status,
-                  rights_status,shopify_file_status,side""",
+                  rights_status,shopify_file_status,side,shopify_cdn_url""",
                 access["owner_id"], inventory_id, claims["side"],
                 "CONSIGNOR_UPLOAD" if item["owner_type"] == "CONSIGNOR" else "FOUNDER_UPLOAD",
                 ticket_digest, _relay_source_reference(claims) if relayed else claims["filename"],
@@ -431,31 +511,153 @@ async def complete_comic_photo(
         except asyncpg.UniqueViolationError as exc:
             raise HTTPException(409, "This photo side was submitted from another session. Refresh before retrying.") from exc
 
-    # Shopify Files are *not* Shopify products. Importing a photo for human
-    # inspection cannot satisfy rights approval or publish the comic.
-    try:
-        file_row = await _shopify().create_file_from_url(source_url=claims["resource_url"], alt_text=alt_text)
-        file_id = str(file_row.get("id") or "")
-        file_status = str(file_row.get("fileStatus") or "").upper()
-        image = file_row.get("image") if isinstance(file_row.get("image"), dict) else {}
-        cdn_url = str(image.get("url") or "")
-        if file_id and file_status in {"UPLOADED", "PROCESSING", "READY", "FAILED"}:
-            async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-                updated = await connection.fetchrow("""update tcg.media_assets set
-                    shopify_file_gid=$3,shopify_file_status=$4,
-                    shopify_cdn_url=nullif($5,''),shopify_error=case when $4='FAILED'
-                      then 'Photo file processing failed' else null end,
-                    version=version+1,updated_at=clock_timestamp()
-                    where id=$1 and owner_id=$2 and shopify_file_status='NOT_UPLOADED'
-                    returning id,version,side,approval_status,rights_status,shopify_file_status""",
-                    row["id"], access["owner_id"], file_id, file_status, cdn_url)
-                if updated:
-                    row = updated
-    except (ShopifyApiError, HTTPException):
-        # Keep the unapproved receipt. Staff can inspect the failed transfer;
-        # the seller must never be told that a Shopify product is live.
-        pass
-    message = ("Physical photo received. Shopify image processing needs staff attention; the photo remains unapproved."
-               if row["shopify_file_status"] in {"NOT_UPLOADED", "FAILED"} else
-               "Physical photo received. Drop Rate must review it before the comic can be listed.")
-    return jsonable_encoder({"asset": dict(row), "replayed": False, "message": message})
+    # Commit the receipt before importing a Shopify File. A provider failure
+    # cannot erase the submitted photo or cause another inventory intake.
+    outcome = await _finish_photo_import(inventory_id, row["id"], request, user, access,
+                                         legacy_claims=claims if not relayed else None)
+    return jsonable_encoder({"asset": outcome.get("asset") or _public_photo(row),
+                             "replayed": False, "message": outcome["message"],
+                             "inventory_version": outcome.get("inventory_version", item["version"]),
+                             "processing_status": outcome["status"]})
+
+
+def _file_result(file_row, *, expected_id=None):
+    if not isinstance(file_row, dict):
+        raise ShopifyApiError("Shopify image processing returned an invalid response")
+    file_id, status = file_row.get("id"), file_row.get("fileStatus")
+    if (not isinstance(file_id, str) or not re.fullmatch(r"gid://shopify/MediaImage/[0-9]+", file_id)
+            or not isinstance(status, str)
+            or status not in PHOTO_FILE_STATES or (expected_id and file_id != expected_id)):
+        raise ShopifyApiError("Shopify image processing returned an invalid file receipt")
+    image = file_row.get("image") if isinstance(file_row.get("image"), dict) else {}
+    return file_id, status, _photo_preview_url(image.get("url"))
+
+
+async def _finish_photo_import(inventory_id, asset_id, request, user, access, *, legacy_claims=None,
+                               expected_asset_version=None):
+    """Serialize retries for one exact physical receipt, without approving it.
+
+    The receipt has already committed. A bounded provider call inside this
+    second transaction keeps concurrent refreshes from creating two Files and
+    prevents withdrawal/identity edits while the image import is in flight.
+    """
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        item = await _photo_item(connection, inventory_id, access["owner_id"], lock=True, active_only=False)
+        row = await connection.fetchrow("""select id,version,side,approval_status,rights_status,
+            shopify_file_status,shopify_file_gid,shopify_cdn_url,source_status,source_type,
+            rights_tier,source_provider,source_reference,public_source_url,alt_text
+            from tcg.media_assets where id=$1 and owner_id=$2 and inventory_id=$3
+              and scope='INVENTORY_ITEM' for update""", asset_id, access["owner_id"], inventory_id)
+        if row is None:
+            raise HTTPException(404, "Photo receipt not found")
+        if expected_asset_version is not None and row["version"] != expected_asset_version:
+            raise HTTPException(409, "Photo changed. Refresh the review queue.")
+        outcome = {"asset": _public_photo(row), "asset_id": str(row["id"]), "side": row["side"],
+                   "inventory_version": item["version"]}
+        if item["status"] not in {"DRAFT", "INSPECTION", "APPROVED"}:
+            return {**outcome, "status": "UNCHANGED", "message": "Photo received. This item is no longer available for photo changes."}
+        if (row["approval_status"] != "PENDING" or row["rights_status"] not in {"PENDING", "VERIFIED"}
+                or row["source_status"] != "ACTIVE" or row["rights_tier"] != "FIRST_PARTY_CAPTURE"
+                or row["source_type"] not in {"CONSIGNOR_UPLOAD", "FOUNDER_UPLOAD"}
+                or row["source_provider"] != "Drop Rate"):
+            return {**outcome, "status": "UNCHANGED", "message": "Photo review status changed. Refresh the item to see its current review."}
+        if not legacy_claims and not _receipt_identity_matches(row, item):
+            return {**outcome, "status": "IDENTITY_CHANGED", "message": "Item identity changed after this photo was received. Drop Rate needs to check the photo before processing it."}
+        if row["shopify_file_status"] == "FAILED":
+            return {**outcome, "status": "RETAKE_REQUIRED", "message": "Image processing failed. Submit a new photo for this side."}
+        if row["shopify_file_status"] == "READY" and outcome["asset"]["photo_url"]:
+            return {**outcome, "status": "READY", "message": "Photo received and ready for Drop Rate review. It is not approved for publication."}
+        # Only the temporary destination returned by Shopify during the trusted
+        # relay is ever sent back for import. No caller URL or arbitrary DB URL.
+        if row["shopify_file_status"] == "NOT_UPLOADED" and not _allowed_staged_url(row["public_source_url"]):
+            return {**outcome, "status": "NEEDS_REVIEW", "message": "This saved photo needs staff attention before image processing can continue."}
+        error = None
+        try:
+            # The normal pool expires idle transactions after 10s. This one
+            # contains a strictly bounded external call and needs its row lock.
+            await connection.execute("set local idle_in_transaction_session_timeout='55000'")
+            async with asyncio.timeout(PHOTO_TRANSFER_SECONDS):
+                client = _shopify()
+                if row["shopify_file_status"] == "NOT_UPLOADED":
+                    if "write_files" not in await client.access_scopes():
+                        raise ShopifyApiError("Shopify Files permission is missing")
+                    file_row = await client.create_file_from_url(source_url=row["public_source_url"], alt_text=row["alt_text"])
+                    file_id, status, cdn_url = _file_result(file_row)
+                else:
+                    if not re.fullmatch(r"gid://shopify/MediaImage/[0-9]+", str(row["shopify_file_gid"] or "")):
+                        raise ShopifyApiError("Saved Shopify image receipt is invalid")
+                    file_row = await client.get_file(row["shopify_file_gid"])
+                    file_id, status, cdn_url = _file_result(file_row, expected_id=row["shopify_file_gid"])
+            error = ("Photo file processing failed" if status == "FAILED" else
+                     "Image preview is not ready. Retry processing shortly." if status == "READY" and not cdn_url else None)
+            updated = await connection.fetchrow("""update tcg.media_assets set
+                shopify_file_gid=$3,shopify_file_status=$4,shopify_cdn_url=$5,shopify_error=$6,
+                version=version+1,updated_at=clock_timestamp()
+                where id=$1 and owner_id=$2 and version=$7
+                returning id,version,side,approval_status,rights_status,shopify_file_status,shopify_cdn_url""",
+                row["id"], access["owner_id"], file_id, status, cdn_url, error, row["version"])
+        except (ShopifyApiError, HTTPException, TimeoutError):
+            # Never persist provider messages, which may contain signed URLs or
+            # credentials. An explicit local error replaces the previous NULL.
+            error = PHOTO_PROCESSING_ERROR
+            updated = await connection.fetchrow("""update tcg.media_assets set
+                shopify_error=$3,version=version+1,updated_at=clock_timestamp()
+                where id=$1 and owner_id=$2 and version=$4
+                returning id,version,side,approval_status,rights_status,shopify_file_status,shopify_cdn_url""",
+                row["id"], access["owner_id"], error, row["version"])
+        if updated:
+            outcome["asset"] = _public_photo(updated)
+        state = outcome["asset"]["shopify_file_status"]
+        if error or state in {"NOT_UPLOADED", "FAILED"}:
+            return {**outcome, "status": "NEEDS_RETRY" if state != "FAILED" else "RETAKE_REQUIRED",
+                    "message": "Physical photo received. Image processing needs staff attention or a retry; your photo remains saved and unapproved."}
+        return {**outcome, "status": state,
+                "message": "Physical photo received. Drop Rate must review it before the item can be listed."}
+
+
+@router.get("/{inventory_id}/photos")
+async def inventory_photos(
+    inventory_id: UUID, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        item = await _photo_item(connection, inventory_id, access["owner_id"], active_only=False)
+        rows = await connection.fetch("""select distinct on (side)
+            id,version,side,approval_status,rights_status,shopify_file_status,shopify_cdn_url
+            from tcg.media_assets where owner_id=$1 and inventory_id=$2
+              and scope='INVENTORY_ITEM' and rights_tier='FIRST_PARTY_CAPTURE'
+              and source_type in ('CONSIGNOR_UPLOAD','FOUNDER_UPLOAD') and source_status='ACTIVE'
+            order by side,created_at desc,id desc limit 3""", access["owner_id"], inventory_id)
+    return jsonable_encoder({"items": [_public_photo(row) for row in rows], "inventory_version": item["version"]})
+
+
+@router.post("/{inventory_id}/photos/refresh")
+async def refresh_inventory_photos(
+    inventory_id: UUID, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+):
+    # No request payload is needed: neither asset IDs nor source URLs are
+    # caller-controlled. The current owned item supplies at most three sides.
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        await _photo_item(connection, inventory_id, access["owner_id"])
+        rows = await connection.fetch("""select distinct on (side) id,side
+            from tcg.media_assets where owner_id=$1 and inventory_id=$2
+              and scope='INVENTORY_ITEM' and rights_tier='FIRST_PARTY_CAPTURE'
+              and source_type in ('CONSIGNOR_UPLOAD','FOUNDER_UPLOAD') and source_provider='Drop Rate'
+              and source_status='ACTIVE' and approval_status='PENDING'
+              and rights_status in ('PENDING','VERIFIED')
+              and (shopify_file_status in ('NOT_UPLOADED','UPLOADED','PROCESSING')
+                or (shopify_file_status='READY' and shopify_cdn_url is null))
+            order by side,created_at desc,id desc limit 3""", access["owner_id"], inventory_id)
+    outcomes = []
+    for row in rows:
+        outcomes.append(await _finish_photo_import(inventory_id, row["id"], request, user, access))
+    result = await inventory_photos(inventory_id, request, user, access)
+    partial = any(outcome["status"] not in {"READY", "UPLOADED", "PROCESSING"} for outcome in outcomes)
+    result.update(results=[{key: value for key, value in outcome.items() if key in {"asset_id", "side", "status", "message"}}
+                           for outcome in outcomes], partial=partial,
+                  message=("Your photos are saved. Some still need processing or staff attention." if partial else
+                           "Photo processing checked. Drop Rate review is still required before publication."))
+    return result

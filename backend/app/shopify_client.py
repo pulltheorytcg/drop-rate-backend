@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -597,7 +598,7 @@ class ShopifyAdminClient:
             query="""
             mutation DropRateFileCreate($files: [FileCreateInput!]!) {
               fileCreate(files: $files) {
-                files { id fileStatus alt image { url } }
+                files { id fileStatus alt ... on MediaImage { image { url } } }
                 userErrors { field message }
               }
             }
@@ -625,6 +626,11 @@ class ShopifyAdminClient:
             raise ShopifyApiError(
                 "Shopify did not return exactly one created file"
             )
+        if (not isinstance(files[0].get("id"), str)
+                or not re.fullmatch(r"gid://shopify/MediaImage/[0-9]+", files[0]["id"])
+                or not isinstance(files[0].get("fileStatus"), str)
+                or files[0].get("fileStatus") not in {"UPLOADED", "PROCESSING", "READY", "FAILED"}):
+            raise ShopifyApiError("Shopify file creation returned an invalid image receipt")
         return files[0]
 
     async def get_file(self, file_id: str) -> dict[str, Any]:

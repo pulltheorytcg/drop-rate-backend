@@ -71,5 +71,10 @@ async def test_shopify_allocates_both_unknown_cost_consignment_copies():
     assert [x['link']['inventory_id'] for x in units]==[a['id'],b['id']]
     assert all(x['link']['acquisition_cost_minor'] is None for x in units)
     b['source_record']={}
+    # Acquisition cost is optional for all approved stock. The paid-order path
+    # still uses exact linked copies, their prices and reservation ownership.
+    units=await _select_order_units(connection,order_reference='order',line_specs=specs)
+    assert all(x['link']['acquisition_cost_minor'] is None for x in units)
+    b['inventory_status']='WITHDRAWN'
     with pytest.raises(ShopifyProcessingError):
         await _select_order_units(connection,order_reference='order',line_specs=specs)

@@ -28,14 +28,19 @@ on:
       - 'database/migrations/*seller_comics_manga.sql'
       - 'backend/app/static/owner*'
       - 'backend/app/static/scanner-flow.*'
+      - 'backend/app/static/scan-photos.*'
       - 'tests/collection*'
       - 'tests/ui/collection-*.py'
+      - 'tests/ui/scan-photo-handoff.py'
+      - 'tests/fixtures/scanner/**'
       - '.github/workflows/collection-confirmation.yml'
   push:
     branches: [main]
     paths:
       - 'backend/app/static/scanner-flow.js'
       - 'backend/app/static/owner-inventory.js'
+      - 'backend/app/static/owner-books.js'
+      - 'backend/app/static/scan-photos.js'
       - '.github/workflows/collection-confirmation.yml'
 permissions:
   contents: read
@@ -85,7 +90,9 @@ jobs:
           python tests/ui/collection-books.py
           python tests/ui/collection-book-scanner.py
           python tests/ui/collection-book-research.py
+          python tests/ui/collection-book-photos.py
           python tests/ui/collection-book-library.py
+          python tests/ui/scan-photo-handoff.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -107,8 +114,8 @@ jobs:
           from pathlib import Path
           base='https://drop-rate-api-live-production.up.railway.app'
           page=Path('backend/app/static/owner.html').read_text()
-          names=('scanner-flow.js','owner-inventory.js')
-          urls={n:re.search(r'src="([^"]*'+re.escape(n)+r'\?v=[^"]+)"',page).group(1) for n in names}
+          names=('scanner-flow.js','owner-inventory.js','owner-books.js','scan-photos.js','scanner-flow.css','scan-photos.css')
+          urls={n:re.search(r'(?:src|href)="([^"]*'+re.escape(n)+r'\?v=[^"]+)"',page).group(1) for n in names}
           expected={n:Path('backend/app/static/'+n).read_bytes() for n in names}
           def get(path):
               with urllib.request.urlopen(base+path,timeout=10) as response:return response.read()

@@ -28,6 +28,10 @@ async def prepare(db,root,actors):
     access=(root/'database/migrations/20260928195408_owner_recognition_access.sql').read_text()
     for policy in ('api_insert','api_update'):
         await db.execute(re.search(rf'create policy {policy} on tcg.recognition_runs\n[\s\S]*?;',access).group())
+    # Use the actual recognition trigger too: its required system/profile
+    # binding previously went untested by this table-and-RLS-only fixture.
+    await db.execute(re.search(r'create or replace function tcg.validate_recognition_run\(\)[\s\S]*?\n\$\$;',sql).group())
+    await db.execute(re.search(r'create trigger recognition_runs_validate[\s\S]*?;',sql).group())
 
 
 def photo(color):

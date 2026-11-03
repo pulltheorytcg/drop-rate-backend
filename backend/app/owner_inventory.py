@@ -108,7 +108,7 @@ select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
  i.identity_confirmed as identity_ready,
  (i.acquisition_cost_minor is not null) as cost_recorded,
  (i.storage_location_id is not null) as location_recorded,
- (i.acquisition_cost_minor is not null and i.storage_location_id is not null) as intake_ready,
+ (i.storage_location_id is not null) as intake_ready,
  (select count(distinct m.side)=2 from tcg.media_assets m
    where m.owner_id=i.owner_id and m.inventory_id=i.id and m.scope='INVENTORY_ITEM'
      and m.media_kind='IMAGE' and m.side in ('FRONT','BACK')
@@ -179,11 +179,8 @@ def approval_blockers(item):
     missing = []
     if not item.get("identity_ready") and not sealed_seller_candidate(item):
         missing.append("Drop Rate selling review: confirm the exact printing before publication")
-    if not item.get("intake_ready") and not sealed_seller_candidate(item):
-        if not item.get("cost_recorded"):
-            missing.append("Acquisition cost needs recording by Drop Rate before sale")
-        if not item.get("location_recorded"):
-            missing.append("Storage / dispatch location needs recording by Drop Rate")
+    if not item.get("location_recorded") and not sealed_seller_candidate(item):
+        missing.append("Storage / dispatch location needs recording by Drop Rate")
     if not item.get("language"):
         missing.append("Product language")
     if not item.get("store_price_minor") or item["store_price_minor"] < 100:

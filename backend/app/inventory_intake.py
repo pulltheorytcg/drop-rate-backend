@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import nullcontext
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
@@ -321,6 +322,23 @@ async def create_inventory_intake(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=96)],
 ) -> dict:
+    return await _create_inventory_intake(payload, request, user, idempotency_key)
+
+
+async def _create_inventory_intake(
+    payload: ManualInventoryCreate,
+    request: Request,
+    user: AuthenticatedUser,
+    idempotency_key: str,
+    *,
+    connection: asyncpg.Connection | None = None,
+) -> dict:
+    """Use the same receipt engine inside a caller's authenticated transaction.
+
+    Book intake also records an owner-bound reference choice. Both writes must
+    commit together so a rejected reference cannot hide an already-saved copy.
+    Public callers continue to acquire their own authenticated connection.
+    """
     try:
         request_key = UUID(idempotency_key.strip())
     except ValueError as exc:
@@ -328,11 +346,12 @@ async def create_inventory_intake(
 
     payload_hash = _manual_intake_payload_hash(payload)
 
-    async with user_connection(
+    connection_scope = nullcontext(connection) if connection is not None else user_connection(
         request.app.state.db_pool,
         user.user_id,
         request.state.request_id,
-    ) as connection:
+    )
+    async with connection_scope as connection:
         owner = await _owner(connection)
 
         receipt = await _existing_receipt(connection, owner["id"], request_key)

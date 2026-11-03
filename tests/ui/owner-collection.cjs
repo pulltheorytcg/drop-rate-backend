@@ -22,6 +22,28 @@ function fixture(){
  let checks=0;
  {
   const f=fixture();await f.run('loadOwnerInventory()');
+  const options=[...f.w.document.querySelector('#owner-inventory-status').options];
+  assert.equal(options.find(option=>option.value==='').textContent,'Active collection');
+  assert.equal(options.some(option=>option.value==='WITHDRAWN'),false);
+  assert.equal(options.some(option=>option.value==='SOLD'),true,'Past sales remain available through explicit history');
+  assert.equal(new URL(f.calls.at(-1).url,'https://collection.test').searchParams.has('status'),false);
+  f.w.sessionStorage.setItem('drop_rate_collection_view:owner-a',JSON.stringify({status:'WITHDRAWN',offset:50,layout:'list'}));
+  f.run('collectionOwner=null;restoreCollectionView()');
+  assert.equal(f.run('state.inventory.status'),'');assert.equal(f.run('state.inventory.offset'),0);
+  assert.equal(f.run('state.inventory.layout'),'list');f.close();checks++;
+ }
+ for(const remaining of [0,50]){
+  const f=fixture();f.run('state.inventory.offset=50');
+  f.handle(async(url)=>{const offset=Number(new URL(url,'https://collection.test').searchParams.get('offset'));return {items:remaining&&offset===0?[item]:[],total:remaining,copy_total:remaining};});
+  await f.run('loadOwnerInventory()');
+  assert.equal(f.run('state.inventory.offset'),0,'Removing the last copy on a page returns to a real page or the empty Collection');
+  assert.equal(f.calls.length,remaining?2:1);
+  assert.equal(f.w.document.querySelectorAll('.owner-inventory-card').length,remaining?1:0);
+  assert.equal(f.w.document.querySelector('#owner-inventory-prev').disabled,true);
+  f.close();checks++;
+ }
+ {
+  const f=fixture();await f.run('loadOwnerInventory()');
   const doc=f.w.document,dialog=doc.querySelector('#owner-collection-filter-dialog'),trigger=doc.querySelector('#owner-collection-filter-trigger');
   assert.equal(trigger.closest('.owner-inventory-toolbar')!==null,true);
   assert.equal(doc.querySelector('#owner-inventory-status').closest('dialog'),dialog);

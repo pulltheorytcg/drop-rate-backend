@@ -213,7 +213,7 @@ def test_consignor_comic_shows_physical_photo_and_shipping_blockers_not_generic_
     assert "Shopify media: approved first-party physical front image" in reasons
     assert "Drop Rate must configure shipping profile COMIC_BOOK" in reasons
     assert any("exact printing" in reason for reason in reasons)
-    assert any("Acquisition cost" in reason for reason in reasons)
+    assert not any("cost" in reason.lower() for reason in reasons)
     assert any("Storage / dispatch location" in reason for reason in reasons)
     assert not any("Catalogue image is being prepared" in reason for reason in reasons)
 
@@ -244,7 +244,7 @@ async def test_figure_submission_cannot_omit_condition_or_use_card_grading(harne
 
 
 def test_figure_readiness_requires_figure_condition_not_packaging():
-    item = {"product_type": "FIGURE", "identity_ready": True, "intake_ready": True,
+    item = {"product_type": "FIGURE", "identity_ready": True, "location_recorded": True,
             "language": "English", "store_price_minor": 1000, "condition": "Like New",
             "seal_status": None, "image_url": "https://example.test/approved-photo.webp"}
     assert api.approval_blockers(item) == []
