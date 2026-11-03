@@ -45,6 +45,17 @@ window.DropRateCatalogue = (() => {
     DRAGON_BALL_SUPER_MASTERS:["DRAGON BALL","SUPER · MASTERS"], DRAGON_BALL_SUPER_FUSION_WORLD:["DRAGON BALL","FUSION WORLD"],
     NARUTO:["NARUTO","TRADING CARD GAME"], COMICS:["COMICS","MARVEL · DC · INDIE"], MANGA:["MANGA","COLLECTIBLE VOLUMES"],
     RIFTBOUND:["RIFTBOUND","LEAGUE OF LEGENDS"], YUGIOH:["Yu-Gi-Oh!","TRADING CARD GAME"], DISNEY_LORCANA:["LORCANA","TRADING CARD GAME"]};
+  // Navigation categories do not create product types or catalogue sources.
+  // Comics and manga retain their existing COMIC storage type and exact systems.
+  const categories = {
+    TCG:{label:"Trading Card Games",short:"TCG",hint:"Search cards across the catalogue, or choose a game to narrow your search.",type:"CARD",system:""},
+    SPORTS:{label:"Sports Cards",short:"Sports",hint:"A dedicated space for sports card collecting.",unavailable:true},
+    COMICS:{label:"Comics",short:"Comics",hint:"Find the exact issue, cover and edition for your collection.",type:"COMIC",system:"COMICS"},
+    MANGA:{label:"Manga",short:"Manga",hint:"Find volumes and editions, with language kept clear.",type:"COMIC",system:"MANGA"},
+    FIGURES:{label:"Figures",short:"Figures",hint:"A dedicated space for collectible figures.",unavailable:true},
+  };
+  const tcgSystems = new Set(Object.keys(gameTitles).filter(code=>!["COMICS","MANGA"].includes(code))
+    .concat(["NARUTO_KAYOU","NARUTO_BANDAI_LEGACY","NARUTO_BANDAI"]));
 
   class Browser {
     constructor(options) {
@@ -63,36 +74,56 @@ window.DropRateCatalogue = (() => {
         active:()=>this.active() && !this.dialog.hidden && (this.embedded || this.dialog.open)});
     }
     active() { return !this.destroyed && this.client.active(); }
-    defaults() { this.filters = {q:"",system_code:"",language:"",product_type:"",owned:"all",sort:"newest",watch:false}; this.set = null; this.page = "products"; this.setQuery = ""; this.rows = []; this.offset = 0; }
+    defaults(categoryId="TCG") {
+      this.categoryId=Object.hasOwn(categories,categoryId)?categoryId:"TCG";
+      const category=categories[this.categoryId];
+      this.filters = {q:"",system_code:category.system||"",language:"",product_type:category.type||"",owned:"all",sort:"newest",watch:false};
+      this.set = null; this.page = "products"; this.setQuery = ""; this.rows = []; this.offset = 0;this.browseAll=false;
+    }
     find(selector) { return this.dialog.querySelector(selector); }
     build() {
       this.embedded = Boolean(this.options.host);
       this.dialog = node(this.embedded ? "section" : "dialog", "dr-browser" + (this.embedded ? " dr-browser-embedded" : "")); this.dialog.setAttribute("aria-label", "Search Drop Rate products");
-      this.dialog.innerHTML = `<header class="dr-browse-header"><div class="dr-browse-set-heading" hidden><button type="button" data-action="back" aria-label="Back to products">←</button><h2></h2></div>
+      this.dialog.innerHTML = `<header class="dr-browse-header"><nav class="dr-browse-categories" aria-label="Collectible categories"></nav>
+        <div class="dr-browse-category-heading"><div><h2></h2><p></p></div><button type="button" data-action="games" hidden>← All games</button></div>
+        <div class="dr-browse-set-heading" hidden><button type="button" data-action="back" aria-label="Back to products">←</button><h2></h2></div>
         <div class="dr-browse-searchbar"><button type="button" data-action="camera" aria-label="Open scanner">◎</button><input type="search" maxlength="160" placeholder="Search for products" aria-label="Search for products"><button type="button" data-action="clear-query" aria-label="Clear search">×</button><button type="button" data-action="watch" aria-label="Watchlist">☆</button><button type="button" data-action="menu" aria-label="Sort and filter">☷</button></div>
         <div class="dr-browse-menu" hidden><button type="button" data-action="sort">Sort ↕</button><button type="button" data-action="filters">Filter ☷</button></div>
         <div class="dr-browse-context"><span>Browse: <strong>All products</strong></span><button type="button" data-action="sets">Show Sets</button></div>
-        <nav class="dr-browse-types" aria-label="Product type"><button type="button" data-type="">All products</button><button type="button" data-type="CARD">Cards</button><button type="button" data-type="SEALED">Sealed products</button><button type="button" data-type="COMIC">Comics & manga</button></nav>
+        <nav class="dr-browse-types" aria-label="Product type"><button type="button" data-type="">All products</button><button type="button" data-type="CARD">Cards</button><button type="button" data-type="SEALED">Sealed products</button></nav>
         <div class="dr-browse-chips"></div><div class="dr-browse-toolbar" role="group" aria-label="Catalogue sorting and filters"><button type="button" data-action="sort-visible" aria-label="Sort catalogue">Sort: Newest first</button><button type="button" data-action="filters-visible">Filters</button></div><nav class="dr-browse-languages" aria-label="Set language" hidden></nav><button type="button" class="dr-browse-pending" hidden></button></header>
         <div class="dr-browse-scroll"><p class="dr-browse-status" role="status"></p><div class="dr-browse-content"></div><button type="button" data-action="more" class="dr-browse-load" hidden>Load more</button><div class="dr-browse-sentinel"></div></div>
         <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Collection</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
         <div class="dr-browse-backdrop" hidden><section class="dr-browse-sheet" role="dialog" aria-modal="true"></section></div>`;
       (this.options.host || document.body).append(this.dialog);
       this.input = this.find("input[type=search]"); this.scroll = this.find(".dr-browse-scroll"); this.sheet = this.find(".dr-browse-sheet");
+      for(const [id,category] of Object.entries(categories)){
+        const control=button(category.short,()=>this.pickCategory(id));control.dataset.category=id;
+        control.setAttribute("aria-label",category.label);control.title=category.label;
+        this.find(".dr-browse-categories").append(control);
+      }
       const actions = {back:()=>this.back(), camera:()=>this.scan(), home:()=>this.navigate("home"), inventory:()=>this.navigate("inventory"), tools:()=>this.navigate("more"),
+        games:()=>this.reset(),
         search:()=>this.reset(), "clear-query":()=>{ if(this.page === "sets") this.setQuery=""; else this.filters.q=""; this.input.value=""; this.load(); },
         sets:()=>this.showSets(), more:()=>this.load(true), filters:()=>this.openFilters(), sort:()=>this.openSort(),
         "sort-visible":()=>this.openSort(), "filters-visible":()=>this.openFilters(),
         menu:()=>{ this.find(".dr-browse-menu").hidden = !this.find(".dr-browse-menu").hidden; }, watch:()=>{ this.filters.watch=!this.filters.watch; this.page="products"; this.load(); }};
       this.dialog.querySelectorAll("[data-action]").forEach(control=>control.addEventListener("click",()=>actions[control.dataset.action]()));
       this.dialog.querySelectorAll('[data-type]').forEach(control=>control.addEventListener('click',()=>{
-        this.filters.product_type=control.dataset.type;this.set=null;this.page='products';this.load();
+        if(this.categoryId!=="TCG")return;
+        this.filters.product_type=control.dataset.type;this.browseAll=true;this.set=null;this.page='products';this.load();
       }));
       this.input.addEventListener("input",()=>{
         clearTimeout(this.timer); this.revision += 1; this.controller?.abort(); this.bookContexts?.reset(); this.loading=false;
         if (this.page === "sets") this.setQuery=this.input.value; else this.filters.q=this.input.value;
         this.find(".dr-browse-status").textContent="Searching…";
         this.timer=setTimeout(()=>this.load(),260);
+      });
+      this.input.addEventListener("keydown",event=>{
+        if(event.key!=="Enter"||event.isComposing||event.keyCode===229)return;
+        event.preventDefault();clearTimeout(this.timer);
+        if(this.page==="sets")this.setQuery=this.input.value;else this.filters.q=this.input.value;
+        this.load();
       });
       this.dialog.addEventListener("cancel",event=>{event.preventDefault();if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();else this.close();});
       this.dialog.addEventListener("keydown",event=>{
@@ -167,43 +198,61 @@ window.DropRateCatalogue = (() => {
     navigate(view) { if(this.saving)return;this.close();this.options.navigate(view); }
     scan(mode="RAW") { if(this.saving)return;this.close();this.options.scan(typeof mode === "string" ? mode : "RAW"); }
     reset() { if(this.saving)return;this.defaults();this.input.value="";this.load(); }
+    pickCategory(id) {
+      if(this.saving||!Object.hasOwn(categories,id))return;
+      const query=this.page==="products"?this.filters.q:"";
+      this.defaults(id);this.filters.q=query;this.input.value=query;this.load();
+    }
+    clearCategoryFilters() { this.defaults(this.categoryId);this.input.value=""; }
     game() { return this.games.find(game=>game.system_code===this.filters.system_code); }
-    isHome() { const f=this.filters;return this.page!=="sets" && !f.q.trim()&&!f.system_code&&!f.language&&!f.product_type&&f.owned==="all"&&!f.watch; }
+    isHome() { const f=this.filters;return this.categoryId==="TCG" && !this.browseAll && this.page!=="sets" && !f.q.trim()&&!f.system_code&&!f.language&&["","CARD"].includes(f.product_type)&&f.owned==="all"&&!f.watch; }
     isBookFamily(code=this.filters.system_code){ return ["COMICS","MANGA"].includes(code); }
-    openBookIntake(row){if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();this.close();if(typeof this.options.books==="function")this.options.books({book:row?.book_details,catalogue:row});else this.options.navigate("inventory");}
-    pickGame(game) { this.filters.system_code=game.system_code;this.filters.language="";this.filters.product_type=this.isBookFamily(game.system_code)?"COMIC":"";this.set=null;this.page="products";this.load(); }
+    openBookIntake(row){if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();this.close();if(typeof this.options.books==="function")this.options.books(row?{book:row.book_details,catalogue:row}:{category:this.categoryId});else this.options.navigate("inventory");}
+    pickGame(game) { this.categoryId=this.isBookFamily(game.system_code)?game.system_code:"TCG";this.filters.system_code=game.system_code;this.filters.language="";this.filters.product_type=this.isBookFamily(game.system_code)?"COMIC":"";this.set=null;this.page="products";this.load(); }
     showSets() { if(!this.filters.system_code)return;this.page="sets";this.setQuery="";this.set=null;
-      this.filters.q="";this.filters.owned="all";this.filters.watch=false;this.filters.product_type="";
+      this.filters.q="";this.filters.owned="all";this.filters.watch=false;this.filters.product_type=this.isBookFamily()?"COMIC":"";
       const langs=this.game()?.languages||[];if(!this.filters.language)this.filters.language=langs.includes("English")?"English":langs[0]||"";this.load(); }
     back() { if(this.page==="sets"){this.page="products";this.setQuery="";this.load();}
       else if(this.set){this.set=null;this.showSets();}else this.reset(); }
     header() {
       const sets=this.page==="sets",home=this.isHome();
+      if(this.isBookFamily()){this.categoryId=this.filters.system_code;this.filters.product_type="COMIC";}
+      const category=categories[this.categoryId],unavailable=Boolean(category.unavailable),book=this.isBookFamily();
+      this.dialog.dataset.category=this.categoryId;
+      this.dialog.querySelectorAll('[data-category]').forEach(control=>control.setAttribute('aria-pressed',String(control.dataset.category===this.categoryId)));
+      this.find('.dr-browse-category-heading h2').textContent=category.label;
+      this.find('.dr-browse-category-heading p').textContent=category.hint;
+      this.find('[data-action="games"]').hidden=this.categoryId!=="TCG"||!this.filters.system_code;
+      this.find('.dr-browse-searchbar').hidden=unavailable;
+      this.input.disabled=unavailable;
       this.find(".dr-browse-set-heading").hidden=!sets;
       this.find(".dr-browse-set-heading h2").textContent=(this.game()?.game||"Product")+(this.isBookFamily()?" Series":" Sets");
-      this.input.value=sets?this.setQuery:this.filters.q; this.input.placeholder=sets?(this.isBookFamily()?"Search by series":"Search by sets"):"Search for products";
+      this.input.value=sets?this.setQuery:this.filters.q;
+      this.input.placeholder=sets?(book?"Search by series":"Search by sets"):book?(this.categoryId==="MANGA"?"Title, volume or ISBN":"Comic title or issue"):
+        this.filters.product_type==="SEALED"?"Search sealed products":"Card name or number";
       this.input.setAttribute("aria-label",this.input.placeholder);
-      this.find(".dr-browse-context").hidden=sets||home;
-      this.find('.dr-browse-types').hidden=sets;
-      this.find('.dr-browse-toolbar').hidden=sets||home;
+      this.find(".dr-browse-context").hidden=sets||home||unavailable;
+      this.find('.dr-browse-types').hidden=sets||this.categoryId!=="TCG";
+      this.find('[data-type=""]').hidden=!this.filters.system_code;
+      this.find('.dr-browse-toolbar').hidden=sets||home||unavailable;
       this.find('[data-action="sort-visible"]').textContent="Sort: "+(sorts[this.filters.sort]||sorts.newest);
       this.find('[data-action="sort-visible"]').setAttribute("aria-label","Sort catalogue, current order "+(sorts[this.filters.sort]||sorts.newest));
       this.dialog.querySelectorAll('[data-type]').forEach(control=>control.setAttribute('aria-pressed',String(control.dataset.type===this.filters.product_type)));
-      this.find(".dr-browse-context strong").textContent=this.filters.watch?"Watchlist":this.filters.owned==="owned"?"Products owned":this.filters.owned==="not_owned"?"Products not owned":"All products";
+      this.find(".dr-browse-context strong").textContent=this.filters.watch?category.label+" watchlist":this.filters.owned==="owned"?"Products owned":this.filters.owned==="not_owned"?"Products not owned":this.game()?.game||category.label;
       this.find('[data-action="sets"]').hidden=!this.filters.system_code;
       this.find('[data-action="sets"]').textContent=this.isBookFamily()?"Browse Series":"Show Sets";
       this.find('[data-action="watch"]').textContent=this.filters.watch?"★":"☆";
       this.find('[data-action="watch"]').setAttribute("aria-pressed",String(this.filters.watch));
       this.find(".dr-browse-menu").hidden=true;
-      const chips=this.find(".dr-browse-chips");chips.replaceChildren();chips.hidden=sets;
+      const chips=this.find(".dr-browse-chips");chips.replaceChildren();chips.hidden=sets||unavailable;
       const chip=(label,action)=>chips.append(button(label+" ×",()=>{action();this.load();},"dr-browse-chip"));
-      if(this.filters.system_code)chip(this.game()?.game||this.filters.system_code,()=>{this.filters.system_code="";this.filters.language="";this.set=null;});
+      if(this.filters.system_code&&!book)chip(this.game()?.game||this.filters.system_code,()=>{this.filters.system_code="";this.filters.language="";this.filters.product_type="CARD";this.set=null;});
       if(this.set)chip(decode(this.set.set_name),()=>{this.set=null;});
       if(this.filters.language)chip(this.filters.language,()=>{this.filters.language="";this.set=null;});
-      if(this.filters.product_type)chip(this.filters.product_type==="SEALED"?"Sealed Only":this.filters.product_type==="COMIC"?"Comics & Manga":"Cards Only",()=>{this.filters.product_type="";});
+      if(this.filters.product_type&&!book&&!home)chip(this.filters.product_type==="SEALED"?"Sealed Only":"Cards Only",()=>{this.filters.product_type=this.filters.system_code?"":"CARD";});
       if(this.filters.owned!=="all")chip(this.filters.owned==="owned"?"Items you own":"Items you don’t own",()=>{this.filters.owned="all";});
       if(this.filters.watch)chip("Watchlist",()=>{this.filters.watch=false;});
-      if(chips.childElementCount)chips.append(button("Clear filters",()=>this.reset(),"dr-browse-clear"));
+      if(chips.childElementCount)chips.append(button("Clear filters",()=>{this.clearCategoryFilters();this.load();},"dr-browse-clear"));
       const languages=this.find(".dr-browse-languages");languages.hidden=!sets;languages.replaceChildren();
       if(sets)(this.game()?.languages||[]).forEach(language=>{const tab=button(language,()=>{this.filters.language=language;this.set=null;this.load();});tab.setAttribute("aria-pressed",String(this.filters.language===language));languages.append(tab);});
       const pending=[...this.pending.values()].filter(entry=>entry.requests?.some(req=>!req.result));
@@ -217,6 +266,7 @@ window.DropRateCatalogue = (() => {
       if(!more){this.clearArtwork();this.rows=[];this.offset=0;this.hasMore=false;this.scroll.scrollTop=0;}
       this.header();
       const status=this.find(".dr-browse-status");status.textContent="";
+      if(categories[this.categoryId].unavailable){this.loading=false;this.hasMore=false;this.renderUnavailable();this.find('[data-action="more"]').hidden=true;return;}
       if(this.isHome()){this.loading=false;this.renderGames();this.find('[data-action="more"]').hidden=true;return;}
       if(!more)this.skeleton();
       const nextOffset=more?this.rows.length:0;
@@ -225,6 +275,9 @@ window.DropRateCatalogue = (() => {
         params.set("system_code",this.filters.system_code);params.set("language",this.filters.language);params.set("q",this.setQuery.trim());
       } else {
         for(const key of ["q","system_code","language","product_type","owned","sort"])if(this.filters[key])params.set(key,this.filters[key]);
+        // Default TCG search excludes COMIC records. A chosen game can return
+        // its cards and sealed products together using the existing endpoint.
+        if(this.categoryId==="TCG"&&!this.filters.system_code&&!this.filters.product_type)params.set("product_type","CARD");
         if(this.set){params.set("system_code",this.set.system_code);params.set("set_id",this.set.set_id);params.set("provider",this.set.provider);}
         if(this.filters.watch)params.set("keys",[...this.watchlist].join(","));
       }
@@ -248,7 +301,7 @@ window.DropRateCatalogue = (() => {
         if(this.page==="products"&&!this.rows.length&&this.isBookFamily()
           && this.filters.owned==="all"&&!this.filters.watch&&!this.filters.q.trim()){
           status.textContent=(this.filters.system_code==="MANGA"?"Manga":"Comics")+" catalogue is ready for your first verified book. No books have been added yet.";
-          this.find(".dr-browse-content").append(button("Add a comic or manga",()=>this.openBookIntake(),"dr-browse-empty-action"));
+          this.find(".dr-browse-content").append(button(this.filters.system_code==="MANGA"?"Add manga":"Add a comic",()=>this.openBookIntake(),"dr-browse-empty-action"));
         }
         if(this.page==="products" && !this.rows.length && this.filters.system_code==="NARUTO"
            && this.filters.product_type==="SEALED" && this.filters.owned==="all" && !this.filters.watch && !this.filters.q.trim()){
@@ -299,15 +352,25 @@ window.DropRateCatalogue = (() => {
     }
     renderGames() {
       const content=this.find(".dr-browse-content"),grid=node("div","dr-browse-game-grid");
-      for(const game of this.games){const tile=button("",()=>this.pickGame(game),"dr-browse-game");tile.dataset.system=game.system_code;
+      const games=this.games.filter(game=>tcgSystems.has(game.system_code));
+      for(const game of games){const tile=button("",()=>this.pickGame(game),"dr-browse-game");tile.dataset.system=game.system_code;
         const [name,line]=gameTitles[game.system_code]||[game.game,"TRADING CARD GAME"];
         const fallback=node("span","dr-browse-game-fallback");fallback.append(node("strong","",name),node("small","",line));tile.append(fallback);
         const artwork=window.DropRateTitleArt?.game(game.system_code);
         if(artwork){tile.prepend(this.titleImage(artwork,"dr-browse-game-logo",tile,"has-title-art"));
           if(artwork.caption)tile.append(node("small","dr-browse-publisher",artwork.caption));}
         tile.setAttribute("aria-label",game.game);grid.append(tile);}
-      content.replaceChildren(node("h2","dr-browse-quick-heading","Browse cards, comics & manga"),grid);
-      if(!this.games.length)content.append(node("p","dr-browse-empty","The catalogue is being prepared. Try scanning an item."));
+      content.replaceChildren(node("h2","dr-browse-quick-heading","Browse by game"),grid);
+      if(!games.length)content.append(node("p","dr-browse-empty","Game browsing is currently unavailable. You can still search cards by name or number."));
+    }
+    renderUnavailable() {
+      const category=categories[this.categoryId],panel=node("section","dr-browse-category-empty");
+      panel.setAttribute("aria-label",category.label+" catalogue status");
+      panel.append(node("span","dr-browse-category-status","Catalogue unavailable"),
+        node("h3","",category.label),
+        node("p","","The "+(this.categoryId==="SPORTS"?"sports card":"figure")+" catalogue is not available yet. Explore trading card games, comics or manga in the meantime."),
+        button("Explore Trading Card Games",()=>this.reset(),"dr-browse-empty-action"));
+      this.find(".dr-browse-content").replaceChildren(panel);
     }
     titleImage(artwork,cls,host,loadedClass,onError) {
       const image=node("img",cls);image.alt="";image.decoding="async";image.loading=cls==="dr-browse-set-logo"?"lazy":"eager";
@@ -545,10 +608,10 @@ window.DropRateCatalogue = (() => {
     }
     openFilters() {
       this.openSheet("Filters");
-      this.sheet.append(this.filterGroup("Watchlist","Saved products on this device.",[["watch","Watchlist"]],this.filters.watch?"watch":"",value=>{this.filters.watch=Boolean(value);}),
-        this.filterGroup("Product Type","Filter by type of product.",[["CARD","Cards Only"],["SEALED","Sealed Only"]],this.filters.product_type,value=>{this.filters.product_type=value;}),
-        this.filterGroup("In your collection","All products are shown unless you select a filter.",[["owned","Items you own"],["not_owned","Items you don’t own"]],this.filters.owned,value=>{this.filters.owned=value||"all";}));
-      const footer=node("footer");footer.append(button("Clear filters",()=>{this.defaults();this.closeSheet();this.load();},"dr-browse-secondary"),button("Show results",()=>this.closeSheet(),"dr-browse-primary"));this.sheet.append(footer);
+      this.sheet.append(this.filterGroup("Watchlist","Saved products in this category on this device.",[["watch","Watchlist"]],this.filters.watch?"watch":"",value=>{this.filters.watch=Boolean(value);}));
+      if(this.categoryId==="TCG")this.sheet.append(this.filterGroup("Product Type","Filter by type of product.",[["CARD","Cards Only"],["SEALED","Sealed Only"]],this.filters.product_type,value=>{this.browseAll=true;this.filters.product_type=value||(this.filters.system_code?"":"CARD");}));
+      this.sheet.append(this.filterGroup("In your collection","All products are shown unless you select a filter.",[["owned","Items you own"],["not_owned","Items you don’t own"]],this.filters.owned,value=>{this.filters.owned=value||"all";}));
+      const footer=node("footer");footer.append(button("Clear filters",()=>{this.clearCategoryFilters();this.closeSheet();this.load();},"dr-browse-secondary"),button("Show results",()=>this.closeSheet(),"dr-browse-primary"));this.sheet.append(footer);
     }
     openSort() { this.openSheet("Sort");const list=node("div","dr-browse-sort-list");
       for(const [value,label] of Object.entries(sorts)){const choice=button(label+(this.filters.sort===value?" ✓":""),()=>{this.filters.sort=value;this.closeSheet();this.load();});choice.setAttribute("aria-pressed",String(this.filters.sort===value));list.append(choice);}this.sheet.append(list); }
@@ -560,7 +623,7 @@ window.DropRateCatalogue = (() => {
     }
     openProduct(row) {
       if(row.product_type==="COMIC"){
-        this.openSheet("Comic / manga details");
+        this.openSheet(row.system_code==="MANGA"||row.book_details?.system_code==="MANGA"?"Manga details":"Comic details");
         const content=node("div","dr-browse-product-details");
         const listingCredit=node("div","book-ebay-credit-slot"),artwork=this.productImage(row,"dr-browse-detail-image",listingCredit);
         content.append(artwork,listingCredit,

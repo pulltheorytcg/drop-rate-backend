@@ -3,45 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#071b3f">
-  <title>Drop Rate</title>
+  <meta name="theme-color" content="#080f1c">
+  <link rel="icon" type="image/png" href="/assets/brand-assets/storefront-logo.png">
+  <title>Drop Rate — Seller Hub</title>
   <link rel="stylesheet" href="/assets/styles.css?v=comic-photo-review-20261101">
   <link rel="stylesheet" href="/assets/founder-workspace.css?v=2">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
   <link rel="stylesheet" href="/assets/scanner-flow.css?v=slab-book-20261101">
-  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=simple-v1">
+  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=premium-20261103">
   <link rel="stylesheet" href="/assets/book-community-artwork.css?v=1">
   <link rel="stylesheet" href="/assets/book-ebay-context.css?v=1">
   <link rel="stylesheet" href="/assets/workspace-shell.css?v=1">
   <link rel="stylesheet" href="/assets/collector-worlds.css?v=simple-v1">
+  <link rel="stylesheet" href="/assets/premium-hub.css?v=20261103">
+  <link rel="stylesheet" href="/assets/premium-auth.css?v=20261103">
 </head>
-<body class="hub-restoring">
-  <div class="hub-loading" role="status"><span class="hub-loading-mark">D</span><strong>Opening Drop Rate…</strong></div>
+<body class="hub-restoring premium-hub">
+  <div class="hub-loading" role="status"><span class="hub-loading-mark"><img src="/assets/brand-assets/storefront-logo.png" alt="Drop Rate"></span><strong>Opening Drop Rate…</strong></div>
   <div class="ambient ambient-one"></div>
   <div class="ambient ambient-two"></div>
 
   <main class="shell">
     <section id="auth-view" class="auth-layout">
       <div class="brand-panel">
-        <div class="brand-lockup brand-lockup-logo"><img class="collector-auth-logo" src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"></div>
+        <div class="brand-lockup brand-lockup-logo premium-auth-brand"><img class="collector-auth-logo" src="/assets/brand-assets/storefront-logo.png" alt="Drop Rate"><span class="premium-auth-product">Seller Hub</span></div>
         <div class="collector-auth-grails" aria-hidden="true">
-          <img src="/assets/brand-assets/collector-slab-pair-labels.webp" alt="" width="1254" height="1254" decoding="async">
+          <img src="/assets/collection-photos/charizard-psa10-front.webp" alt="" width="477" height="800" decoding="async">
+          <img src="/assets/collection-photos/luffy-psa10-front.webp" alt="" width="474" height="800" decoding="async">
         </div>
         <div class="brand-copy">
-          <p class="eyebrow">Your collection starts here</p>
-          <h1>Every card.<br><em>A new adventure.</em></h1>
-          <p class="lead">From your first pull to your next grail. Discover, collect and sell across your favourite worlds.</p>
+          <p class="eyebrow">The collector’s workspace</p>
+          <h1>Your collection.<br><em>All in one place.</em></h1>
+          <p class="lead">Keep your collection in view. Track every item, understand its value and sell when you’re ready.</p>
         </div>
         <div class="collector-auth-games"><span>ONE PIECE</span><span>POKÉMON</span><span>NARUTO</span><span>DRAGON BALL</span></div>
       </div>
 
       <div class="auth-panel">
-        <div class="mobile-brand brand-lockup-logo"><img class="collector-auth-logo" src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"></div>
 
         <form id="login-form" class="auth-card">
           <p class="eyebrow">Welcome back</p>
-          <h2>Sign in to Drop Rate</h2>
+          <h2>Sign in to Seller Hub</h2>
           <p class="muted">Your collection, sales and payouts. One account, one workspace.</p>
           <div id="login-social-auth" class="social-auth hidden" aria-label="Social sign in">
             <button id="login-google" class="oauth-button" type="button" data-provider="google">Continue with Google</button>
@@ -53,7 +56,7 @@
           <div id="login-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Sign in <span>→</span></button>
           <button id="show-reset" class="text-button" type="button">Forgot your password?</button>
-          <p class="collector-create">New to the crew? <a href="/owner/join">Create your account →</a></p>
+          <p class="collector-create">New to Drop Rate? <a href="/owner/join">Create your account →</a></p>
         </form>
 
         <form id="request-reset-form" class="auth-card hidden">
@@ -80,7 +83,7 @@
 
     <section id="dashboard-view" class="dashboard hidden">
       <header class="topbar">
-        <div class="brand-lockup brand-lockup-logo"><img class="collector-auth-logo" src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"></div>
+        <div class="brand-lockup brand-lockup-logo"><img class="collector-auth-logo" src="/assets/brand-assets/storefront-logo.png" alt="Drop Rate"></div>
         <div class="topbar-actions">
           <div class="user-chip"><span id="owner-initial">S</span><div><strong id="owner-name">Founder</strong><small id="owner-email"></small></div></div>
           <button id="logout-button" class="ghost-button" type="button">Sign out</button>

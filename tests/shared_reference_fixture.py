@@ -22,6 +22,10 @@ async def install_reference_schema(db):
       alter table tcg.reference_cards add column if not exists image_url text,
         add column if not exists source_url text,add column if not exists evidence jsonb;
       create table if not exists tcg.reference_sealed_products(provider text,system_code text,language text,provider_id text,set_id text,name text,product_type text,image_url text);
+      -- The display-only catalogue fallback reads the optional exact-system
+      -- profile, including when this fixture has no matching profile rows.
+      create table if not exists tcg.catalogue_product_profiles(
+        catalogue_id uuid primary key references tcg.catalogue_products(id),system_code text not null);
       create table if not exists tcg.provider_catalogue_mappings(catalogue_id uuid,source_provider text,system_code text,provider_language text,provider_id text,provider_entity_type text,provider_variant_key text,match_status text,verification_basis text,confidence numeric,metadata jsonb);
       create table if not exists tcg.market_source_mappings(catalogue_id uuid,source text,match_status text);
       create table if not exists tcg.catalogue_job_runs(job text constraint catalogue_job_runs_job_check check(job in ('REFERENCE_PRICES')));
@@ -36,7 +40,7 @@ async def install_reference_schema(db):
         end if;
       end$$;
       grant select on tcg.reference_sets,tcg.reference_cards,tcg.reference_market_prices,tcg.reference_catalogue_prices,tcg.reference_sealed_products,
-        tcg.provider_catalogue_mappings,tcg.market_source_mappings to tcg_api;
+        tcg.catalogue_product_profiles,tcg.provider_catalogue_mappings,tcg.market_source_mappings to tcg_api;
     ''')
     for name in ('20261009184349_independent_catalogue_valuations.sql',
                  '20261009185130_activate_catalogue_reference_values.sql',

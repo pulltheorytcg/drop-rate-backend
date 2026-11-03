@@ -58,8 +58,8 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    }
    await page.evaluate(()=>scrollTo(0,0));
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Inventory overflows viewport');
-   assert.equal(await page.locator('#owner-inventory-status').evaluate(n=>getComputedStyle(n).colorScheme),'light',
-     'Native inventory controls must use the light inventory surface in Safari');
+   assert.equal(await page.locator('#owner-inventory-status').evaluate(n=>getComputedStyle(n).colorScheme),'dark',
+     'Native inventory controls must match the dark Seller Hub surface in Safari');
    assert.equal(await page.locator('.owner-page-header').isVisible(),false,'Redundant inventory heading still occupies space');
    assert.equal(await page.locator('#owner-view-inventory .owner-section-header h2').innerText(),'Collection');
    assert.equal(await page.locator('#owner-view-inventory .owner-section-header p').innerText(),

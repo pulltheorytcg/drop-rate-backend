@@ -8,10 +8,10 @@
   const navigate = view => seller ? activateOwnerView(view === 'home' ? 'overview' : view)
     : activateSellerView(view === 'scan' ? 'intake' : view === 'home' ? 'dashboard' : view, true);
   const worlds = [
-    ['ocean', 'One Piece', 'ONE_PIECE_CARD_GAME', 'one-piece-white.png', 'Set sail for your next grail'],
-    ['electric', 'Pokémon', 'POKEMON_TCG', 'pokemon.webp', 'Gotta find your favourites'],
-    ['ninja', 'Naruto', 'NARUTO', 'naruto.svg', 'Build your shinobi collection'],
-    ['energy', 'Dragon Ball', 'DRAGON_BALL_SUPER_MASTERS', 'masters.png', 'Power up your collection'],
+    ['ocean', 'One Piece', 'ONE_PIECE_CARD_GAME', 'one-piece-white.png', 'Explore One Piece'],
+    ['electric', 'Pokémon', 'POKEMON_TCG', 'pokemon.webp', 'Explore Pokémon'],
+    ['ninja', 'Naruto', 'NARUTO', 'naruto.svg', 'Explore Naruto'],
+    ['energy', 'Dragon Ball', 'DRAGON_BALL_SUPER_MASTERS', 'masters.png', 'Explore Dragon Ball'],
   ];
   const el = (tag, cls, text) => { const n=document.createElement(tag); n.className=cls; if(text)n.textContent=text; return n; };
   const action = (label, callback, cls='collector-button') => { const b=el('button',cls,label);b.type='button';b.addEventListener('click',callback);return b; };
@@ -20,18 +20,18 @@
   const hero = home.querySelector(seller ? '.owner-hero' : '.founder-hero');
   const copy = hero.querySelector(seller ? '.owner-hero-copy' : '.founder-hero-copy');
   hero.classList.add('collector-hero');
-  const greeting=el('p','collector-greeting','WELCOME TO YOUR COLLECTOR HQ');
+  const greeting=el('p','collector-greeting',seller?'YOUR SELLER WORKSPACE':'YOUR DAILY OVERVIEW');
   const title=el('h1','collector-headline');
   if(seller)title.textContent='Your collection.';
-  else title.append('Find your',el('br',''),el('em','','next grail.'));
-  const intro=el('p','collector-intro',seller?'Scan or search. Check the match. Add it to your collection.':'From your first pull to your dream collection. Discover the cards you love.');
+  else title.append('Your collection.',el('br',''),el('em','','Under control.'));
+  const intro=el('p','collector-intro',seller?'Everything you collect, in one place. Add your next find and sell when you’re ready.':'Manage your inventory, review your stock and keep track of every sale.');
   const buttons=el('div','collector-hero-actions');
-  buttons.append(action(seller?'Scan an item':'Scan a card  ↗',()=>navigate('scan'),'collector-button collector-primary'),action(seller?'Search & add':'Explore cards  →',()=>browseGame(),'collector-button collector-secondary'));
+  buttons.append(action('Scan an item',()=>navigate('scan'),'collector-button collector-primary'),action(seller?'Search & add':'Browse catalogue',()=>browseGame(),'collector-button collector-secondary'));
   const name=hero.querySelector('#owner-overview-name');
-  if(name){const hello=el('span','collector-hello','Hey, ');hello.append(name,document.createTextNode(' ✦'));greeting.replaceChildren(hello);}
+  if(name){const hello=el('span','collector-hello','Welcome back, ');hello.append(name);greeting.replaceChildren(hello);}
   copy.replaceChildren(greeting,title,intro,buttons);
   if(!seller)hero.querySelector('.founder-hero-art')?.remove();
-  const spotlight=el('section','collector-grails');spotlight.setAttribute('aria-label','Grail spotlight');
+  const spotlight=el('section','collector-grails');spotlight.setAttribute('aria-label','The collector’s edit');
   const cards=el('div','collector-grail-grid');
   const grails=[
     ['Umbreon VMAX','215/203 · Evolving Skies','umbreon-vmax-215.webp','r:f44ea051229d320c9c7b413368ab7955'],
@@ -45,15 +45,15 @@
     img.addEventListener('error',()=>{img.hidden=true;card.classList.add('art-unavailable');});
     card.append(img,el('strong','',name),el('span','',printing));cards.append(card);
   }
-  spotlight.append(el('p','collector-grail-heading','GRAIL SPOTLIGHT'),cards,el('p','collector-grail-hint','Reference artwork · Tap a card to explore ↗'));
+  spotlight.append(el('p','collector-grail-heading','THE COLLECTOR’S EDIT'),cards,el('p','collector-grail-hint','Reference artwork · Select a card to explore'));
   if(!seller)hero.append(spotlight);
   hero.querySelectorAll('[data-hero-view]').forEach(b=>b.remove());
 
   const explore=el('section','collector-explore');explore.setAttribute('aria-labelledby','collector-worlds-title');
   const heading=el('div','collector-section-heading');const headingCopy=el('div','');
-  headingCopy.append(el('span','collector-kicker','CHOOSE YOUR NEXT ADVENTURE'));
-  const h=el('h2','','Explore your worlds');h.id='collector-worlds-title';headingCopy.append(h);
-  heading.append(headingCopy,action('All games  →',()=>browseGame(),'collector-text-button'));
+  headingCopy.append(el('span','collector-kicker','THE CATALOGUE'));
+  const h=el('h2','','Find your next addition.');h.id='collector-worlds-title';headingCopy.append(h);
+  heading.append(headingCopy,action('Browse all',()=>browseGame(),'collector-text-button'));
   const grid=el('div','collector-world-grid');
   for(const [world,label,system,file,tagline] of worlds){
     const tile=action('',()=>browseGame(system),'collector-world');
@@ -72,9 +72,10 @@
 
   const appearance=el('section','collector-appearance');appearance.setAttribute('aria-labelledby','collector-appearance-title');
   const appearanceTitle=el('h2','','Appearance');appearanceTitle.id='collector-appearance-title';
-  appearance.append(appearanceTitle,el('p','','Choose your workspace colour theme. Saved on this device.'));
-  const vibe=el('div','collector-vibes');vibe.setAttribute('role','group');vibe.setAttribute('aria-label','Workspace colour theme');
-  const choices=[['all','All worlds'],...worlds.map(([key,label])=>[key,label])];
+  appearance.append(appearanceTitle,el('p','','Choose an accent for your dark workspace. Saved on this device.'));
+  const vibe=el('div','collector-vibes');vibe.setAttribute('role','group');vibe.setAttribute('aria-label','Workspace accent');
+  // Preserve saved keys while keeping the workspace consistently dark.
+  const choices=[['all','Default'],['ocean','Ocean'],['electric','Gold'],['ninja','Ember'],['energy','Violet']];
   const setVibe=(key,persist=false)=>{document.body.dataset.collectorVibe=key;vibe.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.vibe===key)));if(persist){try{localStorage.setItem('drop-rate-collector-vibe',key);}catch(_){}}};
   for(const [key,label] of choices){const b=action(label,()=>setVibe(key,true),'collector-vibe');b.dataset.vibe=key;vibe.append(b);}
   appearance.append(vibe);
@@ -85,12 +86,18 @@
 
   if(seller){
     const kpis=home.querySelector('.owner-kpi-grid');
-    const heading=el('div','collector-section-heading collector-stats-heading');heading.append(el('h2','','At a glance'),action('View collection →',()=>navigate('inventory'),'collector-text-button'));
+    const heading=el('div','collector-section-heading collector-stats-heading');heading.append(el('h2','','At a glance'),action('View collection',()=>navigate('inventory'),'collector-text-button'));
     const latest=home.querySelector('.owner-latest-panel');hero.after(heading,kpis,latest);
     document.getElementById('owner-page-subtitle').textContent='Your collection, at a glance.';
   }
   const nav=document.querySelector(seller?'.owner-sidebar':'.seller-nav');
-  if(nav){const foot=el('div','collector-nav-note');foot.append(el('span','collector-kicker','BUILT FOR COLLECTORS'),el('strong','','Chase the cards.\nEnjoy the journey.'),el('span','collector-nav-star','✦'));nav.append(foot);}
+  if(nav){
+    const foot=el('div','collector-nav-note');
+    const store=el('a','workspace-storefront-link','Visit the storefront');
+    store.href='https://droprate.co.uk/';store.target='_blank';store.rel='noopener noreferrer';
+    store.setAttribute('aria-label','Visit the Drop Rate storefront (opens in a new tab)');
+    foot.append(el('span','collector-kicker','DROP RATE STORE'),store);nav.append(foot);
+  }
   // Home keeps its own hierarchy; the other tools retain their page heading.
   const updateHome=view=>document.body.classList.toggle('collector-at-home',view===(seller?'overview':'dashboard'));
   document.addEventListener(seller?'owner-view-changed':'seller-view-changed',e=>updateHome(e.detail.view));

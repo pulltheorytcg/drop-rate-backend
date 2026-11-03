@@ -58,7 +58,7 @@ async function settle(predicate) {
   assert.match(tickerStyles, /\.feature-card-list\{[^}]*scroll-snap-type:x mandatory/, 'mobile feature cards scroll and snap horizontally');
   assert.match(tickerStyles, /\.feature-card-list\{[^}]*align-items:stretch/, 'mobile feature cards stretch to the same height as the longest card');
   assert.match(tickerStyles, /\.process-section\{display:none\}/, 'mobile hides the repeated how-it-works section');
-  assert.ok(layout.querySelector('img[src="/assets/brand-assets/seller-hub-approved.webp"]'));
+  assert.ok(layout.querySelector('img[src="/assets/brand-assets/storefront-logo.png"]'));
   const badges = Array.from(layout.querySelectorAll('.topbar .store-badge'));
   assert.equal(badges.length, 2, 'both mobile platform badges appear only in the Seller Hub header');
   assert.ok(badges.every(badge => badge.getAttribute('href') === '#early-access'), 'unreleased apps must direct visitors to the launch list');

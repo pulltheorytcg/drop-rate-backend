@@ -411,7 +411,7 @@ def test_seller_invitation_avoids_warning_style_owner_copy() -> None:
     html = JOIN_HTML.read_text()
     source = JOIN_JS.read_text()
 
-    assert "<title>Drop Rate — Sell With Us</title>" in html
+    assert "<title>Create your account — Drop Rate Seller Hub</title>" in html
     assert "Sell with Drop Rate" in html
     assert "Verified accounts" in html
     assert "3 · Seller Hub" in html

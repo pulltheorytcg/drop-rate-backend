@@ -4,8 +4,8 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=book-ebay-context-v1'), 'Seller Hub must load the current book artwork and listing-context script');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=simple-v1'), 'Seller Hub must load the fresh mobile sort styles');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=premium-20261103'), 'Seller Hub must load the current book artwork and listing-context script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=premium-20261103'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
@@ -370,7 +370,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   });
   f.browser.filters.q='Old search';await f.browser.open();f.browser.reset();
   await tick();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Browse cards, comics & manga/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Browse by game/);
   assert.equal(ref.market_value_minor,null);
   assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0);
   f.finish();checks++;
@@ -413,10 +413,10 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  }
 
  {
-  const f=fixture();await f.browser.open();assert.match(f.browser.find('.dr-browse-content').textContent,/Browse cards, comics & manga/);
+  const f=fixture();await f.browser.open();assert.match(f.browser.find('.dr-browse-content').textContent,/Browse by game/);
   assert.equal(f.calls.length,1);f.browser.filters.product_type='SEALED';await f.browser.load();
   assert.match(f.calls.at(-1).url,/product_type=SEALED/);assert.match(f.browser.find('.dr-browse-chips').textContent,/Sealed Only/);
-  f.browser.reset();assert.equal(f.browser.filters.product_type,'');assert.match(f.browser.find('.dr-browse-content').textContent,/Browse cards, comics & manga/);
+  f.browser.reset();assert.equal(f.browser.filters.product_type,'CARD');assert.match(f.browser.find('.dr-browse-content').textContent,/Browse by game/);
   f.finish();checks++;
  }
  {
@@ -801,17 +801,18 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   let opened=0;f.browser.options.books=()=>{opened++;};
   await f.browser.open();
   const tiles=f.browser.find('.dr-browse-game-grid');
-  assert.equal(tiles.querySelectorAll('button').length,2);
-  assert.match(tiles.textContent,/COMICS/);
-  assert.match(tiles.textContent,/MANGA/);
-  tiles.querySelector('button[data-system="COMICS"]').click();await tick();
+  assert.equal(tiles.querySelectorAll('button').length,0);
+  assert.ok(f.browser.find('[data-category="COMICS"]'));
+  assert.ok(f.browser.find('[data-category="MANGA"]'));
+  f.browser.find('[data-category="COMICS"]').click();await tick();
   const url=new URL(f.calls.at(-1).url,'https://example.test');
   assert.equal(url.searchParams.get('system_code'),'COMICS');
   assert.equal(url.searchParams.get('product_type'),'COMIC');
   assert.match(f.browser.find('.dr-browse-status').textContent,/No books have been added yet/);
-  assert.match(f.browser.find('.dr-browse-chips').textContent,/Comics & Manga/);
+  assert.equal(f.browser.find('[data-category="COMICS"]').getAttribute('aria-pressed'),'true');
+  assert.doesNotMatch(f.browser.find('.dr-browse-chips').textContent,/Cards Only|Comics & Manga/);
   const btn=[...f.browser.find('.dr-browse-content').querySelectorAll('button')]
-    .find(x=>x.textContent==='Add a comic or manga');
+    .find(x=>x.textContent==='Add a comic');
   assert.ok(btn);btn.click();await tick();
   assert.equal(opened,1);
   assert.equal(f.calls.filter(x=>x.method==='POST').length,0);
