@@ -8,6 +8,7 @@ CollectionFormat = Literal["", "CARD", "SEALED"]
 CollectionGrading = Literal["", "RAW", "GRADED"]
 CollectionSort = Literal["updated", "newest", "oldest", "name", "name_desc", "value_desc", "value_asc"]
 ListingState = Literal["", "PERSONAL", "ALL_FOR_SALE", "PREPARING", "REVIEW", "READY", "LISTED"]
+ACTIVE_COLLECTION_SQL = "i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')"
 
 # Category and physical format are separate. Future configured sports/figure
 # systems can use the same filter; a sealed product remains within its category.
@@ -91,7 +92,7 @@ async def collection_facets(connection, owner_id):
       select distinct ({COLLECTION_CATEGORY_SQL}) as category,p.game,
         coalesce(nullif(btrim(i.language),''),p.language,'') as language
       from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
-      where i.owner_id=$1
+      where i.owner_id=$1 and {ACTIVE_COLLECTION_SQL}
       order by category,p.game,language
     """, owner_id)
     return {"categories": sorted({r["category"] for r in rows if r["category"]}),
@@ -112,5 +113,5 @@ async def collection_state_counts(connection, owner_id):
         expressions.append(f"count(*) filter(where {' and '.join(filters)})::int as {label}")
     row = await connection.fetchrow(f"""select {', '.join(expressions)}
       from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
-      where i.owner_id=$1""", *params)
+      where i.owner_id=$1 and {ACTIVE_COLLECTION_SQL}""", *params)
     return {key: int(value or 0) for key, value in dict(row).items()}

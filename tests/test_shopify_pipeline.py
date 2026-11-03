@@ -139,7 +139,7 @@ def test_single_item_sync_requires_all_local_sellability_gates() -> None:
     assert "if settings.shopify_publish_enabled" in source
     assert 'item["status"] != "APPROVED"' in source
     assert 'not item["identity_confirmed"]' in source
-    assert 'item["acquisition_cost_minor"] is None' in source
+    assert 'missing.append("acquisition cost")' not in source
     assert 'item["product_type"] == "CARD"' in source
     assert 'missing.append("photo-backed Near Mint verification")' in source
     assert 'missing.append("graded slab verification")' in source

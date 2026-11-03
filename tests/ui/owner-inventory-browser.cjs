@@ -111,7 +111,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.equal(await counter.innerText(),'1','Cancel must restore stored quantity');
    await page.getByRole('button',{name:'Remove this copy',exact:true}).click();
    assert.equal(await counter.innerText(),'0','Remove this copy must preview saved quantity minus one');
-   assert.equal(await page.getByRole('button',{name:'Withdraw this copy',exact:true}).count(),1);
+   assert.equal(await page.getByRole('button',{name:'Confirm removal',exact:true}).count(),1);
    await page.getByRole('button',{name:'Cancel change',exact:true}).click();
    assert.equal(await counter.innerText(),'1');
    await page.getByRole('button',{name:'Close item details',exact:true}).click();

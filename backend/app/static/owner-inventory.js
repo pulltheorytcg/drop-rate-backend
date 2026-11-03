@@ -4,7 +4,7 @@ window.DropRateInventory = (() => {
   const el = (tag, cls = "", text = "") => { const n = document.createElement(tag); n.className = cls; n.textContent = text; return n; };
   const button = (label, action, cls = "") => { const n = el("button", cls, label); n.type = "button"; n.addEventListener("click", action); return n; };
   const account = () => state.session?.user?.id || state.session?.access_token;
-  let dialog, content, message, selected, revision = 0, busy = false, returnFocus, channels = [];
+  let dialog, content, message, selected, revision = 0, mutationRevision = 0, busy = false, returnFocus, channels = [];
   let listingIntent = false, listingStep = "condition", returnScroll = 0;
   // Files stay only in this open, account-scoped item dialog. A failed upload
   // must not erase the other side or the seller's unsaved preparation fields.
@@ -189,6 +189,13 @@ window.DropRateInventory = (() => {
       const saved=listingDraft(selected);
       if(!options.step && !options.prepareEbay && saved?.step && ["condition","preparation","price","review"].includes(saved.step))listingStep=saved.step;
       render(data);status(saved && listingIntent ? "Your listing draft is ready to continue. Nothing has been published." : "");
+      if (window.DropRateScanPhotos && selected.product_type === "COMIC"
+          && (selected.comic_photos || []).some(photo => photo.approval_status === "PENDING"
+            && ["NOT_UPLOADED", "UPLOADED", "PROCESSING"].includes(photo.shopify_file_status))) {
+        // Finish a received file without blocking the item form or approving it.
+        // Old interrupted transfers can resume; never ask for the same photo twice.
+        refreshReceivedPhotos(selected.id, rev, owner);
+      }
       if (options.prepareEbay) {
         const selling = content.querySelector(".owner-item-selling");
         if (selling) selling.open = true;
@@ -198,8 +205,24 @@ window.DropRateInventory = (() => {
     } catch (error) { if (alive(rev, owner)) status(error.message, true); }
   }
 
+  async function refreshReceivedPhotos(id, rev, owner) {
+    const mutation = mutationRevision;
+    const current = () => alive(rev, owner) && !busy && selected?.id === id && mutation === mutationRevision;
+    try {
+      await apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(id)}/photos/refresh`, {method:"POST",body:"{}"});
+      if (!current()) return;
+      const data = await apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(id)}`);
+      if (!current()) return;
+      const scrollTop = dialog.scrollTop;
+      selected = data.item; render(data); dialog.scrollTop = scrollTop;
+    } catch (_) { /* The received photo stays visible with its processing retry. */ }
+  }
+
   async function run(action, options = {}) {
     if (busy || !selected) return;
+    // A background photo read may finish after this mutation is no longer
+    // busy. Its earlier snapshot must not replace the mutation's readback.
+    mutationRevision++;
     busy = true;
     const rev = revision, owner = account(), id = selected.id;
     const previous=selected,draft=listingDraft(selected);
@@ -230,7 +253,13 @@ window.DropRateInventory = (() => {
       dialog.querySelector("header button").disabled = false;
       status(failure ? failure.message : result?.message || "Saved.", Boolean(failure));
       if(!failure)document.dispatchEvent(new CustomEvent("hub:inventory-saved",{detail:{inventoryId:id,message:result?.message||"Saved."}}));
+      state.inventory.facets = null;
       await Promise.allSettled([loadOwnerInventory(), loadOwnerOverview(), loadOwnerChannels(), loadOwnerInsights()]);
+      if (alive(rev, owner) && !failure && options.closeAfterRemoval && selected?.status === "WITHDRAWN") {
+        clearListingDraft(selected);
+        close();
+        showPortalMessage("Copy removed from your collection.", "success");
+      }
     }
   }
 
@@ -289,7 +318,7 @@ window.DropRateInventory = (() => {
     const section = el("section", "owner-comic-preparation owner-item-section");
     section.dataset.comicPreparation = "true";
     section.append(el("h3", "", "Prepare your comic for Shopify"),
-      el("p", "owner-item-note", "Tell Drop Rate where this exact copy is held, what you paid and the measured parcel size. Staff must verify the details and approve the photos before anything is listed."));
+      el("p", "owner-item-note", "Tell Drop Rate where this exact copy is held and the measured parcel size. You can add what you paid for profit tracking. Staff must verify the details and approve the photos before anything is listed."));
     const prep = item.comic_listing_preparation || {};
     const fields = el("div", "owner-comic-preparation-fields");
     const field = (caption, type, key, options = {}) => {
@@ -321,7 +350,7 @@ window.DropRateInventory = (() => {
       {value:prep.dispatch_note || "", placeholder:"e.g. London, ready to dispatch — no full home address needed"});
     dispatch.maxLength = 200;
     const reportedCost = prep.acquisition_cost_minor ?? item.comic_acquisition_cost_minor;
-    const cost = field("What you paid (£) — for staff confirmation", "number", "cost", {min:0,max:1000000,step:0.01,
+    const cost = field("What you paid (£) — optional", "number", "cost", {min:0,max:1000000,step:0.01,
       value:reportedCost == null ? "" : (reportedCost / 100).toFixed(2)});
     const weight = field("Packed weight (g)", "number", "weight", {min:1,max:100000,step:1,
       value:prep.parcel_weight_grams ?? ""});
@@ -363,7 +392,7 @@ window.DropRateInventory = (() => {
 
     const photos = el("div", "owner-comic-photo-section");
     photos.append(el("h4", "", "Photographs of your exact copy"),
-      el("p", "owner-item-note", "Upload a clear front cover. Include the back for a graded comic; an ungraded back is helpful too. Catalogue covers and scanner snapshots are not listing photos."));
+      el("p", "owner-item-note", "A saved scan of your exact copy counts as a photo for selling. Use a clear front cover and include the back for a graded comic; an ungraded back is helpful too."));
     const graded = Boolean(item.grading_company && item.grade);
     for (const side of ["FRONT", "BACK"]) {
       const assets = (item.comic_photos || []).filter(asset => asset.side === side);
@@ -378,10 +407,15 @@ window.DropRateInventory = (() => {
       } else if (latest?.approval_status === "PENDING" && !processingFailed) {
         delete draft.photos[side];
         row.append(el("p", "owner-item-note", latest.shopify_file_status === "NOT_UPLOADED"
-          ? "Photo received. Drop Rate needs to finish processing it before review."
+          ? "Photo received. Image processing needs to finish before review."
           : latest.shopify_file_status === "READY"
           ? "Photo submitted — awaiting staff review."
           : "Photo submitted — processing for staff review."));
+        if (["NOT_UPLOADED", "UPLOADED", "PROCESSING"].includes(latest.shopify_file_status)) {
+          row.append(button("Check photo processing", () => run(() =>
+            apiRequest(`/api/v1/owner/inventory/${item.id}/photos/refresh`, {method:"POST",body:"{}"}),
+            {preserveScroll:true,pendingMessage:"Checking your received photos…"}), "owner-secondary-action"));
+        }
       } else {
         if (processingFailed) row.append(el("p", "owner-comic-retake-reason",
           "This photo could not be processed. Choose and submit the photo again."));
@@ -484,7 +518,6 @@ window.DropRateInventory = (() => {
         : "Submit the details and photos of this physical copy. Drop Rate then checks them before Shopify publication."));
     const next = [];
     if (!prep.holding && !item.location_recorded) next.push("Save where this copy is held and your dispatch details.");
-    if (prep.acquisition_cost_minor == null && item.comic_acquisition_cost_minor == null && !item.cost_recorded) next.push("Save what you paid for this copy.");
     const requiredSides = item.grading_company && item.grade ? ["FRONT","BACK"] : ["FRONT"];
     for (const side of ["FRONT","BACK"]) {
       const photo = (item.comic_photos || []).filter(asset => asset.side === side).at(-1);
@@ -500,7 +533,7 @@ window.DropRateInventory = (() => {
     } else section.append(el("p", "", "Your required preparation details and photos are saved for review."));
     const checks = item.approval_blockers || [], staff = [];
     if (checks.some(reason => /exact printing|identity confirmation/i.test(reason))) staff.push("Verify the exact printing and item details.");
-    if (checks.some(reason => /acquisition cost|storage|dispatch location|intake review/i.test(reason))) staff.push("Confirm the purchase cost and where this copy is held.");
+    if (checks.some(reason => /storage|dispatch location|intake review/i.test(reason))) staff.push("Confirm where this copy is held and how it will be dispatched.");
     if (checks.some(reason => /Shopify media|approved.*photo|approved.*image/i.test(reason))) staff.push("Review and approve the physical-copy photographs.");
     if (checks.some(reason => /shipping profile/i.test(reason))) staff.push("Confirm the comic shipping profile.");
     if (staff.length) {
@@ -560,7 +593,7 @@ window.DropRateInventory = (() => {
     }
     panels.preparation.append(remaining);
     panels.price.append(el("h3","","Set your selling price"),recommendationNote,priceLabel,save,
-      el("p","owner-item-note","Your asking price is separate from the market estimate. Final proceeds reflect the actual sale, commission and any applicable deductions."));
+      el("p","owner-item-note","Commission is based on the item sale price after discounts. Your purchase cost is optional and only affects profit tracking. Final proceeds also reflect any applicable fees and deductions."));
     const reviewHeading=el("h3","","Review your listing"),reviewFacts=el("dl","owner-listing-review-facts");
     const comicStatus = item.product_type === "COMIC" && item.status !== "APPROVED" ? el("div") : null;
     const updateReview=()=>{
@@ -921,11 +954,12 @@ window.DropRateInventory = (() => {
           });
         }, "primary"));
       } else {
-        confirmation.append(el("p", "", `Withdraw ${item.inventory_code} from your physical stock and its selling channels? The exact copy's history will be kept.`));
-        actions.append(button("Withdraw this copy", () => run(() =>
+        confirmation.append(el("p", "", `Remove ${item.inventory_code} from your collection and its selling channels? The exact copy's history will be kept.`));
+        actions.append(button("Confirm removal", () => run(() =>
           apiRequest(`/api/v1/owner/inventory/${item.id}/withdraw`, {
             method: "POST", body: JSON.stringify({version: item.version})
-          })), "danger"));
+          }), {closeAfterRemoval:true,
+            recoveredMessage: updated => updated.status === "WITHDRAWN" ? "Copy removed from your collection." : null}), "danger"));
       }
       actions.append(button("Cancel change", resetQuantity));
       confirmation.append(actions);

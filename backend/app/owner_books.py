@@ -9,9 +9,9 @@ import asyncpg
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .access_control import require_owner_portal_request
+from .access_control import require_owner_portal, require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
-from .inventory_intake import create_inventory_intake
+from .inventory_intake import _create_inventory_intake
 from .schemas import ManualInventoryCreate
 from .db import user_connection
 from .book_research import identity_digest, catalogue_candidates
@@ -98,9 +98,9 @@ async def choose_existing_book_cover(inventory_id: UUID, payload: SavedCoverChoi
         await db.execute("""update tcg.recognition_runs set idempotency_key='book-reference-history:'||id::text
             where owner_id=$1 and idempotency_key=$2""", access["owner_id"], key)
         await db.execute("""insert into tcg.recognition_runs
-            (owner_id,inventory_id,top_catalogue_id,idempotency_key,status,decision,provider_evidence,created_by_user_id,completed_at)
-            values($1,$2,$3,$4,'NEEDS_REVIEW','NEEDS_REVIEW',$5::jsonb,$6,now())""",
-            access["owner_id"], inventory_id, item["catalogue_id"], key, evidence, user.user_id)
+            (owner_id,inventory_id,top_catalogue_id,system_code,idempotency_key,status,decision,provider_evidence,created_by_user_id,completed_at)
+            values($1,$2,$3,$4,$5,'NEEDS_REVIEW','NEEDS_REVIEW',$6::jsonb,$7,now())""",
+            access["owner_id"], inventory_id, item["catalogue_id"], fields["system_code"], key, evidence, user.user_id)
         await db.execute("update tcg.inventory_items set version=version+1,updated_at=clock_timestamp() where id=$1 and owner_id=$2", inventory_id, access["owner_id"])
     return {"message": "Cover saved. Your copy’s details are unchanged.", "version": item["version"]+1}
 
@@ -135,35 +135,39 @@ async def add_book(
         if not payload.certificate_number:
             raise HTTPException(422, "Enter the graded book's certificate number")
         payload.grading_company = payload.grading_company.upper()
-    candidate = None
     fields = {**product.comic_printing.model_dump(), "language": product.language}
-    if payload.research_run_id:
-        async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
-            evidence = await db.fetchval("""select provider_evidence from tcg.recognition_runs
-                where id=$1 and owner_id=$2 and status='NEEDS_REVIEW'""", payload.research_run_id, access["owner_id"])
-        if isinstance(evidence, str): evidence = json.loads(evidence)
-        candidates = (evidence or {}).get("book_result", {}).get("research", {}).get("candidates", [])
-        candidate = next((c for c in candidates if c["id"] == payload.research_candidate_id), None)
-        if not candidate or identity_digest(fields) != identity_digest(candidate["fields"]):
-            raise HTTPException(422, "Book details changed. Choose the matching cover again or save without a publisher cover.")
+    intake = ManualInventoryCreate.model_validate(payload.model_dump(exclude={"research_run_id", "research_candidate_id"}))
     try:
-        intake = ManualInventoryCreate.model_validate(payload.model_dump(exclude={"research_run_id", "research_candidate_id"}))
-        result = await create_inventory_intake(intake, request, user, idempotency_key)
-        if candidate and candidate.get("image_url"):
-            # Intake already has its durable idempotency receipt. If this write
-            # fails, retrying the same save reuses that copy before adding art.
-            inventory_id = UUID(str(result["inventory"]["id"]))
-            catalogue_id = UUID(str(result["catalogue"]["id"]))
-            evidence = json.dumps({"book_reference": candidate, "identity_digest": identity_digest(fields),
-                                   "source_run_id": str(payload.research_run_id), "collector_confirmed": True})
-            async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+            current_access = await require_owner_portal(db)
+            if current_access["owner_id"] != access["owner_id"]:
+                raise HTTPException(403, "Your collection access changed. Refresh and try again.")
+            candidate = None
+            if payload.research_run_id:
+                evidence = await db.fetchval("""select provider_evidence from tcg.recognition_runs
+                    where id=$1 and owner_id=$2 and status='NEEDS_REVIEW'""", payload.research_run_id, access["owner_id"])
+                if isinstance(evidence, str): evidence = json.loads(evidence)
+                candidates = (evidence or {}).get("book_result", {}).get("research", {}).get("candidates", [])
+                candidate = next((c for c in candidates if c["id"] == payload.research_candidate_id), None)
+                if not candidate or identity_digest(fields) != identity_digest(candidate["fields"]):
+                    raise HTTPException(422, "Book details changed. Choose the matching cover again or save without a publisher cover.")
+            result = await _create_inventory_intake(intake, request, user, idempotency_key, connection=db)
+            if candidate and candidate.get("image_url"):
+                # The physical copy, durable intake receipt and optional cover
+                # reference share one transaction. A retry reuses the same copy.
+                inventory_id = UUID(str(result["inventory"]["id"]))
+                catalogue_id = UUID(str(result["catalogue"]["id"]))
+                evidence = json.dumps({"book_reference": candidate, "identity_digest": identity_digest(fields),
+                                       "source_run_id": str(payload.research_run_id), "collector_confirmed": True,
+                                       "reference_only": True})
                 await db.execute("""insert into tcg.recognition_runs
-                    (owner_id,inventory_id,top_catalogue_id,idempotency_key,status,decision,
+                    (owner_id,inventory_id,top_catalogue_id,system_code,idempotency_key,status,decision,
                      provider_evidence,created_by_user_id,completed_at)
-                    select $1,i.id,i.catalogue_id,$4,'NEEDS_REVIEW','NEEDS_REVIEW',$5::jsonb,$6,now()
+                    select $1,i.id,i.catalogue_id,$7,$4,'NEEDS_REVIEW','NEEDS_REVIEW',$5::jsonb,$6,now()
                     from tcg.inventory_items i where i.id=$2 and i.owner_id=$1 and i.catalogue_id=$3
                     on conflict(owner_id,idempotency_key) do nothing""",
-                    access["owner_id"],inventory_id,catalogue_id,f"book-reference:{inventory_id}",evidence,user.user_id)
+                    access["owner_id"],inventory_id,catalogue_id,f"book-reference:{inventory_id}",evidence,user.user_id,
+                    product.comic_printing.system_code)
         return result
     except asyncpg.UniqueViolationError as exc:
         # Do not disclose another collector's ownership or inventory ID.

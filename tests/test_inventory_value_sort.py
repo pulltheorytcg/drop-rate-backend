@@ -176,7 +176,7 @@ async def test_inventory_route_uses_readonly_snapshot_and_same_enriched_value(mo
         assert user_id==actor and readonly_snapshot is True
         yield connection
     async def sorted_page(conn,where,params,limit,offset,*,grouped,descending):
-        assert conn is connection and where=="i.owner_id=$1" and params==[owner]
+        assert conn is connection and where=="i.owner_id=$1 and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')" and params==[owner]
         assert (limit,offset,grouped,descending)==(1,2,True,True)
         return page
     async def artwork(conn,items):

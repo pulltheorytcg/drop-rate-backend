@@ -155,18 +155,21 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(f.calls.filter(c=>c.method==='PATCH').length,0);
   f.finish();checks++;
  }
- {
+ for (const cost of ['', '0', '7.25']) {
   const comic={...item,product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',
    condition:'Mint',seal_status:null,store_price_minor:1500,comic_acquisition_cost_minor:null,comic_photos:[]};
   const f=fixture(comic); await f.open();
   const input=key=>f.w.document.querySelector(`[data-comic-field="${key}"]`);
+  assert.match(input('cost').closest('label').textContent,/optional/);
+  assert.equal(input('cost').required,false);
+  assert.doesNotMatch(f.w.document.querySelector('.owner-item-selling').textContent,/Save what you paid for this copy/);
   input('holding').value='SELLER_HELD';input('dispatch_note').value='London, dispatch on request';
-  input('cost').value='7.25';input('weight').value='190';input('length').value='320';
+  input('cost').value=cost;input('weight').value='190';input('length').value='320';
   input('width').value='240';input('height').value='18';
   await click(f.w,'Save preparation details');
   const sent=f.calls.find(c=>c.url.endsWith('/comic-preparation')&&c.method==='PATCH');
   assert.ok(sent);assert.deepEqual(JSON.parse(sent.body),{version:3,holding:'SELLER_HELD',
-   dispatch_note:'London, dispatch on request',acquisition_cost_minor:725,
+   dispatch_note:'London, dispatch on request',acquisition_cost_minor:cost===''?null:Math.round(Number(cost)*100),
    parcel_weight_grams:190,parcel_length_mm:320,parcel_width_mm:240,parcel_height_mm:18});
   assert.equal(f.calls.filter(c=>c.url.includes('/channels/shopify/sync')).length,0);
   f.finish();checks++;
@@ -207,10 +210,33 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
    assert.match(front.textContent,/could not be processed/);assert.ok(btn(f.w,'Resubmit photo'));
    assert.ok(front.querySelector('input[type="file"]'),'A failed provider image must offer a new submission');
   }else{
-   assert.match(front.textContent,/Drop Rate needs to finish processing/);
+   assert.match(front.textContent,/Image processing needs to finish/);
    assert.equal(front.querySelector('input[type="file"]'),null,'An existing receipt must not invite duplicate uploads');
+   assert.ok(btn(f.w,'Check photo processing'),'Received files can finish without a new photo');
   }
   assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
+ }
+ // A delayed background photo read must never undo a removal which committed
+ // after that read began, even while the collection refresh is still pending.
+ {
+  const comic={...item,product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',condition:'Mint',
+   seal_status:null,store_price_minor:1500,comic_photos:[{id:'pending-front',side:'FRONT',approval_status:'PENDING',shopify_file_status:'NOT_UPLOADED'}]};
+  const f=fixture(comic);f.w.DropRateScanPhotos={};let detailReads=0,finishBackground;
+  f.run('loadOwnerInventory=()=>new Promise(resolve=>{window.finishCollectionReload=resolve;});');
+  f.setHandler(async(url)=>{
+   if(url.endsWith('/photos/refresh'))return {items:[]};
+   if(url.endsWith('/withdraw'))return {message:'Copy removed.'};
+   detailReads++;
+   if(detailReads===2)return new Promise(resolve=>{finishBackground=()=>resolve({item:comic,copies:[comic]});});
+   return {item:detailReads>2?{...comic,status:'WITHDRAWN',version:4}:comic,copies:[comic]};
+  });
+  await f.open();await tick();assert.equal(detailReads,2,'Background photo detail read must be pending');
+  await click(f.w,'Remove this copy');await click(f.w,'Confirm removal');
+  assert.ok(f.w.finishCollectionReload,'Removal should now wait for Collection refresh');
+  finishBackground();await tick();await tick();f.w.finishCollectionReload();await tick();await tick();
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,false,'An older photo response cannot restore an active detail after removal');
+  assert.match(f.w.document.querySelector('#owner-portal-message').textContent,/Copy removed from your collection/);
+  assert.equal(f.calls.filter(call=>call.url.endsWith('/withdraw')).length,1);f.finish();checks++;
  }
  for(const change of ['refresh','account','logout']){
   const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const pending=f.w.testLoadInventory();
@@ -467,7 +493,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  // Explicit copy actions preview a change; cancellation
  // restores the saved count, and the owner-scoped POST happens only on confirm.
- {
+ for (const responseLost of [false,true]) {
   const first={...item,status:'APPROVED',sale_intent:'FOR_SALE',store_price_minor:1000,
     shopify_state:'PUBLISHED',seller_approval_available:true};
   const second={...first,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
@@ -522,10 +548,13 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const second={...first,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
     inventory_code:'INV-SECOND-COPY'};
   const f=fixture(first);let withdrawn=false;
+  f.run('loadOwnerInventory=window.testLoadInventory;');
   f.setHandler(async(url,options)=>{
+    if(url.startsWith('/api/v1/owner/inventory?'))return {items:withdrawn?[second]:[first,second],total:1,copy_total:withdrawn?1:2};
     if(url.endsWith('/withdraw')){
       withdrawn=true;
       assert.deepEqual(JSON.parse(options.body),{version:3});
+      if(responseLost)throw new Error('Connection lost after removal');
       return {message:'Copy withdrawn. Its history is retained.'};
     }
     return {item:withdrawn?{...first,status:'WITHDRAWN'}:first,
@@ -534,13 +563,24 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   await f.open();await click(f.w,'Remove this copy');
   assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1');
   assert.equal(withdrawn,false,'Preview must not withdraw stock');
-  await click(f.w,'Withdraw this copy');
+  await click(f.w,'Confirm removal');
   assert.equal(withdrawn,true);
-  assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1');
-  assert.equal(f.w.document.querySelector('.owner-item-quantity-value').getAttribute('aria-label'),'Saved quantity 1');
-  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/Copy withdrawn/);
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,false,'Successful removal returns to the active collection');
+  assert.match(f.w.document.querySelector('#owner-portal-message').textContent,/Copy removed from your collection/);
+  assert.equal(f.w.document.querySelectorAll('.owner-inventory-card').length,1,'The remaining exact sibling is still in Collection');
+  assert.equal(f.w.document.querySelector('.owner-card-quantity'),null,'The withdrawn copy must no longer inflate grouped quantity');
+  assert.doesNotMatch(f.w.document.querySelector('#owner-inventory-grid').textContent,/Removed/);
+  assert.equal(f.run('state.inventory.facets'),null,'Removed-only filter choices must refresh with the collection');
   assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
   f.finish();checks++;
+ }
+ {
+  const f=fixture();f.setHandler(async(url)=>{if(url.endsWith('/withdraw'))throw new Error('Selling channel could not remove this copy');return {item,copies:[item]};});
+  await f.open();await click(f.w,'Remove this copy');await click(f.w,'Confirm removal');
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true,'An unsuccessful withdrawal stays reviewable');
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/could not remove/);
+  assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1','A failed removal never fabricates a reduced quantity');
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,1);f.finish();checks++;
  }
  {
   const f=fixture();let attempts=0;
@@ -552,7 +592,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  {
   const f=fixture();await f.open();await click(f.w,'Remove this copy');assert.equal(f.calls.filter(c=>c.method).length,0);
-  assert.match(f.w.document.querySelector('.owner-item-confirmation').textContent,/INV-EXACT-COPY/);await click(f.w,'Withdraw this copy');
+  assert.match(f.w.document.querySelector('.owner-item-confirmation').textContent,/INV-EXACT-COPY/);await click(f.w,'Confirm removal');
   const sent=f.calls.find(c=>c.method);assert.equal(sent.url,`/api/v1/owner/inventory/${id}/withdraw`);assert.deepEqual(JSON.parse(sent.body),{version:3});f.finish();checks++;
  }
  {

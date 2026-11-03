@@ -34,14 +34,15 @@ def main():
                     else:
                         route.abort()
                 page.route('**/*',respond); page.goto('https://book-research.test/')
-                for name in ('owner-portal.css','owner-imports.css','owner-books.css'):
+                for name in ('owner-portal.css','owner-imports.css','owner-books.css','scan-photos.css'):
                     page.add_style_tag(content=(ROOT/name).read_text())
                 page.add_script_tag(content='''
-                  const state={session:{access_token:'fixture-only',user:{id:'seller-a'}}};window.calls=[];window.marketCalls=[];
+                  const state={session:{access_token:'fixture-only',user:{id:'seller-a'}}};window.calls=[];window.marketCalls=[];window.photoCalls=[];
                   async function loadOwnerInventory(){} async function loadOwnerOverview(){}
                   async function apiRequest(url,options){
                     if(url.endsWith('/market-value')){marketCalls.push({url,...options});return {status:'UNAVAILABLE',market_value_minor:null,reason:'No stored value for this fixture.'};}
-                    calls.push({url,...options});return {catalogue:{name:'Fixture book'},inventory:{id:'fixture'}};}
+                    if(url.includes('/photo/upload?')){photoCalls.push({url,...options});return {asset:{id:'photo-fixture',side:new URL(url,location.origin).searchParams.get('side'),shopify_file_status:'READY',approval_status:'PENDING',rights_status:'PENDING'},inventory_version:2};}
+                    calls.push({url,...options});return {catalogue:{name:'Fixture book'},inventory:{id:'fixture',version:1}};}
                   window.run='11111111-1111-4111-8111-111111111111';
                   window.fields={system_code:'MARVEL_COMICS',series_title:'Fixture Adventure',issue_number:'1',
                     publisher:'Marvel',book_format:'SINGLE_ISSUE',language:'English',release_year:2025,printing_number:null,cover_code:'Cover A'};
@@ -55,6 +56,7 @@ def main():
                       image_path:'/api/v1/owner/books/research/'+run+'/cover/bbbbbbbbbbbbbbbbbbbbbbbb',explanation:'Second cover option.'}
                   ]}};
                 ''')
+                page.add_script_tag(content=(ROOT/'scan-photos.js').read_text())
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
                 page.evaluate('DropRateBooks.open({recognition:options,onSaved:(result,copy,recognition)=>{window.savedRecognition=recognition}})')
                 assert page.locator('#owner-book-title').inner_text()=='Add to collection'
@@ -119,7 +121,7 @@ def main():
                 # background results and retries, without a second physical copy.
                 page.evaluate('''() => {
                   window.normalRequest=apiRequest;window.saveAttempts=[];
-                  apiRequest=async (url,opts)=>{if(url.endsWith('/market-value'))return normalRequest(url,opts);saveAttempts.push({url,...opts});if(saveAttempts.length===1)throw new Error('Disconnected');return normalRequest(url,opts)};
+                  apiRequest=async (url,opts)=>{if(!url.endsWith('/books/intake'))return normalRequest(url,opts);saveAttempts.push({url,...opts});if(saveAttempts.length===1)throw new Error('Disconnected');return normalRequest(url,opts)};
                   DropRateBooks.open({scanItemId:'pending',recognition:options});
                 }''')
                 page.locator('#owner-book-save').click()
@@ -151,14 +153,64 @@ def main():
                 page.locator('#owner-book-another-photo').click()
                 assert page.locator('#owner-book-photo-details').evaluate('e=>e.open')
                 page.locator('#owner-book-close').click()
+                # A low-confidence issue is not silently promoted from a
+                # metadata-only candidate. Its details remain selectable, and
+                # the user's own scan stays visible without publisher artwork.
+                photo='data:image/png;base64,'+base64.b64encode(PNG).decode()
+                page.evaluate('''photo => {
+                  window.scannedPhoto=photo;
+                  const candidate={...options.research.candidates[0],image_path:null,
+                    fields:{...fields,issue_number:'545',cover_code:null}};
+                  DropRateBooks.open({photos:[photo],recognition:{...options,
+                    fields:{...fields,issue_number:null,cover_code:null},
+                    research:{status:'CANDIDATES',candidates:[candidate]}},
+                    onSaved:(result,copy,context)=>{window.savedRecognition=context}});
+                }''',photo)
+                assert page.locator('#owner-book-research-title').inner_text()=='Possible book matches'
+                assert page.locator('#owner-book-number').input_value()==''
+                page.wait_for_function('document.querySelector("#owner-book-selected img")?.naturalWidth===160')
+                assert 'Your photo' in page.locator('#owner-book-selected').inner_text()
+                before=page.evaluate('calls.length')
+                page.locator('#owner-book-save').click()
+                assert page.evaluate('calls.length')==before
+                assert 'Confirm the issue' in page.locator('#owner-book-message').inner_text()
+                page.get_by_role('button',name='Use these book details',exact=True).click()
+                assert page.locator('#owner-book-number').input_value()=='545'
+                assert page.locator('#owner-book-printing').input_value()==''
+                page.locator('#owner-book-save').click()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
+                body=json.loads(page.evaluate('calls.at(-1).body'))
+                assert body['new_catalogue']['comic_printing']['issue_number']=='545'
+                assert body['new_catalogue']['comic_printing']['printing_number'] is None
+                assert body['condition'] is None and body['acquisition_cost_minor'] is None
+                assert 'image_url' not in json.dumps(body) and 'data:image' not in json.dumps(body)
+                assert page.evaluate('savedRecognition.photos[0]===scannedPhoto')
+                page.locator('#owner-book-close').click()
+                # Failure to fetch an otherwise matched publisher cover must
+                # not hide the captured copy or prevent explicit collection save.
+                def unavailable_cover(route):
+                    route.fulfill(status=502,body='Unavailable')
+                page.route('**/books/research/**',unavailable_cover)
+                page.evaluate('photo=>DropRateBooks.open({recognition:options,photos:[photo]})',photo)
+                page.wait_for_function('document.querySelector("#owner-book-selected")?.textContent.includes("Publisher cover unavailable")')
+                page.wait_for_function('document.querySelector("#owner-book-selected img")?.naturalWidth===160')
+                assert page.locator('#owner-book-number').input_value()=='1'
+                page.locator('#owner-book-save').click()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
+                page.locator('#owner-book-close').click()
+                page.unroute('**/books/research/**',unavailable_cover)
                 # Research outage keeps usable OCR and doesn't require expertise.
-                page.evaluate("DropRateBooks.open({recognition:{...options,research:{status:'UNAVAILABLE',candidates:[],message:'Add a barcode photo to help.'}}})")
+                page.evaluate("photo=>DropRateBooks.open({photos:[photo],recognition:{...options,research:{status:'UNAVAILABLE',candidates:[],message:'Add a barcode photo to help.'}}})",photo)
                 assert page.locator('#owner-book-series').input_value()=='Fixture Adventure'
                 assert not page.locator('#owner-book-photo-details').evaluate('(e)=>e.open')
                 assert not page.locator('#owner-book-details').evaluate('(e)=>e.open')
                 assert page.locator('#owner-book-selected').is_visible()
                 assert 'save it as unknown' in page.locator('#owner-book-photo-help').inner_text()
                 assert page.locator('#owner-book-printing').input_value()==''
+                page.locator('#owner-book-save').click()
+                page.get_by_role('button',name='View item',exact=True).wait_for()
+                body=json.loads(page.evaluate('calls.at(-1).body'))
+                assert 'research_candidate_id' not in body and body['acquisition_cost_minor'] is None
                 page.locator('#owner-book-close').click()
                 # A scan can be removed directly from book review without any intake.
                 page.evaluate("window.removed=0;DropRateBooks.open({recognition:options,onRemove:()=>{removed++}})")

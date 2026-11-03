@@ -108,8 +108,6 @@ def evaluate_published_sealed_group(rows: list[dict[str, Any]]) -> dict[str, Any
             blocks.append("physical inventory not approved for sale")
         if any(r.get(k) for k in ("condition","grading_company","grade","certificate_number")):
             blocks.append("sealed pool cannot include conditioned or graded cards")
-        if r.get("acquisition_cost_minor") is None and not seller_held_consignment(r):
-            blocks.append("unknown cost requires exact seller-held approval")
         if r.get("storage_location_id") is None and not seller_held_consignment(r):
             blocks.append("unknown storage requires exact seller-held approval")
         if r.get("sync_state")!="PUBLISHED" or r.get("test_mode") is not False:

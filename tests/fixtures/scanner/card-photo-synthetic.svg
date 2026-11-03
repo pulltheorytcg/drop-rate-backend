@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="880" viewBox="0 0 640 880">
+  <rect width="640" height="880" fill="#172438"/>
+  <rect x="75" y="68" width="490" height="744" rx="20" fill="#e8dfc9" stroke="#9eacba" stroke-width="10"/>
+  <rect x="100" y="105" width="440" height="300" rx="8" fill="#35516a"/>
+  <circle cx="320" cy="250" r="92" fill="#9cbdc8"/>
+  <path d="M180 380 270 240 320 300 370 230 465 380Z" fill="#253a50"/>
+  <path d="M115 450h410M115 610h410M115 675h410" stroke="#586b7c" stroke-width="5"/>
+  <text x="320" y="500" text-anchor="middle" font-family="sans-serif" font-size="34" fill="#172438">SYNTHETIC CARD</text>
+  <text x="320" y="555" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#33465a">Browser test fixture · 001 / 001</text>
+  <text x="320" y="652" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#33465a">Not a customer photograph</text>
+  <text x="320" y="735" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#33465a">Exact captured bytes must survive the handoff</text>
+</svg>

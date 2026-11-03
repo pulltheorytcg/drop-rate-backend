@@ -416,9 +416,6 @@ def _test_sync_missing(
         missing.append("APPROVED status")
     if not item["identity_confirmed"]:
         missing.append("identity confirmation")
-    if item["acquisition_cost_minor"] is None and not seller_held_consignment(item):
-        missing.append("acquisition cost")
-
     if item["product_type"] == "CARD":
         is_graded = bool(
             str(item["grading_company"] or "").strip()
@@ -2998,8 +2995,6 @@ async def _select_order_units(
                 "Shopify order exceeds Drop Rate linked stock",
             )
         for allocation_index, link in enumerate(eligible[:spec["quantity"]], start=1):
-            if link["acquisition_cost_minor"] is None and not seller_held_consignment(link):
-                raise ShopifyProcessingError("MISSING_COST", "Linked inventory has no acquisition cost")
             if spec["unit_price_minor"] != int(link["synced_price_minor"]):
                 raise ShopifyProcessingError(
                     "PRICE_DRIFT",

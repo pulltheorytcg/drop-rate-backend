@@ -38,7 +38,9 @@ class ConditionReviewRequest(BaseModel):
 
 async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
     owner = await _owner(connection)
-    if owner["role"] != "FOUNDER":
+    # main.py verifies PLATFORM_ADMIN against the enrolled founder roster.
+    # FOUNDER is an owner type, not a membership role after the access migration.
+    if owner["role"] != "PLATFORM_ADMIN" or owner["owner_type"] != "FOUNDER":
         raise HTTPException(status_code=403, detail="Only a founder can review card condition")
     return owner
 
@@ -96,7 +98,7 @@ async def condition_review_queue(
                 i.condition_review_status,i.grading_company,i.grade,
                 i.identity_confirmed,i.language,i.store_price_minor,
                 i.market_value_minor,i.recommended_retail_minor,
-                p.game,p.name,p.set_name,p.card_number,p.variant,
+                p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,
                 front.id as front_asset_id,
                 front.capture_context as front_capture_context,
                 front.shopify_cdn_url as front_image_url,

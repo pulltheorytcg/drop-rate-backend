@@ -115,7 +115,7 @@ async def test_complete_photo_only_creates_pending_rights_review_and_is_idempote
     owner, inventory_id, user_id = uuid4(), uuid4(), uuid4()
     monkeypatch.setattr(preparation, "get_settings", settings)
     claims = {"owner": str(owner), "inventory": str(inventory_id), "side": "FRONT",
-              "mime": "image/jpeg", "size": 2000, "resource_url": "https://stage.test/file",
+              "mime": "image/jpeg", "size": 2000, "resource_url": "https://shopify-staged-uploads.storage.googleapis.com/tmp/file",
               "filename": "my-comic.jpg", "exp": int(preparation.time.time()) + 90}
     ticket = preparation._sign_ticket(claims)
     insert_calls, rows = [], []
@@ -130,6 +130,10 @@ async def test_complete_photo_only_creates_pending_rights_review_and_is_idempote
                 insert_calls.append((sql,args))
                 item = {"id":uuid4(),"version":1,"side":"FRONT","approval_status":"PENDING",
                         "rights_status":"PENDING","shopify_file_status":"NOT_UPLOADED",
+                        "shopify_file_gid":None,"shopify_cdn_url":None,"source_status":"ACTIVE",
+                        "source_type":"CONSIGNOR_UPLOAD","rights_tier":"FIRST_PARTY_CAPTURE",
+                        "source_provider":"Drop Rate","source_reference":"my-comic.jpg",
+                        "public_source_url":claims["resource_url"],"alt_text":"Physical comic photo",
                         "provider_asset_id":preparation.hashlib.sha256(ticket.encode()).hexdigest()}
                 rows.append(item);return item
             if "update tcg.media_assets set" in sql:
@@ -138,10 +142,13 @@ async def test_complete_photo_only_creates_pending_rights_review_and_is_idempote
         async def fetchval(self, sql, *args):
             assert "provider_asset_id" in sql
             return False
+        async def execute(self, sql, *args):
+            assert sql == "set local idle_in_transaction_session_timeout='55000'"
     @asynccontextmanager
     async def connection(*args): yield Connection()
     monkeypatch.setattr(preparation,"user_connection",connection)
-    client = SimpleNamespace(create_file_from_url=AsyncMock(return_value={"id":"gid://shopify/MediaImage/1",
+    client = SimpleNamespace(access_scopes=AsyncMock(return_value={"write_files"}),
+        create_file_from_url=AsyncMock(return_value={"id":"gid://shopify/MediaImage/1",
         "fileStatus":"READY", "image":{"url":"https://cdn.shopify.com/photo.jpg"}}))
     monkeypatch.setattr(preparation,"_shopify",lambda:client)
     args=(inventory_id,preparation.ComicPhotoComplete(ticket=ticket,rights_confirmed=True),request(),

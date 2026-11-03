@@ -30,22 +30,25 @@ def main():
                     else:route.abort()
                 page.route('**/*',route_request)
                 page.goto('https://book-scan.test/')
-                for name in ('owner-portal.css','owner-imports.css','owner-books.css','scanner-flow.css'):
+                for name in ('owner-portal.css','owner-imports.css','owner-books.css','scanner-flow.css','scan-photos.css'):
                     page.add_style_tag(content=(ROOT/name).read_text())
                 page.add_script_tag(content='''
-                  const state={session:{access_token:'fixture-token',user:{id:'seller-a'}}};window.calls=[];window.mode='ok';
+                  const state={session:{access_token:'fixture-token',user:{id:'seller-a'}}};window.calls=[];window.photoCalls=[];window.mode='ok';
                   window.scanResult={status:'NEEDS_REVIEW',fields:{system_code:'MANGA',book_format:'MANGA',series_title:'Fixture Manga',issue_number:'1',publisher:'VIZ Media'},uncertain_fields:['language','printing_number'],warnings:['Check the copyright page.']};
                   window.quote={status:'AVAILABLE',market_value_minor:1234,basis:'English · Near Mint'};
                   async function loadOwnerInventory(){} async function loadOwnerOverview(){}
-                  async function apiRequest(url,options,retry){calls.push({url,...options,retry});
+                  async function apiRequest(url,options,retry){
+                    if(url.includes('/photo/upload?')){photoCalls.push({url,...options});return {asset:{id:'photo-fixture',side:new URL(url,location.origin).searchParams.get('side'),shopify_file_status:'READY',approval_status:'PENDING',rights_status:'PENDING'},inventory_version:2};}
+                    calls.push({url,...options,retry});
                     if(mode==='defer')return await new Promise(resolve=>window.release=resolve);
                     if(mode==='fail')throw new Error('Fixture provider unavailable');
                     if(url.endsWith('/recognition/resolve'))return {run:{id:'auto-book',decision:'NEEDS_REVIEW'},candidates:[],book_result:scanResult};
                     if(url.endsWith('/recognize'))return scanResult;
                     if(url.endsWith('/market-value'))return quote;
-                    return {catalogue:{name:'Fixture Manga'},inventory:{id:'fixture'}};
+                    return {catalogue:{name:'Fixture Manga'},inventory:{id:'fixture',version:1}};
                   }
                 ''')
+                page.add_script_tag(content=(ROOT/'scan-photos.js').read_text())
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
                 page.add_script_tag(content=(ROOT/'scanner-flow.js').read_text())
                 page.evaluate('''async()=>{

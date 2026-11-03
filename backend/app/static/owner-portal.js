@@ -168,6 +168,7 @@ function restoreCollectionView() {
       if (["updated","newest","oldest","name","name_desc","value_desc","value_asc"].includes(saved.sort)) state.inventory.sort = saved.sort;
       if (["grid","list"].includes(saved.layout)) state.inventory.layout = saved.layout;
       if (Number.isInteger(saved.offset) && saved.offset >= 0 && saved.offset <= 100000) state.inventory.offset = saved.offset;
+      if (state.inventory.status === "WITHDRAWN") {state.inventory.status = "";state.inventory.offset = 0;}
     }
   } catch (_) { /* Ignore an obsolete or corrupt view preference. */ }
   updateCollectionControls();
@@ -233,7 +234,11 @@ function updateCollectionControls() {
     const sellingLabel=document.createElement("label");sellingLabel.textContent="Selling status";
     const sellingState=document.createElement("select");sellingState.id="owner-collection-listing_state";sellingState.setAttribute("aria-label","Filter collection by selling status");sellingState.addEventListener("change",()=>window.DropRateCollection.setFilters({listing_state:sellingState.value}));sellingLabel.append(sellingState);sellingFields.append(sellingLabel);
     const status=byId("owner-inventory-status");
-    if(status){const label=document.createElement("label");label.textContent="Inventory status";label.append(status);sellingFields.append(label);}
+    if(status){
+      status.querySelector('option[value="WITHDRAWN"]')?.remove();
+      const all=status.querySelector('option[value=""]');if(all)all.textContent="Active collection";
+      const label=document.createElement("label");label.textContent="Inventory status";label.append(status);sellingFields.append(label);
+    }
     const footer=document.createElement("footer"),clear=document.createElement("button"),done=document.createElement("button");
     clear.type=done.type="button";clear.id="owner-collection-clear-filters";clear.className="owner-collection-filter-reset";clear.textContent="Clear filters";clear.addEventListener("click",()=>window.DropRateCollection.clearFilters());
     done.className="owner-collection-filter-done";done.textContent="Show collection";done.addEventListener("click",()=>closeCollectionFilters());footer.append(clear,done);
@@ -1089,7 +1094,10 @@ async function loadOwnerInventory() {
   state.inventory.total = Number(data.total || 0);
   if(data.facets)state.inventory.facets=data.facets;
   // Removing the last item on a page returns to the nearest real page.
-  if(state.inventory.offset>0 && !(data.items||[]).length && state.inventory.total>0){state.inventory.offset=Math.floor((state.inventory.total-1)/state.inventory.limit)*state.inventory.limit;return loadOwnerInventory();}
+  if(state.inventory.offset>0 && !(data.items||[]).length){
+    state.inventory.offset=state.inventory.total>0 ? Math.floor((state.inventory.total-1)/state.inventory.limit)*state.inventory.limit : 0;
+    if(state.inventory.total>0)return loadOwnerInventory();
+  }
   const items = data.items || [];
   const displayGroups=ownerInventoryDisplayGroups(items);
   renderInventoryRows(displayGroups);

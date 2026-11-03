@@ -21,6 +21,15 @@ window.DropRateScanner = (() => {
   const snapshot = candidate => candidate?.candidate_snapshot || candidate || {};
   const selected = item => item.selected || item.suggested;
   const book = item => item.mode === "COMIC";
+  const shopifyPhotoUrl = value => {
+    try {
+      const url = new URL(value);
+      return url.origin === "https://cdn.shopify.com" && !url.username && !url.password ? url.href : null;
+    } catch (_) { return null; }
+  };
+  const receiptPhoto = asset => asset?.id && asset.shopify_file_status === "READY" ? shopifyPhotoUrl(asset.photo_url) : null;
+  const scanPreview = item => /^data:image\/(?:jpeg|png|webp);base64,/i.test(item.photo || "") ? item.photo
+    : receiptPhoto(item.photoDraft?.asset) || shopifyPhotoUrl(item.savedPhotoPreview);
   const researching = result => ["PENDING", "RUNNING"].includes(result?.research?.status);
   async function researchBook(request, result, photos, signal) {
     if (!researching(result) || !/^[0-9a-f-]{36}$/i.test(result.run_id || "")) return result;
@@ -1008,7 +1017,8 @@ window.DropRateScanner = (() => {
     }
 
     async artwork(image, item, candidate = selected(item)) {
-      if (!this.active()) { image.hidden = true; return; }
+      const epoch = this.epoch;
+      if (!this.active(epoch)) { image.hidden = true; return; }
       const card = snapshot(candidate);
       const path = candidate?.reference_image_path || card.reference_image_path;
       const direct = candidate?.r2_image_url || candidate?.image_url || card.display_image_url || card.image_url;
@@ -1017,16 +1027,19 @@ window.DropRateScanner = (() => {
       const local = path?.startsWith("/api/v1/catalogue-browser/reference-image?") || (book(item) && path === bookCover(item)) ? path : runPath;
       const placeholder = image.parentElement?.querySelector(".dr-scan-image-placeholder");
       const captureLabel = image.parentElement?.querySelector(".dr-scan-capture-label");
-      const missing = text => { image.hidden = true; if (placeholder) placeholder.textContent = text; };
+      const missing = text => { image.hidden = true; if (placeholder) placeholder.textContent = text; if (captureLabel) captureLabel.hidden = true; };
       const scannedFallback = reason => {
-        // A customer's own scan is useful while exact reference art is being
-        // sourced, but is neither an approved catalogue image nor sales media.
-        if (item.photo && /^data:image\/(?:jpeg|png|webp);base64,/i.test(item.photo)
-            && image.dataset.scannedFallback !== "true") {
+        // An owned scan remains clearly labelled, including after its upload.
+        // Saving a photo does not approve it or make it catalogue artwork.
+        if (!this.active(epoch)) { missing(reason); return; }
+        const photo = scanPreview(item);
+        if (photo && image.dataset.scannedFallback !== "true") {
           image.dataset.scannedFallback = "true";
           image.alt = "Your scanned photo — reference artwork unavailable";
           image.title = "Scanned photo, not verified catalogue artwork";
-          image.hidden = false; image.src = item.photo;
+          image.referrerPolicy = "no-referrer"; image.crossOrigin = "anonymous";
+          image.addEventListener("error", () => missing(reason), {once: true});
+          image.hidden = false; image.src = photo;
           if (captureLabel) captureLabel.hidden = false;
           return;
         }
@@ -1050,7 +1063,7 @@ window.DropRateScanner = (() => {
         }, {once: true});
         image.src = direct; return;
       }
-      const key = local, epoch = this.epoch;
+      const key = local;
       if (!this.images.has(key)) {
         const controller = new AbortController(); this.controllers.add(controller);
         const timeout = setTimeout(() => controller.abort(), 12000);
@@ -1089,7 +1102,13 @@ window.DropRateScanner = (() => {
       const captureLabel = node("span", "dr-scan-capture-label", "Scan photo");
       captureLabel.hidden = !captured;
       wrap.append(node("span", "dr-scan-image-placeholder", captured ? "Photo cleared" : "Loading reference image…"), image, captureLabel);
-      if (captured || item.status === "processing") { if (item.photo) image.src = item.photo; else image.hidden = true; }
+      if (captured || item.status === "processing") {
+        const photo = this.active() ? scanPreview(item) : null;
+        if (photo) {
+          image.referrerPolicy = "no-referrer"; image.crossOrigin = "anonymous";
+          image.title = "Scanned photo, not verified catalogue artwork"; image.src = photo;
+        } else { image.hidden = true; captureLabel.hidden = true; }
+      }
       else this.artwork(image, item, candidate);
       return wrap;
     }
@@ -1123,6 +1142,44 @@ window.DropRateScanner = (() => {
     }
     ready(item) { return !book(item) && Boolean(item.requests || (item.selected?.catalogue_id && item.status === "matched"
       && (graded(item) ? gradeValid(item) && item.quantity === 1 : usableRun(item) && (!item.condition || conditions.includes(item.condition))))); }
+
+    scanPhoto(item) {
+      if (this.options.role !== "seller" || !window.DropRateScanPhotos || !item.photo) return item.photoDraft || null;
+      if (!item.photoDraft || (!item.photoDraft.asset && item.photoDraft.dataUrl !== item.photo)) {
+        item.photoDraft = window.DropRateScanPhotos.create(item.photo);
+      }
+      return item.photoDraft;
+    }
+
+    async saveScanPhoto(item, epoch = this.epoch) {
+      const draft = this.scanPhoto(item);
+      if (!draft || !window.DropRateScanPhotos) return;
+      const result = await window.DropRateScanPhotos.attach({request: this.request.bind(this),
+        inventory: item.requests?.[0]?.result?.inventory, drafts: [draft], active: () => this.active(epoch)});
+      if (!this.active(epoch)) return;
+      item.photoPending = !result.complete;
+      item.photoError = result.failed.map(failure => failure.message).join(" ");
+      if (result.complete) { item.photo = null; draft.dataUrl = null; }
+    }
+
+    async retryScanPhoto(item) {
+      if (this.saving || !this.active() || item.status !== "added" || !item.photoPending) return;
+      const epoch = this.epoch; this.saving = true; this.renderReview();
+      try { await this.saveScanPhoto(item, epoch); }
+      catch (error) { if (this.active(epoch)) item.photoError = error.message; }
+      finally {
+        if (this.active(epoch)) {
+          this.saving = false; this.render();
+          const pending = this.items.filter(copy => copy.photoPending).length;
+          let message = pending
+            ? `${pending} ${pending === 1 ? "photo still needs" : "photos still need"} retrying; the items are already saved.`
+            : "Photo saved for review. Your item is in your collection.";
+          if (this.items.some(copy => copy.requests && copy.status !== "added")) message += " Some item saves still need retrying.";
+          this.find(".dr-scan-save-message").textContent = message;
+          this.status(message);
+        }
+      }
+    }
 
     render() {
       const totals = this.totals();
@@ -1186,10 +1243,22 @@ window.DropRateScanner = (() => {
           fields.append(node("dt", "", label), node("dd", "", value));
         }
         copy.append(fields);
+        const photoDraft = !book(item) ? this.scanPhoto(item) : null;
+        if (photoDraft && item.status !== "added") {
+          copy.append(window.DropRateScanPhotos.choice(photoDraft, {disabled: this.saving || Boolean(item.requests)}));
+          copy.append(node("p", "dr-scan-photo-note", item.quantity > 1
+            ? "Your photo is saved to the first copy. Other copies need their own photos."
+            : "Adding confirms you can use this photo for selling. It will be saved to this copy for review."));
+        }
         const edit = button(book(item) ? "Review book details" : item.status === "unresolved" ? "Confirm match" : "Add to collection", () => this.openDetails(item));
         edit.disabled = !this.editable(item); copy.append(edit);
         copy.append(this.removeControl(item));
         if (item.status === "added") copy.append(node("span", "dr-scan-added", "Added to collection"));
+        if (item.photoPending) {
+          copy.append(node("p", "dr-scan-item-error", "Item added. " + (item.photoError || "Its photo still needs saving.")));
+          const retryPhoto = button("Retry photo", () => this.retryScanPhoto(item));
+          retryPhoto.disabled = this.saving; copy.append(retryPhoto);
+        } else if (photoDraft?.asset) copy.append(node("p", "dr-scan-photo-note", "Scan photo saved · awaiting selling review"));
         if (item.error) copy.append(node("p", "dr-scan-item-error", item.error));
         body.append(copy); row.append(body); list.append(row);
       }
@@ -1234,6 +1303,7 @@ window.DropRateScanner = (() => {
         recognition: item.bookResult || {status: "NO_MATCH", warnings: [item.error || "Read the photo again or enter the book details."]},
         onSaved: (result, copy, recognition) => {
           if (!this.active(epoch) || !this.items.includes(item)) return;
+          item.savedPhotoPreview = receiptPhoto(recognition?.photoResult?.items?.find(asset => asset.side === "FRONT"));
           item.status = "added"; item.error = null; item.photo = null; item.guess = result.catalogue.name;
           const receipt = recognition || item.bookResult;
           if (copy?.new_catalogue) item.bookResult = {...receipt, fields: {...copy.new_catalogue.comic_printing, language: copy.language},
@@ -1302,6 +1372,11 @@ window.DropRateScanner = (() => {
         const figure = node("figure"); figure.append(this.thumb(item, "dr-scan-detail-thumb", edit.selected, captured), node("figcaption", "", label)); pair.append(figure);
       }
       content.append(pair, node("p", "dr-scan-results-label", "Suggested matches · check the artwork"));
+      const photoDraft = this.scanPhoto(item);
+      if (photoDraft) {
+        content.append(window.DropRateScanPhotos.choice(photoDraft, {disabled: this.editBusy}));
+        content.append(node("p", "dr-scan-photo-note", "Adding confirms you can use this photo for selling. It will be saved to this physical copy for review."));
+      }
       const matches = node("div", "dr-scan-alternatives");
       const search = button("⌕", () => this.openSearch(), "dr-scan-search-tile");
       search.setAttribute("aria-label", "Search manually for the correct card");
@@ -1699,7 +1774,15 @@ window.DropRateScanner = (() => {
             pending.result = data; added += 1;
             if (graded(item)) item.savedGradedValue = data.valuation?.market_value_minor ?? data.inventory.market_value_minor ?? null;
           }
-          item.status = "added"; item.error = null; item.photo = null;
+          item.status = "added"; item.error = null;
+          // Inventory has already committed. Photo failures get their own retry
+          // and must never turn this into another inventory-intake request.
+          try { await this.saveScanPhoto(item, epoch); }
+          catch (error) {
+            if (!this.active(epoch)) return;
+            item.photoPending = true; item.photoError = error.message;
+          }
+          if (!item.photoPending) item.photo = null;
         } catch (error) {
           if (!this.active(epoch)) return;
           item.status = "save-error"; item.error = error.message; failed += 1;
@@ -1710,6 +1793,8 @@ window.DropRateScanner = (() => {
       this.saving = false; this.render();
       message.textContent = failed ? added + " added. Retry the remaining saves; their details are locked to prevent duplicate copies."
         : added + " added to your collection. Listing for sale is a separate action.";
+      const photosPending = this.items.filter(item => item.photoPending).length;
+      if (photosPending) message.textContent += ` ${photosPending} ${photosPending === 1 ? "photo needs" : "photos need"} retrying; the items are already saved.`;
       if (this.items.some(item => !item.requests && !this.ready(item))) message.textContent += " Uncertain matches remain for confirmation.";
       this.status(message.textContent);
       try { await this.options.afterSave(); }

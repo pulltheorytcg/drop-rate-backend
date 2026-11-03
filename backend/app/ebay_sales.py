@@ -392,8 +392,6 @@ async def _load_listing_plan(
             blockers.append("identity must be confirmed")
         if not row["language"]:
             blockers.append("language is required")
-        if row["acquisition_cost_minor"] is None:
-            blockers.append("acquisition cost is required")
         if row["store_price_minor"] is None:
             blockers.append("Store Price is required")
         if row["storage_location_id"] is None:

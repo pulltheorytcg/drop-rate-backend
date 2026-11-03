@@ -24,6 +24,7 @@ w.apiRequest = async (url, options = {}) => {
 vm.runInContext(source, dom.getInternalVMContext());
 
 const item = {id:'photo-1',version:7,name:'Deadpool / Batman #1',side:'FRONT',
+  product_type:'COMIC',identity_matches:true,
   inventory_code:'COMIC-42',seller_name:'Consignor',approval_status:'PENDING',
   shopify_file_status:'READY',shopify_cdn_url:'https://cdn.shopify.com/s/files/cover.jpg'};
 const queue = () => w.byId('comic-photo-review-queue');
@@ -47,25 +48,33 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   retake.click();
   await tick();
   assert.equal(requests.length,1);
-  assert.equal(requests[0].url,'/api/v1/shopify/comic-review/photo-1/decision');
+  assert.equal(requests[0].url,'/api/v1/shopify/photo-review/photo-1/decision');
   assert.deepEqual(JSON.parse(requests[0].body),{version:7,decision:'RETAKE',reason:textarea.value});
 
   w.renderComicReviewQueue({items:[{...item,shopify_cdn_url:'https://malicious.example/cover.jpg'}]});
   assert.equal(queue().querySelector('img'),null,'Do not render third-party submitted preview URLs');
   assert.equal(button('Approve exact photo'),undefined);
   assert.ok(button('Refresh photo status'));
+  for (const [product_type, label] of [['CARD','Card'],['COMIC','Comic / manga'],['SEALED','Sealed product'],['FIGURE','Figure'],['COLLECTION','Collection']]) {
+    w.renderComicReviewQueue({items:[{...item,product_type}]});
+    assert.ok(queue().textContent.includes(label), 'The reviewer must see the product type');
+  }
+  w.renderComicReviewQueue({items:[{...item,identity_matches:false}]});
+  assert.equal(button('Approve exact photo'),undefined,'Changed identity cannot be approved even with a ready image');
+  assert.match(queue().textContent,/details changed after capture/);
+  assert.ok(button('Request retake'));
   for (const renderer of ['renderShopifyMedia','renderConditionQueue','renderFreeMediaStatus','renderFreeMediaReviewQueue']) {
     w[renderer] = () => {};
   }
   w.state.session = {access_token:'founder-session'};
   w.apiRequest = async url => {
-    if (url === '/api/v1/shopify/comic-review/queue') throw new Error('Migration not available');
+    if (url === '/api/v1/shopify/photo-review/queue') throw new Error('Migration not available');
     return {};
   };
   await w.loadMediaConditionWorkspace();
-  assert.match(queue().textContent,/Comic photo queue is temporarily unavailable.*Migration not available/);
+  assert.match(queue().textContent,/Seller photo queue is temporarily unavailable.*Migration not available/);
   assert.equal(w.byId('shopify-media-message').textContent,'',
-    'A comic-only failure must not block other media and condition tools');
-  console.log('Comic photo review UI: preview gate, retake reason and CDN allowlist passed');
+    'A seller-photo failure must not block other media and condition tools');
+  console.log('Seller photo review UI: product types, exact identity, preview gate, retake reason and CDN allowlist passed');
   w.close();
 })().catch(error => {console.error(error);process.exitCode = 1;w.close();});

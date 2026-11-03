@@ -40,6 +40,7 @@ def approval(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("cost", [None, 0, 500])
 @pytest.mark.parametrize("kind,condition,company,grade,seal", [
     ("COMIC", "Mint", None, None, None),
     ("COMIC", None, "CGC", "9.8", None),
@@ -48,17 +49,18 @@ def approval(monkeypatch):
     ("FIGURE", "New", None, None, "SEALED"),
     ("SEALED", None, None, None, "SEALED"),
 ])
-async def test_ready_stock_uses_the_right_condition_or_seal_contract(approval, kind, condition, company, grade, seal):
+async def test_ready_stock_uses_the_right_condition_or_seal_contract(approval, kind, condition, company, grade, seal, cost):
     approval.item.update(product_type=kind, condition=condition, grading_company=company,
-                         grade=grade, seal_status=seal)
+                         grade=grade, seal_status=seal, acquisition_cost_minor=cost)
     result = await approval.run()
     assert result["status"] == "APPROVED"
     assert len(approval.writes) == 1
+    assert approval.item["acquisition_cost_minor"] == cost
+    assert "acquisition_cost_minor" not in approval.writes[0], "Approval must not invent or overwrite purchase cost"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("field,value,missing", [
-    ("acquisition_cost_minor", None, "acquisition cost"),
     ("storage_location_id", None, "registered storage location"),
     ("identity_confirmed", False, "identity confirmation"),
     ("language", None, "language"),

@@ -81,8 +81,7 @@ PHYSICAL_STATE_READY_SQL = f"""
      or ({RAW_BOOK_READY_SQL}) or ({GRADED_BOOK_READY_SQL}) or ({FIGURE_READY_SQL}))
 """
 READY_SQL = f"""
-    i.acquisition_cost_minor is not null
-    and ({PHYSICAL_STATE_READY_SQL})
+    ({PHYSICAL_STATE_READY_SQL})
     and i.storage_location_id is not null
     and (i.language is not null and btrim(i.language) <> '')
     and i.store_price_minor is not null
@@ -761,7 +760,6 @@ async def approve_inventory(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
         missing = []
-        if item["acquisition_cost_minor"] is None: missing.append("acquisition cost")
         if item["product_type"] in {"CARD", "COMIC"}:
             is_graded = bool((item["grading_company"] or "").strip() and (item["grade"] or "").strip())
             if not is_graded and not (item["condition"] or "").strip():

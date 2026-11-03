@@ -1848,17 +1848,6 @@ async def create_manual_sale(
                 "message": "Only APPROVED physical inventory can be sold",
                 "inventory_codes": not_approved,
             })
-        missing_cost = [
-            by_id[item.inventory_id]["inventory_code"]
-            for item in payload.items
-            if by_id[item.inventory_id]["acquisition_cost_minor"] is None
-        ]
-        if missing_cost:
-            raise HTTPException(status_code=422, detail={
-                "message": "Sale requires a known acquisition cost snapshot",
-                "inventory_codes": missing_cost,
-            })
-
         order_id = uuid4()
         await connection.execute(
             """

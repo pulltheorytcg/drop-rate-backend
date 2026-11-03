@@ -118,7 +118,6 @@ def test_ready_raw_duplicate_group_can_pool() -> None:
         ({"identity_confirmed": False}, "identity not confirmed"),
         ({"language": None, "catalogue_language": None}, "missing language"),
         ({"condition": None}, "missing condition"),
-        ({"acquisition_cost_minor": None}, "missing acquisition cost"),
         ({"storage_location_id": None}, "missing storage location"),
         ({"grading_company": "PSA", "grade": "10"}, "graded inventory cannot auto-pool"),
         ({"reserved_order_reference": "123", "reserved_line_reference": "456"}, "Shopify link reserved by order"),

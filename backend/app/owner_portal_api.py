@@ -18,7 +18,7 @@ from .brands import brand_sql
 from .inventory_display_groups import inventory_group_page
 from .inventory_value_sort import inventory_value_page
 from .inventory_collection_filters import (
-    CollectionCategory, CollectionFormat, CollectionGrading, CollectionSort, ListingState, PUBLISHED_SQL,
+    ACTIVE_COLLECTION_SQL, CollectionCategory, CollectionFormat, CollectionGrading, CollectionSort, ListingState, PUBLISHED_SQL,
     append_collection_filters, collection_facets, collection_order_sql, collection_state_counts,
 )
 from .db import user_connection
@@ -307,9 +307,9 @@ async def owner_overview(
         summary = await connection.fetchrow(
             """
             select
-                count(*)::int as total_inventory_count,
-                count(*) filter(where p.product_type='CARD')::int as total_card_count,
-                count(*) filter(where p.product_type in ('SEALED','COLLECTION'))::int as total_sealed_count,
+                count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED'))::int as total_inventory_count,
+                count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED') and p.product_type='CARD')::int as total_card_count,
+                count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED') and p.product_type in ('SEALED','COLLECTION'))::int as total_sealed_count,
                 count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
                     and market_value_minor is not null and exists(select 1 from tcg.pricing_snapshots ps
                     where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id and ps.inventory_id=i.id
@@ -1113,6 +1113,11 @@ async def owner_inventory(
         else:
             params.append(status_value)
             filters.append(f"i.status=${len(params)}")
+    else:
+        # Collection is the stock still held by this owner. Removed and sold
+        # records remain available to explicit history reads and transactions.
+        # Apply this before counts, copy grouping, value sorting and pagination.
+        filters.append(ACTIVE_COLLECTION_SQL)
 
     append_collection_filters(filters, params, category=category, game=game,
         language=language, grading=grading, format=format, listing_state=listing_state,

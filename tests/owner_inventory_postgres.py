@@ -101,7 +101,7 @@ async def main():
             detail=await api.details(item,request,user,access)
             assert len(detail['copies'])==1 and detail['copies'][0]['inventory_code']=='INV-A'
             assert detail['item']['reference_image_url'].endswith('/product_pack.webp')
-            assert any('Acquisition cost' in issue for issue in detail['item']['approval_blockers'])
+            assert not any('cost' in issue.lower() for issue in detail['item']['approval_blockers'])
             assert 'acquisition_cost_minor' not in detail['item'] and 'intake_ready' not in detail['item']
             for read in (api.details,api.reference_image):
                 try: await read(other,request,user,access);raise AssertionError('Read foreign inventory')
