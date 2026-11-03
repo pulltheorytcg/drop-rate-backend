@@ -254,8 +254,15 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.equal(await thumbs.count(),4);
    for(let index=0;index<4;index++){
     await thumbs.nth(index).scrollIntoViewIfNeeded();
-    await page.waitForFunction(i=>document.querySelectorAll('.owner-card-thumb')[i]
-      ?.querySelector('img')?.naturalWidth>0,index);
+    try{
+     await page.waitForFunction(i=>document.querySelectorAll('.owner-card-thumb')[i]
+       ?.querySelector('img')?.naturalWidth>0,index,{timeout:8000});
+    }catch(error){
+     console.error('Mixed artwork diagnostic',viewport.width,index,
+       await thumbs.evaluateAll(nodes=>nodes.map(n=>({html:n.outerHTML.slice(0,550),
+         imageWidth:n.querySelector('img')?.naturalWidth??null}))),errors);
+     throw error;
+    }
    }
    await page.locator('.owner-card-thumb img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
    await page.screenshot({path:path.join(out,`inventory-mixed-${viewport.width}.png`),fullPage:true});
