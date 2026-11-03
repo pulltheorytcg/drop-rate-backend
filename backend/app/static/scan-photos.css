@@ -3,7 +3,7 @@
   gap: .45rem;
   margin: .75rem 0;
   min-width: 0;
-  color: #e6e8eb;
+  color: var(--hub-text, #f6f5f1);
   font-size: .78rem;
   font-weight: 600;
   line-height: 1.45;
@@ -13,29 +13,29 @@
   width: 100%;
   min-width: 0;
   min-height: 44px;
-  border: 1px solid #384454;
+  border: 1px solid var(--hub-control-line, #777268);
   border-radius: 8px;
   padding: .65rem .75rem;
-  background: #111a26;
-  color: #f1f3f5;
+  background: var(--hub-input, #151513);
+  color: var(--hub-text, #f6f5f1);
   font: inherit;
 }
 .dr-scan-photo-choice select:focus-visible {
-  outline: 2px solid #a4b8d0;
+  outline: 2px solid var(--hub-accent, #ff9a52);
   outline-offset: 2px;
 }
 .dr-scan-photo-note {
   margin: .55rem 0;
-  color: #b4bdc9;
+  color: var(--hub-muted, #b7b6ae);
   font-size: .75rem;
   line-height: 1.6;
 }
 .owner-book-photo-save {
   margin: 1rem 0;
   padding: .9rem;
-  border: 1px solid #384454;
+  border: 1px solid var(--hub-line, #3a3933);
   border-radius: 10px;
-  background: #111a26;
+  background: var(--hub-panel-2, #242421);
 }
 .owner-book-photo-save p { margin: 0 0 .75rem; line-height: 1.6; }
 .owner-book-photo-save button { min-height: 44px; }
