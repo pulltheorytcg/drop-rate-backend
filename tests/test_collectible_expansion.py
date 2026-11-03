@@ -1,0 +1,416 @@
+"""New category contracts: exact identity, provenance, R2 parity and no phantom value."""
+from datetime import datetime, timedelta, timezone
+import copy
+import hashlib
+import json
+from pathlib import Path
+from unittest.mock import AsyncMock
+
+import pytest
+
+from app import collectible_reference_feed as feed
+from app.collectible_source_adapters import (
+    ReferenceSourceError, figure_product, group_yugioh_printings,
+    lego_set_product, lorcana_printing, magic_printings,
+    sports_checklist_printing, yugioh_printings,
+)
+from app.object_storage import ObjectStorageError
+from scripts.pilot_expanded_catalogues import (
+    _closed_report, _preview_lego_set, _preview_magic_printings,
+    archive_magic_private_snapshot, save_magic_staging_snapshot,
+    validate_magic_closed_snapshot,
+)
+from scripts.pilot_yugioh_catalogue import private_source_snapshot, archive_private_source_snapshot
+
+
+def _row(**overrides):
+    row = dict.fromkeys(feed.FIELDS)
+    row.update(provider="Funko Official", system_code="FUNKO_POP", language="English",
+               provider_id="97402", name="Pop! Yellow Lantern", manufacturer="Funko",
+               variant="", source_url="https://funko.com/gb/pop-yellow-lantern/97402.html")
+    row.update(overrides)
+    return row
+
+
+def test_figure_r2_metadata_roundtrip_keeps_every_identifier_and_unknown_price():
+    row = _row(barcode_gtin="889698974027", figure_number="123", franchise="DC")
+    manifest, parts = feed.pack("FUNKO_POP", 3, [row])
+    assert manifest["count"] == 1 and len(parts) == 1
+    assert feed.unpack(manifest, parts)[0] == row
+    assert feed.unpack(manifest, parts)[0]["market_value_gbp_minor"] is None
+    assert b"owner_id" not in parts[0] and b"store_price" not in parts[0]
+
+
+@pytest.mark.parametrize("bad", [
+    {"owner_id": "another founder"},
+    {"market_value_gbp_minor": 0},
+    {"image_r2_key": "drop-rate/private-media/unknown.webp"},
+    {"source_url": "http://fake.example/art"},
+    {"system_code": "YUGIOH"},
+])
+def test_figure_r2_rejects_private_invalid_or_cross_category_data(bad):
+    with pytest.raises(ObjectStorageError):
+        feed.pack("FUNKO_POP", 2, [_row(**bad)])
+
+
+def test_manifest_rejects_missing_corrupt_duplicated_or_stale_parts():
+    manifest, raw_parts = feed.pack("FUNKO_POP", 1, [_row()])
+    with pytest.raises(ObjectStorageError):
+        feed.unpack(manifest, [])
+    with pytest.raises(ObjectStorageError):
+        feed.unpack(manifest, [raw_parts[0] + b" "])
+    bad = copy.deepcopy(manifest)
+    bad["parts"].append(copy.deepcopy(bad["parts"][0]))
+    with pytest.raises(ObjectStorageError):
+        feed.validate_manifest(bad)
+    with pytest.raises(ObjectStorageError):
+        feed.pack("FUNKO_POP", 1, [_row(), _row()])
+
+
+def test_empty_figure_r2_publication_has_no_spurious_objects():
+    manifest, parts = feed.pack("COLLECTIBLE_FIGURES", 8, [])
+    assert parts == []
+    assert feed.unpack(manifest, parts) == ()
+
+
+def test_expired_price_never_leaks_from_a_still_verified_r2_snapshot():
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    item = feed._display_row(_row(market_value_gbp_minor=4000, expires_at=yesterday), None,
+                             datetime.now(timezone.utc))
+    assert item["market_value_gbp_minor"] is None and item["image_url"] is None
+    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    item = feed._display_row(_row(market_value_gbp_minor=4000, expires_at=tomorrow), None,
+                             datetime.now(timezone.utc))
+    assert item["market_value_gbp_minor"] == 4000
+
+
+@pytest.mark.asyncio
+async def test_r2_publication_verifies_actual_upload_and_download_before_commit():
+    class FakeStorage:
+        def __init__(self):
+            self.payloads = {}
+
+        def put_verified_reference_snapshot(self, payload):
+            digest = feed._digest(payload)
+            self.payloads[digest] = payload
+            return {"sha256": digest, "verified": True}
+
+        def read_verified_reference_snapshot(self, digest):
+            return self.payloads[digest]
+
+    conn = AsyncMock()
+    conn.fetchrow.return_value = {"generation": 4, "published_generation": None}
+    conn.fetch.return_value = [_row()]
+    store = FakeStorage()
+    manifest, parts = await feed.prepare_publication(conn, "FUNKO_POP")
+    await feed.upload_publication(store, manifest, parts)
+    assert manifest["count"] == 1 and len(store.payloads) == 1
+    assert "owner_id" not in str(manifest)
+    conn.execute.assert_not_called()  # No user/price/migration writes in publisher.
+
+    store.read_verified_reference_snapshot = lambda digest: b"corrupt"
+    with pytest.raises(ObjectStorageError):
+        await feed.upload_publication(store, manifest, parts)
+
+
+def test_ygo_requires_printing_code_and_quarantines_wrong_set_assignment():
+    source = {"id": 46986414, "name": "Dark Magician", "card_images": [{"image_url": "https://images.ygoprodeck.com/example.jpg"}],
+              "card_prices": [{"ebay_price": "0.99", "tcgplayer_price": "0.33"}],
+              "card_sets": [{"set_name": "2016 Mega-Tins", "set_code": "CT13-EN003",
+                             "set_rarity": "Ultra Rare", "set_rarity_code": "(UR)", "set_price": "6.97"},
+                            {"set_name": "2017 Mega-Tins", "set_code": "CT14-EN001",
+                             "set_rarity": "Secret Rare", "set_rarity_code": "(ScR)", "set_price": "9.66"}]}
+    official = {"2016 Mega-Tins": {"set_code": "CT13", "tcg_date": "2016-09-01", "num_of_cards": 12},
+                "2017 Mega-Tins": {"set_code": "CT14", "tcg_date": "2017-08-24", "num_of_cards": 8}}
+    records = yugioh_printings(source, official_tcg_sets=official)
+    assert len(records) == 2 and records[0][1]["provider_id"] != records[1][1]["provider_id"]
+    assert records[0][0]["release_date"] == "2016-09-01"
+    assert all(card["image_url"] is None for _, card in records)
+    assert all("price" not in key for _, card in records for key in card)
+    assert len(group_yugioh_printings([source, source], official_tcg_sets=official)) == 2
+
+    source["card_sets"].append({"set_name": "2016 Mega-Tins", "set_code": "25TH-EN001",
+                                "set_rarity": "Ultra Rare"})
+    with pytest.raises(ReferenceSourceError, match="conflicts"):
+        yugioh_printings(source, official_tcg_sets=official)
+
+
+def test_sports_printing_keeps_player_manufacturer_parallel_and_print_run_distinct():
+    base = dict(system_code="SPORT_SOCCER", source_url="https://uk.topps.com/pages/topps-chrome-premier-league",
+                manufacturer="Topps", series="Chrome Premier League", year=2026,
+                card_number="PL-101", athlete="Player Name", team="Team A", parallel="Base",
+                print_run=None)
+    _, card, details = sports_checklist_printing(base)
+    assert details["manufacturer"] == "Topps" and details["parallel"] == "Base"
+    assert details["athlete"] == "Player Name" and card["image_url"] is None
+    _, parallel, _ = sports_checklist_printing({**base, "parallel": "Red /5", "print_run": 5})
+    assert card["provider_id"] != parallel["provider_id"]
+    with pytest.raises(ReferenceSourceError):
+        sports_checklist_printing({**base, "source_url": "https://evil.example/topps"})
+    with pytest.raises(ReferenceSourceError):
+        sports_checklist_printing({**base, "parallel": ""})
+    with pytest.raises(ReferenceSourceError, match="does not match"):
+        sports_checklist_printing({**base, "manufacturer": "Panini"})
+    with pytest.raises(ReferenceSourceError, match="does not match"):
+        sports_checklist_printing({**base, "source_url": "https://paniniamerica.net/resources.html"})
+    panini = {**base, "manufacturer": "Panini",
+              "source_url": "https://www.paniniamerica.net/resources.html"}
+    assert sports_checklist_printing(panini)[2]["manufacturer"] == "Panini"
+
+
+def test_lorcana_uses_exact_print_id_and_never_borrows_foil_or_usd_prices():
+    card = {"id": "crd_cbc18e77d7ec4d50bf19650a9a559686",
+            "name": "Elsa", "version": "Spirit of Winter", "released_at": "2023-08-18",
+            "collector_number": "207", "lang": "en", "rarity": "Enchanted",
+            "set": {"id": "set_7ecb", "code": "1", "name": "The First Chapter"},
+            "image_uris": {"digital": {"large": "https://cards.lorcast.io/example.avif"}},
+            "prices": {"usd": "20.00", "usd_foil": "40.00"}}
+    set_record, printing = lorcana_printing(card)
+    assert set_record["system_code"] == "DISNEY_LORCANA"
+    assert printing["provider_id"] == card["id"] and printing["finish"] is None
+    assert printing["image_url"] is None and "prices" not in printing
+    with pytest.raises(ReferenceSourceError):
+        lorcana_printing({**card, "lang": "unknown"})
+
+
+def test_funko_import_is_metadata_only_and_never_claims_image_rights():
+    item = figure_product(dict(system_code="FUNKO_POP", manufacturer="Funko", provider_id="97402",
+                               name="Pop! Yellow Lantern", figure_number="123", barcode_gtin="889698974027",
+                               source_url="https://funko.com/gb/pop-yellow-lantern/97402.html",
+                               reference_image_url="https://funko.com/images/example.jpg"))
+    assert item["image_rights_status"] == "UNVERIFIED"
+    assert item["image_r2_key"] is None and item["image_sha256"] is None
+    with pytest.raises(ReferenceSourceError):
+        figure_product({**item, "source_url": "https://fake-funko.example/item"})
+
+
+def test_magic_exact_uuid_and_finish_are_distinct_and_prices_images_discarded():
+    source_set = {"code": "FDN", "name": "Foundations", "releaseDate": "2024-11-15",
+                  "totalSetSize": 771}
+    source_card = {"uuid": "46149862-416f-563b-b854-1893b7c76d6a",
+                   "setCode": "FDN", "name": "Sire of Seven Deaths", "number": "1",
+                   "rarity": "mythic", "availability": ["paper"],
+                   "finishes": ["foil", "nonfoil"],
+                   "identifiers": {"scryfallId": "8d8432a7-1c8a-4cfb-947c-ecf9791063eb"},
+                   "prices": {"usd": "17.00"}, "image_url": "https://example.invalid/art.jpg"}
+    records = magic_printings(source_set, source_card)
+    assert len(records) == 2
+    assert {r[1]["finish"] for r in records} == {"foil", "nonfoil"}
+    assert records[0][1]["provider_id"] != records[1][1]["provider_id"]
+    assert all(r[0]["system_code"] == "MAGIC_THE_GATHERING" and
+               r[1]["image_url"] is None and "price" not in r[1] for r in records)
+    assert magic_printings(source_set, {**source_card, "availability": ["arena"]}) == []
+    with pytest.raises(ReferenceSourceError, match="different set"):
+        magic_printings(source_set, {**source_card, "setCode": "WOE"})
+    with pytest.raises(ReferenceSourceError, match="duplicate"):
+        magic_printings(source_set, {**source_card, "finishes": ["foil", "foil"]})
+    with pytest.raises(ReferenceSourceError, match="UUID"):
+        magic_printings(source_set, {**source_card, "uuid": "not-a-uuid"})
+    report = _closed_report("magic", [records], available=771, offset=0, limit=25, year=None)
+    assert report["validated_reference_candidates"] == 2
+    assert report["uploaded_r2_objects"] == report["supabase_rows_written"] == 0
+
+
+@pytest.mark.asyncio
+async def test_magic_closed_metadata_snapshot_is_only_privately_archivable_with_flag(monkeypatch):
+    source_set = {"code": "FDN", "name": "Foundations"}
+    card = {"uuid": "46149862-416f-563b-b854-1893b7c76d6a", "name": "Test Card",
+            "number": "11", "rarity": "rare", "availability": ["paper"],
+            "finishes": ["nonfoil"], "prices": {"usd": "100.00"},
+            "image_url": "https://example.invalid/licensed-artwork.jpg"}
+    report, payload = _closed_report("magic", [magic_printings(source_set, card)],
+                                     available=1, offset=0, limit=1, year=None,
+                                     with_snapshot=True)
+    snapshot = json.loads(payload)
+    assert report["normalised_metadata_sha256"] == hashlib.sha256(payload).hexdigest()
+    assert snapshot["source"] == "magic" and len(snapshot["records"]) == 1
+    assert snapshot["records"][0]["card"]["image_url"] is None
+    assert b"100.00" not in payload and b"licensed-artwork" not in payload
+
+    class MemoryStorage:
+        def __init__(self):
+            self.payloads = {}
+
+        def put_verified_reference_snapshot(self, data):
+            digest = hashlib.sha256(data).hexdigest()
+            self.payloads[digest] = data
+            return {"sha256": digest, "key": "private/test-snapshot.json.gz",
+                    "size_bytes": len(data), "verified": True}
+
+        def read_verified_reference_snapshot(self, digest):
+            return self.payloads[digest]
+
+    storage = MemoryStorage()
+    monkeypatch.delenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", raising=False)
+    with pytest.raises(RuntimeError, match="disabled"):
+        await archive_magic_private_snapshot(storage, payload)
+    assert storage.payloads == {}
+
+    monkeypatch.setenv("TCG_MAGIC_METADATA_R2_ARCHIVE_ENABLED", "true")
+    receipt = await archive_magic_private_snapshot(storage, payload)
+    assert receipt["verified"] and receipt["public"] is False
+    assert receipt["sha256"] == report["normalised_metadata_sha256"]
+    with pytest.raises(ReferenceSourceError, match="Only a closed Magic"):
+        await archive_magic_private_snapshot(storage, b'{"version":1,"source":"lego","records":[]}')
+    storage.read_verified_reference_snapshot = lambda digest: b"corrupt"
+    with pytest.raises(ObjectStorageError, match="readback"):
+        await archive_magic_private_snapshot(storage, payload)
+
+
+def test_lego_exact_set_edition_theme_and_pieces_never_copy_image_or_price():
+    row = {"set_num": "77256-1", "name": "Time Machine from Back to the Future",
+           "year": "2026", "theme_id": "601", "num_parts": "298",
+           "img_url": "https://cdn.rebrickable.com/media/sets/77256-1.jpg",
+           "retail_price": "70.00"}
+    source_set, product = lego_set_product(row, themes={"601": "Speed Champions"})
+    assert source_set["system_code"] == "LEGO_SETS"
+    assert product["product_type"] == "LEGO_SET" and product["provider_id"] == "77256-1"
+    assert product["set_id"] == "theme:601" and product["evidence"]["release_year"] == 2026
+    assert product["evidence"]["source_data_rights"] == "COMMERCIAL_REUSE_PENDING_REVIEW"
+    assert product["image_url"] is None and "retail_price" not in product
+    assert lego_set_product({**row, "set_num": "77256-2"},
+                            themes={"601": "Speed Champions"})[1]["provider_id"] != product["provider_id"]
+    with pytest.raises(ReferenceSourceError, match="theme"):
+        lego_set_product(row, themes={"999": "Not the declared theme"})
+    with pytest.raises(ReferenceSourceError, match="piece"):
+        lego_set_product({**row, "num_parts": "not-known"}, themes={"601": "Speed Champions"})
+    with pytest.raises(ReferenceSourceError, match="not a confirmed construction"):
+        lego_set_product({**row, "num_parts": "0"}, themes={"601": "Speed Champions"})
+    with pytest.raises(ReferenceSourceError, match="not a confirmed construction"):
+        lego_set_product({**row, "theme_id": "900"}, themes={"900": "Gear"})
+    report = _closed_report("lego", [[(source_set, product)]], available=100,
+                            offset=0, limit=25, year=2026)
+    assert report["validated_reference_candidates"] == 1
+    assert report["uploaded_r2_objects"] == report["shopify_products_created"] == 0
+
+
+def test_magic_private_staging_artifact_is_immutable_verifiable_and_unpriced(tmp_path, monkeypatch):
+    source_set = {"code": "FDN", "name": "Foundations"}
+    source_card = {"uuid": "46149862-416f-563b-b854-1893b7c76d6a",
+                   "setCode": "FDN", "name": "Test Print", "number": "7",
+                   "rarity": "rare", "availability": ["paper"],
+                   "finishes": ["foil", "nonfoil"],
+                   "prices": {"usd": "400.00"},
+                   "image_url": "https://example.invalid/unlicensed-art"}
+    report, payload = _closed_report("magic", [magic_printings(source_set, source_card)],
+                                     available=771, offset=0, limit=1,
+                                     year=None, with_snapshot=True)
+    monkeypatch.chdir(tmp_path)
+    receipt = save_magic_staging_snapshot(payload, set_code="FDN", offset=0, limit=1)
+    path = tmp_path / "reports" / receipt["file_name"]
+    assert path.read_bytes() == payload
+    assert receipt["sha256"] == report["normalised_metadata_sha256"]
+    assert receipt["r2_uploaded"] is False and receipt["private"] is True
+    assert receipt["bytes"] == len(payload)
+    assert receipt == save_magic_staging_snapshot(payload, set_code="FDN", offset=0, limit=1)
+    assert len(json.loads(payload)["records"]) == 2
+    assert b"400.00" not in payload and b"unlicensed-art" not in payload
+    assert b"owner_id" not in payload and b"shopify" not in payload
+    assert list((tmp_path / "reports").iterdir()) == [path]
+
+    tampered = json.loads(payload)
+    tampered["records"][0]["card"]["market_value_gbp_minor"] = 40000
+    with pytest.raises(ReferenceSourceError, match="unreviewed provider"):
+        validate_magic_closed_snapshot(json.dumps(tampered).encode())
+    with pytest.raises(ReferenceSourceError, match="staging identity"):
+        save_magic_staging_snapshot(payload, set_code="../../BAD", offset=0, limit=1)
+    with pytest.raises(ReferenceSourceError, match="empty"):
+        save_magic_staging_snapshot(b'{"version":1,"source":"magic","records":[]}',
+                                    set_code="FDN", offset=1, limit=1)
+
+
+def test_bounded_lego_preview_quarantines_bad_editions_but_keeps_valid_sets():
+    row = {"set_num": "77256-1", "name": "Time Machine from Back to the Future",
+           "year": "2026", "theme_id": "601", "num_parts": "298"}
+    themes = {"601": "Speed Champions"}
+    # Source can contain nonstandard set numbers; do not drop their evidence
+    # silently or loosen the edition guard.
+    broken = _preview_lego_set({**row, "set_num": "77256-0"}, themes=themes)
+    accepted = _preview_lego_set(row, themes=themes)
+    assert isinstance(broken, ReferenceSourceError)
+    report = _closed_report("lego", [broken, accepted], available=766,
+                            offset=650, limit=100, year=2026)
+    assert report["source_rows_examined"] == 2
+    assert report["validated_reference_candidates"] == 1
+    assert report["quarantined_source_rows"] == 1
+    assert report["quarantine_sample"][0] == {
+        "source_position": 650, "reason": "Invalid exact LEGO set number/edition"}
+    assert report["supabase_rows_written"] == 0
+    assert report["uploaded_r2_objects"] == 0
+    assert report["shopify_products_created"] == 0
+
+
+def test_bounded_magic_preview_quarantines_bad_uuid_without_aborting_batch():
+    details = {"code": "FDN", "name": "Foundations"}
+    valid = {"uuid": "46149862-416f-563b-b854-1893b7c76d6a",
+             "name": "Test Card", "number": "11", "rarity": "rare",
+             "availability": ["paper"], "finishes": ["nonfoil"]}
+    bad = _preview_magic_printings(details, {**valid, "uuid": "invalid"})
+    good = _preview_magic_printings(details, valid)
+    assert isinstance(bad, ReferenceSourceError)
+    report = _closed_report("magic", [bad, good], available=771,
+                            offset=650, limit=100, year=None)
+    assert report["validated_reference_candidates"] == 1
+    assert report["quarantined_source_rows"] == 1
+    assert report["quarantine_sample"][0]["source_position"] == 650
+    assert report["uploaded_r2_objects"] == 0
+    assert report["verified_market_prices"] == 0
+
+
+def test_schema_is_additive_with_r2_generation_and_strict_rls():
+    path = Path(__file__).parents[1] / "database/migrations/20261101205040_collectible_catalogue_expansion.sql"
+    sql = path.read_text()
+    assert "force row level security" in sql
+    assert "generation = p.generation + 1" in sql
+    assert "reference_figure_market_observations" in sql
+    assert "grant select, insert on tcg.reference_figure_market_observations" in sql
+    assert "drop table" not in sql.lower()
+    assert "tcg.inventory_items" not in sql and "tcg.shopify_inventory_links" not in sql
+
+
+def test_yugioh_private_r2_source_snapshot_is_exact_bounded_and_unpriced():
+    source = {"id": 46986414, "name": "Dark Magician",
+              "card_images": [{"image_url": "https://images.ygoprodeck.com/unknown.jpg"}],
+              "card_prices": [{"ebay_price": "150"}],
+              "card_sets": [{"set_name": "2016 Mega-Tins", "set_code": "CT13-EN003",
+                             "set_rarity": "Ultra Rare", "set_rarity_code": "(UR)", "set_price": "120"}]}
+    set_record, printing = yugioh_printings(source, official_tcg_sets={
+        "2016 Mega-Tins": {"set_code": "CT13", "tcg_date": "2016-09-01", "num_of_cards": 12}})[0]
+    grouped = {set_record["set_id"]: [set_record, {printing["provider_id"]: printing}]}
+    report = {"cards_fetched": 1, "printing_candidates": 1, "sets": 1,
+              "quarantined_cards": 0, "quarantine_sample": []}
+    raw = private_source_snapshot(grouped, report, offset=0, limit=1)
+    parsed = __import__("json").loads(raw)
+    assert parsed["printing_candidates"] == 1 and parsed["sets"][0]["cards"][0]["provider_id"] == printing["provider_id"]
+    assert private_source_snapshot(grouped, report, offset=0, limit=1) == raw
+    assert b"image_url" not in raw and b"card_prices" not in raw and b"ebay_price" not in raw
+    assert b"owner_id" not in raw and b"store_price" not in raw
+    with pytest.raises(ReferenceSourceError):
+        private_source_snapshot(grouped, {**report, "printing_candidates": 2}, offset=0, limit=1)
+    with pytest.raises(ReferenceSourceError):
+        private_source_snapshot({set_record["set_id"]: [set_record, {printing["provider_id"]:
+            {**printing, "image_url": "https://images.ygoprodeck.com/unknown.jpg"}}]},
+            report, offset=0, limit=1)
+
+
+@pytest.mark.asyncio
+async def test_private_source_snapshot_r2_requires_explicit_flag_and_readback(monkeypatch):
+    class Store:
+        payload = None
+        def put_verified_reference_snapshot(self, payload):
+            self.payload = payload
+            return {"sha256": "a" * 64, "key": "drop-rate/catalogue-reference-inputs/fake.json.gz",
+                    "size_bytes": len(payload), "verified": True}
+        def read_verified_reference_snapshot(self, digest):
+            assert digest == "a" * 64
+            return self.payload
+    store = Store()
+    monkeypatch.delenv("TCG_EXPANDED_CATALOGUE_R2_SOURCE_ARCHIVE_ENABLED", raising=False)
+    with pytest.raises(RuntimeError):
+        await archive_private_source_snapshot(store, b"private facts")
+    monkeypatch.setenv("TCG_EXPANDED_CATALOGUE_R2_SOURCE_ARCHIVE_ENABLED", "true")
+    receipt = await archive_private_source_snapshot(store, b"private facts")
+    assert receipt["verified"] and receipt["public"] is False
+    store.read_verified_reference_snapshot = lambda digest: b"tampered"
+    with pytest.raises(ObjectStorageError):
+        await archive_private_source_snapshot(store, b"private facts")

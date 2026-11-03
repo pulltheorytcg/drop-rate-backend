@@ -42,7 +42,7 @@ jobs:
       - name: Verify canonical migration layout
         run: |
           python -m pip install --requirement requirements-dev.txt
-          PYTHONPATH=backend pytest -q tests/test_migration_layout.py
+          PYTHONPATH=backend pytest -q tests/test_migration_layout.py tests/test_supabase_history_gate.py
 
       - name: Fail closed if required secrets are missing
         shell: bash
@@ -63,16 +63,52 @@ jobs:
       - name: Link production project
         run: supabase link --project-ref "${SUPABASE_PROJECT_ID}"
 
-      - name: Show local and remote migration history
-        run: supabase migration list
+      # GitHub-hosted runners are IPv4-only. Supabase's direct database endpoint
+      # requires IPv6 unless the project has a paid IPv4 add-on, so use its
+      # built-in IPv4 session pooler for migrations instead.
+      - name: Prepare masked IPv4 session-pooler connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from urllib.parse import quote
 
+          project_ref = os.environ["SUPABASE_PROJECT_ID"]
+          password = os.environ["SUPABASE_DB_PASSWORD"]
+          if "\r" in password or "\n" in password:
+              raise SystemExit("Database password must not contain a newline")
+
+          encoded_password = quote(password, safe="")
+          db_url = (
+              f"postgresql://postgres.{project_ref}:{encoded_password}"
+              "@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+          )
+          # The transformed password and complete URL must never appear in logs.
+          print(f"::add-mask::{encoded_password}", flush=True)
+          print(f"::add-mask::{db_url}", flush=True)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"SUPABASE_POOLER_URL={db_url}\n")
+          PY
+
+      - name: Show local and remote migration history
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list --db-url "${SUPABASE_POOLER_URL}" 2>&1 | tee "${RUNNER_TEMP}/supabase_migration_history.txt"
+
+      - name: Fail closed on unreviewed historical migrations
+        run: python scripts/verify_supabase_history_gate.py "${RUNNER_TEMP}/supabase_migration_history.txt" supabase/migrations
+
+      # Include-all is permitted only after the exact old SQL files and no-op
+      # baselines are checked against the reviewed allowlist above.
       - name: Preview pending migrations
-        run: supabase db push --dry-run
+        run: supabase db push --dry-run --include-all --db-url "${SUPABASE_POOLER_URL}"
 
       - name: Apply pending migrations
         if: ${{ inputs.mode == 'apply' }}
-        run: supabase db push
+        run: supabase db push --include-all --db-url "${SUPABASE_POOLER_URL}"
 
       - name: Verify migration history after apply
         if: ${{ inputs.mode == 'apply' }}
-        run: supabase migration list
+        run: supabase migration list --db-url "${SUPABASE_POOLER_URL}"
