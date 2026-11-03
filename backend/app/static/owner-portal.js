@@ -643,20 +643,80 @@ function renderOwnerPayoutTracker(data) {
         : "Your payout schedule is manual. This is your currently available balance.";
 }
 
-function renderOwnerInsightList(containerId, items, mover = false) {
+function ownerMoverNumber(value) {
+  if (!["number", "string"].includes(typeof value) || String(value).trim() === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function ownerMoverDate(value) {
+  if (typeof value !== "string" || !value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  });
+}
+
+function ownerWeeklyContext(summary, hasRows) {
+  const messages = {
+    EMPTY_COLLECTION: ["Your collection is empty", "Add an item to your collection to see any available weekly comparisons."],
+    NO_CURRENT_VALUES: ["No current values to compare", "Weekly changes need a current value and matching earlier evidence for an item in your collection."],
+    WAITING_FOR_HISTORY: ["Not enough weekly history", "Your valued items do not yet have matching evidence from about a week earlier."],
+    NO_CHANGE: ["No change in comparable values", "The available weekly comparisons are unchanged. This covers only items with matching history."],
+    READY: ["Weekly comparison coverage", "Changes are shown only for comparable items in your collection."],
+  };
+  const [title, note] = messages[summary?.status] || (hasRows ? messages.READY :
+    ["Weekly comparisons unavailable", "Only your items with a current value and matching weekly history can be compared."]);
+  const lines = [note];
+  const count = (key) => Number.isSafeInteger(summary?.[key]) && summary[key] >= 0 ? summary[key] : null;
+  const owned = count("owned_item_count"), current = count("current_value_item_count");
+  const profiles = count("current_value_product_count"), compared = count("comparable_item_count");
+  if (owned > 0 && current !== null) {
+    lines.push(`${current} of ${owned} ${owned === 1 ? "copy has" : "copies have"} current values` +
+      (profiles > 0 ? ` across ${profiles} distinct ${profiles === 1 ? "item" : "items"}.` : "."));
+  }
+  if (owned > 0 && compared !== null) {
+    lines.push(`Comparable weekly history covers ${compared} of ${owned} ${owned === 1 ? "copy" : "copies"}.`);
+  }
+  const guides = count("guide_comparison_count"), stale = count("stale_item_count"), details = count("needs_details_item_count");
+  if (guides > 0) lines.push(`${guides} ${guides === 1 ? "comparison uses a guide estimate" : "comparisons use guide estimates"}.`);
+  if (stale > 0) lines.push(`${stale} ${stale === 1 ? "copy has" : "copies have"} stale evidence.`);
+  if (details > 0) lines.push(`Details need confirming for ${details} ${details === 1 ? "copy" : "copies"}.`);
+  if (!hasRows && summary?.history_ready) {
+    const first = ownerMoverDate(summary.earliest_baseline_at), last = ownerMoverDate(summary.latest_current_at);
+    if (first && last) lines.push(`Compared evidence: ${first} to ${last}.`);
+  }
+  return {title, lines};
+}
+
+function renderOwnerInsightList(containerId, items, mover = false, summary = null) {
   const container = byId(containerId);
   if (!container) return;
   container.replaceChildren();
+
+  if (mover) {
+    const context = ownerWeeklyContext(summary, items.length > 0);
+    const panel = document.createElement("div");
+    panel.className = "owner-empty-inline";
+    const title = document.createElement("strong");
+    title.textContent = context.title;
+    panel.append(title);
+    for (const text of context.lines) {
+      const line = document.createElement("span");
+      line.textContent = text;
+      panel.append(line);
+    }
+    container.append(panel);
+    if (!items.length) return;
+  }
 
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "owner-empty-inline";
     const title = document.createElement("strong");
-    title.textContent = mover ? "Building price history" : "No valuation data yet";
+    title.textContent = "No valuation data yet";
     const copy = document.createElement("span");
-    copy.textContent = mover
-      ? "Weekly movers appear once a card has enough historical pricing for a real comparison."
-      : "Cards appear here after the pricing engine produces a market value.";
+    copy.textContent = "Cards appear here after the pricing engine produces a market value.";
     empty.append(title, copy);
     container.append(empty);
     return;
@@ -681,29 +741,50 @@ function renderOwnerInsightList(containerId, items, mover = false) {
     sub.textContent = item.grade
       ? safeText(item.grading_company, "Graded") + " " + item.grade
       : safeText(item.condition);
+    if (mover && Number.isSafeInteger(item.quantity) && item.quantity > 0) {
+      sub.textContent += ` · Qty ${item.quantity}`;
+      sub.className = "owner-mover-context";
+    }
     copy.append(name, meta, sub);
+
+    if (mover) {
+      const source = {CATALOGUE_CARDMARKET_V1: "Cardmarket", CATALOGUE_EBAY_V4: "eBay sold evidence"}[item.method] || "Source unavailable";
+      const label = safeText(item.comparison_label, item.comparison_kind === "GUIDE_ESTIMATE" ? "Guide estimate change" : "Value change");
+      const basis = document.createElement("small");
+      basis.className = "owner-mover-context";
+      basis.textContent = `${label} · ${source}`;
+      const dates = document.createElement("small");
+      dates.className = "owner-mover-context";
+      const first = ownerMoverDate(item.baseline_at), last = ownerMoverDate(item.current_at);
+      const days = ownerMoverNumber(item.comparison_days);
+      dates.textContent = first && last ? `${first} → ${last}` +
+        (days !== null && days > 0 ? ` · ${days.toLocaleString("en-GB", {maximumFractionDigits: 2})} days` : "") : "Evidence dates unavailable";
+      copy.append(basis, dates);
+    }
 
     const value = document.createElement("div");
     value.className = "owner-insight-value";
     const current = document.createElement("strong");
-    current.textContent = formatMoney(
-      mover ? item.current_value_minor : item.market_value_minor
-    );
+    const currentAmount = mover ? ownerMoverNumber(item.current_value_minor) : item.market_value_minor;
+    current.textContent = mover && currentAmount === null ? "Value unavailable" : formatMoney(currentAmount);
     value.append(current);
 
     if (mover) {
-      const pct = Number(item.change_pct || 0);
+      const pct = ownerMoverNumber(item.change_pct);
+      const difference = ownerMoverNumber(item.change_minor);
+      const direction = difference !== null && difference !== 0 ? Math.sign(difference) : Math.sign(pct || 0);
+      const smallChange = pct !== null && Math.abs(pct) < 0.01 && difference !== null && difference !== 0;
       const movement = document.createElement("span");
       movement.className =
-        "owner-movement " + (pct > 0 ? "up" : pct < 0 ? "down" : "flat");
-      movement.textContent =
-        (pct > 0 ? "↑ " : pct < 0 ? "↓ " : "→ ")
-        + Math.abs(pct).toFixed(2).replace(/\.00$/, "")
+        "owner-movement " + (pct !== null && direction > 0 ? "up" : pct !== null && direction < 0 ? "down" : "flat");
+      movement.textContent = pct === null ? "Change unavailable" :
+        (direction > 0 ? "↑ " : direction < 0 ? "↓ " : "→ ")
+        + (smallChange ? "<0.01" : Math.abs(pct).toFixed(2).replace(/\.00$/, ""))
         + "%";
       const delta = document.createElement("small");
-      delta.textContent =
-        (Number(item.change_minor || 0) >= 0 ? "+" : "")
-        + formatMoney(item.change_minor || 0);
+      delta.className = "owner-mover-context";
+      delta.textContent = difference === null ? "Amount unavailable" :
+        (difference >= 0 ? "+" : "") + formatMoney(difference) + (item.quantity > 1 ? " per copy" : "");
       value.append(movement, delta);
     } else {
       const store = document.createElement("small");
@@ -720,7 +801,7 @@ function renderOwnerInsightList(containerId, items, mover = false) {
 async function loadOwnerInsights() {
   const data = await apiRequest("/api/v1/owner/insights");
   renderOwnerInsightList("owner-top-valued-cards", data.top_valued || [], false);
-  renderOwnerInsightList("owner-weekly-movers", data.weekly_movers || [], true);
+  renderOwnerInsightList("owner-weekly-movers", data.weekly_movers || [], true, data.weekly_movers_summary);
 }
 
 function ownerChannelCount(channel, stateName) {

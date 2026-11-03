@@ -60,6 +60,27 @@ def test_weekly_movers_rank_increases_and_decreases_separately() -> None:
     assert result["decliners"][0]["change_pct"] == -30.0
 
 
+@pytest.mark.parametrize("include_delta", [False, True])
+def test_penny_changes_keep_their_direction_when_percentages_round_to_zero(include_delta) -> None:
+    rows = [
+        mover("rise", 1_000_001, 1_000_000),
+        mover("fall", 999_999, 1_000_000),
+        mover("unchanged", 1_000_000, 1_000_000),
+    ]
+    if include_delta:
+        for row in rows:
+            row["change_minor"] = row["current_market_value_minor"] - row["prior_market_value_minor"]
+
+    result = rank_weekly_movers(rows)
+
+    rising, = result["gainers"]
+    falling, = result["decliners"]
+    assert rising["pricing_key"] == "rise" and rising["change_minor"] == 1
+    assert falling["pricing_key"] == "fall" and falling["change_minor"] == -1
+    assert rising["change_pct"] == falling["change_pct"] == 0.0
+    assert all(row["pricing_key"] != "unchanged" for row in result["gainers"] + result["decliners"])
+
+
 def test_duplicate_pricing_identity_is_deduped_to_latest_row() -> None:
     older = datetime(2026, 9, 25, 10, 0, tzinfo=timezone.utc)
     newer = datetime(2026, 9, 25, 11, 0, tzinfo=timezone.utc)
@@ -85,13 +106,13 @@ def test_inventory_intelligence_endpoint_is_owner_scoped_and_groups_physical_cop
         ROOT / "backend" / "app" / "inventory_intelligence.py"
     ).read_text()
 
-    assert "where i.owner_id=$1" in source
-    assert "i.status in ('DRAFT','INSPECTION','APPROVED')" in source
-    assert "count(*)::int as quantity" in source
-    assert "i.catalogue_id,i.condition,i.grading_company,i.grade" in source
-    assert "i.language,i.seal_status" in source
-    assert "sum(i.market_value_minor)::bigint as holding_value_minor" in source
-    assert "ps.calculated_at <= clock_timestamp() - make_interval(days => $2)" in source
+    assert 'owner = await _owner(connection)' in source
+    assert 'reference_portfolio(connection, [owner_id])' in source
+    assert 'shared_weekly_movers(connection, shared, window_days=window_days)' in source
+    assert 'reference_top_groups(shared, top_limit)' in source
+    assert 'tcg.pricing_snapshots' not in source
+    assert '"groups_with_prior_value": summary["comparable_product_count"]' in source
+
 
 
 def test_dashboard_shell_loads_portfolio_intelligence_safely() -> None:
@@ -104,4 +125,4 @@ def test_dashboard_shell_loads_portfolio_intelligence_safely() -> None:
     assert "Store price value" in js
     assert "Top 5 products" in js
     assert "Weekly top movers" in js
-    assert "We do not manufacture movement from today's backfill." in js
+    assert "renderWeeklyMovers" in js

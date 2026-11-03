@@ -129,15 +129,14 @@ async def main():
         assert not report['weekly_movers']['gainers'] and not report['weekly_movers']['decliners']
         await history(actor,'drop-rate-market-v4','EBAY',5,10,100)
         report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
-        assert report['weekly_movers']['history_ready']
-        assert report['weekly_movers']['gainers'][0]['prior_market_value_minor']==100
-        assert not report['weekly_movers']['decliners']
+        assert not report['weekly_movers']['history_ready'], 'Legacy per-copy history became shared collection movement'
+        assert report['weekly_movers']['status']=='NO_CURRENT_VALUES'
         # Five input sales remain a valid baseline when v4 removes one outlier.
         filtered=await history(actor,'drop-rate-market-v4','EBAY',4,9,200)
         await db.execute("""update tcg.pricing_snapshots set evidence=evidence ||
           '{"method":"LIVE_EBAY_MARKET_V1","comps":[{},{},{},{},{}]}'::jsonb where id=$1""",filtered)
         report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
-        assert report['weekly_movers']['gainers'][0]['prior_market_value_minor']==200
+        assert not report['weekly_movers']['history_ready'], 'Legacy filtered eBay inputs became a shared weekly baseline'
         await db.execute('update tcg.inventory_items set latest_pricing_snapshot_id=$1 where id=$2',floor,a)
         report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
         assert not report['weekly_movers']['history_ready'], 'Non-eBay current snapshot became a weekly mover'

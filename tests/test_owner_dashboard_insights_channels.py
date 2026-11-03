@@ -37,14 +37,12 @@ def test_owner_insights_are_owner_scoped_and_use_real_pricing_history() -> None:
     block = _route(source, '@router.get("/insights")', '@router.get("/channels")')
 
     assert 'owner_id = access["owner_id"]' in block
-    assert "i.owner_id=$1" in block
-    assert "ps.owner_id=$1" in block
-    assert "tcg.pricing_snapshots" in block
-    assert "latest.current_at - interval '6 days'" in block
-    assert "latest.current_at - interval '14 days'" in block
-    assert "baseline.market_value_minor > 0" in block
-    assert "limit 6" in block
+    assert 'reference_portfolio(connection, [owner_id])' in block
+    assert 'shared_weekly_movers(connection, shared)' in block
+    assert 'movers = movement["movers"][:6]' in block
+    assert '"weekly_movers_summary": movement["summary"]' in block
     assert '"weekly_window_days": 7' in block
+    assert 'tcg.pricing_snapshots' not in block
 
     for forbidden in (
         "acquisition_cost_minor",
@@ -60,14 +58,14 @@ def test_owner_insights_media_is_rights_cleared() -> None:
     source = API.read_text()
     block = _route(source, '@router.get("/insights")', '@router.get("/channels")')
 
-    for requirement in (
-        "m.approval_status='APPROVED'",
-        "m.rights_status='VERIFIED'",
-        "m.rights_tier='STOREFRONT_ALLOWED'",
-        "m.source_status='ACTIVE'",
-        "m.revoked_at is null",
-    ):
-        assert block.count(requirement) >= 2
+    # Both lists use the same governed reference/copy media readers as Collection.
+    for selected in ('top_valued', 'movers'):
+        assert f'await add_reference_artwork(connection, {selected})' in block
+        assert f'await add_shared_inventory_media(connection, {selected})' in block
+    media = (ROOT / "backend" / "app" / "inventory_reference_media.py").read_text()
+    for requirement in ("approval_status='APPROVED'", "rights_status='VERIFIED'",
+                        "rights_tier='STOREFRONT_ALLOWED'", "source_status='ACTIVE'", "revoked_at is null"):
+        assert requirement in media
 
 
 def test_channels_api_is_owner_scoped_and_never_returns_ebay_credentials() -> None:

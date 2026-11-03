@@ -211,7 +211,11 @@
     if (Number.isInteger(total)) {
       const empty = total === 0; home?.classList.toggle("hub-first-collection", empty);
       const title = home?.querySelector(".collector-headline");
-      if (title) title.textContent = empty ? "Your collection starts here." : "Your collection.";
+      if (title) {
+        const emphasis = document.createElement("em");
+        emphasis.textContent = "collection";
+        title.replaceChildren("Your ", emphasis, empty ? " starts here." : ".");
+      }
       const intro = home?.querySelector(".collector-intro");
       if (intro) intro.textContent = empty ? "Add your first item. Scan it or find its exact edition in the catalogue." : "Every find, in one place.";
       const add = home?.querySelector(".collector-primary");

@@ -50,6 +50,39 @@ ITEMS = [
 ]
 
 
+def render_weekly_fixture(page, founder=False):
+    """Keep populated evidence rows in the contrast and narrow-layout sweep."""
+    summary = {
+        "status": "READY", "scope": "OWN_COLLECTION", "window_days": 7,
+        "owned_item_count": 4, "current_value_item_count": 3, "current_value_product_count": 3,
+        "comparable_product_count": 2, "comparable_item_count": 2, "mover_product_count": 2,
+        "unchanged_product_count": 0, "needs_details_item_count": 0, "stale_item_count": 0,
+        "guide_comparison_count": 1, "history_ready": True,
+        "earliest_baseline_at": "2026-10-27T06:00:00Z", "latest_current_at": "2026-11-03T12:00:00Z",
+    }
+    guide = {
+        **ITEMS[0], "inventory_id": ITEMS[0]["id"], "quantity": 1,
+        "current_value_minor": 85000, "baseline_value_minor": 80000,
+        "current_market_value_minor": 85000, "prior_market_value_minor": 80000,
+        "change_minor": 5000, "change_pct": 6.25,
+        "current_at": "2026-11-03T12:00:00Z", "baseline_at": "2026-10-27T06:00:00Z",
+        "comparison_days": 7.25, "comparison_kind": "GUIDE_ESTIMATE",
+        "comparison_label": "Guide estimate change", "method": "CATALOGUE_CARDMARKET_V1",
+    }
+    sold = {
+        **guide, **ITEMS[1], "inventory_id": ITEMS[1]["id"],
+        "name": "Monkey.D.Luffy — Awakening of the New Era, Special Alternate Art",
+        "current_value_minor": 125000, "baseline_value_minor": 130000,
+        "current_market_value_minor": 125000, "prior_market_value_minor": 130000,
+        "change_minor": -5000, "change_pct": -3.85,
+        "comparison_kind": "SOLD_MARKET", "comparison_label": "Market value change", "method": "CATALOGUE_EBAY_V4",
+    }
+    page.evaluate("""({founder,summary,guide,sold})=>{
+        if(founder)renderWeeklyMovers({...summary,gainers:[guide],decliners:[sold]},7);
+        else renderOwnerInsightList('owner-weekly-movers',[guide,sold],true,summary);
+    }""", {"founder": founder, "summary": summary, "guide": guide, "sold": sold})
+
+
 def source_html(name: str) -> str:
     return re.sub(r"<script\b[^>]*>.*?</script>", "", (ROOT / name).read_text(), flags=re.S | re.I)
 
@@ -148,6 +181,7 @@ def owner_fixture(page):
         activateOwnerView('overview',false);
         document.dispatchEvent(new Event('hub-ready'));
     }""", ITEMS)
+    render_weekly_fixture(page)
 
 
 def founder_fixture(page):
@@ -183,6 +217,7 @@ def founder_fixture(page):
         setInventoryView('visual');
         activateSellerView('dashboard',false);
     }""", {"items": ITEMS, "origin": ORIGIN})
+    render_weekly_fixture(page, founder=True)
 
 
 def settle_images(page):
@@ -318,6 +353,28 @@ def inspect_categories(page, width, reports, failures):
     page.locator('button[data-category="TCG"]').click()
 
 
+def inspect_weekly_layout(page, width, failures, founder=False):
+    selector = "#weekly-movers-list" if founder else "#owner-weekly-movers"
+    result = page.locator(selector).evaluate("""e=>({
+        text:e.textContent,width:e.clientWidth,scrollWidth:e.scrollWidth,
+        rows:[...e.querySelectorAll('.owner-insight-row,.portfolio-mover-row')].map(r=>({
+            width:r.clientWidth,scrollWidth:r.scrollWidth,
+            detailsWidth:(r.querySelector('.owner-insight-copy')||r.firstElementChild).getBoundingClientRect().width
+        }))
+    })""")
+    kind = "founder" if founder else "owner"
+    if len(result["rows"]) != 2 or any(label not in result["text"] for label in (
+        "Guide estimate change · Cardmarket", "Market value change · eBay sold evidence",
+        "27 Oct 2026 → 3 Nov 2026", "Special Alternate Art",
+    )):
+        failures.append(f"{width}px {kind} weekly movers: populated evidence labels missing")
+    if result["scrollWidth"] > result["width"] + 1 or any(row["scrollWidth"] > row["width"] + 1 for row in result["rows"]):
+        failures.append(f"{width}px {kind} weekly movers: row or panel overflow")
+    if any(row["detailsWidth"] < 120 for row in result["rows"]):
+        failures.append(f"{width}px {kind} weekly movers: evidence text squeezed below readable width")
+    return result
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     reports, errors, failures = [], [], []
@@ -352,6 +409,8 @@ def main():
                 ])
                 reports.append(report)
                 report["navigation"] = inspect_navigation(page)
+                if view == "overview":
+                    report["weekly_layout"] = inspect_weekly_layout(page, width, failures)
                 print(f'Rendered synthetic {width}px {view}', flush=True)
                 if report["overflow"]:
                     failures.append(f"{width}px {view}: horizontal page overflow")
@@ -423,6 +482,16 @@ def main():
                         page.locator('.condition-review-card').scroll_into_view_if_needed()
                         page.screenshot(path=str(OUT / f"synthetic-{width}-founder-media-condition.png"))
                     print(f'Rendered synthetic {width}px founder {view}', flush=True)
+                page.evaluate("activateSellerView('dashboard',false)")
+                page.locator('summary').filter(has_text="Portfolio & market value").click()
+                settle_images(page)
+                report = inspect(page, "founder-weekly-movers", ["#weekly-movers-list", ".portfolio-mover-row", ".portfolio-value-stack"])
+                report["weekly_layout"] = inspect_weekly_layout(page, width, failures, founder=True)
+                reports.append(report)
+                if report["overflow"]:
+                    failures.append(f"{width}px founder weekly movers: horizontal page overflow")
+                page.screenshot(path=str(OUT / f"synthetic-{width}-founder-weekly-movers.png"), full_page=True)
+                page.locator('summary').filter(has_text="Portfolio & market value").click()
                 for dialog_id, action in (("editor-dialog", "openInventoryCopies([...state.items.values()][0])"),
                                           ("inventory-import-dialog", "openInventoryImport()")):
                     page.evaluate(action)

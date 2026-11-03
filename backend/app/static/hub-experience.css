@@ -76,7 +76,7 @@ body.premium-hub.hub-experience .owner-collection-add { gap: 8px; margin-top: 14
   padding: 25px 24px 19px; border-bottom: 1px solid var(--hub-line); position: sticky;
   top: 0; background: var(--hub-panel); z-index: 1;
 }
-.premium-hub .hub-eyebrow { display: block; font-size: 10px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; color: var(--hub-accent); margin-bottom: 8px; }
+.premium-hub .hub-eyebrow { display: block; font-size: 10px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; color: var(--hub-brand-accent); margin-bottom: 8px; }
 .premium-hub .hub-dialog-heading h2 { margin: 0; font-size: 23px; line-height: 1.2; }
 .premium-hub .hub-icon-button { border: 1px solid var(--hub-control-line); border-radius: 9px; background: var(--hub-panel-2); color: var(--hub-text); min-width: 44px; min-height: 44px; font-size: 23px; cursor: pointer; }
 .premium-hub .hub-add-body { padding: 15px; display: grid; gap: 9px; }
