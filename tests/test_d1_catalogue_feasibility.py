@@ -1,7 +1,12 @@
 """D1 feasibility probe guarantees; only synthetic local SQLite is touched."""
 
 import sqlite3
+import sys
 import unittest
+from pathlib import Path
+
+# CI runs pytest with PYTHONPATH=backend; expose the repo's standalone probe.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.d1_catalogue_feasibility import (
     EXACT_QUERY, NAME_QUERY, PROVIDERS, SET_PAGE_QUERY, SYSTEM_COUNTS,
