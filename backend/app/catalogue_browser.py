@@ -22,7 +22,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from .access_control import current_access_context, require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
-from .inventory_intake import create_inventory_intake, _find_exact_catalogue, _manual_identity_key
+from .inventory_intake import (
+    create_inventory_intake, _create_inventory_intake,
+    _find_exact_catalogue, _manual_identity_key,
+)
 from .physical_state import CARD_CONDITIONS
 from .slab_evidence import slab_candidate_supported
 from .recognition_games import SYSTEM_BY_GAME, collector_key
@@ -39,7 +42,7 @@ from .reference_asking_display import add_asking_estimates
 from .book_catalogue import with_book_details
 from .catalogue_collectibles import with_collectible_details
 from .r2_media import with_signed_mirror
-from . import catalogue_r2_live
+from . import catalogue_r2_live, r2_first_service
 from .catalogue_r2_cache import (
     delivery_enabled, read_reference_snapshot, reference_scope, source_cte_with_snapshot,
 )
@@ -144,6 +147,28 @@ def browse_games(rows) -> list[dict]:
         group["products"] += item["products"]
         group["sets"] += item["sets"]
     return [{**group, "languages": sorted(group["languages"])} for group in groups.values()]
+
+
+async def _r2_first_publications(connection) -> list[dict]:
+    """The opt-in path must not touch a new registry while it is disabled."""
+    if not r2_first_service.enabled():
+        return []
+    return [dict(source) for source in await r2_first_service.sources(connection)
+            if source.get("active") is True]
+
+
+def _r2_first_system(publications: list[dict], system_code: str) -> bool:
+    # Only an explicitly selected, published system uses this route. Global
+    # legacy SQL browsing does not ingest or hydrate a complete new provider.
+    return bool(system_code) and any(
+        source["system_code"] == system_code for source in publications)
+
+
+async def _r2_first_reference(connection, key: str) -> dict:
+    item = await r2_first_service.resolve(connection, key) if r2_first_service.enabled() else None
+    if item is None:
+        raise HTTPException(404, "Product is not available in the released catalogue")
+    return dict(item)
 
 
 GAME_CASE = "case r.system_code " + " ".join(
@@ -518,7 +543,20 @@ async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(req
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id, **options) as connection:
         live = await catalogue_r2_live.read(connection)
         rows = await catalogue_r2_live.fetch(connection, GAMES_SQL, [access["owner_id"]], live)
+        publications = await _r2_first_publications(connection)
+    if publications:
+        # Published snapshot counts are the selected system's browse scope.
+        # Do not count its lazily materialized SQL canonicals a second time.
+        rows = [dict(row) for row in rows
+                if not _r2_first_system(publications, row["system_code"])]
+        rows.extend({"system_code": source["system_code"], "game": source["game"],
+                     "languages": [source["language"]],
+                     "products": source.get("released_record_count", source["record_count"]),
+                     "sets": source["set_count"]} for source in publications)
     items=browse_games(rows)
+    for item in items:
+        if _r2_first_system(publications, item["system_code"]):
+            item["catalogue_scope"] = "R2_FIRST_SYSTEM"
     # These are two real catalogue sections even when the first physical
     # seller books have not yet been added. A zero count is not fake stock.
     for system,game in (("COMICS","Comics"),("MANGA","Manga"),("SPORTS_CARDS","Sports"),("FIGURES","Figures")):
@@ -534,6 +572,13 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
                limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
     options = {'readonly_snapshot': True} if catalogue_r2_live.enabled('DELIVERY') else {}
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id, **options) as connection:
+        publications = await _r2_first_publications(connection)
+        if _r2_first_system(publications, system_code):
+            page = await r2_first_service.sets(connection, owner_id=access["owner_id"],
+                system_code=system_code, language=language, q=q.strip(), limit=limit, offset=offset)
+            return jsonable_encoder({**page,
+                "items": [set_metadata_only(row) for row in page["items"]],
+                "catalogue_scope": "R2_FIRST_SYSTEM", "metadata_only": True})
         live = await catalogue_r2_live.read(connection)
         rows = await catalogue_r2_live.fetch(connection, SETS_SQL,
             [access["owner_id"], browse_systems(system_code), language, q.strip(), limit + 1, offset], live)
@@ -711,6 +756,39 @@ def _catalogue_latency_ms(stamps: tuple[float, float, float, float, float, float
     ), max(0, round((stamps[-1]-stamps[0])*1000)))
 
 
+def _sort_explicit_reference_rows(rows, *, sort: str, q: str = "") -> list[dict]:
+    """Merge only an explicit <=100-key selection, never the whole catalogue."""
+    unique = {row["key"]: dict(row) for row in rows}
+    ordered = sorted(unique.values(), key=lambda row: (str(row.get("name") or "").casefold(), row["key"]))
+    if sort == "name_desc":
+        ordered.sort(key=lambda row: str(row.get("name") or "").casefold(), reverse=True)
+    elif sort == "number":
+        ordered.sort(key=lambda row: (row.get("card_number") is None, str(row.get("card_number") or "")))
+    elif sort in ("newest", "oldest"):
+        dated = [row for row in ordered if row.get("release_date") is not None]
+        dated.sort(key=lambda row: str(row["release_date"]), reverse=sort == "newest")
+        ordered = dated + [row for row in ordered if row.get("release_date") is None]
+    elif sort in ("value_desc", "value_asc"):
+        priced = [row for row in ordered if row.get("market_value_minor") is not None]
+        priced.sort(key=lambda row: row["market_value_minor"], reverse=sort == "value_desc")
+        ordered = priced + [row for row in ordered if row.get("market_value_minor") is None]
+    if q.strip() and sort not in ("value_desc", "value_asc"):
+        number = re.sub(r"[^a-z0-9]", "", q.strip().lower())
+
+        def relevance(row):
+            card_number = str(row.get("card_number") or "")
+            if (row.get("provider") == "Bandai Official"
+                    and row.get("system_code") == "DRAGON_BALL_SUPER_MASTERS"):
+                card_number = card_number.split("_PR", 1)[0]
+            if (number and any(char.isdigit() for char in number)
+                    and re.sub(r"[^a-z0-9]", "", card_number.lower()) == number):
+                return 0
+            return 1 if str(row.get("name") or "").lower() == q.strip().lower() else 2
+
+        ordered.sort(key=relevance)
+    return ordered
+
+
 @router.get("/products")
 @retry_broken_catalogue_read
 async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -720,7 +798,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                    product_type: Literal["", "CARD", "SEALED", "COMIC", "FIGURE"] = "", owned: Literal["all", "owned", "not_owned"] = "all",
                    category: Literal["", "TCG", "SPORTS", "COMICS", "MANGA", "FIGURES"] = "",
                    sort: Literal["name", "name_desc", "newest", "oldest", "number", "value_desc", "value_asc"] = "newest",
-                   keys: str | None = Query(default=None, max_length=5000),
+                   keys: str | None = Query(default=None, max_length=7000),
                    slab_number: str = Query(default="", max_length=80),
                    slab_name: str = Query(default="", max_length=160),
                    slab_set: str = Query(default="", max_length=200),
@@ -736,16 +814,47 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id,
                                **connection_options) as connection:
         t_connection = time.perf_counter()
+        publications = await _r2_first_publications(connection)
+        r2_keys = [key for key in key_list or [] if key.startswith("x:")] if publications else []
+        mixed_reference_keys = bool(r2_keys) and len(r2_keys) < len(key_list)
+        if (r2_keys or _r2_first_system(publications, system_code)) and not mixed_reference_keys:
+            # This service merges provider snapshots, applies exact ownership
+            # overlays and filters/sorts before pagination. Do not pass these
+            # metadata rows through legacy SQL or number-based price aliases.
+            page = await r2_first_service.browse(connection, owner_id=access["owner_id"],
+                q=q, system_code=system_code, language=language, category=category,
+                set_id=set_id, provider=provider, product_type=product_type,
+                owned=owned, sort=sort, keys=key_list, limit=limit, offset=offset)
+            slab_search = bool(slab_number or slab_name or slab_set)
+            selected_rows = page["items"]
+            if slab_search:
+                selected_rows = [row for row in selected_rows if slab_candidate_supported(
+                    row, card_name=slab_name, card_number=slab_number, set_name=slab_set)]
+            return jsonable_encoder({**page, "items": selected_rows,
+                "catalogue_scope": "R2_FIRST_SYSTEM" if system_code else "R2_FIRST_KEYS", "metadata_only": True,
+                "slab_review_required": slab_search,
+                "slab_search_bounded": slab_search and bool(page.get("has_more"))})
+        r2_key_page = None
+        if mixed_reference_keys:
+            # At most 100 explicit saved identities. Retrieve the complete
+            # bounded candidate set from each backend, then sort/page once.
+            r2_key_page = await r2_first_service.browse(connection, owner_id=access["owner_id"],
+                q=q, system_code=system_code, language=language, category=category,
+                set_id=set_id, provider=provider, product_type=product_type,
+                owned=owned, sort=sort, keys=r2_keys, limit=100, offset=0)
+        sql_keys = [key for key in key_list if not key.startswith("x:")] if mixed_reference_keys else key_list
+        sql_limit, sql_offset = (100, 0) if mixed_reference_keys else (limit, offset)
+        sql_sort = "name" if mixed_reference_keys and sort in ("value_desc", "value_asc") else sort
         # Value sorts include alias prices before pagination. Other searches
         # resolve only the missing values on their bounded visible page.
-        shared = await read_shared_prices(connection, system_code=system_code, product_type=product_type, language=language) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
+        shared = await read_shared_prices(connection, system_code=system_code, product_type=product_type, language=language) if sql_sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
         t_shared = time.perf_counter()
         live = await catalogue_r2_live.read(connection)
         snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None and live is None else None
         t_index = time.perf_counter()
         query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language, category=category,
-            set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list,
-            limit=limit, offset=offset, shared_prices=shared)
+            set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sql_sort, keys=sql_keys,
+            limit=sql_limit, offset=sql_offset, shared_prices=shared)
         if snapshot is not None:
             try:
                 async with connection.transaction():
@@ -763,11 +872,11 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
             live_scope = dict(systems=browse_systems(system_code) if system_code else None,
                 language=language,provider=provider,set_id=set_id) if provider else {}
             rows = await catalogue_r2_live.fetch(connection, query, params, live,
-                                                 shared_keys=tuple(shared) if sort in ('value_desc', 'value_asc') else (),
+                                                 shared_keys=tuple(shared) if sql_sort in ('value_desc', 'value_asc') else (),
                                                  **live_scope)
         t_sql = time.perf_counter()
-        if sort not in ('value_desc', 'value_asc'):
-            missing = [dict(row) for row in rows[:limit] if row.get('market_value_minor') is None]
+        if sql_sort not in ('value_desc', 'value_asc'):
+            missing = [dict(row) for row in rows[:sql_limit] if row.get('market_value_minor') is None]
             shared = await read_shared_prices(connection, missing)
             rows = [with_shared_price(row, shared) for row in rows]
         rows = await add_reference_history(connection, rows)
@@ -776,6 +885,10 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         rows = await add_asking_estimates(connection, rows)
         rows = await with_book_details(connection, rows)
         rows = await with_collectible_details(connection, rows)
+        if mixed_reference_keys:
+            merged = _sort_explicit_reference_rows([*rows, *r2_key_page["items"]], sort=sort, q=q)
+            merged_total = len(merged)
+            rows = merged[offset:offset+limit+1]
     t_enriched = time.perf_counter()
     # This bounded page is a suggestion pool, never a verified match. Filtering
     # is deliberately server-side and separate from ordinary manual search.
@@ -789,6 +902,16 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         "has_more": len(rows) > limit, "offset": offset,
         "slab_review_required": slab_search,
         "slab_search_bounded": slab_search and len(rows) > limit})
+    if mixed_reference_keys:
+        result["catalogue_scope"] = "EXPLICIT_REFERENCE_KEYS"
+        result["includes_r2_metadata"] = True
+        result["total_count"] = merged_total
+    elif publications and not system_code:
+        # This first integration intentionally keeps the existing global SQL
+        # query intact. Clients must not label it a complete cross-source search.
+        result["catalogue_scope"] = "LEGACY_WITH_SEPARATE_R2_SYSTEMS"
+        result["additional_catalogue_systems"] = sorted({
+            source["system_code"] for source in publications})
     t_complete = time.perf_counter()
     pool_ms, shared_ms, index_ms, sql_ms, enrich_ms, serialize_ms, total_ms = (
         _catalogue_latency_ms((t_begin, t_connection, t_shared, t_index,
@@ -948,6 +1071,17 @@ async def select_product(payload: CatalogueSelection, request: Request,
                          access: Annotated[dict, Depends(browser_access)]):
     """Link a human-selected printing for slab intake; never create inventory."""
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        if payload.key.startswith("x:"):
+            item = await _r2_first_reference(connection, payload.key)
+            if item["product_type"] != "CARD":
+                raise HTTPException(422, "Graded selection supports cards only")
+            if item["system_code"] not in GAME_BY_SYSTEM:
+                raise HTTPException(422, "This card system needs catalogue review")
+            # Validate server-resolved facts before writing the minimal shared
+            # canonical identity. Selection never approves a physical printing.
+            reference_product(item)
+            catalogue = await r2_first_service.materialize(connection, item)
+            return {"catalogue_id": str(catalogue["id"])}
         row = await connection.fetchrow(SOURCE_CTE + "select * from entries where key=$2", access["owner_id"], payload.key)
         if row is None:
             raise HTTPException(404, "Product is not available in the released catalogue")
@@ -994,6 +1128,17 @@ async def intake(payload: BrowseIntake, request: Request, user: Annotated[Authen
             if response.get("inventory", {}).get("notes") != browse_note(payload):
                 raise HTTPException(409, "Idempotency-Key was already used with different details")
             return {**response, "replayed": True}
+        if payload.key.startswith("x:"):
+            item = await _r2_first_reference(connection, payload.key)
+            # Validate condition/language/sealed rules before materialization;
+            # never trust a client-supplied identity or silently approve it.
+            intake_payload(item, payload)
+            catalogue = await r2_first_service.materialize(connection, item)
+            manual = intake_payload({**item, "catalogue_id": catalogue["id"]}, payload)
+            # The minimal canonical row, inventory copy and idempotency receipt
+            # either all commit or all roll back under the same owner context.
+            return await _create_inventory_intake(manual, request, user, idempotency_key,
+                                                 connection=connection)
         row = await connection.fetchrow(SOURCE_CTE + "select * from entries where key=$2", access["owner_id"], payload.key)
         if row is None:
             raise HTTPException(404, "Product is not available in the released catalogue")

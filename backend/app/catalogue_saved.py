@@ -13,7 +13,7 @@ from .db import user_connection
 
 
 router = APIRouter(prefix="/api/v1/catalogue-browser/saved", tags=["catalogue-saved"])
-KEY_PATTERN = r"^(?:[rs]:[a-f0-9]{32}|c:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$"
+KEY_PATTERN = r"^(?:[rs]:[a-f0-9]{32}|x:[a-f0-9]{64}|c:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$"
 ReferenceKey = Annotated[str, Field(pattern=KEY_PATTERN, max_length=80)]
 SAVED_LIMIT = 100
 
@@ -53,10 +53,15 @@ async def _save(connection, access, user_id, requested, *, importing=False):
     requested = list(dict.fromkeys(requested))
     unknown = [key for key in requested if key not in previous]
     available = set()
-    if unknown:
+    legacy_unknown = [key for key in unknown if not key.startswith('x:')]
+    if legacy_unknown:
         rows = await connection.fetch(SOURCE_CTE + "select key from entries where key=any($2::text[])",
-                                      access["owner_id"], unknown)
+                                      access["owner_id"], legacy_unknown)
         available = {row["key"] for row in rows}
+    from . import r2_first_service
+    for key in unknown:
+        if key.startswith('x:') and await r2_first_service.resolve(connection, key) is not None:
+            available.add(key)
     rejected = [key for key in unknown if key not in available]
     if rejected and not importing:
         raise HTTPException(404, "This reference is no longer available in the catalogue.")

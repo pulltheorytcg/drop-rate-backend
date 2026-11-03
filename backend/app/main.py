@@ -208,6 +208,16 @@ def create_app() -> FastAPI:
         # The existing maintenance identity supplies RLS context; index
         # downloading/building stays asynchronous and never blocks readiness.
         from . import catalogue_r2_live, catalogue_r2_market
+        from . import r2_first_import, r2_first_service
+        if settings.catalogue_maintenance_actor_user_id and r2_first_service.enabled():
+            maintenance_tasks.append(asyncio.create_task(r2_first_service.prewarm(
+                app.state.db_pool, UUID(settings.catalogue_maintenance_actor_user_id))))
+        if os.getenv('TCG_R2_FIRST_IMPORT_SOURCES', '').strip():
+            if settings.catalogue_maintenance_actor_user_id:
+                maintenance_tasks.append(asyncio.create_task(r2_first_import.run_loop(
+                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id)))
+            else:
+                logger.error('R2-first catalogue import requires an authorised actor')
         if settings.catalogue_maintenance_actor_user_id and catalogue_r2_live.enabled('DELIVERY'):
             maintenance_tasks.append(asyncio.create_task(
                 catalogue_r2_live.prewarm(
@@ -318,6 +328,7 @@ def create_app() -> FastAPI:
             await close_shared_vision_http_client()
             await close_artwork_tasks()
             await close_reference_http_client()
+            await r2_first_service.close()
             await app.state.db_pool.close()
 
     app = FastAPI(

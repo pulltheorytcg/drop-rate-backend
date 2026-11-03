@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from app import catalogue_saved as saved
 from app.auth import require_user
@@ -15,6 +15,7 @@ from app.auth import require_user
 CARD = "c:00000000-0000-4000-8000-000000000001"
 OTHER = "r:" + "a" * 32
 MISSING = "s:" + "f" * 32
+EXPANSION = "x:" + "b" * 64
 
 
 @pytest.fixture
@@ -138,6 +139,31 @@ async def test_account_limit_is_checked_under_transaction_lock(api):
     lock = next(index for index, (sql, _) in enumerate(queries) if "pg_advisory_xact_lock" in sql)
     read = next(index for index, (sql, _) in enumerate(queries) if "select reference_key" in sql)
     assert lock < read
+
+
+@pytest.mark.asyncio
+async def test_r2_saved_reference_requires_current_source_without_legacy_fallback(api, monkeypatch):
+    from app import r2_first_service
+    app, _, records, queries, user_a, _ = api
+    async def resolve(connection, key):
+        assert key == EXPANSION
+        return {"key": key}
+    monkeypatch.setattr(r2_first_service, "resolve", resolve)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.put('/api/v1/catalogue-browser/saved', json={"key": EXPANSION})
+        assert response.status_code == 200 and response.json()['keys'] == [EXPANSION]
+        assert records[user_a] == {EXPANSION}
+        assert not any('select key from entries' in sql for sql, _ in queries)
+        await client.delete('/api/v1/catalogue-browser/saved/' + EXPANSION)
+        async def missing(connection, key):
+            return None
+        monkeypatch.setattr(r2_first_service, "resolve", missing)
+        assert (await client.put('/api/v1/catalogue-browser/saved', json={"key": EXPANSION})).status_code == 404
+        async def unavailable(connection, key):
+            raise HTTPException(503, 'Catalogue warming')
+        monkeypatch.setattr(r2_first_service, "resolve", unavailable)
+        assert (await client.put('/api/v1/catalogue-browser/saved', json={"key": EXPANSION})).status_code == 503
+        assert not records[user_a]
 
 
 def test_saved_migration_has_only_owner_policies_and_no_public_write_path():

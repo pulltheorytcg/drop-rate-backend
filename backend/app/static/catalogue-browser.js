@@ -37,6 +37,7 @@ window.DropRateCatalogue = (() => {
   // Bandai's _pN is a distinct publisher reference: show it without assuming
   // a grade, rarity or market value from the base card.
   const printingMarker = row => {
+    if(row.metadata_only && row.identity_review_required)return "Printing details need review";
     if (row.source_kind!=="REFERENCE" || row.provider!=="Bandai Official" || !String(row.system_code||"").startsWith("DRAGON_BALL"))return null;
     const match=String(row.provider_id||row.variant||"").match(/_p([1-9][0-9]*)$/);
     return match ? "Printing variant p"+match[1] : null;
@@ -57,7 +58,7 @@ window.DropRateCatalogue = (() => {
   const tcgSystems = new Set(Object.keys(gameTitles).filter(code=>!["COMICS","MANGA"].includes(code))
     .concat(["NARUTO_KAYOU","NARUTO_BANDAI_LEGACY","NARUTO_BANDAI"]));
   const bookSystems = {COMICS:"All comics",MARVEL_COMICS:"Marvel Comics",DC_COMICS:"DC Comics",OTHER_COMICS:"Other comics",MANGA:"Manga"};
-  const referenceKey = value => typeof value === "string" && /^(?:[rs]:[a-f0-9]{32}|c:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/.test(value);
+  const referenceKey = value => typeof value === "string" && /^(?:[rs]:[a-f0-9]{32}|x:[a-f0-9]{64}|c:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/.test(value);
 
   class Browser {
     constructor(options) {
@@ -364,6 +365,20 @@ window.DropRateCatalogue = (() => {
         if(this.page!=="sets" && !this.rows.length && this.set?.checklist_status==="UNAVAILABLE" && !this.filters.q && this.filters.owned==="all" && !this.filters.watch && !this.filters.product_type)status.textContent="This set is in the catalogue. Its card checklist is currently unavailable.";
         if(this.filters.watch)status.textContent=this.rows.length?"":"No saved references match this view. Save an item from its details to find it here.";
         if(this.page==="products"&&!this.rows.length)this.renderEmptyActions();
+        this.find('.dr-browse-r2-scope')?.remove();
+        if(this.categoryId==='TCG' && !this.filters.watch && !this.filters.system_code
+           && data.catalogue_scope==='LEGACY_WITH_SEPARATE_R2_SYSTEMS'){
+          const systems=new Set(data.additional_catalogue_systems||[]);
+          const games=this.games.filter(game=>systems.has(game.system_code)&&tcgSystems.has(game.system_code));
+          if(games.length){
+            const scope=node('section','dr-browse-empty-actions dr-browse-r2-scope');
+            scope.append(node('p','dr-browse-reference-note','New catalogues currently have a separate game search. Search the same name or number below:'));
+            for(const game of games)scope.append(button('Search '+game.game,()=>{
+              this.filters.system_code=game.system_code;this.set=null;this.page='products';this.browseAll=true;this.load();
+            },'dr-browse-empty-action'));
+            this.find('.dr-browse-content').append(scope);
+          }
+        }
         this.find('[data-action="more"]').hidden=!this.hasMore;
         // Market references arrive from stored snapshots; browsing never starts provider refreshes.
       } catch(error){if(this.active()&&revision===this.revision){status.textContent=this.rows.length?'Showing recently loaded results. Refresh failed; try again shortly.':error.message;this.hasMore=false;if(!more&&!this.rows.length)this.find(".dr-browse-content").replaceChildren(button("Try again",()=>this.load()));}}
@@ -865,7 +880,7 @@ window.DropRateCatalogue = (() => {
       if(!edit){edit={row,condition:"",language:"",quantity:1,confirmed:false,requests:null};this.pending.set(row.key,edit);}
       this.edit=edit;
       const content=node("div","dr-browse-product-details");
-      content.append(this.productImage(row,"dr-browse-detail-image"),node("h3","",decode(row.name)),node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
+      content.append(this.productImage(row,"dr-browse-detail-image"),node("h3","",decode(row.name)),node("p","",[decode(row.set_name),row.card_number,row.language,printingMarker(row)||decode(row.variant)].filter(Boolean).join(" · ")));
       if(row.provider&&row.provider_id){
         const reference=node("details","dr-browse-reference-note dr-browse-extra");reference.dataset.cardReference=row.key;reference.append(node("summary","","Reference details"));
         reference.append(node("strong","","Card reference"),node("p","",row.provider+" · "+row.provider_id),node("small","","Set reference: "+row.set_id+" · "+row.language));
@@ -873,7 +888,9 @@ window.DropRateCatalogue = (() => {
       }
       const pricing=node("div");pricing.dataset.marketDetails=row.key;this.renderMarketDetails(pricing,row);content.append(pricing);
       content.append(this.savedControl(row));
-      if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Check that the picture, edition and language match your item."));
+      if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note",row.metadata_only
+        ? "Metadata reference only. Artwork and market value are not verified. Check the exact edition, finish and language against your physical item."
+        : "Check that the picture, edition and language match your item."));
       if(row.source_kind==='SEALED_REFERENCE')content.append(node('p','dr-browse-reference-note','Check the packaging, edition, pack count and language. Add only if your product is still sealed.'));
       if(row.source_kind==="SEALED_REFERENCE"&&row.provider==="Kayou Official"
          && /^https:\/\/www\.kayouofficial\.com\/en-US\/series\/series-[a-z0-9]{8}$/.test(row.source_url||"")){
