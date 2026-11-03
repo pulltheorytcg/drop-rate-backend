@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import hashlib
 import json
@@ -69,6 +70,78 @@ async def test_changed_generation_falls_back_immediately(monkeypatch):
     assert await market.read(connection) is snapshot
     connection.state={**connection.state,'generation':2}
     assert await market.read(connection) is None
+
+
+@pytest.mark.asyncio
+async def test_startup_prewarm_uses_existing_rls_actor_and_never_waits_for_r2(monkeypatch):
+    from uuid import uuid4
+    manifest, raw = fixture()
+    actor = str(uuid4())
+    state = dict(generation=1, published_generation=1, manifest=manifest)
+    started, release = asyncio.Event(), asyncio.Event()
+    calls = []
+
+    @asynccontextmanager
+    async def scoped_connection(pool, user_id, request_id, *, readonly_snapshot=False):
+        assert pool == 'existing-api-pool'
+        assert user_id == actor
+        assert request_id == 'market-startup-prewarm'
+        assert readonly_snapshot is True
+        calls.append('rls')
+        class Connection:
+            @asynccontextmanager
+            async def transaction(self):
+                yield
+            async def fetchrow(self, sql):
+                assert sql == market.STATE_SQL
+                return state
+        yield Connection()
+
+    async def slow_r2_download(*args):
+        started.set()
+        await release.wait()
+        return market.assemble(manifest, [raw])
+
+    monkeypatch.setenv('TCG_R2_MARKET_DELIVERY_ENABLED', 'true')
+    monkeypatch.setattr(market, '_current', None)
+    monkeypatch.setattr(market, '_loading', None)
+    monkeypatch.setattr(market, 'user_connection', scoped_connection)
+    monkeypatch.setattr(market, 'configured_object_storage', lambda: object())
+    monkeypatch.setattr(market, 'download', slow_r2_download)
+    assert await market.prewarm('existing-api-pool', actor) is True
+    await asyncio.wait_for(started.wait(), 1)
+    assert calls == ['rls']
+    assert market._current is None, 'Startup must not wait for R2 downloads'
+    release.set()
+    await market._loading
+    assert market._current.generation == 1
+
+
+@pytest.mark.asyncio
+async def test_startup_prewarm_optional_and_fail_open_to_live_sql(monkeypatch):
+    monkeypatch.setenv('TCG_R2_MARKET_DELIVERY_ENABLED', 'false')
+    async def forbidden_connection(*args, **kwargs):
+        raise AssertionError('Disabled cache must not open database connections')
+    monkeypatch.setattr(market, 'user_connection', forbidden_connection)
+    assert await market.prewarm(object(), 'maintenance-actor') is False
+    monkeypatch.setenv('TCG_R2_MARKET_DELIVERY_ENABLED', 'true')
+    assert await market.prewarm(object(), None) is False
+
+    @asynccontextmanager
+    async def unavailable_connection(*args, **kwargs):
+        raise OSError('Network temporarily unavailable')
+        yield
+    monkeypatch.setattr(market, 'user_connection', unavailable_connection)
+    assert await market.prewarm(object(), 'maintenance-actor') is False
+
+
+def test_api_boot_requests_optional_market_prewarm_without_holding_readiness():
+    from pathlib import Path
+    main = (Path(__file__).resolve().parents[1] / 'backend/app/main.py').read_text()
+    assert "catalogue_r2_market.enabled('DELIVERY')" in main
+    assert 'settings.catalogue_maintenance_actor_user_id' in main
+    assert 'maintenance_tasks.append(asyncio.create_task(' in main
+    assert 'catalogue_r2_market.prewarm(' in main
 
 
 def test_duplicate_rows_across_verified_parts_are_rejected():

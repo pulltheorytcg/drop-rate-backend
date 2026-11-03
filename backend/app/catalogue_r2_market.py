@@ -196,6 +196,28 @@ async def read(connection):
     return None
 
 
+async def prewarm(pool, maintenance_actor_user_id: str | None) -> bool:
+    """Queue verified shared-price loading before the first catalogue browse.
+
+    Check the publication through the existing maintenance actor's read-only
+    RLS context. read() schedules bounded R2 IO off that connection; neither
+    storage failures nor missing configuration can block API readiness.
+    """
+    if not enabled('DELIVERY') or not maintenance_actor_user_id:
+        return False
+    try:
+        async with user_connection(
+            pool, maintenance_actor_user_id, 'market-startup-prewarm',
+            readonly_snapshot=True,
+        ) as connection:
+            await read(connection)
+        log.info('CATALOGUE_R2_MARKET_STARTUP_PREWARM_REQUESTED')
+        return True
+    except Exception as exc:
+        log.warning('CATALOGUE_R2_MARKET_STARTUP_PREWARM_FALLBACK type=%s', type(exc).__name__)
+        return False
+
+
 async def publish(pool, actor, *, storage=None):
     """Verify every byte, row and identity before an atomic generation publish."""
     global _current
