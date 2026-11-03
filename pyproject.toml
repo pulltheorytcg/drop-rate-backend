@@ -20,6 +20,7 @@ dependencies = [
 test = [
   "pytest==8.3.5",
   "pytest-asyncio==0.26.0",
+  "graphql-core==3.2.6",
 ]
 
 [tool.pytest.ini_options]
