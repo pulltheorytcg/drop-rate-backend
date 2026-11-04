@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import asyncpg
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
@@ -403,6 +403,11 @@ def create_app() -> FastAPI:
         if request.url.hostname == "app.droprate.co.uk" and request.url.path == "/":
             return HTMLResponse((STATIC_DIR / "seller-hub-launch.html").read_text(encoding="utf-8"))
         return HTMLResponse(_dashboard_html())
+
+    @app.api_route("/riot.txt", methods=["GET", "HEAD"], include_in_schema=False)
+    async def riot_domain_verification() -> FileResponse:
+        """Public Riot domain verification; exact bytes live in riot.txt."""
+        return FileResponse(STATIC_DIR / "riot.txt", media_type="text/plain")
 
     @app.get("/seller-hub", include_in_schema=False)
     async def seller_hub_launch() -> HTMLResponse:
