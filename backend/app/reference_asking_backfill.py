@@ -25,6 +25,9 @@ from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_asking_display import asking_cache_join, matching_reference_evidence, reference_number_alias as _number_alias
 from .reference_asking_estimator import (
     _GRADE_RE, _MULTI_RE, _aspects, _number_matches, _text,
+    _LANGUAGES, _SET_CODES, _SPECIAL_MARKERS, _condition_matches,
+    _explicitly_denies, _listing_finish, _matches, _phrase, _reference_spec,
+    _variant_markers,
     estimate_reference_asking_price, reference_asking_eligibility,
 )
 
@@ -36,6 +39,7 @@ HEADROOM = 500
 MAX_SCAN = 20000
 QUOTA_REFRESH_REQUESTS = 100
 MAX_ITEM_DETAILS_PER_CARD = 6
+MAX_TARGET_REFERENCES = 25
 MAX_RUN_SECONDS = 45 * 60
 LOCK_NAME = "tcg.reference_asking_backfill"
 GAMES = {"POKEMON_TCG": "Pokemon", "ONE_PIECE_CARD_GAME": "One Piece",
@@ -70,10 +74,15 @@ GROUP_COUNT = f"""(select count(*)::integer from tcg.reference_cards other
  where (other.provider,other.system_code,other.language,other.set_id)=
        (r.provider,r.system_code,r.language,r.set_id)
  and {_number_alias('other')}={_number_alias('r')}) as reference_group_count"""
-SELECT_SQL = f"select r.*,s.name as set_name,{GROUP_COUNT},({NEEDS_PRICE}) as needs_price\n{FROM_SQL}"
+SELECT_SQL = f"select r.*,s.name as set_name,{GROUP_COUNT},({NEEDS_PRICE}) as needs_price, (a.provider_id is not null) as has_current_asking\n{FROM_SQL}"
 CANDIDATES_SQL = SELECT_SQL + f"""where not ({DIGITAL_REFERENCE_SQL}) and r.language<>'Unknown'
- and ({NEEDS_PRICE}) and (r.provider,r.system_code,r.language,r.provider_id)>($1,$2,$3,$4)
+ and (({NEEDS_PRICE}) or ($8::boolean and a.provider_id is null))
+ and (r.provider,r.system_code,r.language,r.provider_id)>($1,$2,$3,$4)
  and ($6::text is null or r.system_code=$6) and ($7::text is null or r.language=$7)
+ and ($9::jsonb is null or exists (
+   select 1 from jsonb_array_elements($9::jsonb) target_key
+   where (r.provider,r.system_code,r.language,r.provider_id)=
+         (target_key->>0,target_key->>1,target_key->>2,target_key->>3)))
  order by r.provider,r.system_code,r.language,r.provider_id limit $5"""
 CURRENT_SQL = SELECT_SQL + """where (r.provider,r.system_code,r.language,r.provider_id)=($1,$2,$3,$4)
  for update of r"""
@@ -111,6 +120,48 @@ def identity_fingerprint(reference):
     return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
 
 
+def normalize_reference_keys(reference_keys):
+    """Bound exact acquisition targets; never infer identity from a search term."""
+    if reference_keys is None:
+        return None
+    if (not isinstance(reference_keys, (list, tuple))
+            or not 1 <= len(reference_keys) <= MAX_TARGET_REFERENCES):
+        raise ValueError(f"Select 1..{MAX_TARGET_REFERENCES} exact reference keys")
+    normalized = []
+    for key in reference_keys:
+        if (not isinstance(key, (list, tuple)) or len(key) != len(KEYS)
+                or any(not isinstance(part, str) or not part or len(part) > 512
+                       or part != part.strip() or not part.isprintable() for part in key)
+                or key[1] not in GAMES):
+            raise ValueError("Each reference key must contain provider, supported system, language and provider ID")
+        normalized.append(tuple(key))
+    result = [list(key) for key in sorted(set(normalized))]
+    if len(json.dumps(result, ensure_ascii=False).encode()) > 4000:
+        raise ValueError("Reference selection is too large for the durable run scope")
+    return result
+
+
+def acquisition_scope(*, system_code=None, language=None, include_priced=False, reference_keys=None):
+    if type(include_priced) is not bool:
+        raise ValueError("include_priced must be a boolean")
+    if system_code is not None and system_code not in GAMES:
+        raise ValueError("Unsupported system filter")
+    if language is not None and (not isinstance(language, str) or not language
+            or len(language) > 64 or language != language.strip() or not language.isprintable()):
+        raise ValueError("Invalid language filter")
+    targets = normalize_reference_keys(reference_keys)
+    if targets and any((system_code is not None and key[1] != system_code)
+                       or (language is not None and key[2] != language) for key in targets):
+        raise ValueError("Reference selection conflicts with the system or language filter")
+    # Omit inactive options so pre-existing missing-only runs resume unchanged.
+    scope = {"system_code": system_code, "language": language}
+    if include_priced:
+        scope["include_priced"] = True
+    if targets is not None:
+        scope["reference_keys"] = targets
+    return scope
+
+
 def benchmark_digest(postcode):
     if not isinstance(postcode, str) or not postcode.strip():
         raise BackfillStop("SHOP_DELIVERY_BENCHMARK_REQUIRED")
@@ -131,45 +182,97 @@ def search_query(reference):
     return value
 
 
-def item_detail_candidates(reference, summaries):
+def _summary_rank(row, reference, spec):
+    """Reject explicit conflicts; absent detail-resolvable facts remain eligible."""
+    title = _text(row.get("title"))
+    aspects = _aspects(row)
+    all_text = " ".join((title, _text(row.get("condition")), " ".join(aspects.values())))
+    grade_text = re.sub(r"\bnot(?:\s+professionally)?\s+graded\b", "", all_text)
+    if (_GRADE_RE.search(grade_text) or re.search(r"\bslabs\b", grade_text)
+            or str(row.get("conditionId")) == "2750" or _MULTI_RE.search(all_text)):
+        return None
+    if any(aspects.get(key) not in (None, "", "no", "ungraded", "not graded", "not professionally graded")
+           for key in ("professional grader", "grade", "certification number", "graded")):
+        return None
+    if (not all(token in title.split() for token in _text(reference["name"]).split())
+            or _explicitly_denies(title, (reference["name"],))
+            or not _number_matches(str(row.get("title", "")), aspects.get("card number", ""), reference["card_number"])):
+        return None
+    language_text = " ".join((title, aspects.get("language", "")))
+    languages = {language for language, aliases in _LANGUAGES.items()
+                 if any(_phrase(language_text, alias) for alias in aliases)}
+    if ((languages and languages != {spec["language"]})
+            or _explicitly_denies(language_text, _LANGUAGES[spec["language"]])):
+        return None
+    set_text = " ".join((title, aspects.get("set", "")))
+    options = spec["set_alternatives"]
+    terms = tuple(term for option in options for term in option)
+    if (_explicitly_denies(set_text, terms)
+            or any(_phrase(set_text, term) for term in spec["set_conflicts"])
+            or (aspects.get("set") and not any(all(_text(term) == aspects["set"] for term in option) for option in options))):
+        return None
+    for base, expanded in (("base set", "base set 2"), ("team rocket", "team rocket returns")):
+        if any(_text(term) == base for term in spec["set_terms"]) and _phrase(set_text, expanded):
+            return None
+    allowed_codes = {match.group().casefold() for match in _SET_CODES.finditer(" ".join((*spec["set_terms"], reference["card_number"])))}
+    if any(match.group().casefold() not in allowed_codes for match in _SET_CODES.finditer(str(row.get("title", "")))):
+        return None
+    if (_variant_markers(all_text) - spec["markers"]
+            or any(_explicitly_denies(all_text, _SPECIAL_MARKERS[marker]) for marker in spec["markers"])
+            or _explicitly_denies(title, spec["variant_terms"])):
+        return None
+    known_finish = _listing_finish(row, {**spec, "finish": None})
+    if (known_finish is not None and spec["finish"] in {"normal", "holo", "reverse", "foil"}
+            and known_finish != spec["finish"]):
+        return None
+    # This is only request ordering. Every fetched response is still assessed
+    # independently, without borrowing any missing fact from its summary.
+    return (_matches(row, reference, spec) is None, languages == {spec["language"]},
+            any(all(_phrase(set_text, term) for term in option) for option in options),
+            _listing_finish(row, spec) is not None, _condition_matches(all_text))
+
+
+def item_detail_candidates(reference, summaries, *, limit=MAX_ITEM_DETAILS_PER_CARD):
     """Select bounded discovery IDs, never turn search metadata into evidence.
 
     The unchanged estimator requires the exact card name in the title. Requiring
     its number too avoids spending detail calls on broad same-name matches.
-    Missing language, finish, set and condition may be supplied by getItem;
-    explicit contradictions are still rejected by the final full matcher.
-    Prefer distinct sellers, but do not infer seller identity when absent.
+    Missing language, finish, set and condition may be supplied by getItem.
+    Skip explicit conflicts and rank stronger identity hints first. Prefer
+    distinct sellers, but do not infer seller identity when absent. The default
+    remains six details; a bounded manual probe may request up to 24 within its
+    separate global request budget.
     """
+    if type(limit) is not int or not 1 <= limit <= 24:
+        raise ValueError("Detail candidate limit must be an integer from 1 to 24")
+    spec, reason = _reference_spec(reference)
+    if reason is not None or spec is None:
+        return []
     candidates, seen_items = [], set()
-    for row in summaries:
+    for position, row in enumerate(summaries):
         if not isinstance(row, dict):
             continue
         item_id = row.get("itemId")
         match = re.fullmatch(r"v1\|([1-9][0-9]{0,19})\|(0|[1-9][0-9]{0,19})", item_id or "") if isinstance(item_id, str) else None
         if match is None or match[1] in seen_items:
             continue
-        title = _text(row.get("title"))
-        grade_text = re.sub(r"\bnot(?:\s+professionally)?\s+graded\b", "", title)
-        if (_GRADE_RE.search(grade_text) or str(row.get("conditionId")) == "2750"
-                or _MULTI_RE.search(title)):
-            continue
-        if not all(token in title.split() for token in _text(reference["name"]).split()):
-            continue
-        if not _number_matches(str(row.get("title", "")), "", reference["card_number"]):
+        rank = _summary_rank(row, reference, spec)
+        if rank is None:
             continue
         seen_items.add(match[1])
         seller = row.get("seller")
         username = seller.get("username") if isinstance(seller, dict) else None
         seller_key = username.strip().casefold() if isinstance(username, str) and username.strip() else item_id
-        candidates.append((item_id, seller_key))
+        candidates.append((rank, position, item_id, seller_key))
+    candidates.sort(key=lambda candidate: (tuple(-int(value) for value in candidate[0]), candidate[1]))
     distinct, repeated, seen_sellers = [], [], set()
-    for item_id, seller in candidates:
+    for _, _, item_id, seller in candidates:
         if seller in seen_sellers:
             repeated.append(item_id)
         else:
             seen_sellers.add(seller)
             distinct.append(item_id)
-    return (distinct + repeated)[:MAX_ITEM_DETAILS_PER_CARD]
+    return (distinct + repeated)[:limit]
 
 
 def bounded_item_detail(payload, item_id):
@@ -423,7 +526,8 @@ class SqlBackfillStore:
     async def candidates(self, cursor, scope, limit=100):
         async with self.transaction(readonly=True):
             rows = await self.connection.fetch(CANDIDATES_SQL, *validated_cursor(cursor), limit,
-                                                scope.get("system_code"), scope.get("language"))
+                                                scope.get("system_code"), scope.get("language"),
+                                                scope.get("include_priced", False), scope.get("reference_keys"))
         return [dict(r) for r in rows]
 
     async def quota_budget(self, windows):
@@ -521,7 +625,9 @@ class SqlBackfillStore:
                 reason = None
                 if current is None or identity_fingerprint(dict(current)) != identity_fingerprint(reference):
                     reason = "REFERENCE_IDENTITY_CHANGED"
-                elif not current["needs_price"]:
+                elif current.get("has_current_asking") is True or (not current["needs_price"] and not (
+                        report["scope"].get("include_priced") is True
+                        and current.get("has_current_asking") is False)):
                     reason = "CURRENT_EVIDENCE_ALREADY_AVAILABLE"
                 elif reference_asking_eligibility(dict(current)):
                     reason = "REFERENCE_NO_LONGER_ELIGIBLE"
@@ -690,13 +796,13 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
 
 async def backfill_reference_asking(pool, actor, client=None, *, run=False, apply=False, max_queries=25,
                                     resume_run=None, run_id=None, system_code=None, language=None,
+                                    include_priced=False, reference_keys=None,
                                     postcode=None, checkpoint=lambda report: None, clock=utcnow,
                                     quota_reader=read_browse_quota):
     if type(max_queries) is not int or not 1 <= max_queries <= MAX_DAILY or (apply and not run):
         raise ValueError(f"Use 1..{MAX_DAILY} queries and explicit --run with --apply")
-    if system_code is not None and system_code not in GAMES:
-        raise ValueError("Unsupported system filter")
-    scope = {"system_code": system_code, "language": language}
+    scope = acquisition_scope(system_code=system_code, language=language,
+                              include_priced=include_priced, reference_keys=reference_keys)
     actor = UUID(str(actor))
     run_id = UUID(str(run_id)) if run_id else uuid4()
     resume_run = UUID(str(resume_run)) if resume_run else None
@@ -742,4 +848,5 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
             return await execute_backfill(store, client, report, quota_reader=quota_reader, checkpoint=checkpoint, clock=clock)
         finally:
             await connection.fetchval("select pg_advisory_unlock(hashtextextended($1,0))", LOCK_NAME)
+
 

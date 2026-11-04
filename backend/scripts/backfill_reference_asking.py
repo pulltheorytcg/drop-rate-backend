@@ -6,6 +6,8 @@ The limit counts requests, not cards: a 1000-call run may inspect fewer cards.
 --apply additionally writes
 only validated READY estimates to separate asking history/cache. No scheduling.
 --resume-run skips all previously reserved references, including uncertain calls.
+--include-priced collects overlap evidence beside existing guide prices.
+--reference-key selects an exact reference; repeat for a bounded comparison sample.
 """
 from __future__ import annotations
 
@@ -20,7 +22,7 @@ from uuid import UUID, uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.db import create_pool
 from app.ebay_official_client import EbayOfficialClient
-from app.reference_asking_backfill import GAMES, MAX_DAILY, backfill_reference_asking
+from app.reference_asking_backfill import GAMES, MAX_DAILY, acquisition_scope, backfill_reference_asking
 from app.settings import get_settings
 
 
@@ -36,12 +38,23 @@ def arguments(argv=None):
     parser.add_argument("--resume-run", type=UUID)
     parser.add_argument("--system-code", choices=sorted(GAMES))
     parser.add_argument("--language", choices=("English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese"))
+    parser.add_argument("--include-priced", action="store_true",
+                        help="Also collect Browse evidence for guide-priced references; retain current asking evidence")
+    parser.add_argument("--reference-key", action="append", type=json.loads, default=None,
+                        metavar='["provider","system","language","id"]',
+                        help="Exact reference identity as a JSON array; repeat up to 25 times")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     if not 1 <= args.max_queries <= MAX_DAILY:
         parser.error(f"--max-queries must be 1..{MAX_DAILY}")
     if (args.apply or args.resume_run) and not args.run:
         parser.error("--apply and --resume-run require explicit --run")
+    try:
+        scope = acquisition_scope(system_code=args.system_code, language=args.language,
+                                  include_priced=args.include_priced, reference_keys=args.reference_key)
+        args.reference_key = scope.get("reference_keys")
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.output is not None and args.output.exists():
         parser.error("Output already exists; use a new checkpoint filename")
     return args
@@ -78,7 +91,8 @@ async def run_cli(args):
         pool = await create_pool(settings)
         report = await backfill_reference_asking(pool, actor, client, run=args.run, apply=args.apply,
             max_queries=args.max_queries, resume_run=args.resume_run, system_code=args.system_code,
-            language=args.language, postcode=settings.ebay_origin_postcode, checkpoint=checkpoint)
+            language=args.language, include_priced=args.include_priced, reference_keys=args.reference_key,
+            postcode=settings.ebay_origin_postcode, checkpoint=checkpoint)
     except Exception as exc:
         report = {"status": "FAILED", "run_id": str(args.resume_run or uuid4()),
                   "stop_reason": getattr(exc, "code", "BACKFILL_START_FAILED"), "error_class": type(exc).__name__}
@@ -98,4 +112,5 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 

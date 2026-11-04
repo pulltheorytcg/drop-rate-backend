@@ -10,14 +10,30 @@ from .ebay_uk_parse_adapter import _contains_term, _normalise_text, _parse_mappi
 from .market_adapters import NormalizedMarketObservation, stable_source_record_key
 
 
-_RAW_GRADED_TERMS = ("psa", "cgc", "bgs", "beckett", "graded", "slab")
+_RAW_GRADED_TERMS = ("psa", "cgc", "bgs", "beckett", "sgc", "graded", "slab")
 _EXPLICIT_MULTI_ITEM_TERMS = ("bundle", "job lot", "playset", "lot of")
 _QUANTITY_RE = re.compile(r"\b(?:x\s*([2-9]\d*)|([2-9]\d*)\s*x)\b", re.IGNORECASE)
 _NUMERIC_CARD_NUMBER_RE = re.compile(r"\b\d{1,4}\s*/\s*\d{1,4}\b", re.IGNORECASE)
 _CODE_CARD_NUMBER_RE = re.compile(r"\b(?:OP|ST|EB|PRB|P|DON|FB|FS|BT|EX|TB|SD|DB|MANGA)[A-Z0-9]{0,3}-\d{2,4}\b", re.IGNORECASE)
+_ITEM_ID_RE = re.compile(r"v1\|[1-9][0-9]{0,19}\|(?:0|[1-9][0-9]{0,19})")
+_LANGUAGE_ALIASES = {
+    "English": ("english", "eng", "en"),
+    "Japanese": ("japanese", "jpn", "jp"),
+    "French": ("french", "francais", "français"),
+    "German": ("german", "deutsch"),
+    "Italian": ("italian", "italiano"),
+    "Spanish": ("spanish", "espanol", "español"),
+    "Portuguese": ("portuguese",),
+    "Korean": ("korean",),
+    "Chinese": ("chinese",),
+    "Dutch": ("dutch",),
+}
+_MAX_PRICE_MAJOR = Decimal("10000000000")
 
 
-def _money_minor(money: object, *, expected_currency: str = "GBP") -> int | None:
+def _money_minor(
+    money: object, *, expected_currency: str = "GBP", allow_zero: bool = False,
+) -> int | None:
     if not isinstance(money, dict):
         return None
     currency = money.get("currency")
@@ -26,11 +42,12 @@ def _money_minor(money: object, *, expected_currency: str = "GBP") -> int | None
         return None
     try:
         amount = Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError):
+        if not amount.is_finite() or amount < 0 or amount > _MAX_PRICE_MAJOR:
+            return None
+        minor = int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, TypeError, ValueError, OverflowError):
         return None
-    if amount <= 0:
-        return None
-    return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return minor if minor > 0 or (allow_zero and amount == 0) else None
 
 
 def _shipping_minor(row: dict[str, Any]) -> int | None:
@@ -42,7 +59,7 @@ def _shipping_minor(row: dict[str, Any]) -> int | None:
     for option in options:
         if not isinstance(option, dict):
             continue
-        amount = _money_minor(option.get("shippingCost"))
+        amount = _money_minor(option.get("shippingCost"), allow_zero=True)
         if amount is not None:
             values.append(amount)
     return min(values) if values else None
@@ -53,9 +70,74 @@ def _condition(row: dict[str, Any]) -> str | None:
     if not isinstance(value, str):
         return None
     normalized = _normalise_text(value)
-    if "near mint" in normalized:
-        return "Near Mint"
+    for label in ("Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"):
+        if _contains_term(normalized, label):
+            return label
     return None
+
+
+def _listing_language(row: dict[str, Any]) -> tuple[str | None, bool]:
+    """Return observed language, retaining unknown and rejecting ambiguity.
+
+    A verified search mapping describes the target, not the returned listing.
+    Language must therefore come from listing aspects or an explicit title
+    marker; a UK item location or English seller title does not prove it.
+    """
+    values = [row.get("title")]
+    aspects = row.get("localizedAspects")
+    if isinstance(aspects, list):
+        values.extend(
+            aspect.get("value") for aspect in aspects
+            if isinstance(aspect, dict)
+            and _normalise_text(aspect.get("name")) == "language"
+        )
+    languages = {
+        language for language, aliases in _LANGUAGE_ALIASES.items()
+        if any(
+            isinstance(value, str)
+            and any(re.search(r"(?<!\w)" + re.escape(alias) + r"(?!\w)", value, re.IGNORECASE)
+                    for alias in aliases)
+            for value in values
+        )
+    }
+    return (next(iter(languages)) if len(languages) == 1 else None, len(languages) > 1)
+
+
+def _listing_grades(title: str, company: str) -> set[Decimal]:
+    # Bind the decimal grade to its grading company; token matching would let
+    # a PSA 9.5 match PSA 9, or take 9 from a collector number elsewhere.
+    pattern = (
+        r"\b" + re.escape(company)
+        + r"[\s:=-]*(?:(?:graded|grade|gem\s+mint|mint|pristine)\s+)*"
+        + r"(\d{1,2}(?:\.\d)?)(?![\d./])\b"
+    )
+    return {Decimal(value) for value in re.findall(pattern, title, re.IGNORECASE)}
+
+
+def _grade_matches(title: str, company: str, grade: str) -> bool:
+    try:
+        target = Decimal(grade)
+        grades = _listing_grades(title, company)
+    except InvalidOperation:
+        return False
+    return target.is_finite() and grades == {target}
+
+
+def _active_fixed_price(row: dict[str, Any], retrieved_at: datetime) -> bool:
+    options = row.get("buyingOptions")
+    if not isinstance(options, list) or "FIXED_PRICE" not in options:
+        return False
+    end = row.get("itemEndDate")
+    if end is not None:
+        if not isinstance(end, str):
+            return False
+        try:
+            ended_at = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            if ended_at.utcoffset() is None or ended_at <= retrieved_at:
+                return False
+        except ValueError:
+            return False
+    return row.get("estimatedAvailabilityStatus") not in ("OUT_OF_STOCK", "UNAVAILABLE")
 
 
 def _variant_matches(title: object, source_variant_id: str | None) -> bool:
@@ -138,14 +220,21 @@ def _matches_listing(
             return False
 
     if spec.get("grading_company"):
-        if not _contains_term(normalized_title, spec["grading_company"]):
+        if not _grade_matches(title, spec["grading_company"], spec["grade"]):
             return False
-        if not _contains_term(normalized_title, spec.get("grade")):
+        if any(
+            _listing_grades(title, other)
+            for other in ("PSA", "CGC", "BGS", "BECKETT", "SGC", "ACE")
+            if other != spec["grading_company"]
+            and {other, spec["grading_company"]} != {"BGS", "BECKETT"}
+        ):
             return False
     else:
         for term in _RAW_GRADED_TERMS:
             if _contains_term(normalized_title, term):
                 return False
+        if re.search(r"\bACE\s*\d", title, re.IGNORECASE):
+            return False
 
     return _variant_matches(title, source_variant_id)
 
@@ -178,6 +267,7 @@ class EbayOfficialBrowseAdapter:
             limit=50,
             category_id=spec["category_id"],
             item_location_country="GB",
+            fixed_price_only=True,
         )
         rows = payload.get("itemSummaries", [])
         if rows is None:
@@ -187,9 +277,22 @@ class EbayOfficialBrowseAdapter:
 
         retrieved_at = datetime.now(timezone.utc)
         observations: dict[str, NormalizedMarketObservation] = {}
-
+        by_item_id: dict[str, dict[str, Any]] = {}
+        conflicted_ids: set[str] = set()
         for row in rows:
             if not isinstance(row, dict):
+                continue
+            item_id = row.get("itemId")
+            if not isinstance(item_id, str) or not _ITEM_ID_RE.fullmatch(item_id):
+                continue
+            # Repeated search rows are one listing. Conflicting representations
+            # of the same ID are ambiguous; none should affect this snapshot.
+            if item_id in by_item_id and by_item_id[item_id] != row:
+                conflicted_ids.add(item_id)
+            by_item_id[item_id] = row
+
+        for item_id, row in by_item_id.items():
+            if item_id in conflicted_ids or not _active_fixed_price(row, retrieved_at):
                 continue
             if not _matches_listing(
                 row.get("title"),
@@ -202,11 +305,20 @@ class EbayOfficialBrowseAdapter:
             if price_minor is None:
                 continue
 
-            item_id = str(row.get("itemId") or "").strip()
-            if not item_id:
+            language, language_conflict = _listing_language(row)
+            target_language = spec["language"]
+            if language_conflict:
                 continue
+            if target_language and language:
+                target_aliases = _LANGUAGE_ALIASES.get(language, (language.casefold(),))
+                if target_language.casefold() not in {language.casefold(), *target_aliases}:
+                    continue
 
+            # Item summaries must explicitly retain where the item is located;
+            # a GB marketplace or query filter alone cannot establish this.
             item_location = row.get("itemLocation")
+            if not isinstance(item_location, dict):
+                continue
             source_country = None
             if isinstance(item_location, dict):
                 country = item_location.get("country")
@@ -238,7 +350,7 @@ class EbayOfficialBrowseAdapter:
                 condition=_condition(row),
                 grading_company=spec["grading_company"],
                 grade=spec["grade"],
-                language=spec["language"],
+                language=language,
                 source_country="GB",
                 sample_size=1,
                 evidence_quality=0.75,
@@ -252,6 +364,10 @@ class EbayOfficialBrowseAdapter:
                     "forbidden_title_terms": spec["forbidden_title_terms"],
                     "source_variant_id": source_variant_id,
                     "provider_item_id": item_id,
+                    "item_location_country": source_country,
+                    "shipping_known": shipping_minor is not None,
+                    "price_basis": "ITEM_ONLY",
+                    "language_verified": language is not None,
                     "url": row.get("itemWebUrl"),
                     "title": row.get("title"),
                     "buying_options": row.get("buyingOptions"),
