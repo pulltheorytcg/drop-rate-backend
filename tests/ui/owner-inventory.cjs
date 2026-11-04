@@ -33,6 +33,8 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(values.querySelector('details').open,false);
   assert.doesNotMatch(f.w.document.querySelector('.owner-item-dialog').textContent,/Recommended retail|Suggested retail|Guide estimate|£99.00/i);
   assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,saved==null?'12.00':'20.00');
+  assert.equal(f.w.document.querySelectorAll('[data-listing-step]').length,4);
+  assert.equal(f.w.document.querySelector('[data-recommended-retail]'),null);
   assert.equal(f.calls.filter(call=>call.method&&call.method!=='GET').length,0);
   f.finish();checks++;
  }

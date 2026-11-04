@@ -559,7 +559,7 @@ window.DropRateInventory = (() => {
     return [];
   }
 
-  function installListingFlow(item, sale, {saleCondition,priceInput,priceLabel,recommendationNote,save,actions}) {
+  function installListingFlow(item, sale, {saleCondition,priceInput,priceLabel,priceBasisNote,save,actions}) {
     const summary=sale.querySelector("summary"), existing=[...sale.children].filter(child=>child!==summary);
     const flow=el("div","owner-listing-flow"),nav=el("nav","owner-listing-steps");nav.setAttribute("aria-label","Listing preparation steps");
     const stages=[["condition","Item"],["preparation","Preparation"],["price","Price"],["review","Review"]];
@@ -592,7 +592,7 @@ window.DropRateInventory = (() => {
       }remaining.append(checks);
     }
     panels.preparation.append(remaining);
-    panels.price.append(el("h3","","Set your selling price"),recommendationNote,priceLabel,save,
+    panels.price.append(el("h3","","Set your selling price"),priceBasisNote,priceLabel,save,
       el("p","owner-item-note","Commission is based on the item sale price after discounts. Your purchase cost is optional and only affects profit tracking. Final proceeds also reflect any applicable fees and deductions."));
     const reviewHeading=el("h3","","Review your listing"),reviewFacts=el("dl","owner-listing-review-facts");
     const comicStatus = item.product_type === "COMIC" && item.status !== "APPROVED" ? el("div") : null;
@@ -982,7 +982,7 @@ window.DropRateInventory = (() => {
     content.insertBefore(values, facts);
     content.insertBefore(stock, facts);
     stock.classList.add("owner-item-stock");
-    installListingFlow(item,sale,{saleCondition,priceInput,priceLabel,recommendationNote,save,actions});
+    installListingFlow(item,sale,{saleCondition,priceInput,priceLabel,priceBasisNote,save,actions});
   }
   return {image, open, close, reset: () => close(true)};
 })();

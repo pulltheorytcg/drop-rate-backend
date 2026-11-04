@@ -170,6 +170,8 @@ async def test_inventory_uses_exact_verified_mirror_before_provider(delivery):
 @pytest.mark.asyncio
 @pytest.mark.parametrize('reason', ['missing', 'disabled', 'unconfigured', 'outage', 'corrupt'])
 async def test_missing_or_unavailable_mirror_keeps_original_provider_fallback(delivery, monkeypatch, reason):
+    from app import r2_media
+
     if reason == 'missing':
         delivery.mirrors = []
     elif reason == 'disabled':
