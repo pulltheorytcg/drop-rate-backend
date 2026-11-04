@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.settings import get_settings
 
 
 TOKEN = b"0ff393a7-a26d-4b6c-aa32-a949a3890afd"
@@ -15,8 +16,17 @@ def test_riot_verification_file_is_exact_bytes_without_newline() -> None:
     assert len(TOKEN) == 36
 
 
-def test_riot_verification_public_root_endpoint() -> None:
-    app = create_app()
+def test_riot_verification_public_root_endpoint(monkeypatch) -> None:
+    # Test with inert credentials. No startup or database connection occurs.
+    monkeypatch.setenv("TCG_DATABASE_URL", "postgresql://invalid.example/unused")
+    monkeypatch.setenv("TCG_AUTH_ISSUER", "https://example.supabase.co/auth/v1")
+    monkeypatch.setenv("TCG_AUTH_AUDIENCE", "authenticated")
+    monkeypatch.setenv("TCG_SUPABASE_PUBLISHABLE_KEY", "test-only-public-key")
+    get_settings.cache_clear()
+    try:
+        app = create_app()
+    finally:
+        get_settings.cache_clear()
     client = TestClient(app, raise_server_exceptions=True)
     response = client.get("/riot.txt")
     assert response.status_code == 200
