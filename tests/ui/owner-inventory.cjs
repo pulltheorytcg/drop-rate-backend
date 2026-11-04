@@ -823,7 +823,10 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.deepEqual(Object.keys(stored).sort(),['condition','price','step','version']);
   assert.doesNotMatch(f.w.document.querySelector('.owner-item-dialog').textContent,/private note|private-image|must-not-persist/);
   f.w.DropRateInventory.close();f.setItem({version:4});await f.w.DropRateInventory.open({...item,version:4},{selling:true});
-  assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'');
+  // An outdated draft is discarded; fresh market evidence supplies the new default.
+  assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'8.66');
+  assert.equal(f.w.document.querySelector('[data-listing-step="condition"]').hidden,false);
+  assert.equal(f.calls.filter(call=>call.method&&call.method!=='GET').length,0);
   f.finish();checks++;
  }
  // Late-loading Home integration can replay only the current account's cached overview.
