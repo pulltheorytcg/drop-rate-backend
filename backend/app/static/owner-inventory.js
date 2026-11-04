@@ -54,13 +54,14 @@ window.DropRateInventory = (() => {
   const price = minor => minor == null ? "Value unavailable" : formatMoney(minor);
 
   function image(item, cls) {
+    const graded = [item.grading_company, item.grade, item.certificate_number].some(value => String(value || "").trim());
     const wrap = el("div", cls), placeholder = el("span", "owner-image-placeholder", "Loading image…");
     const img = el("img");
-    img.alt = `${item.name || "Inventory item"} reference image`;
+    img.alt = `${item.name || "Inventory item"} ${graded ? "slab photo" : "reference image"}`;
     img.loading = "lazy"; img.decoding = "async"; img.referrerPolicy = "no-referrer";
     wrap.append(placeholder, img);
     const owner = account(), attempts = [];
-    const community = window.DropRateBookArtwork?.reference(item, cls === "owner-item-art");
+    const community = !graded && window.DropRateBookArtwork?.reference(item, cls === "owner-item-art");
     const inventoryId = item.inventory_id || item.id;
     const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inventoryId || "");
     const directUrl = (value) => {
@@ -73,17 +74,18 @@ window.DropRateInventory = (() => {
     };
     // Same delivery route as Founder HQ; a provider's public URL need not work
     // in a browser. Send credentials ONLY to our owned-item API, never a CDN.
-    const direct = directUrl(item.image_url);
+    const slabPhoto = item.card_image_scope === "INVENTORY_ITEM" && item.card_image_capture_context === "GRADED_SLAB";
+    const direct = (!graded || slabPhoto) && directUrl(item.image_url);
     if (direct) attempts.push({url: direct});
     // The shared proxy is for assigned physical/canonical media only. If a
     // copy has no assigned asset, calling it for every card repeats ownership
     // and exact-reference lookups (often ending in a legitimate 404). Prefer
     // the already-resolved exact reference below, without guessing artwork.
-    if (validId && item.image_url) attempts.push({path: `/api/v1/inventory/${inventoryId}/image`});
-    const reference = directUrl(item.reference_image_url);
+    if (validId && (item.image_url || graded)) attempts.push({path: `/api/v1/inventory/${inventoryId}/image`});
+    const reference = !graded && directUrl(item.reference_image_url);
     if (reference && reference !== direct) attempts.push({url: reference});
     const referencePath = `/api/v1/owner/inventory/${inventoryId}/reference-image`;
-    if (validId && item.reference_image_path === referencePath) attempts.push({path: referencePath});
+    if (!graded && validId && item.reference_image_path === referencePath) attempts.push({path: referencePath});
     if (community) {
       attempts.push({url: community.image_url});
       if (!item.image_url && !item.reference_image_path && cls !== "owner-item-art") {
@@ -93,7 +95,7 @@ window.DropRateInventory = (() => {
     let index = 0, objectUrl = null, loading = false, started = false;
     const current = () => owner === account() && wrap.isConnected;
     const release = () => {if (objectUrl) {URL.revokeObjectURL(objectUrl); objectUrl = null;}};
-    const unavailable = () => {release(); img.remove(); placeholder.textContent = "Image unavailable"; placeholder.hidden = false;};
+    const unavailable = () => {release(); img.remove(); placeholder.textContent = graded ? (slabPhoto ? "Slab photo unavailable" : "Slab photo required") : "Image unavailable"; placeholder.hidden = false;};
     async function next() {
       if (loading || !current()) return;
       release();
@@ -648,7 +650,10 @@ window.DropRateInventory = (() => {
     dialog.classList.toggle("is-listing",listingIntent);
     dialog.querySelector("#owner-item-title").textContent=listingIntent?"Prepare listing":"Item details";
     const hero = el("section", "owner-item-hero"), figure = el("figure");
-    figure.append(image(item, "owner-item-art"), el("figcaption", "", item.image_url ? "Item image" : "Reference image · not a photo of your copy"));
+    const gradedImage = [item.grading_company, item.grade, item.certificate_number].some(value => String(value || "").trim());
+    figure.append(image(item, "owner-item-art"), el("figcaption", "", gradedImage
+      ? (item.card_image_scope === "INVENTORY_ITEM" && item.card_image_capture_context === "GRADED_SLAB" ? "Your slab photo" : "Add a photo of this slab")
+      : item.image_url ? "Item image" : "Reference image · not a photo of your copy"));
     const community = window.DropRateBookArtwork?.reference(item, true);
     if (community && !item.image_url && !item.reference_image_path) figure.append(window.DropRateBookArtwork.credit(community));
     const identity = el("div");
@@ -994,4 +999,5 @@ window.DropRateInventory = (() => {
   }
   return {image, open, close, reset: () => close(true)};
 })();
+
 

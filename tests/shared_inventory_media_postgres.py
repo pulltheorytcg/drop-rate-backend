@@ -41,7 +41,7 @@ async def main():
           create table tcg.owner_memberships(id uuid primary key default gen_random_uuid(),user_id uuid,owner_id uuid references tcg.owners,role text,active bool default true,created_at timestamptz default now());
           create function tcg.current_user_id() returns uuid language sql stable as $$select nullif(current_setting('tcg.user_id',true),'')::uuid$$;
           create table tcg.catalogue_products(id uuid primary key, name text,language text,variant text);
-          create table tcg.inventory_items(id uuid primary key,owner_id uuid references tcg.owners,catalogue_id uuid references tcg.catalogue_products,language text);
+          create table tcg.inventory_items(id uuid primary key,owner_id uuid references tcg.owners,catalogue_id uuid references tcg.catalogue_products,language text,grading_company text,grade text,certificate_number text);
           create table tcg.audit_events(actor text,request_id text,action text,entity_type text,entity_id uuid,old_values jsonb,new_values jsonb);
           grant usage on schema tcg to tcg_api;
           grant select on all tables in schema tcg to tcg_api;
@@ -66,7 +66,7 @@ async def main():
             await db.execute("insert into tcg.catalogue_products values($1,$2,'Japanese','Foil')",product,name)
         copies = {(n,p): uuid4() for n in range(3) for p in (card,pack)}
         for (n,p), item in copies.items():
-            await db.execute("insert into tcg.inventory_items values($1,$2,$3,'Japanese')",item,owners[n],p)
+            await db.execute("insert into tcg.inventory_items(id,owner_id,catalogue_id,language) values($1,$2,$3,'Japanese')",item,owners[n],p)
         async def asset(scope, product=None, inventory=None, language='Japanese',variant='Foil',approval='APPROVED',source='ACTIVE',suffix='card'):
             return await db.fetchval('''insert into tcg.media_assets(owner_id,catalogue_id,inventory_id,scope,source_type,source_reference,public_source_url,rights_status,rights_basis,approval_status,alt_text,created_by_user_id,approved_by_user_id,approved_at,rights_tier,source_provider,media_language,media_variant,source_status)
               values($1,$2,$3,$4,'OFFICIAL_PROVIDER','synthetic fixture',$5,'VERIFIED','Synthetic test permission',$6,'Test image',$7,$7,now(),$8,'Test source',$9,$10,$11) returning id''',owners[0],product,inventory,scope,f'https://www.onepiece-cardgame.com/{suffix}.png',approval,actors[0],'FIRST_PARTY_CAPTURE' if inventory else 'STOREFRONT_ALLOWED',language,variant,source)
@@ -130,6 +130,19 @@ async def main():
                 assert len(outbound)==6, 'Denied requests must not fetch anything'
         for t,rows in before.items():assert rows==await db.fetch(f'select * from tcg.{t} order by id')
         assert audit_before==await db.fetch('select * from tcg.audit_events')
+        # Exact owned slab only; catalogue art and another owner's slab cannot
+        # fill a missing or failed slab image, including incomplete grade data.
+        await db.execute("update tcg.inventory_items set grading_company='PSA',grade='10' where id=any($1::uuid[])",[copies[0,card],copies[1,card]])
+        await db.execute("update tcg.media_assets set capture_context='GRADED_SLAB' where id=$1",physical)
+        async with real_client(transport=httpx.ASGITransport(app=app),base_url='http://app.test') as client:
+            with patch.object(auth,'get_settings',return_value=settings),patch.object(api.httpx,'AsyncClient',side_effect=provider_client):
+                visible=await client.get(f'/api/v1/inventory/{copies[0,card]}/image',headers=headers(0))
+                assert visible.status_code==200 and visible.headers['x-drop-rate-media-id']==str(physical)
+                assert (await client.get(f'/api/v1/inventory/{copies[1,card]}/image',headers=headers(1))).status_code==404
+                await db.execute("update tcg.inventory_items set grading_company=null,grade=null,certificate_number='12345678' where id=$1",copies[1,card])
+                assert (await client.get(f'/api/v1/inventory/{copies[1,card]}/image',headers=headers(1))).status_code==404
+                await db.execute("update tcg.media_assets set capture_context='RAW_CARD' where id=$1",physical)
+                assert (await client.get(f'/api/v1/inventory/{copies[0,card]}/image',headers=headers(0))).status_code==404
         await db.execute('update tcg.owner_memberships set active=false where user_id=$1',actors[2])
         async with user_connection(pool,actors[2],'revoked') as c:
             assert await c.fetchval('select count(*) from tcg.media_assets where id=$1',pack_media)==0
@@ -141,3 +154,4 @@ async def main():
         if server: await asyncio.to_thread(server.shutdown);server.server_close()
 
 if __name__=='__main__': asyncio.run(main())
+

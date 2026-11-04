@@ -13,7 +13,7 @@ from uuid import UUID
 # A failed CDN can fall back to the same eligible asset's original URL. Reference
 # library artwork is a separate non-publication fallback in the shared route.
 MEDIA_SQL = """
-select i.id as inventory_id,ma.id,ma.scope,ma.approval_status,ma.source_provider,
+select i.id as inventory_id,ma.id,ma.scope,ma.capture_context,ma.approval_status,ma.source_provider,
  ma.shopify_cdn_url,ma.public_source_url,ma.created_at
 from tcg.inventory_items i
 join tcg.catalogue_products p on p.id=i.catalogue_id
@@ -26,6 +26,9 @@ join tcg.media_assets ma on (
    and lower(btrim(coalesce(ma.media_variant,'')))=lower(btrim(coalesce(p.variant,''))))
 )
 where i.id=any($1::uuid[]) and ma.side='FRONT' and ma.media_kind='IMAGE'
+ and (coalesce(nullif(btrim(i.grading_company),''),nullif(btrim(i.grade),''),nullif(btrim(i.certificate_number),'')) is null
+   or (ma.scope='INVENTORY_ITEM' and ma.inventory_id=i.id and ma.owner_id=i.owner_id
+       and ma.capture_context='GRADED_SLAB'))
  and ma.source_status='ACTIVE' and ma.rights_status='VERIFIED'
  and ma.approval_status in ('PENDING','APPROVED') and ma.revoked_at is null
  and coalesce(nullif(btrim(ma.shopify_cdn_url),''),nullif(btrim(ma.public_source_url),'')) is not null
@@ -34,6 +37,11 @@ order by i.id,case when ma.scope='INVENTORY_ITEM' then 0 else 1 end,
  case when nullif(btrim(ma.shopify_cdn_url),'') is not null then 0 else 1 end,
  ma.created_at desc,ma.id
 """
+
+
+def is_graded_item(item):
+    """Incomplete grading details still cannot authorize raw artwork."""
+    return any(str(item.get(key) or '').strip() for key in ('grading_company', 'grade', 'certificate_number'))
 
 
 def direct_image_url(value):
@@ -61,6 +69,12 @@ async def add_shared_inventory_media(connection, items):
         best.setdefault(str(row['inventory_id']), dict(row))
     for item in items:
         asset = best.get(str(item.get('id')))
+        graded = is_graded_item(item)
+        if graded:
+            item.pop('reference_image_url', None)
+            item.pop('reference_image_path', None)
+            if asset and (asset.get('scope') != 'INVENTORY_ITEM' or asset.get('capture_context') != 'GRADED_SLAB'):
+                asset = None
         url = (asset.get('shopify_cdn_url') or asset.get('public_source_url')) if asset else None
         # Never leave the older endpoint's broader/pending image selection in
         # the response when this shared resolver deliberately rejects it.
@@ -70,7 +84,9 @@ async def add_shared_inventory_media(connection, items):
         item['card_image_cdn_url'] = item['card_image_direct_url']
         item['card_image_approval_status'] = asset.get('approval_status') if asset else None
         item['card_image_scope'] = asset.get('scope') if asset else None
+        item['card_image_capture_context'] = asset.get('capture_context') if asset else None
         item['card_image_source_provider'] = asset.get('source_provider') if asset else None
         item['reference_image_status'] = ('COPY_PHOTO' if asset and asset['scope']=='INVENTORY_ITEM'
-            else 'AVAILABLE' if asset or item.get('reference_image_url') else 'UNAVAILABLE')
+            else 'AVAILABLE' if asset or item.get('reference_image_url') else 'SLAB_PHOTO_REQUIRED' if graded else 'UNAVAILABLE')
     return items
+
