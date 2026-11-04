@@ -14,10 +14,56 @@ There is no bulk insert into SQL reference-card, set or market tables and no new
 database migration. The existing source registry and owner-bound intake flows are
 reused. Existing Pokémon, One Piece, Dragon Ball and Naruto feeds are unchanged.
 
+## Production checkpoint — 4 November 2026
+
+The metadata expansion merged in PR #892. The deployment-lock handover fix in
+PR #893 merged as `684acf69f304054b1c04f0cfb5d1fbf129f27207` after all three
+applicable GitHub workflows and six jobs passed. Railway deployment
+`09bc2af1-11c7-4333-ba41-79059fa06e12` reached `SUCCESS` at 11:51 UTC; its
+pre-deploy suite reported 9,799 passed and 25 optional tests skipped. The public
+readiness endpoint returned HTTP 200 with the database connected.
+
+The 11:51 UTC runtime receipts confirmed the four existing generation-1
+partitions were `CURRENT`. Magic then published successfully at 11:56 UTC.
+An independent 11:57 UTC SQL readback confirmed all five active partitions:
+
+| Provider | Stored references | Released/search-eligible references | Released sets | Status |
+| --- | ---: | ---: | ---: | --- |
+| YGOPRODeck | 45,215 | 45,215 | 1,053 | Published; unchanged |
+| Lorcast | 3,505 | 3,505 | 26 | Published; unchanged |
+| Card Collector Capital | 1,722 | 1,722 | 3 | Published; selected checklists only |
+| Reviewed figures | 4 | 4 | 3 | Published; curated Funko starter only |
+| MTGJSON | 153,662 | 151,613 | 669 | Newly published; English paper printings/finishes |
+
+Magic's production receipt records `cold_search_verified=true`, generation 1,
+93,973,955 raw bytes and `sql_bulk_rows_written=0`. Its manifest digest is
+`be5af5e84d3a10bcac32a996f0dc8779fdf33c95fac89669381a8bbd32fcad28`.
+The immutable upload, readback and cold search reconstruction completed before
+the approved SQL pointer changed. Its 2,049 future-release records are stored but
+intentionally excluded from current search; they are not missing import rows.
+The five R2 partitions total 204,108 source records, including 202,059 currently
+released/search-eligible records, and 119,677,864 raw bytes. These are source references,
+not deduplicated physical inventory. The importer lock was released afterwards.
+The prior interruption did not delete or roll back the existing partitions.
+
+The SQL baseline remains 69,697 reference cards, 1,472 reference sets and
+430,214,291 database bytes. This rollout has not freed existing SQL space or
+overridden the separate 400,000,000-byte bulk-refresh guard. No ownership,
+inventory, price-history, settlement or payment rows are changed by these imports.
+
+The serving process's reader cache and authenticated device acceptance remain
+separate from the verified cold-search publication receipt. No signed-in Magic
+browse or successful reader-prewarm completion was independently observed in
+this checkpoint; the loader does not currently emit a success event.
+This checkpoint does not claim new artwork, market values or scanner support.
+The separate operations-monitor timeout incident and dashboard-insights error
+are not fixed by the importer handover change.
+
 ## Reviewed sources and measured scope
 
-These are successful local source/codec dry-runs, **not production publication
-receipts**. Live availability must be checked after the gated release below.
+This table records successful pre-release source/codec dry-runs, **not production
+publication receipts**. Current production publication and acceptance status is
+recorded in the checkpoint above; the rollout procedure below remains reusable.
 
 | Source | Reviewed scope | Verified records | Permission and limitations |
 | --- | --- | ---: | --- |

@@ -19,24 +19,50 @@
   release gates; signed-in visual acceptance is recorded separately.
 - See [design, security and rollback](docs/UNIFIED_FOUNDER_HUB_20261104.md).
 
-## 4 November 2026 — More R2-first catalogues (tested locally; production release pending)
+## 4 November 2026 — R2-first catalogues (five partitions published; device acceptance pending)
 
-- New reviewed metadata adapters: Lorcast (3,505 English printings), MTGJSON
+- PR #892's reviewed expansion is deployed. PR #893's rolling-deployment lock
+  handover fix merged as `684acf69f304054b1c04f0cfb5d1fbf129f27207` after three
+  applicable GitHub workflows/six jobs passed. Exact Railway deployment
+  `09bc2af1-11c7-4333-ba41-79059fa06e12` reached `SUCCESS` at 11:51 UTC;
+  pre-deploy tests: 9,799 passed, 25 optional skips; readiness HTTP 200.
+- SQL readback and runtime receipts confirm 45,215 Yu-Gi-Oh!, 3,505 Lorcana,
+  1,722 selected sports-checklist and four curated Funko references in private
+  R2. Magic published at 11:56 UTC: 153,662 stored English paper printing/finish
+  references, 151,613 released/search-eligible across 669 sets; 2,049 future-release
+  records remain intentionally hidden from current search. Its immutable upload,
+  readback and cold-search reconstruction passed before generation 1 was activated.
+  All five partitions were independently read back from SQL at 11:57 UTC.
+- Total new-path R2 scope: 204,108 stored source records / 202,059 currently
+  released/search-eligible records, 119,677,864 raw bytes. These are reference facts,
+  not physical stock or comprehensive sports/Funko coverage. A signed-in Magic
+  browse and the serving reader cache remain separate acceptance checks.
+- SQL reference tables remain 69,697 cards / 1,472 sets; database size remains
+  430,214,291 bytes. No bulk SQL catalogue insert, cleanup/deletion, capacity
+  override or ownership/financial mutation. Artwork/values remain absent where
+  unsupported; authenticated device acceptance and the separate operations
+  monitor/insights errors remain open checks.
+
+- Pre-release validation evidence: Lorcast (3,505 English printings), MTGJSON
   (153,662 English paper printing/finish records), Card Collector Capital
   (1,722 entries from three selected Bowman checklists), and four individually
-  reviewed Funko product references. These counts are verified dry-runs, not a
-  claim of live import. Existing Good Smile and sports records are preserved.
+  reviewed Funko product references. The current publication receipts above
+  supersede those dry-run-only statuses. Existing Good Smile and sports records
+  are preserved.
 - No artwork or market values are inferred; partial sports/figure identity needs
   seller confirmation. Attribution and source coverage are visible in the app.
   Riftbound remains gated on Riot approval; no restricted Funko feed is used.
 - Private R2 holds reference metadata; PostgreSQL retains audited publication
   pointers, approved canonical identity, all ownership and financial records.
   No bulk reference-table inserts or database-capacity guard override.
-- Full CI, exact Railway commit, verified publication/readback and authenticated
-  browse are separate release gates. See
+- CI, exact-commit Railway deployment and all five publication/readback gates
+  have passed; serving-reader and authenticated device acceptance remain open. See
   [scope, permissions, bounds and rollout](docs/R2_CATALOGUE_EXPANSION_20261104.md).
 
 ## 3 November 2026 — Direct-to-R2 catalogue expansion (in review; activation gated)
+
+Historical checkpoint; current rollout status is recorded in the 4 November
+R2-first catalogue checkpoint above.
 
 - New metadata catalogues ingest straight into private R2; no bulk insert into
   Supabase reference cards/sets/quotes. PostgreSQL retains the approved version
