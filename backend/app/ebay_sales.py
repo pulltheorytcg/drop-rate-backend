@@ -238,10 +238,29 @@ def _ebay_description(item: dict[str, Any]) -> str:
     return "\n".join(facts)
 
 
+def _ebay_card_name(item: dict[str, Any]) -> str:
+    """Fit eBay's 65-character specific; retain full identity in description."""
+    name = str(item.get("name") or "").strip()
+    if len(name) <= 65:
+        return name
+    number = str(item.get("card_number") or "").strip()
+    if number:
+        # Catalogue titles can repeat the separately supplied Card Number before
+        # a campaign/variant suffix. Remove only that exact redundant segment.
+        prefix, separator, suffix = name.partition(f" - {number}")
+        if separator and (not suffix or suffix.startswith(" (")):
+            name = prefix + suffix
+    if len(name) > 65:
+        name = name[:65].rstrip()
+        if " " in name:
+            name = name.rsplit(" ", 1)[0]
+    return name
+
+
 def _ebay_aspects(item: dict[str, Any]) -> dict[str, list[str]]:
     rows = {
         "Game": item.get("game"),
-        "Card Name": item.get("name"),
+        "Card Name": _ebay_card_name(item),
         "Set": item.get("set_name"),
         "Card Number": item.get("card_number"),
         "Language": item.get("language"),

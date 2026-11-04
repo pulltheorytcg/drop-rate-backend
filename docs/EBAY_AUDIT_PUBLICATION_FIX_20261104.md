@@ -87,3 +87,15 @@ and parameters. Raw provider prose, parameter values, addresses, email addresses
 tokens and IDs are still never logged. These labels are diagnostic clues, not
 authoritative field corrections; actual inventory facts and eBay requirements
 must determine any repair. Tests verify static-only output and malformed bodies.
+
+PR #901 deployed as `9669da90` (Railway
+`9ba02a1c-90ae-4547-9654-427a455074df`). The next controlled test isolated the
+error to `publish`, with only `length` and `card_name` hints. The canonical name
+is 66 characters; eBay's standard item-specific value limit is 65. The payload
+now removes the exact repeated card-number segment from an overlength Card Name
+when the catalogue's separator/suffix pattern permits it. Longer remaining names
+are bounded at a word boundary, while complete canonical identity remains in the
+description and database and the separate Card Number is unchanged. Valid-length
+names, owner, quantity, photos, price and graded descriptors are unchanged.
+Regression tests cover the actual 66-character case, the 65-character boundary,
+Unicode, longer names and identifier-prefix collisions. Live retest remains pending.
