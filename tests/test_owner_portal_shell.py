@@ -17,8 +17,8 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=unified-founders-20261104" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=books-v4" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=market-values-20261104" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=market-values-20261104" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -64,7 +64,7 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
     assert 'href="/assets/owner-inventory.css?v=review-20261103"' in html
-    assert 'src="/assets/owner-inventory.js?v=uk-eu-pricing-20261104"' in html
+    assert 'src="/assets/owner-inventory.js?v=market-values-20261104"' in html
 
 
 def test_shared_portal_requires_owner_or_verified_founder() -> None:
@@ -320,8 +320,8 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
     assert "present: detected?.present === true" in legacy
     assert "batch.absenceFrames >= 3" in legacy
     assert "|| deviation >= 0.18" not in legacy
-    assert 'src="/assets/scanner-flow.js?v=scan-review-20261103"' in html
-    assert 'src="/assets/owner-recognition.js?v=books-v4"' in html
+    assert 'src="/assets/scanner-flow.js?v=market-values-20261104"' in html
+    assert 'src="/assets/owner-recognition.js?v=market-values-20261104"' in html
 
 
 def test_mobile_batch_scanner_keeps_unresolved_cards_and_supports_search_correction() -> None:
@@ -497,5 +497,17 @@ def test_owner_portal_uses_integrated_seller_hub_brand_lockup() -> None:
 def test_recommendation_tile_does_not_mislabel_manual_asking_totals():
     html = HTML.read_text()
     assert "Store / recommended value" not in html
-    assert 'id="owner-recommendation-note"' in html
+    assert 'id="owner-recommendation-note"' not in html
     assert 'id="owner-asking-price-note"' in html
+
+
+def test_valuation_ui_shows_market_values_without_retail_metrics():
+    html = HTML.read_text()
+    assert "Recommended retail" not in html
+    assert 'id="owner-scan-store-value"' not in html
+    assert 'id="owner-scan-market-value"' in html
+    for name in ("owner-inventory.js", "owner-portal.js", "scanner-flow.js"):
+        source = (STATIC / name).read_text()
+        assert "Recommended retail:" not in source
+        assert "recommended retail:" not in source
+        assert "Suggested retail:" not in source

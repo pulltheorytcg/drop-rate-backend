@@ -28,12 +28,7 @@ def main():
                              'recorded_asking_count':2 if total else 0,'recorded_asking_value_minor':2000 if total else None,'active_store_value_minor':2000}
                     page.evaluate('data=>{summary=data}',payload); page.evaluate('loadOwnerOverview()')
                     assert page.locator('#owner-store-value').text_content()==expected,(status,expected,page.locator('#owner-store-value').text_content(),page.evaluate('calls'),errors)
-                    recommendation=page.locator('#owner-recommendation-note').inner_text()
-                    if count:
-                        assert f'{count} of {total}' in recommendation
-                        assert '£141.32' in recommendation
-                    elif total:
-                        assert 'Automatic recommendation unavailable' in recommendation
+                    assert page.locator('#owner-recommendation-note').count()==0
                     if total:
                         assert '£20.00' == page.locator('#owner-store-value').inner_text()
                         assert f'2 of {total} copies have saved Store Prices' in page.locator('#owner-asking-price-note').inner_text()
@@ -43,10 +38,12 @@ def main():
                 for case_index,(status,saved,expected) in enumerate([('AVAILABLE',None,'12.00'),('REFERENCE_ESTIMATE',None,'12.00'),('STALE',None,''),('UNAVAILABLE',None,''),('AVAILABLE',2000,'20.00')],start=1):
                     item={'id':f'00000000-0000-4000-8000-{case_index:012d}','catalogue_id':'cat','inventory_code':'INV-SYN','name':'Synthetic card','set_name':'Synthetic set','card_number':'SYN-1','product_type':'CARD','game':'One Piece','language':'Japanese','condition':'Near Mint','status':'DRAFT','sale_intent':'PERSONAL_COLLECTION','version':1,
                           'market_value_minor':1200 if status in ('AVAILABLE','REFERENCE_ESTIMATE') else None,'recommended_retail_minor':999999,'store_price_minor':saved,'approval_blockers':[],
-                          'reference_value':{'status':status,'market_value_minor':1200,'recommended_retail_minor':1200,'basis':'Japanese · Near Mint'}}
+                          'reference_value':{'status':status,'market_value_minor':1200,'recommended_retail_minor':9900,'basis':'Japanese · Near Mint'}}
                     page.evaluate('item=>{window.currentItem=item;calls=[]}',item);page.evaluate('DropRateInventory.open(currentItem,{selling:true,step:"price"})');page.wait_for_selector('[data-listing-step="price"]')
                     price=page.get_by_label('Your selling price in pounds');assert price.input_value()==expected,(status,saved,price.input_value())
-                    if status=='REFERENCE_ESTIMATE':assert 'Guide estimate' in page.locator('[data-recommended-retail]').inner_text()
+                    assert page.locator('[data-recommended-retail]').count()==0
+                    assert 'Market value' in page.locator('.owner-item-values').inner_text()
+                    assert '£99.00' not in page.locator('.owner-item-dialog').inner_text()
                     page.get_by_role('button',name='1. Item',exact=True).click()
                     page.get_by_label('Condition when selling').select_option('Lightly Played')
                     page.get_by_role('button',name='3. Price',exact=True).click()
@@ -57,5 +54,6 @@ def main():
                     page.get_by_role('button',name='Close item details',exact=True).click();results.append({'engine':engine,'width':width,'case':status,'saved_price':saved,'passed':True})
                 assert not errors,errors;page.close()
             browser.close()
-    (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} overview/recommendation/prefill/condition cases; actual source, synthetic responses, GET-only.')
+    (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} overview/market-value/prefill/condition cases; actual source, synthetic responses, GET-only.')
 if __name__=='__main__':main()
+

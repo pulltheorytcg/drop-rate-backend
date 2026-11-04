@@ -43,11 +43,10 @@ async function render(summary) {
     assert.equal(read("owner-market-value"),"£0.03");
     assert.match(read("owner-market-value-label"),/partial/i);
     assert.match(read("owner-market-value-note"),/1 of 104 valued.*103 awaiting eligible prices/);
-    assert.match(read("owner-market-value-note"),/1 guide estimate/);
+    assert.doesNotMatch(read("owner-market-value-note"),/guide estimate/i);
     assert.equal(read("owner-store-value"),"£20.00","Headline must show saved Store Prices, not £1 guide-floor suggestion");
     assert.match(read("owner-asking-price-note"),/2 of 104 copies have saved Store Prices/);
-    assert.match(read("owner-recommendation-note"),/Automatic suggestion: £1.00 on 1 of 104/);
-    assert.match(read("owner-recommendation-note"),/guide estimate/);
+    assert.equal(read("owner-recommendation-note"),undefined);
     assert.deepEqual(calls.map(x=>x.url),["/api/v1/owner/overview"]);
     assert.equal(calls.some(x=>x.options?.method && x.options.method!=="GET"),false);
     dom.window.close();checks++;
@@ -63,7 +62,7 @@ async function render(summary) {
     assert.equal(read("owner-market-value"),"Unavailable","Missing quotes cannot be presented as £0 holdings");
     assert.equal(read("owner-store-value"),"Not set","No saved asks cannot be presented as £0 selling price");
     assert.match(read("owner-asking-price-note"),/0 of 12/);
-    assert.match(read("owner-recommendation-note"),/unavailable/);
+    assert.equal(read("owner-recommendation-note"),undefined);
     dom.window.close();checks++;
   }
   {
@@ -79,7 +78,7 @@ async function render(summary) {
     assert.equal(read("owner-market-value-label"),"Market value");
     assert.equal(read("owner-store-value"),"£55.00");
     assert.match(read("owner-asking-price-note"),/1 of 2/);
-    assert.match(read("owner-recommendation-note"),/£52.00/);
+    assert.equal(read("owner-recommendation-note"),undefined);
     dom.window.close();checks++;
   }
   {
@@ -95,3 +94,4 @@ async function render(summary) {
   }
   console.log("Owner homepage valuation integrity: "+checks+" truthful totals, partial coverages and read-only scenarios passed.");
 })().catch(e=>{console.error(e);process.exitCode=1});
+

@@ -185,18 +185,19 @@ def main():
             page=shell(browser)
             for name in ('reference-value-display.js','owner-inventory.js'):
                 page.add_script_tag(content=(ROOT/name).read_text())
-            page.evaluate('''()=>{window.currentItem={id:'00000000-0000-4000-8000-000000000001',name:'Synthetic',catalogue_id:'synthetic-card',product_type:'CARD',language:'Japanese',condition:'Near Mint',status:'DRAFT',sale_intent:'PERSONAL_COLLECTION',version:1,store_price_minor:null,reference_value:{status:'AVAILABLE',market_value_minor:1200,recommended_retail_minor:1200}};
+            page.evaluate('''()=>{window.currentItem={id:'00000000-0000-4000-8000-000000000001',name:'Synthetic',catalogue_id:'synthetic-card',product_type:'CARD',language:'Japanese',condition:'Near Mint',status:'DRAFT',sale_intent:'PERSONAL_COLLECTION',version:1,store_price_minor:null,reference_value:{status:'AVAILABLE',market_value_minor:1200,recommended_retail_minor:9900}};
               apiRequest=async()=>({item:currentItem,copies:[currentItem]});DropRateInventory.open(currentItem,{selling:true,step:'condition'});}''')
             page.wait_for_selector('[data-listing-step="condition"]')
             field=page.get_by_label('Your selling price in pounds')
             page.get_by_label('Condition when selling').select_option('Lightly Played')
             page.get_by_role('button',name='3. Price',exact=True).click()
-            check(engine,'seller','wrong-condition-clears-automatic-suggestion',field.input_value()=='',field.input_value())
+            actual={'value':field.input_value(),'note':page.locator('[data-price-basis-note]').inner_text()}
+            check(engine,'seller','wrong-condition-clears-market-prefill',actual['value']=='' and 'does not confirm the newly selected condition' in actual['note'],actual)
             page.get_by_role('button',name='1. Item',exact=True).click()
             page.get_by_label('Condition when selling').select_option('Near Mint')
             page.get_by_role('button',name='3. Price',exact=True).click()
-            actual={'value':field.input_value(),'note':page.locator('[data-recommended-retail]').inner_text()}
-            check(engine,'seller','returning-to-matched-condition-restores-untouched-suggestion',actual['value']=='12.00' and 'does not apply' not in actual['note'],actual)
+            actual={'value':field.input_value(),'note':page.locator('[data-price-basis-note]').inner_text(),'retail_rows':page.locator('[data-recommended-retail]').count()}
+            check(engine,'seller','returning-to-matched-condition-restores-market-prefill',actual['value']=='12.00' and 'current market value' in actual['note'] and actual['retail_rows']==0,actual)
             field.fill('18.25');page.get_by_role('button',name='1. Item',exact=True).click();page.get_by_label('Condition when selling').select_option('Lightly Played');page.get_by_label('Condition when selling').select_option('Near Mint');page.get_by_role('button',name='3. Price',exact=True).click()
             check(engine,'seller','manual-price-survives-condition-round-trip',field.input_value()=='18.25',field.input_value())
             page.close();browser.close()
@@ -206,3 +207,4 @@ def main():
     assert not failed,failed
 
 if __name__=='__main__':main()
+

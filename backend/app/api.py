@@ -23,6 +23,7 @@ from .comic_identity import BOOK_CONDITIONS
 from .manual_collectible_identity import FIGURE_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
 from .inventory_reference_media import add_shared_inventory_media, shared_media_assets
+from .r2_media import inventory_media_mirrors, verified_mirror_bytes
 from .schemas import (
     BulkCostAllocation,
     InventoryApproval,
@@ -542,6 +543,7 @@ async def inventory_card_image(
             raise HTTPException(status_code=404, detail="Inventory item not found")
 
         assets = await shared_media_assets(connection, [inventory_id])
+        mirrors = await inventory_media_mirrors(connection, assets)
         # Library fallback is resolved by the same exact-reference rules used in
         # both list/detail responses. No uploader/account rule for catalogue art.
         reference_item = dict(item)
@@ -579,6 +581,17 @@ async def inventory_card_image(
         headers=headers,
     ) as client:
         for asset in assets:
+            # Preserve physical-photo priority and the existing approval checks.
+            # A mirror is only a verified byte copy of this exact source asset.
+            mirrored = await verified_mirror_bytes(mirrors.get(str(asset['id'])))
+            if mirrored is not None:
+                return Response(content=mirrored, media_type="image/webp", headers={
+                    "X-Drop-Rate-Media-Id": str(asset["id"]),
+                    "X-Drop-Rate-Media-Provider": str(asset["source_provider"] or ""),
+                    "X-Drop-Rate-Media-Scope": str(asset["scope"]),
+                    "Cache-Control": "private, no-store", "Vary": "Authorization",
+                    "X-Content-Type-Options": "nosniff",
+                })
             urls: list[str] = []
             for candidate in (asset["shopify_cdn_url"], asset["public_source_url"]):
                 clean = str(candidate or "").strip()

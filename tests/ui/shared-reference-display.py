@@ -56,14 +56,14 @@ def main():
         navigate:()=>{},scan:()=>{}});
        sharedBrowse.filters.q='OP11-101';await sharedBrowse.load();
       }''')
-      assert page.locator('[data-price-key]').inner_text().strip()==founder
+      assert page.locator('[data-price-key]').inner_text().strip().removeprefix('Market value: ')==founder.removeprefix('Value: ')
       if status=='HISTORICAL_GUIDE':
        assert 'Value: £8.00' == founder
        assert page.evaluate('sharedBrowse.rows[0].market_value_minor') is None
        if width in (390,1440):page.screenshot(path=str(OUT/f'{engine}-historical-search-{width}.png'),full_page=True)
       page.evaluate('''async()=>{sharedBrowse.filters.q='';sharedBrowse.filters.system_code='ONE_PIECE_CARD_GAME';
        sharedBrowse.set={system_code:'ONE_PIECE_CARD_GAME',set_id:'OP11',provider:'Punk Records'};await sharedBrowse.load()}''')
-      assert page.locator('[data-price-key]').inner_text().strip()==founder
+      assert page.locator('[data-price-key]').inner_text().strip().removeprefix('Market value: ')==founder.removeprefix('Value: ')
       browse_calls=page.evaluate('browseCalls')
       refreshes=[call for call in browse_calls if call['path'].endswith('/market-values')]
       assert all(call['method']=='GET' for call in browse_calls),'Browsing should only read stored catalogue data'
@@ -86,3 +86,4 @@ def main():
    browser.close()
  (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} paired founder/seller display cases; synthetic responses, no browse-time provider refreshes and no inventory writes.')
 if __name__=='__main__':main()
+

@@ -28,13 +28,18 @@ window.DropRateCatalogue = (() => {
   };
   const marketPrice = row => {
     const model=ukEuEstimate(row);
-    if(model && !currentValue(row))return "Drop Rate UK/EU estimate: "+money(model.estimate_minor);
+    if(model && !currentValue(row))return "Market value: "+money(model.estimate_minor);
     const estimate=askingEstimate(row);
-    if(estimate)return "Asking-price estimate: "+money(estimate.estimate_minor);
+    if(estimate)return "Market value: "+money(estimate.estimate_minor);
     if(row.market_value_source==="DROP_RATE_COMPUTED_MARKET_V1" && Number.isInteger(row.market_value_minor))
-      return "Drop Rate estimate: "+money(row.market_value_minor);
-    return row.shared_price ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money)
-      : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Value pending":"Value unavailable"):"Value: "+money(row.market_value_minor);
+      return "Market value: "+money(row.market_value_minor);
+    return row.shared_price ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:")
+      : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Value pending":"Value unavailable"):"Market value: "+money(row.market_value_minor);
+  };
+  const historicalPrice = row => {
+    if ((ukEuEstimate(row) && !currentValue(row)) || askingEstimate(row)
+      || (row.market_value_source === "DROP_RATE_COMPUTED_MARKET_V1" && Number.isInteger(row.market_value_minor))) return null;
+    return row.shared_price && window.DropRateReferenceValue?.isHistorical({reference_value:row.shared_price}) ? row.shared_price : null;
   };
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
@@ -438,11 +443,15 @@ window.DropRateCatalogue = (() => {
       finally{if(revision===this.revision)this.loading=false;}
     }
     renderMarketDetails(content,row) {
-      const model=ukEuEstimate(row), estimate=model?null:askingEstimate(row);
+      const model=currentValue(row)?null:ukEuEstimate(row), estimate=model?null:askingEstimate(row);
       content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
+      const history=historicalPrice(row);
+      if(history){
+        const checked=new Date(history.checked_at);
+        content.append(node("small","dr-browse-historical-label",Number.isNaN(checked.getTime())?"Historical value":"Historical value · Last known "+checked.toLocaleDateString("en-GB")));
+      }
       const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","",(estimate || model && !currentValue(row))?"About this estimate":"About this value"));content.append(evidence);
       if(model){
-        if(currentValue(row))evidence.append(node("p","dr-browse-reference-note","Drop Rate UK/EU estimate: "+money(model.estimate_minor)));
         evidence.append(node("p","dr-browse-reference-note",model.reason || "Provisional estimate from eBay UK asking prices and Cardmarket guides."),
           node("p","dr-browse-reference-note","Reference range: "+money(model.estimate_low_minor)+"–"+money(model.estimate_high_minor)+" · Item price only; postage excluded"),
           node("p","dr-browse-reference-note","Evidence checked "+new Date(model.observed_at).toLocaleDateString("en-GB")));
@@ -703,8 +712,7 @@ window.DropRateCatalogue = (() => {
         }
         const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
         copy.append(price,node("small","","Qty: "+row.owned_quantity));
-        const model=ukEuEstimate(row);
-        if(model && currentValue(row)){const note=node("small","","Drop Rate UK/EU estimate: "+money(model.estimate_minor));note.dataset.ukEuEstimateKey=row.key;copy.append(note);}
+        if(historicalPrice(row))copy.append(node("small","dr-browse-historical-label","Historical value"));
         const plus=button("+",()=>row.product_type==="COMIC"?this.openBookIntake(row):this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
         if(row.owned_quantity>0)card.append(node("span","dr-browse-owned","✓"));
         grid.append(card);

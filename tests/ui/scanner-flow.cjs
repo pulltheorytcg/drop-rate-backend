@@ -45,6 +45,16 @@ async function matched(scanner, quantity = 1) {
 }
 
 (async () => {
+  // A retail recommendation never replaces or adds a second price to the scan value.
+  {
+    const payload=result();payload.candidates[0].recommended_retail_minor=9900;
+    const f=fixture('seller',async()=>payload),item=await matched(f.scanner);
+    f.scanner.openDetails(item);
+    assert.match(f.scanner.details.textContent,/£15.00/);
+    assert.doesNotMatch(f.scanner.details.textContent,/Suggested retail|Recommended retail|£99.00/i);
+    assert.equal(f.calls.filter(call=>call.method&&call.method!=='GET'&&!call.url.endsWith('/resolve')).length,0);
+    f.finish();checks++;
+  }
   // The exact failing entry point: leave the default tab selected, then scan
   // books and a card. A book result must never open the ungraded-card sheet.
   {
@@ -1075,3 +1085,4 @@ async function matched(scanner, quantity = 1) {
   await tick();
   console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
+

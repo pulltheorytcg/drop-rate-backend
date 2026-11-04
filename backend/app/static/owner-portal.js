@@ -680,7 +680,7 @@ function ownerWeeklyContext(summary, hasRows) {
     lines.push(`Comparable weekly history covers ${compared} of ${owned} ${owned === 1 ? "copy" : "copies"}.`);
   }
   const guides = count("guide_comparison_count"), stale = count("stale_item_count"), details = count("needs_details_item_count");
-  if (guides > 0) lines.push(`${guides} ${guides === 1 ? "comparison uses a guide estimate" : "comparisons use guide estimates"}.`);
+  if (guides > 0) lines.push(`${guides} ${guides === 1 ? "comparison is estimated from Cardmarket data" : "comparisons are estimated from Cardmarket data"}.`);
   if (stale > 0) lines.push(`${stale} ${stale === 1 ? "copy has" : "copies have"} stale evidence.`);
   if (details > 0) lines.push(`Details need confirming for ${details} ${details === 1 ? "copy" : "copies"}.`);
   if (!hasRows && summary?.history_ready) {
@@ -750,7 +750,7 @@ function renderOwnerInsightList(containerId, items, mover = false, summary = nul
 
     if (mover) {
       const source = {CATALOGUE_CARDMARKET_V1: "Cardmarket", CATALOGUE_EBAY_V4: "eBay sold evidence"}[item.method] || "Source unavailable";
-      const label = safeText(item.comparison_label, item.comparison_kind === "GUIDE_ESTIMATE" ? "Guide estimate change" : "Value change");
+      const label = "Market value change";
       const basis = document.createElement("small");
       basis.className = "owner-mover-context";
       basis.textContent = `${label} · ${source}`;
@@ -787,11 +787,6 @@ function renderOwnerInsightList(containerId, items, mover = false, summary = nul
       delta.textContent = difference === null ? "Amount unavailable" :
         (difference >= 0 ? "+" : "") + formatMoney(difference) + (item.quantity > 1 ? " per copy" : "");
       value.append(movement, delta);
-    } else {
-      const store = document.createElement("small");
-      store.textContent = "Recommended retail: " +
-        (window.DropRateReferenceValue?.recommendationText(item, formatMoney) || "Recommendation unavailable");
-      value.append(store);
     }
 
     row.append(rank, copy, value);
@@ -1107,8 +1102,6 @@ async function loadOwnerOverview() {
     : marketIncomplete
       ? `${valued} of ${activeCount} valued · ${unvalued} awaiting eligible prices`
       : `${valued} of ${activeCount} valued from current evidence`;
-  if(summary.guide_estimate_count)
-    byId("owner-market-value-note").textContent += ` · ${summary.guide_estimate_count} guide estimate${summary.guide_estimate_count === 1 ? "" : "s"}`;
 
   // Saved Store Prices represent real owner-entered asking prices. Never
   // replace that headline with £1 automatic floor-priced recommendations.
@@ -1123,14 +1116,6 @@ async function loadOwnerOverview() {
     : hasAsking
       ? `${askingCount} of ${activeCount} copies have saved Store Prices · incomplete total`
       : `0 of ${activeCount} copies have saved Store Prices`;
-  const recommendedCount = Number(summary.active_recommended_count || 0);
-  const recommendationTotal = summary.active_recommended_retail_minor;
-  const hasRecommendation = recommendedCount > 0 && Number.isInteger(recommendationTotal) && recommendationTotal > 0;
-  const recommendationNote = byId("owner-recommendation-note");
-  if (recommendationNote) recommendationNote.textContent = hasRecommendation
-    ? `Automatic suggestion: ${formatMoney(recommendationTotal)} on ${recommendedCount} of ${activeCount}`
-        + (summary.recommendation_guide_count ? ` · ${summary.recommendation_guide_count} guide estimate${summary.recommendation_guide_count === 1 ? "" : "s"}` : "")
-    : "Automatic recommendation unavailable · does not alter your asking prices";
   byId("owner-sold-count").textContent = Number(summary.sold_count || 0).toLocaleString("en-GB");
 
   const stages = {
@@ -2255,3 +2240,4 @@ byId("owner-logout-button").addEventListener("click", () => {
 window.addEventListener("hashchange",()=>{if(state.session && !byId("owner-portal-view").classList.contains("hidden"))activateOwnerView(location.hash.slice(1)||"overview",false);});
 updateCollectionControls();
 initialise();
+

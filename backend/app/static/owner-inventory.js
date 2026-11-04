@@ -559,7 +559,7 @@ window.DropRateInventory = (() => {
     return [];
   }
 
-  function installListingFlow(item, sale, {saleCondition,priceInput,priceLabel,recommendationNote,save,actions}) {
+  function installListingFlow(item, sale, {saleCondition,priceInput,priceLabel,priceBasisNote,save,actions}) {
     const summary=sale.querySelector("summary"), existing=[...sale.children].filter(child=>child!==summary);
     const flow=el("div","owner-listing-flow"),nav=el("nav","owner-listing-steps");nav.setAttribute("aria-label","Listing preparation steps");
     const stages=[["condition","Item"],["preparation","Preparation"],["price","Price"],["review","Review"]];
@@ -592,7 +592,7 @@ window.DropRateInventory = (() => {
       }remaining.append(checks);
     }
     panels.preparation.append(remaining);
-    panels.price.append(el("h3","","Set your selling price"),recommendationNote,priceLabel,save,
+    panels.price.append(el("h3","","Set your selling price"),priceBasisNote,priceLabel,save,
       el("p","owner-item-note","Commission is based on the item sale price after discounts. Your purchase cost is optional and only affects profit tracking. Final proceeds also reflect any applicable fees and deductions."));
     const reviewHeading=el("h3","","Review your listing"),reviewFacts=el("dl","owner-listing-review-facts");
     const comicStatus = item.product_type === "COMIC" && item.status !== "APPROVED" ? el("div") : null;
@@ -699,14 +699,30 @@ window.DropRateInventory = (() => {
       : item.market_value_minor == null ? "Value unavailable" : price(item.market_value_minor);
     values.append(el("div", "", window.DropRateReferenceValue?.label(item) || "Market value"),
       el("strong", "", displayedValue.replace(/^(?:Value|Drop Rate UK\/EU estimate):\s*/, "")));
-    if (item.reference_value || item.catalogue_reference) values.append(el("small", "", window.DropRateReferenceValue.description(item)));
-    if (!item.reference_value && item.pricing_method === "CARDMARKET_GUIDE_V1") values.append(el("small", "", "Cardmarket guide estimate"));
+    if (window.DropRateReferenceValue?.isHistorical(item)) {
+      const reference = window.DropRateReferenceValue.displayReference(item);
+      const checked = new Date(reference.checked_at);
+      const history = Number.isNaN(checked.getTime()) ? "Historical value"
+        : `Historical value · Last known ${checked.toLocaleDateString("en-GB")}`;
+      values.append(el("small", "owner-item-historical-label", history));
+    }
+    const sourceDescription = item.reference_value || item.catalogue_reference
+      ? window.DropRateReferenceValue.description(item)
+      : item.pricing_method === "CARDMARKET_GUIDE_V1" ? "Source: Cardmarket market-price guide." : "";
+    if (sourceDescription) {
+      const source = el("details", "owner-market-source");
+      source.append(el("summary", "", "About this value"), el("p", "", sourceDescription));
+      values.append(source);
+    }
     if (item.pricing_updated_at) values.append(el("small", "", `Updated ${new Date(item.pricing_updated_at).toLocaleDateString("en-GB")}`));
     content.append(values);
-    const recommended = window.DropRateReferenceValue?.recommendedMinor(item) ?? null;
-    const recommendationNote = el("p", "owner-item-note",
-      "Drop Rate recommended retail: " + (window.DropRateReferenceValue?.recommendationText(item, formatMoney) || "Recommendation unavailable"));
-    recommendationNote.dataset.recommendedRetail = "true";
+    const marketMinor = window.DropRateReferenceValue?.marketMinor(item) ?? null;
+    const suggestedPrice = marketMinor != null && marketMinor >= 100 ? marketMinor : null;
+    const priceBasisNote = el("p", "owner-item-note",
+      item.store_price_minor == null
+        ? suggestedPrice == null ? "Enter your selling price." : "Starts from the current market value. Nothing is saved or listed until you choose a selling action."
+        : "Your saved selling price is retained.");
+    priceBasisNote.dataset.priceBasisNote = "";
 
 
     const publishedOnShopify=item.shopify_state==="PUBLISHED";
@@ -732,7 +748,7 @@ window.DropRateInventory = (() => {
       checklist.append(steps, el("p", "owner-item-note", "Final account, delivery and eBay checks run before publication. Preparing a card does not list it."));
       sale.append(checklist);
     }
-    sale.append(recommendationNote);
+    sale.append(priceBasisNote);
     if (item.product_type === "COMIC") sale.append(renderComicPreparation(item));
     let saleCondition;
     if (["CARD", "COMIC", "FIGURE"].includes(item.product_type) && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
@@ -747,31 +763,27 @@ window.DropRateInventory = (() => {
     }
     const priceLabel = el("label", "", "Your selling price (£)"), priceInput = el("input");
     priceInput.type = "number"; priceInput.min = "1"; priceInput.step = "0.01"; priceInput.inputMode = "decimal";
-    const initialPrice = item.store_price_minor ?? recommended;
+    const initialPrice = item.store_price_minor ?? suggestedPrice;
     const savedDraft=listingDraft(item);
     priceInput.value = typeof savedDraft?.price==="string" && savedDraft.price.length<=20 ? savedDraft.price : initialPrice == null ? "" : (initialPrice / 100).toFixed(2);
-    let suggestionPrefilled = item.store_price_minor == null && recommended != null;
+    let suggestionPrefilled = item.store_price_minor == null && suggestedPrice != null;
     let priceEdited = false;
-    const recommendationText = recommendationNote.textContent;
+    const originalPriceBasisText = priceBasisNote.textContent;
     priceInput.addEventListener("input", () => { suggestionPrefilled = false; priceEdited = true; });
     if (saleCondition) saleCondition.addEventListener("change", () => {
       const guide = item.reference_value?.status === "REFERENCE_ESTIMATE";
       const sameBasis = guide ? ["", "Near Mint"].includes(saleCondition.value)
         : saleCondition.value === (item.condition || "");
       if (!sameBasis && suggestionPrefilled) { priceInput.value = ""; suggestionPrefilled = false; }
-      recommendationNote.textContent = sameBasis ? recommendationText
-        : "Recorded-condition recommendation does not apply to the newly selected condition.";
-      if (sameBasis && !priceEdited && item.store_price_minor == null && recommended != null) {
-        priceInput.value = (recommended / 100).toFixed(2);
+      priceBasisNote.textContent = sameBasis ? originalPriceBasisText
+        : "The displayed market value does not confirm the newly selected condition. Enter your selling price.";
+      if (sameBasis && !priceEdited && item.store_price_minor == null && suggestedPrice != null) {
+        priceInput.value = (suggestedPrice / 100).toFixed(2);
         suggestionPrefilled = true;
       }
     });
     priceInput.setAttribute("aria-label", "Your selling price in pounds"); priceInput.disabled = !active(item);
     priceLabel.append(priceInput); sale.append(priceLabel);
-    if (recommended != null) sale.append(el("p", "owner-item-note",
-      item.store_price_minor == null
-        ? "Suggested automatically from current shared evidence. Nothing is saved or listed until you choose a selling action."
-        : "Your saved asking price is retained. The automatic recommendation does not overwrite it."));
     const value = () => {
       if (!/^\d+(\.\d{1,2})?$/.test(priceInput.value) || Number(priceInput.value) < 1 || Number(priceInput.value) > 1_000_000) {
         throw new Error("Enter a selling price of at least £1, with no more than two decimal places.");
@@ -978,7 +990,7 @@ window.DropRateInventory = (() => {
     content.insertBefore(values, facts);
     content.insertBefore(stock, facts);
     stock.classList.add("owner-item-stock");
-    installListingFlow(item,sale,{saleCondition,priceInput,priceLabel,recommendationNote,save,actions});
+    installListingFlow(item,sale,{saleCondition,priceInput,priceLabel,priceBasisNote,save,actions});
   }
   return {image, open, close, reset: () => close(true)};
 })();

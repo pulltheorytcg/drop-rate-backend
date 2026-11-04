@@ -76,6 +76,67 @@ returning id
 """
 
 
+INVENTORY_MIRRORS_SQL = """
+select m.id as media_asset_id,m.public_source_url as source_url,
+       m.source_provider,m.source_type,mirror.object_key,
+       mirror.content_sha256,mirror.size_bytes
+from tcg.media_assets m
+join tcg.media_object_mirrors mirror
+  on mirror.media_asset_id=m.id and mirror.source_url=m.public_source_url
+where m.id=any($1::uuid[])
+  and m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
+  and m.media_kind='IMAGE' and m.side='FRONT'
+  and m.approval_status='APPROVED' and m.rights_status='VERIFIED'
+  and m.rights_tier='STOREFRONT_ALLOWED'
+  and m.source_status='ACTIVE' and m.revoked_at is null
+  and m.source_type in ('OFFICIAL_PROVIDER','LICENSED_PROVIDER')
+  and m.source_provider=any($2::text[])
+  and mirror.verified_at is not null and mirror.content_type='image/webp'
+"""
+
+
+async def inventory_media_mirrors(connection, assets: list) -> dict:
+    """Select exact-source mirrors only after the route has authorized assets.
+
+    The caller's shared media selector checks owner, catalogue, language and
+    variant. Recheck publication rights here; a stale mirror or a newly changed
+    source must never supply bytes for the previously selected asset.
+    """
+    if os.getenv('TCG_R2_MEDIA_DELIVERY_ENABLED', 'false').lower() not in ('true', '1'):
+        return {}
+    eligible = {str(asset['id']): asset for asset in assets
+                if asset['scope'] in ('CANONICAL_CARD', 'CANONICAL_PRODUCT')
+                and asset['approval_status'] == 'APPROVED'}
+    if not eligible:
+        return {}
+    rows = await connection.fetch(INVENTORY_MIRRORS_SQL,
+                                  [asset['id'] for asset in eligible.values()],
+                                  sorted(MIRROR_PROVIDERS))
+    result = {}
+    for row in rows:
+        asset = eligible.get(str(row['media_asset_id']))
+        if (asset is not None and row['source_url'] == asset['public_source_url']
+                and row['source_provider'] == asset['source_provider']
+                and approved_source_url(row['source_url'], row['source_provider'], row['source_type'])):
+            result[str(asset['id'])] = dict(row)
+    return result
+
+
+async def verified_mirror_bytes(mirror: dict | None) -> bytes | None:
+    """An unavailable optional cache falls back to the same eligible source."""
+    if mirror is None:
+        return None
+    try:
+        store = configured_object_storage()
+        if store is not None:
+            return await asyncio.to_thread(store.read_verified_media, mirror['object_key'],
+                expected_sha256=mirror['content_sha256'], expected_size=mirror['size_bytes'])
+    except Exception as exc:
+        logger.warning('Inventory media mirror unavailable; falling back to provider (%s)',
+                       type(exc).__name__)
+    return None
+
+
 def approved_source_url(url: str, provider: str, source_type: str) -> bool:
     if provider not in MIRROR_PROVIDERS or source_type not in {'OFFICIAL_PROVIDER', 'LICENSED_PROVIDER'}:
         return False
