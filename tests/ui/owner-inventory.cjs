@@ -21,6 +21,32 @@ function btn(w,text){return [...w.document.querySelectorAll('button')].find(b=>b
 async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);assert.equal(b.disabled,false);b.click();await tick();await tick();}
 (async()=>{
  let checks=0;
+ // Slabs never inherit a raw catalogue fallback, even from a stale API payload.
+ for(const physical of [{grading_company:'PSA',grade:'10'},{grade:'10'},{certificate_number:'113437109'}]){
+  const f=fixture(),calls=[];
+  f.w.fetch=async url=>{calls.push(url);return {ok:false,status:404};};
+  f.w.DropRateBookArtwork={reference:()=>{throw new Error('Graded book cannot borrow a raw cover');}};
+  const picture=f.w.DropRateInventory.image({...item,...physical,image_url:'https://cdn.shopify.com/raw.png',
+   reference_image_url:'https://assets.tcgdex.net/raw.webp'},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();await tick();
+  assert.deepEqual(calls,[`/api/v1/inventory/${id}/image`]);
+  assert.equal(picture.querySelector('img'),null);assert.match(picture.textContent,/Slab photo required/);
+  f.finish();checks++;
+ }
+ for(const failure of [false,true]){
+  const f=fixture(),calls=[];
+  f.w.fetch=async url=>{calls.push(url);return {ok:false,status:404};};
+  const picture=f.w.DropRateInventory.image({...item,grading_company:'PSA',grade:'10',
+   card_image_scope:'INVENTORY_ITEM',card_image_capture_context:'GRADED_SLAB',
+   image_url:'https://cdn.shopify.com/my-slab.png'},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();const img=picture.querySelector('img');
+  assert.equal(img.src,'https://cdn.shopify.com/my-slab.png');assert.match(img.alt,/slab photo/);
+  if(failure){img.dispatchEvent(new f.w.Event('error'));await tick();await tick();
+   assert.deepEqual(calls,[`/api/v1/inventory/${id}/image`]);
+   assert.equal(picture.querySelector('img'),null);assert.match(picture.textContent,/Slab photo unavailable/);
+  }else assert.equal(calls.length,0);
+  f.finish();checks++;
+ }
  // The selected market value is the only valuation; retail multipliers cannot prefill the selling form.
  for(const saved of [null,2000]){
   const current={...item,product_type:'CARD',condition:'Near Mint',market_value_minor:1200,store_price_minor:saved,recommended_retail_minor:9900,
@@ -848,4 +874,5 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  console.log(`Seller inventory: ${checks} detail, image, approval, sync, copy, guided selling, filter and isolation scenarios passed.`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
 

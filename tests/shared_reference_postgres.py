@@ -65,12 +65,16 @@ async def main():
    await db.execute("insert into tcg.inventory_items(id,inventory_code,owner_id,catalogue_id,language,condition,market_value_minor,store_price_minor,acquisition_cost_minor) values($1,$2,$3,$4,'Japanese','Near Mint',$5,$6,$7)",raw[n],f'INV-TEST-{n}',owners[n],card,1200 if n==0 else None,1500+n*300,100+n*500)
   await db.execute("insert into tcg.inventory_items(id,inventory_code,owner_id,catalogue_id,language,grading_company,grade) values($1,'INV-TEST-SLAB',$2,$3,'Japanese','PSA','10')",slab,owners[1],card)
   async def snap(grade=None,value=1200,age=1):
+   from app.ebay_sold_normalization import REVISION
+   evidence={'method':'CATALOGUE_EBAY_V4','input_sale_count':5,
+    'comps':[{'item_id':str(100+n),'provider_evidence':{'normalization_revision':REVISION,
+      'item_location_country':'GB','sale_price_basis':'AUCTION_SOLD_PRICE'}} for n in range(5)]}
    return await db.fetchval('''insert into tcg.catalogue_market_snapshots(catalogue_id,identity_digest,basis_key,basis_condition,basis_language,grading_company,grade,
     market_value_minor,recommended_retail_minor,confidence,algorithm_version,oldest_sale_at,evidence_checked_at,calculation_day,evidence_digest,evidence)
     select id,md5(concat_ws(chr(31),product_type,game,name,set_name,card_number,variant,rarity,language)),$2,
       case when $3::text is null then 'Near Mint' end,'Japanese',case when $3::text is not null then 'PSA' end,$3,$4,$4,0.8,'drop-rate-market-v4',now()-interval '10 days',now()-make_interval(days=>$5),current_date,$2,
-      '{"method":"CATALOGUE_EBAY_V4","input_sale_count":5}'::jsonb
-    from tcg.catalogue_products where id=$1 returning id''',card,str(uuid4()),grade,value,age)
+      $6::jsonb
+    from tcg.catalogue_products where id=$1 returning id''',card,str(uuid4()),grade,value,age,evidence)
   raw_snapshot=await snap();slab_snapshot=await snap('10',9900)
   async def asset(approval='APPROVED',physical=None,language='Japanese',suffix='shared'):
    return await db.fetchval('''insert into tcg.media_assets(owner_id,catalogue_id,inventory_id,scope,source_type,source_reference,public_source_url,rights_status,rights_basis,approval_status,alt_text,created_by_user_id,approved_by_user_id,approved_at,rights_tier,source_provider,media_language,media_variant,source_status)
@@ -122,6 +126,10 @@ async def main():
     assert detail.json()['item']['reference_value']==refs[1]
     graded=await client.get(f'/api/v1/owner/inventory/{slab}',headers=headers(1));assert graded.status_code==200,graded.text
     assert graded.json()['item']['market_value_minor']==9900
+    assert graded.json()['item']['image_url'] is None
+    assert graded.json()['item']['reference_image_status']=='SLAB_PHOTO_REQUIRED'
+    assert not graded.json()['item'].get('reference_image_url')
+    assert (await client.get(f'/api/v1/owner/inventory/{slab}/reference-image',headers=headers(1))).status_code==404
     assert (await client.get(f'/api/v1/owner/inventory/{raw[0]}',headers=headers(1))).status_code==404
     with patch.object(api.httpx,'AsyncClient',side_effect=provider):
      for n in range(2):
@@ -266,3 +274,4 @@ async def main():
   await db.close()
   if server:await asyncio.to_thread(server.shutdown);server.server_close()
 if __name__=='__main__':asyncio.run(main())
+

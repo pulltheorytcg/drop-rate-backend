@@ -4,9 +4,14 @@ from uuid import uuid4
 import pytest
 from app.inventory_reference_values import resolve_reference_value, reference_totals, reference_top_groups, SOLD, GUIDE
 from app.inventory_reference_media import direct_image_url
+from app.ebay_sold_normalization import REVISION
 
 NOW=datetime(2026,10,12,12,tzinfo=timezone.utc)
 CAT=str(uuid4())
+def normalized_comps():
+    return [dict(item_id=str(100+n), provider_evidence={
+        'normalization_revision': REVISION, 'item_location_country': 'GB',
+        'sale_price_basis': 'AUCTION_SOLD_PRICE'}) for n in range(5)]
 def item(**kw):
     return dict(catalogue_id=CAT,product_type='CARD',language='Japanese',catalogue_language='Japanese',condition='Near Mint',grading_company=None,grade=None,seal_status=None,**kw)
 def snapshot(**kw):
@@ -32,10 +37,28 @@ def test_recalculation_does_not_revive_old_evidence(changes):
 
 def test_exact_grade_and_company_select_the_shared_slab_value():
     slab=item();slab.update(condition=None,grade='10',grading_company='PSA')
-    exact=snapshot(grade='10',grading_company='PSA',basis_condition=None,market_value_minor=9900)
+    exact=snapshot(grade='10',grading_company='PSA',basis_condition=None,market_value_minor=9900,comps=normalized_comps())
     rows=[snapshot(),exact,snapshot(grade='9',grading_company='PSA',basis_condition=None),snapshot(grade='10',grading_company='BGS',basis_condition=None)]
     assert resolve_reference_value(slab,rows,now=NOW)['market_value_minor']==9900
     slab['grading_company']='BGS';assert resolve_reference_value(slab,[exact],now=NOW)['market_value_minor'] is None
+
+@pytest.mark.parametrize('problem', ['legacy', 'overseas', 'asking', 'duplicate', 'four'])
+def test_unverified_slab_prices_never_become_market_value(problem):
+    slab=item();slab.update(condition=None,grade='10',grading_company='PSA')
+    comps=normalized_comps()
+    if problem=='legacy': comps[0].pop('provider_evidence')
+    if problem=='overseas': comps[0]['provider_evidence']['item_location_country']='US'
+    if problem=='asking': comps[0]['provider_evidence']['sale_price_basis']='ASKING_PRICE'
+    if problem=='duplicate': comps[0]['item_id']=comps[1]['item_id']
+    if problem=='four': comps.pop()
+    old=snapshot(grade='10',grading_company='PSA',basis_condition=None,market_value_minor=7099,
+                 recommended_retail_minor=99999,comps=comps)
+    before=deepcopy(old)
+    resolved=resolve_reference_value(slab,[old,snapshot(method=GUIDE)],now=NOW)
+    assert resolved['status']=='UNAVAILABLE'
+    assert resolved['market_value_minor'] is resolved['recommended_retail_minor'] is None
+    assert 'Verified UK sold prices' in resolved['reason']
+    assert old==before
 
 def test_sealed_never_inherits_card_value():
     pack=item();pack.update(product_type='SEALED',condition=None,seal_status='SEALED')
@@ -114,3 +137,4 @@ async def test_library_art_respects_physical_language_and_clears_rejected_fallba
     await add_reference_artwork(Connection(),[correct,wrong])
     assert correct.get("reference_image_url")
     assert "reference_image_url" not in wrong and "reference_image_path" not in wrong
+

@@ -93,14 +93,14 @@ def delivery(monkeypatch):
                   source_url=asset['public_source_url'], source_provider='TCGdex',
                   source_type='LICENSED_PROVIDER')
     state = SimpleNamespace(assets=[asset], mirrors=[mirror], authorized=True,
-                            query_count=0, source_requests=[], source_payload=(b'provider', 'image/png'))
+                            query_count=0, source_requests=[], source_payload=(b'provider', 'image/png'), physical={})
     client = ObjectClient()
 
     class Connection:
         async def fetchrow(self, sql, *args):
             assert 'i.owner_id = $2' in sql
             assert args == (inventory_id, owner_id)
-            return dict(id=inventory_id, catalogue_id=uuid4(), language='Japanese') if state.authorized else None
+            return dict(id=inventory_id, catalogue_id=uuid4(), language='Japanese', **state.physical) if state.authorized else None
 
         async def fetch(self, sql, *args):
             state.query_count += 1
@@ -230,3 +230,37 @@ async def test_other_owners_inventory_cannot_query_or_read_mirrors(delivery):
     assert denied.value.status_code == 404
     assert delivery.query_count == 0 and delivery.client.reads == []
     assert delivery.source_requests == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('physical', [{'grading_company': 'PSA', 'grade': '10'}, {'grade': '10'}, {'certificate_number': '113437109'}])
+async def test_slab_never_returns_catalogue_mirror_or_reference(delivery, physical):
+    delivery.physical = physical
+    with pytest.raises(HTTPException) as unavailable:
+        await delivery.call()
+    assert unavailable.value.status_code == 404
+    assert delivery.source_requests == [] and delivery.client.reads == []
+
+
+@pytest.mark.asyncio
+async def test_slab_failure_cannot_fall_through_to_raw_art(delivery):
+    delivery.physical = {'grading_company': 'PSA', 'grade': '10'}
+    slab = dict(delivery.assets[0], id=uuid4(), scope='INVENTORY_ITEM', capture_context='GRADED_SLAB',
+                public_source_url='https://cdn.shopify.com/s/files/1/slab.png')
+    delivery.assets.insert(0, slab)
+    delivery.source_payload = None
+    with pytest.raises(HTTPException) as unavailable:
+        await delivery.call()
+    assert unavailable.value.status_code == 502
+    assert delivery.source_requests == [slab['public_source_url']]
+    assert delivery.client.reads == []
+
+
+@pytest.mark.asyncio
+async def test_exact_owned_slab_remains_visible(delivery):
+    delivery.physical = {'grading_company': 'PSA', 'grade': '10'}
+    delivery.assets = [dict(delivery.assets[0], scope='INVENTORY_ITEM', capture_context='GRADED_SLAB',
+                            public_source_url='https://cdn.shopify.com/s/files/1/slab.png')]
+    assert (await delivery.call()).body == b'provider'
+    assert delivery.source_requests == [delivery.assets[0]['public_source_url']]
+

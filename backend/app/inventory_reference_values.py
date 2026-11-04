@@ -14,6 +14,7 @@ from uuid import UUID
 
 from .language import clean_language
 from .pricing_rules import MIN_STORE_PRICE_MINOR
+from .ebay_sold_normalization import has_normalized_uk_evidence
 
 SOLD = "CATALOGUE_EBAY_V4"
 GUIDE = "CATALOGUE_CARDMARKET_V1"
@@ -29,6 +30,7 @@ select distinct on(s.catalogue_id,s.basis_condition,s.basis_language,s.grading_c
  s.evidence_checked_at,s.oldest_sale_at,s.calculated_at,s.algorithm_version,
  s.evidence->>'method' as method,s.evidence->>'limitation' as limitation,
  s.evidence->>'input_sale_count' as input_sale_count,
+ s.evidence->'comps' as comps,
  s.evidence->>'book_identity_digest' as book_identity_digest,
  case when s.evidence->>'method'='CATALOGUE_CARDMARKET_V1'
       then tcg.cardmarket_reference_current(s.evidence) else true end as reference_current
@@ -65,6 +67,25 @@ def _time(value: Any) -> datetime | None:
         except ValueError:
             return None
     return value if isinstance(value, datetime) and value.tzinfo is not None else None
+
+
+def verified_graded_sales(comps: Any) -> bool:
+    """Legacy search prices do not prove a slab's UK sale price or location."""
+    if not isinstance(comps, list) or len(comps) != 5:
+        return False
+    identifiers = set()
+    for comp in comps:
+        if not isinstance(comp, dict) or not has_normalized_uk_evidence(comp):
+            return False
+        if comp['provider_evidence'].get('sale_price_basis') not in {
+                'REPORTED_SOLD_PRICE', 'AUCTION_SOLD_PRICE',
+                'DETAILS_CONFIRMED_NON_OFFER', 'DETAILS_CONFIRMED_ACCEPTED_OFFER'}:
+            return False
+        ident = str(comp.get('item_id') or '').strip()
+        if not ident.isdigit() or ident in identifiers:
+            return False
+        identifiers.add(ident)
+    return True
 
 
 def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime) -> dict:
@@ -111,6 +132,9 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
                     or condition != _condition(row.get("basis_condition"))
                     or (kind in {"CARD","COMIC"} and not company and not condition)
                     or (kind not in {"CARD","COMIC"} and not seal)):
+                continue
+            if company and not verified_graded_sales(row.get('comps')):
+                result['reason'] = 'Verified UK sold prices are needed for this exact grade and printing; older unverified prices are excluded.'
                 continue
         elif method == GUIDE:
             # A guide remains explicitly an estimate, not an exact NM quote.
@@ -253,3 +277,4 @@ def reference_top_groups(items, limit=5):
         grouped[key]['quantity'] += 1
         grouped[key]['holding_value_minor'] += item['market_value_minor']
     return sorted(grouped.values(), key=lambda row: (-row['market_value_minor'], -row['holding_value_minor'], str(row['catalogue_id'])))[:limit]
+

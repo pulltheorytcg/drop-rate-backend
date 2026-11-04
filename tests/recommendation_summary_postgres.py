@@ -37,6 +37,11 @@ async def main():
             await db.execute("insert into tcg.catalogue_products values($1,$2,'One Piece',$3,'Synthetic set',$4,'Foil','SR','Japanese')",product,'SEALED' if index==1 else 'CARD',f'Synthetic {index}',f'TEST-{index:03}')
         async def snap(product,condition=None,company=None,grade=None,seal=None,market=1200,recommended=1200,guide=False):
             evidence={'method':'CATALOGUE_CARDMARKET_V1','input_sale_count':0,'valuation_kind':'REFERENCE_ESTIMATE','quote':{'source':'TCGDEX_CARDMARKET'}} if guide else {'method':'CATALOGUE_EBAY_V4','input_sale_count':5}
+            if company:
+                from app.ebay_sold_normalization import REVISION
+                evidence['comps']=[{'item_id':str(100+n),'provider_evidence':{
+                    'normalization_revision':REVISION,'item_location_country':'GB',
+                    'sale_price_basis':'AUCTION_SOLD_PRICE'}} for n in range(5)]
             return await db.fetchval('''insert into tcg.catalogue_market_snapshots(catalogue_id,identity_digest,basis_key,basis_condition,basis_language,grading_company,grade,seal_status,
               market_value_minor,recommended_retail_minor,confidence,algorithm_version,oldest_sale_at,evidence_checked_at,calculation_day,evidence_digest,evidence)
               select id,md5(concat_ws(chr(31),product_type,game,name,set_name,card_number,variant,rarity,language)),$2,$3,'Japanese',$4,$5,$6,
@@ -149,3 +154,4 @@ async def main():
         if server: await asyncio.to_thread(server.shutdown); server.server_close()
 
 if __name__=='__main__': asyncio.run(main())
+

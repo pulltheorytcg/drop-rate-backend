@@ -22,7 +22,7 @@ from .physical_state import validate_physical_state
 from .comic_identity import BOOK_CONDITIONS
 from .manual_collectible_identity import FIGURE_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
-from .inventory_reference_media import add_shared_inventory_media, shared_media_assets
+from .inventory_reference_media import add_shared_inventory_media, shared_media_assets, is_graded_item
 from .r2_media import inventory_media_mirrors, verified_mirror_bytes
 from .schemas import (
     BulkCostAllocation,
@@ -533,7 +533,7 @@ async def inventory_card_image(
         owner = await _owner(connection)
         item = await connection.fetchrow(
             """
-            select i.id, i.catalogue_id, i.language
+            select i.id, i.catalogue_id, i.language, i.grading_company, i.grade, i.certificate_number
             from tcg.inventory_items i
             where i.id = $1 and i.owner_id = $2
             """,
@@ -543,12 +543,17 @@ async def inventory_card_image(
             raise HTTPException(status_code=404, detail="Inventory item not found")
 
         assets = await shared_media_assets(connection, [inventory_id])
+        if is_graded_item(dict(item)):
+            assets = [asset for asset in assets if asset['scope'] == 'INVENTORY_ITEM'
+                      and asset.get('capture_context') == 'GRADED_SLAB']
         mirrors = await inventory_media_mirrors(connection, assets)
         # Library fallback is resolved by the same exact-reference rules used in
         # both list/detail responses. No uploader/account rule for catalogue art.
         reference_item = dict(item)
 
     async def reference_response():
+        if is_graded_item(reference_item):
+            return None
         from .owner_inventory import add_reference_artwork
         async with user_connection(request.app.state.db_pool, user.user_id, _request_id(request)) as connection:
             current_owner = await _owner(connection)
@@ -1063,3 +1068,4 @@ async def inventory_review(
             )
             return jsonable_encoder({"run_id": created["id"], "created_at": created["created_at"], "replayed": True, "result": created["result"]})
         return jsonable_encoder({"run_id": created["id"], "created_at": created["created_at"], "replayed": False, "result": result})
+

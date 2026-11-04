@@ -28,7 +28,7 @@ from .physical_state import CARD_CONDITIONS, validate_physical_state
 from .comic_identity import BOOK_CONDITIONS
 from .manual_collectible_identity import FIGURE_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
-from .inventory_reference_media import add_shared_inventory_media
+from .inventory_reference_media import add_shared_inventory_media, is_graded_item
 from .book_research import add_saved_book_artwork
 from .media_resolver import resolve_storefront_media
 from .shopify_completeness import shipping_profile_key
@@ -72,13 +72,18 @@ where p.id=any($1::uuid[]) group by p.id
 
 
 async def add_reference_artwork(connection, items):
-    ids = list({item["catalogue_id"] for item in items if item.get("catalogue_id")})
+    for item in items:
+        item.pop('reference_image_url', None)
+        item.pop('reference_image_path', None)
+    # Catalogue artwork and book covers never depict a graded physical copy.
+    raw_items = [item for item in items if not is_graded_item(item)]
+    ids = list({item["catalogue_id"] for item in raw_items if item.get("catalogue_id")})
     if not ids:
         return items
     rows = await connection.fetch(REFERENCE_ART_SQL, ids)
     by_id = {row["id"]: dict(row) for row in rows}
-    for item in items:
-        artwork = by_id.get(item["catalogue_id"], {})
+    for item in raw_items:
+        artwork = by_id.get(item.get("catalogue_id"), {})
         urls = artwork.get("urls") or []
         physical_language = clean_language(item.get("language"))
         catalogue_language = clean_language(artwork.get("catalogue_language"))
@@ -90,7 +95,7 @@ async def add_reference_artwork(connection, items):
         if len(urls) == 1 and _trusted_reference_url(urls[0]):
             item["reference_image_url"] = urls[0]
             item["reference_image_path"] = f"/api/v1/owner/inventory/{item['id']}/reference-image"
-    await add_saved_book_artwork(connection, items)
+    await add_saved_book_artwork(connection, raw_items)
     return items
 
 
@@ -267,7 +272,8 @@ async def reference_image(inventory_id: UUID, request: Request,
                           user: Annotated[AuthenticatedUser, Depends(require_user)],
                           access: Annotated[dict, Depends(require_owner_portal_request)]):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        row = await connection.fetchrow("""select i.id,i.catalogue_id,i.language,p.product_type
+        row = await connection.fetchrow("""select i.id,i.catalogue_id,i.language,p.product_type,
+            i.grading_company,i.grade,i.certificate_number
             from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
             where i.id=$1 and i.owner_id=$2""",
                                         inventory_id, access["owner_id"])
@@ -454,3 +460,4 @@ async def withdraw_copy(inventory_id: UUID, payload: VersionRequest, request: Re
         await connection.execute("""update tcg.inventory_items set status='WITHDRAWN',version=version+1,updated_at=clock_timestamp()
                                   where id=$1 and owner_id=$2 and version=$3""", inventory_id, access["owner_id"], item["version"])
     return {"message": "Copy withdrawn. Its history is retained.", "replayed": False}
+
