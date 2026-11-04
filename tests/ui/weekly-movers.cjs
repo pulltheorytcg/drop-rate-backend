@@ -189,7 +189,9 @@ const row = (extra = {}) => ({
       text = await fixture.render(summary("READY"), [row({
         name: '<img src="x" onerror="alert(1)">', comparison_label: '<b data-injected="yes">Guide estimate change</b>',
       })]);
-      assert.doesNotMatch(text, /<b data-injected="yes">/);
+      // Shared UI ignores provider labels; the legacy dashboard renders them as plain text.
+      if (kind === "owner") assert.doesNotMatch(text, /<b data-injected="yes">/);
+      else assert.match(text, /<b data-injected="yes">/);
       assert.match(text, kind === "owner" ? /Market value change/ : /Guide estimate change/);
       assert.equal(fixture.container().querySelector('[data-injected="yes"]'), null);
       assert.equal(fixture.container().querySelector('img[src="x"]'), null);
