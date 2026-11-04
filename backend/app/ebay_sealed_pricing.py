@@ -10,6 +10,7 @@ from fastapi import HTTPException
 
 from .db import user_connection
 from .ebay_sold_pricing import TrawlApiError, TrawlEbaySoldClient, _money_minor, _sold_at
+from .ebay_sold_normalization import has_normalized_uk_evidence, REVISION as SOLD_NORMALIZATION_REVISION
 from .market_adapters import NormalizedMarketObservation, stable_source_record_key
 from .ownership import current_owner as _owner
 from .pricing import _recalculate_one
@@ -133,6 +134,7 @@ def _select_five_sold(payload: dict[str, Any], target: dict[str, Any]) -> list[d
             "price_minor": price_minor,
             "shipping_minor": shipping_minor,
             "url": str(row.get("item_link") or "").strip() or None,
+            "provider_evidence": row.get("_pricing_evidence"),
         }
     return sorted(
         accepted.values(),
@@ -332,6 +334,8 @@ async def refresh_verified_sealed_ebay_market(
                 comp["item_id"],
                 comp["sold_at"].isoformat(),
             )
+            if has_normalized_uk_evidence({"provider_evidence": comp.get("provider_evidence")}):
+                key = stable_source_record_key(key, SOLD_NORMALIZATION_REVISION)
             observation = NormalizedMarketObservation(
                 source="EBAY",
                 source_record_key=key,
@@ -362,6 +366,7 @@ async def refresh_verified_sealed_ebay_market(
                     "set_code": target["set_code"],
                     "selection_rule": "FIVE_NEWEST_EXACT_SEALED_PACK_SALES",
                     "sale_price_excludes_shipping": True,
+                    "provider_evidence": comp.get("provider_evidence") or {},
                 },
             ).validate()
             row = await connection.fetchrow(

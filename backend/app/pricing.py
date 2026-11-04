@@ -274,10 +274,11 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
     )
     # Prefer five exact UK sales. A matched Cardmarket guide is an explicitly
     # labelled, non-publishable fallback when that evidence is unavailable.
+    from .ebay_sold_normalization import prefer_normalized_uk_rows
+    matching = [dict(row) for row in rows if _same_pricing_identity(dict(row),dict(item))]
     exact = {}
-    for row in rows:
-        if _same_pricing_identity(dict(row),dict(item)):
-            exact.setdefault(_sold_identity_key(dict(row)),row)
+    for row in prefer_normalized_uk_rows(matching):
+        exact.setdefault(_sold_identity_key(row),row)
     rows = list(exact.values())[:5]
     if len(rows)<5:
         from .cardmarket_valuations import apply_cached_inventory_guide

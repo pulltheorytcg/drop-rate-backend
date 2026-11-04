@@ -189,7 +189,7 @@ def select_comps(payload, target, now):
             return not isinstance(row.get("sale_price"),bool) and amount.is_finite() and amount>0
         except InvalidOperation:
             return False
-    clean = dict(payload, results=[r for r in rows if isinstance(r, dict) and r.get("currency") in {None, "£", "GBP"} and valid_money(r)
+    clean = dict(payload, results=[r for r in rows if isinstance(r, dict) and r.get("currency") in {None, "�", "GBP"} and valid_money(r)
                 and (sold := _sold_at(r.get("date_sold"))) is not None and now-timedelta(days=90)<=sold<=now])
     if target["product_type"] == "CARD":
         clean["results"] = [r for r in clean["results"] if exact_card_match(r, target)]
@@ -259,11 +259,12 @@ async def refresh_group(pool, actor, owner_id, items, client):
     target = items[0]
     key = identity_key(target)
     reason = eligibility(target)
-    comps, usage, query = [], {}, None
+    comps, usage, query, normalization = [], {}, None, {}
     if reason is None:
         query = query_for(target)
         payload = await client.sold(query=query, max_pages=1 if target["product_type"] in {"CARD","COMIC"} else 2)
         usage = payload.get("_usage", {})
+        normalization = payload.get("_normalization", {})
         try:
             comps = select_comps(payload, target, started)
         except (ValueError,TypeError,InvalidOperation) as exc:
@@ -295,6 +296,7 @@ async def refresh_group(pool, actor, owner_id, items, client):
             failed_mapping_count=0, errors=[], started_at=started,
             metadata={"job":JOB,"identity_key":key,"reason":reason,"inventory_ids":[str(i["id"]) for i in items],
                       "updated":updated,"skipped_changed":skipped,"comparable_count":len(comps),"usage":usage,
+                      "normalization":normalization,
                       "next_check_at":(started+timedelta(hours=24 if updated else 72)).isoformat()})
     log.warning("Live eBay market group: key=%s updated=%s pending=%s changed=%s",key[:12],updated,reason,skipped)
     return {"updated":updated,"pending":len(items)-updated,"usage":usage}

@@ -9,6 +9,8 @@ on:
       - 'backend/app/one_piece_market.py'
       - 'backend/app/catalogue_maintenance.py'
       - 'backend/app/ebay_sold_pricing.py'
+      - 'backend/app/ebay_sold_normalization.py'
+      - 'tests/test_ebay_sold_normalization.py'
       - 'backend/app/inventory_intelligence.py'
       - 'backend/app/inventory_market_movers.py'
       - 'backend/app/inventory_reference_values.py'
