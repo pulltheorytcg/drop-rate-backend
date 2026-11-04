@@ -243,7 +243,7 @@ async def owner_profile(
               on m.owner_id=o.id
              and m.user_id=tcg.current_user_id()
              and m.active
-             and m.role='OWNER'
+             and (m.role='OWNER' or (m.role='PLATFORM_ADMIN' and tcg.is_platform_admin()))
             where o.id=$1
               and o.active
             """,
@@ -266,7 +266,7 @@ async def update_owner_profile(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     access: Annotated[dict, Depends(require_owner_portal_request)],
 ) -> dict:
-    del access  # Database function independently enforces current OWNER membership.
+    del access  # Database function independently enforces the current membership.
     try:
         async with user_connection(
             request.app.state.db_pool,

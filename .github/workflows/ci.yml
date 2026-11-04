@@ -30,6 +30,7 @@ jobs:
         run: npm ci --prefix tools/history-archive-verify --ignore-scripts
       - name: Verify saved items and collectible security in PostgreSQL
         run: |
+          node tests/shared_founder_profile_pglite.mjs
           node tests/catalogue_saved_pglite.mjs
           node tests/r2_first_registry_pglite.mjs
           node tests/collectibles_intake_pglite.mjs

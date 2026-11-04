@@ -17,7 +17,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=shared-movers-20261103" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=unified-founders-20261104" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=books-v4" defer></script>' in html
 
     for founder_script in (
@@ -67,15 +67,15 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
     assert 'src="/assets/owner-inventory.js?v=scan-review-20261103"' in html
 
 
-def test_owner_portal_requires_owner_role_and_redirects_platform_admin() -> None:
+def test_shared_portal_requires_owner_or_verified_founder() -> None:
     js = JS.read_text()
 
     assert 'apiRequest("/api/v1/access/me")' in js
-    assert 'access.founder_hq_allowed === true' in js
+    assert 'access.business_allowed !== true' in js
     assert 'access.access_role === "PLATFORM_ADMIN" ||' not in js
-    assert 'window.location.replace("/app" + window.location.search + window.location.hash)' in js
-    assert 'access.access_role !== "OWNER"' in js
-    assert 'access.portal !== "OWNER_PORTAL"' in js
+    assert 'state.access = access' in js
+    assert 'access.access_role === "OWNER"' in js
+    assert 'access.portal === "OWNER_PORTAL"' in js
     assert "OWNER_PORTAL_ACCESS_DENIED" in js
 
 

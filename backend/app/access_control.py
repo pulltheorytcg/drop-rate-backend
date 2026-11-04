@@ -101,7 +101,10 @@ async def require_platform_admin_request(
 
 async def require_owner_portal(connection: asyncpg.Connection) -> dict:
     context = await current_access_context(connection)
-    if context["access_role"] != "OWNER" or context["portal"] != "OWNER_PORTAL":
+    # Founders use the same personal workspace. The roster check above remains
+    # authoritative; every owner endpoint still scopes data to context.owner_id.
+    owner = context["access_role"] == "OWNER" and context["portal"] == "OWNER_PORTAL"
+    if not owner and not context["business_allowed"]:
         raise HTTPException(status_code=403, detail="Owner portal access required")
     return context
 
@@ -110,7 +113,7 @@ async def require_owner_portal_request(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    """FastAPI dependency for APIs exposed only to restricted owner accounts."""
+    """Personal workspace APIs for owners and verified, rostered founders."""
 
     async with user_connection(
         request.app.state.db_pool,

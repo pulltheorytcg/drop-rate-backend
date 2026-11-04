@@ -1217,6 +1217,16 @@ async function openDashboard() {
     if (!access.access?.founder_hq_allowed) {
       throw new Error("FOUNDER_HQ_ACCESS_DENIED");
     }
+    if (window.location.pathname !== "/founders") {
+      state.routing = true;
+      const legacy = {dashboard: "overview", intake: "scan", accounts: "founders", more: "settings"};
+      const view = window.location.hash.slice(1);
+      const operations = ["verification", "media", "reports"];
+      window.location.replace(operations.includes(view)
+        ? "/founders" + window.location.search + window.location.hash
+        : "/owner" + window.location.search + (view ? "#" + (legacy[view] || view) : ""));
+      return;
+    }
     const me = await apiRequest("/api/v1/me");
     byId("owner-email").textContent = state.session.user?.email || byId("login-email").value || "Founder account";
     byId("owner-name").textContent = me.owner.display_name;
