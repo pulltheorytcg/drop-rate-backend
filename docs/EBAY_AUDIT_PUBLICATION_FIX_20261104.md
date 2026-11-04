@@ -61,3 +61,15 @@ Reference: [eBay's Inventory OpenAPI specification](https://developer.ebay.com/a
 documents the offer collection's 404 response; the exact 25713 response was
 observed in the authorised live test. A successful listing is still a separate
 post-deployment acceptance gate.
+
+PR #898 deployed as `91e4348c` (Railway
+`80984480-19f8-4ce8-ab08-e75e2af9158d`, SUCCESS at 12:58 UTC;
+10,027 pre-deploy tests passed). The next attempt still logged the exact
+GET-collection/404/25713 response. The initial classifier's domain/category and
+single-error assumptions were too strict for the live response. The corrected
+classifier requires the exact route and status and one to ten errors, each
+containing numeric ID 25713. It ignores descriptive metadata but never ignores
+an unknown/malformed additional error. The lookup still performs no mutation,
+and subsequent offer creation remains subject to eBay's own validation.
+91 focused eBay tests cover this boundary. Publication remains unverified until
+the next post-deployment founder acceptance test.

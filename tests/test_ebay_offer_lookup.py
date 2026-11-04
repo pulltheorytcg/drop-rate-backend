@@ -43,8 +43,14 @@ def _client(monkeypatch, status, body):
     return client, calls
 
 
-def test_first_sku_offer_lookup_is_empty_when_ebay_explicitly_reports_absence(monkeypatch):
-    client, calls = _client(monkeypatch, 404, {"errors": [ABSENT]})
+@pytest.mark.parametrize("errors", [
+    [ABSENT], [{"errorId": 25713}],
+    [{**ABSENT, "category": "BUSINESS"}],
+    [{**ABSENT, "domain": "inventory"}],
+    [ABSENT, ABSENT],
+])
+def test_first_sku_offer_lookup_is_empty_when_ebay_explicitly_reports_absence(monkeypatch, errors):
+    client, calls = _client(monkeypatch, 404, {"errors": errors})
     assert asyncio.run(client.get_offers(sku="INV-TEST-ONE")) == []
     assert len(calls) == 1
     assert calls[0][0] == "GET"
@@ -56,9 +62,10 @@ def test_first_sku_offer_lookup_is_empty_when_ebay_explicitly_reports_absence(mo
     (429, {"errors": [ABSENT]}), (500, {"errors": [ABSENT]}),
     (400, {"errors": [ABSENT]}),
     (404, {"errors": [{**ABSENT, "errorId": 25710}]}),
-    (404, {"errors": [{**ABSENT, "domain": "ACCESS"}]}),
-    (404, {"errors": [{**ABSENT, "category": "APPLICATION"}]}),
     (404, {"errors": [ABSENT, {"errorId": 25001}]}),
+    (404, {"errors": [ABSENT, {}]}),
+    (404, {"errors": [{"errorId": "25713"}]}),
+    (404, {"errors": [ABSENT] * 11}),
     (404, {"errors": []}), (404, {"errors": [None]}),
     (404, {"errors": ["unknown"]}), (404, {"errors": "unknown"}),
     (404, {}), (404, []), (404, b"not-json"),
