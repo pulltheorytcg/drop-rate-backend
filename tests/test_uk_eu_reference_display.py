@@ -164,6 +164,18 @@ def test_non_card_graded_named_variant_and_empty_input_do_not_query_cache():
     assert connection.calls == []
 
 
+@pytest.mark.parametrize('changes', [
+    {'fx_retrieved_at': None}, {'observed_at': (NOW-timedelta(days=8)).isoformat()},
+    {'variant_id': None}, {'price_gbp_minor': 42},
+])
+def test_ineligible_legacy_guide_does_not_query_model_cache(changes):
+    reference, _, quote = fixture()
+    quote.update(changes)
+    connection = Connection([])
+    complete(add_uk_eu_estimates(connection, [reference], now=NOW))
+    assert connection.calls == []
+
+
 def test_inventory_exact_raw_reference_gets_model_without_changing_physical_money():
     from app.inventory_catalogue_reference import add_catalogue_references
     reference, record, _ = fixture()
@@ -171,6 +183,9 @@ def test_inventory_exact_raw_reference_gets_model_without_changing_physical_mone
         set_name=reference['set_name'], card_number=reference['card_number'], rarity='Unknown',
         variant='Normal', language='English', blocked=False)
     reference['catalogue_id'] = str(product['id'])
+    # The legacy candidate query omits finish; the model query reloads the
+    # authoritative reference identity and selected finish from its cache.
+    reference.pop('finish')
     class InventoryConnection:
         async def fetch(self, query, *args):
             if query == MODEL_DISPLAY_SQL:

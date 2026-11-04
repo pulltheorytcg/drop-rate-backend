@@ -200,10 +200,17 @@ async def add_uk_eu_estimates(connection, rows, *, now=None):
                              + _quotes(row.get("catalogue_quotes")))
         except (ValueError, TypeError):
             source_quotes = []
+        # A stale/incomplete legacy guide cannot contribute to this model, so
+        # it must not trigger the additional cache lookup on an account page.
+        guide_reference = dict(row, quotes=source_quotes, catalogue_quotes=[])
+        guide_finishes = {q.get("finish") for q in source_quotes if isinstance(q, dict)
+                          and q.get("source") == "TCGDEX_CARDMARKET" and isinstance(q.get("finish"), str)}
+        has_guide = any(cardmarket_model_guide(guide_reference, finish, now=now)
+                        for finish in guide_finishes)
         if (row.get("provider") == "TCGdex" and row.get("source_kind", "REFERENCE") == "REFERENCE"
                 and row.get("product_type", "CARD") == "CARD"
                 and not row.get("grading_company") and not row.get("grade") and not row.get("seal_status")
-                and any(isinstance(q, dict) and q.get("source") == "TCGDEX_CARDMARKET" for q in source_quotes)
+                and has_guide
                 and all(isinstance(row.get(k), str) and row[k] for k in REFERENCE_KEYS)):
             pending.append(row)
     if not pending:

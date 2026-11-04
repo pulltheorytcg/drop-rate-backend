@@ -73,7 +73,7 @@ PRODUCTS_SQL = """select p.*,
 # The existing global number-key index bounds this lookup. Unpriced siblings
 # are retained: quote availability must never select a printing.
 CACHE_SQL = """select k.catalogue_id,r.provider,r.system_code,r.language,r.provider_id,
- r.set_id,r.name,r.card_number,r.rarity,r.finish,r.image_url,r.source_url,r.evidence,s.name as set_name,
+ r.set_id,r.name,r.card_number,r.rarity,r.image_url,r.source_url,r.evidence,s.name as set_name,
  coalesce(m.quotes,'[]'::jsonb) as quotes,
  coalesce(b.quotes,'[]'::jsonb) as catalogue_quotes
  from tcg.reference_cards r
