@@ -51,6 +51,82 @@ function fixture(override,gameRows=games) {
 
 (async()=>{
   let checks=0;
+  // Publisher/demographic/brand controls make a server-side query. Category
+  // changes reset their scope; unsupported groups never trigger a request.
+  {
+    const f=fixture();await f.browser.open();await f.search("One Piece");await f.choose("COMICS");
+    assert.deepEqual([...f.browser.find(".dr-browse-groups").querySelectorAll("button")].map(n=>n.textContent),["All comics","Marvel","DC","Indie","Other / unclassified"]);
+    f.browser.find('[data-browse-group="INDIE"]').click();await tick();
+    assert.equal(f.lastQuery().get("browse_group"),"INDIE");assert.equal(f.lastQuery().get("system_code"),"COMICS");
+    assert.equal(f.lastQuery().get("q"),"One Piece");assert.equal(f.lastQuery().get("offset"),"0");
+    assert.equal(f.browser.find('[data-browse-group="INDIE"]').getAttribute("aria-pressed"),"true");
+    const count=f.calls.length;f.browser.pickBrowseGroup("SHONEN");assert.equal(f.calls.length,count);
+    await f.choose("MANGA");assert.equal(f.lastQuery().get("browse_group"),null);
+    assert.deepEqual([...f.browser.find(".dr-browse-groups").querySelectorAll("button")].map(n=>n.textContent),["All manga","Shōnen","Shōjo","Seinen","Josei","Kodomo","Unclassified"]);
+    f.browser.find('[data-browse-group="SHONEN"]').click();await tick();assert.equal(f.lastQuery().get("browse_group"),"SHONEN");
+    assert.equal(f.lastQuery().get("system_code"),"MANGA");assert.match(f.browser.find(".dr-browse-category-heading p").textContent,/separate from genres/);
+    await f.choose("TCG");assert.equal(f.lastQuery().get("browse_group"),null);assert.equal(f.browser.find(".dr-browse-groups").hidden,true);
+    f.finish();checks++;
+  }
+  // Server paging, saved keys and ownership retain the selected group. Picking
+  // another group resets offset instead of reusing a partially filtered page.
+  {
+    const f=fixture((_url,query)=>query.get("browse_group")?{items:[comic],has_more:true}:undefined);
+    await f.browser.open();await f.choose("COMICS");f.browser.filters.owned="owned";
+    f.browser.watchlist=new Set([comic.key]);f.browser.savedState="ready";f.browser.filters.watch=true;
+    f.browser.find('[data-browse-group="DC"]').click();await tick();
+    for(const more of [false,true]){
+      if(more)await f.browser.load(true);
+      assert.equal(f.lastQuery().get("browse_group"),"DC");assert.equal(f.lastQuery().get("owned"),"owned");
+      assert.equal(f.lastQuery().get("keys"),comic.key);assert.equal(f.lastQuery().get("offset"),more?"1":"0");
+    }
+    f.browser.find('[data-browse-group="MARVEL"]').click();await tick();assert.equal(f.lastQuery().get("offset"),"0");assert.equal(f.lastQuery().get("browse_group"),"MARVEL");
+    f.finish();checks++;
+  }
+  // Group selection scopes both series and products, including returning from
+  // series navigation. It does not rewrite the exact selected series identity.
+  {
+    const f=fixture();await f.browser.open();await f.choose("MANGA");
+    f.browser.find('[data-browse-group="SEINEN"]').click();await tick();
+    f.browser.showSets();await tick();assert.ok(f.calls.at(-1).url.includes("/sets?"));assert.equal(f.lastQuery().get("browse_group"),"SEINEN");
+    f.browser.back();await tick();assert.ok(f.calls.at(-1).url.includes("/products?"));assert.equal(f.lastQuery().get("browse_group"),"SEINEN");
+    f.browser.set={system_code:"MANGA",set_id:"exact-series",provider:"Books"};await f.browser.load();
+    assert.equal(f.lastQuery().get("set_id"),"exact-series");assert.equal(f.lastQuery().get("provider"),"Books");
+    f.browser.find('[data-browse-group="JOSEI"]').click();await tick();assert.equal(f.lastQuery().get("set_id"),null);
+    f.finish();checks++;
+  }
+  // Sports and figures stay honest about an empty subgroup; no placeholder
+  // reference, ownership write, value or fake provider activation is added.
+  {
+    const f=fixture(()=>({items:[],has_more:false}));await f.browser.open();
+    for(const [category,groups] of [["SPORTS",["PANINI","TOPPS","OTHER"]],["FIGURES",["FUNKO_POP","FIGURINES","OTHER"]]]){
+      await f.choose(category);
+      for(const group of groups){f.browser.find(`[data-browse-group="${group}"]`).click();await tick();assert.equal(f.lastQuery().get("browse_group"),group);assert.equal(f.lastQuery().get("category"),category);assert.equal(f.browser.rows.length,0);}
+    }
+    await f.choose("MANGA");f.browser.find('[data-browse-group="UNKNOWN"]').click();await tick();
+    assert.doesNotMatch(f.browser.find(".dr-browse-status").textContent,/first verified book|No books have been added/);
+    assert.equal(f.calls.filter(call=>call.method&&call.method!=="GET").length,0);f.finish();checks++;
+  }
+  // Refinement is a draft until applied; clearing keeps the category and query
+  // but removes the old group and exact series constraint.
+  {
+    const f=fixture();await f.browser.open();await f.choose("MANGA");await f.search("Naruto");
+    f.browser.openFilters();const control=f.browser.sheet.querySelector('[data-filter="browse_group"]');control.value="SHONEN";
+    control.dispatchEvent(new f.w.Event("change"));assert.equal(f.browser.filters.browse_group,"");
+    [...f.browser.sheet.querySelectorAll("button")].find(n=>n.textContent==="Show results").click();await tick();
+    assert.equal(f.lastQuery().get("browse_group"),"SHONEN");assert.equal(f.lastQuery().get("q"),"Naruto");
+    f.browser.clearCategoryFilters();await f.browser.load();assert.equal(f.lastQuery().get("browse_group"),null);
+    assert.equal(f.lastQuery().get("q"),"Naruto");assert.equal(f.lastQuery().get("system_code"),"MANGA");f.finish();checks++;
+  }
+  // A late response for a previous group must not overwrite a newer group.
+  {
+    const pending=deferred(),f=fixture((_url,query)=>query.get("browse_group")==="MARVEL"?pending.promise:undefined);
+    await f.browser.open();await f.choose("COMICS");f.browser.find('[data-browse-group="MARVEL"]').click();await tick();
+    const old=f.calls.at(-1);f.browser.find('[data-browse-group="DC"]').click();await tick();assert.equal(old.signal.aborted,true);
+    pending.resolve({items:[{...comic,name:"Late Marvel result"}],has_more:false});await tick();
+    assert.doesNotMatch(f.browser.find(".dr-browse-content").textContent,/Late Marvel result/);
+    assert.equal(f.browser.find('[data-browse-group="DC"]').getAttribute("aria-pressed"),"true");f.finish();checks++;
+  }
   // Magic is a catalogue navigation option only when the server advertises it;
   // the client does not activate the deferred Riftbound source or the scanner.
   {

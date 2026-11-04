@@ -57,6 +57,23 @@ not verify a physical card's exact parallel, language, condition or
 authenticity. CC BY 4.0 covers the compilation and original annotations, not
 the linked third-party documents, trademarks or artwork.
 
+CARD COLLECTOR CAPITAL — 2026 TOPPS HERITAGE — CC BY 4.0
+Creator and permission: Card Collector Capital, https://cardcollectorcapital.com/data
+Licence: https://creativecommons.org/licenses/by/4.0/
+Dataset: https://cardcollectorcapital.com/data/2026-topps-heritage-short-prints.json
+Reviewed dataset version: 30 September 2026; access review: 4 November 2026.
+This separate source contains 100 numbered starred-base checklist references,
+not all 400 base cards, every Topps product, every parallel or a Panini database.
+Drop Rate filters and renames fields, joins subjects on multi-player cards
+without creating extra cards, and preserves checklist categories, source pages,
+manufacturer evidence URLs and the source's #360 Back Variation warning.
+The compilation and original annotations are CC BY 4.0; linked third-party
+documents, trademarks and artwork are not relicensed. Only the reviewed JSON
+is fetched; no manufacturer PDF, images, prices or print-run estimates are
+downloaded or inferred. A source checklist does not confirm physical language,
+parallel, grade, authenticity or ownership. Changes to this pinned export need
+another source review. The existing Bowman source remains separate and intact.
+
 INDIVIDUALLY REVIEWED FIGURE STARTER
 Four Funko product references contain individually checked factual product
 names, item numbers, box numbers and franchise/product-line identifiers.
