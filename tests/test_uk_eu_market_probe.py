@@ -59,7 +59,7 @@ class Client:
 def harness(monkeypatch):
     monkeypatch.setattr(probe, "reference_asking_eligibility", lambda ref: None)
     monkeypatch.setattr(probe, "search_query", lambda ref: "Charizard 25/185")
-    monkeypatch.setattr(probe, "item_detail_candidates", lambda ref, summaries: ["v1|123|0", "v1|124|0", "v1|125|0"])
+    monkeypatch.setattr(probe, "item_detail_candidates", lambda ref, summaries, *, limit=6: ["v1|123|0", "v1|124|0", "v1|125|0"][:limit])
     async def quota_reader(client):
         return quota()
     tick = [0.0]
@@ -119,6 +119,36 @@ def test_budget_is_not_reset_for_the_next_reference(harness):
     assert "model" not in report["results"][1]
 
 
+def test_one_reference_can_use_twenty_four_details_within_global_budget(harness, monkeypatch):
+    options, _ = harness
+    limits = []
+    def candidates(reference, summaries, *, limit=6):
+        limits.append(limit)
+        return [f"v1|{123+i}|0" for i in range(limit)]
+    monkeypatch.setattr(probe, "item_detail_candidates", candidates)
+    client = Client()
+    report = complete(probe.probe_references([reference()], client,
+                       max_details_per_reference=24, max_requests=25, **options))
+    assert limits == [24]
+    assert report["status"] == "COMPLETE"
+    assert report["requests"] == len(client.calls) == 25
+    assert report["detail_requests"] == report["results"][0]["details"] == 24
+    assert report["max_details_per_reference"] == 24
+
+
+def test_larger_detail_selection_cannot_exceed_smaller_global_budget(harness, monkeypatch):
+    options, _ = harness
+    monkeypatch.setattr(probe, "item_detail_candidates",
+                        lambda ref, rows, *, limit=6: [f"v1|{123+i}|0" for i in range(limit)])
+    client = Client()
+    report = complete(probe.probe_references([reference()], client,
+                       max_details_per_reference=24, max_requests=10, **options))
+    assert report["stop_reason"] == "REQUEST_LIMIT"
+    assert report["requests"] == len(client.calls) == 10
+    assert report["detail_requests"] == 9
+    assert report["results"][0]["details"] == 9
+
+
 def test_insufficient_provider_headroom_stops_before_browse(harness):
     options, _ = harness
     async def exhausted(client):
@@ -155,11 +185,26 @@ def test_invalid_budgets_rejected(budget):
         probe.report_base([KEY], budget, run=False)
 
 
+@pytest.mark.parametrize("limit", [0, 25, True, 1.5])
+def test_invalid_detail_limits_rejected(limit):
+    with pytest.raises(ValueError):
+        probe.report_base([KEY], 25, run=False, max_details_per_reference=limit)
+
+
 def test_default_cli_plan_does_not_load_credentials_or_database(monkeypatch, capsys):
     monkeypatch.setattr(probe.Settings, "from_env", lambda: pytest.fail("Plan loaded settings"))
     assert probe.main(["--reference-key", json.dumps(KEY)]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["status"] == "PLAN_ONLY" and report["requests"] == 0
+    assert report["max_details_per_reference"] == 6
+
+
+def test_cli_larger_detail_plan_is_still_zero_io(monkeypatch, capsys):
+    monkeypatch.setattr(probe.Settings, "from_env", lambda: pytest.fail("Plan loaded settings"))
+    assert probe.main(["--reference-key", json.dumps(KEY), "--max-details-per-reference", "24"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "PLAN_ONLY" and report["requests"] == 0
+    assert report["max_details_per_reference"] == 24 and report["max_requests"] == 25
 
 
 def test_run_probe_uses_authorized_readonly_snapshot_and_always_unlocks(monkeypatch):

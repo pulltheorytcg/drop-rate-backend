@@ -25,6 +25,9 @@ from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_asking_display import asking_cache_join, matching_reference_evidence, reference_number_alias as _number_alias
 from .reference_asking_estimator import (
     _GRADE_RE, _MULTI_RE, _aspects, _number_matches, _text,
+    _LANGUAGES, _SET_CODES, _SPECIAL_MARKERS, _condition_matches,
+    _explicitly_denies, _listing_finish, _matches, _phrase, _reference_spec,
+    _variant_markers,
     estimate_reference_asking_price, reference_asking_eligibility,
 )
 
@@ -179,45 +182,97 @@ def search_query(reference):
     return value
 
 
-def item_detail_candidates(reference, summaries):
+def _summary_rank(row, reference, spec):
+    """Reject explicit conflicts; absent detail-resolvable facts remain eligible."""
+    title = _text(row.get("title"))
+    aspects = _aspects(row)
+    all_text = " ".join((title, _text(row.get("condition")), " ".join(aspects.values())))
+    grade_text = re.sub(r"\bnot(?:\s+professionally)?\s+graded\b", "", all_text)
+    if (_GRADE_RE.search(grade_text) or re.search(r"\bslabs\b", grade_text)
+            or str(row.get("conditionId")) == "2750" or _MULTI_RE.search(all_text)):
+        return None
+    if any(aspects.get(key) not in (None, "", "no", "ungraded", "not graded", "not professionally graded")
+           for key in ("professional grader", "grade", "certification number", "graded")):
+        return None
+    if (not all(token in title.split() for token in _text(reference["name"]).split())
+            or _explicitly_denies(title, (reference["name"],))
+            or not _number_matches(str(row.get("title", "")), aspects.get("card number", ""), reference["card_number"])):
+        return None
+    language_text = " ".join((title, aspects.get("language", "")))
+    languages = {language for language, aliases in _LANGUAGES.items()
+                 if any(_phrase(language_text, alias) for alias in aliases)}
+    if ((languages and languages != {spec["language"]})
+            or _explicitly_denies(language_text, _LANGUAGES[spec["language"]])):
+        return None
+    set_text = " ".join((title, aspects.get("set", "")))
+    options = spec["set_alternatives"]
+    terms = tuple(term for option in options for term in option)
+    if (_explicitly_denies(set_text, terms)
+            or any(_phrase(set_text, term) for term in spec["set_conflicts"])
+            or (aspects.get("set") and not any(all(_text(term) == aspects["set"] for term in option) for option in options))):
+        return None
+    for base, expanded in (("base set", "base set 2"), ("team rocket", "team rocket returns")):
+        if any(_text(term) == base for term in spec["set_terms"]) and _phrase(set_text, expanded):
+            return None
+    allowed_codes = {match.group().casefold() for match in _SET_CODES.finditer(" ".join((*spec["set_terms"], reference["card_number"])))}
+    if any(match.group().casefold() not in allowed_codes for match in _SET_CODES.finditer(str(row.get("title", "")))):
+        return None
+    if (_variant_markers(all_text) - spec["markers"]
+            or any(_explicitly_denies(all_text, _SPECIAL_MARKERS[marker]) for marker in spec["markers"])
+            or _explicitly_denies(title, spec["variant_terms"])):
+        return None
+    known_finish = _listing_finish(row, {**spec, "finish": None})
+    if (known_finish is not None and spec["finish"] in {"normal", "holo", "reverse", "foil"}
+            and known_finish != spec["finish"]):
+        return None
+    # This is only request ordering. Every fetched response is still assessed
+    # independently, without borrowing any missing fact from its summary.
+    return (_matches(row, reference, spec) is None, languages == {spec["language"]},
+            any(all(_phrase(set_text, term) for term in option) for option in options),
+            _listing_finish(row, spec) is not None, _condition_matches(all_text))
+
+
+def item_detail_candidates(reference, summaries, *, limit=MAX_ITEM_DETAILS_PER_CARD):
     """Select bounded discovery IDs, never turn search metadata into evidence.
 
     The unchanged estimator requires the exact card name in the title. Requiring
     its number too avoids spending detail calls on broad same-name matches.
-    Missing language, finish, set and condition may be supplied by getItem;
-    explicit contradictions are still rejected by the final full matcher.
-    Prefer distinct sellers, but do not infer seller identity when absent.
+    Missing language, finish, set and condition may be supplied by getItem.
+    Skip explicit conflicts and rank stronger identity hints first. Prefer
+    distinct sellers, but do not infer seller identity when absent. The default
+    remains six details; a bounded manual probe may request up to 24 within its
+    separate global request budget.
     """
+    if type(limit) is not int or not 1 <= limit <= 24:
+        raise ValueError("Detail candidate limit must be an integer from 1 to 24")
+    spec, reason = _reference_spec(reference)
+    if reason is not None or spec is None:
+        return []
     candidates, seen_items = [], set()
-    for row in summaries:
+    for position, row in enumerate(summaries):
         if not isinstance(row, dict):
             continue
         item_id = row.get("itemId")
         match = re.fullmatch(r"v1\|([1-9][0-9]{0,19})\|(0|[1-9][0-9]{0,19})", item_id or "") if isinstance(item_id, str) else None
         if match is None or match[1] in seen_items:
             continue
-        title = _text(row.get("title"))
-        grade_text = re.sub(r"\bnot(?:\s+professionally)?\s+graded\b", "", title)
-        if (_GRADE_RE.search(grade_text) or str(row.get("conditionId")) == "2750"
-                or _MULTI_RE.search(title)):
-            continue
-        if not all(token in title.split() for token in _text(reference["name"]).split()):
-            continue
-        if not _number_matches(str(row.get("title", "")), "", reference["card_number"]):
+        rank = _summary_rank(row, reference, spec)
+        if rank is None:
             continue
         seen_items.add(match[1])
         seller = row.get("seller")
         username = seller.get("username") if isinstance(seller, dict) else None
         seller_key = username.strip().casefold() if isinstance(username, str) and username.strip() else item_id
-        candidates.append((item_id, seller_key))
+        candidates.append((rank, position, item_id, seller_key))
+    candidates.sort(key=lambda candidate: (tuple(-int(value) for value in candidate[0]), candidate[1]))
     distinct, repeated, seen_sellers = [], [], set()
-    for item_id, seller in candidates:
+    for _, _, item_id, seller in candidates:
         if seller in seen_sellers:
             repeated.append(item_id)
         else:
             seen_sellers.add(seller)
             distinct.append(item_id)
-    return (distinct + repeated)[:MAX_ITEM_DETAILS_PER_CARD]
+    return (distinct + repeated)[:limit]
 
 
 def bounded_item_detail(payload, item_id):

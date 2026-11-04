@@ -66,10 +66,13 @@ def reference_keys(values):
     return result
 
 
-def report_base(keys, max_requests, *, run):
+def report_base(keys, max_requests, *, run, max_details_per_reference=6):
     if type(max_requests) is not int or not 1 <= max_requests <= MAX_REQUESTS:
         raise ValueError("max_requests must be between 1 and 25")
+    if type(max_details_per_reference) is not int or not 1 <= max_details_per_reference <= 24:
+        raise ValueError("max_details_per_reference must be between 1 and 24")
     return {"status": "RUNNING" if run else "PLAN_ONLY", "reference_keys": keys,
+            "max_details_per_reference": max_details_per_reference,
             "max_requests": max_requests, "requests": 0, "search_requests": 0,
             "detail_requests": 0, "database_writes": 0, "price_writes": 0,
             "inventory_writes": 0, "store_price_writes": 0, "results": []}
@@ -80,14 +83,15 @@ def model_estimate(reference, browse_report, *, now):
     return estimate_from_reference(reference, browse_report, now=now)
 
 
-async def probe_references(references, client, *, max_requests=25,
+async def probe_references(references, client, *, max_requests=25, max_details_per_reference=6,
                            quota_reader=read_browse_quota, clock=utcnow,
                            sleep=asyncio.sleep, monotonic=time.monotonic,
                            estimator=estimate_reference_asking_price,
                            model=model_estimate):
     """Finite network-only probe; no connection or storage capability is passed."""
     keys = reference_keys([[r.get(k) for k in KEYS] for r in references])
-    report = report_base(keys, max_requests, run=True)
+    report = report_base(keys, max_requests, run=True,
+                         max_details_per_reference=max_details_per_reference)
     next_request = monotonic()
     windows = []
 
@@ -127,11 +131,12 @@ async def probe_references(references, client, *, max_requests=25,
                 raise BackfillStop("INVALID_BROWSE_SUMMARIES")
             entry["summaries"] = len(summaries)
             details = []
-            for item_id in item_detail_candidates(reference, summaries):
+            for item_id in item_detail_candidates(reference, summaries, limit=max_details_per_reference):
                 payload = await request(lambda: client.get_item(item_id), "detail_requests")
                 detail = bounded_item_detail(payload, item_id)
                 if detail is not None:
                     details.append(detail)
+                    entry["details"] = len(details)
             entry["details"] = len(details)
             estimate = estimator(reference, details, observed_at=observed, now=clock())
             entry.update(status=estimate["status"], observed_at=estimate.get("observed_at"),
@@ -162,7 +167,9 @@ async def probe_references(references, client, *, max_requests=25,
     return report
 
 
-async def run_probe(settings, keys, *, max_requests):
+async def run_probe(settings, keys, *, max_requests, max_details_per_reference=6):
+    keys = reference_keys(keys)
+    report_base(keys, max_requests, run=True, max_details_per_reference=max_details_per_reference)
     actor = UUID(settings.catalogue_maintenance_actor_user_id or "")
     if settings.ebay_marketplace_id != "EBAY_GB":
         raise ValueError("The UK probe requires EBAY_GB")
@@ -178,16 +185,19 @@ async def run_probe(settings, keys, *, max_requests):
             rows = await connection.fetch(READ_SQL, json.dumps([dict(zip(KEYS, k)) for k in keys]))
         by_key = {tuple(row[k] for k in KEYS): dict(row) for row in rows}
         if len(by_key) != len(keys) or any(tuple(k) not in by_key for k in keys):
-            report = report_base(keys, max_requests, run=True)
+            report = report_base(keys, max_requests, run=True,
+                                 max_details_per_reference=max_details_per_reference)
             return dict(report, status="STOPPED", stop_reason="EXACT_REFERENCE_UNAVAILABLE")
         async with pool.acquire() as connection:
             locked = await connection.fetchval("select pg_try_advisory_lock(hashtextextended($1,0))", LOCK_NAME)
             if not locked:
-                return dict(report_base(keys, max_requests, run=True), status="STOPPED",
+                return dict(report_base(keys, max_requests, run=True,
+                                        max_details_per_reference=max_details_per_reference), status="STOPPED",
                             stop_reason="BACKFILL_ALREADY_RUNNING")
             try:
                 return await probe_references([by_key[tuple(k)] for k in keys], client,
-                                              max_requests=max_requests)
+                                              max_requests=max_requests,
+                                              max_details_per_reference=max_details_per_reference)
             finally:
                 await connection.fetchval("select pg_advisory_unlock(hashtextextended($1,0))", LOCK_NAME)
     finally:
@@ -199,16 +209,20 @@ def main(argv=None):
     parser.add_argument("--reference-key", action="append", required=True,
                         help='JSON array: [provider,system_code,language,provider_id]')
     parser.add_argument("--max-requests", type=int, default=25)
+    parser.add_argument("--max-details-per-reference", type=int, default=6,
+                        help="Detail candidates per exact reference (1..24); global request budget still applies")
     parser.add_argument("--run", action="store_true")
     args = parser.parse_args(argv)
     try:
         keys = reference_keys(args.reference_key)
-        report = report_base(keys, args.max_requests, run=args.run)
+        report = report_base(keys, args.max_requests, run=args.run,
+                             max_details_per_reference=args.max_details_per_reference)
     except (ValueError, TypeError) as exc:
         parser.error(str(exc))
     if args.run:
         try:
-            report = asyncio.run(run_probe(Settings.from_env(), keys, max_requests=args.max_requests))
+            report = asyncio.run(run_probe(Settings.from_env(), keys, max_requests=args.max_requests,
+                                            max_details_per_reference=args.max_details_per_reference))
         except Exception as exc:
             report.update(status="FAILED", stop_reason="PROBE_SETUP_FAILED", error_class=type(exc).__name__)
     print(json.dumps(report, sort_keys=True, default=str))
