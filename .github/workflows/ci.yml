@@ -28,6 +28,10 @@ jobs:
       - run: PYTHONPATH=backend pytest
       - name: Install disposable PostgreSQL runtime
         run: npm ci --prefix tools/history-archive-verify --ignore-scripts
+      - name: Verify eBay publication audit contract and owner isolation
+        env:
+          BOOK_TEST_PGLITE_MODULE: ${{ github.workspace }}/tools/history-archive-verify/node_modules/@electric-sql/pglite/dist/index.js
+        run: PYTHONPATH=backend pytest -q tests/test_ebay_audit_contract.py tests/test_ebay_photo_eligibility.py
       - name: Verify saved items and collectible security in PostgreSQL
         run: |
           node tests/shared_founder_profile_pglite.mjs

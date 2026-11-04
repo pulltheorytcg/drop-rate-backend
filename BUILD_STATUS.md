@@ -1,3 +1,17 @@
+## 4 November 2026 — Repair eBay publication audit contract (verification in progress)
+
+- A founder-UI single-card publish passed all preparation checks but returned
+  HTTP 422. PostgreSQL rejected `EBAY_INVENTORY_LINK`, used by both publication
+  audit writers, because the original entity constraint omitted it.
+- Add that exact entity type atomically, preserving old audit records/types,
+  owner/actor RLS, append-only grants and every listing/ownership/price gate.
+- Real PostgreSQL regression reproduces both failures, then verifies both
+  inserts, replay-safe migration, existing records and access-denial cases.
+  A publisher retry test verifies an existing live listing makes no eBay call.
+  CI explicitly runs the database tests after installing its pinned runtime.
+- Release evidence and the authorised one-item live retry remain separate from
+  local tests. See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
+
 ## 4 November 2026 — Shared Seller Hub for founders (release in progress)
 
 - Founders enter the real Seller Hub at `/owner`, with its existing Home, Collection,
