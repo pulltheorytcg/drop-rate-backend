@@ -73,3 +73,17 @@ an unknown/malformed additional error. The lookup still performs no mutation,
 and subsequent offer creation remains subject to eBay's own validation.
 91 focused eBay tests cover this boundary. Publication remains unverified until
 the next post-deployment founder acceptance test.
+
+PR #899 deployed as `2869fbad` (Railway
+`78e32516-b94a-4345-a006-9dd8e102845e`, SUCCESS at 13:11 UTC;
+10,032 pre-deploy tests passed). The founder retry progressed beyond the
+absent-offer lookup and received POST offer / HTTP 400 / error 25002, a generic
+listing-validation error. No local LIVE state or publication ID was recorded.
+
+Diagnostics now distinguish collection, detail and publish/withdraw operations
+without logging identifiers. A bounded classifier emits only predefined labels
+for known listing fields and validation concepts, derived from error messages
+and parameters. Raw provider prose, parameter values, addresses, email addresses,
+tokens and IDs are still never logged. These labels are diagnostic clues, not
+authoritative field corrections; actual inventory facts and eBay requirements
+must determine any repair. Tests verify static-only output and malformed bodies.

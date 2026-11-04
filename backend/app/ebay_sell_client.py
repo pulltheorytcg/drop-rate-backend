@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import re
 import time
 from typing import Any
 from urllib.parse import quote
@@ -13,6 +14,64 @@ from .ebay_official_client import EBAY_PRODUCTION_BASE_URL, EbayApiError, EbayOf
 
 
 logger = logging.getLogger(__name__)
+
+
+def _failure_hints(response: httpx.Response) -> list[str]:
+    """Classify known listing requirements without retaining provider prose."""
+    try:
+        payload = response.json()
+    except ValueError:
+        return []
+    errors = payload.get("errors") if isinstance(payload, dict) else None
+    if not isinstance(errors, list):
+        return []
+    fragments = []
+    for error in errors[:10]:
+        if not isinstance(error, dict):
+            continue
+        for key in ("message", "longMessage"):
+            value = error.get(key)
+            if isinstance(value, str):
+                fragments.append(value[:2000])
+        parameters = error.get("parameters")
+        if isinstance(parameters, list):
+            for parameter in parameters[:10]:
+                if isinstance(parameter, dict) and isinstance(parameter.get("value"), str):
+                    fragments.append(parameter["value"][:2000])
+    message = " ".join(fragments)
+    patterns = {
+        "missing": r"missing|required|must (?:be|have|provide|specify)|add at least",
+        "invalid": r"invalid|not valid|not supported|unsupported",
+        "length": r"length|characters|too (?:long|short)|maximum|minimum",
+        "item_specific": r"item.?specific|attribute|aspect",
+        "title": r"title", "description": r"description",
+        "images": r"photo|picture|image", "price": r"price|amount|currency",
+        "quantity": r"quantity|availableQuantity", "condition": r"condition",
+        "graded": r"graded", "grader": r"grader|grading company", "grade": r"\bgrade\b",
+        "certificate": r"certific", "game": r"\bgame\b", "card_name": r"card.?name",
+        "card_number": r"card.?number", "language": r"language", "set": r"\bset\b",
+        "rarity": r"rarity", "brand": r"\bbrand\b", "manufacturer": r"manufacturer",
+        "autographed": r"autograph", "franchise": r"franchise",
+        "shipping": r"shipping|delivery|fulfillment|fulfilment|dispatch",
+        "returns": r"return", "payment": r"payment|paypal",
+        "location": r"location|address|city", "country": r"country",
+        "postal_code": r"postal|postcode|zip", "tax": r"\btax\b|\bvat\b",
+        "category": r"category", "duration": r"duration|\bgtc\b",
+        "ean": r"\bean\b", "upc": r"\bupc\b", "isbn": r"\bisbn\b", "gtin": r"\bgtin\b",
+        "selling_limit": r"selling limit|exceed.*limit|limit.*exceed",
+        "duplicate": r"duplicate|already exists", "account": r"account|seller registration",
+        "verification": r"verif|register|onboard|identity",
+        "policy": r"polic", "restriction": r"restrict|blocked|not allowed|not eligible",
+        "terms": r"agreement|terms", "format": r"format|auction|fixed.?price",
+    }
+    return [label for label, pattern in patterns.items() if re.search(pattern, message, re.I)]
+
+
+def _failure_action(path: str) -> str:
+    tail = path.rsplit("/", 1)[-1]
+    if tail in {"publish", "withdraw", "enable", "test", "shipping_fulfillment"}:
+        return tail
+    return "detail" if len(path.split("/")) > 5 else "collection"
 
 
 def _failure_context(path: str, response: httpx.Response) -> tuple[str, list[int]]:
@@ -307,9 +366,9 @@ class EbaySellClient:
                 raise _EbayOffersNotFound("No eBay offer exists for this SKU", status_code=404)
             resource, error_ids = _failure_context(path, response)
             logger.warning(
-                "eBay seller request failed method=%s resource=%s status=%s error_ids=%s",
+                "eBay seller request failed method=%s resource=%s status=%s error_ids=%s action=%s hints=%s",
                 method if method in {"GET", "POST", "PUT", "DELETE"} else "UNKNOWN",
-                resource, response.status_code, error_ids,
+                resource, response.status_code, error_ids, _failure_action(path), _failure_hints(response),
             )
             raise EbaySellApiError(
                 "eBay seller API rejected the request",

@@ -7,7 +7,7 @@ import logging
 import httpx
 import pytest
 
-from app.ebay_sell_client import EbaySellApiError, EbaySellClient, _failure_context
+from app.ebay_sell_client import EbaySellApiError, EbaySellClient, _failure_context, _failure_hints, _failure_action
 
 
 def test_request_failure_records_resource_and_codes_without_sensitive_data(monkeypatch, caplog):
@@ -70,3 +70,21 @@ def test_non_json_errors_and_duplicate_codes_are_safe():
         "/sell/inventory/v1/offer/private-offer/publish",
         httpx.Response(400, json={"errors": [{"errorId": 25002}, {"errorId": 25002}]}),
     ) == ("/sell/inventory/v1/offer", [25002])
+
+
+def test_validation_hints_never_return_provider_prose_or_field_values():
+    response = httpx.Response(400, json={"errors": [{
+        "message": "The item specific Graded is missing. private-name private-email@example.test",
+        "longMessage": "private-secret private-street-number",
+        "parameters": [{"name": "fieldName", "value": "shippingServiceCost is invalid"}],
+    }]})
+    assert _failure_hints(response) == ["missing", "invalid", "item_specific", "graded", "shipping"]
+    assert _failure_action("/sell/inventory/v1/offer/private-offer/publish") == "publish"
+    assert _failure_action("/sell/inventory/v1/offer/private-offer") == "detail"
+    assert _failure_action("/sell/inventory/v1/offer") == "collection"
+
+
+@pytest.mark.parametrize("body", [None, [], {"errors": "secret"}, {"errors": [None, []]}])
+def test_validation_hints_handle_malformed_errors(body):
+    assert _failure_hints(httpx.Response(400, json=body)) == []
+    assert _failure_hints(httpx.Response(500, content=b"private-html")) == []
