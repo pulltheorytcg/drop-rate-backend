@@ -11,6 +11,7 @@ on:
       - 'tests/*business*'
       - 'tests/ui/*business*'
       - 'tests/ui/founder-accounts.cjs'
+      - 'tests/ui/shared-founder-layout.py'
       - 'database/migrations/*founder_app_access.sql'
       - '.github/workflows/business-area.yml'
 permissions:
@@ -53,7 +54,9 @@ jobs:
       - run: python -m pip install playwright==1.57.0
       - run: python -m playwright install --with-deps chromium webkit
       - name: Business layouts on actual shell with local mocked data
-        run: python tests/ui/business-layout.py
+        run: |
+          python tests/ui/business-layout.py
+          python tests/ui/shared-founder-layout.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
