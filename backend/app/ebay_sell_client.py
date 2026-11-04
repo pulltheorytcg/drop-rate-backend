@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import time
 from typing import Any
 from urllib.parse import quote
@@ -9,6 +10,42 @@ from urllib.parse import quote
 import httpx
 
 from .ebay_official_client import EBAY_PRODUCTION_BASE_URL, EbayApiError, EbayOfficialClient
+
+
+logger = logging.getLogger(__name__)
+
+
+def _failure_context(path: str, response: httpx.Response) -> tuple[str, list[int]]:
+    """Keep only a known resource and numeric codes, never provider text or IDs."""
+    resource = "/".join(path.split("/")[:5])
+    if resource not in {
+        "/sell/account/v1/program",
+        "/sell/account/v1/payment_policy",
+        "/sell/account/v1/fulfillment_policy",
+        "/sell/account/v1/return_policy",
+        "/sell/inventory/v1/location",
+        "/sell/inventory/v1/inventory_item",
+        "/sell/inventory/v1/offer",
+        "/sell/fulfillment/v1/order",
+        "/commerce/notification/v1/config",
+        "/commerce/notification/v1/destination",
+        "/commerce/notification/v1/subscription",
+        "/commerce/notification/v1/topic",
+    }:
+        resource = "seller-api"
+    try:
+        payload = response.json()
+    except ValueError:
+        return resource, []
+    errors = payload.get("errors") if isinstance(payload, dict) else None
+    if not isinstance(errors, list):
+        return resource, []
+    codes = []
+    for error in errors[:10]:
+        code = error.get("errorId") if isinstance(error, dict) else None
+        if type(code) is int and 0 <= code <= 999999 and code not in codes:
+            codes.append(code)
+    return resource, codes
 
 
 class EbaySellApiError(EbayApiError):
@@ -240,6 +277,12 @@ class EbaySellClient:
 
         allowed = expected or {200}
         if response.status_code not in allowed:
+            resource, error_ids = _failure_context(path, response)
+            logger.warning(
+                "eBay seller request failed method=%s resource=%s status=%s error_ids=%s",
+                method if method in {"GET", "POST", "PUT", "DELETE"} else "UNKNOWN",
+                resource, response.status_code, error_ids,
+            )
             raise EbaySellApiError(
                 "eBay seller API rejected the request",
                 status_code=response.status_code,

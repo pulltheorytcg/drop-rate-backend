@@ -1,3 +1,23 @@
+## 4 November 2026 — eBay audit blocker repaired; provider failure under investigation
+
+- A founder-UI single-card publish passed all preparation checks but returned
+  HTTP 422. PostgreSQL rejected `EBAY_INVENTORY_LINK`, used by both publication
+  audit writers, because the original entity constraint omitted it.
+- Add that exact entity type atomically, preserving old audit records/types,
+  owner/actor RLS, append-only grants and every listing/ownership/price gate.
+- Real PostgreSQL regression reproduces both failures, then verifies both
+  inserts, replay-safe migration, existing records and access-denial cases.
+  A publisher retry test verifies an existing live listing makes no eBay call.
+  CI explicitly runs the database tests after installing its pinned runtime.
+- All three GitHub checks passed at `3bc411ce`. The tested migration was applied
+  as `20261104123236`; production read-back confirmed the added type and
+  unchanged forced RLS, owner/actor policies and append-only permissions.
+- The authorised founder retry passed the database blocker, then eBay returned
+  HTTP 500 followed by HTTP 404. The single channel link records `ERROR` / `PUBLISH:404`;
+  there is no verified live publication. Add bounded, redacted provider
+  diagnostics to identify the failing request without exposing account data.
+- See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
+
 ## 4 November 2026 — Catalogue publisher, demographic and brand groups (in review)
 
 - User confirmed Magic is visible in the app. New navigation groups expose
