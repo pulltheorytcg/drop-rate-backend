@@ -11,3 +11,5 @@ graphql-core==3.2.6
 tzdata==2026.1
 Pillow==11.3.0
 boto3==1.40.64
+# Bounded, incremental parsing of the permitted MTGJSON bulk metadata feed.
+ijson==3.6.0

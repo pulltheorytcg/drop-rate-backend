@@ -1,0 +1,60 @@
+{
+  "schema": "drop-rate-reviewed-figure-starter-v1",
+  "reviewed_at": "2026-11-04",
+  "reference_scope": "CURATED_REFERENCE_ONLY_PHYSICAL_IDENTITY_UNVERIFIED",
+  "coverage_notice": "Four individually reviewed Funko product references, not a complete figures or Funko catalogue. Two existing Good Smile references remain in the canonical catalogue and are deliberately not duplicated here. No automated Funko access or bulk-data licence is claimed. Product photographs, descriptions, prices, physical condition, packaging language and unverified editions are not included.",
+  "figures": [
+    {
+      "source_id": "funko:43263",
+      "product_type": "FIGURE",
+      "name": "Pop! Pikachu",
+      "manufacturer": "Funko",
+      "franchise": "Pokémon",
+      "character": "Pikachu",
+      "product_line": "Pop!",
+      "manufacturer_sku": "43263",
+      "box_number": "553",
+      "source_url": "https://www.funko.com/lt/pop-pikachu/43263.html",
+      "source_checked_at": "2026-11-04"
+    },
+    {
+      "source_id": "funko:5305",
+      "product_type": "FIGURE",
+      "name": "Pop! Monkey. D. Luffy",
+      "manufacturer": "Funko",
+      "franchise": "One Piece",
+      "character": "Monkey D. Luffy",
+      "product_line": "Pop!",
+      "manufacturer_sku": "5305",
+      "box_number": "98",
+      "source_url": "https://funko.com/ch/pop-monkey.-d.-luffy/5305.html",
+      "source_checked_at": "2026-11-04"
+    },
+    {
+      "source_id": "funko:80341",
+      "product_type": "FIGURE",
+      "name": "Pop! Naruto Uzumaki with Scroll",
+      "manufacturer": "Funko",
+      "franchise": "Naruto",
+      "character": "Naruto Uzumaki",
+      "product_line": "Pop!",
+      "manufacturer_sku": "80341",
+      "box_number": "1963",
+      "source_url": "https://funko.com/gg/pop-naruto-uzumaki-with-scroll/80341.html",
+      "source_checked_at": "2026-11-04"
+    },
+    {
+      "source_id": "funko:90617",
+      "product_type": "FIGURE",
+      "name": "Pop! Temari with Tessen",
+      "manufacturer": "Funko",
+      "franchise": "Naruto",
+      "character": "Temari",
+      "product_line": "Pop!",
+      "manufacturer_sku": "90617",
+      "box_number": "2228",
+      "source_url": "https://funko.com/gb/pop-temari-with-tessen/90617.html",
+      "source_checked_at": "2026-11-04"
+    }
+  ]
+}

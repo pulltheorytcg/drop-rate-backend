@@ -20,8 +20,10 @@ Provider evidence reviewed on 2026-11-03:
 
 ``approved_sources`` must come from the caller's reviewed provider registry;
 it is not a user-input bypass or evidence that third-party rights were granted.
-The only access-documented source in this revision is metadata from YGOPRODeck.
-REVIEW_REQUIRED descriptors are preparatory, not permission to enable a job.
+The separately reviewed Lorcast, MTGJSON and Card Collector Capital adapters
+also expose factual metadata only. Their attribution/coverage notices ship in
+catalogue-source-notices.txt. REVIEW_REQUIRED descriptors remain preparatory,
+not permission to enable a job; in particular Riot approval is still required.
 """
 from __future__ import annotations
 
@@ -86,6 +88,7 @@ class SourceDescriptor:
     permission_status: str
     download_url: str | None
     max_bytes: int = MAX_SOURCE_BYTES
+    catalogue_language: str = "English"
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +116,13 @@ def _language(language: str) -> tuple[str, str]:
 
 def source_descriptor(source: str, language: str = "English") -> SourceDescriptor:
     """Return fixed provider locators; never accept an arbitrary download URL."""
+    if source == "reviewed_figures":
+        if language not in {"English", "Not applicable"}:
+            raise SourceError("Figure references do not establish a physical language")
+        url = "https://github.com/pulltheorytcg/drop-rate-backend/blob/main/backend/data/r2_figure_starter_20261104.json"
+        return SourceDescriptor(source, "FIGURES", url, "reviewed-figures-2026-11-04-metadata-v1",
+            "https://github.com/pulltheorytcg/drop-rate-backend/blob/main/docs/R2_CATALOGUE_EXPANSION_20261104.md",
+            "METADATA_ACCESS_DOCUMENTED", url, 131_072, catalogue_language="Not applicable")
     code, _ = _language(language)
     if source == "ygoprodeck":
         # Translated names in a localized API do not establish printing language.
@@ -121,6 +131,24 @@ def source_descriptor(source: str, language: str = "English") -> SourceDescripto
         url = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
         return SourceDescriptor(source, "YUGIOH", url, "api-v7-metadata-v1",
             "https://ygoprodeck.com/api-guide/", "METADATA_ACCESS_DOCUMENTED", url)
+    if source == "lorcast":
+        if code != "en":
+            raise SourceError("Lorcast catalogue import supports English-only")
+        url = "https://api.lorcast.com/v0/sets"
+        return SourceDescriptor(source, "DISNEY_LORCANA", url, "api-v0-metadata-v1",
+            "https://lorcast.com/docs/api", "METADATA_ACCESS_DOCUMENTED", url)
+    if source == "mtgjson":
+        if code != "en":
+            raise SourceError("MTGJSON catalogue import supports English-only")
+        url = "https://mtgjson.com/api/v5/AllPrintings.json.xz"
+        return SourceDescriptor(source, "MAGIC_THE_GATHERING", url, "all-printings-v5-metadata-v1",
+            "https://mtgjson.com/license/", "METADATA_ACCESS_DOCUMENTED", url, 128_000_000)
+    if source == "cardcollectorcapital":
+        if code != "en":
+            raise SourceError("Sports checklist import supports English-only")
+        url = "https://cardcollectorcapital.com/data/bowman-checklist-lookup-2026-10-27.json"
+        return SourceDescriptor(source, "SPORTS_CARDS", url, "bowman-checklist-2026-10-27-metadata-v1",
+            "https://cardcollectorcapital.com/data", "METADATA_ACCESS_DOCUMENTED", url, 2_000_000)
     if source == "lorcanajson":
         if code not in _LORCANA_LANGUAGES:
             raise SourceError("Unsupported LorcanaJSON language")
@@ -465,6 +493,18 @@ async def fetch_source(source: str, client: httpx.AsyncClient, *,
             or descriptor.permission_status != "METADATA_ACCESS_DOCUMENTED"):
         raise SourcePermissionError("Source lacks reviewed metadata-access approval")
     _assert_public_client(client)
+    if source == "reviewed_figures":
+        from .r2_first_figures import fetch_figures
+        return await fetch_figures(client, descriptor)
+    if source == "lorcast":
+        from .r2_first_lorcast import fetch_lorcast
+        return await fetch_lorcast(client, descriptor)
+    if source == "mtgjson":
+        from .r2_first_mtgjson import fetch_mtgjson
+        return await fetch_mtgjson(client, descriptor)
+    if source == "cardcollectorcapital":
+        from .r2_first_sports import fetch_sports
+        return await fetch_sports(client, descriptor)
     try:
         async with asyncio.timeout(TOTAL_DOWNLOAD_TIMEOUT_SECONDS):
             url = descriptor.download_url

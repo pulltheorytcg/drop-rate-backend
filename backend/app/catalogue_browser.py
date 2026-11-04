@@ -49,7 +49,8 @@ from .catalogue_r2_cache import (
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
 logger = logging.getLogger(__name__)
-GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
+GAME_BY_SYSTEM = {**{system: game for game, system in SYSTEM_BY_GAME.items()},
+                  **r2_first_service.TCG_GAMES}
 # A browse family only: printing identities retain their original system.
 BROWSE_FAMILIES = {"NARUTO": ("NARUTO_KAYOU", "NARUTO_BANDAI_LEGACY"),
                    "COMICS": ("MARVEL_COMICS", "DC_COMICS", "OTHER_COMICS"),
@@ -548,15 +549,21 @@ async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(req
         # Published snapshot counts are the selected system's browse scope.
         # Do not count its lazily materialized SQL canonicals a second time.
         rows = [dict(row) for row in rows
-                if not _r2_first_system(publications, row["system_code"])]
+                if row["system_code"] in {"SPORTS_CARDS", "FIGURES"}
+                or not _r2_first_system(publications, row["system_code"])]
         rows.extend({"system_code": source["system_code"], "game": source["game"],
-                     "languages": [source["language"]],
+                     "languages": [] if source["system_code"] == "FIGURES" else [source["language"]],
                      "products": source.get("released_record_count", source["record_count"]),
                      "sets": source["set_count"]} for source in publications)
     items=browse_games(rows)
     for item in items:
+        if item["system_code"] == "FIGURES":
+            # A catalogue's language (or SQL's "Unknown" fallback) does not
+            # establish the language of a figure's physical packaging.
+            item["languages"] = []
         if _r2_first_system(publications, item["system_code"]):
-            item["catalogue_scope"] = "R2_FIRST_SYSTEM"
+            item["catalogue_scope"] = ("R2_REFERENCE_PLUS_CANONICAL"
+                if item["system_code"] in {"SPORTS_CARDS", "FIGURES"} else "R2_FIRST_SYSTEM")
     # These are two real catalogue sections even when the first physical
     # seller books have not yet been added. A zero count is not fake stock.
     for system,game in (("COMICS","Comics"),("MANGA","Manga"),("SPORTS_CARDS","Sports"),("FIGURES","Figures")):
@@ -574,6 +581,10 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id, **options) as connection:
         publications = await _r2_first_publications(connection)
         if _r2_first_system(publications, system_code):
+            if system_code in {"SPORTS_CARDS", "FIGURES"}:
+                from .r2_collectible_browse import sets_collectibles
+                return jsonable_encoder(await sets_collectibles(connection, owner_id=access["owner_id"],
+                    system_code=system_code, language=language, q=q.strip(), limit=limit, offset=offset))
             page = await r2_first_service.sets(connection, owner_id=access["owner_id"],
                 system_code=system_code, language=language, q=q.strip(), limit=limit, offset=offset)
             return jsonable_encoder({**page,
@@ -757,7 +768,11 @@ def _catalogue_latency_ms(stamps: tuple[float, float, float, float, float, float
 
 
 def _sort_explicit_reference_rows(rows, *, sort: str, q: str = "") -> list[dict]:
-    """Merge only an explicit <=100-key selection, never the whole catalogue."""
+    """Sort an explicitly bounded selection, never an unbounded catalogue.
+
+    Callers enforce <=100 saved keys or the separate small collectible-union
+    bound; large TCG partitions always use the paged R2 index instead.
+    """
     unique = {row["key"]: dict(row) for row in rows}
     ordered = sorted(unique.values(), key=lambda row: (str(row.get("name") or "").casefold(), row["key"]))
     if sort == "name_desc":
@@ -817,7 +832,17 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         publications = await _r2_first_publications(connection)
         r2_keys = [key for key in key_list or [] if key.startswith("x:")] if publications else []
         mixed_reference_keys = bool(r2_keys) and len(r2_keys) < len(key_list)
-        if (r2_keys or _r2_first_system(publications, system_code)) and not mixed_reference_keys:
+        if (system_code in {"SPORTS_CARDS", "FIGURES"} and key_list is None
+                and _r2_first_system(publications, system_code)):
+            # Partial new checklists must not replace the existing verified
+            # canonical sports/figure records or hide a seller's own items.
+            from .r2_collectible_browse import browse_collectibles
+            return jsonable_encoder(await browse_collectibles(connection,
+                owner_id=access["owner_id"], q=q, system_code=system_code,
+                language=language, category=category, set_id=set_id, provider=provider,
+                product_type=product_type, owned=owned, sort=sort, limit=limit, offset=offset,
+                slab_number=slab_number, slab_name=slab_name, slab_set=slab_set))
+        if (r2_keys or (key_list is None and _r2_first_system(publications, system_code))) and not mixed_reference_keys:
             # This service merges provider snapshots, applies exact ownership
             # overlays and filters/sorts before pagination. Do not pass these
             # metadata rows through legacy SQL or number-based price aliases.
