@@ -177,6 +177,21 @@ async def test_games_merge_exact_registry_counts_without_duplicating_sql_canonic
 
 
 @pytest.mark.asyncio
+async def test_figures_do_not_offer_unknown_or_metadata_language_filters(context, monkeypatch):
+    context.connection.rows = [
+        {"system_code": "FIGURES", "game": "Figures", "languages": ["Unknown"],
+         "products": 2, "sets": 1},
+    ]
+    publish(monkeypatch, [{**SOURCE, "provider": "reviewed_figures", "system_code": "FIGURES",
+                          "game": "Figures", "language": "Not applicable", "record_count": 4}])
+    result = await browser.games(context.request, context.user, context.access)
+    figures = next(item for item in result["items"] if item["system_code"] == "FIGURES")
+    assert figures["products"] == 6
+    assert figures["languages"] == []
+    assert figures["catalogue_scope"] == "R2_REFERENCE_PLUS_CANONICAL"
+
+
+@pytest.mark.asyncio
 async def test_published_sets_use_service_and_never_expose_product_artwork(context, monkeypatch):
     publish(monkeypatch)
     expected = {"system_code": "DISNEY_LORCANA", "language": "English", "provider": "Lorcast",

@@ -48,6 +48,10 @@ ROW_FIELDS = frozenset({
 DETAIL_FIELDS = frozenset({
     "edition", "variant", "artist", "player", "team", "sport", "brand",
     "franchise", "series", "manufacturer",
+    "source_record_id", "source_evidence_url", "source_reviewed_at", "source_page",
+    "source_credit", "source_license", "source_license_url", "checklist_section",
+    "reference_scope", "source_year", "character", "product_line", "scale",
+    "manufacturer_sku", "barcode_gtin", "box_number",
 })
 MANIFEST_FIELDS = frozenset({
     "schema", "provider", "system_code", "language", "source_url",

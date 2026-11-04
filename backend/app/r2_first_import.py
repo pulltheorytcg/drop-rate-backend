@@ -22,8 +22,10 @@ from .db import user_connection, DATABASE_WRITE_READY_SQL
 from .r2_first_sources import fetch_source, source_descriptor, SourcePermissionError
 
 log = logging.getLogger(__name__)
-APPROVED_METADATA_SOURCES = frozenset({"ygoprodeck"})
+APPROVED_METADATA_SOURCES = frozenset({"ygoprodeck", "lorcast", "mtgjson", "cardcollectorcapital", "reviewed_figures"})
 REFRESH_SECONDS = 172800  # Provider bulk cache is two days. No per-scan requests.
+SOURCE_REFRESH_SECONDS = {"lorcast": 604800, "mtgjson": 604800, "cardcollectorcapital": 604800,
+                          "reviewed_figures": 604800}
 
 
 def configured_sources():
@@ -38,6 +40,7 @@ def _permission(manifest):
     descriptor = source_descriptor(manifest["provider"], manifest["language"])
     if (manifest["provider"] not in APPROVED_METADATA_SOURCES
             or descriptor.permission_status != "METADATA_ACCESS_DOCUMENTED"
+            or manifest["language"] != descriptor.catalogue_language
             or (descriptor.system_code, descriptor.source_url, descriptor.permission_ref) !=
                (manifest["system_code"], manifest["source_url"], manifest["permission_ref"])):
         raise SourcePermissionError("This source partition has not passed permission review")
@@ -121,11 +124,12 @@ async def import_source(pool, actor, source, *, object_store=None, client=None):
             raise HTTPException(503, "Database is read-only; import not started")
         old = await connection.fetchrow("""
             select * from tcg_private.r2_first_catalogue_publications
-            where provider=$1 and system_code=$2 and language='English'
-            """, descriptor.provider, descriptor.system_code)
+            where provider=$1 and system_code=$2 and language=$3
+            """, descriptor.provider, descriptor.system_code, descriptor.catalogue_language)
         if old and not old["active"]:
             return {"status": "DISABLED", "source": source}
-        if old and old["published_at"] > datetime.now(timezone.utc)-timedelta(seconds=REFRESH_SECONDS):
+        refresh_seconds = SOURCE_REFRESH_SECONDS.get(source, REFRESH_SECONDS)
+        if old and old["published_at"] > datetime.now(timezone.utc)-timedelta(seconds=refresh_seconds):
             return {"status": "CURRENT", "source": source, "record_count": old["record_count"],
                     "manifest_sha256": old["manifest_sha256"], "generation": old["generation"]}
     if client is None:
@@ -134,11 +138,15 @@ async def import_source(pool, actor, source, *, object_store=None, client=None):
     else:
         fetched = await fetch_source(source, client, approved_sources=APPROVED_METADATA_SOURCES)
     bundle = await asyncio.to_thread(codec.prepare_catalogue, fetched.records,
-        provider=fetched.provider, system_code=fetched.system_code, language="English",
+        provider=fetched.provider, system_code=fetched.system_code, language=descriptor.catalogue_language,
         source_url=fetched.source_url, source_revision=fetched.source_revision,
         permission_ref=descriptor.permission_ref)
+    # The validated shards now hold the normalized facts. Do not retain the
+    # full provider object graph during upload and cold index reconstruction.
+    del fetched
     object_store = object_store or service.storage()
     manifest = await codec.upload_and_verify(bundle, object_store)
+    del bundle
     # Prove cold reconstruction and search before making this generation active.
     snapshot = await codec.load_catalogue(manifest, object_store)
     try:
@@ -168,7 +176,18 @@ async def run_once(pool, actor):
         try:
             reports = []
             for source in requested:
-                reports.append(await import_source(pool, UUID(str(actor)), source))
+                try:
+                    report = await import_source(pool, UUID(str(actor)), source)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    # One denied/unavailable feed cannot hide successfully
+                    # verified sources or starve later independent imports.
+                    # There is no immediate retry, and no good pointer is erased.
+                    report = {"status": "FAILED", "source": source,
+                              "error_type": type(exc).__name__}
+                reports.append(report)
+                log.warning("R2_FIRST_IMPORT %s", json.dumps(report, sort_keys=True))
             return reports
         finally:
             await lock_connection.execute("select pg_advisory_unlock(847220121)")
@@ -177,8 +196,7 @@ async def run_once(pool, actor):
 async def run_loop(pool, actor):
     while True:
         try:
-            for report in await run_once(pool, actor):
-                log.warning("R2_FIRST_IMPORT %s", json.dumps(report, sort_keys=True))
+            await run_once(pool, actor)
             if service.enabled():
                 await service.prewarm(pool, UUID(str(actor)))
         except asyncio.CancelledError:

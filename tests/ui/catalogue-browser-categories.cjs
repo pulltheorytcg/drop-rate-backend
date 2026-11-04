@@ -17,7 +17,7 @@ const card = {key:"c:00000000-0000-4000-8000-000000000001",catalogue_id:"exact-c
 const comic = {...card,key:"c:00000000-0000-4000-8000-000000000002",catalogue_id:"exact-comic",name:"Batman #1",system_code:"DC_COMICS",game:"Comics",product_type:"COMIC",book_details:{system_code:"DC_COMICS",series_title:"Batman",issue_number:"1"}};
 const manga = {...card,key:"c:00000000-0000-4000-8000-000000000003",catalogue_id:"exact-manga",name:"One Piece Volume 1",system_code:"MANGA",game:"Manga",product_type:"COMIC",book_details:{system_code:"MANGA",series_title:"One Piece",issue_number:"1",barcode_gtin:"9781569319017"}};
 
-function fixture(override) {
+function fixture(override,gameRows=games) {
   const dom = new JSDOM("", {runScripts:"outside-only",url:"https://categories.example.test"});
   const w = dom.window, calls = [], bookIntakes = [], collectibleIntakes=[];
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
@@ -27,7 +27,7 @@ function fixture(override) {
   const client={owner:"fixture-owner",active:()=>true,request:async(url,options={})=>{
     if(url.includes("/catalogue-browser/saved"))return {keys:[]};
     calls.push({url,...options});
-    if(url.endsWith("/games"))return {items:games};
+    if(url.endsWith("/games"))return {items:gameRows};
     if(url.endsWith("/intake"))return {inventory:{inventory_code:"INV-FIXTURE-1"}};
     const query=new URL(url,"https://categories.example.test").searchParams;
     const response=override?.(url,query,options);
@@ -51,6 +51,19 @@ function fixture(override) {
 
 (async()=>{
   let checks=0;
+  // Magic is a catalogue navigation option only when the server advertises it;
+  // the client does not activate the deferred Riftbound source or the scanner.
+  {
+    const f=fixture(undefined,[...games,{system_code:"MAGIC_THE_GATHERING",game:"Magic: The Gathering",languages:["English"]}]);
+    await f.browser.open();
+    const tile=f.browser.find('[data-system="MAGIC_THE_GATHERING"]');assert.ok(tile);
+    assert.match(tile.textContent,/MAGIC.*THE GATHERING/);
+    assert.equal(f.browser.find('[data-system="RIFTBOUND"]'),null);
+    tile.click();await tick();assert.equal(f.lastQuery().get("system_code"),"MAGIC_THE_GATHERING");
+    assert.equal(f.browser.categoryId,"TCG");
+    f.browser.openFilters();assert.match(f.browser.sheet.textContent,/Magic: The Gathering/);
+    f.finish();checks++;
+  }
   // A typed query searches actual cards before choosing any game. Enter also
   // cancels the debounce, so the same keystrokes do not duplicate a request.
   {

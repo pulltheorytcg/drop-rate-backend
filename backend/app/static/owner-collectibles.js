@@ -29,7 +29,7 @@
   ];
   const cardConditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const figureConditions = ["New", "Like New", "Very Good", "Good", "Fair", "Damaged"];
-  let dialog, actor, category = "sports", catalogue = null, options = {}, requestKey, submittedBody;
+  let dialog, actor, category = "sports", catalogue = null, reference = null, options = {}, requestKey, submittedBody;
   let saving = false, pending = false, saved = false, receipt = null, generation = 0;
   const node = id => document.getElementById(`owner-collectible-${id}`);
   const value = id => node(id).value.trim();
@@ -37,6 +37,60 @@
   const seller = () => Boolean(document.getElementById("owner-view-scan"));
   const optional = id => value(id) || null;
   const labels = () => category === "sports" ? {one: "sports card", title: "Add a sports card"} : {one: "figure", title: "Add a figure"};
+  const canonicalId = row => {
+    if(!row||typeof row!=="object"||row.metadata_only===true||row.source_kind==="REFERENCE")return null;
+    const id=Object.hasOwn(row,"catalogue_id")?row.catalogue_id:row.id;
+    return typeof id==="string"&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id)?id:null;
+  };
+  const sourceLink = value => {
+    if(typeof value!=="string"||value.length>2048||/[\s\\\u0000-\u001f\u007f]/.test(value))return null;
+    try {
+      const url=new URL(value),host=url.hostname.toLowerCase().replace(/\.$/,"");
+      if(url.protocol!=="https:"||url.username||url.password||url.port||!host.includes(".")||host.includes(":")||
+        /^[0-9.]+$/.test(host)||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".home.arpa"))return null;
+      return url.href;
+    }catch(_){return null;}
+  };
+
+  function showProvenance(row) {
+    const target=node("reference-provenance"),source=row?.source_attribution;
+    target.replaceChildren();
+    if(!source||typeof source!=="object"||Array.isArray(source))return;
+    const label=typeof source.label==="string"?source.label.trim().slice(0,160):"";
+    const href=sourceLink(source.url);
+    if(label){
+      const credit=document.createElement("p");credit.textContent="Metadata source: ";
+      if(href){const link=document.createElement("a");link.textContent=label;link.href=href;link.target="_blank";link.rel="noopener noreferrer";credit.append(link);}
+      else credit.append(document.createTextNode(label));
+      target.append(credit);
+    }
+    if(typeof source.coverage==="string"&&source.coverage.trim()){
+      const coverage=document.createElement("p");coverage.textContent=source.coverage.trim().slice(0,1000);target.append(coverage);
+    }
+    if(source.notice_url==="/assets/catalogue-source-notices.txt"){
+      const notice=document.createElement("a");notice.textContent="Source notices and coverage";notice.href=source.notice_url;
+      notice.target="_blank";notice.rel="noopener noreferrer";target.append(notice);
+    }
+  }
+
+  function prefillReference(row) {
+    const details=category==="sports"?row.sports_card:row.figure_details;
+    if(!details||typeof details!=="object"||Array.isArray(details)||
+      (details.system_code&&details.system_code!==(category==="sports"?"SPORTS_CARDS":"FIGURES")))return;
+    const definitions=category==="sports"?[...sportsFields,...sportsOptional]:[...figureFields,...figureOptional];
+    // Field definitions are the only accepted input keys; never copy ownership,
+    // value, condition or arbitrary source fields into the physical-item form.
+    for(const [key,,max,,,type] of definitions){
+      const supplied=details[key];
+      if(type==="number"){
+        const minimum=key==="print_run"?1:1800,maximum=key==="print_run"?1000000:2200;
+        if(Number.isSafeInteger(supplied)&&supplied>=minimum&&supplied<=maximum)node(`${category}-${key}`).value=String(supplied);
+      }else if(typeof supplied==="string"&&supplied.trim()&&supplied.trim().length<=max&&
+        !/[\u0000-\u001f\u007f]/.test(supplied)&&!["unknown","not stated","n/a"].includes(supplied.trim().toLowerCase())){
+        node(`${category}-${key}`).value=supplied.trim();
+      }
+    }
+  }
 
   function fields(kind, definitions) {
     return definitions.map(([key, label, max, required, placeholder, type = "text"]) => {
@@ -57,7 +111,7 @@
         <fieldset id="owner-collectible-fields">
           <legend class="owner-collectible-sr-only">Collectible and copy details</legend>
           <label class="owner-collectible-category" id="owner-collectible-category-label">Category<select id="owner-collectible-category"><option value="sports">Sports Cards</option><option value="figures">Figures</option></select></label>
-          <section id="owner-collectible-reference" class="owner-collectible-reference" hidden><p class="owner-collectible-eyebrow">Selected reference</p><h3 id="owner-collectible-reference-name"></h3><p id="owner-collectible-reference-details"></p><p>Check the edition against your item before adding it.</p></section>
+          <section id="owner-collectible-reference" class="owner-collectible-reference" hidden><p class="owner-collectible-eyebrow">Selected reference</p><h3 id="owner-collectible-reference-name"></h3><p id="owner-collectible-reference-details"></p><p id="owner-collectible-reference-review">Check the edition against your item before adding it.</p><div id="owner-collectible-reference-provenance"></div></section>
           <fieldset id="owner-collectible-sports"><legend>Card details</legend><div class="owner-collectible-grid">${fields("sports", sportsFields)}</div><details class="owner-collectible-details"><summary>More printing details <span>(optional)</span></summary><div class="owner-collectible-grid">${fields("sports", sportsOptional)}</div><p class="owner-collectible-hint">The numbered print run describes the edition. Add your copy’s individual serial number below.</p></details></fieldset>
           <fieldset id="owner-collectible-figures" hidden disabled><legend>Figure details</legend><div class="owner-collectible-grid">${fields("figures", figureFields)}</div><details class="owner-collectible-details"><summary>More edition details <span>(optional)</span></summary><div class="owner-collectible-grid">${fields("figures", figureOptional)}</div></details></fieldset>
           <details id="owner-collectible-copy" class="owner-collectible-details"><summary>Your copy <span>(optional)</span></summary><div class="owner-collectible-grid">
@@ -138,7 +192,9 @@
     condition.replaceChildren(new Option("Not assessed yet", ""), ...(sports ? cardConditions : figureConditions).map(text => new Option(text, text)));
     if ((sports ? cardConditions : figureConditions).includes(previous)) condition.value = previous;
     node("title").textContent = catalogue ? `Add this ${labels().one}` : labels().title;
-    node("intro").textContent = catalogue ? "Add a copy of the selected edition to your collection." : "Enter the exact details from your item. Leave optional details blank if you’re unsure.";
+    node("intro").textContent = catalogue ? "Add a copy of the selected edition to your collection." : reference
+      ? "Check the prefilled details against your item, then complete anything missing. This reference has not verified your physical copy."
+      : "Enter the exact details from your item. Leave optional details blank if you’re unsure.";
     updateCopy();
   }
 
@@ -152,7 +208,7 @@
       acquisition_date: optional("date"), condition: graded ? null : optional("condition"), seal_status: sports ? null : optional("seal"),
       grading_company: graded ? optional("grader") : null, grade: graded ? optional("grade") : null,
       certificate_number: graded ? optional("certificate") : null, copy_serial_number: optional("serial"), notes: value("notes")};
-    if (catalogue) result.catalogue_id = catalogue.catalogue_id || catalogue.id;
+    if (catalogue) result.catalogue_id = canonicalId(catalogue);
     else if (sports) {
       const identity = readIdentity("sports", [...sportsFields, ...sportsOptional]), language = identity.language;
       delete identity.language;
@@ -219,16 +275,22 @@
     }
     generation++; actor = currentActor(); options = {...next};
     category = String(next.category || "sports").toLowerCase() === "figures" ? "figures" : "sports";
-    catalogue = next.catalogue || next.item || null;
-    if (catalogue && !(catalogue.catalogue_id || catalogue.id)) return false;
+    const selected=next.catalogue || next.item;
+    reference=selected&&typeof selected==="object"&&!Array.isArray(selected)?selected:null;
+    catalogue=canonicalId(reference)?reference:null;
     requestKey = crypto.randomUUID(); submittedBody = null; pending = saved = saving = false; receipt = null;
     node("form").reset(); node("category").value = category;
     validateBarcode();
     node("fields").disabled = false; node("fields").hidden = false; node("explanation").hidden = false;
-    node("category-label").hidden = !!catalogue; node("reference").hidden = !catalogue;
-    if (catalogue) {
-      node("reference-name").textContent = catalogue.name || catalogue.display_name || "Selected collectible";
-      node("reference-details").textContent = [catalogue.set_name, catalogue.card_number, catalogue.variant, catalogue.language].filter(Boolean).join(" · ");
+    node("category-label").hidden = !!reference; node("reference").hidden = !reference;
+    showProvenance(reference);
+    if (reference) {
+      node("reference-name").textContent = reference.name || reference.display_name || "Selected collectible";
+      node("reference-details").textContent = [reference.set_name, reference.card_number, reference.metadata_only?null:reference.variant,
+        category==="sports"&&!reference.metadata_only?reference.language:null].filter(Boolean).join(" · ");
+      node("reference-review").textContent=catalogue?"Check the edition against your item before adding it."
+        : "Metadata reference only. Confirm the exact parallel or edition and language where applicable. Artwork, condition and market value are not verified.";
+      if(!catalogue)prefillReference(reference);
     } else if (typeof next.query === "string") node(category === "sports" ? "sports-subject_name" : "figures-character").value = next.query.slice(0, 140);
     node("form").querySelectorAll("details").forEach(detail => { detail.open = false; });
     node("actions").hidden = false; node("success").hidden = true; node("message").textContent = "";
@@ -241,11 +303,11 @@
   }
 
   function clearSession() {
-    generation++; actor = null; options = {}; receipt = catalogue = null;
+    generation++; actor = null; options = {}; receipt = catalogue = reference = null;
     submittedBody = requestKey = null; saving = pending = saved = false;
     if (dialog) {
       node("form").reset(); node("reference-name").textContent = "";
-      node("reference-details").textContent = ""; node("message").textContent = "";
+      node("reference-details").textContent = "";node("reference-provenance").replaceChildren(); node("message").textContent = "";
       if (dialog.open) dialog.close();
     }
   }
