@@ -350,6 +350,44 @@ class S3ObjectStorage:
             self._verify_remote_file(key, digest, len(data))
         return {"key": key, "size_bytes": len(data), "sha256": digest, "verified": True}
 
+    def read_verified_media(self, key: str, *, expected_sha256: str, expected_size: int) -> bytes:
+        """Read a database-selected mirror without exposing a private bearer URL.
+
+        Callers must first check current media rights and inventory access. The
+        exact content-addressed key, size and bytes are independently verified;
+        missing/corrupt objects never authorize writes or a different image.
+        """
+        if (not isinstance(expected_sha256, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
+                or key != f"{self.config.prefix}/private-media/{expected_sha256}.webp"):
+            raise ObjectStorageError("Invalid private media object identity")
+        if type(expected_size) is not int or not 0 < expected_size <= 10_000_000:
+            raise ObjectStorageError("Invalid bounded media size")
+        try:
+            response = self._bounded_reference_client().get_object(
+                Bucket=self.config.bucket, Key=key)
+            body = response["Body"]
+            data = bytearray()
+            try:
+                while True:
+                    chunk = body.read(min(65536, expected_size + 1 - len(data)))
+                    if not chunk:
+                        break
+                    data.extend(chunk)
+                    if len(data) > expected_size:
+                        raise ObjectStorageError("Mirrored media exceeds its verified size")
+            finally:
+                body.close()
+            if (len(data) != expected_size
+                    or hashlib.sha256(data).hexdigest() != expected_sha256
+                    or not data.startswith(b"RIFF") or data[8:12] != b"WEBP"):
+                raise ObjectStorageError("Mirrored media failed byte-for-byte verification")
+            return bytes(data)
+        except ObjectStorageError:
+            raise
+        except Exception as exc:
+            raise ObjectStorageError("Mirrored media unavailable or invalid") from exc
+
     def signed_media_url(self, key: str, *, expires_seconds: int = 3600) -> str:
         """Temporary GET for one content-addressed media object, never a bucket.
 

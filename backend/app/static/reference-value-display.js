@@ -25,7 +25,7 @@ window.DropRateReferenceValue = Object.freeze({
   text(item, money) {
     const ref = this.displayReference(item);
     if (!ref) return item?.market_value_minor == null ? "Value unavailable" : "Value: " + money(item.market_value_minor);
-    if (this.ukEuEstimate(ref)) return "Drop Rate UK/EU estimate: " + money(ref.estimate_minor ?? ref.market_value_minor);
+    if (this.ukEuEstimate(ref)) return "Value: " + money(ref.estimate_minor ?? ref.market_value_minor);
     if (["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
       return "Value: " + money(ref.market_value_minor);
     }
@@ -40,15 +40,18 @@ window.DropRateReferenceValue = Object.freeze({
   },
   isHistorical(item) {
     const ref = this.displayReference(item);
-    return ref != null && !["AVAILABLE", "REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref.status)
+    return ref != null && !["AVAILABLE", "REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE", "UK_EU_MARKET_ESTIMATE"].includes(ref.status)
       && Number.isInteger(ref.last_known_minor) && Boolean(ref.checked_at);
   },
-  label(item) {
-    const ref = this.displayReference(item);
-    if (this.ukEuEstimate(ref)) return "Drop Rate UK/EU estimate";
-    if (ref?.method === "DROP_RATE_COMPUTED_MARKET_V1") return "Drop Rate estimate";
-    if (["REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref?.status)) return "Guide estimate";
+  label() {
     return "Market value";
+  },
+  marketMinor(item) {
+    const ref = this.displayReference(item);
+    if (ref && !["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE", "CATALOGUE_GUIDE", "UK_EU_MARKET_ESTIMATE"].includes(ref.status)) return null;
+    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value => value?.method === "DROP_RATE_UK_EU_MARKET_V1")) return null;
+    const amount = ref ? (this.ukEuEstimate(ref) ? ref.estimate_minor ?? ref.market_value_minor : ref.market_value_minor) : item?.market_value_minor;
+    return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
   },
   compactText(item, money) {
     // The exact observation date remains visible in details, not the mobile

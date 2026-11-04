@@ -121,7 +121,7 @@ const row = (extra = {}) => ({
       assert.match(text, /No change in comparable values/);
       assert.match(text, /only items with matching history/);
       assert.match(text, /5 of 12 copies/);
-      assert.match(text, /1 comparison uses a guide estimate/);
+      assert.match(text, /1 comparison is estimated from Cardmarket data/);
       assert.match(text, /27 Oct 2026 to 3 Nov 2026/);
       assert.equal(fixture.rows().length, 0);
       checks++;
@@ -138,7 +138,7 @@ const row = (extra = {}) => ({
       const rows = fixture.rows();
       assert.equal(rows.length, 2, "Grouped copies must not be duplicated in the browser");
       assert.match(text, /Changes are shown only for comparable items in your collection/);
-      assert.match(rows[0].textContent, /Guide estimate change · Cardmarket/);
+      assert.match(rows[0].textContent, /Market value change · Cardmarket/);
       assert.match(rows[0].textContent, /27 Oct 2026 → 3 Nov 2026 · 7\.25 days/);
       assert.match(rows[0].textContent, /25%/);
       assert.match(rows[0].textContent, /\+£2\.50 per copy/);
@@ -189,7 +189,8 @@ const row = (extra = {}) => ({
       text = await fixture.render(summary("READY"), [row({
         name: '<img src="x" onerror="alert(1)">', comparison_label: '<b data-injected="yes">Guide estimate change</b>',
       })]);
-      assert.match(text, /<b data-injected="yes">/);
+      assert.doesNotMatch(text, /<b data-injected="yes">/);
+      assert.match(text, /Market value change/);
       assert.equal(fixture.container().querySelector('[data-injected="yes"]'), null);
       assert.equal(fixture.container().querySelector('img[src="x"]'), null);
       checks++;
@@ -210,3 +211,4 @@ const row = (extra = {}) => ({
   }
   console.log(`Weekly movers UI: ${checks} owner/founder states, exact evidence labels/dates, grouped per-copy changes and read-only response scenarios passed.`);
 })().catch((error) => { console.error(error); process.exitCode = 1; });
+

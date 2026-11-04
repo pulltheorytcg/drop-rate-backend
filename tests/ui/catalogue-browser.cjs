@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=uk-eu-pricing-20261104'), 'Seller Hub must load the current grouped discovery and saved-reference script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=market-values-20261104'), 'Seller Hub must load the current grouped discovery and saved-reference script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=groups-20261104'), 'Seller Hub must load the current grouped discovery styles');
 assert.ok(ownerShell.includes('/assets/owner-collectibles.js?v=metadata-20261104'), 'Seller Hub must load editable metadata-reference intake');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
@@ -83,17 +83,17 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const row={...card,market_value_minor:3,market_value_source:'DROP_RATE_COMPUTED_MARKET_V1',market_quotes:[{
    source:'DROP_RATE_COMPUTED_MARKET_V1',price_gbp_minor:3,observed_at:new Date().toISOString()}]};
   const f=fixture(async()=>({items:[row],has_more:false}));await f.browser.open();f.browser.pickGame(games[0]);await tick();
-  assert.equal(f.browser.find('[data-price-key]').textContent,'Drop Rate estimate: £0.03');
-  f.browser.openProduct(row);assert.match(f.browser.sheet.textContent,/Drop Rate estimate: £0.03/);
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £0.03');
+  f.browser.openProduct(row);assert.match(f.browser.sheet.textContent,/Market value: £0.03/);
   assert.doesNotMatch(f.browser.sheet.textContent,/undefined:|Cardmarket #/);f.finish();
  }
  // Current asking evidence is visibly separate and never fills market-value fields.
  {
   const row={...card,asking_price_estimate:askingFixture()},f=fixture(async()=>({items:[row],has_more:false}));
   await f.browser.open();f.browser.pickGame(games[0]);await tick();
-  assert.equal(f.browser.find('[data-price-key]').textContent,'Asking-price estimate: £12.34');
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £12.34');
   f.browser.openProduct(row);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Asking-price estimate: £12.34');
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £12.34');
   assert.match(f.browser.sheet.textContent,/eBay current listings: 4 listings from 3 sellers/);
   assert.ok(f.browser.sheet.textContent.includes(new Date(row.asking_price_estimate.observed_at).toLocaleDateString('en-GB')));
   assert.match(f.browser.sheet.textContent,/Estimate basis: Near Mint · Foil · Shop delivery estimate included/);
@@ -129,13 +129,13 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
    {market_value_minor:900,market_value_source:'CARDMARKET_BULK_SINGLES'},
    {shared_price:{status:'CATALOGUE_GUIDE',market_value_minor:900,label:'Catalogue guide'}}]){
    f.browser.openProduct({...card,...stronger,asking_price_estimate:estimate});
-   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value: £9.00');
+   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £9.00');
    assert.doesNotMatch(f.browser.sheet.textContent,/Asking-price estimate|eBay current listings/);
   }
   const history={status:'STALE',market_value_minor:null,last_known_minor:800,checked_at:'2026-01-01T00:00:00Z'};
   const row={...card,shared_price:history,asking_price_estimate:estimate};
   f.browser.openProduct(row);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Asking-price estimate: £12.34');
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £12.34');
   assert.equal(row.shared_price,history);assert.equal(row.market_value_minor,null);
   f.finish();checks++;
  }
@@ -149,7 +149,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
    return {items:[row],has_more:false};
   });
   await f.browser.open();f.browser.pickGame(games[0]);await tick();f.browser.openProduct(row);
-  const label=outcome==='stored-current-price'?'Value: £9.00':'Asking-price estimate: £12.34';
+  const label=outcome==='stored-current-price'?'Market value: £9.00':'Market value: £12.34';
   assert.equal(f.browser.find('[data-price-key]').textContent,label);
   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,label);
   assert.equal(row.asking_price_estimate,estimate);
@@ -197,7 +197,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
     market_value_source:'POKEWALLET_POKEMON_CARDMARKET_CATALOGUE',
     market_quotes:[],basis_condition:'Raw · Cardmarket Non-English regional guide'};
   f.browser.openProduct(row);
-  assert.match(f.browser.sheet.textContent,/Value: £4.25/);
+  assert.match(f.browser.sheet.textContent,/Market value: £4.25/);
   assert.match(f.browser.sheet.textContent,/Cardmarket Non-English regional guide via PokéWallet/);
   assert.match(f.browser.sheet.textContent,/Japanese language.*not verified/);
   assert.doesNotMatch(f.browser.sheet.textContent,/Cardmarket reference via TCGdex/);
@@ -269,9 +269,9 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   if(view==='search')f.browser.filters.q='OP11-101';
   else {f.browser.filters.system_code=card.system_code;f.browser.set={set_id:'OP11',provider:'Punk Records',system_code:card.system_code};}
   await f.browser.load();
-  assert.equal(f.browser.find('[data-price-key]').textContent,'Value: £1.32');
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £1.32');
   f.browser.openProduct(ref);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value: £1.32');
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £1.32');
   assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0,'Shared price is in the first response, no second fetch');
   assert.equal(ref.catalogue_id,null,'Displaying a value must not create an intake mapping');
   f.finish();checks++;
@@ -308,7 +308,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   grid.querySelector('img').dispatchEvent(new f.w.Event('error'));
   assert.equal(grid.querySelector('img').src,row.image_url,'A missing thumbnail must retain the exact original fallback');
   f.browser.openProduct({...row,market_value_source:'CARDMARKET_BULK_SINGLES',market_value_minor:1234});
-  assert.match(f.browser.sheet.textContent,/Value: £12.34/);assert.match(f.browser.sheet.textContent,/combines languages and conditions/);
+  assert.match(f.browser.sheet.textContent,/Market value: £12.34/);assert.match(f.browser.sheet.textContent,/combines languages and conditions/);
   f.finish();checks++;
  }
  // Pokémon/Dragon Ball load from the provider first; when cross-site loading
@@ -337,7 +337,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.browser.sheet.textContent,/Value unavailable/);
   assert.doesNotMatch(f.browser.sheet.textContent,/£0.42/);
   f.browser.openProduct({...card,key:'s:guide',product_type:'SEALED',market_value_source:'CARDMARKET_BULK',market_value_minor:8000,market_quotes:[]});
-  assert.match(f.browser.sheet.textContent,/Value: £80.00/);
+  assert.match(f.browser.sheet.textContent,/Market value: £80.00/);
   assert.match(f.browser.sheet.textContent,/spans languages and conditions/);
   f.finish();checks++;
  }
@@ -402,8 +402,8 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0);
   assert.equal(ref.market_value_minor,null);
   assert.equal(ref.shared_price,history);
-  assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Value: £8.00/);
-  assert.match(f.browser.find('[data-price-key]').textContent,/Value: £8.00/);
+  assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Market value: £8.00/);
+  assert.match(f.browser.find('[data-price-key]').textContent,/Market value: £8.00/);
   f.finish();checks++;
  }
  {
@@ -688,7 +688,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const estimate={...card,market_value_minor:170,market_value_source:'CARDMARKET_ESTIMATE',market_refresh_needed:true,
     basis_condition:'Cardmarket guide · mixed languages and conditions',pricing_updated_at:'2026-10-09T10:00:00Z'};
   const f=fixture(async()=>({items:[estimate]}));f.browser.games=games;f.browser.filters.q='card';await f.browser.open();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Value: £1.70/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Market value: £1.70/);
   f.browser.openProduct(estimate);assert.match(f.browser.sheet.textContent,/not a condition-adjusted UK sold value/);
   assert.equal(f.calls.filter(c=>c.url.includes('/market-values')).length,0);
   f.finish();checks++;
@@ -698,7 +698,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
    market_value_minor:1200,market_value_source:kind,market_quotes:[{source:kind,variant_label:'Holofoil · unlimited',
     finish:'Holofoil',product_id:'273699',price_gbp_minor:1200,observed_at:'2026-10-10T00:00:00Z'}]};
   const f=fixture();f.browser.openProduct(row);
-  assert.match(f.browser.sheet.textContent,/Value: £12.00/);
+  assert.match(f.browser.sheet.textContent,/Market value: £12.00/);
   assert.match(f.browser.sheet.textContent,/Card referenceTCGdex · base1-4/);
   assert.match(f.browser.sheet.textContent,/Set reference: base1 · English/);
   assert.match(f.browser.sheet.textContent,/Holofoil · unlimited: £12.00 · Cardmarket #273699/);

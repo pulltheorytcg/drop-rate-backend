@@ -24,26 +24,26 @@ let checks=0;
 for(const type of ['CARD','SEALED','COMIC','FIGURE']){
  const f=fixture(),row={...card,product_type:type,uk_eu_market_estimate:estimate()},original=JSON.stringify(row);
  f.browser.rows=[row];f.browser.renderRows();
- assert.equal(f.browser.find('[data-price-key]').textContent,'Drop Rate UK/EU estimate: £12.34');
+ assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £12.34');
  f.browser.openProduct(row);
- assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Drop Rate UK/EU estimate: £12.34');
+ assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £12.34');
  assert.match(f.browser.sheet.textContent,/Provisional; not a completed-sale value/);
  assert.match(f.browser.sheet.textContent,/Reference range: £11.00–£14.00 · Item price only; postage excluded/);
  assert.equal(JSON.stringify(row),original);
  f.finish();checks++;
 }
-// Existing prices stay primary; the model is an explicitly labelled additional reference.
+// A stronger current value is the only displayed amount; no parallel guide/model amount.
 for(const stronger of [{market_value_minor:900,market_value_source:'CARDMARKET_BULK_SINGLES'},
  {shared_price:{status:'CONDITION_REFERENCE',market_value_minor:900,label:'Exact condition reference'}},
  {shared_price:{status:'AVAILABLE',market_value_minor:900}},
  {shared_price:{status:'CATALOGUE_GUIDE',market_value_minor:900}}]){
  const f=fixture(),row={...card,...stronger,uk_eu_market_estimate:estimate()};
  f.browser.rows=[row];f.browser.renderRows();
- assert.equal(f.browser.find('[data-price-key]').textContent,'Value: £9.00');
- assert.equal(f.browser.find('[data-uk-eu-estimate-key]').textContent,'Drop Rate UK/EU estimate: £12.34');
+ assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £9.00');
+ assert.equal(f.browser.find('[data-uk-eu-estimate-key]'),null);
  f.browser.openProduct(row);
- assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value: £9.00');
- assert.match(f.browser.sheet.textContent,/Drop Rate UK\/EU estimate: £12.34/);
+ assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £9.00');
+ assert.doesNotMatch(f.browser.sheet.textContent,/£12.34|Drop Rate UK\/EU estimate/);
  f.finish();checks++;
 }
 // Invalid or expired model evidence cannot be presented as a current reference.
@@ -56,17 +56,23 @@ for(const patch of [{method:'unknown'},{currency:'USD'},{shipping_basis:'UNKNOWN
  assert.doesNotMatch(f.browser.sheet.textContent,/Drop Rate UK\/EU estimate/);
  f.finish();checks++;
 }
-// Inventory uses a catalogue guide label only, never a retail recommendation.
+// Inventory has one Market value label; provenance stays available and retail recommendations never replace it.
 {
  const f=fixture(),ref=f.w.DropRateReferenceValue,model=estimate({status:'CATALOGUE_GUIDE',market_value_minor:1234,recommended_retail_minor:9900}),
  item={market_value_minor:null,catalogue_reference:model,store_price_minor:555};
- assert.equal(ref.text(item,money),'Drop Rate UK/EU estimate: £12.34');
- assert.equal(ref.label(item),'Drop Rate UK/EU estimate');
+ assert.equal(ref.text(item,money),'Value: £12.34');
+ assert.equal(ref.label(item),'Market value');
+ assert.equal(ref.marketMinor(item),1234);
  assert.equal(ref.recommendedMinor(item),null);
  assert.equal(item.store_price_minor,555);
+ assert.match(ref.description(item),/asking prices and Cardmarket guides/);
+ assert.equal(ref.marketMinor({reference_value:{status:'STALE',market_value_minor:900},market_value_minor:900}),null);
+ assert.equal(ref.marketMinor({market_value_minor:900,catalogue_reference:{...model,expires_at:'2000-01-01T00:00:00Z'}}),null);
  for(const status of ['AVAILABLE','REFERENCE_ESTIMATE','CONDITION_REFERENCE']){
   const stronger={...item,reference_value:{status,market_value_minor:900,recommended_retail_minor:1000}};
   assert.equal(ref.text(stronger,money),'Value: £9.00');
+  assert.equal(ref.label(stronger),'Market value');
+  assert.equal(ref.marketMinor(stronger),900);
  }
  assert.equal(ref.recommendedMinor({reference_value:{...model,status:'AVAILABLE'}}),null);
  assert.equal(ref.text({...item,catalogue_reference:{...model,expires_at:'2000-01-01T00:00:00Z'}},money),'Value unavailable');

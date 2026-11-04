@@ -1186,8 +1186,6 @@ async function ownerScanSubmitIntake(event) {
         });
     byId("owner-scan-market-value").textContent =
       data.inventory?.market_value_minor == null ? "—" : formatMoney(data.inventory.market_value_minor);
-    byId("owner-scan-store-value").textContent =
-      data.inventory?.store_value_minor == null ? "—" : formatMoney(data.inventory.store_value_minor);
     byId("owner-scan-inventory-code").textContent = safeText(data.inventory?.inventory_code);
 
     const note = byId("owner-scan-valuation-note");
@@ -2291,3 +2289,4 @@ window.addEventListener("pagehide", () => ownerScanStopCamera());
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") ownerScanStopCamera();
 });
+

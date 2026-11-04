@@ -1418,8 +1418,6 @@ window.DropRateScanner = (() => {
       if (marketValue == null) content.append(node("p", "dr-scan-review-note", isGraded
         ? "No verified value is available here for this grader and grade. You can still add the slab."
         : "No verified GBP value is available for this exact printing, language and format. A different language or grade cannot be substituted."));
-      else if (edit.selected.recommended_retail_minor != null) content.append(node("p", "dr-scan-review-note",
-        "Suggested retail: " + money(edit.selected.recommended_retail_minor) + " · guide only, not a live quote"));
       if (!isGraded && edit.selected?.shared_price && window.DropRateReferenceValue) content.append(node("p", "dr-scan-review-note",
         window.DropRateReferenceValue.description({reference_value: edit.selected.shared_price})));
       if (item.error) content.append(node("p", "dr-scan-item-error", item.error));
@@ -1804,3 +1802,4 @@ window.DropRateScanner = (() => {
 
   return {Scanner, researchBook, analyzeCardPresence, isMobile: () => window.matchMedia("(max-width: 900px)").matches};
 })();
+
