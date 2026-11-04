@@ -35,8 +35,8 @@ version. Constraint read-back, owner/actor policies, forced RLS and append-only
 grants were verified; the security-advisor findings were unchanged.
 
 The founder retry then passed the former database failure but received HTTP 500
-from an eBay seller request. One controlled retry returned the same failure.
-The channel link is `ERROR` with `PUBLISH:500`, with no locally verified offer or
+from an eBay seller request. One controlled retry returned HTTP 404, with the same
+generic UI message. The channel link is `ERROR` with `PUBLISH:404`, with no locally verified offer or
 listing ID. This is not a successful publication. The seller client now records
 only an allowlisted API resource, HTTP method/status and bounded numeric eBay
 error IDs. It never logs response messages, parameters, headers, tokens, request
