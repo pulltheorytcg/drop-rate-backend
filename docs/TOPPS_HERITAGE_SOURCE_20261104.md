@@ -94,3 +94,9 @@ read of the reviewed JSON passed the pinned digest and schema, then an in-memory
 upload/readback/cold-search roundtrip produced 100 references in one set,
 104,647 normalized raw bytes, sixteen multi-player cards and one #360 warning.
 That check performed **zero production writes** and did not fetch the source PDF.
+
+Production activation subsequently published the separate 100-reference
+partition at 12:47:32 UTC after PR #896's checks and exact-commit deployment.
+Independent SQL readback confirmed generation 1 and unchanged existing source
+pointers. See the [release receipt](CATALOGUE_GROUPS_RELEASE_20261104.md) for the
+manifest digest, rollout evidence and remaining authenticated app acceptance.

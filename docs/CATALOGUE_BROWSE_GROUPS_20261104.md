@@ -110,3 +110,8 @@ No migration or production mutation is required for these facets. Code/tests do
 not establish that a release is live: CI, exact-commit deployment and
 authenticated application verification remain separate release gates. Rollback
 is the prior application release; original identities and manifests are intact.
+
+Deployment and initial coverage are recorded in the
+[4 November release receipt](CATALOGUE_GROUPS_RELEASE_20261104.md). The controls
+are deployed, but factual classification is partial (53 of 805 current manga
+references), and authenticated device/visual acceptance is still pending.

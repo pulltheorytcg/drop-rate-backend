@@ -18,7 +18,7 @@
   diagnostics to identify the failing request without exposing account data.
 - See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
 
-## 4 November 2026 — Catalogue publisher, demographic and brand groups (in review)
+## 4 November 2026 — Catalogue groups deployed; Topps Heritage published
 
 - User confirmed Magic is visible in the app. New navigation groups expose
   Comics → Marvel / DC / Indie / Other; Manga → Shōnen / Shōjo / Seinen / Josei /
@@ -29,19 +29,36 @@
   physical inventory, ownership, valuation and sale approval are unchanged.
   Exact reviewed publisher/series/manufacturer facts determine classification;
   unknowns stay unclassified, and manga demographics are not inferred from genre.
-- Separate permitted Topps Heritage adapter prepares 100 numbered references
-  for private R2. Existing Bowman source identities and five published partitions
-  remain unchanged. Artwork, market prices and physical-language/parallel
-  confirmation are not supplied by this checklist.
+- PR #896 merged as `ccb72621a7a759e841450a3a2bf7fe75df101438` after all
+  12 PR workflows passed, including native PostgreSQL 17 group/RLS checks.
+  Local and Railway pre-deploy Python suites each passed 9,997 tests (25
+  optional skips); the full local dashboard UI suite passed.
+- Railway deployments `18615e6d-ab33-421a-8477-a73e8ccce8e9` (code) and
+  `43c924fc-8b1d-4bf7-844e-ed285ee9b1ee` (additive source activation) succeeded
+  for that exact commit. Public JS/CSS hashes matched the merged files; the
+  owner shell references the new assets, readiness passed and anonymous browse
+  correctly remained HTTP 401. Signed-in device acceptance is still pending.
+- The separate Topps Heritage partition published at 12:47:32 UTC with 100
+  released numbered references, one set, 104,647 raw bytes, verified R2 cold
+  readback/search and zero bulk SQL rows written. Existing five publication
+  pointers, generations and counts remained unchanged. Six R2-first partitions
+  now contain 204,208 source records / 202,159 released references. Existing SQL
+  reference tables remain 69,697 cards / 1,472 sets.
+- Coverage is deliberately partial: 1,822 selected Topps/Bowman R2 references,
+  four existing Funko references and two existing canonical Nendoroid references;
+  no new complete Panini or figure catalogue. Reviewed manga rules currently
+  classify 53 of 805 structured references (42 Shōnen, five Shōjo, six Seinen);
+  752 remain Unclassified. Josei/Kodomo currently have no matching records.
+- Artwork, market values and physical-language/parallel confirmation are not
+  supplied by the new checklist. Original identities, ownership and financial
+  history are not migrated or modified by this rollout.
 - Riftbound remains deferred pending Drop Rate-specific Riot approval/key.
   Full Panini and bulk Funko/figure feeds still require appropriate source rights;
   consumer websites and unofficial mirrors are not activated as bulk feeds.
-- Local grouped R2/UI/source tests pass; full CI, actual PostgreSQL group-query
-  checks, exact Railway deployment, new-source publication and authenticated
-  device acceptance are separate release gates, not implied by code completion.
-  Optional browser-layout execution is not claimed while its browser download
-  is unavailable. See [grouping and evidence](docs/CATALOGUE_BROWSE_GROUPS_20261104.md)
-  and [Topps Heritage source bounds](docs/TOPPS_HERITAGE_SOURCE_20261104.md).
+- Authenticated browse/pagination and real-browser visual acceptance are not
+  claimed from health or publication alone. See the [release receipt](docs/CATALOGUE_GROUPS_RELEASE_20261104.md),
+  [grouping and evidence](docs/CATALOGUE_BROWSE_GROUPS_20261104.md) and
+  [Topps Heritage source bounds](docs/TOPPS_HERITAGE_SOURCE_20261104.md).
 
 ## 4 November 2026 — Shared Seller Hub for founders (release in progress)
 
