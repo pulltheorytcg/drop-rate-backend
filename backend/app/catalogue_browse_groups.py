@@ -30,12 +30,52 @@ INDIE_PUBLISHERS = frozenset({
 
 # Exact reviewed series only. Publisher, age rating, genre, or a title containing
 # "Shonen" cannot establish a demographic. New aliases need source review.
+# Original Japanese serialization demographic, not English imprint or genre.
+# Each exact series/edition alias below has publication evidence in
+# docs/MANGA_DEMOGRAPHIC_REVIEW_20261104.md. Unknowns stay UNKNOWN.
 MANGA_DEMOGRAPHICS = {
+    # Previously reviewed exact-series rules.
     "one piece": "SHONEN", "naruto": "SHONEN", "dragon ball z": "SHONEN",
-    "hunter x hunter": "SHONEN", "jujutsu kaisen": "SHONEN", "death note": "SHONEN",
-    "baby & me": "SHOJO", "initial d": "SEINEN", "initial d omnibus": "SEINEN",
+    "hunter x hunter": "SHONEN", "jujutsu kaisen": "SHONEN",
+    "death note": "SHONEN", "baby & me": "SHOJO",
+    "initial d": "SEINEN", "initial d omnibus": "SEINEN",
     "princess jellyfish": "JOSEI",
+
+    # Reviewed Japanese shōnen magazine publication.
+    "rave master": "SHONEN",
+    "rave master (rave master (graphic novels))": "SHONEN",
+    "steel angel kurumi": "SHONEN", "suzuka": "SHONEN",
+    "iron wok jan": "SHONEN", "a.i. love you": "SHONEN",
+    "flame of recca": "SHONEN", "school rumble": "SHONEN",
+    "sgt. frog": "SHONEN", "the law of ueki": "SHONEN",
+    "yakitate!! japan": "SHONEN", "zatch bell!": "SHONEN",
+    "shaman king": "SHONEN", "gin tama": "SHONEN",
+    "slam dunk": "SHONEN", "d.gray-man": "SHONEN",
+    "getbackers": "SHONEN", "case closed": "SHONEN",
+    "hayate the combat butler": "SHONEN",
+    "the prince of tennis": "SHONEN",
+
+    # Reviewed Japanese seinen magazine publication.
+    "lupin iii": "SEINEN", "battle royale": "SEINEN",
+    "chobits": "SEINEN", "es: eternal sabbath (es: eternal sabbath)": "SEINEN",
+    "oh my goddess!": "SEINEN", "emma": "SEINEN",
+    "vagabond vizbig edition": "SEINEN", "vagabond": "SEINEN",
+    "mushishi": "SEINEN",
+
+    # Reviewed Japanese shōjo magazine publication.
+    "land of the blindfolded -": "SHOJO", "vampire game": "SHOJO",
+    "dragon knights": "SHOJO", "from eroica with love -": "SHOJO",
+    "gals! (super gals)": "SHOJO",
+    "fruits basket ultimate edition": "SHOJO", "fruits basket": "SHOJO",
+    "s.a": "SHOJO",
+    "wild act (wild act (graphic novels))": "SHOJO",
+    "wild act": "SHOJO",
+
+    # Reviewed Japanese josei magazine publication.
+    "happy mania": "JOSEI", "suppli": "JOSEI",
+    "with the light: raising an autistic child": "JOSEI",
 }
+
 SPORTS_MANUFACTURERS = {"panini": "PANINI", "panini america": "PANINI", "topps": "TOPPS"}
 FIGURE_LINES = {
     "funko": {"pop!": "FUNKO_POP", "pop": "FUNKO_POP"},
