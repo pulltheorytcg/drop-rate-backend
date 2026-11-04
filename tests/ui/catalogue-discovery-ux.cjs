@@ -73,8 +73,8 @@ function fixture({account='a',server=new Map(),device=[],products,saveOverride}=
  {
   const f=fixture();await f.browser.open();await f.submit('Batman');await f.choose('COMICS');f.browser.openFilters();
   assert.match(f.browser.sheet.textContent,/Publisher/);assert.doesNotMatch(f.browser.sheet.textContent,/All trading card games|Cards Only/);
-  f.setFilter('system_code','DC_COMICS');await f.apply();
-  const params=new URL(f.lastProduct().url,'https://test').searchParams;assert.equal(params.get('system_code'),'DC_COMICS');assert.equal(params.get('product_type'),'COMIC');assert.equal(params.get('q'),'Batman');assert.equal(f.browser.categoryId,'COMICS');
+  f.setFilter('browse_group','DC');await f.apply();
+  const params=new URL(f.lastProduct().url,'https://test').searchParams;assert.equal(params.get('system_code'),'COMICS');assert.equal(params.get('browse_group'),'DC');assert.equal(params.get('product_type'),'COMIC');assert.equal(params.get('q'),'Batman');assert.equal(f.browser.categoryId,'COMICS');
   await f.choose('MANGA');f.browser.openFilters();assert.equal(f.browser.sheet.querySelector('[data-filter="system_code"]'),null);assert.ok(f.browser.sheet.querySelector('[data-filter="language"]'));
   f.finish();groups++;
  }

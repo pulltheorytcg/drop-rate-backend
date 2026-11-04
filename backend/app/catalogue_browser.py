@@ -41,6 +41,7 @@ from .catalogue_price_history import add_reference_history
 from .reference_asking_display import add_asking_estimates
 from .book_catalogue import with_book_details
 from .catalogue_collectibles import with_collectible_details
+from .catalogue_browse_groups import group_predicate, validate_browse_group
 from .r2_media import with_signed_mirror
 from . import catalogue_r2_live, r2_first_service
 from .catalogue_r2_cache import (
@@ -576,7 +577,13 @@ async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(req
 async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                access: Annotated[dict, Depends(browser_access)], system_code: str = Query(max_length=80),
                language: str = Query(default="", max_length=80), q: str = Query(default="", max_length=160),
-               limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
+               limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000),
+               browse_group: Annotated[str, Query(max_length=32)] = ""):
+    try:
+        browse_group = validate_browse_group(browse_group, system_code=system_code)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    group_options = {"browse_group": browse_group} if browse_group else {}
     options = {'readonly_snapshot': True} if catalogue_r2_live.enabled('DELIVERY') else {}
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id, **options) as connection:
         publications = await _r2_first_publications(connection)
@@ -584,23 +591,67 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
             if system_code in {"SPORTS_CARDS", "FIGURES"}:
                 from .r2_collectible_browse import sets_collectibles
                 return jsonable_encoder(await sets_collectibles(connection, owner_id=access["owner_id"],
-                    system_code=system_code, language=language, q=q.strip(), limit=limit, offset=offset))
+                    system_code=system_code, language=language, q=q.strip(), limit=limit, offset=offset, **group_options))
             page = await r2_first_service.sets(connection, owner_id=access["owner_id"],
-                system_code=system_code, language=language, q=q.strip(), limit=limit, offset=offset)
+                system_code=system_code, language=language, q=q.strip(), limit=limit, offset=offset, **group_options)
             return jsonable_encoder({**page,
                 "items": [set_metadata_only(row) for row in page["items"]],
                 "catalogue_scope": "R2_FIRST_SYSTEM", "metadata_only": True})
-        live = await catalogue_r2_live.read(connection)
-        rows = await catalogue_r2_live.fetch(connection, SETS_SQL,
-            [access["owner_id"], browse_systems(system_code), language, q.strip(), limit + 1, offset], live)
+        # These facets depend on canonical profile/book facts absent from the
+        # legacy R2 navigation index. Do not run an unfiltered index or hydrate
+        # the full shared reference snapshot to answer a small grouped query.
+        live = None if browse_group else await catalogue_r2_live.read(connection)
+        query, params = sets_query(owner_id=access["owner_id"], system_code=system_code,
+            language=language, q=q, limit=limit, offset=offset, browse_group=browse_group)
+        rows = await catalogue_r2_live.fetch(connection, query, params, live)
     return jsonable_encoder({"items": [set_metadata_only(row) for row in rows[:limit]], "has_more": len(rows) > limit,
                              "offset": offset, "total_count": rows[0]["total_count"] if rows else 0,
                              "coverage": "MASTER_SET_CATALOGUE"})
 
 
+def sets_query(*, owner_id, system_code, language="", q="", limit=40, offset=0, browse_group=""):
+    """Set counts and owned totals reflect the selected facet before pagination."""
+    browse_group = validate_browse_group(browse_group, system_code=system_code)
+    if not browse_group:
+        return SETS_SQL, [owner_id, browse_systems(system_code), language, q.strip(), limit + 1, offset]
+    params = [owner_id, browse_systems(system_code), language, q.strip()]
+
+    def bind(value):
+        params.append(value)
+        return f"${len(params)}"
+
+    predicate = group_predicate(browse_group, bind)
+    page_limit, page_offset = bind(limit + 1), bind(offset)
+    # A broad provider declaration cannot establish a brand/demographic for an
+    # empty checklist. Faceted sets consist only of matching indexed entries,
+    # so another brand's rows never inflate card/owned counts or create tiles.
+    query = SOURCE_CTE + f""", entry_sets as (
+      select e.system_code,e.set_id,e.set_name,e.language,e.provider,min(e.game) as game,
+             max(e.release_date) as release_date,count(*)::int as indexed_count,
+             count(*)::int as card_count,
+             count(*) filter(where o.quantity>0)::int as owned_count,
+             sum(o.owned_value_minor) as owned_value_minor,
+             coalesce(sum(o.unknown_values),0)::int as unknown_values
+      from entries e left join owned o on o.catalogue_id=e.catalogue_id
+      where e.system_code=any($2::text[]) and ($3='' or e.language=$3)
+        and ($4='' or strpos(lower(e.set_name),lower($4))>0 or strpos(lower(e.set_id),lower($4))>0)
+        and {predicate}
+      group by e.system_code,e.set_id,e.set_name,e.language,e.provider
+    ), set_page as (
+      select *,count(*) over()::int as total_count,'AVAILABLE'::text as checklist_status
+      from entry_sets
+      order by release_date desc nulls last,set_name,language,provider,set_id
+      limit {page_limit} offset {page_offset}
+    ) select page.* from set_page page
+      order by page.release_date desc nulls last,page.set_name,page.language,page.provider,page.set_id
+    """
+    return query, params
+
+
 def product_query(*, owner_id, q="", system_code="", language="", set_id="", provider=None, category="",
                   product_type="", owned="all", sort="newest", keys=None, limit=40, offset=0,
-                  shared_prices=None, reference_snapshot=None):
+                  shared_prices=None, reference_snapshot=None, browse_group=""):
+    browse_group = validate_browse_group(browse_group, category=category, system_code=system_code)
     params = [owner_id]
     where = []
     def bind(value):
@@ -616,6 +667,8 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
         raise ValueError("Unknown catalogue category")
     if system_code:
         where.append(f"e.system_code=any({bind(browse_systems(system_code))}::text[])")
+    if browse_group:
+        where.append(group_predicate(browse_group, bind))
     for column, value in (("language", language), ("set_id", set_id), ("product_type", product_type)):
         if value:
             where.append(f"e.{column}={bind(value)}")
@@ -817,14 +870,26 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                    slab_number: str = Query(default="", max_length=80),
                    slab_name: str = Query(default="", max_length=160),
                    slab_set: str = Query(default="", max_length=200),
-                   limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
+                   limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000),
+                   browse_group: Annotated[str, Query(max_length=32)] = ""):
     t_begin = time.perf_counter()
+    try:
+        browse_group = validate_browse_group(browse_group, category=category, system_code=system_code)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if browse_group and not system_code:
+        # A category alone is sufficient unambiguous context, including when
+        # the client requests a mixed saved-key selection. Resolve it before
+        # dispatch so sports/figures include their R2-first references too.
+        system_code = {"SPORTS": "SPORTS_CARDS", "FIGURES": "FIGURES",
+                       "COMICS": "COMICS", "MANGA": "MANGA"}[category]
+    group_options = {"browse_group": browse_group} if browse_group else {}
     key_list = keys.split(",") if keys else ([] if keys is not None else None)
     if key_list is not None and len(key_list) > 100:
         raise HTTPException(422, "Watchlist is limited to 100 products")
     cache_scope = reference_scope(provider=provider, system_code=system_code, language=language,
         set_id=set_id, product_type=product_type, owned=owned, sort=sort, q=q, keys=key_list,
-        slab_number=slab_number, slab_name=slab_name, slab_set=slab_set) if delivery_enabled() else None
+        slab_number=slab_number, slab_name=slab_name, slab_set=slab_set) if delivery_enabled() and not browse_group else None
     connection_options = {'readonly_snapshot': True} if cache_scope is not None or catalogue_r2_live.enabled('DELIVERY') else {}
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id,
                                **connection_options) as connection:
@@ -841,7 +906,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                 owner_id=access["owner_id"], q=q, system_code=system_code,
                 language=language, category=category, set_id=set_id, provider=provider,
                 product_type=product_type, owned=owned, sort=sort, limit=limit, offset=offset,
-                slab_number=slab_number, slab_name=slab_name, slab_set=slab_set))
+                slab_number=slab_number, slab_name=slab_name, slab_set=slab_set, **group_options))
         if (r2_keys or (key_list is None and _r2_first_system(publications, system_code))) and not mixed_reference_keys:
             # This service merges provider snapshots, applies exact ownership
             # overlays and filters/sorts before pagination. Do not pass these
@@ -849,7 +914,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
             page = await r2_first_service.browse(connection, owner_id=access["owner_id"],
                 q=q, system_code=system_code, language=language, category=category,
                 set_id=set_id, provider=provider, product_type=product_type,
-                owned=owned, sort=sort, keys=key_list, limit=limit, offset=offset)
+                owned=owned, sort=sort, keys=key_list, limit=limit, offset=offset, **group_options)
             slab_search = bool(slab_number or slab_name or slab_set)
             selected_rows = page["items"]
             if slab_search:
@@ -866,7 +931,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
             r2_key_page = await r2_first_service.browse(connection, owner_id=access["owner_id"],
                 q=q, system_code=system_code, language=language, category=category,
                 set_id=set_id, provider=provider, product_type=product_type,
-                owned=owned, sort=sort, keys=r2_keys, limit=100, offset=0)
+                owned=owned, sort=sort, keys=r2_keys, limit=100, offset=0, **group_options)
         sql_keys = [key for key in key_list if not key.startswith("x:")] if mixed_reference_keys else key_list
         sql_limit, sql_offset = (100, 0) if mixed_reference_keys else (limit, offset)
         sql_sort = "name" if mixed_reference_keys and sort in ("value_desc", "value_asc") else sort
@@ -874,12 +939,12 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         # resolve only the missing values on their bounded visible page.
         shared = await read_shared_prices(connection, system_code=system_code, product_type=product_type, language=language) if sql_sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
         t_shared = time.perf_counter()
-        live = await catalogue_r2_live.read(connection)
+        live = None if browse_group else await catalogue_r2_live.read(connection)
         snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None and live is None else None
         t_index = time.perf_counter()
         query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language, category=category,
             set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sql_sort, keys=sql_keys,
-            limit=sql_limit, offset=sql_offset, shared_prices=shared)
+            limit=sql_limit, offset=sql_offset, shared_prices=shared, **group_options)
         if snapshot is not None:
             try:
                 async with connection.transaction():

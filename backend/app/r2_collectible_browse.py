@@ -19,9 +19,16 @@ SYSTEM_CATEGORIES = {"SPORTS_CARDS": "SPORTS", "FIGURES": "FIGURES"}
 async def browse_collectibles(connection, *, owner_id, q="", system_code="", language="",
                              category="", set_id="", provider=None, product_type="",
                              owned="all", sort="name", limit=40, offset=0,
-                             slab_number="", slab_name="", slab_set=""):
+                             slab_number="", slab_name="", slab_set="", browse_group=""):
     from . import catalogue_browser as browser
     from .catalogue_collectibles import with_collectible_details
+    from .catalogue_browse_groups import validate_browse_group
+
+    try:
+        validate_browse_group(browse_group, category=category, system_code=system_code)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    group_options = {"browse_group": browse_group} if browse_group else {}
 
     expected_category = SYSTEM_CATEGORIES.get(system_code)
     if expected_category is None or category not in ("", expected_category):
@@ -33,7 +40,7 @@ async def browse_collectibles(connection, *, owner_id, q="", system_code="", lan
         references = await r2_first_service.browse(connection, owner_id=owner_id,
             q=q, system_code=system_code, language=language, category=expected_category,
             set_id=set_id, provider=provider, product_type=product_type, owned=owned,
-            sort=sort, limit=MAX_MERGED_ROWS + 1, offset=0)
+            sort=sort, limit=MAX_MERGED_ROWS + 1, offset=0, **group_options)
         if references["has_more"] or len(references["items"]) > MAX_MERGED_ROWS:
             raise HTTPException(422, "Choose a set or narrow the collectible search")
         reference_rows = references["items"]
@@ -41,8 +48,11 @@ async def browse_collectibles(connection, *, owner_id, q="", system_code="", lan
     # released-only filters and canonical identity rules. No SQL writes occur.
     query, params = browser.product_query(owner_id=owner_id, q=q, system_code=system_code,
         language=language, category=expected_category, set_id=set_id, provider=provider,
-        product_type=product_type, owned=owned, sort=sort, limit=MAX_MERGED_ROWS, offset=0)
-    live = await catalogue_r2_live.read(connection)
+        product_type=product_type, owned=owned, sort=sort, limit=MAX_MERGED_ROWS, offset=0,
+        **group_options)
+    # The legacy snapshot has no reviewed brand/group facts. A grouped query
+    # uses canonical SQL directly, not a full snapshot-to-JSON fallback.
+    live = None if browse_group else await catalogue_r2_live.read(connection)
     canonical = [dict(row) for row in await catalogue_r2_live.fetch(connection, query, params, live)]
     if len(canonical) + len(reference_rows) > MAX_MERGED_ROWS:
         raise HTTPException(422, "Choose a set or narrow the collectible search")
@@ -64,18 +74,30 @@ async def browse_collectibles(connection, *, owner_id, q="", system_code="", lan
         "slab_search_bounded": slab_search and offset + limit < len(merged)}
 
 
-async def sets_collectibles(connection, *, owner_id, system_code, language="", q="", limit=40, offset=0):
+async def sets_collectibles(connection, *, owner_id, system_code, language="", q="", limit=40, offset=0,
+                            browse_group=""):
     """Keep existing canonical sets alongside the small published starter sets."""
     from . import catalogue_browser as browser
+    from .catalogue_browse_groups import validate_browse_group
+    try:
+        validate_browse_group(browse_group, system_code=system_code)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    group_options = {"browse_group": browse_group} if browse_group else {}
     if system_code not in SYSTEM_CATEGORIES:
         return {"items": [], "has_more": False, "total_count": 0, "offset": offset}
     if offset > MAX_MERGED_ROWS:
         raise HTTPException(422, "Narrow the collectible set search")
     reference_page = await r2_first_service.sets(connection, owner_id=owner_id,
-        system_code=system_code, language=language, q=q, limit=MAX_MERGED_ROWS + 1, offset=0)
-    live = await catalogue_r2_live.read(connection)
-    canonical = await catalogue_r2_live.fetch(connection, browser.SETS_SQL,
-        [owner_id, [system_code], language, q, MAX_MERGED_ROWS + 1, 0], live)
+        system_code=system_code, language=language, q=q, limit=MAX_MERGED_ROWS + 1, offset=0,
+        **group_options)
+    live = None if browse_group else await catalogue_r2_live.read(connection)
+    if browse_group:
+        query, params = browser.sets_query(owner_id=owner_id, system_code=system_code,
+            language=language, q=q, limit=MAX_MERGED_ROWS, offset=0, browse_group=browse_group)
+    else:
+        query, params = browser.SETS_SQL, [owner_id, [system_code], language, q, MAX_MERGED_ROWS + 1, 0]
+    canonical = await catalogue_r2_live.fetch(connection, query, params, live)
     if reference_page["has_more"] or len(reference_page["items"]) + len(canonical) > MAX_MERGED_ROWS:
         raise HTTPException(422, "Narrow the collectible set search")
     # Provider/system/language/set identity is exact; names alone never merge.

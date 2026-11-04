@@ -57,12 +57,20 @@ window.DropRateCatalogue = (() => {
     TCG:{label:"Trading Card Games",short:"TCG",hint:"Search cards across the catalogue, or choose a game to narrow your search.",type:"CARD",system:""},
     SPORTS:{label:"Sports Cards",short:"Sports",hint:"Find an available reference, or add your sports card by entering its details.",type:"CARD",system:"SPORTS_CARDS"},
     COMICS:{label:"Comics",short:"Comics",hint:"Find the exact issue, cover and edition for your collection.",type:"COMIC",system:"COMICS"},
-    MANGA:{label:"Manga",short:"Manga",hint:"Find volumes and editions, with language kept clear.",type:"COMIC",system:"MANGA"},
+    MANGA:{label:"Manga",short:"Manga",hint:"Browse by demographic, then find the exact series, volume and language. Demographics are separate from genres.",type:"COMIC",system:"MANGA"},
     FIGURES:{label:"Figures",short:"Figures",hint:"Find an available reference, or add your figure by entering its details.",type:"FIGURE",system:"FIGURES"},
   };
   const tcgSystems = new Set(Object.keys(gameTitles).filter(code=>!["COMICS","MANGA"].includes(code))
     .concat(["NARUTO_KAYOU","NARUTO_BANDAI_LEGACY","NARUTO_BANDAI"]));
   const bookSystems = {COMICS:"All comics",MARVEL_COMICS:"Marvel Comics",DC_COMICS:"DC Comics",OTHER_COMICS:"Other comics",MANGA:"Manga"};
+  // Display groups refine existing references; they never change canonical
+  // identity, ownership or whether a provider is approved and available.
+  const browseGroups = {
+    COMICS:{label:"Publisher",choices:[["","All comics"],["MARVEL","Marvel"],["DC","DC"],["INDIE","Indie"],["OTHER","Other / unclassified"]]},
+    MANGA:{label:"Demographic",choices:[["","All manga"],["SHONEN","Shōnen"],["SHOJO","Shōjo"],["SEINEN","Seinen"],["JOSEI","Josei"],["KODOMO","Kodomo"],["UNKNOWN","Unclassified"]]},
+    SPORTS:{label:"Manufacturer",choices:[["","All sports cards"],["PANINI","Panini"],["TOPPS","Topps"],["OTHER","Other / unclassified"]]},
+    FIGURES:{label:"Figure type",choices:[["","All figures"],["FUNKO_POP","Funko Pops"],["FIGURINES","Figurines"],["OTHER","Other / unclassified"]]},
+  };
   const referenceKey = value => typeof value === "string" && /^(?:[rs]:[a-f0-9]{32}|x:[a-f0-9]{64}|c:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/.test(value);
   const sourceLink = value => {
     if(typeof value!=="string"||value.length>2048||/[\s\\\u0000-\u001f\u007f]/.test(value))return null;
@@ -96,7 +104,7 @@ window.DropRateCatalogue = (() => {
       this.resume=null;this.productsReturn=null;
       this.categoryId=Object.hasOwn(categories,categoryId)?categoryId:"TCG";
       const category=categories[this.categoryId];
-      this.filters = {q:"",system_code:category.system||"",language:"",product_type:category.type||"",owned:"all",sort:"newest",watch:false};
+      this.filters = {q:"",system_code:category.system||"",language:"",product_type:category.type||"",browse_group:"",owned:"all",sort:"newest",watch:false};
       this.set = null; this.page = "products"; this.setQuery = ""; this.rows = []; this.offset = 0;this.browseAll=false;
     }
     find(selector) { return this.dialog.querySelector(selector); }
@@ -106,6 +114,7 @@ window.DropRateCatalogue = (() => {
       this.dialog.innerHTML = `<header class="dr-browse-header"><nav class="dr-browse-categories" aria-label="Collectible categories"></nav>
         <div class="dr-browse-category-heading"><div><h2></h2><p></p></div><button type="button" data-action="games" hidden>← All games</button></div>
         <div class="dr-browse-set-heading" hidden><button type="button" data-action="back" aria-label="Back to products">←</button><h2></h2></div>
+        <nav class="dr-browse-groups" aria-label="Catalogue groups" hidden></nav>
         <div class="dr-browse-searchbar"><button type="button" data-action="camera" aria-label="Open scanner">◎</button><input type="search" maxlength="160" placeholder="Search for products" aria-label="Search for products"><button type="button" data-action="clear-query" aria-label="Clear search">×</button></div>
         <div class="dr-browse-context"><span>Browse: <strong>All products</strong></span><button type="button" data-action="sets">Show Sets</button></div>
         <nav class="dr-browse-types" aria-label="Product type"><button type="button" data-type="">All products</button><button type="button" data-type="CARD">Cards</button><button type="button" data-type="SEALED">Sealed products</button></nav>
@@ -262,7 +271,25 @@ window.DropRateCatalogue = (() => {
       const opened=handler({category,query:this.filters.q,...(row?{catalogue:row}:{}),onAddAnother:()=>this.resumeSearch()});
       if(opened===false)this.resumeSearch().then(()=>{if(this.active())this.find(".dr-browse-status").textContent="Item entry is still loading. Please try again shortly.";});
     }
-    pickGame(game) { this.categoryId=this.isBookFamily(game.system_code)?game.system_code:"TCG";this.filters.system_code=game.system_code;this.filters.language="";this.filters.product_type=this.isBookFamily(game.system_code)?"COMIC":"";this.set=null;this.page="products";this.load(); }
+    pickGame(game) { this.categoryId=this.isBookFamily(game.system_code)?game.system_code:"TCG";this.filters.system_code=game.system_code;this.filters.language="";this.filters.product_type=this.isBookFamily(game.system_code)?"COMIC":"";this.filters.browse_group="";this.set=null;this.page="products";this.load(); }
+    pickBrowseGroup(value) {
+      if(this.saving || !browseGroups[this.categoryId]?.choices.some(([id])=>id===value))return;
+      this.filters.browse_group=value;this.filters.system_code=categories[this.categoryId].system;
+      this.set=null;this.browseAll=true;this.load();
+    }
+    renderBrowseGroups() {
+      const nav=this.find(".dr-browse-groups"),group=browseGroups[this.categoryId];
+      nav.hidden=!group;if(!group)return;
+      nav.setAttribute("aria-label",group.label);
+      // Keep the focused control mounted while results load and paginate.
+      if(nav.dataset.groupCategory!==this.categoryId){
+        nav.replaceChildren();nav.dataset.groupCategory=this.categoryId;
+        for(const [id,label] of group.choices){
+          const control=button(label,()=>this.pickBrowseGroup(id));control.dataset.browseGroup=id;nav.append(control);
+        }
+      }
+      nav.querySelectorAll("[data-browse-group]").forEach(control=>control.setAttribute("aria-pressed",String(control.dataset.browseGroup===this.filters.browse_group)));
+    }
     showSets() { if(!this.filters.system_code)return;
       this.productsReturn={filters:{...this.filters},set:this.set,browseAll:this.browseAll,scrollTop:this.scroll.scrollTop};
       this.page="sets";this.setQuery="";this.set=null;
@@ -281,6 +308,7 @@ window.DropRateCatalogue = (() => {
       this.dialog.querySelectorAll('[data-category]').forEach(control=>control.setAttribute('aria-pressed',String(control.dataset.category===this.categoryId)));
       this.find('.dr-browse-category-heading h2').textContent=category.label;
       this.find('.dr-browse-category-heading p').textContent=category.hint;
+      this.renderBrowseGroups();
       this.find('[data-action="games"]').hidden=this.categoryId!=="TCG"||!this.filters.system_code;
       this.find('.dr-browse-searchbar').hidden=unavailable;
       this.input.disabled=unavailable;
@@ -295,7 +323,7 @@ window.DropRateCatalogue = (() => {
       this.find('.dr-browse-types').hidden=sets||this.categoryId!=="TCG";
       this.find('[data-type=""]').hidden=!this.filters.system_code;
       this.find('.dr-browse-toolbar').hidden=sets||unavailable;
-      const refineCount=Number(Boolean(this.categoryId==="TCG"&&this.filters.system_code||this.categoryId==="COMICS"&&this.filters.system_code!=="COMICS"))+Number(Boolean(this.filters.language))+Number(Boolean(this.set))+Number(this.filters.owned!=="all");
+      const refineCount=Number(Boolean(this.categoryId==="TCG"&&this.filters.system_code||this.categoryId==="COMICS"&&this.filters.system_code!=="COMICS"&&!this.filters.browse_group))+Number(Boolean(this.filters.browse_group))+Number(Boolean(this.filters.language))+Number(Boolean(this.set))+Number(this.filters.owned!=="all");
       this.find('[data-action="filters-visible"]').textContent="Filter & sort"+(refineCount?" · "+refineCount:"");
       this.find('[data-action="filters-visible"]').setAttribute("aria-label","Filter and sort, current order "+(sorts[this.filters.sort]||sorts.newest));
       this.dialog.querySelectorAll('[data-type]').forEach(control=>control.setAttribute('aria-pressed',String(control.dataset.type===this.filters.product_type)));
@@ -308,7 +336,11 @@ window.DropRateCatalogue = (() => {
       const chips=this.find(".dr-browse-chips");chips.replaceChildren();chips.hidden=sets||unavailable;
       const chip=(label,action)=>chips.append(button(label+" ×",()=>{action();this.load();},"dr-browse-chip"));
       if(this.filters.system_code&&this.categoryId==="TCG")chip(this.game()?.game||this.filters.system_code,()=>{this.filters.system_code="";this.filters.language="";this.filters.product_type="CARD";this.set=null;});
-      if(this.categoryId==="COMICS"&&this.filters.system_code!=="COMICS")chip(bookSystems[this.filters.system_code]||this.filters.system_code,()=>{this.filters.system_code="COMICS";this.set=null;});
+      if(this.categoryId==="COMICS"&&this.filters.system_code!=="COMICS"&&!this.filters.browse_group)chip(bookSystems[this.filters.system_code]||this.filters.system_code,()=>{this.filters.system_code="COMICS";this.set=null;});
+      if(this.filters.browse_group){
+        const label=browseGroups[this.categoryId]?.choices.find(([id])=>id===this.filters.browse_group)?.[1];
+        if(label)chip(label,()=>{this.filters.browse_group="";this.filters.system_code=categories[this.categoryId].system;this.set=null;});
+      }
       if(this.set)chip(decode(this.set.set_name),()=>{this.set=null;});
       if(this.filters.language)chip(this.filters.language,()=>{this.filters.language="";this.set=null;});
       // Format is a navigation choice above, not a removable default filter.
@@ -349,6 +381,7 @@ window.DropRateCatalogue = (() => {
         if(this.set){params.set("system_code",this.set.system_code);params.set("set_id",this.set.set_id);params.set("provider",this.set.provider);}
         if(this.filters.watch)params.set("keys",[...this.watchlist].join(","));
       }
+      if(this.filters.browse_group)params.set("browse_group",this.filters.browse_group);
       try {
         const path="/api/v1/catalogue-browser/"+(this.page==="sets"?"sets":"products")+"?"+params;
         const cached=this.pageCache.get(path);
@@ -367,7 +400,7 @@ window.DropRateCatalogue = (() => {
         if(!unchanged)this.renderRows(more?nextOffset:0);
         status.textContent=this.rows.length?"":"No matches. Try another search or clear the filters.";
         if(this.page==="products"&&!this.rows.length&&this.isBookFamily()
-          && this.filters.owned==="all"&&!this.filters.watch&&!this.filters.q.trim()){
+          && this.filters.owned==="all"&&!this.filters.watch&&!this.filters.q.trim()&&!this.filters.browse_group&&!this.set){
           status.textContent=(this.filters.system_code==="MANGA"?"Manga":"Comics")+" catalogue is ready for your first verified book. No books have been added yet.";
         }
         if(this.page==="products" && !this.rows.length && this.filters.system_code==="NARUTO"
@@ -698,7 +731,7 @@ window.DropRateCatalogue = (() => {
         control.value=draft[key];control.addEventListener("change",()=>{draft[key]=control.value;});wrap.append(control);fields.append(wrap);return control;
       };
       if(this.categoryId==="TCG")select("Game","system_code",[["","All trading card games"],...this.games.filter(game=>tcgSystems.has(game.system_code)).map(game=>[game.system_code,game.game])]);
-      else if(this.categoryId==="COMICS")select("Publisher","system_code",Object.entries(bookSystems).filter(([code])=>code!=="MANGA"));
+      else if(browseGroups[this.categoryId])select(browseGroups[this.categoryId].label,"browse_group",browseGroups[this.categoryId].choices);
       const languages=[...new Set(this.games.filter(game=>this.categoryId==="TCG"?tcgSystems.has(game.system_code):[this.categoryId,categories[this.categoryId].system].includes(game.system_code)).flatMap(game=>game.languages||[]))].sort();
       if(this.filters.language&&!languages.includes(this.filters.language))languages.push(this.filters.language);
       if(languages.length)select("Language","language",[["","All languages"],...languages.map(language=>[language,language])]);
@@ -707,7 +740,8 @@ window.DropRateCatalogue = (() => {
       fields.append(node("p","dr-browse-reference-note","Saved references are bookmarks. They are separate from the physical items in your collection."));this.sheet.append(fields);
       const footer=node("footer");
       footer.append(button("Clear filters",()=>{this.clearCategoryFilters();this.closeSheet();this.load();},"dr-browse-secondary"),button("Show results",()=>{
-        if(draft.system_code!==this.filters.system_code||draft.language!==this.filters.language)this.set=null;
+        if(draft.system_code!==this.filters.system_code||draft.language!==this.filters.language||draft.browse_group!==this.filters.browse_group)this.set=null;
+        if(browseGroups[this.categoryId])draft.system_code=categories[this.categoryId].system;
         this.filters=draft;if(this.categoryId==="TCG"&&!draft.system_code&&!draft.product_type)this.filters.product_type="CARD";
         this.browseAll=true;this.page="products";this.closeSheet();this.load();
       },"dr-browse-primary"));this.sheet.append(footer);
@@ -784,7 +818,7 @@ window.DropRateCatalogue = (() => {
     }
     renderEmptyActions() {
       const actions=node("div","dr-browse-empty-actions");
-      if(this.set||this.filters.language||this.filters.owned!=="all")actions.append(button("Clear refinements",()=>{this.clearCategoryFilters();this.load();},"dr-browse-empty-action"));
+      if(this.set||this.filters.language||this.filters.browse_group||this.filters.owned!=="all")actions.append(button("Clear refinements",()=>{this.clearCategoryFilters();this.load();},"dr-browse-empty-action"));
       if(this.filters.watch)actions.append(button("Browse catalogue",()=>{this.filters.watch=false;this.load();},"dr-browse-empty-action"));
       else if(["SPORTS","FIGURES"].includes(this.categoryId)){
         const context=node("p","dr-browse-manual-note","Enter your item’s details to add it to your collection.");
@@ -835,6 +869,7 @@ window.DropRateCatalogue = (() => {
         section.append(credit);
       }
       if(typeof source.coverage==="string"&&source.coverage.trim())section.append(node("p","",source.coverage.trim().slice(0,1000)));
+      if(row.metadata_only&&typeof row.details?.source_note==="string"&&row.details.source_note.trim())section.append(node("p","","Checklist note: "+row.details.source_note.trim().slice(0,256)));
       if(source.notice_url==="/assets/catalogue-source-notices.txt"){
         const notice=node("a","","Source notices and coverage");notice.href=source.notice_url;
         notice.target="_blank";notice.rel="noopener noreferrer";section.append(notice);
