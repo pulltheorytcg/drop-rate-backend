@@ -25,8 +25,25 @@ from .db import user_connection
 from .object_storage import ObjectStorageConfig, S3ObjectStorage
 
 log = logging.getLogger(__name__)
-GAMES = {"YUGIOH": "Yu-Gi-Oh!", "DISNEY_LORCANA": "Disney Lorcana",
-         "MAGIC_THE_GATHERING": "Magic: The Gathering", "RIFTBOUND": "Riftbound"}
+TCG_GAMES = {"YUGIOH": "Yu-Gi-Oh!", "DISNEY_LORCANA": "Disney Lorcana",
+             "MAGIC_THE_GATHERING": "Magic: The Gathering", "RIFTBOUND": "Riftbound"}
+GAMES = {**TCG_GAMES, "SPORTS_CARDS": "Sports Cards", "FIGURES": "Figures"}
+CATEGORY_SYSTEMS = {"TCG": frozenset(TCG_GAMES), "SPORTS": frozenset({"SPORTS_CARDS"}),
+                    "FIGURES": frozenset({"FIGURES"})}
+SOURCE_ATTRIBUTION = {
+    "ygoprodeck": {"label": "YGOPRODeck", "url": "https://ygoprodeck.com/api-guide/",
+        "coverage": "English printing references; edition and finish need physical review."},
+    "lorcast": {"label": "Lorcast", "url": "https://lorcast.com/docs/api",
+        "coverage": "English printing metadata; physical foil finish is not established."},
+    "mtgjson": {"label": "MTGJSON · MIT", "url": "https://mtgjson.com/license/",
+        "coverage": "English paper printing and finish references; no artwork or price feed."},
+    "cardcollectorcapital": {"label": "Card Collector Capital · CC BY 4.0",
+        "url": "https://cardcollectorcapital.com/data",
+        "coverage": "Selected Bowman checklists only, reviewed 27 October 2026. Not all sports cards; physical parallel and language need confirmation."},
+    "reviewed_figures": {"label": "Drop Rate · reviewed official product facts",
+        "url": "https://github.com/pulltheorytcg/drop-rate-backend/blob/main/docs/R2_CATALOGUE_EXPANSION_20261104.md",
+        "coverage": "Four individually reviewed Funko product references only. Not a complete Funko catalogue or an automated Funko feed. Confirm the exact edition on your item."},
+}
 MAX_PARTITIONS = 12
 MAX_ACTIVE_RAW_BYTES = 256_000_000  # SQLite/FTS needs additional rebuildable disk.
 _cache: OrderedDict[str, codec.Snapshot] = OrderedDict()
@@ -171,9 +188,10 @@ def _cached(publication):
                         headers={"Retry-After": "10"})
 
 
-async def read(connection, *, system_code="", language="", provider=None):
+async def read(connection, *, system_code="", language="", provider=None, systems=None):
     publications = [row for row in await sources(connection)
                     if (not system_code or row["system_code"] == system_code)
+                    and (systems is None or row["system_code"] in systems)
                     and (not language or row["language"] == language)
                     and (not provider or row["provider"] == provider)]
     return [_cached(row) for row in publications]
@@ -207,13 +225,38 @@ async def close():
 
 
 def _view(record, digest):
-    return {**record, "source_kind": "REFERENCE", "game": GAMES.get(record["system_code"]),
-            "variant": record["provider_id"],
+    details = record.get("details", {})
+    result = {**record, "source_kind": "REFERENCE", "game": GAMES.get(record["system_code"]),
+            "variant": record.get("finish") or details.get("variant") or details.get("edition") or "",
             "catalogue_id": None, "image_url": None, "market_value_minor": None,
             "market_value_high_minor": None, "market_refresh_needed": False,
             "market_value_source": None, "owned_count": 0, "owned_quantity": 0, "metadata_only": True,
             "reference_verified": False, "identity_review_required": True,
             "source_manifest_sha256": digest}
+    attribution = SOURCE_ATTRIBUTION.get(record["provider"])
+    if attribution:
+        result["source_attribution"] = {**attribution, "notice_url": "/assets/catalogue-source-notices.txt"}
+    year = details.get("source_year", "")
+    year = int(year) if re.fullmatch(r"(?:18|19|20|21)[0-9]{2}|2200", year) else None
+    if record["system_code"] == "SPORTS_CARDS":
+        # Checklist sections are not proof of a specific parallel, nor of the
+        # language on the seller's copy. Those required fields stay editable.
+        set_name = record["set_name"]
+        if year is not None and set_name.startswith(str(year) + " "):
+            set_name = set_name[len(str(year))+1:]
+        result["sports_card"] = {"system_code": "SPORTS_CARDS",
+            "sport": details.get("sport"), "release_year": year,
+            "manufacturer": details.get("manufacturer"), "set_name": set_name,
+            "subject_name": details.get("player") or record["name"],
+            "team": details.get("team"), "card_number": record["card_number"], "parallel": None}
+        result["reference_scope"] = "PARTIAL_CHECKLIST_REFERENCE"
+    if record["system_code"] == "FIGURES":
+        result["language"] = None
+        result["figure_details"] = {"system_code": "FIGURES", "release_year": year,
+            **{key: details.get(key) for key in ("manufacturer", "franchise", "character",
+                "product_line", "edition", "scale", "manufacturer_sku", "barcode_gtin")}}
+        result["reference_scope"] = "PARTIAL_PRODUCT_REFERENCE"
+    return result
 
 
 async def resolve(connection, key):
@@ -351,12 +394,15 @@ def _merge_page(snapshots, *, q, set_id, product_type, keys, exclude_keys, sort,
 async def browse(connection, *, owner_id, q="", system_code="", language="", category="",
                  set_id="", provider=None, product_type="", owned="all", sort="name", keys=None,
                  limit=40, offset=0):
-    if ((system_code and system_code not in GAMES) or category not in ("", "TCG", None)
-            or product_type not in ("", "CARD") or keys == []):
+    systems = CATEGORY_SYSTEMS.get(category, frozenset(GAMES))
+    if ((system_code and system_code not in systems)
+            or category not in ("", "TCG", "SPORTS", "FIGURES", None)
+            or product_type not in ("", "CARD", "FIGURE") or keys == []):
         return {"items": [], "has_more": False, "offset": offset, "total_count": 0}
     if offset > 10000:
         raise HTTPException(422, "Choose a set or narrow the search before browsing further")
-    snapshots = await read(connection, system_code=system_code, language=language, provider=provider)
+    snapshots = await read(connection, system_code=system_code, language=language, provider=provider,
+                           systems=systems)
     with _borrow(snapshots):
         selected_keys = None if keys is None else [key for key in keys if re.fullmatch(r"x:[a-f0-9]{64}", key)]
         excluded = None
@@ -388,7 +434,7 @@ async def materialize(connection, item):
         raise HTTPException(404, "Reference is no longer available")
     if current["source_manifest_sha256"] != item.get("source_manifest_sha256"):
         raise HTTPException(409, "Reference generation changed. Search again.")
-    if current["product_type"] != "CARD" or current["system_code"] not in GAMES:
+    if current["product_type"] != "CARD" or current["system_code"] not in TCG_GAMES:
         raise HTTPException(422, "This category requires structured identity review")
     # A concurrent disable/version switch must not race a new canonical link.
     scope = tuple(current[name] for name in ("provider", "system_code", "language"))

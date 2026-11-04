@@ -37,15 +37,20 @@ window.DropRateCatalogue = (() => {
   // Bandai's _pN is a distinct publisher reference: show it without assuming
   // a grade, rarity or market value from the base card.
   const printingMarker = row => {
-    if(row.metadata_only && row.identity_review_required)return "Printing details need review";
+    if(row.metadata_only && row.identity_review_required)return row.product_type==="FIGURE"?"Edition details need review":"Printing details need review";
     if (row.source_kind!=="REFERENCE" || row.provider!=="Bandai Official" || !String(row.system_code||"").startsWith("DRAGON_BALL"))return null;
     const match=String(row.provider_id||row.variant||"").match(/_p([1-9][0-9]*)$/);
     return match ? "Printing variant p"+match[1] : null;
   };
+  // An English checklist is not evidence of a physical sports card's language;
+  // figures have no card-language field at all.
+  const displayLanguage = row => row.product_type==="FIGURE"?"":
+    row.metadata_only&&row.system_code==="SPORTS_CARDS"?row.sports_card?.language||"":row.language||"";
   const gameTitles = {POKEMON_TCG:["Pokémon","TRADING CARD GAME"], ONE_PIECE_CARD_GAME:["ONE PIECE","CARD GAME"],
     DRAGON_BALL_SUPER_MASTERS:["DRAGON BALL","SUPER · MASTERS"], DRAGON_BALL_SUPER_FUSION_WORLD:["DRAGON BALL","FUSION WORLD"],
     NARUTO:["NARUTO","TRADING CARD GAME"], COMICS:["COMICS","MARVEL · DC · INDIE"], MANGA:["MANGA","COLLECTIBLE VOLUMES"],
-    RIFTBOUND:["RIFTBOUND","LEAGUE OF LEGENDS"], YUGIOH:["Yu-Gi-Oh!","TRADING CARD GAME"], DISNEY_LORCANA:["LORCANA","TRADING CARD GAME"]};
+    RIFTBOUND:["RIFTBOUND","LEAGUE OF LEGENDS"], YUGIOH:["Yu-Gi-Oh!","TRADING CARD GAME"], DISNEY_LORCANA:["LORCANA","TRADING CARD GAME"],
+    MAGIC_THE_GATHERING:["MAGIC","THE GATHERING"]};
   // Navigation categories do not create product types or catalogue sources.
   // Comics and manga retain their existing COMIC storage type and exact systems.
   const categories = {
@@ -59,6 +64,15 @@ window.DropRateCatalogue = (() => {
     .concat(["NARUTO_KAYOU","NARUTO_BANDAI_LEGACY","NARUTO_BANDAI"]));
   const bookSystems = {COMICS:"All comics",MARVEL_COMICS:"Marvel Comics",DC_COMICS:"DC Comics",OTHER_COMICS:"Other comics",MANGA:"Manga"};
   const referenceKey = value => typeof value === "string" && /^(?:[rs]:[a-f0-9]{32}|x:[a-f0-9]{64}|c:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/.test(value);
+  const sourceLink = value => {
+    if(typeof value!=="string"||value.length>2048||/[\s\\\u0000-\u001f\u007f]/.test(value))return null;
+    try {
+      const url=new URL(value),host=url.hostname.toLowerCase().replace(/\.$/,"");
+      if(url.protocol!=="https:"||url.username||url.password||url.port||!host.includes(".")||host.includes(":")||
+        /^[0-9.]+$/.test(host)||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".home.arpa"))return null;
+      return url.href;
+    }catch(_){return null;}
+  };
 
   class Browser {
     constructor(options) {
@@ -133,7 +147,7 @@ window.DropRateCatalogue = (() => {
       this.dialog.addEventListener("keydown",event=>{
         if(event.key==="Escape"&&!this.find(".dr-browse-backdrop").hidden){event.preventDefault();this.closeSheet();return;}
         if(event.key!=="Tab" || this.find(".dr-browse-backdrop").hidden)return;
-        const controls=[...this.sheet.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled)')];
+        const controls=[...this.sheet.querySelectorAll('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled)')];
         const first=controls[0],last=controls.at(-1);
         if(event.shiftKey && document.activeElement===first){event.preventDefault();last?.focus();}
         else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first?.focus();}
@@ -622,7 +636,8 @@ window.DropRateCatalogue = (() => {
         const open=button("",()=>this.openProduct(row),"dr-browse-product-open");open.dataset.productKey=row.key;open.append(artwork,node("strong","dr-browse-product-title",decode(row.name)));
         open.setAttribute("aria-label","View "+decode(row.name));
         const meta=[row.rarity,row.card_number].filter(Boolean).join(" · ");
-        open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",row.language+" · "+(row.product_type==="SEALED"?"Sealed":row.product_type==="COMIC"?"Collectible book":printingMarker(row)||decode(row.variant))));
+        open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",[displayLanguage(row),
+          row.product_type==="SEALED"?"Sealed":row.product_type==="COMIC"?"Collectible book":printingMarker(row)||decode(row.variant)].filter(Boolean).join(" · ")));
         card.append(open);
         const community=window.DropRateBookArtwork?.reference(row);
         if(community){const note=window.DropRateBookArtwork.credit(community,"dr-browse-reference-note");card.append(note);artwork.addEventListener("listing-photo-change",event=>{note.hidden=event.detail;});}
@@ -786,7 +801,7 @@ window.DropRateCatalogue = (() => {
       const figure=row.product_type==="FIGURE"&&row.system_code==="FIGURES";
       const sports=row.product_type==="CARD"&&row.system_code==="SPORTS_CARDS";
       const details=figure?row.figure_details:sports?row.sports_card:null;
-      if(!details||typeof details!=="object"||Array.isArray(details)||details.system_code!==row.system_code)return null;
+      if(!details||typeof details!=="object"||Array.isArray(details)||(details.system_code&&details.system_code!==row.system_code))return null;
       const fields=figure?[
         ["Manufacturer",details.manufacturer],["Franchise",details.franchise],["Character",details.character],
         ["Product line",details.product_line],["Edition",details.edition],["Scale",details.scale],
@@ -795,17 +810,36 @@ window.DropRateCatalogue = (() => {
         ["Sport",details.sport],["League",details.league],["Player / subject",details.subject_name],["Team",details.team],
         ["Manufacturer",details.manufacturer],["Set",details.set_name],["Season",details.season],
         ["Release year",details.release_year],["Card number",details.card_number],["Parallel",details.parallel],
-        ["Print run",details.print_run],["Language",row.language],
+        ["Print run",details.print_run],["Language",displayLanguage(row)],
       ];
       const section=node("section","dr-browse-reference-edition"),facts=node("dl","dr-browse-reference-facts");
       facts.dataset.collectibleReference=figure?"figures":"sports";
-      section.append(node("h4","","Reference edition"),facts);
+      section.append(node("h4","",row.metadata_only?"Metadata reference":"Reference edition"),facts);
       for(const [label,value] of fields){
         const text=typeof value==="string"&&value.trim()&&value!=="Unknown"?decode(value):
           Number.isSafeInteger(value)&&value>0?String(value):"Not stated";
         facts.append(node("dt","",label),node("dd","",text));
       }
       return section;
+    }
+    sourceAttribution(row) {
+      const source=row.source_attribution;
+      if(!source||typeof source!=="object"||Array.isArray(source))return null;
+      const section=node("section","dr-browse-reference-note dr-browse-source-attribution");
+      const label=typeof source.label==="string"?source.label.trim().slice(0,160):"";
+      const href=sourceLink(source.url);
+      if(label){
+        const credit=node("p","","Metadata source: ");
+        if(href){const link=node("a","",label);link.href=href;link.target="_blank";link.rel="noopener noreferrer";credit.append(link);}
+        else credit.append(document.createTextNode(label));
+        section.append(credit);
+      }
+      if(typeof source.coverage==="string"&&source.coverage.trim())section.append(node("p","",source.coverage.trim().slice(0,1000)));
+      if(source.notice_url==="/assets/catalogue-source-notices.txt"){
+        const notice=node("a","","Source notices and coverage");notice.href=source.notice_url;
+        notice.target="_blank";notice.rel="noopener noreferrer";section.append(notice);
+      }
+      return section.childNodes.length?section:null;
     }
     openProduct(row) {
       this.lastProductKey=row.key;
@@ -816,10 +850,14 @@ window.DropRateCatalogue = (() => {
         const content=node("div","dr-browse-product-details"),artwork=this.productImage(row,"dr-browse-detail-image");
         if(!artwork.querySelector("img"))artwork.classList.add("dr-browse-detail-no-art");
         content.append(artwork,node("h3","",decode(row.name)),
-          node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
+          node("p","",[decode(row.set_name),row.card_number,displayLanguage(row),
+            row.metadata_only?printingMarker(row)||"Edition details need review":decode(row.variant)].filter(Boolean).join(" · ")));
         const reference=this.collectibleReference(row);if(reference)content.append(reference);
+        const attribution=this.sourceAttribution(row);if(attribution)content.append(attribution);
         const pricing=node("section");this.renderMarketDetails(pricing,row);content.append(pricing,this.savedControl(row),
-          node("p","dr-browse-reference-note","Check the exact edition and variant against your item. Your copy’s condition is confirmed separately."),node("p","dr-browse-detail-message"));
+          node("p","dr-browse-reference-note",row.metadata_only||row.reference_verified===false
+            ? "Metadata reference only, not a verified physical item. Confirm the exact edition or parallel and any missing details. Artwork, condition and market value are not verified."
+            : "Check the exact edition and variant against your item. Your copy’s condition is confirmed separately."),node("p","dr-browse-detail-message"));
         const footer=node("footer");footer.append(button("Add to collection",()=>this.openCollectibleIntake(row),"dr-browse-primary"));this.sheet.append(content,footer);return;
       }
       if(row.product_type==="COMIC"){
@@ -835,6 +873,7 @@ window.DropRateCatalogue = (() => {
             : "Market value pending: at least five matching recent sales are needed for this printing."
           : money(row.market_value_minor) + " · " + row.basis_condition + " · UK sold reference"));
         content.append(node("p","dr-browse-reference-note","Check the cover and edition. Condition can wait until you’re ready to sell."));
+        const sourceCredit=this.sourceAttribution(row);if(sourceCredit)content.append(sourceCredit);
         if(row.book_details?.barcode_gtin)content.append(node("p","dr-browse-reference-note","ISBN / barcode: "+row.book_details.barcode_gtin));
         const attribution=row.book_data_attribution;
         if(attribution && /^https:\/\/www\.comics\.org\/issue\/[1-9][0-9]*\/$/.test(attribution.source_url) && attribution.license_url === "https://creativecommons.org/licenses/by-sa/4.0/"){
@@ -886,6 +925,7 @@ window.DropRateCatalogue = (() => {
         reference.append(node("strong","","Card reference"),node("p","",row.provider+" · "+row.provider_id),node("small","","Set reference: "+row.set_id+" · "+row.language));
         content.append(reference);
       }
+      const attribution=this.sourceAttribution(row);if(attribution)content.append(attribution);
       const pricing=node("div");pricing.dataset.marketDetails=row.key;this.renderMarketDetails(pricing,row);content.append(pricing);
       content.append(this.savedControl(row));
       if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note",row.metadata_only

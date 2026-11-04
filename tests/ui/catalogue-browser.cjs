@@ -4,8 +4,9 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=ux-20261103'), 'Seller Hub must load the current discovery and saved-reference script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=metadata-20261104'), 'Seller Hub must load the current metadata discovery and saved-reference script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=ux-20261103'), 'Seller Hub must load the current discovery styles');
+assert.ok(ownerShell.includes('/assets/owner-collectibles.js?v=metadata-20261104'), 'Seller Hub must load editable metadata-reference intake');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
@@ -29,6 +30,55 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  return {browser,w,calls,savedCalls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
+ // Metadata provenance is shown for TCG and structured collectible references,
+ // without claiming that the reference verifies a physical copy or full coverage.
+ {
+  const f=fixture();
+  for(const patch of [
+   {system_code:'MAGIC_THE_GATHERING',product_type:'CARD',source_attribution:{label:'MTGJSON',url:'https://mtgjson.com/license/',coverage:'English printings; artwork and prices excluded.',notice_url:'/assets/catalogue-source-notices.txt'}},
+   {system_code:'SPORTS_CARDS',product_type:'CARD',sports_card:{sport:'Baseball',subject_name:'Fixture Player',parallel:null},source_attribution:{label:'Card Collector Capital',url:'https://cardcollectorcapital.com/data',coverage:'1,722 selected checklist references, not a complete sports catalogue.',notice_url:'/assets/catalogue-source-notices.txt'}},
+   {system_code:'FIGURES',product_type:'FIGURE',language:null,figure_details:{manufacturer:'Funko',character:'Fixture Character',edition:null},source_attribution:{label:'Reviewed publisher metadata',url:'https://github.com/pulltheorytcg/drop-rate-backend',coverage:'Six starter figure references; not a complete Funko catalogue.',notice_url:'/assets/catalogue-source-notices.txt'}},
+  ]){
+   const row={...card,...patch,catalogue_id:null,source_kind:'REFERENCE',metadata_only:true,reference_verified:false,identity_review_required:true};
+   f.browser.openProduct(row);
+   const credit=f.browser.sheet.querySelector('.dr-browse-source-attribution');assert.ok(credit);
+   assert.ok(credit.textContent.includes(patch.source_attribution.coverage));
+   const links=[...credit.querySelectorAll('a')];assert.equal(links[0].href,patch.source_attribution.url);
+   assert.equal(links[1].pathname,'/assets/catalogue-source-notices.txt');
+   assert.ok(links.every(link=>link.target==='_blank'&&link.rel==='noopener noreferrer'));
+   assert.match(f.browser.sheet.textContent,/Metadata reference only/);
+   if(row.product_type==='FIGURE')assert.doesNotMatch(f.browser.sheet.textContent,/null|undefined|English/);
+   if(['SPORTS_CARDS','FIGURES'].includes(row.system_code)){
+    assert.match(f.browser.sheet.textContent,/Metadata reference/);
+    assert.doesNotMatch(f.browser.sheet.textContent,/Reference edition/);
+    assert.match(f.browser.sheet.textContent,/Not stated/);
+    assert.doesNotMatch(f.browser.sheet.textContent,/English/);
+   }
+  }
+  f.finish();checks++;
+ }
+ // Labels and coverage are plain text; hostile links cannot become active.
+ {
+  const f=fixture();
+  for(const url of ['javascript:alert(1)','data:text/html,unsafe','http://source.example/path',
+   'https://user:password@source.example/path','https://127.0.0.1/private','https://localhost/private',
+   'https://[::1]/private','https://localhost./private','https://local.internal/path','https://device.home.arpa/path','https://source.example\\@localhost/path']){
+   f.browser.openProduct({...card,source_attribution:{label:'<img src=x onerror=alert(1)>',url,
+    coverage:'<script>unsafe</script>',notice_url:'//private.invalid/notices'}});
+   const credit=f.browser.sheet.querySelector('.dr-browse-source-attribution');
+   assert.equal(credit.querySelector('a,img,script'),null);assert.match(credit.textContent,/<script>unsafe/);
+  }
+  f.finish();checks++;
+ }
+ // Figure rows do not render the literal null/undefined language sentinel.
+ {
+  const row={...card,key:'x:'+'a'.repeat(64),catalogue_id:null,system_code:'FIGURES',product_type:'FIGURE',language:null,
+   metadata_only:true,identity_review_required:true,source_kind:'REFERENCE'};
+  const f=fixture(async()=>({items:[row],has_more:false}));await f.browser.open();
+  f.browser.pickCategory('FIGURES');await tick();
+  assert.doesNotMatch(f.browser.find('.dr-browse-content').textContent,/null ·|undefined ·/);
+  f.finish();checks++;
+ }
  {
   const row={...card,market_value_minor:3,market_value_source:'DROP_RATE_COMPUTED_MARKET_V1',market_quotes:[{
    source:'DROP_RATE_COMPUTED_MARKET_V1',price_gbp_minor:3,observed_at:new Date().toISOString()}]};

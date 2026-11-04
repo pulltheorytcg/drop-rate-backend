@@ -1,3 +1,20 @@
+## 4 November 2026 — More R2-first catalogues (tested locally; production release pending)
+
+- New reviewed metadata adapters: Lorcast (3,505 English printings), MTGJSON
+  (153,662 English paper printing/finish records), Card Collector Capital
+  (1,722 entries from three selected Bowman checklists), and four individually
+  reviewed Funko product references. These counts are verified dry-runs, not a
+  claim of live import. Existing Good Smile and sports records are preserved.
+- No artwork or market values are inferred; partial sports/figure identity needs
+  seller confirmation. Attribution and source coverage are visible in the app.
+  Riftbound remains gated on Riot approval; no restricted Funko feed is used.
+- Private R2 holds reference metadata; PostgreSQL retains audited publication
+  pointers, approved canonical identity, all ownership and financial records.
+  No bulk reference-table inserts or database-capacity guard override.
+- Full CI, exact Railway commit, verified publication/readback and authenticated
+  browse are separate release gates. See
+  [scope, permissions, bounds and rollout](docs/R2_CATALOGUE_EXPANSION_20261104.md).
+
 ## 3 November 2026 — Direct-to-R2 catalogue expansion (in review; activation gated)
 
 - New metadata catalogues ingest straight into private R2; no bulk insert into

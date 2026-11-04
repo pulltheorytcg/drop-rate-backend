@@ -14,6 +14,7 @@ dependencies = [
   "pydantic==2.11.4",
   "httpx==0.28.1",
   "boto3==1.40.64",
+  "ijson==3.6.0",
 ]
 
 [project.optional-dependencies]

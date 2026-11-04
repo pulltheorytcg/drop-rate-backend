@@ -451,8 +451,8 @@ async def test_worker_session_lock_is_released_after_success_or_failure(monkeypa
     lock, pool = LockConnection(), None
     pool = pool_for(lock)
     if failure:
-        with pytest.raises(SourceError):
-            await worker.run_once(pool, str(ACTOR))
+        assert await worker.run_once(pool, str(ACTOR)) == [{"status": "FAILED",
+            "source": "ygoprodeck", "error_type": "SourceError"}]
     else:
         assert await worker.run_once(pool, str(ACTOR)) == [{"status": "PUBLISHED"}]
     importer.assert_awaited_once_with(pool, ACTOR, "ygoprodeck")
@@ -463,3 +463,64 @@ async def test_worker_session_lock_is_released_after_success_or_failure(monkeypa
 async def test_worker_default_off_does_not_acquire_database_or_download(monkeypatch):
     monkeypatch.delenv("TCG_R2_FIRST_IMPORT_SOURCES", raising=False)
     assert await worker.run_once(None, ACTOR) == []
+
+
+@pytest.mark.asyncio
+async def test_independent_source_failure_keeps_reports_and_later_sources_running(monkeypatch):
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "lorcast,mtgjson,reviewed_figures")
+    importer = AsyncMock(side_effect=[{"status": "PUBLISHED", "source": "lorcast"},
+        SourceError("do not log upstream bodies or secrets"),
+        {"status": "PUBLISHED", "source": "reviewed_figures"}])
+    monkeypatch.setattr(worker, "import_source", importer)
+    lock = LockConnection()
+    reports = await worker.run_once(pool_for(lock), ACTOR)
+    assert [row["status"] for row in reports] == ["PUBLISHED", "FAILED", "PUBLISHED"]
+    assert reports[1] == {"status": "FAILED", "source": "mtgjson", "error_type": "SourceError"}
+    assert importer.await_count == 3
+    assert "pg_advisory_unlock" in lock.operations[-1]
+
+
+@pytest.mark.asyncio
+async def test_cancellation_does_not_start_another_source(monkeypatch):
+    import asyncio
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "lorcast,mtgjson")
+    importer = AsyncMock(side_effect=asyncio.CancelledError)
+    monkeypatch.setattr(worker, "import_source", importer)
+    lock = LockConnection()
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_once(pool_for(lock), ACTOR)
+    assert importer.await_count == 1 and "pg_advisory_unlock" in lock.operations[-1]
+
+
+@pytest.mark.asyncio
+async def test_figure_import_keeps_not_applicable_partition_and_writes_no_sql_bulk(database, monkeypatch):
+    descriptor = source_descriptor("reviewed_figures")
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "reviewed_figures")
+    from app.r2_first_figures import _load_local
+    rows, digest = _load_local()
+    fetched = FetchedSource(descriptor.provider, descriptor.system_code, descriptor.source_url,
+                            "sha256:" + digest, digest, rows)
+    monkeypatch.setattr(worker, "fetch_source", AsyncMock(return_value=fetched))
+    store = LocalObjects(database)
+    report = await worker.import_source(None, ACTOR, "reviewed_figures", object_store=store,
+                                        client=object())
+    assert report["status"] == "PUBLISHED" and report["record_count"] == 4
+    assert report["sql_bulk_rows_written"] == 0 and report["cold_search_verified"]
+    assert database.old["language"] == "Not applicable"
+    assert all("reference_cards" not in sql and "catalogue_products" not in sql
+               for sql, _ in database.statements)
+
+
+@pytest.mark.asyncio
+async def test_weekly_sources_do_not_redownload_at_two_day_worker_interval(database, snapshot_factory, monkeypatch):
+    descriptor = source_descriptor("lorcast")
+    snapshot = await snapshot_factory(rows=[record(provider="lorcast", system_code="DISNEY_LORCANA")],
+        provider="lorcast", system_code="DISNEY_LORCANA", source_url=descriptor.source_url,
+        permission_ref=descriptor.permission_ref)
+    database.old = publication(snapshot, age_days=3)
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "lorcast")
+    fetch = AsyncMock()
+    monkeypatch.setattr(worker, "fetch_source", fetch)
+    report = await worker.import_source(None, ACTOR, "lorcast", client=object())
+    assert report["status"] == "CURRENT"
+    fetch.assert_not_awaited()

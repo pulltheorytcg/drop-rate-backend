@@ -34,9 +34,11 @@ def test_rendered_founder_and_seller_shells_load_the_same_current_cover_assets()
         cover = [src for src in parsed.sources if src.startswith("/assets/book-community-artwork.js?")]
         catalogue = [src for src in parsed.sources if src.startswith("/assets/catalogue-browser.js?")]
         assert cover == ["/assets/book-community-artwork.js?v=1"]
-        assert catalogue == ["/assets/catalogue-browser.js?v=ux-20261103"]
+        assert catalogue == ["/assets/catalogue-browser.js?v=metadata-20261104"]
+        collectible = [src for src in parsed.sources if src.startswith("/assets/owner-collectibles.js?")]
+        assert collectible == ["/assets/owner-collectibles.js?v=metadata-20261104"]
         assert parsed.sources.index(cover[0]) < parsed.sources.index(catalogue[0])
-        scripts.append((cover, catalogue))
+        scripts.append((cover, catalogue, collectible))
     assert scripts[0] == scripts[1]
 
 
