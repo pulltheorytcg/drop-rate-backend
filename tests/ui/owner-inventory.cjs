@@ -319,6 +319,10 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(tile.querySelector('.owner-inventory-details'),null);
   tile.querySelector('.owner-card-open-overlay').click();await tick();
   assert.ok(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent.includes("Last known 08/10/2026"));
+   const history=f.w.document.querySelector('.owner-item-historical-label');
+   assert.match(history.textContent,/Historical value.*Last known 08\/10\/2026/);
+   assert.equal(history.closest('details'),null);
+   assert.equal(f.w.document.querySelector('.owner-market-source').open,false);
   f.finish();checks++;
  }
  // A stale near-mint comparison for an unfinished copy keeps its history badge.
@@ -705,7 +709,9 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.deepEqual(Object.keys(stored).sort(),['condition','price','step','version']);
   f.w.DropRateInventory.close();f.run('state.session={access_token:"other-token",user:{id:"seller-b"}}');
   await f.w.DropRateInventory.open(card,{selling:true});
-  assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'');
+   // A fresh account starts from current market evidence, never another account's saved draft.
+   assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'8.66');
+   assert.equal(f.w.sessionStorage.getItem(`drop_rate_listing_draft:seller-b:${id}`),null);
   assert.equal(f.w.document.querySelector('[data-listing-step="condition"]').hidden,false);
   f.finish();checks++;
  }

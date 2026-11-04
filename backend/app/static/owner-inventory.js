@@ -699,6 +699,13 @@ window.DropRateInventory = (() => {
       : item.market_value_minor == null ? "Value unavailable" : price(item.market_value_minor);
     values.append(el("div", "", window.DropRateReferenceValue?.label(item) || "Market value"),
       el("strong", "", displayedValue.replace(/^(?:Value|Drop Rate UK\/EU estimate):\s*/, "")));
+    if (window.DropRateReferenceValue?.isHistorical(item)) {
+      const reference = window.DropRateReferenceValue.displayReference(item);
+      const checked = new Date(reference.checked_at);
+      const history = Number.isNaN(checked.getTime()) ? "Historical value"
+        : `Historical value · Last known ${checked.toLocaleDateString("en-GB")}`;
+      values.append(el("small", "owner-item-historical-label", history));
+    }
     const sourceDescription = item.reference_value || item.catalogue_reference
       ? window.DropRateReferenceValue.description(item)
       : item.pricing_method === "CARDMARKET_GUIDE_V1" ? "Source: Cardmarket market-price guide." : "";
@@ -715,6 +722,7 @@ window.DropRateInventory = (() => {
       item.store_price_minor == null
         ? suggestedPrice == null ? "Enter your selling price." : "Starts from the current market value. Nothing is saved or listed until you choose a selling action."
         : "Your saved selling price is retained.");
+    priceBasisNote.dataset.priceBasisNote = "";
 
 
     const publishedOnShopify=item.shopify_state==="PUBLISHED";

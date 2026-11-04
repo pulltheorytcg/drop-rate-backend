@@ -137,6 +137,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.browser.openProduct(row);
   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £12.34');
   assert.equal(row.shared_price,history);assert.equal(row.market_value_minor,null);
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-historical-label'),null);
   f.finish();checks++;
  }
  // Stored asking evidence remains displayed; browsing never starts a market refresh.
@@ -404,6 +405,10 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(ref.shared_price,history);
   assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Market value: £8.00/);
   assert.match(f.browser.find('[data-price-key]').textContent,/Market value: £8.00/);
+  const historyLabel=f.browser.sheet.querySelector('.dr-browse-historical-label');
+  assert.match(historyLabel.textContent,/Historical value.*Last known 01\/10\/2026/);
+  assert.equal(historyLabel.closest('details'),null);
+  assert.equal(f.browser.find('.dr-browse-historical-label').textContent,'Historical value');
   f.finish();checks++;
  }
  {

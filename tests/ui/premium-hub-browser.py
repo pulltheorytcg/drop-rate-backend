@@ -364,7 +364,7 @@ def inspect_weekly_layout(page, width, failures, founder=False):
     })""")
     kind = "founder" if founder else "owner"
     if len(result["rows"]) != 2 or any(label not in result["text"] for label in (
-        "Guide estimate change · Cardmarket", "Market value change · eBay sold evidence",
+        ("Guide estimate change" if founder else "Market value change") + " · Cardmarket", "Market value change · eBay sold evidence",
         "27 Oct 2026 → 3 Nov 2026", "Special Alternate Art",
     )):
         failures.append(f"{width}px {kind} weekly movers: populated evidence labels missing")
