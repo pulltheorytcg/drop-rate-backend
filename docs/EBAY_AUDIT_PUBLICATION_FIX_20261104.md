@@ -27,3 +27,18 @@ Rollback: retain this backward-compatible audit extension. Do not delete audit
 history or restore the old constraint after eBay rows exist. If a separate
 publishing defect appears, stop the single-item test and diagnose it; do not
 bulk-list inventory or relax preparation checks.
+
+Production verification, 4 November: all three GitHub checks passed at
+`3bc411ce`. Supabase applied the exact tested migration as `20261104123236`;
+the migration-history manifest maps the CLI-generated source to that observed
+version. Constraint read-back, owner/actor policies, forced RLS and append-only
+grants were verified; the security-advisor findings were unchanged.
+
+The founder retry then passed the former database failure but received HTTP 500
+from an eBay seller request. One controlled retry returned the same failure.
+The channel link is `ERROR` with `PUBLISH:500`, with no locally verified offer or
+listing ID. This is not a successful publication. The seller client now records
+only an allowlisted API resource, HTTP method/status and bounded numeric eBay
+error IDs. It never logs response messages, parameters, headers, tokens, request
+bodies, query values or physical-copy IDs. Tests inject sensitive-looking data
+in those fields and assert it cannot reach the logs or public exception.

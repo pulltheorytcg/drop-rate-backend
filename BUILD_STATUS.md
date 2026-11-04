@@ -1,4 +1,4 @@
-## 4 November 2026 — Repair eBay publication audit contract (verification in progress)
+## 4 November 2026 — eBay audit blocker repaired; provider failure under investigation
 
 - A founder-UI single-card publish passed all preparation checks but returned
   HTTP 422. PostgreSQL rejected `EBAY_INVENTORY_LINK`, used by both publication
@@ -9,8 +9,14 @@
   inserts, replay-safe migration, existing records and access-denial cases.
   A publisher retry test verifies an existing live listing makes no eBay call.
   CI explicitly runs the database tests after installing its pinned runtime.
-- Release evidence and the authorised one-item live retry remain separate from
-  local tests. See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
+- All three GitHub checks passed at `3bc411ce`. The tested migration was applied
+  as `20261104123236`; production read-back confirmed the added type and
+  unchanged forced RLS, owner/actor policies and append-only permissions.
+- The authorised founder retry passed the database blocker, then eBay returned
+  HTTP 500 twice. The single channel link records `ERROR` / `PUBLISH:500`;
+  there is no verified live publication. Add bounded, redacted provider
+  diagnostics to identify the failing request without exposing account data.
+- See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
 
 ## 4 November 2026 — Shared Seller Hub for founders (release in progress)
 
