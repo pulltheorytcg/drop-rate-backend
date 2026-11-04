@@ -141,7 +141,7 @@ async def main():
                 assert (await client.get(f'/api/v1/inventory/{copies[1,card]}/image',headers=headers(1))).status_code==404
                 await db.execute("update tcg.inventory_items set grading_company=null,grade=null,certificate_number='12345678' where id=$1",copies[1,card])
                 assert (await client.get(f'/api/v1/inventory/{copies[1,card]}/image',headers=headers(1))).status_code==404
-                await db.execute("update tcg.media_assets set capture_context='RAW_CARD' where id=$1",physical)
+                await db.execute("update tcg.media_assets set capture_context=null where id=$1",physical)
                 assert (await client.get(f'/api/v1/inventory/{copies[0,card]}/image',headers=headers(0))).status_code==404
         await db.execute('update tcg.owner_memberships set active=false where user_id=$1',actors[2])
         async with user_connection(pool,actors[2],'revoked') as c:
