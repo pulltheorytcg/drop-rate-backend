@@ -39,6 +39,10 @@ cleared view. Errors preserve a retry action and do not silently mutate records.
 - Entire `tests/ui` DOM interaction suite, including `unified-founders.cjs`:
   identical five destinations, Settings-only entry, all eight operational links,
   ordinary-owner denial, safe text rendering, revocation and late-response reset.
+- `shared-founder-layout.py` renders the actual shared shell in Chromium and
+  WebKit at 320, 390, 768 and 1440 pixels. It checks all four Business views,
+  eight management links, contained controls, Settings return and logout. Its
+  API/auth fixtures are local; screenshots are CI artifacts, not live account data.
 - `node tests/shared_founder_profile_pglite.mjs`: executes actual roster and
   profile migrations against disposable PostgreSQL. Three founders and one seller
   can edit only themselves; generic admins and revoked founders are denied;
@@ -68,6 +72,7 @@ No data reversal, ownership rewrite, new service or storefront change is needed.
 - Full dashboard interaction suite passed, including shared-founder and existing
   scanner, collection, selling, finance, account and session failure tests.
 - Actual PostgreSQL migration/roster/profile/audit regression passed.
+- Eight Chromium/WebKit shared-founder layouts passed with local fixtures.
 - Production profile definition and execution privileges verified; migration
   history version `20261104103233` matches the committed filename.
 - Public-repository publication and deployment are explicitly approved. GitHub CI
