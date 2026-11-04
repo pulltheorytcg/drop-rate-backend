@@ -1,3 +1,24 @@
+## 4 November 2026 — Reviewed manga demographic expansion — in review
+
+- Extend the existing strict, exact-series manga demographic allowlist with
+  42 independently reviewed original-publication title/edition keys. No
+  genre/publisher inference, fuzzy matching, physical stock or financial writes.
+- Read-only SQL baseline: 805 manga reference printings; 53 previously
+  classified, 752 Unclassified. The approved literal map is projected to
+  classify **208 additional rows** (261/805 classified, 544 Unclassified)
+  after the matching commit is deployed. These are catalogue references, not
+  owned inventory; no production row mutation is required.
+- Reviewed shōnen/shōjo/seinen/josei publisher-magazine evidence and exclusion
+  cases are recorded in
+  [Manga demographic source review](docs/MANGA_DEMOGRAPHIC_REVIEW_20261104.md).
+  Manhwa, ambiguous adaptations and sequel editions remain Unclassified.
+- Automated exact-series/negative matching and bound SQL parity tests are
+  added to full backend and R2 catalogue CI. Merge, exact Railway deployment,
+  health, correct owner-scoped browse and signed-in acceptance remain
+  separate gates until explicitly verified.
+- No artwork, quotes/prices, R2 data migration, schema, authentication,
+  permissions, ownership, storefront or settlement changes.
+
 ## 4 November 2026 — eBay app blockers repaired; seller verification blocks publication
 
 - Fixed the missing `EBAY_INVENTORY_LINK` audit entity, first-offer HTTP
