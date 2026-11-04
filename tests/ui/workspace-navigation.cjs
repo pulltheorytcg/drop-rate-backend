@@ -113,8 +113,13 @@ function expiredSessionFixture(role,refreshResponse){
   const f=fixture('seller');f.w.history.replaceState({},'','/owner#access_token=private');f.run(`denyAccess('Please sign in again.')`);assert.equal(f.w.lastRoute,'/app');f.finish();checks++;
  }
  // A verified founder opens the workspace; panel errors retain login and show a retryable message.
+ for(const [hash,destination] of [['','/owner'],['#inventory','/owner#inventory'],['#accounts','/owner#founders'],['#intake','/owner#scan'],['#verification','/founders#verification']]){
+  const f=fixture('founder');f.w.history.replaceState({},'', '/app'+hash);
+  f.run(`apiRequest=async()=>({access:{founder_hq_allowed:true,business_allowed:true}});`);
+  await f.run('openDashboard()');assert.equal(f.w.lastRoute,destination);f.finish();checks++;
+ }
  {
-  const f=fixture('founder');f.run(`apiRequest=async url=>url.endsWith('/access/me')?{access:{founder_hq_allowed:true}}:{owner:{display_name:'Founder'}};reloadDashboard=async()=>{throw Error('Network interrupted');};`);
+  const f=fixture('founder');f.w.history.replaceState({},'', '/founders');f.run(`apiRequest=async url=>url.endsWith('/access/me')?{access:{founder_hq_allowed:true}}:{owner:{display_name:'Founder'}};reloadDashboard=async()=>{throw Error('Network interrupted');};`);
   await f.run('openDashboard()');assert.equal(f.run('state.session.access_token'),'current');assert.equal(f.w.document.getElementById('dashboard-view').classList.contains('hidden'),false);assert.match(f.w.document.getElementById('inventory-message').textContent,/Refresh/);f.finish();checks++;
  }
  // Owner role routes once; generic administrator without the founder roster cannot open Founder HQ.

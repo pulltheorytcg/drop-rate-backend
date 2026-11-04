@@ -181,7 +181,7 @@ async def test_owner_passes_owner_portal_guard() -> None:
 
 
 @pytest.mark.asyncio
-async def test_platform_admin_cannot_use_owner_portal_api_guard() -> None:
+async def test_verified_founder_uses_personal_owner_portal() -> None:
     connection = FakeConnection(
         {
             "user_id": "user-1",
@@ -196,11 +196,9 @@ async def test_platform_admin_cannot_use_owner_portal_api_guard() -> None:
         }
     )
 
-    with pytest.raises(HTTPException) as exc_info:
-        await require_owner_portal(connection)
-
-    assert exc_info.value.status_code == 403
-    assert exc_info.value.detail == "Owner portal access required"
+    result = await require_owner_portal(connection)
+    assert result["owner_id"] == "owner-1"
+    assert result["business_allowed"] is True
 
 @pytest.mark.asyncio
 async def test_multiple_active_memberships_fail_closed() -> None:

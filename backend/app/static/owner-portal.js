@@ -5,6 +5,7 @@
 const state = {
   config: null,
   session: null,
+  access: null,
   providers: {google: false, apple: false},
   inventory: {offset: 0, limit: 50, total: 0, search: "", status: "", layout: "grid",
     category: "", game: "", language: "", grading: "", format: "", listing_state: "", sort: "updated", selling: false},
@@ -1744,8 +1745,10 @@ function activateOwnerView(view, pushHistory = true, launchCameraFromClick = fal
     more: ["More", "Selling, payouts and your account."],
     profile: ["Profile", "Manage your Seller Hub identity, login email and password securely."],
     settings: ["Settings", "Make your workspace feel like yours."],
+    founders: ["Founders dashboard", "Your business, in one place."],
   };
-  const target = Object.hasOwn(views, view) ? view : "overview";
+  const target = view === "founders" && state.access?.business_allowed !== true
+    ? "settings" : Object.hasOwn(views, view) ? view : "overview";
   const leavingScan = target !== "scan"
     && !byId("owner-view-scan")?.classList.contains("hidden");
 
@@ -1762,7 +1765,7 @@ function activateOwnerView(view, pushHistory = true, launchCameraFromClick = fal
 
   // One heading per section: content-led views already have a local title.
   // Keep the global title for Home, Payouts, Profile, Settings and More only.
-  const contentLed = new Set(["search", "inventory", "scan", "sales", "selling", "channels", "settlements"]);
+  const contentLed = new Set(["search", "inventory", "scan", "sales", "selling", "channels", "settlements", "founders"]);
   const pageHeader = document.querySelector(".owner-page-header");
   if (pageHeader) pageHeader.hidden = contentLed.has(target);
   document.querySelector(".owner-dashboard-content")?.setAttribute("data-active-owner-view", target);
@@ -1838,6 +1841,7 @@ function saveSession(session) {
 }
 
 function clearSession() {
+  state.access = null;
   state.overviewRequestRevision=(state.overviewRequestRevision||0)+1;
   window.clearTimeout(ownerInventorySearchTimer);
   state.inventory.controller?.abort();
@@ -1993,13 +1997,12 @@ async function openOwnerPortal() {
   const result = await apiRequest("/api/v1/access/me");
   const access = result.access || {};
 
-  if (access.founder_hq_allowed === true) {
-    window.location.replace("/app" + window.location.search + window.location.hash);
-    return;
-  }
-  if (access.access_role !== "OWNER" || access.portal !== "OWNER_PORTAL") {
+  const ownerAllowed = access.access_role === "OWNER" && access.portal === "OWNER_PORTAL";
+  if (!ownerAllowed && access.business_allowed !== true) {
     throw new Error("OWNER_PORTAL_ACCESS_DENIED");
   }
+  state.access = access;
+  document.dispatchEvent(new CustomEvent("hub:access-verified", {detail: {access}}));
 
   const name = access.display_name || "Owner";
   byId("owner-portal-name").textContent = name;
@@ -2011,7 +2014,7 @@ async function openOwnerPortal() {
   byId("owner-portal-view").classList.remove("hidden");
   restoreCollectionView();
   const hashView = window.location.hash.replace("#", "");
-  activateOwnerView(["search", "inventory", "scan", "selling", "sales", "balance", "channels", "settlements", "profile", "settings", "more"].includes(hashView) ? hashView : "overview", false);
+  activateOwnerView(["search", "inventory", "scan", "selling", "sales", "balance", "channels", "settlements", "profile", "settings", "more", "founders"].includes(hashView) ? hashView : "overview", false);
   document.body.classList.remove("hub-restoring");
   document.dispatchEvent(new Event("hub-ready"));
   await reloadOwnerDashboard();

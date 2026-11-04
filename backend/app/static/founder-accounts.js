@@ -1,8 +1,9 @@
 /* Business uses existing read-only founder APIs. Every request is roster-checked. */
 "use strict";
 (() => {
-  if (typeof sellerView !== "function") return;
-  const view = sellerView("accounts");
+  const shared = Boolean(document.getElementById("owner-view-founders"));
+  if (!shared && typeof sellerView !== "function") return;
+  const view = shared ? document.getElementById("owner-view-founders") : sellerView("accounts");
   if (!view) return;
   const $ = id => document.getElementById(id);
   const node = (tag, text, cls = "") => { const el=document.createElement(tag); if(text!=null)el.textContent=String(text); if(cls)el.className=cls; return el; };
@@ -14,6 +15,8 @@
     allowed=Boolean(value);
     document.querySelectorAll('[data-more-view="accounts"],.business-entry').forEach(b=>{b.hidden=!allowed;});
     $("business-content").hidden=!allowed;
+    document.querySelectorAll(".founder-settings-entry").forEach(entry => {entry.hidden = !allowed;});
+    document.dispatchEvent(new CustomEvent("hub:founder-access", {detail: {allowed}}));
   }
   function erase() {
     ++generation;accounts=[];ownOwner=null;actor=null;offset=0;setAllowed(false);
@@ -49,6 +52,7 @@
     const output=$("accounts-results");output.replaceChildren();
     const intro=node("section",null,"business-intro");intro.append(node("h2","Who owns what?"),node("p","Find a seller, inspect their stock, or look up a card across all active owners. Each copy keeps its existing Inventory ID."));
     const actions=node("div",null,"business-actions");[["Find a seller","sellers"],["Look up a product","inventory"]].forEach(([label,tab])=>{const b=node("button",label,"business-button");b.type="button";b.onclick=()=>activate(tab);actions.append(b);});intro.append(actions);output.append(intro);
+    if (shared) return;
     const tools=node("details",null,"business-tools");tools.append(node("summary","Existing founder tools"),node("p","Opens the existing tools without changing their permissions or moving stock. Financial tools retain their current owner scope."));
     const links=node("div",null,"business-actions");[["My inventory","inventory"],["Identity reviews","verification"],["Photos & condition","media"],["My sales","sales"],["My payouts","balance"],["Reports & settlements","reports"],["Settings & channels","settings"]].forEach(([label,target])=>{const b=node("button",label,"business-button secondary");b.type="button";b.onclick=()=>activateSellerView(target,true);links.append(b);});tools.append(links);output.append(tools);
   }
@@ -115,7 +119,9 @@
     $("accounts-prev").onclick=()=>{offset=Math.max(0,offset-limit);load();};$("accounts-next").onclick=()=>{offset+=limit;load();};
     const topbar=document.querySelector('#dashboard-view .topbar-actions');if(topbar){const entry=node("button","Business","business-entry");entry.type="button";entry.hidden=true;entry.onclick=()=>activateSellerView("accounts",true);topbar.prepend(entry);}setAllowed(false);
   }
-  init();document.addEventListener("hub-ready",refreshAccess);document.addEventListener("seller-view-changed",event=>{if(event.detail.view==="accounts")load(true);});
+  init();document.addEventListener("hub-ready",refreshAccess);document.addEventListener(shared ? "owner-view-changed" : "seller-view-changed",event=>{if(event.detail.view===(shared ? "founders" : "accounts"))load(true);});
   window.addEventListener("hub-session-cleared",()=>{erase();status("Sign in with your founder account to open Business.");});window.addEventListener("pagehide",()=>erase());window.addEventListener("pageshow",event=>{if(event.persisted){refreshAccess();if(!view.classList.contains("hidden"))load(true);}});
-  const previousReload=reloadDashboard;reloadDashboard=async function(...args){const result=await previousReload(...args);await refreshAccess();if(allowed&&!view.classList.contains("hidden"))await load(true);return result;};
+  if (!shared) {
+    const previousReload=reloadDashboard;reloadDashboard=async function(...args){const result=await previousReload(...args);await refreshAccess();if(allowed&&!view.classList.contains("hidden"))await load(true);return result;};
+  }
 })();

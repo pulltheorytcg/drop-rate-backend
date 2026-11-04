@@ -408,6 +408,17 @@ def create_app() -> FastAPI:
     async def seller_hub_launch() -> HTMLResponse:
         return HTMLResponse((STATIC_DIR / "seller-hub-launch.html").read_text(encoding="utf-8"))
 
+    @app.get("/founders", include_in_schema=False)
+    async def founder_operations() -> HTMLResponse:
+        # Presentation is public, like /app. All data/actions retain their
+        # authenticated founder dependencies; a URL is never a permission.
+        html = _dashboard_html().replace(
+            "</head>", '<link rel="stylesheet" href="/assets/founder-dashboard.css?v=unified-20261104"></head>'
+        ).replace(
+            "</body>", '<script src="/assets/founder-operations.js?v=unified-20261104" defer></script></body>'
+        )
+        return HTMLResponse(html)
+
     @app.get("/join", include_in_schema=False)
     async def founder_join() -> HTMLResponse:
         return HTMLResponse((STATIC_DIR / "join.html").read_text(encoding="utf-8"))

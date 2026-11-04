@@ -1,3 +1,24 @@
+## 4 November 2026 — Shared Seller Hub for founders (release in progress)
+
+- Founders enter the real Seller Hub at `/owner`, with its existing Home, Collection,
+  Scan, Search, Selling, account menu and responsive navy/white/blue/orange design.
+- Settings contains a verified-founder dashboard: company account/stock/sale
+  oversight and access to existing inventory, identity, media, action-required,
+  finance, payout and platform controls. Advanced forms remain at `/founders`
+  with shared Hub navigation and a return to the founder dashboard.
+- Personal APIs remain bound to the signed-in owner ID; the three-account roster
+  still gates founder operations. Profile updates support verified founders and
+  retain uniqueness, caller scope and audited old/new values. No membership,
+  inventory, price, settlement, Shopify publication or money movement is made.
+- Validation: 9,433 Python tests passed, 25 optional tests skipped; full dashboard
+  interaction suite and dedicated shared-Hub navigation/access/revocation/logout
+  checks passed. Actual disposable PostgreSQL roster/profile/audit tests passed.
+  The backward-compatible profile migration is applied and verified in production.
+  No new security-advisor findings. Public-repository publication and deployment
+  are explicitly approved. GitHub CI and exact-commit Railway SUCCESS remain
+  release gates; signed-in visual acceptance is recorded separately.
+- See [design, security and rollback](docs/UNIFIED_FOUNDER_HUB_20261104.md).
+
 ## 3 November 2026 — Direct-to-R2 catalogue expansion (in review; activation gated)
 
 - New metadata catalogues ingest straight into private R2; no bulk insert into
