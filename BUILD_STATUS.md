@@ -1,4 +1,4 @@
-## 4 November 2026 — eBay audit blocker repaired; provider failure under investigation
+## 4 November 2026 — eBay audit repaired; first-offer lookup repair in review
 
 - A founder-UI single-card publish passed all preparation checks but returned
   HTTP 422. PostgreSQL rejected `EBAY_INVENTORY_LINK`, used by both publication
@@ -14,8 +14,17 @@
   unchanged forced RLS, owner/actor policies and append-only permissions.
 - The authorised founder retry passed the database blocker, then eBay returned
   HTTP 500 followed by HTTP 404. The single channel link records `ERROR` / `PUBLISH:404`;
-  there is no verified live publication. Add bounded, redacted provider
-  diagnostics to identify the failing request without exposing account data.
+  there is no verified live publication. PR #895 merged as `35a5dc28` after
+  five GitHub checks; exact Railway deployment reached SUCCESS at 12:49 UTC
+  with 10,005 pre-deploy tests passing. Redacted diagnostics identified the
+  remaining failure: GET offer collection, HTTP 404, eBay error 25713.
+- A new SKU's explicit absent-offer response now maps to an empty offer list
+  so the existing publisher can create its first offer. Normalisation requires
+  the exact GET collection route, HTTP 404, single Inventory API / REQUEST
+  error 25713. Auth, rate limits, other errors and individual-offer lookups
+  remain failures; existing offers still follow SKU-based recovery.
+- 86 focused eBay tests pass, including absent/existing offers, malformed/mixed
+  errors and endpoint isolation. CI, deployment and the live retest remain gates.
 - See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
 
 ## 4 November 2026 — Catalogue publisher, demographic and brand groups (in review)
