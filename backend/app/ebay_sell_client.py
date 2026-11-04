@@ -62,7 +62,7 @@ def _failure_hints(response: httpx.Response) -> list[str]:
         "duplicate": r"duplicate|already exists", "account": r"account|seller registration",
         "verification": r"verif|register|onboard|identity",
         "policy": r"polic", "restriction": r"restrict|blocked|not allowed|not eligible",
-        "terms": r"agreement|terms", "format": r"format|auction|fixed.?price",
+        "terms": r"agreement|terms", "format": r"\bformat\b|\bauction\b|\bfixed.?price\b",
     }
     return [label for label, pattern in patterns.items() if re.search(pattern, message, re.I)]
 
@@ -365,13 +365,29 @@ class EbaySellClient:
             if _offers_absent(method, path, response):
                 raise _EbayOffersNotFound("No eBay offer exists for this SKU", status_code=404)
             resource, error_ids = _failure_context(path, response)
+            action = _failure_action(path)
+            hints = _failure_hints(response)
             logger.warning(
                 "eBay seller request failed method=%s resource=%s status=%s error_ids=%s action=%s hints=%s",
                 method if method in {"GET", "POST", "PUT", "DELETE"} else "UNKNOWN",
-                resource, response.status_code, error_ids, _failure_action(path), _failure_hints(response),
+                resource, response.status_code, error_ids, action, hints,
             )
+            detail = "eBay seller API rejected the request"
+            if (
+                method == "POST" and resource == "/sell/inventory/v1/offer"
+                and action == "publish" and response.status_code == 400
+                and error_ids == [25002]
+                and {"missing", "account", "verification"}.issubset(hints)
+            ):
+                # Report only the observed validation class, never provider prose
+                # or a guessed missing bank, identity or contact field.
+                detail = (
+                    "eBay rejected publication and flagged account verification. "
+                    "Open eBay Seller Hub to check and complete the required "
+                    "account action, then retry."
+                )
             raise EbaySellApiError(
-                "eBay seller API rejected the request",
+                detail,
                 status_code=response.status_code,
                 retryable=response.status_code == 429 or response.status_code >= 500,
             )
