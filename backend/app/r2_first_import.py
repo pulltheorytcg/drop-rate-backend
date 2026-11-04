@@ -22,11 +22,12 @@ from .db import user_connection, DATABASE_WRITE_READY_SQL
 from .r2_first_sources import fetch_source, source_descriptor, SourcePermissionError
 
 log = logging.getLogger(__name__)
-APPROVED_METADATA_SOURCES = frozenset({"ygoprodeck", "lorcast", "mtgjson", "cardcollectorcapital", "reviewed_figures"})
+APPROVED_METADATA_SOURCES = frozenset({"ygoprodeck", "lorcast", "mtgjson", "cardcollectorcapital",
+                                      "cardcollectorcapital_heritage", "reviewed_figures"})
 REFRESH_SECONDS = 172800  # Provider bulk cache is two days. No per-scan requests.
 LOCK_RETRY_SECONDS = 30  # Database-only contention polling across rolling deploys.
 SOURCE_REFRESH_SECONDS = {"lorcast": 604800, "mtgjson": 604800, "cardcollectorcapital": 604800,
-                          "reviewed_figures": 604800}
+                          "cardcollectorcapital_heritage": 604800, "reviewed_figures": 604800}
 
 
 def configured_sources():

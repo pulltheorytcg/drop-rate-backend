@@ -40,6 +40,9 @@ SOURCE_ATTRIBUTION = {
     "cardcollectorcapital": {"label": "Card Collector Capital · CC BY 4.0",
         "url": "https://cardcollectorcapital.com/data",
         "coverage": "Selected Bowman checklists only, reviewed 27 October 2026. Not all sports cards; physical parallel and language need confirmation."},
+    "cardcollectorcapital_heritage": {"label": "Card Collector Capital · CC BY 4.0",
+        "url": "https://cardcollectorcapital.com/data",
+        "coverage": "100 selected 2026 Topps Heritage short-print checklist references only. Not a complete Topps or sports catalogue; physical variant and language need confirmation."},
     "reviewed_figures": {"label": "Drop Rate · reviewed official product facts",
         "url": "https://github.com/pulltheorytcg/drop-rate-backend/blob/main/docs/R2_CATALOGUE_EXPANSION_20261104.md",
         "coverage": "Four individually reviewed Funko product references only. Not a complete Funko catalogue or an automated Funko feed. Confirm the exact edition on your item."},
@@ -225,6 +228,7 @@ async def close():
 
 
 def _view(record, digest):
+    from .catalogue_browse_groups import group_for
     details = record.get("details", {})
     result = {**record, "source_kind": "REFERENCE", "game": GAMES.get(record["system_code"]),
             "variant": record.get("finish") or details.get("variant") or details.get("edition") or "",
@@ -232,7 +236,8 @@ def _view(record, digest):
             "market_value_high_minor": None, "market_refresh_needed": False,
             "market_value_source": None, "owned_count": 0, "owned_quantity": 0, "metadata_only": True,
             "reference_verified": False, "identity_review_required": True,
-            "source_manifest_sha256": digest}
+            "source_manifest_sha256": digest,
+            "browse_group": group_for(record["system_code"], details)}
     attribution = SOURCE_ATTRIBUTION.get(record["provider"])
     if attribution:
         result["source_attribution"] = {**attribution, "notice_url": "/assets/catalogue-source-notices.txt"}
@@ -281,7 +286,12 @@ async def resolve(connection, key):
     return None
 
 
-async def sets(connection, *, owner_id, system_code, language="", q="", limit=80, offset=0):
+async def sets(connection, *, owner_id, system_code, language="", q="", limit=80, offset=0, browse_group=""):
+    from .catalogue_browse_groups import group_for, validate_browse_group
+    try:
+        validate_browse_group(browse_group, system_code=system_code)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     snapshots = await read(connection, system_code=system_code, language=language)
     def summarize(owned_links):
         items = []
@@ -289,13 +299,14 @@ async def sets(connection, *, owner_id, system_code, language="", q="", limit=80
             owner_sets = {}
             for key, link in owned_links.items():
                 row = snapshot.get(key)
-                if row is not None:
+                if row is not None and (not browse_group
+                        or group_for(row["system_code"], row.get("details", {})) == browse_group):
                     aggregate = owner_sets.setdefault(row["set_id"], [0, None, 0])
                     aggregate[0] += 1
                     if link["owned_value_minor"] is not None:
                         aggregate[1] = (aggregate[1] or 0) + link["owned_value_minor"]
                     aggregate[2] += link["unknown_values"]
-            for row in snapshot.sets():
+            for row in snapshot.sets(**({"browse_group": browse_group} if browse_group else {})):
                 if q and q.casefold() not in (row["set_id"] + " " + row["set_name"]).casefold():
                     continue
                 owned = owner_sets.get(row["set_id"], [0, None, 0])
@@ -360,11 +371,13 @@ class _HeapRow:
         return a["key"] < b["key"]
 
 
-def _merge_page(snapshots, *, q, set_id, product_type, keys, exclude_keys, sort, limit, offset):
+def _merge_page(snapshots, *, q, set_id, product_type, keys, exclude_keys, sort, limit, offset, browse_group=""):
     # At most one 100-record page per source, not every matching record in RAM.
     pages, cursors, totals, heap = [], [], [], []
     options = dict(q=q.strip(), set_id=set_id, product_type=product_type, keys=keys,
                    exclude_keys=exclude_keys, sort=sort, limit=100)
+    if browse_group:
+        options["browse_group"] = browse_group
     for index, snapshot in enumerate(snapshots):
         page = snapshot.search(**options, offset=0)
         pages.append(page["items"])
@@ -393,7 +406,12 @@ def _merge_page(snapshots, *, q, set_id, product_type, keys, exclude_keys, sort,
 
 async def browse(connection, *, owner_id, q="", system_code="", language="", category="",
                  set_id="", provider=None, product_type="", owned="all", sort="name", keys=None,
-                 limit=40, offset=0):
+                 limit=40, offset=0, browse_group=""):
+    from .catalogue_browse_groups import validate_browse_group
+    try:
+        validate_browse_group(browse_group, category=category or "", system_code=system_code)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     systems = CATEGORY_SYSTEMS.get(category, frozenset(GAMES))
     if ((system_code and system_code not in systems)
             or category not in ("", "TCG", "SPORTS", "FIGURES", None)
@@ -415,7 +433,8 @@ async def browse(connection, *, owner_id, q="", system_code="", language="", cat
         try:
             page = await asyncio.to_thread(_merge_page, snapshots, q=q, set_id=set_id,
                 product_type=product_type, keys=selected_keys, exclude_keys=excluded,
-                sort="name" if sort.startswith("value_") else sort, limit=limit, offset=offset)
+                sort="name" if sort.startswith("value_") else sort, limit=limit, offset=offset,
+                **({"browse_group": browse_group} if browse_group else {}))
         except codec.R2FirstCatalogueError as exc:
             raise HTTPException(503, "Catalogue index is temporarily unavailable") from exc
         links = await _page_links(connection, owner_id, [row["key"] for row in page["items"]])

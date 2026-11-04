@@ -10,6 +10,7 @@ from .comic_identity import ComicPrintingCreate
 from .book_artwork import book_cover_reference
 from .catalogue_artwork import reference_version
 from .book_community_artwork import KIND, community_book_covers, eligible_import
+from .catalogue_browse_groups import group_for
 
 
 def publisher_page(value):
@@ -46,6 +47,7 @@ async def with_book_details(connection, rows):
         except ValidationError:
             continue
         item["book_details"] = {**details, "language": item.get("language")}
+        item["browse_group"] = group_for(details["system_code"], details)
         item["book_market_status"] = ("AVAILABLE" if item.get("market_value_minor") is not None else
             "PRINTING_REVIEW_REQUIRED" if (book.get("identity_status") != "VERIFIED"
                 or book.get("profile_status") != "VERIFIED" or not details.get("printing_number")

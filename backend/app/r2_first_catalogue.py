@@ -29,6 +29,8 @@ from typing import Iterable
 import unicodedata
 from urllib.parse import unquote, urlsplit
 
+from .catalogue_browse_groups import group_for, validate_browse_group
+
 
 SCHEMA = "drop-rate-r2-first-catalogue-v1"
 MAX_ROWS = 250_000
@@ -49,7 +51,7 @@ DETAIL_FIELDS = frozenset({
     "edition", "variant", "artist", "player", "team", "sport", "brand",
     "franchise", "series", "manufacturer",
     "source_record_id", "source_evidence_url", "source_reviewed_at", "source_page",
-    "source_credit", "source_license", "source_license_url", "checklist_section",
+    "source_credit", "source_license", "source_license_url", "source_note", "checklist_section",
     "reference_scope", "source_year", "character", "product_line", "scale",
     "manufacturer_sku", "barcode_gtin", "box_number",
 })
@@ -469,7 +471,7 @@ class Snapshot:
             self._connection.execute("""create table records (
                 key text primary key, name_sort text not null, number_sort text not null,
                 set_id text not null, set_name text not null, release_date text,
-                product_type text not null,
+                product_type text not null, browse_group text not null,
                 search_text text not null, payload text not null)""")
         except BaseException:
             self.close()
@@ -489,9 +491,10 @@ class Snapshot:
                 search = " ".join([row["name"], row["card_number"], row["set_name"],
                                    row["provider_id"], *row.get("details", {}).values()]).casefold()
                 values.append((row["key"], row["name"].casefold(), row["card_number"].casefold(),
-                               row["set_id"], row["set_name"], row["release_date"], row["product_type"], search,
+                               row["set_id"], row["set_name"], row["release_date"], row["product_type"],
+                               group_for(row["system_code"], row.get("details", {})), search,
                                _json(row).decode("utf-8")))
-            self._connection.executemany("insert into records values (?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
+            self._connection.executemany("insert into records values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
 
     def _finish(self):
         with self._lock:
@@ -504,6 +507,7 @@ class Snapshot:
                 "create index records_date on records(release_date, name_sort, key)",
                 "create index records_set on records(set_id, name_sort, key)",
                 "create index records_type on records(product_type, name_sort, key)",
+                "create index records_group on records(browse_group, set_id, name_sort, key)",
             ):
                 self._connection.execute(statement)
             # Trigram FTS accelerates 3+ character substring searches. Builds
@@ -527,12 +531,16 @@ class Snapshot:
 
     def search(self, q="", set_id="", sort="name", limit=40, offset=0, *,
                include_upcoming=False, today=None, keys=None, exclude_keys=None,
-               product_type="") -> dict:
+               product_type="", browse_group="") -> dict:
         _text(q, "search query", 200, empty=True)
         _text(set_id, "set ID", 256, empty=True)
         _require(type(include_upcoming) is bool, "Invalid upcoming flag")
         _require(type(product_type) is str and product_type in ("", "CARD", "FIGURE"),
                  "Unsupported product type filter")
+        try:
+            validate_browse_group(browse_group, system_code=self.system_code)
+        except ValueError as exc:
+            raise R2FirstCatalogueError("Unsupported catalogue browse group") from exc
         keys = _query_keys(keys, "included catalogue keys")
         exclude_keys = _query_keys(exclude_keys, "excluded catalogue keys")
         _require(type(limit) is int and 1 <= limit <= MAX_RESULT_ROWS
@@ -553,6 +561,9 @@ class Snapshot:
         if product_type:
             conditions.append("r.product_type = ?")
             params.append(product_type)
+        if browse_group:
+            conditions.append("r.browse_group = ?")
+            params.append(browse_group)
         if keys is not None:
             # Keys are an ephemeral, caller-authorised overlay. They are never
             # written into catalogue files or the disposable source index.
@@ -585,12 +596,20 @@ class Snapshot:
             found = self._connection.execute("select payload from records where key = ?", (key,)).fetchone()
         return _decode(found[0].encode("utf-8")) if found else None
 
-    def sets(self, *, include_upcoming=False, today=None) -> list[dict]:
+    def sets(self, *, include_upcoming=False, today=None, browse_group="") -> list[dict]:
         _require(type(include_upcoming) is bool, "Invalid upcoming flag")
-        where, params = "", []
+        try:
+            validate_browse_group(browse_group, system_code=self.system_code)
+        except ValueError as exc:
+            raise R2FirstCatalogueError("Unsupported catalogue browse group") from exc
+        conditions, params = [], []
         if not include_upcoming:
-            where = " where release_date is null or release_date <= ?"
-            params = [_today(today)]
+            conditions.append("(release_date is null or release_date <= ?)")
+            params.append(_today(today))
+        if browse_group:
+            conditions.append("browse_group = ?")
+            params.append(browse_group)
+        where = " where " + " and ".join(conditions) if conditions else ""
         with self._lock:
             self._available()
             rows = self._connection.execute("select set_id, set_name, count(*) from records"

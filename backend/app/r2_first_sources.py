@@ -149,6 +149,13 @@ def source_descriptor(source: str, language: str = "English") -> SourceDescripto
         url = "https://cardcollectorcapital.com/data/bowman-checklist-lookup-2026-10-27.json"
         return SourceDescriptor(source, "SPORTS_CARDS", url, "bowman-checklist-2026-10-27-metadata-v1",
             "https://cardcollectorcapital.com/data", "METADATA_ACCESS_DOCUMENTED", url, 2_000_000)
+    if source == "cardcollectorcapital_heritage":
+        if code != "en":
+            raise SourceError("Heritage checklist import supports English-only")
+        url = "https://cardcollectorcapital.com/data/2026-topps-heritage-short-prints.json"
+        return SourceDescriptor(source, "SPORTS_CARDS", url,
+            "topps-heritage-short-prints-2026-09-30-metadata-v1",
+            "https://cardcollectorcapital.com/data", "METADATA_ACCESS_DOCUMENTED", url, 65_536)
     if source == "lorcanajson":
         if code not in _LORCANA_LANGUAGES:
             raise SourceError("Unsupported LorcanaJSON language")
@@ -505,6 +512,9 @@ async def fetch_source(source: str, client: httpx.AsyncClient, *,
     if source == "cardcollectorcapital":
         from .r2_first_sports import fetch_sports
         return await fetch_sports(client, descriptor)
+    if source == "cardcollectorcapital_heritage":
+        from .r2_first_topps_heritage import fetch_topps_heritage
+        return await fetch_topps_heritage(client, descriptor)
     try:
         async with asyncio.timeout(TOTAL_DOWNLOAD_TIMEOUT_SECONDS):
             url = descriptor.download_url

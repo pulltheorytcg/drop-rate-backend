@@ -18,6 +18,31 @@
   diagnostics to identify the failing request without exposing account data.
 - See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
 
+## 4 November 2026 — Catalogue publisher, demographic and brand groups (in review)
+
+- User confirmed Magic is visible in the app. New navigation groups expose
+  Comics → Marvel / DC / Indie / Other; Manga → Shōnen / Shōjo / Seinen / Josei /
+  Kodomo / Unclassified; Sports → Panini / Topps / Other; Figures → Funko Pops /
+  Figurines / Other. Empty groups are not advertised as complete catalogues.
+- Groups filter the full matching catalogue before counting and pagination,
+  including series, saved references and owner-scoped views. Canonical IDs,
+  physical inventory, ownership, valuation and sale approval are unchanged.
+  Exact reviewed publisher/series/manufacturer facts determine classification;
+  unknowns stay unclassified, and manga demographics are not inferred from genre.
+- Separate permitted Topps Heritage adapter prepares 100 numbered references
+  for private R2. Existing Bowman source identities and five published partitions
+  remain unchanged. Artwork, market prices and physical-language/parallel
+  confirmation are not supplied by this checklist.
+- Riftbound remains deferred pending Drop Rate-specific Riot approval/key.
+  Full Panini and bulk Funko/figure feeds still require appropriate source rights;
+  consumer websites and unofficial mirrors are not activated as bulk feeds.
+- Local grouped R2/UI/source tests pass; full CI, actual PostgreSQL group-query
+  checks, exact Railway deployment, new-source publication and authenticated
+  device acceptance are separate release gates, not implied by code completion.
+  Optional browser-layout execution is not claimed while its browser download
+  is unavailable. See [grouping and evidence](docs/CATALOGUE_BROWSE_GROUPS_20261104.md)
+  and [Topps Heritage source bounds](docs/TOPPS_HERITAGE_SOURCE_20261104.md).
+
 ## 4 November 2026 — Shared Seller Hub for founders (release in progress)
 
 - Founders enter the real Seller Hub at `/owner`, with its existing Home, Collection,
@@ -39,7 +64,7 @@
   release gates; signed-in visual acceptance is recorded separately.
 - See [design, security and rollback](docs/UNIFIED_FOUNDER_HUB_20261104.md).
 
-## 4 November 2026 — R2-first catalogues (five partitions published; device acceptance pending)
+## 4 November 2026 — R2-first catalogues (five partitions published; Magic visible on device)
 
 - PR #892's reviewed expansion is deployed. PR #893's rolling-deployment lock
   handover fix merged as `684acf69f304054b1c04f0cfb5d1fbf129f27207` after three
@@ -55,8 +80,9 @@
   All five partitions were independently read back from SQL at 11:57 UTC.
 - Total new-path R2 scope: 204,108 stored source records / 202,059 currently
   released/search-eligible records, 119,677,864 raw bytes. These are reference facts,
-  not physical stock or comprehensive sports/Funko coverage. A signed-in Magic
-  browse and the serving reader cache remain separate acceptance checks.
+  not physical stock or comprehensive sports/Funko coverage. The user subsequently
+  confirmed Magic is visible in the app; this does not establish artwork, price
+  completeness or acceptance of the new grouping/import work above.
 - SQL reference tables remain 69,697 cards / 1,472 sets; database size remains
   430,214,291 bytes. No bulk SQL catalogue insert, cleanup/deletion, capacity
   override or ownership/financial mutation. Artwork/values remain absent where

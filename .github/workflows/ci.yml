@@ -41,6 +41,7 @@ jobs:
           node tests/collectible_catalogue_seed_pglite.mjs
           node tests/inventory_physical_readiness_pglite.mjs
           PYTHONPATH=backend python tests/catalogue_categories_postgres.py
+          PYTHONPATH=backend:tests:. python tests/catalogue_browse_groups_postgres.py --pglite
           PYTHONPATH=backend python tests/optional_seller_cost_postgres.py
           PYTHONPATH=backend:tests python tests/inventory_photo_postgres.py --pglite
           PYTHONPATH=backend:tests python tests/seller_photo_review_postgres.py --pglite
