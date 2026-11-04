@@ -64,7 +64,7 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
     assert 'href="/assets/owner-inventory.css?v=review-20261103"' in html
-    assert 'src="/assets/owner-inventory.js?v=market-values-20261104"' in html
+    assert 'src="/assets/owner-inventory.js?v=graded-evidence-20261104"' in html
 
 
 def test_shared_portal_requires_owner_or_verified_founder() -> None:
