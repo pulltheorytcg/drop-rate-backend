@@ -17,14 +17,14 @@ def test_riot_verification_file_is_exact_bytes_without_newline() -> None:
 
 def test_riot_verification_public_root_endpoint() -> None:
     app = create_app()
-    with TestClient(app, raise_server_exceptions=True) as client:
-        response = client.get("/riot.txt")
-        assert response.status_code == 200
-        assert response.content == TOKEN
-        assert response.headers["content-type"].startswith("text/plain")
-        assert response.headers["cache-control"] == "no-store"
-        assert "text/html" not in response.headers["content-type"]
+    client = TestClient(app, raise_server_exceptions=True)
+    response = client.get("/riot.txt")
+    assert response.status_code == 200
+    assert response.content == TOKEN
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.headers["cache-control"] == "no-store"
+    assert "text/html" not in response.headers["content-type"]
 
-        head = client.head("/riot.txt")
-        assert head.status_code == 200
-        assert head.content == b""
+    head = client.head("/riot.txt")
+    assert head.status_code == 200
+    assert head.content == b""
