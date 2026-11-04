@@ -9,6 +9,7 @@ from fastapi.encoders import jsonable_encoder
 from .db import user_connection
 from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_asking_display import asking_cache_join
+from .catalogue_coverage_context import read_catalogue_context
 
 logger = logging.getLogger(__name__)
 
@@ -62,13 +63,15 @@ async def shared_price_coverage(pool, user_id, request_id):
         started = time.perf_counter()
         async with user_connection(pool, user_id, request_id) as connection:
             rows = await connection.fetch(COVERAGE_SQL)
+            context = await read_catalogue_context(connection, rows)
         items = [dict(row) for row in rows]
         duration_ms = round((time.perf_counter() - started) * 1000)
         if duration_ms >= 500:
             logger.info('CATALOGUE_COVERAGE_REFRESH_TIMING duration_ms=%s groups=%s',
                         duration_ms, len(items))
         return jsonable_encoder({
-            'scope': 'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS',
+            'scope': 'SQL_REFERENCE_CARDS_AND_SEALED_PRODUCTS',
+            **context,
             'items': items,
             'total': sum(row['products'] for row in items),
             'summary': coverage_summary(items),
@@ -84,11 +87,13 @@ COVERAGE_SQL = f'''with coverage as (
         when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days' then 'REFERENCE_AVAILABLE'
         when b.market_value_minor>0
           and b.quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
+          and b.pricing_updated_at>=now()-interval '7 days'
           and b.expires_at>now() then 'DROP_RATE_CALCULATED_VALUE'
         when b.market_value_minor>0
-          and b.quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
+          and (b.quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
+               or b.pricing_updated_at<now()-interval '7 days')
           then 'STALE_EVIDENCE'
-        when b.market_value_minor>0 then 'MIXED_LANGUAGE_GUIDE'
+        when b.market_value_minor>0 and b.pricing_updated_at>=now()-interval '7 days' then 'MIXED_LANGUAGE_GUIDE'
         when p.quotes<>'[]'::jsonb and p.pricing_updated_at>=now()-interval '7 days' then 'US_CONTEXT_ONLY'
         when p.pricing_updated_at<now()-interval '7 days' then 'STALE_EVIDENCE'
         -- These languages/games have no licensed exact GBP source in the
@@ -104,7 +109,8 @@ COVERAGE_SQL = f'''with coverage as (
    (a.provider_id is not null) as asking_estimate_available,
    (nullif(btrim(r.provider_id),'') is not null and nullif(btrim(r.name),'') is not null
     and nullif(btrim(r.set_id),'') is not null and nullif(btrim(r.card_number),'') is not null
-    and nullif(btrim(r.source_url),'') is not null) as reference_complete
+    and nullif(btrim(r.source_url),'') is not null) as reference_complete,
+   (nullif(btrim(r.image_url),'') is not null) as artwork_url_available
  from tcg.reference_cards r left join tcg.reference_sets s using(provider,system_code,language,set_id)
  left join tcg.reference_market_prices p
  on (p.provider,p.system_code,p.language,p.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
@@ -115,7 +121,6 @@ COVERAGE_SQL = f'''with coverage as (
         'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name))
  left join tcg.reference_catalogue_prices b
  on (b.provider,b.system_code,b.language,b.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
- and b.pricing_updated_at>=now()-interval '7 days'
  and b.quotes->0->'reference_identity'=jsonb_build_object(
   'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name)
  {asking_cache_join()}
@@ -128,11 +133,13 @@ COVERAGE_SQL = f'''with coverage as (
         when nullif(r.evidence->>'cardmarket_product_id','') is null then 'PROVIDER_MAPPING_REQUIRED'
         when p.checked_at is null then 'AWAITING_DAILY_REFRESH' else 'EXACT_QUOTE_UNAVAILABLE' end,p.checked_at,false,
    (nullif(btrim(r.provider_id),'') is not null and nullif(btrim(r.name),'') is not null
-    and nullif(btrim(r.set_id),'') is not null and nullif(btrim(r.source_url),'') is not null)
+    and nullif(btrim(r.set_id),'') is not null and nullif(btrim(r.source_url),'') is not null),
+   (nullif(btrim(r.image_url),'') is not null)
  from tcg.reference_sealed_products r left join tcg.reference_sealed_market_prices p using(provider,system_code,language,provider_id)
 )
 select kind,system_code,language,status,count(*)::int as products,min(checked_at) as oldest_check,
  count(*) filter(where asking_estimate_available)::int as asking_estimates,
+ count(*) filter(where artwork_url_available)::int as artwork_urls,
  count(*) filter(where not reference_complete)::int as incomplete_references
 from coverage group by kind,system_code,language,status order by kind,system_code,language,status'''
 
@@ -343,9 +350,11 @@ async def record_coverage(pool,actor):
         await connection.execute("select set_config('statement_timeout','45000',true)")
         rows=await connection.fetch(COVERAGE_SQL,timeout=50)
         canonical=await connection.fetchval('select count(*) from tcg.catalogue_products')
+        context=await read_catalogue_context(connection, rows)
     items=[dict(row,oldest_check=row['oldest_check'].isoformat() if row['oldest_check'] else None) for row in rows]
-    report={'scope':'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS','items':items,
+    report={'scope':'SQL_REFERENCE_CARDS_AND_SEALED_PRODUCTS',**context,'items':items,
             'total':sum(row['products'] for row in items),'canonical_products':canonical,
             'store_price_updates':0, 'summary': coverage_summary(items)}
     await receipt(pool,actor,'CATALOGUE_COVERAGE','COMPLETE',report)
     return report
+

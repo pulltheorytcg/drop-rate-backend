@@ -59,12 +59,72 @@
     group.append(grid); tools.append(group);
   }
   document.getElementById("business-content").append(tools);
+  const coveragePanel = node("section", "founder-control-group");
+  coveragePanel.setAttribute("aria-label", "Catalogue and pricing coverage");
+  coveragePanel.append(node("h2", "", "Catalogue & pricing"));
+  const coverageStatus = node("p", "muted", "Check catalogue imports, price evidence and missing artwork.");
+  coverageStatus.setAttribute("role", "status");
+  const coverageDetails = node("div", "founder-coverage-details");
+  const coverageButton = node("button", "ghost-button", "Check coverage");
+  coverageButton.type = "button";
+  coveragePanel.append(coverageStatus, coverageDetails, coverageButton);
+  tools.append(coveragePanel);
+  let coverageEpoch = 0, coverageLoaded = false, coveragePending = false;
+  const count = value => Number.isInteger(value) ? value.toLocaleString("en-GB") : "Not measured";
+  async function loadCoverage() {
+    if (entry.hidden || coveragePending) return;
+    const epoch = coverageEpoch;
+    coveragePending = true; coverageButton.disabled = true;
+    coverageStatus.textContent = "Checking catalogue and price evidence…";
+    try {
+      const data = await apiRequest("/api/v1/catalogue-browser/coverage");
+      if (epoch !== coverageEpoch || entry.hidden) return;
+      const catalogue = data.catalogue, prices = data.summary?.physical_cards;
+      if (!catalogue || !prices || !data.automatic_price_refresh) throw new Error("Coverage report is incomplete.");
+      const details = document.createDocumentFragment();
+      details.append(node("p", "", `${count(catalogue.stored_physical_tcg_references)} stored TCG printing/finish references. These are catalogue entries, including future releases, not owned stock.`));
+      const sources = node("ul", "");
+      for (const source of catalogue.published_sources || []) {
+        if (source.category !== "TCG") continue;
+        sources.append(node("li", "", `${source.game}: ${count(source.stored_references)} references · product details imported; pricing and artwork feeds pending.`));
+      }
+      for (const source of catalogue.unpublished_tcg_games || []) sources.append(node("li", "", `${source.game}: catalogue not yet imported.`));
+      details.append(sources);
+      details.append(node("p", "", `Original card catalogue: ${count(prices.priced)} of ${count(prices.total)} have current source price references. This includes market guides; it does not measure exact market-value coverage across all games.`));
+      const artwork = catalogue.sql_physical_artwork;
+      details.append(node("p", "", `Original card artwork: ${count(artwork?.with_url)} image links; ${count(artwork?.missing_url)} missing. Link counts do not verify that images load. Slabs require the physical item's slab photo.`));
+      const refresh = data.automatic_price_refresh;
+      const message = refresh.status === "PAUSED"
+        ? "Automatic bulk price refresh is paused by the database capacity safeguard. Existing evidence can expire while refresh is paused."
+        : "Database capacity permits automatic refresh. Provider availability and successful refreshes still need verification.";
+      details.append(node("p", "", message));
+      coverageDetails.replaceChildren(details);
+      coverageStatus.textContent = `Checked ${new Date(data.observed_at).toLocaleString("en-GB")}.`;
+      coverageLoaded = true;
+    } catch (error) {
+      if (epoch === coverageEpoch && !entry.hidden) coverageStatus.textContent = `Could not check coverage: ${error.message}`;
+    } finally {
+      if (epoch === coverageEpoch) {coveragePending = false; coverageButton.disabled = false;}
+    }
+  }
+  function clearCoverage() {
+    coverageEpoch += 1; coverageLoaded = false; coveragePending = false;
+    coverageButton.disabled = false; coverageDetails.replaceChildren();
+    coverageStatus.textContent = "Check catalogue imports, price evidence and missing artwork.";
+  }
+  coverageButton.addEventListener("click", loadCoverage);
+  document.addEventListener("owner-view-changed", event => {
+    if (event.detail.view === "founders" && !coverageLoaded) loadCoverage();
+  });
   document.addEventListener("hub:access-verified", event => {
     entry.hidden = event.detail.access.business_allowed !== true;
+    if (entry.hidden) clearCoverage();
   });
   document.addEventListener("hub:founder-access", event => {
     entry.hidden = !event.detail.allowed;
+    if (entry.hidden) clearCoverage();
     if (!event.detail.allowed && !panel.classList.contains("hidden")) activateOwnerView("settings", false);
   });
-  window.addEventListener("hub-session-cleared", () => {entry.hidden = true; panel.classList.add("hidden");});
+  window.addEventListener("hub-session-cleared", () => {entry.hidden = true; clearCoverage(); panel.classList.add("hidden");});
 })();
+
