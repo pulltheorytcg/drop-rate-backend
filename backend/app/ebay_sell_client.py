@@ -52,6 +52,28 @@ class EbaySellApiError(EbayApiError):
     """Safe eBay seller-API error that never exposes credentials or raw payloads."""
 
 
+class _EbayOffersNotFound(EbaySellApiError):
+    """An exact SKU lookup explicitly returned eBay's absent-offer response."""
+
+
+def _offers_absent(method: str, path: str, response: httpx.Response) -> bool:
+    if method != "GET" or path != "/sell/inventory/v1/offer" or response.status_code != 404:
+        return False
+    try:
+        payload = response.json()
+    except ValueError:
+        return False
+    errors = payload.get("errors") if isinstance(payload, dict) else None
+    if not isinstance(errors, list) or len(errors) != 1 or not isinstance(errors[0], dict):
+        return False
+    error = errors[0]
+    return (
+        error.get("errorId") == 25713
+        and error.get("domain") == "API_INVENTORY"
+        and error.get("category") == "REQUEST"
+    )
+
+
 REQUIRED_SELLER_SCOPES = (
     "https://api.ebay.com/oauth/api_scope",
     "https://api.ebay.com/oauth/api_scope/sell.account",
@@ -277,6 +299,10 @@ class EbaySellClient:
 
         allowed = expected or {200}
         if response.status_code not in allowed:
+            # eBay reports a first-time SKU's empty offer collection as 404/25713.
+            # Only get_offers consumes this typed absence; other 404s still fail.
+            if _offers_absent(method, path, response):
+                raise _EbayOffersNotFound("No eBay offer exists for this SKU", status_code=404)
             resource, error_ids = _failure_context(path, response)
             logger.warning(
                 "eBay seller request failed method=%s resource=%s status=%s error_ids=%s",
@@ -651,11 +677,16 @@ class EbaySellClient:
         return payload
 
     async def get_offers(self, *, sku: str) -> list[dict[str, Any]]:
-        payload = await self._request(
-            "GET",
-            "/sell/inventory/v1/offer",
-            params={"sku": sku, "marketplace_id": self._marketplace_id},
-        )
+        if not sku.strip():
+            raise ValueError("eBay offer lookup requires a SKU")
+        try:
+            payload = await self._request(
+                "GET",
+                "/sell/inventory/v1/offer",
+                params={"sku": sku, "marketplace_id": self._marketplace_id},
+            )
+        except _EbayOffersNotFound:
+            return []
         rows = [] if payload is None else payload.get("offers", [])
         if rows is None:
             return []

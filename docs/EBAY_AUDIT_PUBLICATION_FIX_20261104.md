@@ -42,3 +42,22 @@ only an allowlisted API resource, HTTP method/status and bounded numeric eBay
 error IDs. It never logs response messages, parameters, headers, tokens, request
 bodies, query values or physical-copy IDs. Tests inject sensitive-looking data
 in those fields and assert it cannot reach the logs or public exception.
+
+PR #895 merged as `35a5dc28` after five GitHub checks. Railway deployment
+`466c0b27-85ce-4c31-a900-339c681e5df3` reached SUCCESS at 12:49 UTC, with
+10,005 tests passing in pre-deploy. The subsequent founder attempt isolated the
+remaining failure to GET `/sell/inventory/v1/offer`: HTTP 404, error 25713.
+
+The offer collection lookup now consumes only the explicit absent-offer result:
+HTTP 404, exactly one error with ID 25713, domain `API_INVENTORY`, category
+`REQUEST`, on the exact GET collection route. A private typed exception carries
+that result to `get_offers`, which returns an empty list; the existing publisher
+then creates the first offer. Other errors and individual-offer requests retain
+their fail-closed behavior. The original unique-SKU recovery and live read-back
+remain unchanged. Tests cover absent/existing offers, blank SKUs, auth/rate/server
+failures, malformed/mixed errors and other endpoints (86 focused eBay tests pass).
+
+Reference: [eBay's Inventory OpenAPI specification](https://developer.ebay.com/api-docs/master/sell/inventory/openapi/3/sell_inventory_v1_oas3.json)
+documents the offer collection's 404 response; the exact 25713 response was
+observed in the authorised live test. A successful listing is still a separate
+post-deployment acceptance gate.
