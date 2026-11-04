@@ -290,9 +290,11 @@ async def read_cached_reference_prices(pool, user_id, request_id, keys: list[str
     Background maintenance owns collection and persistence of new evidence.
     This keeps the old /market-values request shape safe for cached clients.
     """
+    now = datetime.now(timezone.utc)
+    from .uk_eu_reference_display import add_uk_eu_estimates
     async with user_connection(pool, user_id, request_id) as connection:
         references = [dict(row) for row in await connection.fetch(READ_SQL, keys)]
-    now = datetime.now(timezone.utc)
+        references = await add_uk_eu_estimates(connection, references, now=now)
     by_key = {}
     for reference in references:
         view = price_view(reference["key"], reference.get("quotes") or [], now=now)
@@ -303,6 +305,8 @@ async def read_cached_reference_prices(pool, user_id, request_id, keys: list[str
         if view["market_value_minor"] is None and fallback:
             view.update(price_view(reference["key"], fallback + view["market_quotes"], now=now))
         by_key[reference["key"]] = view
+        if reference.get("uk_eu_market_estimate"):
+            view["uk_eu_market_estimate"] = reference["uk_eu_market_estimate"]
     return [by_key[key] for key in dict.fromkeys(keys) if key in by_key]
 
 

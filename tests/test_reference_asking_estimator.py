@@ -61,6 +61,15 @@ def test_input_data_is_not_mutated():
     assert (rows, ref) == before
 
 
+def test_known_listing_end_time_survives_into_cached_comparable_evidence():
+    end = (NOW + timedelta(hours=1)).isoformat()
+    result = estimate([row(1, itemEndDate=end), row(2), row(3)])
+    assert result["status"] == "READY"
+    evidence = {item["item_id"]: item["listing_evidence"] for item in result["comparables"]}
+    assert evidence["100000000001"]["item_end_date"] == end
+    assert evidence["100000000002"]["item_end_date"] is None
+
+
 @pytest.mark.parametrize("bad", [
     {"buyingOptions": ["AUCTION"]}, {"buyingOptions": ["FIXED_PRICE", "AUCTION"]},
     {"buyingOptions": None}, {"itemLocation": {"country": "US"}}, {"itemLocation": {}},

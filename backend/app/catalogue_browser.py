@@ -39,6 +39,7 @@ from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 from .catalogue_display_prices import read_shared_prices, with_shared_price
 from .catalogue_price_history import add_reference_history
 from .reference_asking_display import add_asking_estimates
+from .uk_eu_reference_display import add_uk_eu_estimates
 from .book_catalogue import with_book_details
 from .catalogue_collectibles import with_collectible_details
 from .catalogue_browse_groups import group_predicate, validate_browse_group
@@ -973,6 +974,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         # Current asks are a separate labelled display tier. Keep legacy value
         # fields and their sort semantics unchanged, including physical values.
         rows = await add_asking_estimates(connection, rows)
+        rows = await add_uk_eu_estimates(connection, rows)
         rows = await with_book_details(connection, rows)
         rows = await with_collectible_details(connection, rows)
         if mixed_reference_keys:

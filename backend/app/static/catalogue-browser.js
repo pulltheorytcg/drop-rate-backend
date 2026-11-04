@@ -4,6 +4,10 @@ window.DropRateCatalogue = (() => {
   const node = (tag, cls = "", text) => { const el = document.createElement(tag); el.className = cls; if (text != null) el.textContent = text; return el; };
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
+  const ukEuEstimate = row => window.DropRateReferenceValue?.ukEuEstimate(row.uk_eu_market_estimate) || null;
+  const currentValue = row => (Number.isSafeInteger(row.market_value_minor) && row.market_value_minor > 0) ||
+    (["AVAILABLE", "REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(row.shared_price?.status)
+      && Number.isSafeInteger(row.shared_price.market_value_minor) && row.shared_price.market_value_minor > 0);
   const askingEstimate = row => {
     // Asking evidence is a separate fallback, never a physical market value.
     const estimate=row.asking_price_estimate, shared=row.shared_price, now=Date.now(), maxAge=3*24*60*60*1000;
@@ -23,6 +27,8 @@ window.DropRateCatalogue = (() => {
     return Number.isFinite(observed) && Number.isFinite(expires) && observed<=now && observed>=now-maxAge && expires>now && expires<=observed+maxAge ? estimate : null;
   };
   const marketPrice = row => {
+    const model=ukEuEstimate(row);
+    if(model && !currentValue(row))return "Drop Rate UK/EU estimate: "+money(model.estimate_minor);
     const estimate=askingEstimate(row);
     if(estimate)return "Asking-price estimate: "+money(estimate.estimate_minor);
     if(row.market_value_source==="DROP_RATE_COMPUTED_MARKET_V1" && Number.isInteger(row.market_value_minor))
@@ -432,16 +438,22 @@ window.DropRateCatalogue = (() => {
       finally{if(revision===this.revision)this.loading=false;}
     }
     renderMarketDetails(content,row) {
-      const estimate=askingEstimate(row);
+      const model=ukEuEstimate(row), estimate=model?null:askingEstimate(row);
       content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
-      const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","",estimate?"About this estimate":"About this value"));content.append(evidence);
+      const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","",(estimate || model && !currentValue(row))?"About this estimate":"About this value"));content.append(evidence);
+      if(model){
+        if(currentValue(row))evidence.append(node("p","dr-browse-reference-note","Drop Rate UK/EU estimate: "+money(model.estimate_minor)));
+        evidence.append(node("p","dr-browse-reference-note",model.reason || "Provisional estimate from eBay UK asking prices and Cardmarket guides."),
+          node("p","dr-browse-reference-note","Reference range: "+money(model.estimate_low_minor)+"–"+money(model.estimate_high_minor)+" · Item price only; postage excluded"),
+          node("p","dr-browse-reference-note","Evidence checked "+new Date(model.observed_at).toLocaleDateString("en-GB")));
+      }
       if(estimate){
         evidence.append(node("p","dr-browse-reference-note","eBay current listings: "+estimate.listing_count+" listings from "+estimate.seller_count+" sellers · Checked "+new Date(estimate.observed_at).toLocaleDateString("en-GB")),
           node("p","dr-browse-reference-note","Estimate basis: "+estimate.condition+" · "+estimate.finish+" · Shop delivery estimate included"),
           node("p","dr-browse-reference-note","Current asking prices; not completed sales or a valuation of your copy."));
       }
       if(row.shared_price && !estimate)evidence.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));
-      if(row.market_value_minor==null && !row.shared_price?.last_known_minor && !estimate)evidence.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
+      if(row.market_value_minor==null && !row.shared_price?.last_known_minor && !estimate && !model)evidence.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
       if(row.basis_condition && !estimate)evidence.append(node("small","","Price basis: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       for(const quote of row.market_quotes||[]){
         const label=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer US context · "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(quote.original_minor/100):money(quote.price_gbp_minor);
@@ -691,6 +703,8 @@ window.DropRateCatalogue = (() => {
         }
         const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
         copy.append(price,node("small","","Qty: "+row.owned_quantity));
+        const model=ukEuEstimate(row);
+        if(model && currentValue(row)){const note=node("small","","Drop Rate UK/EU estimate: "+money(model.estimate_minor));note.dataset.ukEuEstimateKey=row.key;copy.append(note);}
         const plus=button("+",()=>row.product_type==="COMIC"?this.openBookIntake(row):this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
         if(row.owned_quantity>0)card.append(node("span","dr-browse-owned","✓"));
         grid.append(card);
@@ -902,7 +916,9 @@ window.DropRateCatalogue = (() => {
         content.append(artwork,listingCredit,
           node("h3","",decode(row.name)),
           node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
-        content.append(node("p","dr-browse-reference-note", row.market_value_minor == null
+        if(ukEuEstimate(row)){
+          const pricing=node("section");this.renderMarketDetails(pricing,row);content.append(pricing);
+        }else content.append(node("p","dr-browse-reference-note", row.market_value_minor == null
           ? row.book_market_status === "PRINTING_REVIEW_REQUIRED"
             ? "Market value pending: the printing and cover need confirmation before matching sold prices."
             : "Market value pending: at least five matching recent sales are needed for this printing."
@@ -1036,3 +1052,4 @@ window.DropRateCatalogue = (() => {
   }
   return {Browser};
 })();
+

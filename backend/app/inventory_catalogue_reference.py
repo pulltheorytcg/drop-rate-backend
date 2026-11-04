@@ -73,7 +73,7 @@ PRODUCTS_SQL = """select p.*,
 # The existing global number-key index bounds this lookup. Unpriced siblings
 # are retained: quote availability must never select a printing.
 CACHE_SQL = """select k.catalogue_id,r.provider,r.system_code,r.language,r.provider_id,
- r.set_id,r.name,r.card_number,r.rarity,r.image_url,r.source_url,r.evidence,s.name as set_name,
+ r.set_id,r.name,r.card_number,r.rarity,r.finish,r.image_url,r.source_url,r.evidence,s.name as set_name,
  coalesce(m.quotes,'[]'::jsonb) as quotes,
  coalesce(b.quotes,'[]'::jsonb) as catalogue_quotes
  from tcg.reference_cards r
@@ -454,6 +454,12 @@ async def add_catalogue_references(connection, items, *, now):
         if lookups:
             for row in await connection.fetch(CACHE_SQL, json.dumps(lookups)):
                 references[str(row['catalogue_id'])].append(dict(row))
+    from .uk_eu_reference_display import add_uk_eu_estimates, _finish
+    projected = await add_uk_eu_estimates(connection,
+        [row for rows in references.values() for row in rows], now=now)
+    references = defaultdict(list)
+    for row in projected:
+        references[str(row['catalogue_id'])].append(row)
     for item in pending:
         product = products.get(str(item['catalogue_id']))
         if not product:
@@ -463,6 +469,15 @@ async def add_catalogue_references(connection, items, *, now):
         if not language or (canonical_language and canonical_language != language):
             continue
         guide = catalogue_guide(product, references[str(item['catalogue_id'])], language, now=now)
+        matches = reference_candidates(product, references[str(item['catalogue_id'])], language)
+        identities = {(r['provider'], r['system_code'], r['language'], r['provider_id']) for r in matches}
+        if len(identities) == 1:
+            model = matches[0].get('uk_eu_market_estimate')
+            if model and _finish(product.get('variant')) == model.get('finish'):
+                guide = dict(model, status='CATALOGUE_GUIDE',
+                    market_value_minor=model['estimate_minor'], market_value_high_minor=model['estimate_high_minor'],
+                    checked_at=model['observed_at'], basis=language + ' · Raw reference estimate',
+                    reference_id=':'.join(next(iter(identities))), recommended_retail_minor=None)
         if guide:
             item['catalogue_reference'] = guide
     return items

@@ -695,11 +695,11 @@ window.DropRateInventory = (() => {
     facts.append(list); content.append(facts);
 
     const values = el("section", "owner-item-values");
-    const displayedValue = item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney)
+    const displayedValue = (item.reference_value || item.catalogue_reference) ? window.DropRateReferenceValue.text(item, formatMoney)
       : item.market_value_minor == null ? "Value unavailable" : price(item.market_value_minor);
     values.append(el("div", "", window.DropRateReferenceValue?.label(item) || "Market value"),
-      el("strong", "", displayedValue.replace(/^Value:\s*/, "")));
-    if (item.reference_value) values.append(el("small", "", window.DropRateReferenceValue.description(item)));
+      el("strong", "", displayedValue.replace(/^(?:Value|Drop Rate UK\/EU estimate):\s*/, "")));
+    if (item.reference_value || item.catalogue_reference) values.append(el("small", "", window.DropRateReferenceValue.description(item)));
     if (!item.reference_value && item.pricing_method === "CARDMARKET_GUIDE_V1") values.append(el("small", "", "Cardmarket guide estimate"));
     if (item.pricing_updated_at) values.append(el("small", "", `Updated ${new Date(item.pricing_updated_at).toLocaleDateString("en-GB")}`));
     content.append(values);
@@ -982,3 +982,4 @@ window.DropRateInventory = (() => {
   }
   return {image, open, close, reset: () => close(true)};
 })();
+

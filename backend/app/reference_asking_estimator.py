@@ -456,6 +456,7 @@ def _comparable(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapp
     aspects = _aspects(row)
     listing_evidence = {
         "acquisition": "GET_ITEM" if row.get("_evidence_acquisition") == "GET_ITEM" else "SEARCH_SUMMARY",
+        "item_end_date": row.get("itemEndDate"),
         "condition": row.get("condition"), "condition_id": row.get("conditionId"),
         "aspects": {key: aspects[key] for key in
                     ("game", "language", "card number", "set", "finish", "card condition")

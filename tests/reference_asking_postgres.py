@@ -9,6 +9,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 import json
 import os
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
@@ -17,6 +18,7 @@ import asyncpg
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "backend"))
 ADMIN = UUID("00000000-0000-0000-0000-000000000001")
 SECOND_ADMIN = UUID("00000000-0000-0000-0000-000000000003")
 OWNER = UUID("00000000-0000-0000-0000-000000000002")
@@ -117,6 +119,57 @@ async def race_last_reservation(dsn, first_run, second_run):
         await right.close()
 
 
+async def assert_acquisition_scope_query(db):
+    """Execute production candidate SQL with typed exact targets in PostgreSQL."""
+    from app.reference_asking_backfill import CANDIDATES_SQL, CURRENT_SQL, acquisition_scope
+    from app.reference_asking_display import matching_reference_evidence
+    transaction = db.transaction()
+    await transaction.start()
+    try:
+        await db.execute("""
+          alter table tcg.reference_cards add column evidence jsonb not null default '{}';
+          create table tcg.reference_market_prices(provider text,system_code text,language text,
+            provider_id text,market_value_minor bigint,pricing_updated_at timestamptz,quotes jsonb);
+          create table tcg.reference_catalogue_prices (like tcg.reference_market_prices);
+          grant select on tcg.reference_market_prices,tcg.reference_catalogue_prices to tcg_api;
+          insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,finish,rarity) values
+            ('TCGdex','POKEMON_TCG','English','scope-priced','fixture','Pineco','002','Normal','Common'),
+            ('TCGdex','POKEMON_TCG','English','scope-missing','fixture','Pineco','003','Normal','Common'),
+            ('TCGdex','POKEMON_TCG','English','scope-asking','fixture','Pineco','004','Normal','Common');
+          insert into tcg.reference_market_prices values
+            ('TCGdex','POKEMON_TCG','English','scope-priced',1200,now(),'[]'::jsonb);
+        """)
+        await actor(db)
+        run_id = await db.fetchval("insert into tcg.reference_asking_runs(actor_user_id) values($1) returning id", ADMIN)
+        await db.fetchval("select tcg.reserve_reference_asking_request($1)", run_id)
+        item = evidence(run_id, provider_id="scope-asking")
+        item["reference_identity"]["card_number"] = "004"
+        item["evidence"].update(matching_reference_evidence=matching_reference_evidence({}), reference_group_count=1)
+        await history(db, item)
+        await db.execute(UPSERT_CACHE, item["snapshot_id"])
+        keys = [["TCGdex", "POKEMON_TCG", "English", "scope-" + suffix]
+                for suffix in ("priced", "missing", "asking")]
+        async def candidates(include_priced, targets=keys, cursor=None, language=None):
+            scope = acquisition_scope(include_priced=include_priced, reference_keys=targets)
+            return await db.fetch(CANDIDATES_SQL, *(cursor or ["", "", "", ""]), 25,
+                                  None, language, scope.get("include_priced", False), scope.get("reference_keys"))
+        default = await candidates(False)
+        assert [row["provider_id"] for row in default] == ["scope-missing"]
+        overlap = await candidates(True)
+        assert [row["provider_id"] for row in overlap] == ["scope-missing", "scope-priced"]
+        assert overlap[1]["needs_price"] is False and overlap[1]["has_current_asking"] is False
+        assert await candidates(True, [["TCGdex", "POKEMON_TCG", "Japanese", "scope-priced"]]) == []
+        assert await candidates(True, [["Other provider", "POKEMON_TCG", "English", "scope-priced"]]) == []
+        assert await candidates(True, language="Japanese") == []
+        after = await candidates(True, cursor=["TCGdex", "POKEMON_TCG", "English", "scope-missing"])
+        assert [row["provider_id"] for row in after] == ["scope-priced"]
+        await db.execute("reset role")
+        current = await db.fetchrow(CURRENT_SQL, "TCGdex", "POKEMON_TCG", "English", "scope-asking")
+        assert current["has_current_asking"] is True and current["needs_price"] is False
+    finally:
+        await transaction.rollback()
+
+
 async def main():
     dsn = os.environ["ASKING_TEST_DSN"]
     target = urlsplit(dsn)
@@ -163,6 +216,8 @@ async def main():
         await db.execute(sql_path.read_text(encoding="utf-8"))
 
         await assert_security_metadata(db)
+
+        await assert_acquisition_scope_query(db)
 
         await actor(db)
         run_id = await db.fetchval("insert into tcg.reference_asking_runs(actor_user_id) values($1) returning id", ADMIN)
@@ -351,3 +406,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
