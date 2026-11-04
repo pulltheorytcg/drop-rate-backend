@@ -4,6 +4,7 @@ Database-native grants, RLS and audit-trigger tests live in the separate SQL
 integration suite. These tests check worker ordering, failure isolation and CAS.
 """
 from contextlib import asynccontextmanager
+import asyncio
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -524,3 +525,134 @@ async def test_weekly_sources_do_not_redownload_at_two_day_worker_interval(datab
     report = await worker.import_source(None, ACTOR, "lorcast", client=object())
     assert report["status"] == "CURRENT"
     fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_loop_resumes_after_rollover_lock_releases_without_duplicate_provider_io(monkeypatch, caplog):
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "mtgjson")
+    monkeypatch.setattr(worker.service, "enabled", lambda: True)
+    lock = LockConnection(acquired=False)
+    held_sessions = 0
+
+    @asynccontextmanager
+    async def acquire():
+        nonlocal held_sessions
+        held_sessions += 1
+        try:
+            yield lock
+        finally:
+            held_sessions -= 1
+
+    pool = SimpleNamespace(acquire=acquire)
+    importer = AsyncMock(return_value={"status": "PUBLISHED", "source": "mtgjson"})
+    prewarm = AsyncMock()
+    monkeypatch.setattr(worker, "import_source", importer)
+    monkeypatch.setattr(worker.service, "prewarm", prewarm)
+    delays = []
+
+    async def sleep(delay):
+        assert held_sessions == 0, "Lock polling must not hold a pool connection"
+        delays.append(delay)
+        if len(delays) == 1:
+            assert delay == 30
+            importer.assert_not_awaited()
+            prewarm.assert_not_awaited()
+            lock.acquired = True
+        else:
+            assert delay == worker.REFRESH_SECONDS
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(worker.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_loop(pool, str(ACTOR))
+    assert delays == [worker.LOCK_RETRY_SECONDS, worker.REFRESH_SECONDS]
+    importer.assert_awaited_once_with(pool, ACTOR, "mtgjson")
+    prewarm.assert_awaited_once_with(pool, ACTOR)
+    assert len(lock.operations) == 3 and "pg_advisory_unlock" in lock.operations[-1]
+    assert "R2_FIRST_IMPORT_LOCK_BUSY retry_seconds=30" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reports", [
+    [],
+    [{"status": "CURRENT"}],
+    [{"status": "PUBLISHED"}],
+    [{"status": "DISABLED"}],
+    [{"status": "FAILED", "error_type": "SourcePermissionError"}],
+    [{"status": "CURRENT"}, {"status": "FAILED", "error_type": "SourceError"}],
+    [{"status": "ALREADY_RUNNING"}, {"status": "FAILED"}],
+    [{"status": "ALREADY_RUNNING", "source": "unexpected"}],
+])
+async def test_loop_retries_only_exact_lock_busy_sentinel(monkeypatch, reports):
+    once = AsyncMock(return_value=reports)
+    prewarm = AsyncMock()
+    sleep = AsyncMock(side_effect=asyncio.CancelledError)
+    monkeypatch.setattr(worker, "run_once", once)
+    monkeypatch.setattr(worker.service, "enabled", lambda: True)
+    monkeypatch.setattr(worker.service, "prewarm", prewarm)
+    monkeypatch.setattr(worker.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_loop(None, ACTOR)
+    once.assert_awaited_once_with(None, ACTOR)
+    prewarm.assert_awaited_once_with(None, ACTOR)
+    sleep.assert_awaited_once_with(worker.REFRESH_SECONDS)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("result", [
+    [{"status": "FAILED", "error_type": "SourcePermissionError"}],
+    SourcePermissionError("do not log this provider response"),
+    HTTPException(403, "do not log this denial"),
+    HTTPException(503, "do not log this read-only refusal"),
+    RuntimeError("do not log this database failure"),
+])
+async def test_loop_resets_contention_delay_after_a_failed_or_denied_pass(monkeypatch, result, caplog):
+    once = AsyncMock(side_effect=[[{"status": "ALREADY_RUNNING"}], result])
+    prewarm = AsyncMock()
+    sleep = AsyncMock(side_effect=[None, asyncio.CancelledError])
+    monkeypatch.setattr(worker, "run_once", once)
+    monkeypatch.setattr(worker.service, "enabled", lambda: True)
+    monkeypatch.setattr(worker.service, "prewarm", prewarm)
+    monkeypatch.setattr(worker.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_loop(None, ACTOR)
+    assert [call.args[0] for call in sleep.await_args_list] == [30, worker.REFRESH_SECONDS]
+    assert once.await_count == 2
+    assert prewarm.await_count == (0 if isinstance(result, Exception) else 1)
+    assert "do not log" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_prewarm_failure_after_contention_keeps_normal_refresh_interval(monkeypatch, caplog):
+    once = AsyncMock(side_effect=[[{"status": "ALREADY_RUNNING"}], [{"status": "CURRENT"}]])
+    prewarm = AsyncMock(side_effect=RuntimeError("do not log this storage failure"))
+    sleep = AsyncMock(side_effect=[None, asyncio.CancelledError])
+    monkeypatch.setattr(worker, "run_once", once)
+    monkeypatch.setattr(worker.service, "enabled", lambda: True)
+    monkeypatch.setattr(worker.service, "prewarm", prewarm)
+    monkeypatch.setattr(worker.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_loop(None, ACTOR)
+    assert [call.args[0] for call in sleep.await_args_list] == [30, worker.REFRESH_SECONDS]
+    assert once.await_count == 2
+    prewarm.assert_awaited_once_with(None, ACTOR)
+    assert "do not log" not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel_at", ["import", "prewarm", "contention_sleep"])
+async def test_loop_shutdown_never_starts_another_attempt(monkeypatch, cancel_at):
+    once = AsyncMock(return_value=([{"status": "ALREADY_RUNNING"}]
+                                  if cancel_at == "contention_sleep" else []))
+    prewarm = AsyncMock()
+    sleep = AsyncMock()
+    {"import": once, "prewarm": prewarm, "contention_sleep": sleep}[cancel_at].side_effect = asyncio.CancelledError
+    monkeypatch.setattr(worker, "run_once", once)
+    monkeypatch.setattr(worker.service, "enabled", lambda: True)
+    monkeypatch.setattr(worker.service, "prewarm", prewarm)
+    monkeypatch.setattr(worker.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_loop(None, ACTOR)
+    once.assert_awaited_once_with(None, ACTOR)
+    assert prewarm.await_count == (1 if cancel_at == "prewarm" else 0)
+    assert sleep.await_count == (1 if cancel_at == "contention_sleep" else 0)

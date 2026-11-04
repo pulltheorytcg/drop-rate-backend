@@ -24,6 +24,7 @@ from .r2_first_sources import fetch_source, source_descriptor, SourcePermissionE
 log = logging.getLogger(__name__)
 APPROVED_METADATA_SOURCES = frozenset({"ygoprodeck", "lorcast", "mtgjson", "cardcollectorcapital", "reviewed_figures"})
 REFRESH_SECONDS = 172800  # Provider bulk cache is two days. No per-scan requests.
+LOCK_RETRY_SECONDS = 30  # Database-only contention polling across rolling deploys.
 SOURCE_REFRESH_SECONDS = {"lorcast": 604800, "mtgjson": 604800, "cardcollectorcapital": 604800,
                           "reviewed_figures": 604800}
 
@@ -195,13 +196,21 @@ async def run_once(pool, actor):
 
 async def run_loop(pool, actor):
     while True:
+        delay = REFRESH_SECONDS
         try:
-            await run_once(pool, actor)
-            if service.enabled():
+            reports = await run_once(pool, actor)
+            if reports == [{"status": "ALREADY_RUNNING"}]:
+                # A retiring deployment may still hold the session lock. It
+                # has not refused a source: this pass made no provider request.
+                # Retry after the unheld pool session has been returned instead
+                # of leaving an interrupted first import asleep for two days.
+                delay = LOCK_RETRY_SECONDS
+                log.warning("R2_FIRST_IMPORT_LOCK_BUSY retry_seconds=%s", delay)
+            elif service.enabled():
                 await service.prewarm(pool, UUID(str(actor)))
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            # Failed or denied sources never retry rapidly or erase a good pointer.
+            # A failed or denied pass retains the normal refresh interval.
             log.error("R2_FIRST_IMPORT_FAILED type=%s", type(exc).__name__)
-        await asyncio.sleep(REFRESH_SECONDS)
+        await asyncio.sleep(delay)

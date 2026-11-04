@@ -114,6 +114,16 @@ Lorcast uses a complete set list and bounded sequential requests with a 250 ms
 gap. Approved new sources refresh at most weekly; the existing Yu-Gi-Oh! two-day
 cache policy is unchanged. Neither search nor scanning triggers a source fetch.
 
+During a rolling deployment, a replacement importer can encounter the old
+instance's session lock. That exact lock-busy result makes no provider request
+and returns its pool connection before retrying the lock after 30 seconds.
+Prewarming is skipped during contention. Once a pass runs, successful, current,
+disabled and failed source results all restore the normal two-day worker sleep;
+permission, database and prewarm errors do not get the contention retry. Task
+cancellation exits without another attempt. This avoids an interrupted initial
+import sleeping for two days, without changing the per-source refresh windows or
+publication checks. It is not a persisted cross-deployment provider-error cooldown.
+
 ## Release gates
 
 1. Run source, codec, importer, owner-isolation and UI regressions, the full
