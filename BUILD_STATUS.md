@@ -1,3 +1,25 @@
+## 4 November 2026 — Manga demographic expansion deployed; signed-in acceptance pending
+
+- PR #908 merged as `d0adc8d6303c3f3e1096eef63af0bb6834e9b22b` with
+  the full GitHub Backend checks and R2-first catalogue safety suites green,
+  including PostgreSQL 17 group-query, SQL binding and owner-visibility tests.
+- Exact Railway `drop-rate-api-live` deployment
+  `a7a39c7a-2df4-48e9-ab2f-201c102762a7` reached SUCCESS after 10,109
+  pre-deploy tests passed (28 optional skips); startup completed and
+  `GET /health/ready` returned HTTP 200 at 18:16:51 UTC.
+- Post-deployment read-only SQL using the **52-key deployed allowlist**:
+  Shōnen 129, Shōjo 57, Seinen 69, Josei 6, Unclassified 544.
+  **261 of 805 catalogue manga references now classify (32.42%)**, up from
+  53/805 (6.58%), an increase of 208 correct exact-series matches.
+  These are reference counts, not unique physical stock or market coverage.
+- No SQL data write, schema change, R2 import, artwork/market value,
+  inventory, ownership, payout or Shopify mutation. Uncertain manhwa,
+  adaptations and series remain Unclassified; no Kodomo cases were invented.
+- A real authenticated device browse remains an explicit separate acceptance
+  gate; do not equate ready/SQL receipt with end-user visual verification.
+  Deployment evidence was recorded on PR #908. Reviewed source details:
+  [Manga demographic review](docs/MANGA_DEMOGRAPHIC_REVIEW_20261104.md).
+
 ## 4 November 2026 — Reviewed manga demographic expansion — in review
 
 - Extend the existing strict, exact-series manga demographic allowlist with
