@@ -64,13 +64,15 @@ def _offers_absent(method: str, path: str, response: httpx.Response) -> bool:
     except ValueError:
         return False
     errors = payload.get("errors") if isinstance(payload, dict) else None
-    if not isinstance(errors, list) or len(errors) != 1 or not isinstance(errors[0], dict):
+    if not isinstance(errors, list) or not 1 <= len(errors) <= 10:
         return False
-    error = errors[0]
-    return (
-        error.get("errorId") == 25713
-        and error.get("domain") == "API_INVENTORY"
-        and error.get("category") == "REQUEST"
+    # Route + status + numeric error ID identify the condition. Descriptive
+    # domain/category metadata is not a stable discriminator in live responses.
+    # Every error must report absence; never discard a mixed or malformed error.
+    return all(
+        isinstance(error, dict) and type(error.get("errorId")) is int
+        and error["errorId"] == 25713
+        for error in errors
     )
 
 

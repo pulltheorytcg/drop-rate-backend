@@ -1,4 +1,4 @@
-## 4 November 2026 — eBay audit repaired; first-offer lookup repair in review
+## 4 November 2026 — eBay audit repaired; absent-offer metadata correction in review
 
 - A founder-UI single-card publish passed all preparation checks but returned
   HTTP 422. PostgreSQL rejected `EBAY_INVENTORY_LINK`, used by both publication
@@ -20,11 +20,16 @@
   remaining failure: GET offer collection, HTTP 404, eBay error 25713.
 - A new SKU's explicit absent-offer response now maps to an empty offer list
   so the existing publisher can create its first offer. Normalisation requires
-  the exact GET collection route, HTTP 404, single Inventory API / REQUEST
-  error 25713. Auth, rate limits, other errors and individual-offer lookups
+  the exact GET collection route, HTTP 404, and only numeric error 25713 in
+  every returned error. Auth, rate limits, other errors and individual-offer lookups
   remain failures; existing offers still follow SKU-based recovery.
-- 86 focused eBay tests pass, including absent/existing offers, malformed/mixed
-  errors and endpoint isolation. CI, deployment and the live retest remain gates.
+- PR #898 deployed as `91e4348c` with 10,027 pre-deploy tests passing. Live
+  testing exposed an overly strict metadata check: the expected 404/25713 still
+  failed classification. Match the authoritative route/status/code, ignoring
+  descriptive domain/category fields; retain strict mixed/malformed-error checks.
+- 91 focused eBay tests pass, including absent/existing offers, metadata
+  variations, malformed/mixed errors and endpoint isolation. CI, deployment
+  and a verified live listing remain acceptance gates.
 - See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
 
 ## 4 November 2026 — Catalogue groups deployed; Topps Heritage published
