@@ -16,6 +16,7 @@ from fastapi.encoders import jsonable_encoder
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_official_adapter import _looks_like_multi_item_listing, _variant_matches
+from .ebay_sold_normalization import normalize_uk_sold_payload, has_normalized_uk_evidence, REVISION as SOLD_NORMALIZATION_REVISION
 from .ebay_uk_parse_adapter import _contains_term, _normalise_text
 from .market_adapters import NormalizedMarketObservation, stable_source_record_key
 from .ownership import current_owner as _owner
@@ -103,6 +104,10 @@ class TrawlEbaySoldClient:
             raise TrawlApiError("eBay sold-data provider returned invalid JSON") from exc
         if not isinstance(payload, dict):
             raise TrawlApiError("eBay sold-data provider returned an invalid response shape")
+        try:
+            payload = normalize_uk_sold_payload(payload)
+        except ValueError as exc:
+            raise TrawlApiError("eBay sold-data provider returned invalid UK sale evidence") from exc
         # Public quota metadata only; never persist headers containing credentials.
         usage = {}
         for field, header in (("limit", "X-RateLimit-Limit"), ("remaining", "X-RateLimit-Remaining"),
@@ -123,6 +128,7 @@ class SoldComparable:
     shipping_minor: int | None
     condition_raw: str | None
     url: str | None
+    provider_evidence: dict[str, Any] | None = None
 
     @property
     def delivered_minor(self) -> int | None:
@@ -137,14 +143,14 @@ def _money_minor(value: object, *, expected_currency: str | None = None, currenc
             return None
     if value is None or isinstance(value, bool):
         return None
-    text = str(value).strip().replace("£", "").replace(",", "")
+    text = str(value).strip().replace("�", "").replace(",", "")
     if not text:
         return None
     try:
         amount = Decimal(text)
     except InvalidOperation:
         return None
-    if amount < 0:
+    if not amount.is_finite() or amount < 0 or amount >= Decimal("1e10"):
         return None
     return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
@@ -340,6 +346,7 @@ def select_five_newest_comps(payload: dict[str, Any], *, target: dict[str, Any])
             shipping_minor=shipping_minor,
             condition_raw=(str(row.get("condition_raw")).strip() if row.get("condition_raw") is not None else None),
             url=(str(row.get("item_link")).strip() if row.get("item_link") else None),
+            provider_evidence=row.get("_pricing_evidence"),
         )
 
     return sorted(accepted.values(), key=lambda comp: comp.sold_at, reverse=True)[:5]
@@ -444,6 +451,10 @@ async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable
     key = stable_source_record_key("EBAY", "TRAWL", comp.item_id, comp.sold_at.isoformat())
     if target.get("seal_status"):
         key = stable_source_record_key("EBAY", "TRAWL", "SEALED", str(target["catalogue_id"]), comp.item_id, comp.sold_at.isoformat())
+    if has_normalized_uk_evidence({"provider_evidence": comp.provider_evidence}):
+        # Append the corrected evidence once; never overwrite a legacy price,
+        # nominal timestamp or its missing provenance on an existing record.
+        key = stable_source_record_key(key, SOLD_NORMALIZATION_REVISION)
     observation = NormalizedMarketObservation(
         source="EBAY",
         source_record_key=key,
@@ -476,6 +487,7 @@ async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable
             "selection_rule": "FIVE_NEWEST_EXACT_COMPARABLE_SALES",
             "sale_price_excludes_shipping": True,
             "shipping_observed_separately": comp.shipping_minor is not None,
+            "provider_evidence": comp.provider_evidence or {},
         },
     ).validate()
     if target.get("product_type")=="COMIC":

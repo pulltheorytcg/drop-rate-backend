@@ -15,6 +15,7 @@ from uuid import uuid4
 from .access_control import require_platform_admin
 from .db import user_connection
 from .live_market_refresh import identity_key,select_comps,value_comps
+from .ebay_sold_normalization import prefer_normalized_uk_rows
 
 DIMENSIONS=('condition','grading_company','grade','language','seal_status')
 REVISION=3
@@ -88,6 +89,7 @@ def catalogue_values(product,observations,*,now,provider_checks=None):
                   and product.get('profile_identity_status')==product.get('sealed_identity_status')=='VERIFIED'
                   and product.get('sealed_product_type')=='BOOSTER_PACK' and product.get('set_code')):
             continue
+        rows=prefer_normalized_uk_rows(rows)
         candidates=[];evidence_by_id={}
         # Deduplicate listing IDs before matching; newest ingested evidence wins.
         for row in sorted(rows,key=lambda r:(r['ingested_at'],r['observed_at']),reverse=True):
@@ -97,7 +99,8 @@ def catalogue_values(product,observations,*,now,provider_checks=None):
             candidates.append({'item_id':item_id,'title':metadata.get('title',''),
                'date_sold':row['observed_at'].isoformat(),'sale_price':str(Decimal(row['price_gbp_minor'])/100),
                'shipping_price':str(Decimal(row['shipping_gbp_minor'])/100) if row.get('shipping_gbp_minor') is not None else None,
-               'currency':'GBP','condition_raw':row.get('condition'),'item_link':metadata.get('url')})
+               'currency':'GBP','condition_raw':row.get('condition'),'item_link':metadata.get('url'),
+               '_pricing_evidence':metadata.get('provider_evidence')})
         comps=select_comps({'site':'EBAY_GB','currency':'GBP','results':candidates},target,now)
         if len(comps)!=5:continue
         result=value_comps(comps,target,now=now)

@@ -108,7 +108,7 @@ def exact_match(row, target):
         digits = re.sub(r"[\s-]", "", str(b["barcode_gtin"]))
         barcode_pattern = r"(?<!\d)" + r"[\s-]*".join(re.escape(c) for c in digits) + r"(?!\d)"
         title_without_barcode = re.sub(barcode_pattern, "", title_without_barcode)
-    if re.search(r"\b\d+\s*(?:books|comics|volumes|issues|copies)\b|\bx\s*\d+\b|\b\d+\s*(?:-|–|to)\s*\d+\b",title_without_barcode,re.I):
+    if re.search(r"\b\d+\s*(?:books|comics|volumes|issues|copies)\b|\bx\s*\d+\b|\b\d+\s*(?:-|-|to)\s*\d+\b",title_without_barcode,re.I):
         return False
     if not all(_contains(title_without_barcode,b[k]) for k in ("series_title","publisher","release_year")):
         return False
@@ -178,7 +178,7 @@ def select_comps(payload, target, now):
     for row in rows:
         item_id=str(row.get("item_id") or "")
         sold=_sold_at(row.get("date_sold"))
-        if (not item_id.isdigit() or counts[item_id]!=1 or row.get("currency") not in {"GBP","£"}
+        if (not item_id.isdigit() or counts[item_id]!=1 or row.get("currency") not in {"GBP","�"}
                 or sold is None or not now-timedelta(days=90)<=sold<=now or not exact_match(row,target)):
             continue
         try:
@@ -189,5 +189,6 @@ def select_comps(payload, target, now):
         minor=lambda x:int((x*100).quantize(Decimal('1'),rounding=ROUND_HALF_UP))
         comps.append(dict(item_id=item_id,title=row["title"],sold_at=sold,price_minor=minor(price),
             shipping_minor=minor(shipping) if shipping is not None else None,
-            condition_raw=row.get("condition_raw"),url=row.get("item_link")))
+            condition_raw=row.get("condition_raw"),url=row.get("item_link"),
+            provider_evidence=row.get("_pricing_evidence")))
     return sorted(comps,key=lambda c:(c["sold_at"],c["item_id"]),reverse=True)[:5]
