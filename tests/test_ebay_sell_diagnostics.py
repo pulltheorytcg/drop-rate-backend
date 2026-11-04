@@ -88,3 +88,60 @@ def test_validation_hints_never_return_provider_prose_or_field_values():
 def test_validation_hints_handle_malformed_errors(body):
     assert _failure_hints(httpx.Response(400, json=body)) == []
     assert _failure_hints(httpx.Response(500, content=b"private-html")) == []
+
+
+@pytest.mark.parametrize("method,path,status,code,message,actionable", [
+    ("POST", "/sell/inventory/v1/offer/private-offer/publish", 400, 25002,
+     "Account verification is required. Verify your account information.", True),
+    ("POST", "/sell/inventory/v1/offer/private-offer/publish", 500, 25002,
+     "Account verification is required. Verify your account information.", False),
+    ("POST", "/sell/inventory/v1/offer", 400, 25002,
+     "Account verification is required. Verify your account information.", False),
+    ("GET", "/sell/inventory/v1/offer/private-offer", 400, 25002,
+     "Account verification is required. Verify your account information.", False),
+    ("POST", "/sell/inventory/v1/offer/private-offer/publish", 400, 25002,
+     "The Card Name is too long.", False),
+    ("POST", "/sell/inventory/v1/offer/private-offer/publish", 400, 25003,
+     "Account verification is required. Verify your account information.", False),
+])
+def test_account_verification_publication_error_is_actionable_and_safe(
+    monkeypatch, caplog, method, path, status, code, message, actionable,
+):
+    client = EbaySellClient(
+        client_id="private-client", client_secret="private-secret",
+        refresh_token="private-refresh", marketplace_id="EBAY_GB",
+    )
+
+    async def token():
+        return "private-token"
+
+    class Transport:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def request(self, *args, **kwargs):
+            return httpx.Response(status, json={"errors": [{
+                "errorId": code,
+                "message": message + " private-email@example.test",
+                "parameters": [{"value": "private-address private-token"}],
+            }]})
+
+    monkeypatch.setattr(client, "user_access_token", token)
+    monkeypatch.setattr("app.ebay_sell_client.httpx.AsyncClient", Transport)
+    with caplog.at_level(logging.WARNING, logger="app.ebay_sell_client"):
+        with pytest.raises(EbaySellApiError) as caught:
+            asyncio.run(client._request(method, path))
+    detail = str(caught.value)
+    assert ("Open eBay Seller Hub" in detail) is actionable
+    assert caught.value.status_code == status
+    assert caught.value.retryable is (status >= 500)
+    assert "private-" not in detail + caplog.text
+    assert "format" not in _failure_hints(httpx.Response(400, json={
+        "errors": [{"message": "Verify your account information."}],
+    }))

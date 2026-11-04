@@ -99,3 +99,28 @@ description and database and the separate Card Number is unchanged. Valid-length
 names, owner, quantity, photos, price and graded descriptors are unchanged.
 Regression tests cover the actual 66-character case, the 65-character boundary,
 Unicode, longer names and identifier-prefix collisions. Live retest remains pending.
+
+
+PR #905 deployed as `2c330a01ff42f1bd5abf206830fb7db8ab0fa1be`, Railway
+`da770f7b-8bf3-429c-b5fc-ed0e4d192543` SUCCESS, with 10,045 pre-deploy tests
+passing and 28 optional skips. The next founder attempt at 13:33 UTC passed
+Card Name validation but failed publish with HTTP 400/error 25002. Static hints
+were `missing`, `account`, `verification`, and `format`. The last label was a
+classifier false positive from `information`; the format matcher now uses word
+boundaries. The remaining account requirement must be inspected in eBay itself;
+these hints do not identify a particular missing bank, identity or contact field.
+
+The link remains ERROR / PUBLISH:400, without a verified offer/listing ID or
+publication timestamp. The physical copy remains owned by the same founder,
+priced at GBP 35. Seller Hub opens at a separate sign-in page, while the founder
+app session remains active. No further publish retry should run until the seller
+account action is resolved. Recover the existing offer by SKU when resuming.
+
+For POST offer publication only, HTTP 400/error 25002 with account, verification
+and required/missing hints now returns a static actionable Seller Hub message.
+No raw provider prose is exposed. Regression cases cover the actionable response,
+other endpoints/codes, a different item validation error and retryable server
+failures, including injected private-looking fields that must never be logged
+or returned. No account status, credentials, inventory or publication gates are
+changed by this message improvement. A live listing is still an outstanding
+acceptance gate; successful code tests do not establish eBay publication or sales.

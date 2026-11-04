@@ -1,35 +1,26 @@
-## 4 November 2026 — eBay audit repaired; absent-offer metadata correction in review
+## 4 November 2026 — eBay app blockers repaired; seller verification blocks publication
 
-- A founder-UI single-card publish passed all preparation checks but returned
-  HTTP 422. PostgreSQL rejected `EBAY_INVENTORY_LINK`, used by both publication
-  audit writers, because the original entity constraint omitted it.
-- Add that exact entity type atomically, preserving old audit records/types,
-  owner/actor RLS, append-only grants and every listing/ownership/price gate.
-- Real PostgreSQL regression reproduces both failures, then verifies both
-  inserts, replay-safe migration, existing records and access-denial cases.
-  A publisher retry test verifies an existing live listing makes no eBay call.
-  CI explicitly runs the database tests after installing its pinned runtime.
-- All three GitHub checks passed at `3bc411ce`. The tested migration was applied
-  as `20261104123236`; production read-back confirmed the added type and
-  unchanged forced RLS, owner/actor policies and append-only permissions.
-- The authorised founder retry passed the database blocker, then eBay returned
-  HTTP 500 followed by HTTP 404. The single channel link records `ERROR` / `PUBLISH:404`;
-  there is no verified live publication. PR #895 merged as `35a5dc28` after
-  five GitHub checks; exact Railway deployment reached SUCCESS at 12:49 UTC
-  with 10,005 pre-deploy tests passing. Redacted diagnostics identified the
-  remaining failure: GET offer collection, HTTP 404, eBay error 25713.
-- A new SKU's explicit absent-offer response now maps to an empty offer list
-  so the existing publisher can create its first offer. Normalisation requires
-  the exact GET collection route, HTTP 404, and only numeric error 25713 in
-  every returned error. Auth, rate limits, other errors and individual-offer lookups
-  remain failures; existing offers still follow SKU-based recovery.
-- PR #898 deployed as `91e4348c` with 10,027 pre-deploy tests passing. Live
-  testing exposed an overly strict metadata check: the expected 404/25713 still
-  failed classification. Match the authoritative route/status/code, ignoring
-  descriptive domain/category fields; retain strict mixed/malformed-error checks.
-- 91 focused eBay tests pass, including absent/existing offers, metadata
-  variations, malformed/mixed errors and endpoint isolation. CI, deployment
-  and a verified live listing remain acceptance gates.
+- Fixed the missing `EBAY_INVENTORY_LINK` audit entity, first-offer HTTP
+  404/error 25713 handling and eBay's 65-character Card Name specific. The
+  complete canonical identity, unique physical-copy SKU, price, owner, photos,
+  preparation checks, RLS and append-only audit permissions are preserved.
+- PRs #895, #898, #899, #901 and #905 passed their CI checks and deployed.
+  Latest listing fix: `2c330a01ff42f1bd5abf206830fb7db8ab0fa1be`, Railway
+  `da770f7b-8bf3-429c-b5fc-ed0e4d192543` SUCCESS; 10,045 pre-deploy tests passed
+  and 28 optional tests skipped. Database regressions ran explicitly in CI.
+- The authorised founder retry at 13:33 UTC used the approved Luffy ST10-006
+  PSA 9 physical copy at GBP 35. It passed the Card Name rejection and reached
+  eBay publish validation: HTTP 400/error 25002, with static account and
+  verification requirement hints. The link remains ERROR / PUBLISH:400,
+  with no verified offer or listing ID; owner match remains true. This is
+  **not a successful listing**. Do not retry until the account action is resolved.
+- The app now maps this narrowly identified publication error to a static
+  instruction to check eBay Seller Hub. It does not guess which identity,
+  bank or contact information is missing, expose provider prose or credentials,
+  or change the API rejection into success. Other failures remain unchanged.
+- eBay Seller Hub requires a separate browser sign-in. Drop Rate's signed-in
+  founder session and connected API do not establish that seller verification
+  is complete. A live listing and subsequent sale remain unverified.
 - See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
 
 ## 4 November 2026 — Catalogue groups deployed; Topps Heritage published
