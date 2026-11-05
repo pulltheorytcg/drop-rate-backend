@@ -78,6 +78,11 @@ owners' photos are not substitutes.
   cached as successful partial coverage.
 - The shared cache still coalesces authenticated global reads for two minutes.
   Capacity reads do not write data or start provider requests.
+- Production verification caught a cold full-report scan exceeding the ordinary
+  15-second database budget. The HTTP report now uses the daily report's bounded
+  45-second transaction-local statement budget and 50-second client timeout.
+  Concurrent readers still share one query; connection defaults are restored
+  automatically when its transaction ends. This is not a global timeout change.
 - Dashboard tests cover founder-only loading, counts and scope wording, refresh
   pause display, logout cleanup and revoked access. Existing owner isolation,
   grading, artwork and financial checks remain required in CI.

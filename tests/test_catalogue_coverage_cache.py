@@ -82,12 +82,16 @@ async def test_global_coverage_response_keeps_shape_and_never_reads_inventory(mo
     fetched = []
 
     class Connection:
+        async def execute(self, sql):
+            assert sql == "select set_config('statement_timeout','45000',true)"
+
         async def fetchrow(self, sql):
             assert 'pg_database_size' in sql
             return {'database_bytes': 430000000, 'default_read_only': 'off'}
 
-        async def fetch(self, sql):
+        async def fetch(self, sql, **kwargs):
             assert sql is coverage.COVERAGE_SQL
+            assert kwargs == {'timeout': 50}
             assert 'physical_inventory' not in sql
             fetched.append(sql)
             return [dict(kind='CARD', system_code='POKEMON_TCG', language='English',
