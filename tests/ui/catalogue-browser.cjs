@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=market-values-20261104'), 'Seller Hub must load the current grouped discovery and saved-reference script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=market-values-20261105'), 'Seller Hub must load the current grouped discovery and saved-reference script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=groups-20261104'), 'Seller Hub must load the current grouped discovery styles');
 assert.ok(ownerShell.includes('/assets/owner-collectibles.js?v=metadata-20261104'), 'Seller Hub must load editable metadata-reference intake');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
@@ -83,24 +83,21 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const row={...card,market_value_minor:3,market_value_source:'DROP_RATE_COMPUTED_MARKET_V1',market_quotes:[{
    source:'DROP_RATE_COMPUTED_MARKET_V1',price_gbp_minor:3,observed_at:new Date().toISOString()}]};
   const f=fixture(async()=>({items:[row],has_more:false}));await f.browser.open();f.browser.pickGame(games[0]);await tick();
-  assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £0.03');
-  f.browser.openProduct(row);assert.match(f.browser.sheet.textContent,/Market value: £0.03/);
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Value unavailable');
+  f.browser.openProduct(row);assert.doesNotMatch(f.browser.sheet.textContent,/Market value: £0.03/);
+  assert.match(f.browser.sheet.textContent,/provisional estimate or active listing/);
   assert.doesNotMatch(f.browser.sheet.textContent,/undefined:|Cardmarket #/);f.finish();
  }
- // Current asking evidence is visibly separate and never fills market-value fields.
+ // Current asking evidence stays in provenance, never displayed as Market Value.
  {
   const row={...card,asking_price_estimate:askingFixture()},f=fixture(async()=>({items:[row],has_more:false}));
   await f.browser.open();f.browser.pickGame(games[0]);await tick();
-  assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £12.34');
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Value unavailable');
   f.browser.openProduct(row);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £12.34');
-  assert.match(f.browser.sheet.textContent,/eBay current listings: 4 listings from 3 sellers/);
-  assert.ok(f.browser.sheet.textContent.includes(new Date(row.asking_price_estimate.observed_at).toLocaleDateString('en-GB')));
-  assert.match(f.browser.sheet.textContent,/Estimate basis: Near Mint · Foil · Shop delivery estimate included/);
-  assert.match(f.browser.sheet.textContent,/Current asking prices; not completed sales or a valuation of your copy/);
-  assert.doesNotMatch(f.browser.sheet.textContent,/Cardmarket|No verified market value/);
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value unavailable');
+  assert.match(f.browser.sheet.textContent,/provisional estimate or active listing/);
+  assert.doesNotMatch(f.browser.sheet.textContent,/£12\.34|Market value: £12\.34/);
   assert.equal(row.market_value_minor,null);
-  assert.equal(row.asking_price_estimate.recommended_retail_minor,null);
   f.finish();checks++;
  }
  // Expired, incomplete or unsafe evidence never becomes a displayed estimate.
@@ -135,9 +132,9 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const history={status:'STALE',market_value_minor:null,last_known_minor:800,checked_at:'2026-01-01T00:00:00Z'};
   const row={...card,shared_price:history,asking_price_estimate:estimate};
   f.browser.openProduct(row);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £12.34');
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £8.00');
   assert.equal(row.shared_price,history);assert.equal(row.market_value_minor,null);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-historical-label'),null);
+  assert.ok(f.browser.sheet.querySelector('.dr-browse-historical-label'));
   f.finish();checks++;
  }
  // Stored asking evidence remains displayed; browsing never starts a market refresh.
@@ -150,7 +147,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
    return {items:[row],has_more:false};
   });
   await f.browser.open();f.browser.pickGame(games[0]);await tick();f.browser.openProduct(row);
-  const label=outcome==='stored-current-price'?'Market value: £9.00':'Market value: £12.34';
+  const label=outcome==='stored-current-price'?'Market value: £9.00':'Value pending';
   assert.equal(f.browser.find('[data-price-key]').textContent,label);
   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,label);
   assert.equal(row.asking_price_estimate,estimate);
