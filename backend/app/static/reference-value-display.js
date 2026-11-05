@@ -24,6 +24,9 @@ window.DropRateReferenceValue = Object.freeze({
   },
   text(item, money) {
     const ref = this.displayReference(item);
+    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value =>
+      ["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(value?.method)))
+      return "Value unavailable";
     if (!ref) return item?.market_value_minor == null ? "Value unavailable" : "Value: " + money(item.market_value_minor);
     // Provisional asking/model evidence never supplies this monetary field.
     if (["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
@@ -49,7 +52,8 @@ window.DropRateReferenceValue = Object.freeze({
   marketMinor(item) {
     const ref = this.displayReference(item);
     if (ref && !["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE", "CATALOGUE_GUIDE", "UK_EU_MARKET_ESTIMATE"].includes(ref.status)) return null;
-    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value => value?.method === "DROP_RATE_UK_EU_MARKET_V1")) return null;
+    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value =>
+      ["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(value?.method))) return null;
     const amount = ref ? ref.market_value_minor : item?.market_value_minor;
     return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
   },
