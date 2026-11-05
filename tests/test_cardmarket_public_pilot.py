@@ -142,3 +142,18 @@ def test_corrupt_finish_list_and_nonfinite_fx_fail_without_exception_leak():
                       source=ECB_SOURCE,effective_at=fx.effective_at,retrieved_at=fx.retrieved_at)
     with pytest.raises(PilotError,match="ECB"):
         run(fx=invalidfx)
+
+def test_source_cards_only_extracts_actual_paper_printings():
+    from scripts.pilot_cardmarket_public_daily_mtg import source_cards
+    payload={"data":{"name":"Example Edition","cards":[
+        {"uuid":CARD_ID,"name":"Fixture Legend","availability":["paper"],"finishes":["nonfoil"],
+         "identifiers":{"mcmId":"12345"}},
+        {"uuid":CARD_ID,"name":"Digital only","availability":["mtgo"],"finishes":["nonfoil"],
+         "identifiers":{"mcmId":"12346"}},
+    ]}}
+    rows=source_cards(payload)
+    assert len(rows)==1
+    assert rows[0]["set_name"]=="Example Edition"
+    assert rows[0]["language"]=="English"
+    assert rows[0]["paper"] is True
+    assert rows[0]["identifiers"]=={"mcmId":"12345"}
