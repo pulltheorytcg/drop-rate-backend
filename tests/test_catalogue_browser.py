@@ -294,3 +294,13 @@ async def test_slab_selection_rejects_missing_future_and_sealed_cards(monkeypatc
         await browser.select_product(browser.CatalogueSelection(key='r:123',confirmed=True),request,
             SimpleNamespace(user_id=uuid4()),{'owner_id':uuid4()})
     assert error.value.status_code==status
+
+
+def test_catalogue_sql_excludes_internal_models_and_asking_only_prices():
+    sql = browser.SOURCE_CTE
+    assert "b.quotes->0->>'source' not in (" in sql
+    for source in ('DROP_RATE_COMPUTED_MARKET_V1', 'CARDTRADER_EXPANSION_ASKING',
+                   'TCGCSV_TCGPLAYER_CATALOGUE'):
+        assert "'" + source + "'" in sql
+    assert "coalesce(case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_minor end,b.market_value_minor)" in sql
+    assert 'i.owner_id=$1' in sql
