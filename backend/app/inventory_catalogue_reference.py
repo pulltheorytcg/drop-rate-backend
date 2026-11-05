@@ -410,7 +410,8 @@ def catalogue_guide(product, rows, language, *, now):
             continue
         eligible.append((amount, checked, quote))
     if not eligible:
-        return computed_catalogue_guide(row, quotes, language, now=now)
+        # Historical same-set models are not independent market evidence.
+        return None
     # Match catalogue source precedence: detailed quotes before broad guides.
     detailed = [v for v in eligible if v[2]['source'].startswith('TCGDEX_')]
     eligible = detailed or eligible
@@ -454,12 +455,8 @@ async def add_catalogue_references(connection, items, *, now):
         if lookups:
             for row in await connection.fetch(CACHE_SQL, json.dumps(lookups)):
                 references[str(row['catalogue_id'])].append(dict(row))
-    from .uk_eu_reference_display import add_uk_eu_estimates, _finish
-    projected = await add_uk_eu_estimates(connection,
-        [row for rows in references.values() for row in rows], now=now)
-    references = defaultdict(list)
-    for row in projected:
-        references[str(row['catalogue_id'])].append(row)
+    # Never project eBay Browse asking prices into Market Value. Their
+    # provenance remains independently retained in the source evidence tables.
     for item in pending:
         product = products.get(str(item['catalogue_id']))
         if not product:
@@ -469,15 +466,6 @@ async def add_catalogue_references(connection, items, *, now):
         if not language or (canonical_language and canonical_language != language):
             continue
         guide = catalogue_guide(product, references[str(item['catalogue_id'])], language, now=now)
-        matches = reference_candidates(product, references[str(item['catalogue_id'])], language)
-        identities = {(r['provider'], r['system_code'], r['language'], r['provider_id']) for r in matches}
-        if len(identities) == 1:
-            model = matches[0].get('uk_eu_market_estimate')
-            if model and _finish(product.get('variant')) == model.get('finish'):
-                guide = dict(model, status='CATALOGUE_GUIDE',
-                    market_value_minor=model['estimate_minor'], market_value_high_minor=model['estimate_high_minor'],
-                    checked_at=model['observed_at'], basis=language + ' · Raw reference estimate',
-                    reference_id=':'.join(next(iter(identities))), recommended_retail_minor=None)
         if guide:
             item['catalogue_reference'] = guide
     return items
