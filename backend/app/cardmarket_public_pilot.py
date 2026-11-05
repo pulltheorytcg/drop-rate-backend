@@ -87,7 +87,7 @@ def _mtg_identity_cards(cards: list[dict]) -> tuple[dict, set]:
         if not name or not set_name or not isinstance(card.get("finishes"), list):
             continue
         finishes = card["finishes"]
-        if len(finishes) != len(set(finishes)) or not all(isinstance(finish, str) for finish in finishes):
+        if not all(isinstance(finish, str) for finish in finishes) or len(finishes) != len(set(finishes)):
             continue
         valid = {finish for finish in finishes if finish in VALID_FINISHES}
         if not valid:
@@ -109,7 +109,7 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
         raise PilotError("Pilot clock must be timezone-aware")
     now = now.astimezone(timezone.utc)
     if (fx.base_currency != "EUR" or fx.quote_currency != "GBP" or
-            fx.source != ECB_SOURCE or fx.rate <= 0 or not fx.rate.is_finite() or
+            fx.source != ECB_SOURCE or not fx.rate.is_finite() or fx.rate <= 0 or
             fx.effective_at.utcoffset() is None or fx.retrieved_at.utcoffset() is None or
             fx.effective_at > now or fx.retrieved_at > now):
         raise PilotError("Validated ECB EUR/GBP evidence is required")
