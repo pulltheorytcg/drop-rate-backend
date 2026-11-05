@@ -1,3 +1,11 @@
+## 5 November 2026 — Market-value source and capacity recovery reconciled; no production change
+
+- Read-only Supabase, Railway and GitHub checks confirm PostgreSQL **430,419,091 bytes** (5 Nov 18:11 UTC), above the existing **400,000,000-byte** bulk refresh pause; live API logs still record `BULK_REFRESH_DEFERRED_CAPACITY`.
+- The 5 Nov 00:12 UTC receipt recorded **39,680/67,217 (59.03%)** current *original SQL reference prices*, including Cardmarket guides, not eligible sold-market-value coverage. Published TCG source references total **269,599** after Yu-Gi-Oh!, Lorcana and Magic metadata-only R2 imports; their market-value/artwork coverage has not been established. Riftbound remains unpublished.
+- Existing 3 Nov R2 backup has a verified typed restore of **87,369** complete market/catalogue quote rows. It reclaimed **0 SQL bytes**; it is not permission to delete/overwrite SQL, relax the capacity guard or report a refreshed price.
+- Measured **133** distinct catalogues with last-seven-day eBay V4 snapshot dates, not a guarantee of strict comparable or sell-grade eligibility. Original SQL artwork URL gap remains **3,316**; the 380-candidate exact TCGdex repair returned HTTP 404 for all 380.
+- Documented source quality, accurate denominators, capacity options, R2 cutover parity/rollback, permitted new-game sourcing and test gates in [the 5 November recovery report](docs/MARKET_VALUE_RECOVERY_20261105.md). **Documentation only; no source, financial, inventory, media or production mutation.** Owner decision remains necessary before any paid capacity upgrade or physical SQL price-payload cutover.
+
 ## 4 November 2026 — Manga demographic expansion deployed; signed-in acceptance pending
 
 - PR #908 merged as `d0adc8d6303c3f3e1096eef63af0bb6834e9b22b` with
