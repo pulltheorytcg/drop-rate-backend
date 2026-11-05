@@ -62,7 +62,12 @@ async def shared_price_coverage(pool, user_id, request_id):
     async def load():
         started = time.perf_counter()
         async with user_connection(pool, user_id, request_id) as connection:
-            rows = await connection.fetch(COVERAGE_SQL)
+            # A cold global scan can exceed the ordinary 15-second budget on
+            # the small production database. Match the bounded daily report;
+            # SET LOCAL ends with this transaction and the shared cache still
+            # coalesces concurrent readers into one scan.
+            await connection.execute("select set_config('statement_timeout','45000',true)")
+            rows = await connection.fetch(COVERAGE_SQL, timeout=50)
             context = await read_catalogue_context(connection, rows)
         items = [dict(row) for row in rows]
         duration_ms = round((time.perf_counter() - started) * 1000)
