@@ -159,3 +159,96 @@ def test_source_cards_only_extracts_actual_paper_printings():
     assert rows[0]["language"]=="English"
     assert rows[0]["paper"] is True
     assert rows[0]["identifiers"]=={"mcmId":"12345"}
+
+
+def cohort_sample(n: int = 9, *, prefix: int = 50000, set_name: str = "Example Edition",
+                  expansion_id: int = 900) -> tuple[list[dict], dict, dict]:
+    """Independent exact MCM-ID and NAME evidence, no provider sets invented."""
+    _, products, guides, _ = _fixtures()
+    products["products"] = []
+    guides["priceGuides"] = []
+    cards = []
+    for i in range(n):
+        source_id = prefix + i
+        card = deepcopy(CARD)
+        card["uuid"] = str(UUID(int=source_id))
+        card["name"] = f"Fixture Card {source_id}"
+        card["set_name"] = set_name
+        card["identifiers"] = {"mcmId": str(source_id)}
+        cards.append(card)
+        products["products"].append({
+            "idProduct": source_id, "name": card["name"], "categoryName": "Magic Single",
+            "idExpansion": expansion_id, "expansionName": None,
+        })
+        guides["priceGuides"].append({
+            "idProduct": source_id, "trend": 1.25, "trend-foil": 2.50,
+        })
+    return cards, products, guides
+
+
+def test_numeric_expansion_id_works_only_after_multiple_independent_name_proofs():
+    cards, products, guides = cohort_sample(9)
+    originals = deepcopy((cards, products, guides))
+    result = run(cards=cards, products=products, guides=guides)
+    assert result["candidate_count"] == 18  # Nine exact IDs, two explicitly supported finishes
+    assert result["expansion_cohorts_corroborated"] == 1
+    assert result["expansion_ids_ambiguous"] == 0
+    assert result["min_distinct_anchor_names"] >= 8
+    assert all(value["expansion_evidence"] == "COHORT_CORROBORATED_PILOT"
+               and value["match_basis"].endswith("CORROBORATED_EXPANSION_ID_V1")
+               and value["cardmarket_expansion_id"] == 900
+               and value["expansion_anchor_names"] == 9
+               and value["physical_valuation_eligible"] is False
+               and value["publishable"] is False
+               and value["sold_observation_count"] == 0
+               and "market_value_minor" not in value
+               for value in result["candidates"])
+    assert (cards, products, guides) == originals
+
+
+def test_one_or_seven_matching_ids_cannot_guess_a_release_from_name():
+    for count in (1, 7):
+        cards, products, guides = cohort_sample(count)
+        result = run(cards=cards, products=products, guides=guides)
+        assert result["candidate_count"] == 0
+        assert result["rejected"]["INSUFFICIENT_EXPANSION_PROOF"] == count
+
+
+def test_two_different_source_sets_with_same_numeric_expansion_id_quarantine_both():
+    first = cohort_sample(9, prefix=50000, set_name="Example Edition", expansion_id=900)
+    second = cohort_sample(9, prefix=60000, set_name="Other Edition", expansion_id=900)
+    cards = first[0] + second[0]
+    products = deepcopy(first[1])
+    products["products"] += second[1]["products"]
+    guides = deepcopy(first[2])
+    guides["priceGuides"] += second[2]["priceGuides"]
+    result = run(cards=cards, products=products, guides=guides)
+    assert result["candidate_count"] == 0
+    assert result["expansion_ids_ambiguous"] == 1
+    assert result["rejected"]["EXPANSION_ID_CONFLICT"] == 18
+
+
+def test_explicit_wrong_release_never_override_with_numeric_cohort():
+    cards, products, guides = cohort_sample(9)
+    products["products"][0]["expansionName"] = "Wrong Edition"
+    result = run(cards=cards, products=products, guides=guides)
+    assert result["candidate_count"] == 16
+    assert result["rejected"]["SET_NAME_MISMATCH"] == 1
+
+
+@pytest.mark.parametrize("invalid_expansion", [None, "", "0", -1, False, "unknown"])
+def test_missing_numeric_expansion_without_explicit_set_fails_closed(invalid_expansion):
+    cards, products, guides = cohort_sample(9)
+    products["products"][0]["idExpansion"] = invalid_expansion
+    result = run(cards=cards, products=products, guides=guides)
+    assert result["rejected"]["EXPANSION_ID_MISSING"] == 1
+    assert result["candidate_count"] == 16
+
+
+def test_fake_expansion_proof_with_only_repeated_card_name_is_rejected():
+    cards, products, guides = cohort_sample(9)
+    for card, product in zip(cards, products["products"]):
+        card["name"] = product["name"] = "Same Reprinted Name"
+    result = run(cards=cards, products=products, guides=guides)
+    assert result["candidate_count"] == 0
+    assert result["rejected"]["INSUFFICIENT_EXPANSION_PROOF"] == 9
