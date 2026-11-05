@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.inventory_catalogue_reference import catalogue_guide
+from app.inventory_catalogue_reference import catalogue_guide, computed_catalogue_guide
 from app.inventory_reference_values import add_shared_reference_values, reference_totals, recommended_totals
 
 NOW = datetime(2026, 10, 15, 12, tzinfo=timezone.utc)
@@ -29,14 +29,14 @@ def computed_fixture():
     return product, ref, quote, estimate
 
 
-def test_existing_daily_model_is_visible_without_inventing_a_copy_price():
+def test_existing_daily_model_is_internal_only_not_a_market_value():
     product, ref, quote, estimate = computed_fixture()
     before = deepcopy((product, ref))
-    result = catalogue_guide(product, [ref], 'English', now=NOW)
-    assert result['market_value_minor'] == estimate.estimate_minor
-    assert result['label'] == 'Drop Rate estimate'
-    assert result['method'] == 'DROP_RATE_COMPUTED_MARKET_V1'
-    assert result['physical_valuation_eligible'] is False and result['recommended_retail_minor'] is None
+    historical = computed_catalogue_guide(ref, [quote], 'English', now=NOW)
+    assert historical['market_value_minor'] == estimate.estimate_minor
+    assert historical['method'] == 'DROP_RATE_COMPUTED_MARKET_V1'
+    assert historical['physical_valuation_eligible'] is False
+    assert catalogue_guide(product, [ref], 'English', now=NOW) is None
     assert (product, ref) == before
 
 

@@ -38,12 +38,17 @@ const model = {status: "CATALOGUE_GUIDE", method: "DROP_RATE_UK_EU_MARKET_V1", c
   estimate_low_minor: 1100, estimate_high_minor: 1400, confidence: 0.6,
   observed_at: new Date(Date.now() - 60000).toISOString(),
   expires_at: new Date(Date.now() + 3600000).toISOString()};
-assert.equal(values.marketMinor({catalogue_reference: model}), 1234);
+assert.equal(values.marketMinor({catalogue_reference: model}), null, "Provisional eBay asking model is not Market Value");
 assert.equal(values.label({catalogue_reference: model}), "Market value");
+assert.equal(values.text({catalogue_reference: model}, money), "Value unavailable");
 assert.equal(values.marketMinor({reference_value: {status: "AVAILABLE", market_value_minor: 900}, catalogue_reference: model}), 900);
 checks++;
 assert.equal(values.marketMinor({market_value_minor: 1234,
   catalogue_reference: {...model, expires_at: "2000-01-01T00:00:00Z"}}), null);
+checks++;
+const internalModel = {status:"CATALOGUE_GUIDE", method:"DROP_RATE_COMPUTED_MARKET_V1",market_value_minor:700};
+assert.equal(values.marketMinor({catalogue_reference: internalModel}), null);
+assert.equal(values.text({catalogue_reference: internalModel}, money), "Value unavailable");
 checks++;
 console.log(checks + " market-value source selection checks passed");
 

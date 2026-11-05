@@ -176,7 +176,7 @@ def test_ineligible_legacy_guide_does_not_query_model_cache(changes):
     assert connection.calls == []
 
 
-def test_inventory_exact_raw_reference_gets_model_without_changing_physical_money():
+def test_inventory_reference_uses_source_guide_without_asking_model_promotion():
     from app.inventory_catalogue_reference import add_catalogue_references
     reference, record, _ = fixture()
     product = dict(id=uuid4(), product_type='CARD', game='Pokemon', name=reference['name'],
@@ -189,13 +189,15 @@ def test_inventory_exact_raw_reference_gets_model_without_changing_physical_mone
     class InventoryConnection:
         async def fetch(self, query, *args):
             if query == MODEL_DISPLAY_SQL:
-                return [record]
+                raise AssertionError('Asking-price model cannot supply inventory Market Value')
             return [reference] if 'select k.catalogue_id' in query else [product]
     item = dict(catalogue_id=product['id'], product_type='CARD', language='English',
         condition='Near Mint', market_value_minor=None, recommended_retail_minor=None, store_price_minor=1800)
     complete(add_catalogue_references(InventoryConnection(), [item], now=NOW))
-    assert item['catalogue_reference']['method'] == METHOD
-    assert item['catalogue_reference']['market_value_minor'] == 1050
+    # The legitimate Cardmarket source quote is 1000; eBay asking model was
+    # 1050 and must not override it, regardless of model confidence.
+    assert item['catalogue_reference']['market_value_minor'] == 1000
+    assert item['catalogue_reference'].get('method') != METHOD
     assert item['catalogue_reference']['physical_valuation_eligible'] is False
     assert item['market_value_minor'] is None and item['recommended_retail_minor'] is None
     assert item['store_price_minor'] == 1800

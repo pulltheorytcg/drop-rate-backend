@@ -20,15 +20,18 @@ function fixture(){
  return {w,browser,finish:()=>{browser.destroy();w.close();}};
 }
 let checks=0;
-// Render the server estimate across each supported product type without mutating values.
+// Provisional asking/guide combination is not a market price for any product.
 for(const type of ['CARD','SEALED','COMIC','FIGURE']){
  const f=fixture(),row={...card,product_type:type,uk_eu_market_estimate:estimate()},original=JSON.stringify(row);
  f.browser.rows=[row];f.browser.renderRows();
- assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £12.34');
+ assert.equal(f.browser.find('[data-price-key]').textContent,type==='COMIC'?'Value pending':'Value unavailable');
  f.browser.openProduct(row);
- assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £12.34');
- assert.match(f.browser.sheet.textContent,/Provisional; not a completed-sale value/);
- assert.match(f.browser.sheet.textContent,/Reference range: £11.00–£14.00 · Item price only; postage excluded/);
+ if(type==='COMIC')assert.match(f.browser.sheet.textContent,/Market value pending/);
+ else {
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value unavailable');
+  assert.match(f.browser.sheet.textContent,/provisional estimate or active listing/);
+ }
+ assert.doesNotMatch(f.browser.sheet.textContent,/£12\.34|£11\.00|£14\.00/);
  assert.equal(JSON.stringify(row),original);
  f.finish();checks++;
 }
@@ -60,12 +63,12 @@ for(const patch of [{method:'unknown'},{currency:'USD'},{shipping_basis:'UNKNOWN
 {
  const f=fixture(),ref=f.w.DropRateReferenceValue,model=estimate({status:'CATALOGUE_GUIDE',market_value_minor:1234,recommended_retail_minor:9900}),
  item={market_value_minor:null,catalogue_reference:model,store_price_minor:555};
- assert.equal(ref.text(item,money),'Value: £12.34');
+ assert.equal(ref.text(item,money),'Value unavailable');
  assert.equal(ref.label(item),'Market value');
- assert.equal(ref.marketMinor(item),1234);
+ assert.equal(ref.marketMinor(item),null);
  assert.equal(ref.recommendedMinor(item),null);
  assert.equal(item.store_price_minor,555);
- assert.match(ref.description(item),/asking prices and Cardmarket guides/);
+ assert.equal(ref.description(item),''); // internal quote stays in the record, not the public valuation
  assert.equal(ref.marketMinor({reference_value:{status:'STALE',market_value_minor:900},market_value_minor:900}),null);
  assert.equal(ref.marketMinor({market_value_minor:900,catalogue_reference:{...model,expires_at:'2000-01-01T00:00:00Z'}}),null);
  for(const status of ['AVAILABLE','REFERENCE_ESTIMATE','CONDITION_REFERENCE']){
@@ -81,7 +84,7 @@ for(const patch of [{method:'unknown'},{currency:'USD'},{shipping_basis:'UNKNOWN
 // Provider text stays text, including malicious-looking content.
 {
  const f=fixture();f.browser.openProduct({...card,uk_eu_market_estimate:estimate({reason:'<img src=x onerror=alert(1)><script>unsafe</script>'})});
- assert.match(f.browser.sheet.textContent,/<img src=x/);
+ assert.doesNotMatch(f.browser.sheet.textContent,/<img src=x/);
  assert.equal(f.browser.sheet.querySelector('.dr-browse-price-details img,.dr-browse-price-details script'),null);
  f.finish();checks++;
 }

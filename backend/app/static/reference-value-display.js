@@ -16,16 +16,19 @@ window.DropRateReferenceValue = Object.freeze({
   },
   displayReference(item) {
     const candidate = item?.reference_value;
-    const ref = candidate?.method === "DROP_RATE_UK_EU_MARKET_V1" && !this.ukEuEstimate(candidate) ? null : candidate;
+    const ref = ["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(candidate?.method) ? null : candidate;
     if (["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE"].includes(ref?.status)) return ref;
     const catalogue = item?.catalogue_reference;
-    if (catalogue?.method === "DROP_RATE_UK_EU_MARKET_V1" && !this.ukEuEstimate(catalogue)) return ref;
+    if (["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(catalogue?.method)) return ref;
     return catalogue || ref;
   },
   text(item, money) {
     const ref = this.displayReference(item);
+    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value =>
+      ["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(value?.method)))
+      return "Value unavailable";
     if (!ref) return item?.market_value_minor == null ? "Value unavailable" : "Value: " + money(item.market_value_minor);
-    if (this.ukEuEstimate(ref)) return "Value: " + money(ref.estimate_minor ?? ref.market_value_minor);
+    // Provisional asking/model evidence never supplies this monetary field.
     if (["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
       return "Value: " + money(ref.market_value_minor);
     }
@@ -49,8 +52,9 @@ window.DropRateReferenceValue = Object.freeze({
   marketMinor(item) {
     const ref = this.displayReference(item);
     if (ref && !["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE", "CATALOGUE_GUIDE", "UK_EU_MARKET_ESTIMATE"].includes(ref.status)) return null;
-    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value => value?.method === "DROP_RATE_UK_EU_MARKET_V1")) return null;
-    const amount = ref ? (this.ukEuEstimate(ref) ? ref.estimate_minor ?? ref.market_value_minor : ref.market_value_minor) : item?.market_value_minor;
+    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value =>
+      ["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(value?.method))) return null;
+    const amount = ref ? ref.market_value_minor : item?.market_value_minor;
     return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
   },
   compactText(item, money) {
