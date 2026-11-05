@@ -24,7 +24,7 @@ let checks=0;
 for(const type of ['CARD','SEALED','COMIC','FIGURE']){
  const f=fixture(),row={...card,product_type:type,uk_eu_market_estimate:estimate()},original=JSON.stringify(row);
  f.browser.rows=[row];f.browser.renderRows();
- assert.equal(f.browser.find('[data-price-key]').textContent,'Value unavailable');
+ assert.equal(f.browser.find('[data-price-key]').textContent,type==='COMIC'?'Value pending':'Value unavailable');
  f.browser.openProduct(row);
  if(type==='COMIC')assert.match(f.browser.sheet.textContent,/Market value pending/);
  else {
