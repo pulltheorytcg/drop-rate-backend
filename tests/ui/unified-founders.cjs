@@ -23,6 +23,14 @@ function fixture(founder) {
   let release;
   w.fixtureRequest = async (url, options) => {
     calls.push({url, options});
+    if (url === '/api/v1/catalogue-browser/coverage') return {
+      observed_at: '2026-11-04T23:00:00Z', summary: {physical_cards: {total: 67217, priced: 39863}},
+      automatic_price_refresh: {status: 'PAUSED'},
+      catalogue: {stored_physical_tcg_references: 269599,
+        published_sources: [{category: 'TCG', game: 'Magic: The Gathering', stored_references: 153662}],
+        unpublished_tcg_games: [{game: 'Riftbound'}],
+        sql_physical_artwork: {with_url: 63901, missing_url: 3316}},
+    };
     if (url === '/api/v1/access/me') return {access};
     if (url === '/api/v1/founder/accounts') {
       if (release === 'defer') return new Promise(resolve => {release = resolve;});
@@ -52,6 +60,13 @@ function fixture(founder) {
     if (founder) {
       assert.match(f.doc.querySelector('#accounts-summary').textContent, /2Active|Active accounts2/);
       assert.equal(f.doc.querySelectorAll('.founder-control-card').length, 8);
+      const coverage = f.doc.querySelector('.founder-coverage-details').textContent;
+      assert.match(coverage, /269,599 stored TCG printing\/finish references/);
+      assert.match(coverage, /Magic: The Gathering: 153,662 references/);
+      assert.match(coverage, /Riftbound: catalogue not yet imported/);
+      assert.match(coverage, /39,863 of 67,217/);
+      assert.match(coverage, /does not measure exact market-value coverage across all games/);
+      assert.match(coverage, /paused by the database capacity safeguard/);
       const links = [...f.doc.querySelectorAll('.founder-control-card')].map(el => el.getAttribute('href'));
       for (const key of ['inventory','verification','media','dashboard','reports','balance','sales','settings']) assert.ok(links.includes('/founders#'+key));
       f.doc.querySelector('#business-tab-sellers').click(); await tick(); await tick();
@@ -65,11 +80,13 @@ function fixture(founder) {
       f.run('clearSession()');
       f.resolve({accounts: [{id: 'late', display_name: 'Private late result'}]}); await tick();
       assert.equal(f.doc.querySelector('#accounts-results').textContent, '');
+      assert.equal(f.doc.querySelector('.founder-coverage-details').textContent, '');
       assert.equal(f.doc.querySelector('.founder-settings-entry').hidden, true);
       assert.equal(f.run('state.access'), null);
       assert.equal(f.doc.querySelector('#owner-view-founders').classList.contains('hidden'), true);
     } else {
       assert.ok(f.calls.every(call => !call.url.startsWith('/api/v1/founder/')));
+      assert.ok(f.calls.every(call => call.url !== '/api/v1/catalogue-browser/coverage'));
       f.run("activateOwnerView('founders')"); assert.equal(f.w.location.hash, '#settings');
     }
     assert.ok(f.calls.every(call => !call.options?.method || call.options.method === 'GET'));
@@ -85,6 +102,7 @@ function fixture(founder) {
   f.doc.querySelector('#business-refresh').click(); await tick(); await tick();
   assert.equal(f.doc.querySelector('#business-content').hidden, true);
   assert.equal(f.doc.querySelector('#accounts-results').textContent, '');
+  assert.equal(f.doc.querySelector('.founder-coverage-details').textContent, '');
   assert.equal(f.w.location.hash, '#settings');
   f.close();
   // Privileged forms keep their existing handlers but return to the shared Hub.
@@ -117,3 +135,4 @@ function fixture(founder) {
   }
   console.log('PASS: shared founder/seller shell, Settings-only founder dashboard, eight existing control destinations, owner denial, revocation, escaping, logout and stale-response cleanup.');
 })().catch(error => {console.error(error); process.exitCode = 1;});
+

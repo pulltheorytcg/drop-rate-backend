@@ -87,6 +87,10 @@ async def test_existing_daily_receipt_contains_actionable_global_coverage_withou
              oldest_check=datetime(2026, 10, 12, tzinfo=timezone.utc)),
     ]
     class Conn:
+        async def fetchrow(self, query):
+            assert 'pg_database_size' in query
+            return {'database_bytes': 430000000, 'default_read_only': 'off'}
+
         async def execute(self, query):
             assert query == "select set_config('statement_timeout','45000',true)"
             return "SELECT 1"
@@ -113,7 +117,9 @@ async def test_existing_daily_receipt_contains_actionable_global_coverage_withou
     monkeypatch.setattr(catalogue_coverage, "user_connection", connection)
     monkeypatch.setattr(catalogue_maintenance, "receipt", record)
     data = await catalogue_coverage.record_coverage(object(), uuid4())
-    assert data["scope"] == "ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS"
+    assert data["scope"] == "SQL_REFERENCE_CARDS_AND_SEALED_PRODUCTS"
+    import json
+    json.dumps(data)  # Receipt payload must remain JSON serializable.
     assert data["total"] == 16607
     assert data["summary"]["by_kind"]["CARD"]["missing"] == 4480
     assert data["summary"]["missing_by_reason"][0]["status"] == "SOURCE_ACCESS_REQUIRED"
@@ -150,3 +156,4 @@ def test_coverage_retries_after_completed_price_refresh_without_refetching_sourc
     assert coverage_lags_pricing({"CATALOGUE_COVERAGE":coverage,
         "CARDMARKET_VALUES":complete(base+timedelta(minutes=1))})
     assert coverage_lags_pricing({})
+

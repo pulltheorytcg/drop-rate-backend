@@ -82,6 +82,10 @@ async def test_global_coverage_response_keeps_shape_and_never_reads_inventory(mo
     fetched = []
 
     class Connection:
+        async def fetchrow(self, sql):
+            assert 'pg_database_size' in sql
+            return {'database_bytes': 430000000, 'default_read_only': 'off'}
+
         async def fetch(self, sql):
             assert sql is coverage.COVERAGE_SQL
             assert 'physical_inventory' not in sql
@@ -100,7 +104,10 @@ async def test_global_coverage_response_keeps_shape_and_never_reads_inventory(mo
     second = await coverage.shared_price_coverage(object(), uuid4(), 'test-b')
     assert second is first
     assert len(fetched) == 1
-    assert first['scope'] == 'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS'
+    assert first['scope'] == 'SQL_REFERENCE_CARDS_AND_SEALED_PRODUCTS'
+    assert first['automatic_price_refresh']['status'] == 'PAUSED'
+    assert first['catalogue']['stored_physical_tcg_references'] is None
     assert first['items'][0]['products'] == 2
     assert first['summary']['physical_cards']['priced'] == 2
     assert first['total'] == 2
+
