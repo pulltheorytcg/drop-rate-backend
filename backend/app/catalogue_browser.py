@@ -233,7 +233,11 @@ with reference_base as not materialized (
  left join tcg.reference_catalogue_prices b
  on (b.provider,b.system_code,b.language,b.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
  and b.pricing_updated_at>=now()-interval '7 days'
- and (b.quotes->0->>'source'<>'DROP_RATE_COMPUTED_MARKET_V1' or b.pricing_updated_at>now()-interval '2 days')
+ -- Derived models and asking-only figures are not sourced market values.
+ -- Retain their historical records, not their catalogue value display.
+ and b.quotes->0->>'source' not in (
+   'DROP_RATE_COMPUTED_MARKET_V1','CARDTRADER_EXPANSION_ASKING',
+   'TCGCSV_TCGPLAYER_CATALOGUE')
  and b.quotes->0->'reference_identity'=jsonb_build_object(
    'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',r.set_name)
  union all
