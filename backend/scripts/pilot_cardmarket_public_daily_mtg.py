@@ -95,12 +95,14 @@ async def run() -> dict:
         guides, guide_receipt = await _get(client,"price_guide",SOURCES["price_guide"])
         mtg, mtg_receipt = await _get(client,"mtgjson_foundations",SOURCES["mtgjson_foundations"])
     # Fetch ECB historical rates through the same existing auditable FX adapter.
-    now = datetime.now(timezone.utc)
     checked = datetime.fromisoformat(str(guides.get("createdAt") or "").replace("Z","+00:00"))
     if checked.utcoffset() is None:
         raise PilotError("Cardmarket date is not timezone-aware")
     fx = await EcbHistoricalFxProvider().quote(
         base_currency="EUR", quote_currency="GBP", at=checked)
+    # The FX provider records retrieval time; capture the observation clock
+    # AFTER its network retrieval so a valid quote is not future-dated.
+    now = datetime.now(timezone.utc)
     rows = source_cards(mtg)
     report = read_only_mtg_pilot(
         mtg_cards=rows, products_export=products, price_export=guides, fx=fx, now=now)
