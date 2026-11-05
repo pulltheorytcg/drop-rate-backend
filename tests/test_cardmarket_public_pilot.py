@@ -78,7 +78,9 @@ def test_wrong_cardmarket_product_never_matches(change):
     products["products"][0].update(change)
     result=run(products=products)
     assert result["candidate_count"]==0
-    assert result["rejected"]=={"IDENTITY_MISMATCH":1}
+    expected = ("NAME_MISMATCH" if "name" in change else
+                "SET_NAME_MISMATCH" if "expansionName" in change else "CATEGORY_MISMATCH")
+    assert result["rejected"]=={expected:1}
 
 
 def test_same_mcm_id_for_two_distinct_printings_is_quarantined():
