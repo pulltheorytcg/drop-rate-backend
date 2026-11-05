@@ -191,3 +191,10 @@ def test_value_sort_includes_shared_price_before_pagination(sort):
                                          ('SpecialRare', 'SPECIALRARE'), ('SuperRare Parallel', 'SUPERRARE PARALLEL')])
 def test_explicit_provider_rarity_spellings_do_not_collapse_parallel_rarities(text, expected):
     assert rarity_key(text) == expected
+
+
+def test_model_only_canonical_reference_does_not_become_a_shared_market_value():
+    from test_inventory_catalogue_reference import computed_fixture
+    product, ref, _, _ = computed_fixture()
+    ref = dict(ref, catalogue_id=str(product['id']))
+    assert shared_prices([product], [ref], [], now=NOW) == {}
