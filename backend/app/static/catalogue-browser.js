@@ -26,21 +26,22 @@ window.DropRateCatalogue = (() => {
     const observed=Date.parse(estimate.observed_at), expires=Date.parse(estimate.expires_at);
     return Number.isFinite(observed) && Number.isFinite(expires) && observed<=now && observed>=now-maxAge && expires>now && expires<=observed+maxAge ? estimate : null;
   };
+  // Neither internal predicted values nor listing asks can become Market Value,
+  // including if an older API response persists in an account-scoped page cache.
+  const unsupportedMarketSource = row =>
+    ["DROP_RATE_COMPUTED_MARKET_V1","CARDTRADER_EXPANSION_ASKING",
+     "TCGCSV_TCGPLAYER_CATALOGUE"].includes(row.market_value_source);
   const marketPrice = row => {
-    const model=ukEuEstimate(row);
-    if(model && !currentValue(row))return "Market value: "+money(model.estimate_minor);
-    const estimate=askingEstimate(row);
-    if(estimate)return "Market value: "+money(estimate.estimate_minor);
-    if(row.market_value_source==="DROP_RATE_COMPUTED_MARKET_V1" && Number.isInteger(row.market_value_minor))
-      return "Market value: "+money(row.market_value_minor);
-    return row.shared_price ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:")
-      : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Value pending":"Value unavailable"):"Market value: "+money(row.market_value_minor);
+    if (row.shared_price && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(row.shared_price.method))
+      return window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:");
+    if(unsupportedMarketSource(row))return "Value unavailable";
+    return row.market_value_minor==null
+      ? (row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Value pending":"Value unavailable")
+      : "Market value: "+money(row.market_value_minor);
   };
-  const historicalPrice = row => {
-    if ((ukEuEstimate(row) && !currentValue(row)) || askingEstimate(row)
-      || (row.market_value_source === "DROP_RATE_COMPUTED_MARKET_V1" && Number.isInteger(row.market_value_minor))) return null;
-    return row.shared_price && window.DropRateReferenceValue?.isHistorical({reference_value:row.shared_price}) ? row.shared_price : null;
-  };
+  const historicalPrice = row =>
+    row.shared_price && window.DropRateReferenceValue?.isHistorical({reference_value:row.shared_price})
+      ? row.shared_price : null;
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", oldest:"Oldest first", name:"Name A–Z", name_desc:"Name Z–A",
@@ -443,28 +444,24 @@ window.DropRateCatalogue = (() => {
       finally{if(revision===this.revision)this.loading=false;}
     }
     renderMarketDetails(content,row) {
-      const model=currentValue(row)?null:ukEuEstimate(row), estimate=model?null:askingEstimate(row);
       content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
       const history=historicalPrice(row);
       if(history){
         const checked=new Date(history.checked_at);
         content.append(node("small","dr-browse-historical-label",Number.isNaN(checked.getTime())?"Historical value":"Historical value · Last known "+checked.toLocaleDateString("en-GB")));
       }
-      const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","",(estimate || model && !currentValue(row))?"About this estimate":"About this value"));content.append(evidence);
-      if(model){
-        evidence.append(node("p","dr-browse-reference-note",model.reason || "Provisional estimate from eBay UK asking prices and Cardmarket guides."),
-          node("p","dr-browse-reference-note","Reference range: "+money(model.estimate_low_minor)+"–"+money(model.estimate_high_minor)+" · Item price only; postage excluded"),
-          node("p","dr-browse-reference-note","Evidence checked "+new Date(model.observed_at).toLocaleDateString("en-GB")));
-      }
-      if(estimate){
-        evidence.append(node("p","dr-browse-reference-note","eBay current listings: "+estimate.listing_count+" listings from "+estimate.seller_count+" sellers · Checked "+new Date(estimate.observed_at).toLocaleDateString("en-GB")),
-          node("p","dr-browse-reference-note","Estimate basis: "+estimate.condition+" · "+estimate.finish+" · Shop delivery estimate included"),
-          node("p","dr-browse-reference-note","Current asking prices; not completed sales or a valuation of your copy."));
-      }
-      if(row.shared_price && !estimate)evidence.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));
-      if(row.market_value_minor==null && !row.shared_price?.last_known_minor && !estimate && !model)evidence.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
-      if(row.basis_condition && !estimate)evidence.append(node("small","","Price basis: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
+      const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","","About this value"));content.append(evidence);
+      // Internal/asking estimates remain auditable, not monetary market values.
+      if(row.asking_price_estimate || row.uk_eu_market_estimate ||
+         unsupportedMarketSource(row))
+        evidence.append(node("p","dr-browse-reference-note",
+          "A provisional estimate or active listing was observed but is not an independently verified market value."));
+      if(row.shared_price)evidence.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));
+      if((row.market_value_minor==null || unsupportedMarketSource(row)) && !row.shared_price?.last_known_minor)evidence.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
+      if(row.basis_condition && !unsupportedMarketSource(row))evidence.append(node("small","","Price basis: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       for(const quote of row.market_quotes||[]){
+        if(["DROP_RATE_COMPUTED_MARKET_V1","CARDTRADER_EXPANSION_ASKING",
+            "TCGCSV_TCGPLAYER_CATALOGUE"].includes(quote.source))continue;
         const label=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer US context · "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(quote.original_minor/100):money(quote.price_gbp_minor);
         const computed=quote.source==="DROP_RATE_COMPUTED_MARKET_V1";
         const source=computed?"Drop Rate":quote.source==="CARDTRADER_EXPANSION_ASKING"?"CardTrader":quote.source==="TCGDEX_TCGPLAYER"||quote.market==="TCGPLAYER"?"TCGplayer":"Cardmarket";
@@ -482,9 +479,6 @@ window.DropRateCatalogue = (() => {
       if(row.market_value_source==="CARDMARKET_BULK")evidence.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
       if(row.market_value_source==="CARDMARKET_BULK_SINGLES")evidence.append(node("p","dr-browse-reference-note","Cardmarket daily guide for this printing’s release, converted from EUR. It combines languages and conditions; it is separate from a condition-adjusted eBay UK sold value."));
       if(row.market_value_source==="CARDMARKET_ESTIMATE")evidence.append(node("p","dr-browse-reference-note","Cardmarket estimate for this printing and finish, converted from EUR. The guide combines languages and conditions; it is not a condition-adjusted UK sold value. Fresh exact eBay UK evidence takes priority."));
-      if(row.market_value_source==="DROP_RATE_COMPUTED_MARKET_V1")evidence.append(
-        node("p","dr-browse-reference-note",
-          "Drop Rate rules-verified internal market value: conservative same-release, same-rarity standard-card comparison. It is not a recorded sale or an exact physical-copy appraisal. Shopify Store Price has a separate £1 minimum and owner approval rules."));
     }
     renderGames() {
       const content=this.find(".dr-browse-content"),grid=node("div","dr-browse-game-grid");
@@ -924,9 +918,7 @@ window.DropRateCatalogue = (() => {
         content.append(artwork,listingCredit,
           node("h3","",decode(row.name)),
           node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
-        if(ukEuEstimate(row)){
-          const pricing=node("section");this.renderMarketDetails(pricing,row);content.append(pricing);
-        }else content.append(node("p","dr-browse-reference-note", row.market_value_minor == null
+        content.append(node("p","dr-browse-reference-note", row.market_value_minor == null
           ? row.book_market_status === "PRINTING_REVIEW_REQUIRED"
             ? "Market value pending: the printing and cover need confirmation before matching sold prices."
             : "Market value pending: at least five matching recent sales are needed for this printing."
