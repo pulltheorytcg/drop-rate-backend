@@ -19,6 +19,9 @@ SOURCE = "CARDMARKET_PUBLIC_DAILY_EXPORT"
 SCHEMA = "drop-rate-cardmarket-mtg-readonly-pilot-v1"
 MAX_SOURCE_ROWS = 300_000
 VALID_FINISHES = {"nonfoil": "trend", "foil": "trend-foil"}
+# A release inferred from numeric expansion membership needs multiple independent
+# exact product-ID AND card-name proofs; one matching name cannot identify a set.
+MIN_EXPANSION_ANCHOR_NAMES = 8
 MAX_AGE = timedelta(days=3)
 
 
@@ -133,6 +136,31 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
         guide_by_id[product_id] = guide
 
     identities, collisions = _mtg_identity_cards(mtg_cards)
+    # Cardmarket's official downloadable singles catalogue has idExpansion,
+    # not a reliable expansionName field. Treat numeric cohort corroboration as
+    # a pilot-only proof, separate from the exact MTGJSON mcmId bridge.
+    # Count independent *names*, not foil copies/prices, and quarantine an
+    # expansion that maps to two different MTGJSON source sets.
+    expansion_names: dict[tuple[int, str], set[str]] = defaultdict(set)
+    expansion_sets: dict[int, set[str]] = defaultdict(set)
+    for source_id, item in identities.items():
+        product = products_by_id.get(source_id)
+        if (not product or product.get("categoryName") != "Magic Single"
+                or _name(product.get("name")) != item["name"]):
+            continue
+        explicit_set = product.get("expansionName")
+        if explicit_set is not None and _name(explicit_set) != item["set_name"]:
+            continue  # Contradictory explicit names cannot act as anchors.
+        numeric = _id(product.get("idExpansion"))
+        if numeric is None:
+            continue
+        expansion_sets[numeric].add(item["set_name"])
+        expansion_names[(numeric, item["set_name"])].add(item["name"])
+    ambiguous_expansions = {num for num, sets in expansion_sets.items() if len(sets) != 1}
+    corroborated_expansions = {
+        (num, set_name) for (num, set_name), names in expansion_names.items()
+        if num not in ambiguous_expansions and len(names) >= MIN_EXPANSION_ANCHOR_NAMES
+    }
     candidates = []
     rejected = defaultdict(int)
     diagnosis = []
@@ -141,10 +169,16 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
         if not product or not guide:
             rejected["MISSING_EXACT_ID"] += 1
             continue
+        expansion_id = _id(product.get("idExpansion"))
+        explicit_set = product.get("expansionName")
         mismatch = (
             "CATEGORY_MISMATCH" if product.get("categoryName") != "Magic Single" else
             "NAME_MISMATCH" if _name(product.get("name")) != identity["name"] else
-            "SET_NAME_MISMATCH" if _name(product.get("expansionName")) != identity["set_name"] else
+            "SET_NAME_MISMATCH" if explicit_set is not None and _name(explicit_set) != identity["set_name"] else
+            "EXPANSION_ID_MISSING" if explicit_set is None and expansion_id is None else
+            "EXPANSION_ID_CONFLICT" if explicit_set is None and expansion_id in ambiguous_expansions else
+            "INSUFFICIENT_EXPANSION_PROOF" if explicit_set is None and
+              (expansion_id, identity["set_name"]) not in corroborated_expansions else
             None
         )
         if mismatch:
@@ -155,6 +189,7 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
                     "cardmarket_name": product.get("name"),
                     "mtg_set": identity["set_name"],
                     "cardmarket_set": product.get("expansionName"),
+                    "cardmarket_expansion_id": expansion_id,
                     "cardmarket_category": product.get("categoryName")})
             continue
         for finish in sorted(identity["finishes"]):
@@ -172,11 +207,19 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
                 "provider": "MTGJSON", "system_code": "MAGIC_THE_GATHERING",
                 "language": "English", "provider_id": f"mtgjson:{identity['uuid']}:{finish}",
                 "cardmarket_product_id": mcm_id, "finish": finish,
+                "cardmarket_expansion_id": expansion_id,
+                "expansion_anchor_names": len(expansion_names.get(
+                    (expansion_id, identity["set_name"]), set())),
+                "expansion_evidence": "EXPLICIT_SOURCE_NAME" if explicit_set is not None
+                    else "COHORT_CORROBORATED_PILOT",
                 "price_eur_minor": eur_minor, "guide_gbp_minor": gbp_minor,
                 "source_field": guide_field, "source_checked_at": price_checked.isoformat(),
                 "fx_rate_to_gbp": str(fx.rate), "fx_source": fx.source,
                 "fx_effective_at": fx.effective_at.isoformat(),
-                "match_basis": "EXACT_MTGINDEX_MCM_ID_AND_CATALOGUE_NAME_SET_FINISH_V1",
+                "match_basis": (
+                    "EXACT_MTGJSON_MCM_ID_NAME_AND_EXPLICIT_CATALOGUE_SET_V1" if explicit_set is not None
+                    else "EXACT_MTGJSON_MCM_ID_NAME_AND_CORROBORATED_EXPANSION_ID_V1"
+                ),
                 "sold_observation_count": 0, "physical_valuation_eligible": False,
                 "publishable": False,
             })
@@ -184,6 +227,9 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
         "schema": SCHEMA, "status": "PILOT_ONLY_NO_PUBLICATION",
         "products_examined": len(products), "guides_examined": len(guides),
         "crosswalk_unique_ids": len(identities), "crosswalk_collision_ids": len(collisions),
+        "expansion_cohorts_corroborated": len(corroborated_expansions),
+        "expansion_ids_ambiguous": len(ambiguous_expansions),
+        "min_distinct_anchor_names": MIN_EXPANSION_ANCHOR_NAMES,
         "candidate_count": len(candidates), "rejected": dict(rejected),
         "diagnostic_examples": diagnosis,
         "source_checked_at": price_checked.isoformat(), "candidates": candidates,
