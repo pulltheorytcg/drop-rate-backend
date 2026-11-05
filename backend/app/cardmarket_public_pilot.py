@@ -135,15 +135,27 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
     identities, collisions = _mtg_identity_cards(mtg_cards)
     candidates = []
     rejected = defaultdict(int)
+    diagnosis = []
     for mcm_id, identity in sorted(identities.items()):
         product, guide = products_by_id.get(mcm_id), guide_by_id.get(mcm_id)
         if not product or not guide:
             rejected["MISSING_EXACT_ID"] += 1
             continue
-        if (product.get("categoryName") != "Magic Single" or
-                _name(product.get("name")) != identity["name"] or
-                _name(product.get("expansionName")) != identity["set_name"]):
-            rejected["IDENTITY_MISMATCH"] += 1
+        mismatch = (
+            "CATEGORY_MISMATCH" if product.get("categoryName") != "Magic Single" else
+            "NAME_MISMATCH" if _name(product.get("name")) != identity["name"] else
+            "SET_NAME_MISMATCH" if _name(product.get("expansionName")) != identity["set_name"] else
+            None
+        )
+        if mismatch:
+            rejected[mismatch] += 1
+            if len(diagnosis) < 3:
+                # Public facts only: never output any monetary amounts or user data.
+                diagnosis.append({"reason": mismatch, "mtg_name": identity["name"],
+                    "cardmarket_name": product.get("name"),
+                    "mtg_set": identity["set_name"],
+                    "cardmarket_set": product.get("expansionName"),
+                    "cardmarket_category": product.get("categoryName")})
             continue
         for finish in sorted(identity["finishes"]):
             selected = choose_bulk_price_field(guide, VALID_FINISHES[finish])
@@ -173,6 +185,7 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
         "products_examined": len(products), "guides_examined": len(guides),
         "crosswalk_unique_ids": len(identities), "crosswalk_collision_ids": len(collisions),
         "candidate_count": len(candidates), "rejected": dict(rejected),
+        "diagnostic_examples": diagnosis,
         "source_checked_at": price_checked.isoformat(), "candidates": candidates,
         "database_writes": 0, "object_storage_writes": 0, "store_price_changes": 0,
         "verified_sold_value_count": 0,
