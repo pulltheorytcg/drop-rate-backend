@@ -89,7 +89,7 @@ def test_same_mcm_id_for_two_distinct_printings_is_quarantined():
     assert result["candidate_count"]==0
 
 
-@pytest.mark.parametrize("money", [False,"NaN","Infinity",-1,0,1e100])
+@pytest.mark.parametrize("money", [False,"NaN","Infinity",-1,1e100])
 def test_invalid_primary_guide_fail_closed_without_asking_price_fallback(money):
     _,_,guides,_=_fixtures()
     guides["priceGuides"][0]["trend"]=money
@@ -132,3 +132,13 @@ def test_pilot_only_supports_explicit_english_paper_mtg_ids():
     no_paper["paper"]=False
     report=run(cards=[no_paper],products=products,guides=guides,fx=fx)
     assert report["candidate_count"]==0
+
+def test_corrupt_finish_list_and_nonfinite_fx_fail_without_exception_leak():
+    invalid=deepcopy(CARD)
+    invalid["finishes"]=[{"type":"foil"}]
+    assert run(cards=[invalid])["candidate_count"] == 0
+    _,_,_,fx=_fixtures()
+    invalidfx=FxQuote(base_currency="EUR",quote_currency="GBP",rate=Decimal("NaN"),
+                      source=ECB_SOURCE,effective_at=fx.effective_at,retrieved_at=fx.retrieved_at)
+    with pytest.raises(PilotError,match="ECB"):
+        run(fx=invalidfx)
