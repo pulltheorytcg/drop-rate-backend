@@ -113,6 +113,7 @@ async def run() -> dict:
         "crosswalk_collision_ids": report["crosswalk_collision_ids"],
         "candidate_count": report["candidate_count"],
         "rejected": report["rejected"],
+        "diagnostic_examples": report["diagnostic_examples"],
         "products_examined": report["products_examined"],
         "guides_examined": report["guides_examined"],
         "source_checked_at": report["source_checked_at"],
