@@ -27,17 +27,19 @@ class ReadOnlyD1:
     def list_databases(self):
         return [{"name":name,"uuid":UUID} for name in self.database_names]
 
+    def call(self,method,path,data=None):
+        assert method=="GET"
+        assert path=="/accounts/"+cap.ACCOUNT+"/d1/database/"+UUID
+        return {"uuid":UUID, "file_size":self.pages*4096}, 0
+
     def query(self,uuid,sql,params=()):
         assert uuid==UUID
         assert not any(bad in sql.lower() for bad in (
             "insert ","update ","delete ","drop ","create ","alter "
         ))
         type(self).total_queries += 1
-        if sql=="pragma page_count":
-            rows=[{"page_count":self.pages}]
-        elif sql=="pragma page_size":
-            rows=[{"page_size":4096}]
-        elif "count(*)" in sql:
+        assert "pragma page_count" not in sql and "pragma page_size" not in sql
+        if "count(*)" in sql:
             assert cap.YGO_MANIFEST_SHA in sql
             rows=[{"n":self.current}]
         elif "shadow_active_partitions" in sql:
@@ -67,7 +69,7 @@ def test_current_verified_yugioh_batch_does_not_unlock_other_writes():
     assert report["visible_database_count"]==2
     assert report["d1_writes"]==0
     assert not report["daily_account_write_quota_measured"]
-    assert ReadOnlyD1.total_queries==6
+    assert ReadOnlyD1.total_queries==2
 
 
 def test_full_source_and_active_pointer_allows_later_review():
