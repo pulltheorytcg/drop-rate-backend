@@ -1,0 +1,146 @@
+{
+  "id": "DR97OnePieceReleaseWatchV1",
+  "name": "DR-97 Original TCG Release Watch | One Piece",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1",
+    "timezone": "Europe/London"
+  },
+  "nodes": [
+    {
+      "id": "DR97OnePieceReleaseWatchV1Schedule",
+      "name": "Daily One Piece Release Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -620,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 10,
+              "triggerAtMinute": 25
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "DR97OnePieceReleaseWatchV1Sign",
+      "name": "Sign OnePiece Release Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -330,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto=require('crypto');\nconst secret=String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET||'').trim();\nconst url=String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL||'').trim();\nif(secret.length<32)throw new Error('legacy_release_secret_not_configured');\nif(!/\\/api\\/v1\\/automation\\/control\\/receipt$/.test(url))throw new Error('legacy_release_control_url_invalid');\nconst id=String($execution.id||'').trim();\nif(!id)throw new Error('legacy_release_execution_id_missing');\nconst body=JSON.stringify({schema_version:1,action:'CHECK_OR_REFRESH_LEGACY_GAME_RELEASES',game:'ONE_PIECE',execution_id:id.slice(0,120),occurred_at:new Date().toISOString()});\nconst timestamp=String(Math.floor(Date.now()/1000));\nconst signature='sha256='+crypto.createHmac('sha256',secret).update(timestamp+'.'+body,'utf8').digest('hex');\nreturn [{json:{url:url.replace(/\\/control\\/receipt$/,'/commands/catalogue/check-legacy-game-releases'),body,timestamp,signature}}];"
+      }
+    },
+    {
+      "id": "DR97OnePieceReleaseWatchV1Call",
+      "name": "Call Governed OnePiece Release Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -35,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 240000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "autodetect"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "DR97OnePieceReleaseWatchV1Verify",
+      "name": "Verify OnePiece Safe Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response=$input.first().json||{};\nconst status=Number(response.statusCode||0);\nif(status<200||status>=300)throw new Error('legacy_release_http_'+status);\nconst r=response.body||{};\nif(r.accepted!==true||r.game!=='ONE_PIECE'||typeof r.execution_id!=='string')throw new Error('legacy_release_receipt_invalid');\nif(r.artwork_published!==false||r.shopify_updated!==false||r.ownership_or_price_changed!==false)throw new Error('legacy_release_authority_violation');\nif(!['CURRENT','COMPLETE','DEFERRED_CAPACITY','ALREADY_RUNNING','AWAITING_RIOT_APP_APPROVAL'].includes(r.status))throw new Error('legacy_release_action_required_'+String(r.status).slice(0,30));\nif(r.status==='COMPLETE'&&(!Number.isInteger(r.source_imports)||r.source_imports<1))throw new Error('legacy_release_no_verified_import');\nif(r.status==='DEFERRED_CAPACITY'&&typeof r.capacity_reason!=='string')throw new Error('legacy_release_capacity_receipt_missing');\nif(r.status==='AWAITING_RIOT_APP_APPROVAL'&&r.game!=='RIFTBOUND')throw new Error('legacy_release_unknown_approval_state');\nif(r.game==='RIFTBOUND'&&r.status!=='AWAITING_RIOT_APP_APPROVAL')throw new Error('riftbound_source_cannot_be_auto_approved');\nreturn [{json:{game:r.game,status:r.status,sources_checked:r.sources_checked,source_imports:r.source_imports,capacity_reason:r.capacity_reason,metadata_updated:r.metadata_updated,artwork_published:false}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Daily One Piece Release Check": {
+      "main": [
+        [
+          {
+            "node": "Sign OnePiece Release Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign OnePiece Release Check": {
+      "main": [
+        [
+          {
+            "node": "Call Governed OnePiece Release Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Governed OnePiece Release Check": {
+      "main": [
+        [
+          {
+            "node": "Verify OnePiece Safe Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-97",
+      "version": 1,
+      "game": "ONE_PIECE",
+      "scope": "legacy-capacity-gated-release-scout",
+      "activationGate": "No duplicate legacy SQL imports. Uses canonical maintenance lock and database-capacity protection. Riftbound only checks Riot app approval readiness, never fetches Riot assets without permission. Card artwork and Shopify remain independent."
+    }
+  }
+}
