@@ -50,6 +50,14 @@ class MockJWKClient:
 @pytest.fixture(autouse=True)
 def fixed_jwk(monkeypatch):
     monkeypatch.setattr(export, "_jwks_client", MockJWKClient())
+    monkeypatch.setenv("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID", FIXED_UUID)
+
+    async def admin_only(conn):
+        if conn.user_id != FIXED_UUID:
+            raise ValueError("Unauthorized RLS actor")
+        conn.admin_checked = True
+
+    monkeypatch.setattr(export, "require_platform_admin", admin_only)
 
 
 @pytest.mark.parametrize("changes", [
@@ -115,13 +123,25 @@ def fixtures():
 class FakeConn:
     def __init__(self,publication):
         self.publication=publication
+        self.user_id=None
+        self.admin_checked=False
 
     async def __aenter__(self): return self
     async def __aexit__(self,*a): return False
     def transaction(self, **opts):
-        assert opts=={"readonly":True}
+        assert opts=={"readonly":True, "isolation":"repeatable_read"}
         return self
+    async def execute(self, sql, *params):
+        assert sql.startswith("select set_config(")
+        if "tcg.user_id" in sql:
+            self.user_id=params[0]
+        elif "tcg.request_id" in sql:
+            assert isinstance(params[0], str) and params[0]
+        else:
+            raise AssertionError("Unexpected SQL config")
     async def fetchrow(self, sql):
+        assert self.user_id==FIXED_UUID
+        assert self.admin_checked
         assert "where active" in sql.lower()
         return self.publication
 
@@ -211,4 +231,35 @@ def test_storage_configuration_failure_is_503_without_leaking_configuration(monk
     assert result.status_code == 503
     assert "stage=storage_configuration error_type=RuntimeError" in caplog.text
     assert "sensitive-cloudflare-credential" not in caplog.text
+
+
+
+def test_valid_manifest_is_read_under_admin_rls_context(monkeypatch):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+    client, _, _ = make_client(monkeypatch)
+    response = client.get("/api/v1/internal/d1-shadow/manifest",
+                          headers={"Authorization":"Bearer "+signed()})
+    assert response.status_code==200
+    # The fake registry itself rejects reads without a verified maintenance
+    # user context and admin roster check.
+
+
+def test_no_or_unapproved_maintenance_actor_keeps_rls_and_returns_503(monkeypatch,caplog):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+    client, _, _ = make_client(monkeypatch)
+    monkeypatch.delenv("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID",raising=False)
+    with caplog.at_level("WARNING", logger=export.__name__):
+        no_actor=client.get("/api/v1/internal/d1-shadow/manifest",
+                            headers={"Authorization":"Bearer "+signed()})
+    assert no_actor.status_code==503
+    assert "stage=rls_authorized_read error_type=ValueError" in caplog.text
+    assert "TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID" not in caplog.text
+
+    monkeypatch.setenv("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID",
+                       "22222222-2222-4222-8222-222222222222")
+    with caplog.at_level("WARNING", logger=export.__name__):
+        unauthorized=client.get("/api/v1/internal/d1-shadow/manifest",
+                                headers={"Authorization":"Bearer "+signed()})
+    assert unauthorized.status_code==503
+    assert "stage=rls_authorized_read error_type=ValueError" in caplog.text
 
