@@ -149,6 +149,9 @@ async def test_capacity_fails_closed_without_touching_provider_or_media(monkeypa
 async def test_any_verification_failure_is_retryable_and_not_a_success_receipt(monkeypatch, failure_stage):
     patch_signed(monkeypatch, payload())
     monkeypatch.setattr(api, "get_settings", lambda: SimpleNamespace(r2_reference_cache_apply_enabled=True))
+    # Railway enables the real reference worker; this test exercises the
+    # deliberately-disabled-worker fallback, independent of deploy env vars.
+    monkeypatch.setattr(api, "worker_enabled", lambda: False)
     async def canonical(*args, **kwargs):
         return mirror(examined=2, mirrored=1, failed=1) if failure_stage == "canonical" else mirror()
     async def reference(*args, **kwargs):
