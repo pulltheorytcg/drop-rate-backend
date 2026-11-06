@@ -173,3 +173,49 @@ def test_github_oidc_token_endpoint_exact_host_restriction(monkeypatch,host,allo
     else:
         with pytest.raises(runner.MigrationGuard, match="GitHub-owned token domain"):
             runner._oidc_token()
+
+
+def test_temporary_503_during_railway_rollout_retries_then_verifies(monkeypatch):
+    FakeD1.created = 0
+    FakeD1.corrupt = False
+    FakeD1.existing = []
+    monkeypatch.setattr(runner,"D1Client",FakeD1)
+    monkeypatch.setattr(runner,"_oidc_token",lambda:"fake-oidc")
+    manifest_bytes, parts, _ = fixture()
+    with http_client(manifest_bytes, parts) as client:
+        valid_source = runner.load_verified_source(client, "fake-oidc")
+        attempts, delays = [], []
+
+        def temporary_failure(_client, _identity):
+            attempts.append(FakeD1.created)
+            if len(attempts) < 3:
+                raise runner.MigrationGuard("R2 export rejected: HTTP 503")
+            return valid_source
+
+        monkeypatch.setattr(runner,"load_verified_source",temporary_failure)
+        monkeypatch.setattr(runner.time,"sleep",lambda n:delays.append(n))
+        result = runner.import_real_lorcana("a"*32,"dummy-d1-token","55555","1",client=client)
+    assert runner.MAX_SOURCE_READ_ATTEMPTS >= 20
+    assert attempts == [0,0,0]
+    assert delays == [10,10]
+    assert result["d1_verified_rows"] == 1002
+    assert FakeD1.created == 1
+    FakeD1.last.connection.close()
+
+
+def test_authenticated_export_401_never_retries_or_creates_d1(monkeypatch):
+    FakeD1.created = 0
+    FakeD1.existing = []
+    monkeypatch.setattr(runner,"D1Client",FakeD1)
+    monkeypatch.setattr(runner,"_oidc_token",lambda:"fake-oidc")
+    sleeps = []
+    monkeypatch.setattr(runner.time,"sleep",lambda n:sleeps.append(n))
+    def unauthorized(_client,_identity):
+        raise runner.MigrationGuard("R2 export rejected: HTTP 401")
+    monkeypatch.setattr(runner,"load_verified_source",unauthorized)
+    raw,parts,_=fixture()
+    with http_client(raw,parts) as client:
+        with pytest.raises(runner.MigrationGuard,match="401"):
+            runner.import_real_lorcana("a"*32,"dummy-d1-token","55556","1",client=client)
+    assert FakeD1.created == 0
+    assert sleeps == []
