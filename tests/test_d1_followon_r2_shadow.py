@@ -37,6 +37,13 @@ class FakeCloud:
                 for name in self.names]
 
     def call(self,method,path,data=None):
+        if method=="GET":
+            assert path==self.path+"/"+SHARED_UID
+            assert self.shared is not None
+            pages=self.shared.execute("pragma page_count").fetchone()[0]
+            page_size=self.shared.execute("pragma page_size").fetchone()[0]
+            return {"name":runner.DB_NAME,"uuid":SHARED_UID,
+                    "file_size":pages*page_size},0
         assert method=="POST" and path==self.path
         assert data=={"name":runner.DB_NAME}
         assert runner.DB_NAME not in self.names
@@ -255,3 +262,19 @@ def test_workflow_has_one_daily_main_writer_and_no_escaped_secrets():
     assert "cron: '49 3 * * *'" in wf
     assert "CLOUDFARE_D1_PILOT_TOKEN: "+"${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}" in wf
     assert (chr(92)+"${{") not in wf
+
+
+def test_d1_capacity_uses_database_detail_not_unsupported_sql_pragmas(monkeypatch):
+    cloud=FakeCloud(runner.ACCOUNT,"scoped-test-token")
+    cloud.call("POST",cloud.path,{"name":runner.DB_NAME})
+    assert runner._disk_used(cloud,SHARED_UID)>=0
+    assert FakeCloud.shared.execute("pragma page_count").fetchone()[0]>=0
+    def unsupported(_sql):
+        raise AssertionError("D1 REST no longer queried for page_count")
+    original=cloud.query
+    def watch(uuid,sql,params=()):
+        assert "pragma page_count" not in sql
+        assert "pragma page_size" not in sql
+        return original(uuid,sql,params)
+    monkeypatch.setattr(cloud,"query",watch)
+    assert runner._disk_used(cloud,SHARED_UID)>=0
