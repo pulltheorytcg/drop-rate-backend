@@ -94,6 +94,32 @@ async def run_legacy_release_scout(pool, actor: str, source: str, settings) -> d
                     "game": game, "new_sets": int(report.get("new_sets", 0)),
                     "reason": "UPSTREAM_OR_SOURCE_VERIFICATION_FAILED",
                 }
+            # The pre-existing importer has a stable three-key return contract.
+            # Its committed sync-run report already records new-set discoveries.
+            # Re-read that immutable-audited receipt without modifying callers
+            # of sync_source or changing the daily maintenance worker.
+            if "new_sets" not in report:
+                async with user_connection(pool, UUID(str(actor)), str(uuid4())) as connection:
+                    await require_platform_admin(connection)
+                    written = await connection.fetchrow(
+                        """select status,report from tcg.reference_sync_runs
+                           where source=$1 order by started_at desc limit 1""", source,
+                    )
+                if not written or written["status"] != "COMPLETE":
+                    return {
+                        "status": "SOURCE_INCOMPLETE", "source": source,
+                        "game": game, "new_sets": 0,
+                        "reason": "VERIFIED_SOURCE_RECEIPT_MISSING",
+                    }
+                evidence = written["report"] or {}
+                if not isinstance(evidence, dict) or type(evidence.get("new_sets")) is not int:
+                    return {
+                        "status": "SOURCE_INCOMPLETE", "source": source,
+                        "game": game, "new_sets": 0,
+                        "reason": "VERIFIED_SOURCE_RECEIPT_MALFORMED",
+                    }
+                report = {**report, "new_sets": evidence["new_sets"],
+                          "new_set_samples": evidence.get("new_set_samples", [])}
             return {
                 "status": "VERIFIED_SOURCE_REFRESH",
                 "source": source, "game": game,
