@@ -1,3 +1,9 @@
+## 6 November 2026 — 67,801 real operational source records backed up and read back in PRIVATE R2 (10/11 approved relations)
+
+- One-shot Railway [verified deployment](https://railway.com/project/9329767b-b092-495c-bf18-75cf69c28536) `36a888c4-a5f5-4b23-8d1a-8a8e35317c5e` completed at 20:16:26 UTC and produced `PRIVATE_OPERATIONAL_R2_PARTIAL_SOURCE_VERIFIED`, `r2_uploaded=true`, 10 verified relations, source SQL writes 0 and private manifest SHA256 `419698b6856f3cdef5ca57558e44397e919878f425c8957abfe7b1898416c3d4`. The 10 full-source tables contain **67,801 original records**; 66,222 of these are reference-image *metadata*, not verified image bytes.
+- `owner_memberships` was explicitly excluded: the maintenance account sees **1/6** rows under existing RLS. The separate protected-main operational **D1** run already verified **all 6 memberships** as part of 1,184 real source records, but that does not complete 11/11 R2 nor authorise cutover. Supabase/Shopify production remains unchanged.
+- Read [actual private R2 readback receipt](docs/CLOUDFLARE_PRIVATE_R2_OPERATIONAL_LIVE_READBACK_20261106.md). Continue strict source-snapshot reconciliation, sensitive audit/price data review, media bytes, replacement Auth, remaining table scope and operational access/rollback testing. This is **no longer an unexecuted backup design**, but it is a **partial** R2 checkpoint only.
+
 ## 6 November 2026 — 1,184 REAL business records verified in PRIVATE Cloudflare D1 (No production cutover)
 
 - [Protected-main run 42283108326](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42283108326) succeeded at 19:51 UTC from PR #946 merge `db660dce5c65096c96faeb7b098fecf08b6ef989`. The existing privileged Postgres connection was used for a **read-only, repeatable-read** snapshot through protected GitHub Actions; no app RLS policy or login privilege was changed.
