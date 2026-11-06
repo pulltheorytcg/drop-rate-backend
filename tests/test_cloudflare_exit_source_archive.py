@@ -22,6 +22,7 @@ def record(**kwargs):
 
 def test_reviewed_tables_are_exact_not_credentials():
     assert len(arc.TABLE_PKS) == 13
+    assert set(arc.APPROVED_COLUMNS) == set(arc.TABLE_PKS)
     assert {"owners","owner_memberships","inventory_items","orders","order_items",
             "financial_ledger_entries","refund_events","shopify_webhook_events",
             "market_observations","reference_image_mirrors","audit_events"}.issubset(arc.TABLE_PKS)
@@ -64,8 +65,8 @@ class Conn:
     async def fetch(self,query,*params):
         if "pg_attribute" in query:
             name=params[0].split(".")[1]
-            return [{"attname":k} for k in self.rows[name][0]] if self.rows[name] else [
-                {"attname":k} for k in arc.TABLE_PKS[name]]
+            columns = list(self.rows[name][0]) if self.rows[name] else list(arc.TABLE_PKS[name])
+            return [{"attname":k,"data_type":"text"} for k in columns]
         if "json_populate_recordset" in query:
             return [{"canonical_row":json.dumps(item,separators=(",",":"))}
                     for item in json.loads(params[0])]
@@ -111,7 +112,7 @@ class PrivateR2:
 
 
 @pytest.fixture()
-def rows():
+def rows(monkeypatch):
     out={}
     for name,pks in arc.TABLE_PKS.items():
         if len(pks)==1:
@@ -119,6 +120,9 @@ def rows():
         else:
             out[name]=[{"provider":"source","system_code":"POKEMON",
                         "language":"English","provider_id":"4"}]
+    monkeypatch.setattr(arc,"APPROVED_COLUMNS",{
+        name:[{"name":k,"type":"text"} for k in entries[0]]
+        for name,entries in out.items()})
     return out
 
 
