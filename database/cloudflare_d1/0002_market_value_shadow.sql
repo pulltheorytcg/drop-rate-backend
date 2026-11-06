@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS market_shadow_profiles (
     OR (product_kind<>'GRADED_CARD' AND grading_company IS NULL AND grade IS NULL))
 );
 
+-- SQLite UNIQUE treats NULL as distinct; this expression index also blocks
+-- duplicate ungraded/raw profiles with optional condition, company and grade.
+CREATE UNIQUE INDEX IF NOT EXISTS market_shadow_exact_profile_unique
+ ON market_shadow_profiles(generation_id,provider,system_code,language,provider_id,
+   product_kind,finish,ifnull(condition,''),ifnull(grading_company,''),ifnull(grade,''));
+
 -- R2 objects hold full source/provider evidence. D1 indexes its provenance only.
 -- Provider terms must be reviewed; external display permission separate from
 -- permission to use a price privately in the deterministic pricing engine.
@@ -102,6 +108,10 @@ CREATE TRIGGER IF NOT EXISTS market_shadow_market_value_source_gate
      AND s.profile_key=NEW.profile_key
      AND s.evidence_type='VERIFIED_SOLD'
      AND s.source_country='GB'
+     AND julianday(s.observed_at) IS NOT NULL
+     AND julianday(NEW.calculated_at) IS NOT NULL
+     AND julianday(NEW.calculated_at) >= julianday(s.observed_at)
+     AND julianday(NEW.calculated_at) - julianday(s.observed_at) <= 90
      AND s.usage_rights IN ('INTERNAL_APPROVED','DISPLAY_APPROVED')
      AND s.distinct_comparables >= 1
      AND s.distinct_sellers >= 1
@@ -124,6 +134,17 @@ CREATE TRIGGER IF NOT EXISTS market_shadow_proof_no_update
 CREATE TRIGGER IF NOT EXISTS market_shadow_proof_no_delete
  BEFORE DELETE ON market_shadow_source_proofs
  BEGIN SELECT RAISE(ABORT,'market evidence is immutable'); END;
+
+-- Never let a completed raw reference silently become a slab/other printing.
+CREATE TRIGGER IF NOT EXISTS market_shadow_profile_no_update
+ BEFORE UPDATE ON market_shadow_profiles
+ BEGIN SELECT RAISE(ABORT,'market profile identity is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS market_shadow_profile_no_delete
+ BEFORE DELETE ON market_shadow_profiles
+ BEGIN SELECT RAISE(ABORT,'market profile identity is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS market_shadow_generation_source_immutable
+ BEFORE UPDATE OF r2_source_manifest_sha256 ON market_shadow_generations
+ BEGIN SELECT RAISE(ABORT,'market source generation is immutable'); END;
 
 -- Private-only diagnostic view. NO production active generation pointer.
 -- Only already-classified eligible prices are visible to these internal tests.
