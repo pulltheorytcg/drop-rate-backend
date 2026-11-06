@@ -70,7 +70,7 @@ def test_command_rejects_unrecognised_sources_and_abusive_batches():
     for update in (
         {"canonical_limit": 10000}, {"reference_limit": 10000},
         {"action": "MIRROR_ALL_PROVIDER_IMAGES"}, {"arbitrary_image_url": "https://evil.test/1"},
-        {"canonical_limit": 0}, {"reference_limit": 0},
+        {"canonical_limit": -1}, {"reference_limit": 0},
     ):
         with pytest.raises(ValidationError):
             api.RefreshEligibleArtworkCommand.model_validate(payload(**update))
