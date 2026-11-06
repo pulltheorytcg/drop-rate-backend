@@ -1008,7 +1008,7 @@
       "domain": "Catalogue",
       "authority": "ORCHESTRATE",
       "status": "BUILT_INACTIVE",
-      "source_of_truth": "PostgreSQL/Supabase until Cloudflare D1 cutover; immutable provider metadata in R2",
+      "source_of_truth": "PostgreSQL/Supabase",
       "decision_engine": "FastAPI",
       "orchestrator": "n8n",
       "ai_may_assist": false,
