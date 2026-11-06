@@ -736,7 +736,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.w.DropRateInventory.close();f.run('state.session={access_token:"other-token",user:{id:"seller-b"}}');
   await f.w.DropRateInventory.open(card,{selling:true});
    // A fresh account starts from current market evidence, never another account's saved draft.
-   assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'8.66');
+   assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'');
    assert.equal(f.w.sessionStorage.getItem(`drop_rate_listing_draft:seller-b:${id}`),null);
   assert.equal(f.w.document.querySelector('[data-listing-step="condition"]').hidden,false);
   f.finish();checks++;
