@@ -222,6 +222,52 @@ def _new_isolated_real_shadow(client: D1Client, run_id: str, attempt: str) -> tu
     return name, uid
 
 
+def _existing_lorcana_proof(client: D1Client, source: projection_codec.Projection):
+    """Read-only proof of a previous source-identical completed import.
+
+    Main-branch changes can trigger this job again. Never create a duplicate
+    database or replace its data, but a valid existing shadow is still success.
+    """
+    existing = [db for db in client.list_databases()
+                if str(db.get("name", "")).startswith(SHADOW_DB_PREFIX)]
+    if not existing:
+        return None
+    if len(existing) != 1:
+        raise MigrationGuard("Ambiguous previous isolated Lorcana database")
+    db = existing[0]
+    uid = db.get("uuid")
+    if (not isinstance(uid, str)
+            or not re.fullmatch(r"[a-fA-F0-9-]{36}", uid)):
+        raise MigrationGuard("Invalid previous Lorcana D1 UUID")
+    registry = _query(client, uid, """select manifest_sha,provider,system_code,
+        language,expected_rows,projection_sha,source_content_sha,source_revision
+        from shadow_generations""")
+    expected = (source.manifest_sha, *source.scope, source.expected_rows,
+                source.projection_sha, source.source_content_sha, source.source_revision)
+    columns = ("manifest_sha","provider","system_code","language","expected_rows",
+               "projection_sha","source_content_sha","source_revision")
+    if len(registry) != 1 or tuple(registry[0][key] for key in columns) != expected:
+        raise MigrationGuard("Existing Lorcana D1 generation differs from R2 source")
+    if verify_d1_projection(client, uid, source) != source.expected_rows:
+        raise MigrationGuard("Existing Lorcana D1 readback does not match source")
+    pointers = _query(client, uid, "select provider,system_code,language,manifest_sha "
+                      "from shadow_active_partitions")
+    if (len(pointers) != 1 or
+            tuple(pointers[0][key] for key in
+                  ("provider","system_code","language","manifest_sha"))
+               != (*source.scope,source.manifest_sha)):
+        raise MigrationGuard("Previous Lorcana D1 active pointer mismatch")
+    return {"status":"REAL_R2_LORCANA_TO_ISOLATED_D1_VERIFIED",
+            "database_name":db["name"],"database_uuid":uid,
+            "r2_source_manifest_sha":source.manifest_sha,
+            "d1_projection_sha":source.projection_sha,
+            "source_rows":source.expected_rows,"d1_verified_rows":source.expected_rows,
+            "existing_readonly_reverified":True,
+            "main_catalogue_reads_switched":False,"production_shopify_writes":0,
+            "production_money_or_owner_writes":0,
+            "production_market_value_writes":0,"supabase_writes":0,"r2_writes":0}
+
+
 def _schema(client: D1Client, database_id: str):
     for statement in projection_codec.SCHEMA.split(";"):
         if statement.strip():
@@ -250,6 +296,9 @@ def import_real_lorcana(account: str, d1_token: str, run_id: str,
                 raise
             time.sleep(10)
     cloud = D1Client(account, d1_token)
+    prior = _existing_lorcana_proof(cloud, source)
+    if prior is not None:
+        return prior
     name, database_id = _new_isolated_real_shadow(cloud, run_id, attempt)
     _schema(cloud, database_id)
     init = projection_codec.generation_statement(source)
