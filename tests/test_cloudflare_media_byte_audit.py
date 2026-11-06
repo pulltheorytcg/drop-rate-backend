@@ -138,3 +138,46 @@ async def test_batching_over_multiple_pages_is_lossless(monkeypatch):
     ok,bad=await audit.verify_actual_bytes(storage,p+r)
     assert (ok,bad)==(9,0)
     assert len(storage.calls)==9
+
+
+@pytest.mark.asyncio
+async def test_only_transient_r2_read_failure_is_retried_and_verified():
+    p,r=fixtures()
+    class OneTransient(FakeStorage):
+        failures=0
+        def read_verified_media(self,key,*,expected_sha256,expected_size):
+            if self.failures==0:
+                self.failures+=1
+                raise ObjectStorageError("Mirrored media unavailable or invalid")
+            return super().read_verified_media(key,expected_sha256=expected_sha256,
+                                              expected_size=expected_size)
+    storage=OneTransient()
+    ok,bad=await audit.verify_actual_bytes(storage,p+r)
+    assert (ok,bad)==(9,0)
+    assert storage.failures==1
+
+
+@pytest.mark.asyncio
+async def test_sha_integrity_failure_is_never_retried():
+    p,r=fixtures()
+    class Corrupt(FakeStorage):
+        def read_verified_media(self,key,*,expected_sha256,expected_size):
+            self.calls.append(key)
+            raise ObjectStorageError("Mirrored media failed byte-for-byte verification")
+    storage=Corrupt()
+    ok,bad=await audit.verify_actual_bytes(storage,p+r)
+    assert (ok,bad)==(0,9)
+    assert len(storage.calls)==9
+
+
+@pytest.mark.asyncio
+async def test_persistent_transient_failure_still_fails_with_bounded_retry():
+    p,r=fixtures()
+    class Unavailable(FakeStorage):
+        def read_verified_media(self,key,*,expected_sha256,expected_size):
+            self.calls.append(key)
+            raise ObjectStorageError("Mirrored media unavailable or invalid")
+    storage=Unavailable()
+    ok,bad=await audit.verify_actual_bytes(storage,p+r)
+    assert (ok,bad)==(0,9)
+    assert len(storage.calls)==27
