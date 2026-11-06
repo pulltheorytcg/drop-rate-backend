@@ -554,3 +554,47 @@ async def test_chunk_byte_guard_without_declared_length():
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(SourceError, match="download byte bound"):
             await mtg.fetch_mtgjson(client, descriptor())
+
+
+def test_exact_mcm_cardmarket_id_preserved_as_identity_not_price():
+    source = card(identifiers={"mcmId": 123456, "scryfallId": "ignored"})
+    result = parse(payload([source]))
+    assert len(result.records) == 2
+    assert all(row["details"]["cardmarket_product_id"] == "123456" for row in result.records)
+    assert all("market_value_minor" not in row and "price" not in row["details"]
+               for row in result.records)
+    assert {row["provider_id"].rsplit(":", 1)[-1] for row in result.records} == {"foil", "nonfoil"}
+    prepared = mtg.codec.prepare_catalogue(result.records, provider=mtg.PROVIDER,
+        system_code=mtg.SYSTEM_CODE, language="English", source_url=mtg.DOWNLOAD_URL,
+        source_revision=mtg.SOURCE_REVISION, permission_ref=mtg.PERMISSION_REF)
+    assert prepared.manifest["record_count"] == 2
+    assert prepared.manifest["raw_bytes"] == result.normalized_raw_bytes
+
+
+@pytest.mark.parametrize("value", [None, 0, -4, True, False, "", "0", "01", "no", "4.5", 2**32])
+def test_invalid_mcm_ids_quarantined_without_removing_canonical_cards(value):
+    source = card(identifiers={"mcmId": value})
+    result = parse(payload([source]))
+    assert len(result.records) == 2
+    assert all("cardmarket_product_id" not in row["details"] for row in result.records)
+
+
+def test_no_mcm_id_does_not_infer_from_name_or_cross_provider_id():
+    result = parse(payload([card(identifiers={"scryfallId":"123456", "tcgplayerProductId":123456})]))
+    assert all("cardmarket_product_id" not in row["details"] for row in result.records)
+
+
+def test_mcm_id_is_exactly_preserved_for_distinct_printings():
+    first = card(identifiers={"mcmId":"30001"})
+    second = card(uuid="22222222-2222-5222-8222-222222222222", identifiers={"mcmId":"30002"})
+    rows = parse(payload([first,second])).records
+    assert len(rows) == 4
+    assert {row["details"]["cardmarket_product_id"] for row in rows} == {"30001","30002"}
+    assert len({row["provider_id"] for row in rows}) == 4
+
+
+@pytest.mark.parametrize("value", [[], {}])
+def test_structurally_malformed_mcm_identifier_fails_closed(value):
+    with pytest.raises(SourceError, match="Malformed MTGJSON Cardmarket ID structure"):
+        parse(payload([card(identifiers={"mcmId": value})]))
+

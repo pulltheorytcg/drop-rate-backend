@@ -46,7 +46,7 @@ from .r2_first_sources import (
 DOWNLOAD_URL = "https://mtgjson.com/api/v5/AllPrintings.json.xz"
 CHECKSUM_URL = DOWNLOAD_URL + ".sha256"
 PERMISSION_REF = "https://mtgjson.com/license/"
-SOURCE_REVISION = "all-printings-v5-metadata-v1"
+SOURCE_REVISION = "all-printings-v5-metadata-v2-mcm-id"
 PROVIDER = "mtgjson"
 SYSTEM_CODE = "MAGIC_THE_GATHERING"
 SOURCE_DETAILS = {
@@ -318,13 +318,25 @@ def _selected_card(card: dict, set_code: str) -> dict | None:
     # reinterpret them as one of another provider's three finish categories.
     if not finishes or any(_FINISH_TOKEN.fullmatch(finish) is None for finish in finishes):
         raise SourceError("Invalid MTGJSON physical finish evidence")
+    # MTGJSON exposes its exact Cardmarket product identifier in
+    # identifiers.mcmId. Keep only validated literal provider IDs; null,
+    # placeholders, booleans and malformed IDs are NOT eligible for joins.
+    # This is identity evidence only, never a source price or a valuation.
+    raw_mcm = card.get("mcmId")
+    mcm_id = None
+    if (type(raw_mcm) is int and 0 < raw_mcm <= 2**31-1):
+        mcm_id = str(raw_mcm)
+    elif (type(raw_mcm) is str and raw_mcm.isascii() and
+          re.fullmatch(r"[1-9][0-9]{0,9}", raw_mcm) and int(raw_mcm) <= 2**31-1):
+        mcm_id = raw_mcm
     # MTGJSON explicitly uses this for promotions outside the set's cycle,
     # including Secret Lair. Otherwise retain the enclosing set's release date.
     release = card.get("originalReleaseDate")
     if release is not None:
         release = _date(release, "printing release date")
     return {"uuid": native_id, "name": name, "number": number,
-            "rarity": rarity, "finishes": sorted(finishes), "release_date": release}
+            "rarity": rarity, "finishes": sorted(finishes), "release_date": release,
+            "cardmarket_product_id": mcm_id}
 
 
 def _json(value) -> bytes:
@@ -428,6 +440,11 @@ def parse_mtgjson(source: BinaryIO, *, deadline: float | None = None,
                                         "card_number": item["number"], "rarity": item["rarity"],
                                         "finish": finish, "release_date": item["release_date"] or release_date,
                                         "source_url": DOWNLOAD_URL, "details": dict(SOURCE_DETAILS)}
+                                    # Each finish retains the same source print ID,
+                                    # and the downstream pricing match must still
+                                    # check the exact finish and set/edition.
+                                    if item["cardmarket_product_id"] is not None:
+                                        row["details"]["cardmarket_product_id"] = item["cardmarket_product_id"]
                                     count = len(records) + 1
                                     if count > codec.MAX_ROWS:
                                         raise SourceError("MTGJSON exceeds catalogue row bound; no truncation")
@@ -477,6 +494,10 @@ def parse_mtgjson(source: BinaryIO, *, deadline: float | None = None,
                         if event not in {"string", "boolean", "null"}:
                             raise SourceError("Invalid MTGJSON card scalar")
                         card[field] = value
+                    elif field == "identifiers.mcmId":
+                        if event not in {"string", "number", "null", "boolean"}:
+                            raise SourceError("Malformed MTGJSON Cardmarket ID structure")
+                        card["mcmId"] = value
                     elif field in _CARD_ARRAYS:
                         if event == "start_array":
                             card[field] = []

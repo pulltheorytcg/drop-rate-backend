@@ -54,6 +54,8 @@ DETAIL_FIELDS = frozenset({
     "source_credit", "source_license", "source_license_url", "source_note", "checklist_section",
     "reference_scope", "source_year", "character", "product_line", "scale",
     "manufacturer_sku", "barcode_gtin", "box_number",
+    # Source identity only, never a market price or ownership signal.
+    "cardmarket_product_id",
 })
 MANIFEST_FIELDS = frozenset({
     "schema", "provider", "system_code", "language", "source_url",
