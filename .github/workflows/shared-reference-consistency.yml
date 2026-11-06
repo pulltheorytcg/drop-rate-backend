@@ -147,7 +147,9 @@ jobs:
           for entry in ('/owner','/app'):
               with urllib.request.urlopen(base+entry,timeout=10) as response:content=response.read()
               assert ('reference-value-display.js?v='+assets['reference-value-display.js']).encode() in content,entry
-              if entry=='/owner':assert b'<span>Recommended retail</span>' in content
+              if entry=='/owner':
+                  assert b'<span>Market value</span>' in content
+                  assert b'<span>Recommended retail</span>' not in content
           with urllib.request.urlopen(base+'/health/ready',timeout=10) as response:assert response.status==200
           for path in ('/api/v1/inventory/market-values?inventory_id=00000000-0000-4000-8000-000000000001','/api/v1/owner/overview','/api/v1/owner/channels'):
               try:urllib.request.urlopen(base+path,timeout=10)
