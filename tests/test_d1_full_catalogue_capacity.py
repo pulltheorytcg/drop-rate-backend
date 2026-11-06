@@ -23,6 +23,14 @@ class ReadOnlyD1:
     def __init__(self,account,token):
         assert account==cap.ACCOUNT
         assert token=="scoped-test-token"
+        self.path=f"/accounts/{account}/d1/database"
+
+    def call(self,method,path,data=None):
+        assert method=="GET"
+        assert data is None
+        assert path==f"{self.path}/{UUID}"
+        type(self).total_queries+=1
+        return {"file_size":self.pages*4096,"uuid":UUID},1.2
 
     def list_databases(self):
         return [{"name":name,"uuid":UUID} for name in self.database_names]
@@ -33,11 +41,8 @@ class ReadOnlyD1:
             "insert ","update ","delete ","drop ","create ","alter "
         ))
         type(self).total_queries += 1
-        if sql=="pragma page_count":
-            rows=[{"page_count":self.pages}]
-        elif sql=="pragma page_size":
-            rows=[{"page_size":4096}]
-        elif "count(*)" in sql:
+        assert not sql.lower().startswith("pragma")
+        if "count(*)" in sql:
             assert cap.YGO_MANIFEST_SHA in sql
             rows=[{"n":self.current}]
         elif "shadow_active_partitions" in sql:
@@ -67,7 +72,7 @@ def test_current_verified_yugioh_batch_does_not_unlock_other_writes():
     assert report["visible_database_count"]==2
     assert report["d1_writes"]==0
     assert not report["daily_account_write_quota_measured"]
-    assert ReadOnlyD1.total_queries==6
+    assert ReadOnlyD1.total_queries==4
 
 
 def test_full_source_and_active_pointer_allows_later_review():
@@ -119,3 +124,22 @@ def test_capacity_workflow_has_valid_tokens_without_d1_changes():
     assert "CLOUDFARE_D1_PILOT_TOKEN: "+"${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}" in workflow
     assert "contents: read" in workflow
     assert "python tools/d1_full_catalogue_capacity.py" in workflow
+
+
+def test_missing_supported_cloudflare_metadata_fails_closed(monkeypatch):
+    class NoSize(ReadOnlyD1):
+        def call(self,method,path,data=None):
+            return {"uuid":UUID},0
+    monkeypatch.setattr(cap,"D1Client",NoSize)
+    with pytest.raises(MigrationGuard,match="file_size"):
+        cap.inspect_capacity(cap.ACCOUNT,"scoped-test-token")
+
+
+def test_official_file_size_metadata_allows_integer_floats(monkeypatch):
+    class FloatSize(ReadOnlyD1):
+        def call(self,method,path,data=None):
+            return {"file_size":float(4096*1200)},0
+    monkeypatch.setattr(cap,"D1Client",FloatSize)
+    proof=cap.inspect_capacity(cap.ACCOUNT,"scoped-test-token")
+    assert proof["largest_database_bytes"]==4096*1200
+    assert proof["d1_writes"]==0
