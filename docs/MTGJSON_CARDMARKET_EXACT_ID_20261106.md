@@ -21,3 +21,9 @@ Source data is fetched by the existing MTGJSON checksum-verified bounded streami
 `PYTHONPATH=backend pytest -q tests/test_r2_first_mtgjson.py tests/test_r2_first_catalogue.py`
 
 Check canonical identity, optional ID validation, byte bound parity, R2 manifest hash/restore, no private content/price leakage and invalid ID quarantine. After CI, compare this v2 loader against a bounded real upstream set on an isolated runner and verify live partition size before authorising a full R2 metadata republish. **This PR does not activate a price refresh or publish a monetary amount.** Later source-grade Cardmarket references need separate full set/finish crosswalk testing, evidence classification and commercial use review.
+
+## Full-catalogue read-only join bridge
+
+`backend/app/mtg_cardmarket_r2_bridge.py` converts the existing *verified* R2 Magic partition into the exactly typed MTGJSON identity format used by the already tested public Cardmarket pilot (#919). It pages the R2 SQLite source snapshot in verified batches, never queries the 430 MB PostgreSQL database, and returns only original UUID+set+name+finish+source ID. Any conflicting same-UUID printings, duplicate finish or divergent source ID are quarantined, and any missing Cardmarket ID is not filled by guessing.
+
+`cards_from_snapshot(snapshot)` and `cards_from_verified_r2(rows)` are explicitly non-publishing: they cannot compute or write market-value amounts. An eventual price generator will feed their output into the published daily-source corroboration selector, then require independent evidence and a separately reviewed R2 sidecar and rollback plan before publishing any `Market Value`. This adapter supports the entire R2 Magic partition, not only the 771-card Foundations sample.
