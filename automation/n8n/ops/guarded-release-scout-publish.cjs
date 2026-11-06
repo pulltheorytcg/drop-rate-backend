@@ -60,10 +60,15 @@ function readSources(sourceDirectory=DIRECTORY) {
       error('SOURCE_DRIFT');
     const signer=source.nodes.find(n=>n.name.startsWith('Sign '))?.parameters?.jsCode || '';
     const verifier=source.nodes.find(n=>n.name.startsWith('Verify '))?.parameters?.jsCode || '';
+    const expectedSource=source.meta.dropRate.source;
     if(!signer.includes("createHmac('sha256'")
       ||!signer.includes('REFRESH_APPROVED_RELEASE_SOURCE')
       ||!signer.includes('DROP_RATE_AUTOMATION_COMMAND_SECRET')
-      ||!verifier.includes('r.artwork_published!==false'))
+      ||!signer.includes("source:'"+expectedSource+"'")
+      ||!signer.includes('/commands/catalogue/refresh-release-source')
+      ||!verifier.includes("r.source!=='"+expectedSource+"'")
+      ||!verifier.includes('r.artwork_published!==false')
+      ||!verifier.includes('r.ownership_or_price_changed!==false'))
       error('SOURCE_DRIFT');
     found.push({id,source,sha:inspector.definitionHash(source)});
   }
