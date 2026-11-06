@@ -261,7 +261,7 @@ def recommended_totals(items):
     This function performs no calculation of a new price and no database writes.
     """
     eligible = [item for item in items
-                if item.get("reference_value", {}).get("status") in {"AVAILABLE", "REFERENCE_ESTIMATE"}
+                if item.get("reference_value", {}).get("status") == "AVAILABLE"
                 and type(item.get("recommended_retail_minor")) is int
                 and item["recommended_retail_minor"] >= MIN_STORE_PRICE_MINOR]
     asking = [item["store_price_minor"] for item in items
