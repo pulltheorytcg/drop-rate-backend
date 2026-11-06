@@ -4,7 +4,7 @@
 
 ## What and why
 
-The live D1 operational schema is verified but **empty**. Before any owner/inventory/ledger rows can be replayed, capture a consistent immutable PostgreSQL source snapshot and verify it. `backend/app/cloudflare_exit_source_archive.py` and `backend/scripts/archive_cloudflare_exit_source.py` provide the first narrow, auditable private R2 checkpoint. The module captures **every column**, from **one read-only repeatable-read PostgreSQL transaction**, of these 13 reviewed `tcg` tables:
+The live D1 operational schema is verified but **empty**. Before any owner/inventory/ledger rows can be replayed, capture a consistent immutable PostgreSQL source snapshot and verify it. `backend/app/cloudflare_exit_source_archive.py` and `backend/scripts/archive_cloudflare_exit_source.py` provide the first narrow, auditable private R2 checkpoint. The module captures **every column**, from **one read-only repeatable-read PostgreSQL transaction**, of these 11 reviewed `tcg` tables:
 
 | Source relation | Exact row count, 6 Nov audit |
 |---|---:|
@@ -19,24 +19,22 @@ The live D1 operational schema is verified but **empty**. Before any owner/inven
 | `media_assets` | 515 |
 | `media_object_mirrors` | 401 |
 | `reference_image_mirrors` | 66,222 |
-| `market_observations` | 6,241 |
-| `audit_events` | 46,577 |
 
-These counts are read-only source receipts, **not** archival proof or D1 row counts. Run them again against the same consistent snapshot. Owners are business ownership records; this is not six founders, and `reference_image_mirrors` metadata is not image bytes.
+These counts are read-only source receipts, **not** archival proof or D1 row counts. A separate read-only scan flagged **157 of 46,577 audit rows** and **13 of 6,241 market-observation rows** for credential-like text. These are pattern matches, not verified exposed secrets; both JSON-heavy tables are deliberately **excluded** from this first R2 batch pending a more restricted, reviewed export/encryption path. Run them again against the same consistent snapshot. Owners are business ownership records; this is not six founders, and `reference_image_mirrors` metadata is not image bytes.
 
 ## Connections
 
 Railway's existing credentialed, single-use **R2 source-backup service** has private R2 configuration and the currently authorised maintenance actor. The new script only uses these existing settings and `app.db.create_pool`. It never calls Shopify, D1, an LLM or any payment provider.
 
-Default CLI mode exports and checks the original typed PostgreSQL composite records locally without R2 writes. Passing `--apply` is accepted **only** if `TCG_FULL_EXIT_PRIVATE_R2_BACKUP_ENABLED=true` is configured in that dedicated Railway service. It uploads 13 private SHA256 content-addressed .ndjson.gz archives, downloads and checks the original bytes and checks **every** row using PostgreSQL `json_populate_recordset` as a read-only type reconstruction. Only after all tables pass does it upload/check a final private manifest referencing each object. Incomplete uploads cannot be called an all-table checkpoint; archives are never deleted/overwritten to hide an error. No source table or trigger is changed.
+Default CLI mode exports and checks the original typed PostgreSQL composite records locally without R2 writes. Passing `--apply` is accepted **only** if `TCG_FULL_EXIT_PRIVATE_R2_BACKUP_ENABLED=true` is configured in that dedicated Railway service. It uploads 11 private SHA256 content-addressed .ndjson.gz archives, downloads and checks the original bytes and checks **every** row using PostgreSQL `json_populate_recordset` as a read-only type reconstruction. Only after all tables pass does it upload/check a final private manifest referencing each object. Incomplete uploads cannot be called an all-table checkpoint; archives are never deleted/overwritten to hide an error. No source table or trigger is changed.
 
 ## Security / failure points
 
-- **No `auth` tables**, credentials, MFA, login tokens, payment-card details, `ebay_seller_connections`, `stripe_connected_accounts`, `payout_preferences` or arbitrary tables. They need a separate carefully reviewed identity/secrets migration, not a mass export.
+- **No `audit_events` / `market_observations` raw JSON** until sensitive-field review; no `auth` tables, credentials, MFA, login tokens, payment-card details, `ebay_seller_connections`, `stripe_connected_accounts`, `payout_preferences` or arbitrary tables. They need a separate carefully reviewed identity/secrets migration, not a mass export.
 - Private R2 only. Never log source row JSON, presigned object URLs, customer names, values, credentials or provider payloads. Print only table counts and SHA256 digests.
 - Server-side `require_platform_admin` executes under the existing maintenance actor before reading RLS-protected tables. Every query is inside read-only transactions; the source snapshot is repeatable-read. No temporary restore tables or DB write commands.
 - Abort on schema/identity changes, missing keys, duplicate IDs, source cursor mismatch, invalid JSON, an oversized source row, a broken gzip archive, failed R2 remote-byte readback, typed reconstruction mismatch or incomplete manifest.
-- The 13 selected tables represent **one milestone**, not the full 148-relation Supabase exit. Separate historical price archives/figure/sealed valuations, actual image binary objects, source reference catalogue, app permissions, OAuth, identities, commissions and all remaining operational tables stay outstanding.
+- The 11 selected tables represent **one milestone**, not the full 148-relation Supabase exit. Separate historical price archives/figure/sealed valuations, actual image binary objects, source reference catalogue, app permissions, OAuth, identities, commissions and all remaining operational tables stay outstanding.
 - Cloudflare storage usage and data handling must be checked against the user's UK privacy/retention requirements; archives are restricted to existing private bucket controls.
 
 ## How to run and test
