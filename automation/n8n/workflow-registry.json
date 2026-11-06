@@ -971,6 +971,36 @@
         "shadow-mode opportunity scoring proof",
         "no direct external mutation"
       ]
+    },
+    {
+      "key": "automated-card-artwork-refresh",
+      "sequence": 44,
+      "domain": "Media",
+      "authority": "ORCHESTRATE",
+      "status": "BUILT_INACTIVE",
+      "source_of_truth": "PostgreSQL/Supabase",
+      "decision_engine": "FastAPI",
+      "orchestrator": "n8n",
+      "ai_may_assist": false,
+      "idempotency_required": true,
+      "version_control_required": true,
+      "error_workflow_required": true,
+      "activation_requires": [
+        "version-controlled workflow JSON",
+        "deterministic backend contract",
+        "duplicate-delivery test",
+        "failure/retry test",
+        "observability/error routing",
+        "provider terms/rate-limit review where applicable",
+        "approved canonical and reference-only media scope must not claim metadata-only R2-first images",
+        "signed API command and 5xx receipt retry evidence",
+        "verified real n8n stored definition/DR90 error handler/backup",
+        "source rights, exact-printing, R2 byte readback and signed-in app display proofs"
+      ],
+      "implementation_id": "DR95EligibleArtworkSyncV1",
+      "implementation_path": "automation/n8n/workflows/dr-95-eligible-artwork-sync.json",
+      "control_contract": "/api/v1/automation/commands/storage/refresh-eligible-artwork",
+      "activation_note": "Safe eligible-media orchestration only; DR-95 never grants rights or produces R2-first metadata artwork; existing DR94 remains unchanged and must not double-schedule same queue."
     }
   ]
 }

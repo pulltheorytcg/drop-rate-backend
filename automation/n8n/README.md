@@ -364,3 +364,14 @@ Title, description, SEO, media and arbitrary metafield rewrites are **not** incl
 
 The workflow is imported inactive. Its migration must be applied through the normal manual production migration gate before any controlled activation test.
 
+
+
+## DR-95 eligible artwork sync (all supported games, gated; inactive by default)
+
+DR-95 is a **new** hourly HMAC-signed orchestrator, not an overwrite of the live DR-94 workflow. Live production logs show DR-94 already active, and the separate legacy reference-image API worker already runs. The new API command therefore delegates to DR-94 when \`canonical_limit=0\` and skips the reference batch when the existing worker is enabled. This avoids duplicate provider downloads; references can fall back to a bounded signed backend batch when the existing worker is disabled but its apply policy remains enabled.
+
+\`Schedule → sign REFRESH_ELIGIBLE_ARTWORK → FastAPI /api/v1/automation/commands/storage/refresh-eligible-artwork → verify receipt → DR-90 on failure\`
+
+This is **not** a bulk permission override or a new artwork source. Current source-published Yu-Gi-Oh!, Lorcana and Magic R2-first catalogues are **metadata-only** and need separate rights-checked exact-print artwork adapters before their images can appear. Certified slabs still require the exact physical slab photograph. The SQL database is currently above its 400 MB bulk-refresh safety threshold, so the backend defers all media writes until capacity checks pass. Newly imported DR-95 remains inactive until the persistent n8n workflow definition, rollback, DR-90 routing, and a real signed request/receipt have passed acceptance testing.
+
+[Full DR-95 contract, test plan, source gaps and rollback](../../docs/DR95_ARTWORK_AUTOMATION_20261106.md).

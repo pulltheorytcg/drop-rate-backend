@@ -6,13 +6,14 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Request
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from .automation_dispatcher import verify_signed_body
 from .settings import get_settings
 from .object_storage import ObjectStorageConfig, ObjectStorageError, S3ObjectStorage
 from .r2_media import mirror_approved_media
-from .r2_reference_images import PENDING_REFERENCE_IMAGES_SQL, mirror_reference_images
+from .r2_reference_images import PENDING_REFERENCE_IMAGES_SQL, mirror_reference_images, worker_enabled
+from .database_capacity import check_database_capacity
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 
@@ -63,6 +64,18 @@ class MirrorReferenceMediaCommand(BaseModel):
     occurred_at: datetime
     limit: int = Field(default=10, ge=1, le=20)
     apply: bool = False
+
+
+class RefreshEligibleArtworkCommand(BaseModel):
+    """No arbitrary provider/image IDs: the database selects eligible sources."""
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[1] = 1
+    action: Literal["REFRESH_ELIGIBLE_ARTWORK"]
+    execution_id: str = Field(min_length=1, max_length=120)
+    occurred_at: datetime
+    canonical_limit: int = Field(default=0, ge=0, le=5)
+    reference_limit: int = Field(default=10, ge=1, le=20)
 
 
 class InventoryApprovedEvent(BaseModel):
@@ -324,6 +337,93 @@ async def mirror_exact_reference_media(
         })
     return {'accepted': True, 'execution_id': command.execution_id,
             'mode': 'APPLIED', **result}
+
+
+@router.post('/storage/refresh-eligible-artwork')
+async def refresh_eligible_artwork(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(default=None, alias='X-Drop-Rate-Timestamp'),
+    x_drop_rate_signature: str | None = Header(default=None, alias='X-Drop-Rate-Signature'),
+) -> dict:
+    """n8n orchestrates; SQL/FastAPI are the sole deterministic publishing gates.
+
+    Only previously-approved canonical source images and the existing exact
+    legacy reference cache are eligible. R2-first metadata-only partitions
+    are *not* silently promoted to image rights or Shopify listings.
+    """
+    raw = await _verified_command_body(
+        request, timestamp_header=x_drop_rate_timestamp, signature_header=x_drop_rate_signature,
+    )
+    try:
+        command = RefreshEligibleArtworkCommand.model_validate_json(raw)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail='Invalid artwork refresh command') from exc
+    if command.occurred_at.tzinfo is None or command.occurred_at.utcoffset() is None:
+        raise HTTPException(status_code=422, detail='Artwork refresh timestamp needs timezone')
+
+    # Private R2 is the only media byte target; no Shopify or inventory writes.
+    try:
+        async with request.app.state.db_pool.acquire() as connection:
+            capacity = await check_database_capacity(connection)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail='Database capacity check unavailable') from exc
+    if not capacity.refresh_allowed:
+        return {
+            'accepted': True, 'execution_id': command.execution_id,
+            'status': 'DEFERRED_CAPACITY', 'capacity_reason': capacity.reason,
+            'scope': 'RIGHTS_APPROVED_CANONICAL_AND_LEGACY_REFERENCE_ONLY',
+            'canonical': None, 'reference': None, 'new_game_metadata_promoted': False,
+        }
+
+    # DR-94 already owns production canonical mirroring. Normal DR-95 runs
+    # request zero canonical items to prevent duplicate network work. The
+    # optional small failover mode is independently bounded by the same SQL.
+    canonical = {'examined': 0, 'mirrored': 0, 'skipped': 0,
+                 'failed': 0, 'remaining_possible': False}
+    canonical_status = 'DELEGATED_TO_DR94'
+    if command.canonical_limit:
+        try:
+            canonical = await mirror_approved_media(
+                request.app.state.db_pool, limit=command.canonical_limit,
+                request_id=request.state.request_id,
+            )
+        except ObjectStorageError as exc:
+            raise HTTPException(status_code=503, detail='Approved artwork storage unavailable') from exc
+        if canonical['failed']:
+            raise HTTPException(status_code=502, detail={
+                'message': 'Approved artwork verification failed', 'retryable': True,
+                'result': canonical,
+            })
+        canonical_status = 'MIRRORED_APPROVED_MEDIA'
+
+    reference_status = 'DISABLED_BY_BACKEND_POLICY'
+    reference = None
+    # The existing API reference worker owns this backlog when enabled. It
+    # holds the advisory lock and checks capacity; DR-95 must not duplicate it.
+    if worker_enabled():
+        reference_status = 'DELEGATED_TO_REFERENCE_WORKER'
+    elif get_settings().r2_reference_cache_apply_enabled:
+        try:
+            reference = await mirror_reference_images(
+                request.app.state.db_pool, limit=command.reference_limit,
+                request_id=request.state.request_id,
+            )
+        except ObjectStorageError as exc:
+            raise HTTPException(status_code=503, detail='Reference artwork storage unavailable') from exc
+        if reference['failed']:
+            raise HTTPException(status_code=502, detail={
+                'message': 'Reference artwork verification failed', 'retryable': True,
+                'result': reference,
+            })
+        reference_status = 'REFERENCE_ONLY_CACHE_VERIFIED'
+
+    return {
+        'accepted': True, 'execution_id': command.execution_id, 'status': 'COMPLETED',
+        'scope': 'RIGHTS_APPROVED_CANONICAL_AND_LEGACY_REFERENCE_ONLY',
+        'canonical': canonical, 'canonical_status': canonical_status,
+        'reference': reference, 'reference_status': reference_status,
+        'new_game_metadata_promoted': False,
+    }
 
 
 # The marketing router reuses the raw-body HMAC verifier above. Its feature gate

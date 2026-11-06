@@ -11,13 +11,13 @@ def _registry() -> dict:
     return json.loads(REGISTRY.read_text())
 
 
-def test_n8n_workflow_registry_covers_43_founder_workflows() -> None:
+def test_n8n_workflow_registry_covers_44_founder_workflows() -> None:
     registry = _registry()
     workflows = registry["workflows"]
     assert registry["schema_version"] == 1
-    assert len(workflows) == 43
-    assert [row["sequence"] for row in workflows] == list(range(1, 44))
-    assert len({row["key"] for row in workflows}) == 43
+    assert len(workflows) == 44
+    assert [row["sequence"] for row in workflows] == list(range(1, 45))
+    assert len({row["key"] for row in workflows}) == 44
 
 
 def test_every_workflow_has_safety_and_activation_contract() -> None:
@@ -48,3 +48,15 @@ def test_high_impact_financial_and_stock_workflows_do_not_delegate_truth_to_ai()
     ):
         assert by_key[key]["authority"] in {"OBSERVE", "HIGH_IMPACT"}
         assert by_key[key]["ai_may_assist"] is False
+
+
+def test_automated_artwork_sync_is_backend_gated_and_not_claimed_active() -> None:
+    from pathlib import Path
+    registry = _registry()
+    row, = [w for w in registry["workflows"] if w["key"] == "automated-card-artwork-refresh"]
+    assert row["status"] == "BUILT_INACTIVE"
+    assert row["authority"] == "ORCHESTRATE"
+    assert row["ai_may_assist"] is False
+    assert row["implementation_id"] == "DR95EligibleArtworkSyncV1"
+    assert (ROOT / row["implementation_path"]).is_file()
+    assert "R2-first" in row["activation_note"]

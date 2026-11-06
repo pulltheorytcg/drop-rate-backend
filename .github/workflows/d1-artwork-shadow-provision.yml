@@ -1,0 +1,80 @@
+name: Cloudflare independent artwork-only D1 shadow
+
+on:
+  pull_request:
+    paths:
+      - 'database/cloudflare_d1/0003_artwork_shadow.sql'
+      - 'tools/d1_artwork_shadow_provision.py'
+      - 'tests/test_d1_artwork_shadow_provision.py'
+      - 'tests/test_cloudflare_artwork_shadow.py'
+      - 'tests/cloudflare_artwork_shadow.test.mjs'
+      - 'cloudflare/artwork-shadow/worker.mjs'
+      - '.github/workflows/d1-artwork-shadow-provision.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'database/cloudflare_d1/0003_artwork_shadow.sql'
+      - 'tools/d1_artwork_shadow_provision.py'
+      - '.github/workflows/d1-artwork-shadow-provision.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-artwork-private-d1-shadow-only
+  cancel-in-progress: false
+
+jobs:
+  verify-artwork-shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - run: python -m pip install pytest
+      - name: Validate isolated empty D1 schema and private R2 Worker before any cloud writes
+        run: |
+          python tools/d1_artwork_shadow_provision.py --validate-only
+          python -m pytest -q tests/test_d1_artwork_shadow_provision.py tests/test_cloudflare_artwork_shadow.py
+
+  provision-empty-shadow-only:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify-artwork-shadow
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Provision only named empty private artwork D1 database if Free-tier slots allow
+        env:
+          PYTHONPATH: tools
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+        run: python tools/d1_artwork_shadow_provision.py
+      - name: Verify no production pointer change or imported artwork
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('d1-artwork-shadow-report.json').read_text())
+          assert d['status']=='EMPTY_ARTWORK_D1_SHADOW_VERIFIED'
+          assert d['artwork_rows_inserted']==0
+          assert d['supabase_writes']==0 and d['shopify_writes']==0
+          assert d['production_media_pointer_changed'] is False
+          assert d['production_database_cutover'] is False
+          print('Isolated artwork D1 shadow schema verified; no storefront or finance cutover')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloudflare-artwork-empty-shadow-schema-receipt
+          path: d1-artwork-shadow-report.json
+          if-no-files-found: ignore
+          retention-days: 14

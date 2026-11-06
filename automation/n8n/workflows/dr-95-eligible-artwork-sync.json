@@ -1,0 +1,142 @@
+{
+  "id": "DR95EligibleArtworkSyncV1",
+  "name": "DR-95 Automated Rights-Checked Card Artwork Refresh",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1"
+  },
+  "nodes": [
+    {
+      "id": "dr95-schedule",
+      "name": "Hourly Approved Artwork Sync",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -600,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr95-sign",
+      "name": "Sign Artwork Refresh Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -310,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst controlUrl = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('artwork_command_secret_not_configured');\nif (!/\\/api\\/v1\\/automation\\/control\\/receipt$/.test(controlUrl)) throw new Error('artwork_control_url_invalid');\nconst executionId = String($execution.id || '').trim();\nif (!executionId) throw new Error('missing_artwork_execution_id');\nconst body = JSON.stringify({schema_version:1,action:'REFRESH_ELIGIBLE_ARTWORK',execution_id:executionId.slice(0,120),occurred_at:new Date().toISOString(),canonical_limit:0,reference_limit:10});\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256',secret).update(timestamp + '.' + body,'utf8').digest('hex');\nreturn [{json:{artwork_url:controlUrl.replace(/\\/control\\/receipt$/, '/commands/storage/refresh-eligible-artwork'),artwork_body:body,artwork_timestamp:timestamp,artwork_signature:signature,artwork_execution_id:executionId.slice(0,120)}}];"
+      }
+    },
+    {
+      "id": "dr95-http",
+      "name": "Call Governed Artwork Refresh",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -20,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.artwork_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.artwork_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.artwork_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.artwork_body }}",
+        "options": {
+          "timeout": 150000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "autodetect"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr95-receipt",
+      "name": "Verify Deterministic Artwork Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        270,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst status = Number(response.statusCode || 0);\nif (status < 200 || status >= 300) throw new Error('artwork_refresh_http_' + status);\nconst body = response.body || {};\nif (body.accepted !== true || typeof body.execution_id !== 'string') throw new Error('artwork_refresh_receipt_invalid');\nif (body.new_game_metadata_promoted !== false) throw new Error('unexpected_artwork_publication_scope');\nif (body.scope !== 'RIGHTS_APPROVED_CANONICAL_AND_LEGACY_REFERENCE_ONLY') throw new Error('unexpected_artwork_scope');\nif (body.status === 'DEFERRED_CAPACITY') {\n  if (typeof body.capacity_reason !== 'string' || body.canonical !== null || body.reference !== null) throw new Error('capacity_defer_receipt_invalid');\n  return [{json:{execution_id:body.execution_id,status:body.status,capacity_reason:body.capacity_reason}}];\n}\nif (body.status !== 'COMPLETED') throw new Error('artwork_refresh_not_completed');\nconst canonical = body.canonical;\nif (!canonical || typeof canonical.mirrored !== 'number' || Number(canonical.failed) !== 0 || canonical.mirrored < 0) throw new Error('approved_media_receipt_invalid');\nif (body.reference_status === 'REFERENCE_ONLY_CACHE_VERIFIED') {\n  if (!body.reference || typeof body.reference.mirrored !== 'number' || Number(body.reference.failed) !== 0) throw new Error('reference_media_receipt_invalid');\n} else if (!['DISABLED_BY_BACKEND_POLICY','DELEGATED_TO_REFERENCE_WORKER'].includes(body.reference_status) || body.reference !== null) throw new Error('reference_scope_not_verified');\nreturn [{json:{execution_id:body.execution_id,status:'VERIFIED_ELIGIBLE_MEDIA_BATCH',canonical_mirrored:canonical.mirrored,reference_mirrored:body.reference?.mirrored || 0,canonical_remaining:canonical.remaining_possible,reference_remaining:body.reference?.remaining_possible || false,reference_status:body.reference_status}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Hourly Approved Artwork Sync": {
+      "main": [
+        [
+          {
+            "node": "Sign Artwork Refresh Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Artwork Refresh Command": {
+      "main": [
+        [
+          {
+            "node": "Call Governed Artwork Refresh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Governed Artwork Refresh": {
+      "main": [
+        [
+          {
+            "node": "Verify Deterministic Artwork Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-95",
+      "version": 1,
+      "role": "orchestrate-eligible-reference-cache-only-when-existing-worker-disabled",
+      "activationGate": "DR-94 is already active for approved canonical media; the API reference worker is also active and capacity-paused. Do not duplicate their downloads; DR-95 delegates to existing workers, calls governed backend only, stays inactive until real stored n8n runtime, capacity, DR90 receipts and signed-in tests are proven. Metadata-only new games and physical slabs are not auto-published."
+    }
+  }
+}
