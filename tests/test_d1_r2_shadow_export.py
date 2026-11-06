@@ -473,6 +473,33 @@ def test_legacy_r2_export_preserves_admin_rls_and_fixed_source(monkeypatch):
     record=client.get("/api/v1/internal/d1-shadow/legacy/part/0",headers=headers)
     assert record.status_code==200 and record.content==raw
     assert client.get("/api/v1/internal/d1-shadow/legacy/part/1",headers=headers).status_code==404
+
+    # Independent daily D1 migrator must present the new exact workflow ref.
+    # The source-only legacy audit may not use the mutating workflow's route.
+    assert client.get("/api/v1/internal/d1-shadow/legacy-d1/manifest",
+                      headers=headers).status_code==403
+    writer_headers={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.LEGACY_D1_WORKFLOW_REF,event_name="schedule"))}
+    writer_manifest=client.get("/api/v1/internal/d1-shadow/legacy-d1/manifest",
+                               headers=writer_headers)
+    assert writer_manifest.status_code==200
+    assert writer_manifest.json()==manifest
+    writer_part=client.get("/api/v1/internal/d1-shadow/legacy-d1/part/0",
+                           headers=writer_headers)
+    assert writer_part.status_code==200
+    assert hashlib.sha256(writer_part.content).hexdigest()==sha
+    assert client.get("/api/v1/internal/d1-shadow/legacy-d1/part/2",
+                      headers=writer_headers).status_code==404
+    assert client.get("/api/v1/internal/d1-shadow/legacy/manifest",
+                      headers=writer_headers).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/yugioh/manifest",
+                      headers=writer_headers).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/legacy-d1/manifest").status_code==401
+    dispatch={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.LEGACY_D1_WORKFLOW_REF,event_name="workflow_dispatch"))}
+    assert client.get("/api/v1/internal/d1-shadow/legacy-d1/manifest",
+                      headers=dispatch).status_code==403
+
     assert client.get("/api/v1/internal/d1-shadow/legacy/manifest").status_code==401
     assert client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=headers).status_code==403
     assert client.get("/api/v1/internal/d1-shadow/legacy/manifest",

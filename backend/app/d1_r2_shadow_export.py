@@ -53,6 +53,9 @@ YUGIOH_WORKFLOW_REF = (
 LEGACY_R2_WORKFLOW_REF = (
     EXPECTED_REPOSITORY + "/.github/workflows/d1-legacy-r2-preflight.yml@refs/heads/main"
 )
+LEGACY_D1_WORKFLOW_REF = (
+    EXPECTED_REPOSITORY + "/.github/workflows/d1-legacy-r2-shadow.yml@refs/heads/main"
+)
 LEGACY_R2_SOURCE_GENERATION = 122500
 LEGACY_R2_EXPECTED_PARTS = 161
 LEGACY_R2_EXPECTED_RAW_BYTES = 29_831_680
@@ -388,6 +391,46 @@ async def exported_followon_part(request: Request, source: str, ordinal: int) ->
         codec._parse_part(raw, part, scope)
     except Exception as exc:
         log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=followon_r2_part error_type=%s",
+                    type(exc).__name__)
+        raise HTTPException(503, "Verified source unavailable") from None
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+# Only the separate, signed legacy-D1 main-branch workflow is authorised to
+# export the preverified owner-free five-relation catalogue for D1 staging.
+# No caller-supplied R2 keys, generation switches or private inventory data.
+@router.get("/legacy-d1/manifest")
+async def exported_legacy_d1_manifest(request: Request) -> Response:
+    _verify_export_access(
+        request, workflow_ref=LEGACY_D1_WORKFLOW_REF,
+        allowed_events=("push", "schedule"),
+    )
+    manifest = await _verified_legacy_manifest(request)
+    raw = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+@router.get("/legacy-d1/part/{ordinal}")
+async def exported_legacy_d1_part(request: Request, ordinal: int) -> Response:
+    _verify_export_access(
+        request, workflow_ref=LEGACY_D1_WORKFLOW_REF,
+        allowed_events=("push", "schedule"),
+    )
+    manifest = await _verified_legacy_manifest(request)
+    if type(ordinal) is not int or not 0 <= ordinal < len(manifest["parts"]):
+        raise HTTPException(404, "Not found")
+    part = manifest["parts"][ordinal]
+    try:
+        storage = r2_first_service.storage()
+        raw = await asyncio.to_thread(
+            storage.read_verified_reference_snapshot, part["sha256"],
+        )
+        legacy_catalogue.parse_part(raw, part["relation"], part["sha256"],
+                                    part["raw_bytes"], part["rows"])
+    except Exception as exc:
+        log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=legacy_d1_part_read error_type=%s",
                     type(exc).__name__)
         raise HTTPException(503, "Verified source unavailable") from None
     return Response(content=raw, media_type="application/json",
