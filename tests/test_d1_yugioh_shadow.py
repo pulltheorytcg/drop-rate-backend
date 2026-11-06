@@ -46,7 +46,7 @@ class FakeD1:
     def query(self, uuid, sql, params=()):
         assert uuid == UUID
         cur = self.conn.execute(sql, params)
-        if sql.lower().strip().startswith(("insert", "create")):
+        if sql.lower().strip().startswith("insert"):
             type(self).mutations += 1
         return ({"success":True,
                  "results":[dict(x) for x in cur.fetchall()] if cur.description else []}, 0)
