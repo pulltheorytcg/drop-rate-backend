@@ -139,10 +139,12 @@ class FakeConn:
             assert isinstance(params[0], str) and params[0]
         else:
             raise AssertionError("Unexpected SQL config")
-    async def fetchrow(self, sql):
+    async def fetchrow(self, sql, *scope):
         assert self.user_id==FIXED_UUID
         assert self.admin_checked
         assert "where active" in sql.lower()
+        assert scope == (self.publication["provider"], self.publication["system_code"],
+                         self.publication["language"])
         return self.publication
 
 
