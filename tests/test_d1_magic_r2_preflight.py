@@ -140,3 +140,15 @@ def test_same_exact_workflow_has_no_cloudflare_token_or_auto_d1_writes():
     assert "CLOUDFLARE_ACCOUNT_ID" not in source
     assert "CLOUDFARE_D1_PILOT_TOKEN" not in source
     assert "verified_d1_rows" in source
+
+
+def test_preflight_workflow_has_no_d1_credential_and_unescaped_github_auth():
+    workflow = (Path(__file__).resolve().parents[1] /
+                ".github/workflows/d1-magic-r2-preflight.yml").read_text()
+    assert "CLOUDFARE_D1_PILOT_TOKEN" not in workflow
+    assert "CLOUDFLARE_ACCOUNT_ID" not in workflow
+    assert (chr(92)+"${{") not in workflow
+    assert "GITHUB_STATUS_TOKEN: "+"${{ github.token }}" in workflow
+    assert "MAGIC_PREFLIGHT_COMMIT: "+"${{ github.sha }}" in workflow
+    assert "id-token: write" in workflow
+    assert "d1-magic-r2-preflight-report.json" in workflow
