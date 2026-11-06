@@ -1,7 +1,8 @@
 """Private, lossless R2 source checkpoint for Drop Rate's operational data.
 
-Scope: 13 explicitly reviewed tcg tables with no API secrets, password hashes,
-Auth sessions, MFA keys or payment-card data. This is NOT a D1 import or a
+Scope: 11 explicitly reviewed tcg tables; excluded audit and market-observation
+JSON can contain credential-like text and needs independent protected treatment.
+Never copy Auth sessions, MFA keys or payment-card data. This is NOT a D1 import or a
 production cutover. All source SQL uses one read-only repeatable-read snapshot.
 
 Railway-only. Never print private source row JSON, R2 object URLs or tokens.
@@ -37,8 +38,6 @@ TABLE_PKS = {
     "media_assets": ("id",),
     "media_object_mirrors": ("id",),
     "reference_image_mirrors": ("provider", "system_code", "language", "provider_id"),
-    "market_observations": ("id",),
-    "audit_events": ("id",),
 }
 APPROVED_COLUMNS_PATH = (Path(__file__).resolve().parent.parent
                          / "data/cloudflare_exit_approved_columns_20261106.json")
