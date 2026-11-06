@@ -1,0 +1,66 @@
+name: D1 and R2 shadow catalogue Stage A
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/d1_shadow_catalogue.py'
+      - 'tools/d1_shadow_remote_probe.py'
+      - 'tests/test_d1_shadow_catalogue.py'
+      - 'tests/test_d1_shadow_remote_probe.py'
+      - '.github/workflows/d1-shadow-r2-stage-a.yml'
+  push:
+    branches: ['main']
+    paths:
+      - '.github/workflows/d1-shadow-r2-stage-a.yml'
+      - 'backend/app/d1_shadow_catalogue.py'
+      - 'tools/d1_shadow_remote_probe.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-shadow-r2-stage-a-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  offline-identity-and-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'pytest==8.4.2'
+      - name: Bounded exact identities, D1 shadow activation, rollback and API double
+        env:
+          PYTHONPATH: 'backend:tools'
+        run: python -m pytest -q tests/test_d1_shadow_catalogue.py tests/test_d1_shadow_remote_probe.py
+
+  isolated-remote-cloudflare:
+    # Only trusted main-branch code sees the D1-scoped pilot secret.
+    # PRs and manual dispatches NEVER run credentialled remote code.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: offline-identity-and-rollback
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify Cloudflare scoped D1 access and synthetic-only publication/rollback
+        env:
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+          PYTHONPATH: 'backend:tools'
+        run: python tools/d1_shadow_remote_probe.py
+      - name: Preserve non-private D1 smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-shadow-stage-a-synthetic-report
+          path: d1-shadow-pilot-report.json
+          if-no-files-found: ignore
+          retention-days: 14
