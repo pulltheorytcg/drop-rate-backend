@@ -114,6 +114,7 @@ function readState(databasePath,prefix,source=readSources()) {
       if(row.versionId==null||!vquery.get(row.id,row.versionId))error('UNEXPECTED_WORKFLOW_STATE');
       if(rowHash(row,vquery.get(row.id,row.versionId))!==item.sha)error('SOURCE_DRIFT');
       const published=row.activeVersionId!=null;
+      if(row.active===1&&!published)error('UNEXPECTED_WORKFLOW_STATE');
       if(published){
         const version=vquery.get(row.id,row.activeVersionId);
         if(!version||rowHash(row,version)!==item.sha)error('UNEXPECTED_WORKFLOW_STATE');
@@ -152,7 +153,9 @@ async function verifiedBackup(databasePath,states) {
     if(Object.values(copy.prepare('PRAGMA quick_check(1)').get()).join()!=='ok')
       error('BACKUP_FAILED');
     copy.close();copy=null;
-    const sha=crypto.createHash('sha256').update(fs.readFileSync(dest)).digest('hex');
+    const digest=crypto.createHash('sha256');
+    for await(const chunk of fs.createReadStream(dest))digest.update(chunk);
+    const sha=digest.digest('hex');
     fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify({
       plan:'dr96-source-scouts-v1',created_at:new Date().toISOString(),
       database_sha256:sha,states
