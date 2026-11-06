@@ -12,6 +12,7 @@ owner IDs, private object keys, URLs, or signed links.
 """
 from __future__ import annotations
 
+import argparse
 import asyncio
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -37,6 +38,8 @@ REFERENCE_MIN=66218
 PROBES_PER_PROVIDER=20
 MAX_FILE=10_000_000
 MAX_TOTAL_SELECTED_BYTES=105_000_000
+MAX_FULL_REFERENCE_BYTES=7_000_000_000
+READ_BATCH=480
 CONCURRENCY=8
 HASH_RE=re.compile(r"[0-9a-f]{64}\Z")
 
@@ -82,7 +85,7 @@ def stratified_sample(refs: list[dict]) -> tuple[list[dict],dict[str,int]]:
     return picked,counts
 
 
-def verify_metadata(physical:list[dict], references:list[dict],prefix:str):
+def verify_metadata(physical:list[dict], references:list[dict],prefix:str,*,all_references:bool=False):
     if len(physical)<PHYSICAL_MIN or len(references)<REFERENCE_MIN:
         raise MediaByteAuditError("Full source table is hidden behind RLS or reduced")
     seen_ids=set()
@@ -101,8 +104,9 @@ def verify_metadata(physical:list[dict], references:list[dict],prefix:str):
         identities.add(ident)
         assert_mirror(row,prefix)
     sample,provider_counts=stratified_sample(references)
-    selected=physical+sample
-    if sum(int(r["size_bytes"]) for r in selected)>MAX_TOTAL_SELECTED_BYTES:
+    selected=physical+(references if all_references else sample)
+    budget=MAX_FULL_REFERENCE_BYTES if all_references else MAX_TOTAL_SELECTED_BYTES
+    if sum(int(r["size_bytes"]) for r in selected)>budget:
         raise MediaByteAuditError("R2 proof would exceed the approved read budget")
     # Hash full source mirror metadata identity without disclosing any source keys.
     digest=hashlib.sha256()
@@ -171,11 +175,24 @@ async def verify_actual_bytes(storage, selected:list[dict]):
             return True
         except Exception:
             return False
-    ok=await asyncio.gather(*(safely_probe(row) for row in selected))
-    return sum(ok),len(ok)-sum(ok)
+    passed=failed=0
+    for start in range(0,len(selected),READ_BATCH):
+        batch=selected[start:start+READ_BATCH]
+        ok=await asyncio.gather(*(safely_probe(row) for row in batch))
+        passed+=sum(ok)
+        failed+=len(ok)-sum(ok)
+        if len(selected)>5000 and (start+READ_BATCH)%4800==0:
+            # Aggregate progress only. Never print owner/product IDs, R2 keys,
+            # source URLs, signed links, or provider identifiers.
+            print(json.dumps({"status":"R2_BYTES_CHECK_IN_PROGRESS",
+                "objects_checked":passed+failed,"required":len(selected),
+                "bytes_failed":failed}),flush=True)
+    return passed,failed
 
 
-async def run() -> dict:
+async def run(*,all_references:bool=False) -> dict:
+    if all_references and os.getenv("TCG_FULL_R2_REFERENCE_BYTE_AUDIT_ENABLED","false").lower()!="true":
+        raise MediaByteAuditError("Full 5.7 GB reference R2 read requires explicit one-shot opt-in")
     settings=get_settings()
     if not settings.catalogue_maintenance_actor_user_id:
         raise MediaByteAuditError("Existing maintenance actor required")
@@ -189,22 +206,27 @@ async def run() -> dict:
     finally:
         await pool.close()
     sample,provider_counts,index_sha=verify_metadata(
-        physical,refs,storage.config.prefix)
-    verified,failed=await verify_actual_bytes(storage,physical+sample)
+        physical,refs,storage.config.prefix,all_references=all_references)
+    selection=physical+(refs if all_references else sample)
+    verified,failed=await verify_actual_bytes(storage,selection)
     outcome={
-        "status":("PRIVATE_R2_PHYSICAL_ALL_AND_REFERENCE_SAMPLE_BYTES_VERIFIED"
-                  if failed==0 else "PRIVATE_R2_MEDIA_BYTE_AUDIT_FAILED"),
+        "status":(
+            ("PRIVATE_R2_ALL_QUALIFIED_REFERENCE_BYTES_VERIFIED"
+             if all_references else "PRIVATE_R2_PHYSICAL_ALL_AND_REFERENCE_SAMPLE_BYTES_VERIFIED")
+            if failed==0 else "PRIVATE_R2_MEDIA_BYTE_AUDIT_FAILED"),
         "source_inventory_mirror_rows":len(physical),
         "physical_media_bytes_checked":sum(x["size_bytes"] for x in physical),
         "source_reference_verified_metadata_rows":len(refs),
         "reference_provider_counts":provider_counts,
-        "reference_image_sample_count":len(sample),
+        "reference_image_sample_count":len(refs) if all_references else len(sample),
+        "reference_bytes_requested":sum(x["size_bytes"] for x in (refs if all_references else sample)),
         "actual_object_reads":verified+failed,
         "byte_verified":verified,
         "byte_failed":failed,
         "source_metadata_sha256":index_sha,
-        "read_scope":"ALL_PHYSICAL_MEDIA_AND_20_PER_REFERENCE_PROVIDER",
-        "full_reference_byte_coverage":False,
+        "read_scope":("ALL_PHYSICAL_AND_ALL_VERIFIED_REFERENCE_MEDIA"
+                      if all_references else "ALL_PHYSICAL_MEDIA_AND_20_PER_REFERENCE_PROVIDER"),
+        "full_reference_byte_coverage":all_references and failed==0,
         "supabase_writes":0,
         "d1_writes":0,
         "market_values_changed":0,
@@ -227,8 +249,12 @@ async def run() -> dict:
 
 
 if __name__=="__main__":
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--all-references",action="store_true",
+        help="Read and SHA256-verify every verified reference R2 object; explicit opt-in required")
+    args=parser.parse_args()
     try:
-        result=asyncio.run(run())
+        result=asyncio.run(run(all_references=args.all_references))
         print(json.dumps(result,sort_keys=True,separators=(",",":")))
         if result["byte_failed"]>0:
             raise SystemExit(2)
