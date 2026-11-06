@@ -218,7 +218,7 @@ async def run(*,all_references:bool=False) -> dict:
         "physical_media_bytes_checked":sum(x["size_bytes"] for x in physical),
         "source_reference_verified_metadata_rows":len(refs),
         "reference_provider_counts":provider_counts,
-        "reference_image_sample_count":len(sample),
+        "reference_image_sample_count":len(refs) if all_references else len(sample),
         "reference_bytes_requested":sum(x["size_bytes"] for x in (refs if all_references else sample)),
         "actual_object_reads":verified+failed,
         "byte_verified":verified,
