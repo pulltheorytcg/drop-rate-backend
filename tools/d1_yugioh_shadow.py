@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -46,6 +47,22 @@ BUDGET_INSERT = """insert into shadow_daily_write_budget(
 
 D1_READBACK_SQL = ("select " + ",".join(codec.SQLITE_COLUMNS) +
     " from shadow_cards where manifest_sha=? order by card_key limit ? offset ?")
+
+
+def _stable_source_projection(source: codec.Projection) -> codec.Projection:
+    """D1 readback is card_key ordered. Catalogue browse is name ordered.
+
+    Hash the SAME sorted tuple sequence that D1 later returns; never rely
+    on search pagination's default sort for integrity or day-to-day resume.
+    """
+    ordered = tuple(sorted(source.rows, key=lambda item: item[1]))
+    if len(ordered) != source.expected_rows or len({r[1] for r in ordered}) != len(ordered):
+        raise MigrationGuard("R2 projection rows are not unique and complete")
+    digest = hashlib.sha256()
+    for item in ordered:
+        digest.update(json.dumps(item,ensure_ascii=False,
+            separators=(",",":")).encode("utf-8")+b"\\n")
+    return replace(source,rows=ordered,projection_sha=digest.hexdigest())
 
 
 def _database(client: D1Client):
@@ -140,6 +157,7 @@ def run(account: str, token: str, run_id: str, run_attempt: str, *,
     )
     if source.expected_rows != EXPECTED_RECORDS or source.scope != SCOPE:
         raise MigrationGuard("Unreviewed Yu-Gi-Oh catalogue count changed; no D1 writes")
+    source = _stable_source_projection(source)
     cloud = D1Client(account, token)
     dbid = _database(cloud)
     _schema(cloud, dbid)
