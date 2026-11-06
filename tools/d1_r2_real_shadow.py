@@ -88,7 +88,7 @@ def fetch_bytes(client: httpx.Client, path: str, token: str, size_limit: int, *,
     """Only fixed Railway origin and known private catalogue paths are accepted."""
     if source_path not in (
         SOURCE_PATH, SOURCE_PATH + "/yugioh",
-        SOURCE_PATH + "/magic", SOURCE_PATH + "/legacy",
+        SOURCE_PATH + "/magic", SOURCE_PATH + "/legacy", SOURCE_PATH + "/legacy-d1",
         *(SOURCE_PATH + "/followon/" + name for name in
           ("sports","sports-heritage","figures","magic")),
     ):
