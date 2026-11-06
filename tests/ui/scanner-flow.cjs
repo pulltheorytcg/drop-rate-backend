@@ -872,7 +872,7 @@ async function matched(scanner, quantity = 1) {
     assert.doesNotMatch(s.details.querySelector('.dr-scan-search-result').textContent,/£12\.50/);
     s.details.querySelector('.dr-scan-search-result').click();
     assert.doesNotMatch(s.details.querySelector('.dr-scan-detail-identity').textContent,/£12\.50/);
-    assert.match(s.details.textContent,/not a current value/);
+    assert.match(s.details.textContent,/Stale evidence — value unavailable/);
     s.chooseGrader('PSA');
     assert.doesNotMatch(s.details.textContent,/£12\.50|Last known/,'A raw historical guide is not a slab value');
     s.chooseGrader('');await s.confirmDetails();s.showReview();
