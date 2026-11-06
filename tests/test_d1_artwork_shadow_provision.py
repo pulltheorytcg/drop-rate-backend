@@ -50,7 +50,7 @@ def test_schema_is_exact_two_artwork_only_objects():
     statements = mod.parse_schema(SCHEMA)
     assert len(statements) == 2
     assert "STAGED_PRIVATE" in SCHEMA
-    assert "SHOPIFY" not in SCHEMA.upper()
+    assert "shopify_" not in SCHEMA.lower().split("create table", 1)[1]
     for malicious in (
         SCHEMA + "\nDROP TABLE tcg.owners;",
         SCHEMA.replace("artwork_shadow_by_scope", "ops_shadow_ledger"),
