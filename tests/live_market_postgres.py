@@ -185,12 +185,13 @@ async def main():
         assert (await cardmarket.refresh_cardmarket_values(pool,actor))['inventory_updated']==0
         assert await db.fetchval('select count(*) from tcg.pricing_snapshots')==snapshots
         assert await db.fetchval('select count(*) from tcg.catalogue_market_snapshots')==2
-        # The real guide writer now supplies shared evidence. Verify the
-        # current view starts using it without changing either sale price.
+        # This legacy Cardmarket writer still retains its full source guide
+        # for research and compatibility. The current owner view must NOT count
+        # that guide as a verified sold-price Market Value.
         report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
-        assert report['totals']['market_valued_item_count']==1
-        assert report['totals']['inventory_market_value_minor']==170
-        assert report['totals']['guide_estimate_count']==1
+        assert report['totals']['market_valued_item_count']==0
+        assert report['totals']['inventory_market_value_minor'] is None
+        assert report['totals']['guide_estimate_count']==0
         assert await db.fetchval('select bool_and(store_price_minor=9000) from tcg.inventory_items')
         # Intake/manual recalculation reuses the saved quote without any request.
         await db.execute('update tcg.inventory_items set market_value_minor=null where id=$1',a)
