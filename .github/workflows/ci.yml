@@ -72,6 +72,11 @@ jobs:
         run: docker build --file Dockerfile.n8n --tag drop-rate-n8n:ci .
       - name: Verify pinned n8n version
         run: docker run --rm --entrypoint n8n drop-rate-n8n:ci --version | grep -Fx "2.32.6"
+      - name: Verify six release scouts and guarded publisher in pinned offline n8n
+        run: |
+          docker run --rm --network none --entrypoint node drop-rate-n8n:ci \
+            --no-warnings /opt/drop-rate/ops/guarded-release-scout-publish.cjs --verify-sources \
+            | grep -F '"status":"SOURCE_VERIFIED","count":6'
       - name: Verify guarded inactive upgrade and exact publication in isolated pinned runtime
         run: |
           docker run --rm --network none --entrypoint node \
