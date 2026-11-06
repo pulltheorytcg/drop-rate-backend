@@ -26,7 +26,7 @@ APPROVED_METADATA_SOURCES = frozenset({"ygoprodeck", "lorcast", "mtgjson", "card
                                       "cardcollectorcapital_heritage", "reviewed_figures"})
 REFRESH_SECONDS = 172800  # Provider bulk cache is two days. No per-scan requests.
 LOCK_RETRY_SECONDS = 30  # Database-only contention polling across rolling deploys.
-SOURCE_REFRESH_SECONDS = {"lorcast": 604800, "mtgjson": 604800, "cardcollectorcapital": 604800,
+SOURCE_REFRESH_SECONDS = {"lorcast": 86400, "mtgjson": 86400, "cardcollectorcapital": 604800,
                           "cardcollectorcapital_heritage": 604800, "reviewed_figures": 604800}
 
 
@@ -139,6 +139,16 @@ async def import_source(pool, actor, source, *, object_store=None, client=None):
             fetched = await fetch_source(source, public_client, approved_sources=APPROVED_METADATA_SOURCES)
     else:
         fetched = await fetch_source(source, client, approved_sources=APPROVED_METADATA_SOURCES)
+    # A due source can return identical bytes. Do not reconstruct and re-upload
+    # the same immutable R2 parts or make an unaudited "new release" claim.
+    # Fetching still honours the source-specific provider cadence above.
+    if old and fetched.source_revision == old["source_revision"]:
+        return {"status": "CURRENT", "source": source,
+                "record_count": old["record_count"],
+                "manifest_sha256": old["manifest_sha256"],
+                "generation": old["generation"],
+                "source_unchanged": True, "metadata_only": True,
+                "sql_bulk_rows_written": 0}
     bundle = await asyncio.to_thread(codec.prepare_catalogue, fetched.records,
         provider=fetched.provider, system_code=fetched.system_code, language=descriptor.catalogue_language,
         source_url=fetched.source_url, source_revision=fetched.source_revision,
@@ -191,6 +201,34 @@ async def run_once(pool, actor):
                 reports.append(report)
                 log.warning("R2_FIRST_IMPORT %s", json.dumps(report, sort_keys=True))
             return reports
+        finally:
+            await lock_connection.execute("select pg_advisory_unlock(847220121)")
+
+
+async def run_selected(pool, actor, source: str):
+    """Single source n8n trigger; share the background worker's global lock.
+
+    Never bypass the configured source allowlist, provider cooldown, provider
+    access policy, R2 byte checks or compare-and-swap publication.
+    """
+    if source not in APPROVED_METADATA_SOURCES or source not in configured_sources():
+        return {"status": "DISABLED", "source": source, "metadata_only": True}
+    async with pool.acquire() as lock_connection:
+        acquired = await lock_connection.fetchval("select pg_try_advisory_lock(847220121)")
+        if not acquired:
+            return {"status": "ALREADY_RUNNING", "source": source, "metadata_only": True}
+        try:
+            result = await import_source(pool, UUID(str(actor)), source)
+            # The background 48h loop normally prewarms after imports. Keep
+            # newly published source generations available to app readers
+            # immediately after an n8n-triggered update too.
+            if result.get("status") in {"PUBLISHED", "CURRENT"} and service.enabled():
+                await service.prewarm(pool, UUID(str(actor)))
+            log.warning("R2_FIRST_RELEASE_SCOUT %s", json.dumps(
+                {k: v for k, v in result.items() if k not in ("source_url", "provider_url")},
+                sort_keys=True,
+            ))
+            return result
         finally:
             await lock_connection.execute("select pg_advisory_unlock(847220121)")
 

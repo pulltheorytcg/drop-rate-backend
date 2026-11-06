@@ -375,3 +375,12 @@ DR-95 is a **new** hourly HMAC-signed orchestrator, not an overwrite of the live
 This is **not** a bulk permission override or a new artwork source. Current source-published Yu-Gi-Oh!, Lorcana and Magic R2-first catalogues are **metadata-only** and need separate rights-checked exact-print artwork adapters before their images can appear. Certified slabs still require the exact physical slab photograph. The SQL database is currently above its 400 MB bulk-refresh safety threshold, so the backend defers all media writes until capacity checks pass. Newly imported DR-95 remains inactive until the persistent n8n workflow definition, rollback, DR-90 routing, and a real signed request/receipt have passed acceptance testing.
 
 [Full DR-95 contract, test plan, source gaps and rollback](../../docs/DR95_ARTWORK_AUTOMATION_20261106.md).
+
+
+## DR-96 six independent source-specific new-release metadata scouts
+
+The new DR-96 workflows are source-controlled **inactive** schedules, one each for YGOPRODeck (daily), Lorcast (daily), MTGJSON (daily), sports Bowman (weekly), sports Heritage (weekly), and the four-item curated figures feed (weekly). These are intentionally **not image scrapers** or Shopify publication triggers.
+
+Each uses a closed, literal source name inside its HMAC-signed FastAPI command. FastAPI calls the pre-existing R2-first source adapter and enforces the same source permissions, cadence, provider request limits, advisory lock, source-revision no-op, R2 full-byte verification and SQL compare-and-swap publication. n8n only schedules, validates the receipt and routes errors to DR-90. New metadata is available in the app through the existing catalogue resolver after its release date, but no source gets card artwork rights or slab photographs via these jobs.
+
+**Do not confuse newly imported n8n workflows with published/active ones.** DR-96 activation requires verified stored source hashes, backup and real signed pilot. Source-specific details and blockers: [DR96 runbook](../../docs/DR96_PER_GAME_RELEASE_SCOUTS_20261106.md).

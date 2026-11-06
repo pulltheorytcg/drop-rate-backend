@@ -514,17 +514,43 @@ async def test_figure_import_keeps_not_applicable_partition_and_writes_no_sql_bu
 
 @pytest.mark.asyncio
 async def test_weekly_sources_do_not_redownload_at_two_day_worker_interval(database, snapshot_factory, monkeypatch):
-    descriptor = source_descriptor("lorcast")
-    snapshot = await snapshot_factory(rows=[record(provider="lorcast", system_code="DISNEY_LORCANA")],
-        provider="lorcast", system_code="DISNEY_LORCANA", source_url=descriptor.source_url,
+    descriptor = source_descriptor("cardcollectorcapital")
+    snapshot = await snapshot_factory(rows=[record(provider="cardcollectorcapital", system_code="SPORTS_CARDS", source_url=descriptor.source_url)],
+        provider="cardcollectorcapital", system_code="SPORTS_CARDS", source_url=descriptor.source_url,
         permission_ref=descriptor.permission_ref)
     database.old = publication(snapshot, age_days=3)
-    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "lorcast")
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "cardcollectorcapital")
     fetch = AsyncMock()
     monkeypatch.setattr(worker, "fetch_source", fetch)
-    report = await worker.import_source(None, ACTOR, "lorcast", client=object())
+    report = await worker.import_source(None, ACTOR, "cardcollectorcapital", client=object())
     assert report["status"] == "CURRENT"
     fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_unchanged_remote_revision_skips_all_r2_uploads_after_due_poll(database, snapshot_factory, monkeypatch):
+    old_revision = "sha256:" + "a" * 64
+    snapshot = await snapshot_factory(revision=old_revision)
+    database.old = publication(snapshot, age_days=8)
+    previous = deepcopy(database.old)
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "ygoprodeck")
+    monkeypatch.setattr(worker, "fetch_source", AsyncMock(return_value=FetchedSource(
+        "ygoprodeck", "YUGIOH", source_descriptor("ygoprodeck").source_url,
+        old_revision, "a" * 64, [record()],
+    )))
+    store = LocalObjects(database)
+    result = await worker.import_source(None, ACTOR, "ygoprodeck", object_store=store, client=object())
+    assert result["status"] == "CURRENT" and result["source_unchanged"] is True
+    assert result["metadata_only"] is True and result["sql_bulk_rows_written"] == 0
+    assert store.puts == [] and store.reads == []
+    assert database.old == previous
+
+
+def test_daily_metadata_sources_are_not_permitted_artwork_feeds():
+    assert worker.SOURCE_REFRESH_SECONDS["lorcast"] == 86400
+    assert worker.SOURCE_REFRESH_SECONDS["mtgjson"] == 86400
+    assert worker.SOURCE_REFRESH_SECONDS["cardcollectorcapital"] == 604800
+    assert worker.REFRESH_SECONDS == 172800
 
 
 @pytest.mark.asyncio

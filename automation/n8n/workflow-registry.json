@@ -1001,6 +1001,44 @@
       "implementation_path": "automation/n8n/workflows/dr-95-eligible-artwork-sync.json",
       "control_contract": "/api/v1/automation/commands/storage/refresh-eligible-artwork",
       "activation_note": "Safe eligible-media orchestration only; DR-95 never grants rights or produces R2-first metadata artwork; existing DR94 remains unchanged and must not double-schedule same queue."
+    },
+    {
+      "key": "per-game-new-release-discovery",
+      "sequence": 45,
+      "domain": "Catalogue",
+      "authority": "ORCHESTRATE",
+      "status": "BUILT_INACTIVE",
+      "source_of_truth": "PostgreSQL/Supabase",
+      "decision_engine": "FastAPI",
+      "orchestrator": "n8n",
+      "ai_may_assist": false,
+      "idempotency_required": true,
+      "version_control_required": true,
+      "error_workflow_required": true,
+      "activation_requires": [
+        "version-controlled workflow JSON",
+        "deterministic backend contract",
+        "duplicate-delivery test",
+        "failure/retry test",
+        "observability/error routing",
+        "provider terms/rate-limit review where applicable",
+        "verified production HMAC and maintenance actor identity",
+        "all six source-specific signed commands with shared import lock and provider cool-down",
+        "n8n DR90 error routing and rollback verified",
+        "live R2 manifest digest/generation check",
+        "no metadata source grants artwork rights or Shopify publishing"
+      ],
+      "implementation_id": "DR96SourceReleaseScoutsV1",
+      "implementation_paths": [
+        "automation/n8n/workflows/dr-96-ygoprodeck-release-scout.json",
+        "automation/n8n/workflows/dr-96-lorcast-release-scout.json",
+        "automation/n8n/workflows/dr-96-mtgjson-release-scout.json",
+        "automation/n8n/workflows/dr-96-cardcollectorcapital-release-scout.json",
+        "automation/n8n/workflows/dr-96-cardcollectorcapital-heritage-release-scout.json",
+        "automation/n8n/workflows/dr-96-reviewed-figures-release-scout.json"
+      ],
+      "control_contract": "/api/v1/automation/commands/catalogue/refresh-release-source",
+      "activation_note": "Source-specific closed-allowlist metadata polls. New YGO/Lorcana/MTG facts are R2-only; sports/figures incomplete source coverage. New physical slab/print image requires separately rights-approved exact-photo mapping. Unsupported Pokemon, One Piece, Dragon Ball, Naruto, Riftbound, MTG art cannot be inferred from this metadata scheduler."
     }
   ]
 }

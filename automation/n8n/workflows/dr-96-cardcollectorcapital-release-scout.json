@@ -1,0 +1,149 @@
+{
+  "id": "DR96SportsBowmanReleaseScoutV1",
+  "name": "DR-96 Release Scout | Sports Bowman",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1",
+    "timezone": "Europe/London"
+  },
+  "nodes": [
+    {
+      "id": "DR96SportsBowmanReleaseScoutV1Schedule",
+      "name": "Scheduled Sports Bowman Release Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -600,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                2
+              ],
+              "triggerAtHour": 10,
+              "triggerAtMinute": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "DR96SportsBowmanReleaseScoutV1Sign",
+      "name": "Sign Sports Bowman Source Refresh",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto=require('crypto');\nconst secret=String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET||'').trim();\nconst url=String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL||'').trim();\nif(secret.length<32) throw new Error('release_command_secret_missing');\nif(!/\\/api\\/v1\\/automation\\/control\\/receipt$/.test(url)) throw new Error('release_control_url_invalid');\nconst id=String($execution.id||'');\nif(!id) throw new Error('missing_execution_id');\nconst body=JSON.stringify({schema_version:1,action:'REFRESH_APPROVED_RELEASE_SOURCE',source:'cardcollectorcapital',execution_id:id.slice(0,120),occurred_at:new Date().toISOString()});\nconst timestamp=String(Math.floor(Date.now()/1000));\nconst signature='sha256='+crypto.createHmac('sha256',secret).update(timestamp+'.'+body,'utf8').digest('hex');\nreturn [{json:{url:url.replace(/\\/control\\/receipt$/,'/commands/catalogue/refresh-release-source'),body,timestamp,signature}}];"
+      }
+    },
+    {
+      "id": "DR96SportsBowmanReleaseScoutV1Request",
+      "name": "Run Governed Sports Bowman Import",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "autodetect"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "DR96SportsBowmanReleaseScoutV1Verify",
+      "name": "Verify Sports Bowman Metadata Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const payload=$input.first().json||{};\nif(Number(payload.statusCode)<200 || Number(payload.statusCode)>=300) throw new Error('release_source_http_'+payload.statusCode);\nconst r=payload.body||{};\nif(r.accepted!==true || r.source!=='cardcollectorcapital' || typeof r.execution_id!=='string') throw new Error('release_source_receipt_invalid');\nif(r.metadata_only!==true || r.artwork_published!==false || r.shopify_updated!==false || r.ownership_or_price_changed!==false) throw new Error('release_source_overreach');\nif(!['CURRENT','PUBLISHED','ALREADY_RUNNING'].includes(r.status)) throw new Error('release_source_unavailable_'+String(r.status).slice(0,24));\nif(r.status==='PUBLISHED' && (!Number.isInteger(r.generation)||r.generation<1||!Number.isInteger(r.record_count)||r.record_count<1)) throw new Error('published_release_generation_not_verified');\nreturn [{json:{source:r.source,status:r.status,execution_id:r.execution_id,generation:r.generation,record_count:r.record_count,source_unchanged:r.source_unchanged}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Scheduled Sports Bowman Release Check": {
+      "main": [
+        [
+          {
+            "node": "Sign Sports Bowman Source Refresh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Sports Bowman Source Refresh": {
+      "main": [
+        [
+          {
+            "node": "Run Governed Sports Bowman Import",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Governed Sports Bowman Import": {
+      "main": [
+        [
+          {
+            "node": "Verify Sports Bowman Metadata Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-96",
+      "version": 1,
+      "source": "cardcollectorcapital",
+      "scope": "metadata-only-verified-R2-source",
+      "activationGate": "Source-specific provider permission and automatic backfill apply only to factual card references. This workflow imports inactive by default. Do not claim image rights, paid data access or live Cloudflare artwork publication."
+    }
+  }
+}

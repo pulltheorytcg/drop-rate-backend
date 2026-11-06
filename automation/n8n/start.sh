@@ -153,6 +153,21 @@ case "${DROP_RATE_N8N_SUCCESS_RECEIPT_PUBLISH_ON_BOOT:-false}" in
     ;;
 esac
 
+# Explicit, one-time supervised source-scout activation. This verifies the
+# six newly imported inactive definitions, DR90 publication, pinned n8n version,
+# persistent SQLite backup and each published version before server startup.
+# No existing DR90-95 workflow is altered. Fail closed on unknown state.
+case "${DROP_RATE_N8N_RELEASE_SCOUT_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-release-scout-publish.cjs || exit 1
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_RELEASE_SCOUT_PUBLISH","status":"BLOCKED","reason":"UNEXPECTED_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
 # Opt-in metadata inspection only. The helper reads SQLite without n8n/ORM
 # initialization, emits a strict summary, and has a 15-second child deadline.
 # A diagnostic failure must never prevent this service from starting.
