@@ -145,6 +145,7 @@ def test_duplicate_real_shadow_name_blocks_reimport(monkeypatch):
     ("vstoken.actions.githubusercontent.com", True),
     ("pipelines.actions.githubusercontent.com", True),
     ("token.actions.githubusercontent.com", True),
+    ("pipelinesghubeus2a1.actions.githubusercontent.com", True),
     ("vstoken.actions.githubusercontent.com.evil.test", False),
     ("localhost", False),
     ("vstoken.actions.githubusercontent.com:444", False),
@@ -170,5 +171,5 @@ def test_github_oidc_token_endpoint_exact_host_restriction(monkeypatch,host,allo
     if allowed:
         assert runner._oidc_token() == "z"*200
     else:
-        with pytest.raises(runner.MigrationGuard, match="trusted hosts"):
+        with pytest.raises(runner.MigrationGuard, match="GitHub-owned token domain"):
             runner._oidc_token()
