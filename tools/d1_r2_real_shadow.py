@@ -47,10 +47,20 @@ def _oidc_token():
     auth_url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", "")
     request_token = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
     parsed = urlsplit(auth_url)
-    if (parsed.scheme != "https" or parsed.hostname not in (
-            "pipelines.actions.githubusercontent.com", "token.actions.githubusercontent.com")
-            or parsed.username or parsed.password or not request_token):
-        raise MigrationGuard("Trusted GitHub Actions OIDC identity unavailable")
+    if not auth_url or not request_token:
+        raise MigrationGuard("GitHub Actions OIDC environment missing")
+    # GitHub's documented token exchange service is vstoken; pipelines and
+    # token are also GitHub-owned OIDC endpoints. Never follow redirects or
+    # leak the runner's bearer token to any non-GitHub host.
+    trusted_hosts = frozenset({
+        "vstoken.actions.githubusercontent.com",
+        "pipelines.actions.githubusercontent.com",
+        "token.actions.githubusercontent.com",
+    })
+    if (parsed.scheme != "https" or parsed.hostname not in trusted_hosts
+            or parsed.port not in (None, 443) or parsed.username or parsed.password
+            or parsed.fragment):
+        raise MigrationGuard("GitHub Actions OIDC URL is outside trusted hosts")
     separator = "&" if parsed.query else "?"
     url = auth_url + separator + "audience=" + quote(AUDIENCE, safe="")
     with httpx.Client(follow_redirects=False, timeout=15) as client:

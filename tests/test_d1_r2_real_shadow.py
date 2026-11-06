@@ -139,3 +139,36 @@ def test_duplicate_real_shadow_name_blocks_reimport(monkeypatch):
         runner._new_isolated_real_shadow(FakeD1("a"*32,"dummy-d1-token"),"333","1")
     assert FakeD1.created==0
     FakeD1.existing=[]
+
+
+@pytest.mark.parametrize("host,allowed", [
+    ("vstoken.actions.githubusercontent.com", True),
+    ("pipelines.actions.githubusercontent.com", True),
+    ("token.actions.githubusercontent.com", True),
+    ("vstoken.actions.githubusercontent.com.evil.test", False),
+    ("localhost", False),
+    ("vstoken.actions.githubusercontent.com:444", False),
+])
+def test_github_oidc_token_endpoint_exact_host_restriction(monkeypatch,host,allowed):
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_URL",
+                       "https://" + host + "/_apis/task/oidc?request=123")
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "mock-runner-token")
+    class Response:
+        status_code=200
+        is_redirect=False
+        def json(self): return {"value":"z"*200}
+    class Client:
+        def __init__(self,**kwargs):
+            assert kwargs.get("follow_redirects") is False
+        def __enter__(self): return self
+        def __exit__(self,*args): pass
+        def get(self,url,headers):
+            assert headers["Authorization"]=="Bearer mock-runner-token"
+            assert "audience=drop-rate-readonly-r2-d1-shadow-20261106" in url
+            return Response()
+    monkeypatch.setattr(runner.httpx,"Client",Client)
+    if allowed:
+        assert runner._oidc_token() == "z"*200
+    else:
+        with pytest.raises(runner.MigrationGuard, match="trusted hosts"):
+            runner._oidc_token()
