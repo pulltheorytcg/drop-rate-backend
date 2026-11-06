@@ -1,3 +1,9 @@
+## 6 November 2026 — 1,184 REAL business records verified in PRIVATE Cloudflare D1 (No production cutover)
+
+- [Protected-main run 42283108326](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42283108326) succeeded at 19:51 UTC from PR #946 merge `db660dce5c65096c96faeb7b098fecf08b6ef989`. The existing privileged Postgres connection was used for a **read-only, repeatable-read** snapshot through protected GitHub Actions; no app RLS policy or login privilege was changed.
+- Exactly **1,184 source rows** now have matching source identity/hash readbacks in the isolated private D1 shadow: **6 owners (3 founder + 3 consignor), 6 memberships, 621 physical inventory, 3 orders, 3 order items, 13 immutable ledger, 3 refunds, 14 Shopify webhook records, and 515 media asset metadata**. Nine source-table receipts and all owner/currency ledger sums matched. Source SHA256 `b82fe8a43aba41b2835283fd3c588bececcb705f18afb2ffcba5b39d36ad54cc`.
+- **Do not confuse this with full Supabase exit:** D1 generation remains `STAGING` with no production pointer, no user/Auth cutover, no R2 byte-level artwork/price/archive confirmation, no payment movement and no deletion of SQL. Source mirror metadata and referenced-catalogue fingerprints are not claims of verified artwork bytes. See [source receipt](docs/CLOUDFLARE_OPERATIONAL_D1_REAL_SOURCE_RECEIPT_20261106.md).
+
 ## 6 November 2026 — RLS-safe private R2 source checkpoint follow-up (In review)
 
 - [PR #944](https://github.com/pulltheorytcg/drop-rate-backend/pull/944) merged the **11-table** private source archival worker with all required CI checks; merge is code, not proof any R2 operational row was transferred.
