@@ -57,7 +57,7 @@ class TrustedOIDCProvider:
                 or self.provider=="supabase"
                 or not isinstance(self.audience,str)
                 or not 3<=len(self.audience)<=256
-                or self.issuer.endswith("/")):
+                ):
             raise OIDCIdentityError("Expected separately configured external identity provider")
         issuer_host,_=_https_url(self.issuer)
         jwks_host,jwks_path=_https_url(self.jwks_url)
