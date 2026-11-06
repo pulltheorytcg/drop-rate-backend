@@ -1039,6 +1039,42 @@
       ],
       "control_contract": "/api/v1/automation/commands/catalogue/refresh-release-source",
       "activation_note": "Source-specific closed-allowlist metadata polls. New YGO/Lorcana/MTG facts are R2-only; sports/figures incomplete source coverage. New physical slab/print image requires separately rights-approved exact-photo mapping. Unsupported Pokemon, One Piece, Dragon Ball, Naruto, Riftbound, MTG art cannot be inferred from this metadata scheduler."
+    },
+    {
+      "key": "legacy-game-release-monitors",
+      "sequence": 46,
+      "domain": "Catalogue",
+      "authority": "ORCHESTRATE",
+      "status": "BUILT_INACTIVE",
+      "source_of_truth": "PostgreSQL/Supabase",
+      "decision_engine": "FastAPI",
+      "orchestrator": "n8n",
+      "ai_may_assist": false,
+      "idempotency_required": true,
+      "version_control_required": true,
+      "error_workflow_required": true,
+      "activation_requires": [
+        "version-controlled workflow JSON",
+        "deterministic backend contract",
+        "duplicate-delivery test",
+        "failure/retry test",
+        "observability/error routing",
+        "provider terms/rate-limit review where applicable",
+        "shared daily maintenance advisory lock, source due and database capacity checks",
+        "strict signed fixed game allowlist and DR90 error routing",
+        "Riftbound only approval readiness; no API fetching absent Riot-app key",
+        "verified backend production deployment followed by scoped 5-workflow n8n activation/backup/readback"
+      ],
+      "implementation_id": "DR97LegacyReleaseWatchesV1",
+      "implementation_paths": [
+        "automation/n8n/workflows/dr-97-pokemon-release-watch.json",
+        "automation/n8n/workflows/dr-97-one-piece-release-watch.json",
+        "automation/n8n/workflows/dr-97-dragon-ball-release-watch.json",
+        "automation/n8n/workflows/dr-97-naruto-release-watch.json",
+        "automation/n8n/workflows/dr-97-riftbound-release-watch.json"
+      ],
+      "control_contract": "/api/v1/automation/commands/catalogue/check-legacy-game-releases",
+      "activation_note": "Original Pokémon, One Piece, DB, Naruto feeds are SQL capacity-pause gated until Cloudflare read model cutover. Riftbound requires official app-specific approved Riot key; no automatic card/art ingestion currently possible. Image rights, prices, ownership and Shopify outside this workflow."
     }
   ]
 }
