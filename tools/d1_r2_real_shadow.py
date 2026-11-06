@@ -30,6 +30,9 @@ MAX_SOURCE_ROWS = 8000
 MAX_PARTS = 25
 MAX_TOTAL_BYTES = 8_000_000
 MAX_RETRIES = 6
+# Railway and trusted-main GitHub Actions deploy independently. The prior
+# 14-attempt window expired before the security-diagnostic build came online.
+MAX_SOURCE_READ_ATTEMPTS = 30
 MAX_DB_COUNT = 7
 SHADOW_DB_PREFIX = "drop-rate-d1-real-lorcast-shadow-"
 MAX_EXPORT_CONTENT = 4_000_000
@@ -223,14 +226,14 @@ def import_real_lorcana(account: str, d1_token: str, run_id: str,
     # Main-branch CI and Railway deploy concurrently. Wait only for the
     # narrow, feature-gated export route to finish its verified rollout.
     # Never retry a bad OIDC identity (401/403) or a source checksum failure.
-    for stage_attempt in range(14):
+    for stage_attempt in range(MAX_SOURCE_READ_ATTEMPTS):
         identity = _oidc_token()
         try:
             source, manifest = load_verified_source(client, identity)
             break
         except MigrationGuard as exc:
             if str(exc) not in {"R2 export rejected: HTTP 404",
-                                "R2 export rejected: HTTP 503"} or stage_attempt == 13:
+                                "R2 export rejected: HTTP 503"} or stage_attempt == MAX_SOURCE_READ_ATTEMPTS - 1:
                 raise
             time.sleep(10)
     cloud = D1Client(account, d1_token)
