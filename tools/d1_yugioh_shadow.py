@@ -61,7 +61,7 @@ def _stable_source_projection(source: codec.Projection) -> codec.Projection:
     digest = hashlib.sha256()
     for item in ordered:
         digest.update(json.dumps(item,ensure_ascii=False,
-            separators=(",",":")).encode("utf-8")+b"\\n")
+            separators=(",",":")).encode("utf-8")+bytes((10,)))
     return replace(source,rows=ordered,projection_sha=digest.hexdigest())
 
 
