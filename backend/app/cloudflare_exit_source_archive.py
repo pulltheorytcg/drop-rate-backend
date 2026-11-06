@@ -127,7 +127,9 @@ async def export_table(conn, name: str, target: Path) -> dict:
     count_expected = await conn.fetchval(f'select count(*) from tcg."{name}"')
     if (type(count_expected) is not int
             or not MIN_ROWS[name] <= count_expected <= MAX_ROWS_PER_TABLE):
-        raise ObjectStorageError("Source count below independently checked baseline or above safe bound")
+        raise ObjectStorageError(
+            f"Source count below independently checked baseline or above safe bound "
+            f"table={name} visible={count_expected} minimum={MIN_ROWS[name]}")
     count = raw_bytes = 0
     sha = hashlib.sha256()
     identities: set[tuple] = set()
