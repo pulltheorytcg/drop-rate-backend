@@ -48,6 +48,18 @@ if (_APPROVAL.get("format") != "drop-rate-approved-operational-source-columns-v1
     raise ObjectStorageError("Approved source column manifest does not match reviewed table scope")
 APPROVED_COLUMNS = _APPROVAL["tables"]
 
+# Read-only 6 Nov exact source baseline; live counts may grow but MUST NOT
+# silently shrink behind RLS or partial export. Investigate before changing.
+MIN_ROWS = {
+    "owners": 6, "owner_memberships": 6, "inventory_items": 621,
+    "orders": 3, "order_items": 3, "financial_ledger_entries": 13,
+    "refund_events": 3, "shopify_webhook_events": 14,
+    "media_assets": 515, "media_object_mirrors": 401,
+    "reference_image_mirrors": 66222,
+}
+if set(MIN_ROWS) != set(TABLE_PKS):
+    raise ObjectStorageError("Missing private backup source row-count safety floor")
+
 MAX_ROWS_PER_TABLE = 130_000
 MAX_RAW_BYTES_PER_TABLE = 250_000_000
 MAX_GZIP_BYTES_PER_TABLE = 120_000_000
@@ -113,8 +125,9 @@ async def export_table(conn, name: str, target: Path) -> dict:
     name = _safe_table(name)
     fields = await _source_schema(conn, name)
     count_expected = await conn.fetchval(f'select count(*) from tcg."{name}"')
-    if type(count_expected) is not int or not 0 <= count_expected <= MAX_ROWS_PER_TABLE:
-        raise ObjectStorageError("Unexpected source row count")
+    if (type(count_expected) is not int
+            or not MIN_ROWS[name] <= count_expected <= MAX_ROWS_PER_TABLE):
+        raise ObjectStorageError("Source count below independently checked baseline or above safe bound")
     count = raw_bytes = 0
     sha = hashlib.sha256()
     identities: set[tuple] = set()
