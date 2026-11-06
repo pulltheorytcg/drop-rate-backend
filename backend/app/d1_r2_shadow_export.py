@@ -67,6 +67,15 @@ MAGIC_SOURCE = ("mtgjson", "MAGIC_THE_GATHERING", "English")
 MAGIC_WORKFLOW_REF = (
     EXPECTED_REPOSITORY + "/.github/workflows/d1-magic-r2-preflight.yml@refs/heads/main"
 )
+FOLLOWON_WORKFLOW_REF = (
+    EXPECTED_REPOSITORY + "/.github/workflows/d1-followon-r2-shadow.yml@refs/heads/main"
+)
+FOLLOWON_SOURCE_MAP = {
+    "sports": ("cardcollectorcapital", "SPORTS_CARDS", "English"),
+    "sports-heritage": ("cardcollectorcapital_heritage", "SPORTS_CARDS", "English"),
+    "figures": ("reviewed_figures", "FIGURES", "Not applicable"),
+    "magic": ("mtgjson", "MAGIC_THE_GATHERING", "English"),
+}
 MAX_TOKEN_BYTES = 8192
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -339,6 +348,46 @@ async def exported_legacy_part(request: Request, ordinal: int) -> Response:
                                     part["raw_bytes"], part["rows"])
     except Exception as exc:
         log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=legacy_part_read error_type=%s",
+                    type(exc).__name__)
+        raise HTTPException(503, "Verified source unavailable") from None
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+# Single, checked-in source registry used by the post-Yu-Gi-Oh! catalogue
+# migration. Public caller cannot select an arbitrary provider/R2 bucket key.
+# All sources contain owner-free reference identity only.
+def _followon_scope(source: str) -> tuple[str, str, str]:
+    scope = FOLLOWON_SOURCE_MAP.get(source)
+    if scope is None:
+        raise HTTPException(404, "Not found")
+    return scope
+
+
+@router.get("/followon/{source}/manifest")
+async def exported_followon_manifest(request: Request, source: str) -> Response:
+    _verify_export_access(request, workflow_ref=FOLLOWON_WORKFLOW_REF,
+                          allowed_events=("push", "schedule"))
+    scope = _followon_scope(source)
+    _, _, _, raw = await _active_catalogue_manifest(request, scope)
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+@router.get("/followon/{source}/part/{ordinal}")
+async def exported_followon_part(request: Request, source: str, ordinal: int) -> Response:
+    _verify_export_access(request, workflow_ref=FOLLOWON_WORKFLOW_REF,
+                          allowed_events=("push", "schedule"))
+    scope = _followon_scope(source)
+    storage, _, manifest, _ = await _active_catalogue_manifest(request, scope)
+    if type(ordinal) is not int or not 0 <= ordinal < len(manifest["parts"]):
+        raise HTTPException(404, "Not found")
+    part = manifest["parts"][ordinal]
+    try:
+        raw = await asyncio.to_thread(storage.read_verified_reference_snapshot, part["sha256"])
+        codec._parse_part(raw, part, scope)
+    except Exception as exc:
+        log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=followon_r2_part error_type=%s",
                     type(exc).__name__)
         raise HTTPException(503, "Verified source unavailable") from None
     return Response(content=raw, media_type="application/json",
