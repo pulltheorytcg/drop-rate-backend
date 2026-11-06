@@ -11,6 +11,7 @@ import asyncio
 import logging
 import os
 import re
+import json
 from collections.abc import Mapping
 from uuid import UUID, uuid4
 
@@ -19,6 +20,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
 from . import r2_first_catalogue as codec
+from . import catalogue_r2_live as legacy_catalogue
 from . import r2_first_service
 from .access_control import require_platform_admin
 from .db import user_connection
@@ -48,6 +50,19 @@ YUGIOH_SOURCE = ("ygoprodeck", "YUGIOH", "English")
 YUGIOH_WORKFLOW_REF = (
     EXPECTED_REPOSITORY + "/.github/workflows/d1-yugioh-r2-shadow.yml@refs/heads/main"
 )
+LEGACY_R2_WORKFLOW_REF = (
+    EXPECTED_REPOSITORY + "/.github/workflows/d1-legacy-r2-preflight.yml@refs/heads/main"
+)
+LEGACY_R2_SOURCE_GENERATION = 122500
+LEGACY_R2_EXPECTED_PARTS = 161
+LEGACY_R2_EXPECTED_RAW_BYTES = 29_831_680
+LEGACY_R2_EXPECTED_COUNTS = {
+    "reference_cards": 69697,
+    "reference_sets": 1472,
+    "reference_sealed_products": 3893,
+    "catalogue_products": 2062,
+    "catalogue_product_profiles": 2062,
+}
 MAGIC_SOURCE = ("mtgjson", "MAGIC_THE_GATHERING", "English")
 MAGIC_WORKFLOW_REF = (
     EXPECTED_REPOSITORY + "/.github/workflows/d1-magic-r2-preflight.yml@refs/heads/main"
@@ -260,6 +275,71 @@ async def exported_magic_part(request: Request, ordinal: int) -> Response:
                                       part["sha256"])
         codec._parse_part(raw, part, MAGIC_SOURCE)
     except (codec.R2FirstCatalogueError, ObjectStorageError, ValueError):
+        raise HTTPException(503, "Verified source unavailable") from None
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+# Legacy R2-only source contains Pokemon, One Piece, Dragon Ball, Naruto,
+# comics, manga, approved catalogue products and sealed items. It excludes
+# physical inventory, private owners, personal media, order and price tables.
+# This single immutable 122500 generation is only for the first catalogue
+# parity migration. Never disclose arbitrary older generations or object keys.
+async def _verified_legacy_manifest(request: Request):
+    try:
+        actor = UUID(os.environ.get("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID", ""))
+        async with user_connection(
+            request.app.state.db_pool, actor, str(uuid4()),
+            readonly_snapshot=True,
+        ) as conn:
+            await require_platform_admin(conn)
+            publication = await conn.fetchrow(legacy_catalogue.STATE_SQL)
+        if (publication is None
+                or publication["generation"] != LEGACY_R2_SOURCE_GENERATION
+                or publication["published_generation"] != LEGACY_R2_SOURCE_GENERATION):
+            raise ValueError("Legacy R2 publication not approved or incomplete")
+        manifest = legacy_catalogue.validate_manifest(
+            publication["manifest"], LEGACY_R2_SOURCE_GENERATION,
+        )
+        if (manifest["counts"] != LEGACY_R2_EXPECTED_COUNTS
+                or len(manifest["parts"]) != LEGACY_R2_EXPECTED_PARTS
+                or manifest["raw_bytes"] != LEGACY_R2_EXPECTED_RAW_BYTES):
+            raise ValueError("Legacy R2 source changed; requires human review")
+        return manifest
+    except Exception as exc:
+        log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=legacy_rls_manifest error_type=%s",
+                    type(exc).__name__)
+        raise HTTPException(503, "Verified source unavailable") from None
+
+
+@router.get("/legacy/manifest")
+async def exported_legacy_manifest(request: Request) -> Response:
+    _verify_export_access(request, workflow_ref=LEGACY_R2_WORKFLOW_REF,
+                          allowed_events=("push",))
+    manifest = await _verified_legacy_manifest(request)
+    raw = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+@router.get("/legacy/part/{ordinal}")
+async def exported_legacy_part(request: Request, ordinal: int) -> Response:
+    _verify_export_access(request, workflow_ref=LEGACY_R2_WORKFLOW_REF,
+                          allowed_events=("push",))
+    manifest = await _verified_legacy_manifest(request)
+    if type(ordinal) is not int or not 0 <= ordinal < len(manifest["parts"]):
+        raise HTTPException(404, "Not found")
+    part = manifest["parts"][ordinal]
+    try:
+        storage = r2_first_service.storage()
+        raw = await asyncio.to_thread(
+            storage.read_verified_reference_snapshot, part["sha256"],
+        )
+        legacy_catalogue.parse_part(raw, part["relation"], part["sha256"],
+                                    part["raw_bytes"], part["rows"])
+    except Exception as exc:
+        log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=legacy_part_read error_type=%s",
+                    type(exc).__name__)
         raise HTTPException(503, "Verified source unavailable") from None
     return Response(content=raw, media_type="application/json",
                     headers={"Cache-Control": "no-store"})

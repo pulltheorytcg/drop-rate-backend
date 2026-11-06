@@ -414,3 +414,98 @@ def test_magic_manifest_requires_original_r2_scope_and_admin_rls(monkeypatch):
     assert client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=header).status_code==503
     monkeypatch.delenv("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID",raising=False)
     assert client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=header).status_code==503
+
+
+def test_legacy_r2_export_preserves_admin_rls_and_fixed_source(monkeypatch):
+    import json
+    from contextlib import asynccontextmanager
+    from uuid import UUID
+    from app import catalogue_r2_live as legacy
+
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+    card_set={
+        "provider":"example_provider","system_code":"POKEMON_TCG",
+        "language":"English","set_id":"TEST-SET","name":"Synthetic Set",
+        "release_date":"2026-01-01","declared_card_count":1,
+    }
+    raw=json.dumps([card_set],sort_keys=True,separators=(",",":")).encode()
+    sha=hashlib.sha256(raw).hexdigest()
+    manifest={
+        "schema":legacy.SCHEMA,"generation":122500,
+        "counts":{r:(1 if r=="reference_sets" else 0) for r in legacy.RELATIONS},
+        "parts":[{"relation":"reference_sets","sha256":sha,
+                  "raw_bytes":len(raw),"rows":1}],
+        "raw_bytes":len(raw),
+    }
+    monkeypatch.setattr(export,"LEGACY_R2_EXPECTED_COUNTS",manifest["counts"])
+    monkeypatch.setattr(export,"LEGACY_R2_EXPECTED_PARTS",1)
+    monkeypatch.setattr(export,"LEGACY_R2_EXPECTED_RAW_BYTES",len(raw))
+
+    class LegacySQL:
+        def __init__(self):
+            self.user_id=FIXED_UUID
+            self.admin_checked=False
+        async def fetchrow(self,sql):
+            assert sql==legacy.STATE_SQL
+            assert self.admin_checked
+            return {"generation":122500,"published_generation":122500,
+                    "manifest":manifest}
+
+    @asynccontextmanager
+    async def admin_read(_pool, actor, _request_id, *, readonly_snapshot):
+        assert str(actor)==FIXED_UUID
+        assert isinstance(actor,UUID)
+        assert readonly_snapshot is True
+        yield LegacySQL()
+
+    monkeypatch.setattr(export,"user_connection",admin_read)
+    monkeypatch.setattr(service,"storage",lambda:FakeStorage({sha:raw}))
+    app=FastAPI()
+    app.include_router(export.router)
+    app.state.db_pool=object()
+    client=TestClient(app)
+    workflow_claims=valid_claims(workflow_ref=export.LEGACY_R2_WORKFLOW_REF)
+    headers={"Authorization":"Bearer "+signed(workflow_claims)}
+    reply=client.get("/api/v1/internal/d1-shadow/legacy/manifest",headers=headers)
+    assert reply.status_code==200
+    assert reply.json()==manifest
+    assert reply.headers["cache-control"]=="no-store"
+    record=client.get("/api/v1/internal/d1-shadow/legacy/part/0",headers=headers)
+    assert record.status_code==200 and record.content==raw
+    assert client.get("/api/v1/internal/d1-shadow/legacy/part/1",headers=headers).status_code==404
+    assert client.get("/api/v1/internal/d1-shadow/legacy/manifest").status_code==401
+    assert client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=headers).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/legacy/manifest",
+                      headers={"Authorization":"Bearer "+signed()}).status_code==403
+    monkeypatch.delenv("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID",raising=False)
+    assert client.get("/api/v1/internal/d1-shadow/legacy/manifest",headers=headers).status_code==503
+
+
+def test_legacy_export_mismatched_generation_never_reaches_r2(monkeypatch):
+    from contextlib import asynccontextmanager
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+
+    class OldSQL:
+        user_id=FIXED_UUID
+        admin_checked=False
+        async def fetchrow(self,sql):
+            assert self.admin_checked
+            return {"generation":122500,"published_generation":122499,
+                    "manifest":{}}
+
+    @asynccontextmanager
+    async def old_source(_pool,actor,_request_id,*,readonly_snapshot):
+        assert readonly_snapshot
+        yield OldSQL()
+
+    monkeypatch.setattr(export,"user_connection",old_source)
+    monkeypatch.setattr(service,"storage",lambda:(_ for _ in ()).throw(
+        AssertionError("Never read R2 when publication is incomplete")))
+    app=FastAPI()
+    app.include_router(export.router)
+    app.state.db_pool=object()
+    client=TestClient(app)
+    headers={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.LEGACY_R2_WORKFLOW_REF))}
+    assert client.get("/api/v1/internal/d1-shadow/legacy/manifest",
+                      headers=headers).status_code==503
