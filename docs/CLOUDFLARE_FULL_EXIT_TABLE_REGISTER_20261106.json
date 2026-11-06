@@ -752,16 +752,16 @@
     {
       "schema": "tcg",
       "table": "pricing_policies",
-      "category": "market_current",
-      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "category": "market_policy",
+      "target": "D1_OPERATIONAL_PRICING_RULES_R2_BACKUP",
       "estimated_rows": 0,
       "bytes": 16384
     },
     {
       "schema": "tcg",
       "table": "pricing_snapshots",
-      "category": "market_current",
-      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 6731,
       "bytes": 14368768
     },
@@ -856,8 +856,8 @@
     {
       "schema": "tcg",
       "table": "reference_asking_prices",
-      "category": "market_current",
-      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "category": "market_asking",
+      "target": "R2_ASKING_ONLY_AND_D1_NON_MARKET_EVIDENCE",
       "estimated_rows": 0,
       "bytes": 24576
     },
