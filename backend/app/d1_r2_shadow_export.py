@@ -67,6 +67,9 @@ MAGIC_SOURCE = ("mtgjson", "MAGIC_THE_GATHERING", "English")
 MAGIC_WORKFLOW_REF = (
     EXPECTED_REPOSITORY + "/.github/workflows/d1-magic-r2-preflight.yml@refs/heads/main"
 )
+MAGIC_D1_WORKFLOW_REF = (
+    EXPECTED_REPOSITORY + "/.github/workflows/d1-magic-r2-shadow.yml@refs/heads/main"
+)
 MAX_TOKEN_BYTES = 8192
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -340,6 +343,40 @@ async def exported_legacy_part(request: Request, ordinal: int) -> Response:
     except Exception as exc:
         log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=legacy_part_read error_type=%s",
                     type(exc).__name__)
+        raise HTTPException(503, "Verified source unavailable") from None
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+# The Magic D1 shadow importer has a DIFFERENT signed workflow from the
+# source-only audit. Reuse the immutable MTGJSON bytes, but never permit
+# caller-defined R2 paths, ref changes, or unsigned batch activity.
+@router.get("/magic-d1/manifest")
+async def exported_magic_d1_manifest(request: Request) -> Response:
+    _verify_export_access(
+        request, workflow_ref=MAGIC_D1_WORKFLOW_REF,
+        allowed_events=("push", "schedule"),
+    )
+    _, _, _, raw = await _active_catalogue_manifest(request, MAGIC_SOURCE)
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+@router.get("/magic-d1/part/{ordinal}")
+async def exported_magic_d1_part(request: Request, ordinal: int) -> Response:
+    _verify_export_access(
+        request, workflow_ref=MAGIC_D1_WORKFLOW_REF,
+        allowed_events=("push", "schedule"),
+    )
+    storage, _, manifest, _ = await _active_catalogue_manifest(request, MAGIC_SOURCE)
+    if type(ordinal) is not int or not 0 <= ordinal < len(manifest["parts"]):
+        raise HTTPException(404, "Not found")
+    part = manifest["parts"][ordinal]
+    try:
+        raw = await asyncio.to_thread(storage.read_verified_reference_snapshot,
+                                      part["sha256"])
+        codec._parse_part(raw, part, MAGIC_SOURCE)
+    except (codec.R2FirstCatalogueError, ObjectStorageError, ValueError):
         raise HTTPException(503, "Verified source unavailable") from None
     return Response(content=raw, media_type="application/json",
                     headers={"Cache-Control": "no-store"})
