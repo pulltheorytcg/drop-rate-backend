@@ -349,3 +349,68 @@ def test_yugioh_export_source_is_exact_and_sha_checked(monkeypatch):
     assert hashlib.sha256(part.content).hexdigest()==prepared.manifest["parts"][0]["sha256"]
     assert client.get("/api/v1/internal/d1-shadow/yugioh/part/4",headers=header).status_code==404
 
+
+
+def test_magic_signed_source_isolated_from_yugioh_and_lorcana(monkeypatch):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED", "true")
+    row={
+        "provider":"mtgjson","system_code":"MAGIC_THE_GATHERING",
+        "language":"English",
+        "provider_id":"mtgjson:11111111-1111-5111-8111-000000000001:nonfoil",
+        "product_type":"CARD","name":"Synthetic Magic",
+        "set_id":"TST","set_name":"Test Set","card_number":"1",
+        "rarity":"rare","finish":"nonfoil","release_date":"2026-01-01",
+        "source_url":"https://mtgjson.com/api/v5/AllPrintings.json.xz",
+        "details":{"cardmarket_product_id":"2001"},
+    }
+    bundle=codec.prepare_catalogue(
+        [row],provider="mtgjson",system_code="MAGIC_THE_GATHERING",
+        language="English",source_url="https://mtgjson.com/api/v5/AllPrintings.json.xz",
+        source_revision="synthetic-source",
+        permission_ref="https://mtgjson.com/license/")
+    raw=bundle._manifest_bytes
+    digest=hashlib.sha256(raw).hexdigest()
+    objects={digest:raw}
+    for item,part in zip(bundle.parts,bundle.manifest["parts"],strict=True):
+        objects[part["sha256"]]=item
+    p={k:bundle.manifest[k] for k in (
+        "provider","system_code","language","source_revision",
+        "source_url","permission_ref","record_count","raw_bytes")}
+    p["manifest_sha256"]=digest
+    monkeypatch.setattr(service,"storage",lambda:FakeStorage(objects))
+    app=FastAPI()
+    app.include_router(export.router)
+    app.state.db_pool=FakePool(p)
+    client=TestClient(app)
+    magic_claims=valid_claims(workflow_ref=export.MAGIC_WORKFLOW_REF,event_name="push")
+    header={"Authorization":"Bearer "+signed(magic_claims)}
+    retrieved=client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=header)
+    assert retrieved.status_code==200
+    assert retrieved.json()==bundle.manifest
+    part=client.get("/api/v1/internal/d1-shadow/magic/part/0",headers=header)
+    assert part.status_code==200
+    assert hashlib.sha256(part.content).hexdigest()==bundle.manifest["parts"][0]["sha256"]
+    assert client.get("/api/v1/internal/d1-shadow/yugioh/manifest",headers=header).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/manifest",headers=header).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/magic/part/999",headers=header).status_code==404
+    assert client.get("/api/v1/internal/d1-shadow/magic/manifest").status_code==401
+
+    deny_schedule={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.MAGIC_WORKFLOW_REF,event_name="schedule"))}
+    assert client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=deny_schedule).status_code==403
+
+
+def test_magic_manifest_requires_original_r2_scope_and_admin_rls(monkeypatch):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+    parts, p, _=fixtures()
+    monkeypatch.setattr(service,"storage",lambda:FakeStorage(parts))
+    app=FastAPI()
+    app.include_router(export.router)
+    app.state.db_pool=FakePool(p)
+    client=TestClient(app)
+    header={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.MAGIC_WORKFLOW_REF))}
+    # A Lorcana registry object cannot be exposed as Magic source.
+    assert client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=header).status_code==503
+    monkeypatch.delenv("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID",raising=False)
+    assert client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=header).status_code==503
