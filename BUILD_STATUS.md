@@ -1,3 +1,10 @@
+## 6 November 2026 — Per-game new-release automation DR-96 (staged pending n8n activation)
+
+- Six separate **inactive** n8n release scouts created for YGOPRODeck/Yu-Gi-Oh, Lorcast/Lorcana, MTGJSON/Magic, two selected sports feeds, and curated figures. Daily or weekly staggered schedules, DR-90 error routing, HMAC-signed FastAPI source commands. Existing background importer remains; a shared advisory lock suppresses duplicate overlapping downloads.
+- Backend source cadence: Lorcast and MTGJSON can refresh daily; YGOPRODeck remains 48h to respect its published two-day cache; sports/figures retain weekly policy. Immutable R2 metadata generation re-upload is skipped when fetched provider revision is unchanged. No new provider URLs, unapproved source, live price, owner, Shopify product, grade/slab or copyright/approval rights are inferred.
+- Existing Pokémon, One Piece, Dragon Ball and Naruto metadata maintenance is separate and currently subject to SQL capacity guard; Riftbound source remains gated on Riot API approval. Commercial artwork per-print mappings and live Cloudflare D1/Worker image publication are **not** solved by these metadata-only scouts.
+- [DR-96 detailed runbook](docs/DR96_PER_GAME_RELEASE_SCOUTS_20261106.md). Do not mark active until persistent n8n publication and signed execution are verified.
+
 ## 6 November 2026 — All-eligible artwork n8n controller DR-95 (in review; NOT automatically publishing new games)
 
 - Production n8n deploy logs at 22:24 UTC confirmed existing DR-94 approved canonical artwork workflow already **ACTIVE**. The separate API reference-image worker also runs, but defers because live Supabase was **430,484,627 bytes**, above the 400 MB bulk-refresh guard. Current verified mirrors: **66,218** legacy reference images + **401** canonical image mirrors; four reference retries remain. Do not duplicate these workers or relax the capacity guard.
