@@ -138,7 +138,6 @@ def from_verified_snapshot(snapshot: r2.Snapshot) -> Projection:
     scope = tuple(manifest[x] for x in ("provider", "system_code", "language"))
     records: list[tuple] = []
     keys = set()
-    cumulative = hashlib.sha256()
     offset = 0
     while offset < snapshot.record_count:
         page_size = min(100, snapshot.record_count - offset)
@@ -153,10 +152,14 @@ def from_verified_snapshot(snapshot: r2.Snapshot) -> Projection:
                 raise ProjectionError("Duplicate R2 stable identity")
             keys.add(canonical[1])
             records.append(canonical)
-            cumulative.update(json.dumps(canonical, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n")
         offset += page_size
     if len(records) != snapshot.record_count:
         raise ProjectionError("Truncated catalogue source")
+    # The digest is order-independent of R2 name-sort pagination; D1 can
+    # independently recalculate this digest with indexed card_key pages.
+    cumulative = hashlib.sha256()
+    for record in sorted(records, key=lambda value: value[1]):
+        cumulative.update(json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n")
     return Projection(checksum, scope, snapshot.record_count,
                       manifest["content_sha256"], manifest["source_revision"],
                       cumulative.hexdigest(), tuple(records))
