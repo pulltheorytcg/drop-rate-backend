@@ -54,6 +54,13 @@ function checked(body) {
   return body;
 }
 
+function sameCandidate(stored, expected) {
+  return ["provider","system_code","language","provider_id","set_id","card_number",
+    "rarity","finish","rights_review_id","content_sha256","size_bytes"].every(
+      field=>stored[field]===expected[field]
+    )&&stored.object_key===expected.object_key;
+}
+
 export async function handle(request,env) {
   if(new URL(request.url).pathname!=="/v1/internal/artwork/shadow")return reject(404,"NOT_FOUND");
   if(request.method!=="POST")return reject(405,"METHOD_NOT_ALLOWED");
@@ -93,10 +100,10 @@ export async function handle(request,env) {
   // printing and rights policy before any future full release workflow.
   try {
     const existing=await env.ARTWORK_D1.prepare(
-      "select content_sha256,size_bytes,object_key from artwork_shadow_candidates where reference_key=? and source_manifest_sha256=?"
+      "select provider,system_code,language,provider_id,set_id,card_number,rarity,finish,rights_review_id,content_sha256,size_bytes,object_key from artwork_shadow_candidates where reference_key=? and source_manifest_sha256=?"
     ).bind(data.reference_key,data.source_manifest_sha256).first();
     if(existing){
-      if(existing.content_sha256!==data.content_sha256||existing.size_bytes!==data.size_bytes||existing.object_key!==data.object_key)
+      if(!sameCandidate(existing,data))
         return reject(409,"SHADOW_IMAGE_CONFLICT");
       return response({accepted:true,state:"SHADOW_ONLY",unchanged:true,reference_key:data.reference_key,content_sha256:data.content_sha256});
     }
@@ -108,10 +115,9 @@ export async function handle(request,env) {
     if(result?.meta?.changes===1)return response({accepted:true,state:"SHADOW_ONLY",unchanged:false,reference_key:data.reference_key,content_sha256:data.content_sha256});
     // Concurrent insert must be proven identical; never overwrite a print.
     const competing=await env.ARTWORK_D1.prepare(
-      "select content_sha256,size_bytes,object_key from artwork_shadow_candidates where reference_key=? and source_manifest_sha256=?"
+      "select provider,system_code,language,provider_id,set_id,card_number,rarity,finish,rights_review_id,content_sha256,size_bytes,object_key from artwork_shadow_candidates where reference_key=? and source_manifest_sha256=?"
     ).bind(data.reference_key,data.source_manifest_sha256).first();
-    if(competing?.content_sha256===data.content_sha256&&competing.size_bytes===data.size_bytes
-      &&competing.object_key===data.object_key)
+    if(competing&&sameCandidate(competing,data))
       return response({accepted:true,state:"SHADOW_ONLY",unchanged:true,reference_key:data.reference_key,content_sha256:data.content_sha256});
     return reject(409,"SHADOW_WRITE_CONFLICT");
   }catch{
