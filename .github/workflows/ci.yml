@@ -93,6 +93,12 @@ jobs:
       - name: Prove guarded DR96 publication and SQLite rollback in a disconnected pinned runtime
         run: |
           docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_release_scout_publish_smoke.cjs:/test/release-scout-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/release-scout-smoke.cjs
+      - name: Verify DR97 source hash identities in pinned offline n8n
+        run: |
+          docker run --rm --network none --entrypoint node drop-rate-n8n:ci --no-warnings /opt/drop-rate/ops/guarded-legacy-release-publish.cjs --verify-sources | grep -F '"status":"SOURCE_VERIFIED","count":8'
+      - name: Prove DR97 guarded publication with fake persisted SQLite and backups
+        run: |
+          docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_legacy_release_publish_smoke.cjs:/test/dr97-activation-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/dr97-activation-smoke.cjs
       - name: Verify guarded inactive upgrade and exact publication in isolated pinned runtime
         run: |
           docker run --rm --network none --entrypoint node \

@@ -384,3 +384,12 @@ The new DR-96 workflows are source-controlled **inactive** schedules, one each f
 Each uses a closed, literal source name inside its HMAC-signed FastAPI command. FastAPI calls the pre-existing R2-first source adapter and enforces the same source permissions, cadence, provider request limits, advisory lock, source-revision no-op, R2 full-byte verification and SQL compare-and-swap publication. n8n only schedules, validates the receipt and routes errors to DR-90. New metadata is available in the app through the existing catalogue resolver after its release date, but no source gets card artwork rights or slab photographs via these jobs.
 
 **Do not confuse newly imported n8n workflows with published/active ones.** DR-96 activation requires verified stored source hashes, backup and real signed pilot. Source-specific details and blockers: [DR96 runbook](../../docs/DR96_PER_GAME_RELEASE_SCOUTS_20261106.md).
+
+
+## DR-97: additional Pokémon, One Piece, Naruto, Dragon Ball and Riftbound game release scouts
+
+Eight new **initially inactive** daily n8n release scouts use the signed FastAPI command `/api/v1/automation/commands/catalogue/check-legacy-release-source`. Their backend calls only the existing legacy daily source importers after a PostgreSQL capacity check, an authoritative due check, and the same global maintenance lock. They **cannot** bypass the 400 MB Supabase refresh threshold, publish images or Shopify products, or make pricing/ownership changes. Dragon Ball Masters and Fusion World, One Piece Official and Punk, Naruto Kayou and Bandai are independent source jobs.
+
+The Riot Riftbound job is an official app-permission readiness monitor only until access to the authorised Riot API is connected, because public website access is not permission to commercialise the images. The workflow returns `DEFERRED_RIOT_APPROVAL` with no network call.
+
+A separate scoped, guarded n8n publication operator `/opt/drop-rate/ops/guarded-legacy-release-publish.cjs` is controlled by `DROP_RATE_N8N_LEGACY_RELEASE_PUBLISH_ON_BOOT=true`. It proves source hashes, DR90, pinned runtime version, private SQLite backup, 8 published versions and rollback rather than replacing already active DR96 or DR94 definitions. [Runbook](../../docs/DR97_LEGACY_RIFTBOUND_RELEASE_SCOUTS_20261106.md).
