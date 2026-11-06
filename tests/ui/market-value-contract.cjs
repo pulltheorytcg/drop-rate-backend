@@ -13,8 +13,15 @@ for (const status of ["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE", 
       label: "Guide estimate", reason: "Cardmarket trend evidence", basis: "Raw"}};
   const original = JSON.stringify(item);
   assert.equal(values.label(item), "Market value");
-  assert.equal(values.text(item, money), "Value: GBP 12.00");
-  assert.equal(values.marketMinor(item), 1200);
+  // Deliberately hostile legacy API fixture: every status carries the SAME
+  // guide price, but only an explicit AVAILABLE source may ever display it.
+  if (status === "AVAILABLE") {
+    assert.equal(values.text(item, money), "Value: GBP 12.00");
+    assert.equal(values.marketMinor(item), 1200);
+  } else {
+    assert.equal(values.text(item, money), "Value unavailable");
+    assert.equal(values.marketMinor(item), null);
+  }
   assert.match(values.description(item), /Cardmarket trend evidence/);
   assert.equal(JSON.stringify(item), original);
   checks++;
@@ -31,7 +38,8 @@ for (const item of [
   assert.equal(values.marketMinor(item), null);
   checks++;
 }
-assert.equal(values.marketMinor({market_value_minor: 19}), 19, "Market value must not inherit the GBP 1 selling-price floor");
+assert.equal(values.marketMinor({market_value_minor: 19}), null,
+  "A bare legacy amount without verified SOLD status is not Market Value");
 checks++;
 const model = {status: "CATALOGUE_GUIDE", method: "DROP_RATE_UK_EU_MARKET_V1", currency: "GBP",
   shipping_basis: "ITEM_ONLY", physical_valuation_eligible: false, estimate_minor: 1234,
