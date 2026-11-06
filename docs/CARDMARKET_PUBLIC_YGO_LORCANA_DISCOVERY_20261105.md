@@ -1,0 +1,12 @@
+# Source feasibility only: official Cardmarket public Yu-Gi-Oh! and Lorcana daily feeds
+
+Dated 5 November 2026. Source discovery, **not a pricing integration**.
+
+- **What:** verify that the independently documented official Cardmarket Magic-adjacent public catalogue and daily price-guide exports also supply Yu-Gi-Oh! (game ID **3**) and Disney Lorcana (game ID **19**), with exact internal product-ID joins, current source timestamps and integrity receipts. No Cards, Inventory or published prices are imported.
+- **Why:** the live Drop Rate R2-first Yu-Gi-Oh! (**45,215**) and Lorcana (**3,505**) catalogues are metadata-only; no source-backed valuation coverage can be counted for them yet.
+- **Existing connections:** direct static `downloads.s3.cardmarket.com` public exports, existing FastAPI source normalization conventions, and eventual R2 immutable sidecar *only after another review*. Neither official export currently proves a safe cross-ID with Drop Rate's `YGOPRODeck` set printing codes or `Lorcast` exact variants. Catalog records cannot be priced by loose name joins.
+- **Fail points:** wrong game ID, missing or duplicated `idProduct`, stale guide, unavailable download, publisher-set equivalence, non-specific normal vs foil guides, permission to externally display daily guide data, unknown physical grade/condition/language, and insufficient free PostgreSQL capacity. `low`/asking and suggested retail fields are excluded from source statistical availability counts.
+- **Tests:** isolated download with SSL, byte bounds, SHA-256 and actual-source counters; typed ID and source freshness tests, duplicate/invalid row rejection, unsafe-price field exclusion. No credentials or production writes. Real source counters are **not** exact-print matches or sold-based Market Values.
+- **Publication gate:** require reviewed official metadata source-to-Cardmarket product crosswalk at exact printing/finish, independent release proof, source rights to advertise, five actual UK sold comparisons for exact graded slabs, staging tests and rollback. No `market_value_minor` calculations, price injection, Shopify update or ownership changes in this PR.
+
+Cardmarket official public-download announcement: https://news.cardmarket.com/en/Magic/were-making-the-price-guide-and-product-catalogue-available-for-download ; its published old API docs confirm Yu-Gi-Oh! game ID 3: https://apiv2.cardmarket.com/ws/documentation/API_2.0%3APriceGuide . The Lorcana download ID 19 must be verified through live file response, not assumed as source identity.
