@@ -399,6 +399,30 @@ def test_magic_signed_source_isolated_from_yugioh_and_lorcana(monkeypatch):
         workflow_ref=export.MAGIC_WORKFLOW_REF,event_name="schedule"))}
     assert client.get("/api/v1/internal/d1-shadow/magic/manifest",headers=deny_schedule).status_code==403
 
+    # A source-only audit cannot impersonate the independent daily D1 writer.
+    assert client.get("/api/v1/internal/d1-shadow/magic-d1/manifest",headers=header).status_code==403
+    signed_import={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.MAGIC_D1_WORKFLOW_REF,event_name="schedule"))}
+    approved=client.get("/api/v1/internal/d1-shadow/magic-d1/manifest",
+                        headers=signed_import)
+    assert approved.status_code==200
+    assert approved.json()==bundle.manifest
+    magic_part=client.get("/api/v1/internal/d1-shadow/magic-d1/part/0",
+                          headers=signed_import)
+    assert magic_part.status_code==200
+    assert hashlib.sha256(magic_part.content).hexdigest()==bundle.manifest["parts"][0]["sha256"]
+    assert client.get("/api/v1/internal/d1-shadow/magic-d1/part/99",
+                      headers=signed_import).status_code==404
+    assert client.get("/api/v1/internal/d1-shadow/magic/manifest",
+                      headers=signed_import).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/yugioh/manifest",
+                      headers=signed_import).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/magic-d1/manifest").status_code==401
+    untrusted_event={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.MAGIC_D1_WORKFLOW_REF,event_name="workflow_dispatch"))}
+    assert client.get("/api/v1/internal/d1-shadow/magic-d1/manifest",
+                      headers=untrusted_event).status_code==403
+
 
 def test_magic_manifest_requires_original_r2_scope_and_admin_rls(monkeypatch):
     monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
