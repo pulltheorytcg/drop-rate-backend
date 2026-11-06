@@ -19,6 +19,18 @@ Both methods accept **at most 25 published reference rows** and return reason-co
 
 The pilot is deliberately **not** registered as a live worker, API route, image fallback or cron job. To run it against actual release records requires a trusted, offline source snapshot and a bounded 25-reference exact-ID read from the verified R2 generation; perform that in a separately scoped reviewed step, without changing the source permissions or copying image bytes first.
 
+
+## Running the offline pilot
+
+After an authorised operator obtains a trusted bounded **original source JSON payload** and its matching **1–25 R2 publication reference rows** as local JSON files (not customer inventory), run one of:
+
+```bash
+PYTHONPATH=backend python -m app.expanded_artwork_review_cli --game yugioh --source /private/ygo-source.json --references /private/ygo-refs.json > /private/ygo-review.json
+PYTHONPATH=backend python -m app.expanded_artwork_review_cli --game lorcana --source /private/lorcast-bundle.json --references /private/lorcast-refs.json > /private/lorcana-review.json
+```
+
+The command makes **zero network calls**, has 25-reference and file-byte bounds, and produces an identity-locked JSON review manifest including SHA-256 fingerprints, reason counts and *unapproved* candidate URLs. Do not put source snapshots or candidate manifest URLs in the public repository or CI logs. No release or image hosting happens merely by running this command.
+
 ## Rights and sources to verify
 
 1. **Yu-Gi-Oh!**: official YGOPRODeck v7 API docs: https://ygoprodeck.com/api-guide/ . It lists `card_images` separately from `card_sets` and requires users to download/rehost images **rather than hotlink**. API access and rehosting guidance do **not**, by themselves, prove Drop Rate has permission to commercially publish Konami artwork. Need applicable publisher/image rights evidence before fetching/mirroring bytes and before any customer-facing display.
