@@ -33,8 +33,9 @@ window.DropRateCatalogue = (() => {
   const unsupportedMarketSource = row =>
     ["DROP_RATE_COMPUTED_MARKET_V1","CARDTRADER_EXPANSION_ASKING",
      "TCGCSV_TCGPLAYER_CATALOGUE","CARDMARKET_GUIDE_V1",
-     "CARDMARKET_BULK_SINGLES","CARDMARKET_CATALOGUE",
-     "TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)
+     "CARDMARKET_BULK_SINGLES","CARDMARKET_BULK","CARDMARKET_CATALOGUE",
+     "CARDMARKET_ESTIMATE","POKEWALLET_POKEMON_CARDMARKET_CATALOGUE",
+     "SHARED_CATALOGUE_REFERENCE","TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)
     || ["REFERENCE_ESTIMATE","CATALOGUE_GUIDE","UK_EU_MARKET_ESTIMATE"].includes(row.shared_price?.status);
   const marketPrice = row => {
     if (row.shared_price && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(row.shared_price.method))
