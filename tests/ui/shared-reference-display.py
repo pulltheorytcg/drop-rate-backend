@@ -75,7 +75,6 @@ def main():
      seller=page.locator('.owner-item-values strong').inner_text().strip();assert founder.removeprefix('Value: ')==seller,(status,founder,seller)
      if status=='AVAILABLE':assert '£99.00' == seller
      else:assert '£' not in seller,(status,seller)
-     else:assert '£0' not in seller and 'pending' not in seller.lower()
      assert all(call['method']=='GET' for call in page.evaluate('calls'))
      assert not errors,errors
      assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status)
