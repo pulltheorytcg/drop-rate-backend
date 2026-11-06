@@ -12,7 +12,7 @@ from .automation_dispatcher import verify_signed_body
 from .settings import get_settings
 from .object_storage import ObjectStorageConfig, ObjectStorageError, S3ObjectStorage
 from .r2_media import mirror_approved_media
-from .r2_reference_images import PENDING_REFERENCE_IMAGES_SQL, mirror_reference_images
+from .r2_reference_images import PENDING_REFERENCE_IMAGES_SQL, mirror_reference_images, worker_enabled
 from .database_capacity import check_database_capacity
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
@@ -74,7 +74,7 @@ class RefreshEligibleArtworkCommand(BaseModel):
     action: Literal["REFRESH_ELIGIBLE_ARTWORK"]
     execution_id: str = Field(min_length=1, max_length=120)
     occurred_at: datetime
-    canonical_limit: int = Field(default=3, ge=1, le=5)
+    canonical_limit: int = Field(default=0, ge=0, le=5)
     reference_limit: int = Field(default=10, ge=1, le=20)
 
 
@@ -375,22 +375,34 @@ async def refresh_eligible_artwork(
             'canonical': None, 'reference': None, 'new_game_metadata_promoted': False,
         }
 
-    try:
-        canonical = await mirror_approved_media(
-            request.app.state.db_pool, limit=command.canonical_limit,
-            request_id=request.state.request_id,
-        )
-    except ObjectStorageError as exc:
-        raise HTTPException(status_code=503, detail='Approved artwork storage unavailable') from exc
-    if canonical['failed']:
-        raise HTTPException(status_code=502, detail={
-            'message': 'Approved artwork verification failed', 'retryable': True,
-            'result': canonical,
-        })
+    # DR-94 already owns production canonical mirroring. Normal DR-95 runs
+    # request zero canonical items to prevent duplicate network work. The
+    # optional small failover mode is independently bounded by the same SQL.
+    canonical = {'examined': 0, 'mirrored': 0, 'skipped': 0,
+                 'failed': 0, 'remaining_possible': False}
+    canonical_status = 'DELEGATED_TO_DR94'
+    if command.canonical_limit:
+        try:
+            canonical = await mirror_approved_media(
+                request.app.state.db_pool, limit=command.canonical_limit,
+                request_id=request.state.request_id,
+            )
+        except ObjectStorageError as exc:
+            raise HTTPException(status_code=503, detail='Approved artwork storage unavailable') from exc
+        if canonical['failed']:
+            raise HTTPException(status_code=502, detail={
+                'message': 'Approved artwork verification failed', 'retryable': True,
+                'result': canonical,
+            })
+        canonical_status = 'MIRRORED_APPROVED_MEDIA'
 
     reference_status = 'DISABLED_BY_BACKEND_POLICY'
     reference = None
-    if get_settings().r2_reference_cache_apply_enabled:
+    # The existing API reference worker owns this backlog when enabled. It
+    # holds the advisory lock and checks capacity; DR-95 must not duplicate it.
+    if worker_enabled():
+        reference_status = 'DELEGATED_TO_REFERENCE_WORKER'
+    elif get_settings().r2_reference_cache_apply_enabled:
         try:
             reference = await mirror_reference_images(
                 request.app.state.db_pool, limit=command.reference_limit,
@@ -408,7 +420,8 @@ async def refresh_eligible_artwork(
     return {
         'accepted': True, 'execution_id': command.execution_id, 'status': 'COMPLETED',
         'scope': 'RIGHTS_APPROVED_CANONICAL_AND_LEGACY_REFERENCE_ONLY',
-        'canonical': canonical, 'reference': reference, 'reference_status': reference_status,
+        'canonical': canonical, 'canonical_status': canonical_status,
+        'reference': reference, 'reference_status': reference_status,
         'new_game_metadata_promoted': False,
     }
 
