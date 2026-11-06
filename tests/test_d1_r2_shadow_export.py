@@ -509,3 +509,62 @@ def test_legacy_export_mismatched_generation_never_reaches_r2(monkeypatch):
         workflow_ref=export.LEGACY_R2_WORKFLOW_REF))}
     assert client.get("/api/v1/internal/d1-shadow/legacy/manifest",
                       headers=headers).status_code==503
+
+
+def test_followon_workflow_identity_and_source_scope_never_cross_contaminate(monkeypatch):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+    scope=export.FOLLOWON_SOURCE_MAP["sports"]
+    sample={
+        "provider":scope[0],"system_code":scope[1],"language":scope[2],
+        "provider_id":"cardcollectorcapital:test-1",
+        "product_type":"CARD","name":"Synthetic Sports Reference",
+        "set_id":"SPORTS","set_name":"Sports Set","card_number":"1",
+        "rarity":"Base","finish":None,"release_date":"2026-01-01",
+        "source_url":"https://example.org/source",
+    }
+    prepared=codec.prepare_catalogue(
+        [sample],provider=scope[0],system_code=scope[1],language=scope[2],
+        source_url="https://example.org/source",
+        source_revision="synthetic-test",permission_ref="https://example.org/licence")
+    raw=prepared._manifest_bytes
+    manifest_sha=hashlib.sha256(raw).hexdigest()
+    objects={manifest_sha:raw}
+    for content,part in zip(prepared.parts,prepared.manifest["parts"],strict=True):
+        objects[part["sha256"]]=content
+
+    async def source_verified(_request, actual_scope):
+        assert actual_scope==scope
+        return FakeStorage(objects),{},prepared.manifest,raw
+
+    monkeypatch.setattr(export,"_active_catalogue_manifest",source_verified)
+    app=FastAPI()
+    app.include_router(export.router)
+    app.state.db_pool=object()
+    client=TestClient(app)
+    claims=valid_claims(workflow_ref=export.FOLLOWON_WORKFLOW_REF,event_name="schedule")
+    headers={"Authorization":"Bearer "+signed(claims)}
+    result=client.get("/api/v1/internal/d1-shadow/followon/sports/manifest",headers=headers)
+    assert result.status_code==200
+    assert result.json()==prepared.manifest
+    part=client.get("/api/v1/internal/d1-shadow/followon/sports/part/0",headers=headers)
+    assert part.status_code==200
+    assert hashlib.sha256(part.content).hexdigest()==prepared.manifest["parts"][0]["sha256"]
+    assert client.get("/api/v1/internal/d1-shadow/followon/unknown/manifest",headers=headers).status_code==404
+    assert client.get("/api/v1/internal/d1-shadow/followon/sports/part/10",headers=headers).status_code==404
+    assert client.get("/api/v1/internal/d1-shadow/followon/sports/manifest").status_code==401
+    assert client.get("/api/v1/internal/d1-shadow/followon/sports/manifest",
+                      headers={"Authorization":"Bearer "+signed()}).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/followon/sports/manifest",
+                      headers={"Authorization":"Bearer "+signed(valid_claims(
+                          workflow_ref=export.FOLLOWON_WORKFLOW_REF,
+                          event_name="workflow_dispatch"))}).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/legacy/manifest",headers=headers).status_code==403
+
+
+def test_followon_source_with_wrong_rls_partition_fails_closed(monkeypatch):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+    client,_,_=make_client(monkeypatch)
+    headers={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.FOLLOWON_WORKFLOW_REF))}
+    assert client.get("/api/v1/internal/d1-shadow/followon/sports/manifest",
+                      headers=headers).status_code==503
