@@ -12,6 +12,7 @@ import logging
 import os
 import re
 from collections.abc import Mapping
+from uuid import UUID, uuid4
 
 import jwt
 from fastapi import APIRouter, HTTPException, Request
@@ -19,6 +20,8 @@ from fastapi.responses import Response
 
 from . import r2_first_catalogue as codec
 from . import r2_first_service
+from .access_control import require_platform_admin
+from .db import user_connection
 from .object_storage import ObjectStorageError
 
 router = APIRouter(prefix="/api/v1/internal/d1-shadow", tags=["internal"], include_in_schema=False)
@@ -97,9 +100,20 @@ def _verify_export_access(request: Request) -> None:
 
 
 async def _active_lorcana_manifest(request: Request):
-    # Read-only legacy pointer is the current migration trust anchor.
-    async with request.app.state.db_pool.acquire() as conn:
-        async with conn.transaction(readonly=True):
+    # The legacy R2 registry has FORCE ROW LEVEL SECURITY. A raw pool read
+    # has no tcg.user_id role context and therefore returns NO ROW, even
+    # though the publication exists. Do not disable RLS or use a superuser.
+    #
+    # The signed GitHub OIDC job was already authorized at the route boundary.
+    # Inside the database, use the existing verified maintenance principal
+    # and require PLATFORM_ADMIN under a bounded read-only transaction.
+    try:
+        actor = UUID(os.environ.get("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID", ""))
+        async with user_connection(
+            request.app.state.db_pool, actor, str(uuid4()),
+            readonly_snapshot=True,
+        ) as conn:
+            await require_platform_admin(conn)
             old = await conn.fetchrow("""
               select provider,system_code,language,manifest_sha256,
                      source_revision,source_url,permission_ref,record_count,raw_bytes
@@ -107,7 +121,12 @@ async def _active_lorcana_manifest(request: Request):
               where active and provider='lorcast'
                     and system_code='DISNEY_LORCANA' and language='English'
               """)
+    except Exception as exc:
+        log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=rls_authorized_read error_type=%s",
+                    type(exc).__name__)
+        raise HTTPException(503, "Verified source unavailable") from None
     if old is None:
+        log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=publication_not_visible error_type=Missing")
         raise HTTPException(503, "Active verified catalogue unavailable")
     publication = dict(old)
     stage = "storage_configuration"
