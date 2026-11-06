@@ -15,6 +15,7 @@ from .r2_media import mirror_approved_media
 from .r2_reference_images import PENDING_REFERENCE_IMAGES_SQL, mirror_reference_images, worker_enabled
 from .database_capacity import check_database_capacity
 from .r2_first_import import run_selected
+from .legacy_release_watch import check_game as check_legacy_release_game
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 
@@ -87,6 +88,17 @@ class ReleaseScoutCommand(BaseModel):
     action: Literal["REFRESH_APPROVED_RELEASE_SOURCE"]
     source: Literal["ygoprodeck", "lorcast", "mtgjson", "cardcollectorcapital",
                     "cardcollectorcapital_heritage", "reviewed_figures"]
+    execution_id: str = Field(min_length=1, max_length=120)
+    occurred_at: datetime
+
+
+class LegacyGameReleaseCommand(BaseModel):
+    """Four existing providers plus Riot Riftbound permission readiness only."""
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[1] = 1
+    action: Literal["CHECK_OR_REFRESH_LEGACY_GAME_RELEASES"]
+    game: Literal["POKEMON", "ONE_PIECE", "DRAGON_BALL", "NARUTO", "RIFTBOUND"]
     execution_id: str = Field(min_length=1, max_length=120)
     occurred_at: datetime
 
@@ -481,6 +493,54 @@ async def refresh_catalogue_release_source(
         'generation': result.get('generation'),
         'record_count': result.get('record_count'),
         'source_unchanged': bool(result.get('source_unchanged')),
+    }
+
+
+
+@router.post('/catalogue/check-legacy-game-releases')
+async def check_legacy_game_releases(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(default=None, alias='X-Drop-Rate-Timestamp'),
+    x_drop_rate_signature: str | None = Header(default=None, alias='X-Drop-Rate-Signature'),
+) -> dict:
+    raw = await _verified_command_body(
+        request, timestamp_header=x_drop_rate_timestamp, signature_header=x_drop_rate_signature,
+    )
+    try:
+        command = LegacyGameReleaseCommand.model_validate_json(raw)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail='Invalid legacy release command') from exc
+    if command.occurred_at.tzinfo is None or command.occurred_at.utcoffset() is None:
+        raise HTTPException(status_code=422, detail='Release timestamp must be timezone-aware')
+    settings = get_settings()
+    if not settings.catalogue_maintenance_actor_user_id:
+        raise HTTPException(status_code=503, detail='Catalogue maintenance actor unavailable')
+    try:
+        result = await check_legacy_release_game(
+            request.app.state.db_pool, settings.catalogue_maintenance_actor_user_id, command.game,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail={
+            'message': 'Legacy game release verification failed', 'retryable': True,
+            'error_type': type(exc).__name__,
+        }) from exc
+    if result.get('status') not in {
+        'CURRENT', 'COMPLETE', 'INCOMPLETE', 'ALREADY_RUNNING',
+        'DEFERRED_CAPACITY', 'AWAITING_RIOT_APP_APPROVAL',
+    }:
+        raise HTTPException(status_code=502, detail='Unrecognised game release state')
+    return {
+        'accepted': True, 'execution_id': command.execution_id,
+        'game': command.game, 'status': result['status'],
+        'source_count': result.get('source_count', 0),
+        'sources_checked': result.get('sources_checked', 0),
+        'source_imports': result.get('source_imports', 0),
+        'capacity_reason': result.get('capacity_reason'),
+        'metadata_updated': bool(result.get('metadata_updated', False)),
+        'artwork_published': False,
+        'shopify_updated': False, 'ownership_or_price_changed': False,
     }
 
 
