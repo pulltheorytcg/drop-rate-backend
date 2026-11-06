@@ -5,9 +5,11 @@ window.DropRateCatalogue = (() => {
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
   const ukEuEstimate = row => window.DropRateReferenceValue?.ukEuEstimate(row.uk_eu_market_estimate) || null;
-  const currentValue = row => (Number.isSafeInteger(row.market_value_minor) && row.market_value_minor > 0) ||
-    (["AVAILABLE", "REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(row.shared_price?.status)
-      && Number.isSafeInteger(row.shared_price.market_value_minor) && row.shared_price.market_value_minor > 0);
+  const currentValue = row => !unsupportedMarketSource(row) && (
+    (Number.isSafeInteger(row.market_value_minor) && row.market_value_minor > 0) ||
+    (row.shared_price?.status === "AVAILABLE"
+      && Number.isSafeInteger(row.shared_price.market_value_minor)
+      && row.shared_price.market_value_minor > 0));
   const askingEstimate = row => {
     // Asking evidence is a separate fallback, never a physical market value.
     const estimate=row.asking_price_estimate, shared=row.shared_price, now=Date.now(), maxAge=3*24*60*60*1000;
@@ -30,7 +32,10 @@ window.DropRateCatalogue = (() => {
   // including if an older API response persists in an account-scoped page cache.
   const unsupportedMarketSource = row =>
     ["DROP_RATE_COMPUTED_MARKET_V1","CARDTRADER_EXPANSION_ASKING",
-     "TCGCSV_TCGPLAYER_CATALOGUE"].includes(row.market_value_source);
+     "TCGCSV_TCGPLAYER_CATALOGUE","CARDMARKET_GUIDE_V1",
+     "CARDMARKET_BULK_SINGLES","CARDMARKET_CATALOGUE",
+     "TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)
+    || ["REFERENCE_ESTIMATE","CATALOGUE_GUIDE","UK_EU_MARKET_ESTIMATE"].includes(row.shared_price?.status);
   const marketPrice = row => {
     if (row.shared_price && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(row.shared_price.method))
       return window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:");
