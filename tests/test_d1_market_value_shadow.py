@@ -153,3 +153,35 @@ def test_no_live_publish_pointer_created_by_shadow(db):
     tables={name for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert all(name.startswith("market_shadow_") for name in tables)
     assert "market_active_generation" not in tables
+
+
+def test_duplicate_raw_printing_with_nullable_grade_rejected(db):
+    with pytest.raises(sqlite3.IntegrityError):
+        db.execute("""INSERT INTO market_shadow_profiles
+          (generation_id,profile_key,provider,system_code,language,provider_id,
+           product_kind,finish,condition,source_identity_sha256)
+          VALUES('generation-1','raw-duplicate','tcg','POKEMON','English',
+          'exact-raw-001','RAW_CARD','normal','NM',?)""",(H,))
+
+
+def test_old_sold_evidence_cannot_be_current_market_value(db):
+    db.execute("""INSERT INTO market_shadow_source_proofs
+      (generation_id,proof_id,profile_key,r2_evidence_sha256,evidence_type,
+       source_name,source_run_key,observed_at,source_country,
+       distinct_comparables,distinct_sellers,usage_rights)
+      VALUES('generation-1','old','raw-1',?,'VERIFIED_SOLD',
+       'ebay-sold','run-old','2025-01-01T00:00:00Z','GB',5,5,
+       'DISPLAY_APPROVED')""",(H,))
+    with pytest.raises(sqlite3.IntegrityError,match="sold-grade"):
+        price(db,proof_id="old")
+
+
+def test_market_profile_identity_cannot_be_changed_to_slab(db):
+    with pytest.raises(sqlite3.IntegrityError,match="immutable"):
+        db.execute("UPDATE market_shadow_profiles SET product_kind='GRADED_CARD' WHERE profile_key='raw-1'")
+
+
+def test_manifest_source_digest_cannot_be_swapped(db):
+    with pytest.raises(sqlite3.IntegrityError,match="immutable"):
+        db.execute("UPDATE market_shadow_generations SET r2_source_manifest_sha256=?",
+                   ("b"*64,))
