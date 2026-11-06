@@ -86,7 +86,7 @@ def _oidc_token():
 def fetch_bytes(client: httpx.Client, path: str, token: str, size_limit: int, *,
                 source_path: str = SOURCE_PATH) -> bytes:
     """Only fixed Railway origin and known private catalogue paths are accepted."""
-    if source_path not in (SOURCE_PATH, SOURCE_PATH + "/yugioh", SOURCE_PATH + "/magic"):
+    if source_path not in (SOURCE_PATH, SOURCE_PATH + "/yugioh", SOURCE_PATH + "/magic", SOURCE_PATH + "/legacy"):
         raise MigrationGuard("Unapproved R2 export partition path")
     if (path != source_path + "/manifest"
             and not re.fullmatch(re.escape(source_path) + r"/part/[0-9]{1,3}", path)):
