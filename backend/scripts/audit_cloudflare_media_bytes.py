@@ -155,32 +155,16 @@ async def verify_actual_bytes(storage, selected:list[dict]):
     storage._bounded_reference_client()
     sem=asyncio.Semaphore(CONCURRENCY)
 
-    async def inspect(record):
-        async with sem:
-            try:
-                storage.read_verified_media(
-                    record["object_key"],expected_sha256=record["content_sha256"],
-                    expected_size=record["size_bytes"])
-                return True
-            except (ObjectStorageError, OSError, ValueError):
-                # Never print a private object key or owner identity.
-                return False
-
-    outcomes=await asyncio.gather(*(asyncio.to_thread(
-        storage.read_verified_media,
-        x["object_key"],
-        expected_sha256=x["content_sha256"],
-        expected_size=x["size_bytes"],
-    ) for x in [])) # retained empty: no unbounded default concurrency
-    _=outcomes
     # Offload the sync S3 SDK without blocking the async event loop.
     async def bounded_probe(row):
         async with sem:
-            return await asyncio.to_thread(
-                storage.read_verified_media,
-                row["object_key"],
-                expected_sha256=row["content_sha256"],
-                expected_size=row["size_bytes"])
+            def check():
+                storage.read_verified_media(
+                    row["object_key"],
+                    expected_sha256=row["content_sha256"],
+                    expected_size=row["size_bytes"])
+                return True
+            return await asyncio.to_thread(check)
     async def safely_probe(row):
         try:
             await bounded_probe(row)
