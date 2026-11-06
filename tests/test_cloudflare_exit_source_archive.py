@@ -207,5 +207,25 @@ async def test_bad_gzip_detected_even_with_claimed_file_digest(rows,tmp_path):
 @pytest.mark.asyncio
 async def test_live_read_floor_prevents_partial_rls_export(rows,monkeypatch):
     monkeypatch.setattr(arc,"MIN_ROWS",{name:2 for name in arc.TABLE_PKS})
-    with pytest.raises(ObjectStorageError,match="below independently checked"):
+    with pytest.raises(ObjectStorageError,match="No complete approved"):
         await arc.backup_operational_sources(Pool(rows),uuid4(),upload=False)
+
+
+@pytest.mark.asyncio
+async def test_partial_rls_visibility_archives_only_complete_tables(rows,monkeypatch):
+    minimum = {name:0 for name in arc.TABLE_PKS}
+    minimum["owner_memberships"]=2
+    monkeypatch.setattr(arc,"MIN_ROWS",minimum)
+    store=PrivateR2()
+    output=await arc.backup_operational_sources(Pool(rows),uuid4(),upload=True,storage=store)
+    assert output["status"]=="PRIVATE_OPERATIONAL_R2_PARTIAL_SOURCE_VERIFIED"
+    assert output["verified_relations"]==10
+    assert output["expected_relations"]==11
+    assert output["complete_approved_scope"] is False
+    assert output["blocked_relations"]==[{
+        "table":"owner_memberships","visible_rows":1,"minimum_source_rows":2,
+        "reason":"RLS_FULL_TABLE_VISIBILITY_NOT_PROVEN",
+    }]
+    assert "owner_memberships" not in output["source_counts"]
+    assert len(store.objects)==11     # 10 complete R2 files plus restricted manifest
+    assert output["customer_data_imported_to_d1"] is False
