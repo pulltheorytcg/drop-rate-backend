@@ -1,3 +1,10 @@
+## 6 November 2026 — RLS-safe private R2 source checkpoint follow-up (In review)
+
+- [PR #944](https://github.com/pulltheorytcg/drop-rate-backend/pull/944) merged the **11-table** private source archival worker with all required CI checks; merge is code, not proof any R2 operational row was transferred.
+- Actual Railway read-only dry run on maintenance actor verified **only 1 of 6 owner-membership rows** are visible under existing `tcg_api` RLS. The prior all-or-nothing export failed closed. No R2 write was requested, no Supabase rows were changed and no D1 business rows were imported.
+- New follow-up skips **entire** tables when RLS full-source parity cannot be established and publishes only a source-exact private *partial* manifest if other tables pass, naming each blocked relation. Never export 1/6 memberships or represent 10/11 as complete. All source columns/types, identity checks and read-only typed roundtrip remain pinned. Standalone private archive is not a transactional D1 cutover; matching owner membership and any other blocked data must be exported under separately reviewed restricted admin access.
+- A distinct one-off Railway service dry-run pinned to this PR commit is an integration test, not production acceptance. Full source capture, D1 owner/ledger parity, artwork bytes, market history and Supabase Auth retirement remain pending. Do not relax RLS, force a full-coverage success or spend without approval.
+
 ## 6 November 2026 — Private R2 source checkpoint for real ownership, finance and media metadata (In review)
 
 - Built a one-shot, **read-only source-consistent** PostgreSQL → private R2 checkpoint worker for 11 reviewed, approved operational tables: owners, membership, 621 physical inventory, orders/items, ledger, refunds, Shopify webhook inbox, media assets and mirror metadata, reference artwork-mirror index records. Source counts at the 6 Nov read-only audit are documented in [checkpoint scope](docs/CLOUDFLARE_PRIVATE_R2_OPERATIONAL_SOURCE_STAGE1_20261106.md).
