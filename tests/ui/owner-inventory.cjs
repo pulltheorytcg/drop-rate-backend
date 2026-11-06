@@ -348,7 +348,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
    const history=f.w.document.querySelector('.owner-item-historical-label');
    assert.equal(history,null);
    assert.equal(history,null);
-   assert.equal(f.w.document.querySelector('.owner-market-source').open,false);
+   assert.equal(f.w.document.querySelector('.owner-market-source'),null);
   f.finish();checks++;
  }
  // A stale near-mint comparison for an unfinished copy keeps its history badge.
