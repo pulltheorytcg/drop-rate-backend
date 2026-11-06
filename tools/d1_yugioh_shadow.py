@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 
 import httpx
 
@@ -149,12 +150,23 @@ def run(account: str, token: str, run_id: str, run_attempt: str, *,
     if client is None:
         with httpx.Client(follow_redirects=False, timeout=httpx.Timeout(20)) as http:
             return run(account, token, run_id, run_attempt, client=http, now=now)
-    identity = _oidc_token()
-    source, manifest = load_verified_source(
-        client, identity, source_path=SOURCE_PATH_YUGIOH,
-        allowed_scope=SCOPE, min_rows=EXPECTED_RECORDS, max_rows=MAX_ROWS,
-        max_parts=MAX_SOURCE_PARTS, max_bytes=MAX_SOURCE_BYTES,
-    )
+    # The trusted GitHub workflow and Railway backend deploy independently.
+    # Never retry unauthorized 401/403 or corrupted source bytes; only the
+    # fixed endpoint's temporary 404/503 while its new code rolls out.
+    for source_attempt in range(30):
+        identity = _oidc_token()
+        try:
+            source, manifest = load_verified_source(
+                client, identity, source_path=SOURCE_PATH_YUGIOH,
+                allowed_scope=SCOPE, min_rows=EXPECTED_RECORDS, max_rows=MAX_ROWS,
+                max_parts=MAX_SOURCE_PARTS, max_bytes=MAX_SOURCE_BYTES,
+            )
+            break
+        except MigrationGuard as exc:
+            if str(exc) not in {"R2 export rejected: HTTP 404",
+                                "R2 export rejected: HTTP 503"} or source_attempt == 29:
+                raise
+            time.sleep(10)
     if source.expected_rows != EXPECTED_RECORDS or source.scope != SCOPE:
         raise MigrationGuard("Unreviewed Yu-Gi-Oh catalogue count changed; no D1 writes")
     source = _stable_source_projection(source)
