@@ -24,6 +24,17 @@ SHADOW_SAFETY_BYTES = 390_000_000
 REPORT = "d1-full-catalogue-capacity-report.json"
 
 
+def _one_scalar(client: D1Client, uuid: str, sql: str, field: str) -> int:
+    """Source-count SELECT only, never unsupported PRAGMA metadata."""
+    if not sql.lstrip().lower().startswith("select ") or "pragma" in sql.lower():
+        raise MigrationGuard("Unsupported D1 capacity read query")
+    rows = _query(client, uuid, sql)
+    if (len(rows) != 1 or field not in rows[0]
+            or type(rows[0][field]) is not int):
+        raise MigrationGuard("D1 did not provide verified source count")
+    return rows[0][field]
+
+
 def _database_size(client: D1Client, uuid: str) -> int:
     """Read actual D1 size from Cloudflare's supported database metadata API.
 
