@@ -140,7 +140,7 @@ async function verifiedBackup(databasePath,states) {
   fs.mkdirSync(parent,{recursive:true,mode:0o700});
   const info=fs.lstatSync(parent);
   if(!info.isDirectory()||info.isSymbolicLink()||(info.mode&0o077))error('BACKUP_FAILED');
-  const folder=fs.mkdtempSync(path.join(parent,'dr97-));
+  const folder=fs.mkdtempSync(path.join(parent,'dr97-'));
   fs.chmodSync(folder,0o700);
   const dest=path.join(folder,'database.sqlite');
   fs.closeSync(fs.openSync(dest,'wx',0o600));
