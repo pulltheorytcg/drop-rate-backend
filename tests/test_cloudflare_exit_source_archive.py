@@ -21,13 +21,14 @@ def record(**kwargs):
 
 
 def test_reviewed_tables_are_exact_not_credentials():
-    assert len(arc.TABLE_PKS) == 13
+    assert len(arc.TABLE_PKS) == 11
     assert set(arc.APPROVED_COLUMNS) == set(arc.TABLE_PKS)
     assert {"owners","owner_memberships","inventory_items","orders","order_items",
             "financial_ledger_entries","refund_events","shopify_webhook_events",
-            "market_observations","reference_image_mirrors","audit_events"}.issubset(arc.TABLE_PKS)
+            "reference_image_mirrors"}.issubset(arc.TABLE_PKS)
     for forbidden in ("users","refresh_tokens","stripe_connected_accounts",
-                      "ebay_seller_connections","oauth_clients","payout_preferences"):
+                      "ebay_seller_connections","oauth_clients","payout_preferences",
+                      "market_observations","audit_events"):
         assert forbidden not in arc.TABLE_PKS
         with pytest.raises(ObjectStorageError):
             arc._source_select(forbidden)
@@ -138,13 +139,13 @@ async def test_full_snapshot_archive_and_verified_typed_readback(rows):
     pool=Pool(rows)
     result=await arc.backup_operational_sources(pool,uuid4(),upload=True,storage=storage)
     assert result["status"]=="PRIVATE_OPERATIONAL_R2_SOURCE_RESTORE_PROVEN"
-    assert result["verified_relations"]==13
+    assert result["verified_relations"]==11
     assert result["r2_uploaded"] is True
     assert result["postgres_writes"]==0
     assert result["auth_sessions_exported"] is False
     assert result["customer_data_imported_to_d1"] is False
-    assert len(storage.objects)==14   # 13 immutable archives + 1 verified manifest
-    assert len(set(result["source_sha256"]))==13
+    assert len(storage.objects)==12   # 11 immutable archives + 1 verified manifest
+    assert len(set(result["source_sha256"].values()))==11
     assert result["source_counts"]["owners"]==1
     assert result["source_counts"]["reference_image_mirrors"]==1
     assert all("DROP " not in cmd.upper() and "DELETE " not in cmd.upper()
