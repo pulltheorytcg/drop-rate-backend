@@ -1,3 +1,10 @@
+## 6 November 2026 — All-eligible artwork n8n controller DR-95 (in review; NOT automatically publishing new games)
+
+- Production n8n deploy logs at 22:24 UTC confirmed existing DR-94 approved canonical artwork workflow already **ACTIVE**. The separate API reference-image worker also runs, but defers because live Supabase was **430,484,627 bytes**, above the 400 MB bulk-refresh guard. Current verified mirrors: **66,218** legacy reference images + **401** canonical image mirrors; four reference retries remain. Do not duplicate these workers or relax the capacity guard.
+- Added source-controlled, **inactive** DR-95 hourly HMAC-signed workflow and deterministic FastAPI `/api/v1/automation/commands/storage/refresh-eligible-artwork` orchestration. DR-95 ordinarily requests **zero canonical downloads** (DR-94 already handles these) and automatically delegates legacy reference work to the live API worker. An explicitly permitted failover can process small batches after SQL capacity clearance, with exact source/rights recheck and immutable R2 SHA-256 receipts. New R2-first metadata-only card references **do not gain images or Shopify publishing rights** through this controller.
+- Security/failure tests: invalid HMAC command schema, 0–5 canonical and 1–20 reference bounds, capacity deferrals, double-worker suppression, error receipts and reference-only separation. No AI price/owner/Shopify changes. DR-95 must pass CI, n8n stored-definition/DR90 routing and a signed production pilot before being activated; workflow provisioner imports it inactive by default.
+- [Runbook and evidence](docs/DR95_ARTWORK_AUTOMATION_20261106.md) · [Artwork workstream #966](https://github.com/pulltheorytcg/drop-rate-backend/issues/966).
+
 ## 6 November 2026 — New-game artwork exact-ID preview pilot (PR pending; NOT deployed)
 
 - Live Supabase read-only source registry: R2-first Yu-Gi-Oh 45,418, Lorcana 3,505 and MTG 153,662 metadata references; none are proven reference-art image deliveries. Existing 66,218 VERIFIED R2 reference images cover original games only.
