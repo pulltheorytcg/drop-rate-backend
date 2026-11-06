@@ -9,6 +9,8 @@ on:
       - 'tools/d1_r2_real_shadow.py'
       - 'tests/test_d1_r2_shadow_export.py'
       - 'tests/test_d1_r2_real_shadow.py'
+      - 'tests/test_d1_yugioh_shadow.py'
+      - 'tools/d1_yugioh_shadow.py'
       - '.github/workflows/d1-real-r2-to-d1.yml'
   push:
     branches: ['main']
@@ -43,7 +45,8 @@ jobs:
             tests/test_d1_r2_shadow_export.py \
             tests/test_d1_r2_real_shadow.py \
             tests/test_d1_shadow_catalogue.py \
-            tests/test_d1_shadow_remote_probe.py
+            tests/test_d1_shadow_remote_probe.py \
+            tests/test_d1_yugioh_shadow.py
 
   real-lorcana-shadow:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

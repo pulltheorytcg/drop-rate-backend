@@ -44,6 +44,10 @@ EXPECTED_SUBJECT = (
     + ":ref:refs/heads/main"
 )
 ALLOWED_SOURCE = ("lorcast", "DISNEY_LORCANA", "English")
+YUGIOH_SOURCE = ("ygoprodeck", "YUGIOH", "English")
+YUGIOH_WORKFLOW_REF = (
+    EXPECTED_REPOSITORY + "/.github/workflows/d1-yugioh-r2-shadow.yml@refs/heads/main"
+)
 MAX_TOKEN_BYTES = 8192
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -52,7 +56,11 @@ SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 _jwks_client = jwt.PyJWKClient(OIDC_JWKS, cache_jwk_set=True, lifespan=300, timeout=5)
 
 
-def verify_github_oidc(authorization: str | None) -> dict:
+def verify_github_oidc(
+    authorization: str | None, *,
+    workflow_ref: str = EXPECTED_WORKFLOW_REF,
+    allowed_events: tuple[str, ...] = ("push",),
+) -> dict:
     """Verify GitHub-issued JWT signature, audience and the exact main workflow."""
     if not isinstance(authorization, str) or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Unauthorized")
@@ -73,13 +81,13 @@ def verify_github_oidc(authorization: str | None) -> dict:
         "repository": EXPECTED_REPOSITORY,
         "repository_id": EXPECTED_REPOSITORY_ID,
         "repository_owner_id": EXPECTED_OWNER_ID,
-        "workflow_ref": EXPECTED_WORKFLOW_REF,
+        "workflow_ref": workflow_ref,
         "ref": "refs/heads/main",
         "sub": EXPECTED_SUBJECT,
-        "event_name": "push",
         "runner_environment": "github-hosted",
     }
-    if any(claims.get(key) != expected for key, expected in requirements.items()):
+    if (any(claims.get(key) != expected for key, expected in requirements.items())
+            or claims.get("event_name") not in allowed_events):
         raise HTTPException(403, "Forbidden")
     if (not isinstance(claims.get("run_id"), str)
             or not re.fullmatch(r"[0-9]{1,20}", claims["run_id"])
@@ -93,13 +101,21 @@ def _enabled() -> bool:
     return os.getenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED", "false").casefold() in {"1", "true"}
 
 
-def _verify_export_access(request: Request) -> None:
+def _verify_export_access(
+    request: Request, *,
+    workflow_ref: str = EXPECTED_WORKFLOW_REF,
+    allowed_events: tuple[str, ...] = ("push",),
+) -> None:
     if not _enabled():
         raise HTTPException(404, "Not found")
-    verify_github_oidc(request.headers.get("authorization"))
+    verify_github_oidc(
+        request.headers.get("authorization"),
+        workflow_ref=workflow_ref,
+        allowed_events=allowed_events,
+    )
 
 
-async def _active_lorcana_manifest(request: Request):
+async def _active_catalogue_manifest(request: Request, scope: tuple[str, str, str]):
     # The legacy R2 registry has FORCE ROW LEVEL SECURITY. A raw pool read
     # has no tcg.user_id role context and therefore returns NO ROW, even
     # though the publication exists. Do not disable RLS or use a superuser.
@@ -118,9 +134,9 @@ async def _active_lorcana_manifest(request: Request):
               select provider,system_code,language,manifest_sha256,
                      source_revision,source_url,permission_ref,record_count,raw_bytes
               from tcg_private.r2_first_catalogue_publications
-              where active and provider='lorcast'
-                    and system_code='DISNEY_LORCANA' and language='English'
-              """)
+              where active and provider=$1
+                    and system_code=$2 and language=$3
+              """, *scope)
     except Exception as exc:
         log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=rls_authorized_read error_type=%s",
                     type(exc).__name__)
@@ -140,7 +156,7 @@ async def _active_lorcana_manifest(request: Request):
         stage = "manifest_publication_binding"
         r2_first_service._manifest_binding(manifest, publication)
         stage = "manifest_scope"
-        if tuple(manifest[field] for field in ("provider","system_code","language")) != ALLOWED_SOURCE:
+        if tuple(manifest[field] for field in ("provider","system_code","language")) != scope:
             raise codec.R2FirstCatalogueError("Unexpected catalogue partition")
     except Exception as exc:
         # Only a closed stage name and Python exception CLASS reach logs.
@@ -150,6 +166,10 @@ async def _active_lorcana_manifest(request: Request):
                     stage, type(exc).__name__)
         raise HTTPException(503, "Verified source unavailable") from None
     return storage, publication, manifest, raw
+
+
+async def _active_lorcana_manifest(request: Request):
+    return await _active_catalogue_manifest(request, ALLOWED_SOURCE)
 
 
 @router.get("/manifest")
@@ -170,6 +190,39 @@ async def exported_part(request: Request, ordinal: int) -> Response:
     try:
         raw = await asyncio.to_thread(storage.read_verified_reference_snapshot, part["sha256"])
         codec._parse_part(raw, part, ALLOWED_SOURCE)
+    except (codec.R2FirstCatalogueError, ObjectStorageError, ValueError):
+        raise HTTPException(503, "Verified source unavailable") from None
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+# The separate Yu-Gi-Oh! import is fixed to its source/workflow. Do not accept
+# caller-provided S3 keys, provider names, arbitrary workflow refs, or JWT events.
+# Existing Lorcana exports remain scoped to their original push-only workflow.
+@router.get("/yugioh/manifest")
+async def exported_yugioh_manifest(request: Request) -> Response:
+    _verify_export_access(
+        request, workflow_ref=YUGIOH_WORKFLOW_REF,
+        allowed_events=("push", "schedule"),
+    )
+    _, _, _, raw = await _active_catalogue_manifest(request, YUGIOH_SOURCE)
+    return Response(content=raw, media_type="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+@router.get("/yugioh/part/{ordinal}")
+async def exported_yugioh_part(request: Request, ordinal: int) -> Response:
+    _verify_export_access(
+        request, workflow_ref=YUGIOH_WORKFLOW_REF,
+        allowed_events=("push", "schedule"),
+    )
+    storage, _, manifest, _ = await _active_catalogue_manifest(request, YUGIOH_SOURCE)
+    if type(ordinal) is not int or not 0 <= ordinal < len(manifest["parts"]):
+        raise HTTPException(404, "Not found")
+    part = manifest["parts"][ordinal]
+    try:
+        raw = await asyncio.to_thread(storage.read_verified_reference_snapshot, part["sha256"])
+        codec._parse_part(raw, part, YUGIOH_SOURCE)
     except (codec.R2FirstCatalogueError, ObjectStorageError, ValueError):
         raise HTTPException(503, "Verified source unavailable") from None
     return Response(content=raw, media_type="application/json",

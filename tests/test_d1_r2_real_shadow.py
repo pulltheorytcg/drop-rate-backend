@@ -219,3 +219,50 @@ def test_authenticated_export_401_never_retries_or_creates_d1(monkeypatch):
             runner.import_real_lorcana("a"*32,"dummy-d1-token","55556","1",client=client)
     assert FakeD1.created == 0
     assert sleeps == []
+
+
+
+def test_previous_lorcana_shadow_is_reverified_read_only_not_duplicated(monkeypatch):
+    from app import d1_shadow_catalogue as bridge
+    FakeD1.created = 0
+    FakeD1.corrupt = False
+    FakeD1.existing = []
+    raw, parts, _ = fixture()
+    with http_client(raw, parts) as client:
+        source, _ = runner.load_verified_source(client, "fake-oidc")
+    cloud = FakeD1("a"*32,"dummy-d1-token")
+    runner._schema(cloud,"12345678-1234-1234-1234-1234567890ab")
+    init = bridge.generation_statement(source)
+    cloud.query("12345678-1234-1234-1234-1234567890ab",init["sql"],init["params"])
+    for stmt in bridge.insert_statements(source):
+        cloud.query("12345678-1234-1234-1234-1234567890ab",stmt["sql"],stmt["params"])
+    activate = bridge.activation_statement(source)
+    cloud.query("12345678-1234-1234-1234-1234567890ab",
+                activate["sql"],activate["params"])
+    FakeD1.existing = [{"name":runner.SHADOW_DB_PREFIX+"123-1",
+                         "uuid":"12345678-1234-1234-1234-1234567890ab"}]
+    report=runner._existing_lorcana_proof(cloud,source)
+    assert report["status"] == "REAL_R2_LORCANA_TO_ISOLATED_D1_VERIFIED"
+    assert report["existing_readonly_reverified"] is True
+    assert report["d1_verified_rows"] == 1002
+    assert FakeD1.created == 0
+    assert cloud.connection.execute("select count(*) from shadow_active_partitions").fetchone()[0] == 1
+    cloud.connection.close()
+    FakeD1.existing=[]
+
+
+def test_corrupt_existing_lorcana_shadow_refuses_to_claim_success():
+    from app import d1_shadow_catalogue as bridge
+    FakeD1.corrupt=False
+    FakeD1.existing = []
+    raw, parts, _ = fixture()
+    with http_client(raw, parts) as client:
+        source, _ = runner.load_verified_source(client,"fake-oidc")
+    cloud=FakeD1("a"*32,"dummy-d1-token")
+    runner._schema(cloud,"12345678-1234-1234-1234-1234567890ab")
+    FakeD1.existing = [{"name":runner.SHADOW_DB_PREFIX+"123-1",
+                         "uuid":"12345678-1234-1234-1234-1234567890ab"}]
+    with pytest.raises(runner.MigrationGuard, match="generation"):
+        runner._existing_lorcana_proof(cloud,source)
+    cloud.connection.close()
+    FakeD1.existing=[]
