@@ -1,0 +1,32 @@
+name: Cardmarket official daily guide read-only MTG pilot
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/cardmarket_public_pilot.py'
+      - 'backend/scripts/pilot_cardmarket_public_daily_mtg.py'
+      - 'tests/test_cardmarket_public_pilot.py'
+      - '.github/workflows/cardmarket-public-daily-mtg-pilot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cardmarket-mtg-public-pilot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-id-public-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --requirement requirements.txt
+      - name: Validate source IDs, GBP/ECB evidence, ambiguity and non-publication
+        run: PYTHONPATH=backend python -m pytest -q tests/test_cardmarket_public_pilot.py
+      - name: Read official public snapshots; log counts and SHA receipts, never prices
+        run: timeout 210s env PYTHONPATH=backend python backend/scripts/pilot_cardmarket_public_daily_mtg.py
