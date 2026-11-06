@@ -54,6 +54,8 @@ LEGACY_R2_WORKFLOW_REF = (
     EXPECTED_REPOSITORY + "/.github/workflows/d1-legacy-r2-preflight.yml@refs/heads/main"
 )
 LEGACY_R2_SOURCE_GENERATION = 122500
+LEGACY_R2_EXPECTED_PARTS = 161
+LEGACY_R2_EXPECTED_RAW_BYTES = 29_831_680
 LEGACY_R2_EXPECTED_COUNTS = {
     "reference_cards": 69697,
     "reference_sets": 1472,
@@ -300,7 +302,8 @@ async def _verified_legacy_manifest(request: Request):
             publication["manifest"], LEGACY_R2_SOURCE_GENERATION,
         )
         if (manifest["counts"] != LEGACY_R2_EXPECTED_COUNTS
-                or len(manifest["parts"]) != 161 or manifest["raw_bytes"] != 29_831_680):
+                or len(manifest["parts"]) != LEGACY_R2_EXPECTED_PARTS
+                or manifest["raw_bytes"] != LEGACY_R2_EXPECTED_RAW_BYTES):
             raise ValueError("Legacy R2 source changed; requires human review")
         return manifest
     except Exception as exc:
