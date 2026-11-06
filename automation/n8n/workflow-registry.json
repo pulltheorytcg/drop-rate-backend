@@ -1039,6 +1039,46 @@
       ],
       "control_contract": "/api/v1/automation/commands/catalogue/refresh-release-source",
       "activation_note": "Source-specific closed-allowlist metadata polls. New YGO/Lorcana/MTG facts are R2-only; sports/figures incomplete source coverage. New physical slab/print image requires separately rights-approved exact-photo mapping. Unsupported Pokemon, One Piece, Dragon Ball, Naruto, Riftbound, MTG art cannot be inferred from this metadata scheduler."
+    },
+    {
+      "key": "older-tcg-riftbound-release-checks",
+      "sequence": 46,
+      "domain": "Catalogue",
+      "authority": "ORCHESTRATE",
+      "status": "BUILT_INACTIVE",
+      "source_of_truth": "PostgreSQL/Supabase",
+      "decision_engine": "FastAPI",
+      "orchestrator": "n8n",
+      "ai_may_assist": false,
+      "idempotency_required": true,
+      "version_control_required": true,
+      "error_workflow_required": true,
+      "activation_requires": [
+        "version-controlled workflow JSON",
+        "deterministic backend contract",
+        "duplicate-delivery test",
+        "failure/retry test",
+        "observability/error routing",
+        "provider terms/rate-limit review where applicable",
+        "daily legacy catalogue lock and Supabase capacity guard",
+        "verified maintenance actor and signed FastAPI command",
+        "source due checks before fetching and existing provider adapters only",
+        "Riftbound requires Riot official app key or written licence, no unofficial API/images",
+        "published n8n workflow hash, DR90 error routing and rollback readback"
+      ],
+      "implementation_id": "DR97LegacyRiftboundReleaseScoutsV1",
+      "implementation_paths": [
+        "automation/n8n/workflows/dr-97-pokemon-source-scout.json",
+        "automation/n8n/workflows/dr-97-one-piece-official-source-scout.json",
+        "automation/n8n/workflows/dr-97-one-piece-punk-source-scout.json",
+        "automation/n8n/workflows/dr-97-dragon-ball-masters-source-scout.json",
+        "automation/n8n/workflows/dr-97-dragon-ball-fusion-source-scout.json",
+        "automation/n8n/workflows/dr-97-naruto-kayou-source-scout.json",
+        "automation/n8n/workflows/dr-97-naruto-bandai-source-scout.json",
+        "automation/n8n/workflows/dr-97-riftbound-riot-source-scout.json"
+      ],
+      "control_contract": "/api/v1/automation/commands/catalogue/check-legacy-release-source",
+      "activation_note": "Seven legacy source adapters are capacity-deferred while Supabase bulk refresh guard is active. Riftbound watcher is permission readiness-only; no Riot card data or artwork imported. All game scouts are metadata-only; new art needs verified rights/printing and live Cloudflare pipeline."
     }
   ]
 }
