@@ -170,11 +170,21 @@ async def verify_actual_bytes(storage, selected:list[dict]):
                 return True
             return await asyncio.to_thread(check)
     async def safely_probe(row):
-        try:
-            await bounded_probe(row)
-            return True
-        except Exception:
-            return False
+        for attempt in range(3):
+            try:
+                await bounded_probe(row)
+                return True
+            except ObjectStorageError as exc:
+                # R2 short-read or connection failures are transient; the
+                # existing helper has a strict 2s network timeout. NEVER retry
+                # a bad SHA256, wrong size or wrong content-addressed key as
+                # though integrity errors were ordinary network failures.
+                if str(exc)!="Mirrored media unavailable or invalid" or attempt==2:
+                    return False
+                await asyncio.sleep(0.25*(attempt+1))
+            except Exception:
+                return False
+        return False
     passed=failed=0
     for start in range(0,len(selected),READ_BATCH):
         batch=selected[start:start+READ_BATCH]
