@@ -40,6 +40,15 @@ TABLE_PKS = {
     "market_observations": ("id",),
     "audit_events": ("id",),
 }
+APPROVED_COLUMNS_PATH = (Path(__file__).resolve().parent.parent
+                         / "data/cloudflare_exit_approved_columns_20261106.json")
+_APPROVAL = json.loads(APPROVED_COLUMNS_PATH.read_text(encoding="utf-8"))
+if (_APPROVAL.get("format") != "drop-rate-approved-operational-source-columns-v1"
+        or _APPROVAL.get("project_id") != "ozrxenrdladkooixutmm"
+        or set(_APPROVAL.get("tables", {})) != set(TABLE_PKS)):
+    raise ObjectStorageError("Approved source column manifest does not match reviewed table scope")
+APPROVED_COLUMNS = _APPROVAL["tables"]
+
 MAX_ROWS_PER_TABLE = 130_000
 MAX_RAW_BYTES_PER_TABLE = 250_000_000
 MAX_GZIP_BYTES_PER_TABLE = 120_000_000
@@ -80,10 +89,15 @@ async def _authorize(conn, actor: UUID, request_id: str) -> None:
 
 async def _source_schema(conn, name: str) -> list[str]:
     name = _safe_table(name)
-    cols = [r["attname"] for r in await conn.fetch(
-        """select attname from pg_attribute
+    metadata = [dict(name=r["attname"], type=r["data_type"])
+                for r in await conn.fetch(
+        """select attname, format_type(atttypid,atttypmod) as data_type
+         from pg_attribute
          where attrelid=$1::regclass and attnum>0 and not attisdropped
          order by attnum""", f"tcg.{name}")]
+    if metadata != APPROVED_COLUMNS[name]:
+        raise ObjectStorageError("Unapproved source schema drift: export is blocked")
+    cols = [row["name"] for row in metadata]
     if not cols or not set(TABLE_PKS[name]).issubset(cols):
         raise ObjectStorageError("Operational source columns/primary key absent")
     return cols
