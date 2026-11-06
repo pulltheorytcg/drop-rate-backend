@@ -93,6 +93,29 @@ jobs:
       - name: Prove guarded DR96 publication and SQLite rollback in a disconnected pinned runtime
         run: |
           docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_release_scout_publish_smoke.cjs:/test/release-scout-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/release-scout-smoke.cjs
+      - name: Verify 5 original TCG/Riftbound watches against pinned n8n operator
+        run: |
+          docker run --rm --network none --entrypoint node drop-rate-n8n:ci \
+            --no-warnings /opt/drop-rate/ops/guarded-legacy-scout-publish.cjs --verify-sources \
+            | grep -F '"status":"SOURCE_VERIFIED","count":5'
+      - name: Import 5 original TCG and Riftbound watches inactive in real n8n CLI
+        run: |
+          docker run --rm --network none --entrypoint sh -e N8N_USER_FOLDER=/tmp/dr97-source-test -e N8N_ENCRYPTION_KEY=ci-only-never-production-key-123456 drop-rate-n8n:ci -c '
+            set -eu
+            for file in /opt/drop-rate/workflows/dr-97-*-release-watch.json; do
+              n8n import:workflow --input="$file" --activeState=false >/dev/null
+            done
+            actual="$(n8n list:workflow --onlyId)"
+            for id in DR97PokemonReleaseWatchV1 DR97OnePieceReleaseWatchV1 DR97DragonBallReleaseWatchV1 DR97NarutoReleaseWatchV1 DR97RiftboundReleaseWatchV1; do
+              printf "%s\n" "$actual" | grep -Fxq "$id"
+            done
+            echo "Five scoped DR97 workflows imported with inactive state"
+          '
+      - name: Prove guarded DR97 publication and SQLite rollback offline
+        run: |
+          docker run --rm --network none --entrypoint node \
+            -v "$PWD/tests/n8n_legacy_scout_publish_smoke.cjs:/test/legacy-scout-smoke.cjs:ro" \
+            drop-rate-n8n:ci --no-warnings /test/legacy-scout-smoke.cjs
       - name: Verify guarded inactive upgrade and exact publication in isolated pinned runtime
         run: |
           docker run --rm --network none --entrypoint node \
