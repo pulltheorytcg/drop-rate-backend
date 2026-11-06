@@ -8,6 +8,7 @@ Disabled unless TCG_R2_D1_SHADOW_EXPORT_ENABLED=true.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 from collections.abc import Mapping
@@ -21,6 +22,7 @@ from . import r2_first_service
 from .object_storage import ObjectStorageError
 
 router = APIRouter(prefix="/api/v1/internal/d1-shadow", tags=["internal"], include_in_schema=False)
+log = logging.getLogger(__name__)
 
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 OIDC_JWKS = OIDC_ISSUER + "/.well-known/jwks"
@@ -108,17 +110,25 @@ async def _active_lorcana_manifest(request: Request):
     if old is None:
         raise HTTPException(503, "Active verified catalogue unavailable")
     publication = dict(old)
-    storage = r2_first_service.storage()
+    stage = "storage_configuration"
     try:
+        storage = r2_first_service.storage()
+        stage = "manifest_object_read"
         raw = await asyncio.to_thread(storage.read_verified_reference_snapshot,
                                       publication["manifest_sha256"])
+        stage = "manifest_structural_verification"
         manifest = codec.validate_manifest(codec._decode(raw))
+        stage = "manifest_publication_binding"
         r2_first_service._manifest_binding(manifest, publication)
+        stage = "manifest_scope"
         if tuple(manifest[field] for field in ("provider","system_code","language")) != ALLOWED_SOURCE:
             raise codec.R2FirstCatalogueError("Unexpected catalogue partition")
-    except Exception:
-        # Missing object, revoked credentials, transport failures and source
-        # validation errors all fail closed with no R2 bucket key disclosure.
+    except Exception as exc:
+        # Only a closed stage name and Python exception CLASS reach logs.
+        # Never log an exception string, R2 path, signed request, digest,
+        # Cloudflare response, token, JWT claim or private data. Remain 503.
+        log.warning("D1_R2_SHADOW_SOURCE_UNAVAILABLE stage=%s error_type=%s",
+                    stage, type(exc).__name__)
         raise HTTPException(503, "Verified source unavailable") from None
     return storage, publication, manifest, raw
 
