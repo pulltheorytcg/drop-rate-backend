@@ -5,11 +5,18 @@ from pathlib import Path
 
 import pytest
 
-from tools.cloudflare_full_exit_preflight import (
-    MigrationGuard,
-    assert_current_matches,
-    validate_register,
-)
+# Backend CI deliberately sets PYTHONPATH=backend, not repository root.
+# Load the isolated tooling module by its exact tracked file path.
+import importlib.util
+
+TOOL = Path(__file__).resolve().parents[1] / "tools" / "cloudflare_full_exit_preflight.py"
+spec = importlib.util.spec_from_file_location("cloudflare_full_exit_preflight", TOOL)
+assert spec and spec.loader
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+MigrationGuard = module.MigrationGuard
+assert_current_matches = module.assert_current_matches
+validate_register = module.validate_register
 
 REGISTER_PATH = Path("docs/CLOUDFLARE_FULL_EXIT_TABLE_REGISTER_20261106.json")
 
