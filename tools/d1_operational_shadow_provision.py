@@ -118,7 +118,7 @@ def provision(client, schema: str, *, account_id: str) -> dict:
         if actual!=expected:
             raise ProvisionGuard("Existing operational D1 shadow is incomplete or has schema drift")
         return {
-            "status":"EXISTING_EMPTY_OPERATIONAL_D1_SCHEMA_OBJECTS_VERIFIED",
+            "status":"EXISTING_OPERATIONAL_D1_SCHEMA_OBJECTS_VERIFIED",
             "database_name":DB_NAME,"source_schema_sha256":schema_sha,
             "expected_schema_objects":len(expected),"actual_schema_objects":len(actual),
             "new_database_created":False,"postgres_writes":0,
