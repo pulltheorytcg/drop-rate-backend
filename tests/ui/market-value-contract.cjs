@@ -22,7 +22,8 @@ for (const status of ["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE", 
     assert.equal(values.text(item, money), "Value unavailable");
     assert.equal(values.marketMinor(item), null);
   }
-  assert.match(values.description(item), /Cardmarket trend evidence/);
+  if (status === "AVAILABLE") assert.match(values.description(item), /Cardmarket trend evidence/);
+  else assert.equal(values.description(item), "", "Guide details are not current Market Value copy");
   assert.equal(JSON.stringify(item), original);
   checks++;
 }
