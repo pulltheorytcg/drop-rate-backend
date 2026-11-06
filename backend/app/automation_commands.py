@@ -14,6 +14,7 @@ from .object_storage import ObjectStorageConfig, ObjectStorageError, S3ObjectSto
 from .r2_media import mirror_approved_media
 from .r2_reference_images import PENDING_REFERENCE_IMAGES_SQL, mirror_reference_images, worker_enabled
 from .database_capacity import check_database_capacity
+from .r2_first_import import run_selected
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 
@@ -76,6 +77,18 @@ class RefreshEligibleArtworkCommand(BaseModel):
     occurred_at: datetime
     canonical_limit: int = Field(default=0, ge=0, le=5)
     reference_limit: int = Field(default=10, ge=1, le=20)
+
+
+class ReleaseScoutCommand(BaseModel):
+    """Metadata-only release watch for one permitted, configured provider."""
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[1] = 1
+    action: Literal["REFRESH_APPROVED_RELEASE_SOURCE"]
+    source: Literal["ygoprodeck", "lorcast", "mtgjson", "cardcollectorcapital",
+                    "cardcollectorcapital_heritage", "reviewed_figures"]
+    execution_id: str = Field(min_length=1, max_length=120)
+    occurred_at: datetime
 
 
 class InventoryApprovedEvent(BaseModel):
@@ -423,6 +436,51 @@ async def refresh_eligible_artwork(
         'canonical': canonical, 'canonical_status': canonical_status,
         'reference': reference, 'reference_status': reference_status,
         'new_game_metadata_promoted': False,
+    }
+
+
+@router.post('/catalogue/refresh-release-source')
+async def refresh_catalogue_release_source(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(default=None, alias='X-Drop-Rate-Timestamp'),
+    x_drop_rate_signature: str | None = Header(default=None, alias='X-Drop-Rate-Signature'),
+) -> dict:
+    """n8n dispatch only. The existing source adapter/R2 CAS remains authoritative."""
+    raw = await _verified_command_body(
+        request, timestamp_header=x_drop_rate_timestamp, signature_header=x_drop_rate_signature,
+    )
+    try:
+        command = ReleaseScoutCommand.model_validate_json(raw)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail='Invalid release source command') from exc
+    if command.occurred_at.tzinfo is None or command.occurred_at.utcoffset() is None:
+        raise HTTPException(status_code=422, detail='Release command timestamp needs timezone')
+    settings = get_settings()
+    if not settings.catalogue_maintenance_actor_user_id:
+        raise HTTPException(status_code=503, detail='Catalogue maintenance identity is unavailable')
+    try:
+        result = await run_selected(
+            request.app.state.db_pool, settings.catalogue_maintenance_actor_user_id, command.source,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Provider response payloads, secrets and source URLs never leave this API.
+        raise HTTPException(status_code=502, detail={
+            'message': 'Release-source snapshot verification failed',
+            'retryable': True, 'error_type': type(exc).__name__,
+        }) from exc
+    status = result.get('status')
+    if status not in {'CURRENT', 'PUBLISHED', 'ALREADY_RUNNING', 'DISABLED'}:
+        raise HTTPException(status_code=502, detail='Unexpected release source result')
+    return {
+        'accepted': True, 'execution_id': command.execution_id,
+        'status': status, 'source': command.source,
+        'metadata_only': True, 'artwork_published': False,
+        'shopify_updated': False, 'ownership_or_price_changed': False,
+        'generation': result.get('generation'),
+        'record_count': result.get('record_count'),
+        'source_unchanged': bool(result.get('source_unchanged')),
     }
 
 
