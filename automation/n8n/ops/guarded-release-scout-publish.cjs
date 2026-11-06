@@ -208,7 +208,15 @@ async function publish({env=process.env,sourceDirectory=DIRECTORY,command=core.c
     }
   }
 }
-if(require.main===module) {
+if(require.main===module && process.argv[2]==='--verify-sources') {
+  try {
+    const source = readSources();
+    process.stdout.write(JSON.stringify(result('SOURCE_VERIFIED',{count:source.length}))+'\n');
+  }catch(e){
+    process.stdout.write(JSON.stringify(result('BLOCKED',{reason:SAFE.has(e.code)?e.code:'SOURCE_DRIFT'}))+'\n');
+    process.exitCode=1;
+  }
+} else if(require.main===module) {
   publish().then(r=>{
     process.stdout.write(JSON.stringify(r)+'\n');
     if(r.status==='BLOCKED')process.exitCode=1;
