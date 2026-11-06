@@ -19,6 +19,18 @@ window.DropRateTitleArt = (() => {
       "file": "fusion-world.png",
       "caption": ""
     },
+    "YUGIOH": {
+      "file": "yugioh.png",
+      "caption": ""
+    },
+    "DISNEY_LORCANA": {
+      "file": "lorcana.png",
+      "caption": ""
+    },
+    "MAGIC_THE_GATHERING": {
+      "file": "magic.png",
+      "caption": ""
+    },
     "NARUTO": {
       "file": "naruto.svg",
       "caption": ""

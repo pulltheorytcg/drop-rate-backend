@@ -25,6 +25,18 @@
     "NARUTO_BANDAI_LEGACY": {
       "file": "naruto.svg",
       "caption": "BANDAI LEGACY"
+    },
+    "YUGIOH": {
+      "file": "yugioh.png",
+      "caption": ""
+    },
+    "DISNEY_LORCANA": {
+      "file": "lorcana.png",
+      "caption": ""
+    },
+    "MAGIC_THE_GATHERING": {
+      "file": "magic.png",
+      "caption": ""
     }
   },
   "sets": [
@@ -659,6 +671,33 @@
       "sha256": "fab412aae85db73bfc7e873ae5c36a43c092c168565b6dfacd414185729eff7e",
       "bytes": 90902,
       "retrieved": "2026-10-02"
+    },
+    {
+      "file": "yugioh.png",
+      "source_page": "https://github.com/braianleao/OkibaStore/blob/main/public/images/tcg/yugioh-logo.png",
+      "source_url": "https://raw.githubusercontent.com/braianleao/OkibaStore/main/public/images/tcg/yugioh-logo.png",
+      "sha256": "b84cd8fcc096ef286fc6b1bf9135b30e71ab250465fda39bd867dac5a0772533",
+      "bytes": 393717,
+      "retrieved": "2026-11-06",
+      "rights_note": "Third-party copy of a publisher trademark; provenance is not a commercial-use licence."
+    },
+    {
+      "file": "lorcana.png",
+      "source_page": "https://github.com/braianleao/OkibaStore/blob/main/public/images/tcg/lorcana-logo.png",
+      "source_url": "https://raw.githubusercontent.com/braianleao/OkibaStore/main/public/images/tcg/lorcana-logo.png",
+      "sha256": "a06ec9b09eb40d59bd3a4f4388f53bed96afba10c8e0b4ef39864147a4522ec4",
+      "bytes": 215153,
+      "retrieved": "2026-11-06",
+      "rights_note": "Third-party copy of a publisher trademark; provenance is not a commercial-use licence."
+    },
+    {
+      "file": "magic.png",
+      "source_page": "https://github.com/jharreldesign/MTGLeague/blob/main/images/magic-logo-white.png",
+      "source_url": "https://raw.githubusercontent.com/jharreldesign/MTGLeague/main/images/magic-logo-white.png",
+      "sha256": "c75efb758dc14f94a31669f244db1b92057045ae13968429d4d97cd99905fde8",
+      "bytes": 3223,
+      "retrieved": "2026-11-06",
+      "rights_note": "Third-party copy of a publisher trademark; provenance is not a commercial-use licence."
     }
   ],
   "provider_set_logos": {
