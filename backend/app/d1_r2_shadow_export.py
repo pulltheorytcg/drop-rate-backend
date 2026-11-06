@@ -108,7 +108,9 @@ async def _active_lorcana_manifest(request: Request):
         r2_first_service._manifest_binding(manifest, publication)
         if tuple(manifest[field] for field in ("provider","system_code","language")) != ALLOWED_SOURCE:
             raise codec.R2FirstCatalogueError("Unexpected catalogue partition")
-    except (codec.R2FirstCatalogueError, ObjectStorageError, ValueError):
+    except Exception:
+        # Missing object, revoked credentials, transport failures and source
+        # validation errors all fail closed with no R2 bucket key disclosure.
         raise HTTPException(503, "Verified source unavailable") from None
     return storage, publication, manifest, raw
 
