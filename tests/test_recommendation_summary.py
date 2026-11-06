@@ -45,7 +45,14 @@ def test_invalid_recommendation_is_not_replaced_with_a_manual_or_guessed_price(v
     assert result['market_value_minor'] == 1200 and result['recommended_retail_minor'] is None
 
 @pytest.mark.asyncio
-async def test_reads_replace_legacy_cache_in_response_only_and_do_not_call_a_writer():
+async def test_reads_replace_legacy_cache_in_response_only_and_do_not_call_a_writer(monkeypatch):
+    # A guide-only response legitimately triggers a second catalogue
+    # reference probe. Make that probe a no-op here to isolate the invariant
+    # that *reading* guide data never values a physical copy or writes cash.
+    from app import inventory_catalogue_reference
+    async def no_guide(connection, items, *, now):
+        return items
+    monkeypatch.setattr(inventory_catalogue_reference, 'add_catalogue_references', no_guide)
     class Connection:
         async def fetch(self, sql, ids, now):
             assert 's.recommended_retail_minor' in sql and ids == [CAT]
