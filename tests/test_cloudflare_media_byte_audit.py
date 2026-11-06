@@ -111,3 +111,30 @@ def test_read_budget_rejects_unbounded_download():
     assert audit.MAX_TOTAL_SELECTED_BYTES<=105_000_000
     assert audit.CONCURRENCY<=8
     assert audit.MAX_FILE<=10_000_000
+
+
+def test_full_reference_mode_has_strict_opt_in(monkeypatch):
+    monkeypatch.delenv("TCG_FULL_R2_REFERENCE_BYTE_AUDIT_ENABLED",raising=False)
+    with pytest.raises(audit.MediaByteAuditError,match="explicit one-shot opt-in"):
+        asyncio.run(audit.run(all_references=True))
+
+
+def test_full_reference_mode_hashes_entire_snapshot_not_just_sample():
+    p,r=fixtures()
+    sample,provider_counts,digest=audit.verify_metadata(
+        p,r,"drop-rate",all_references=True)
+    assert len(sample)==8
+    assert len(provider_counts)==4
+    assert len(digest)==64
+    assert audit.MAX_FULL_REFERENCE_BYTES<=7_000_000_000
+    assert audit.READ_BATCH<=480
+
+
+@pytest.mark.asyncio
+async def test_batching_over_multiple_pages_is_lossless(monkeypatch):
+    monkeypatch.setattr(audit,"READ_BATCH",3)
+    p,r=fixtures()
+    storage=FakeStorage()
+    ok,bad=await audit.verify_actual_bytes(storage,p+r)
+    assert (ok,bad)==(9,0)
+    assert len(storage.calls)==9
