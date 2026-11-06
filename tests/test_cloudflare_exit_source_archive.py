@@ -121,6 +121,7 @@ def rows(monkeypatch):
         else:
             out[name]=[{"provider":"source","system_code":"POKEMON",
                         "language":"English","provider_id":"4"}]
+    monkeypatch.setattr(arc,"MIN_ROWS",{name:0 for name in arc.TABLE_PKS})
     monkeypatch.setattr(arc,"APPROVED_COLUMNS",{
         name:[{"name":k,"type":"text"} for k in entries[0]]
         for name,entries in out.items()})
@@ -201,3 +202,10 @@ async def test_bad_gzip_detected_even_with_claimed_file_digest(rows,tmp_path):
            "gzip_bytes":len(path.read_bytes())}
     with pytest.raises(ObjectStorageError,match="Compressed"):
         await arc.verify_typed_roundtrip(Pool(rows),uuid4(),path,proof)
+
+
+@pytest.mark.asyncio
+async def test_live_read_floor_prevents_partial_rls_export(rows,monkeypatch):
+    monkeypatch.setattr(arc,"MIN_ROWS",{name:2 for name in arc.TABLE_PKS})
+    with pytest.raises(ObjectStorageError,match="below independently checked"):
+        await arc.backup_operational_sources(Pool(rows),uuid4(),upload=False)
