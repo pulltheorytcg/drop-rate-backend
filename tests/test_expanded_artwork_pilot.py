@@ -129,3 +129,27 @@ def test_invalid_reference_key_scope_and_bounds_fail_closed():
         pilot.preview_yugioh(source, [ref] * 26)
     with pytest.raises(pilot.ArtworkPreviewError):
         pilot.preview_yugioh(source, [ref, ref])
+
+
+def test_offline_review_cli_produces_unapproved_manifest(tmp_path, capsys):
+    import json
+    from app import expanded_artwork_review_cli as cli
+    source, refs = ygo(), [ygo_ref(ygo())]
+    src_path, refs_path = tmp_path / "source.json", tmp_path / "references.json"
+    src_path.write_text(json.dumps(source), encoding="utf-8")
+    refs_path.write_text(json.dumps(refs), encoding="utf-8")
+    assert cli.main(["--game", "yugioh", "--source", str(src_path),
+                     "--references", str(refs_path)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["reference_count"] == 1
+    assert report["all_artwork_unapproved"]
+    assert report["status_counts"] == {"CARD_LEVEL_ART_PENDING_PRINT_AND_RIGHTS_REVIEW": 1}
+    assert len(report["source_sha256"]) == len(report["references_sha256"]) == 64
+    assert not report["records"][0]["can_publish"]
+
+
+def test_offline_review_cli_missing_source_fails_closed(tmp_path):
+    from app import expanded_artwork_review_cli as cli
+    with pytest.raises(ValueError, match="Missing or oversized"):
+        cli.main(["--game", "yugioh", "--source", str(tmp_path / "absent.json"),
+                  "--references", str(tmp_path / "absent2.json")])
