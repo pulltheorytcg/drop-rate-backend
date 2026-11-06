@@ -1,0 +1,185 @@
+"""Offline real-shaped Yu-Gi-Oh source and D1 staged import proof; no network."""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import hashlib
+import sqlite3
+from pathlib import Path
+import sys
+
+import httpx
+import pytest
+
+from app import r2_first_catalogue as source_codec
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+import d1_yugioh_shadow as runner  # noqa: E402
+from d1_r2_real_shadow import MigrationGuard  # noqa: E402
+
+UUID = "12345678-1234-1234-1234-1234567890ab"
+
+
+class FakeD1:
+    existing = []
+    conn = None
+    mutations = 0
+
+    def __init__(self, account, token):
+        assert account == "a"*32
+        assert token == "dummy-test-token"
+        self.path = "/accounts/" + account + "/d1/database"
+
+    def list_databases(self):
+        return self.existing[:]
+
+    def call(self, method, path, data=None):
+        assert method == "POST" and path == self.path
+        assert data == {"name": runner.EXACT_DATABASE_NAME}
+        if self.existing:
+            raise AssertionError("Must not create duplicate shadow")
+        type(self).existing = [{"name":runner.EXACT_DATABASE_NAME, "uuid":UUID}]
+        type(self).conn = sqlite3.connect(":memory:", isolation_level=None)
+        type(self).conn.row_factory = sqlite3.Row
+        type(self).conn.execute("pragma foreign_keys=on")
+        return {"name":runner.EXACT_DATABASE_NAME,"uuid":UUID}, 0
+
+    def query(self, uuid, sql, params=()):
+        assert uuid == UUID
+        cur = self.conn.execute(sql, params)
+        if sql.lower().strip().startswith(("insert", "create")):
+            type(self).mutations += 1
+        return ({"success":True,
+                 "results":[dict(x) for x in cur.fetchall()] if cur.description else []}, 0)
+
+    def batch(self, uuid, queries):
+        assert uuid == UUID
+        assert 1 <= len(queries) <= 12
+        for query in queries:
+            assert len(query["params"]) <= 100
+            self.query(uuid, query["sql"], query["params"])
+        return [{"success":True,"results":[]} for _ in queries]
+
+
+@pytest.fixture(autouse=True)
+def fake_cloud(monkeypatch):
+    FakeD1.existing = []
+    FakeD1.conn = None
+    FakeD1.mutations = 0
+    monkeypatch.setattr(runner, "D1Client", FakeD1)
+    monkeypatch.setattr(runner, "_oidc_token", lambda: "fake-oidc")
+    monkeypatch.setattr(runner, "EXPECTED_RECORDS", 23)
+    monkeypatch.setattr(runner, "DAILY_NEW_ROWS", 7)
+    yield
+    if FakeD1.conn:
+        FakeD1.conn.close()
+    FakeD1.existing = []
+    FakeD1.conn = None
+
+
+def fixture(count=23, *, tamper=False, name_prefix="Real-shaped"):
+    rows = []
+    for i in range(count):
+        rows.append({
+            "provider":"ygoprodeck", "system_code":"YUGIOH", "language":"English",
+            "provider_id":f"ygoprodeck:fixture-{i:05d}",
+            "product_type":"CARD", "name":f"{name_prefix} Yu-Gi-Oh {i}",
+            "set_id":"TST", "set_name":"Synthetic Yu-Gi-Oh",
+            "card_number":f"{i:04d}", "rarity":"Common", "finish":None,
+            "release_date":"2026-01-01",
+            "source_url":"https://db.ygoprodeck.com/api/v7/cardinfo.php",
+        })
+    bundle=source_codec.prepare_catalogue(
+        rows, provider="ygoprodeck",system_code="YUGIOH",language="English",
+        source_url="https://db.ygoprodeck.com/api/v7/cardinfo.php",
+        source_revision="synthetic-verified",permission_ref="https://ygoprodeck.com/api-guide/")
+    raw=bundle._manifest_bytes
+    parts=list(bundle.parts)
+    def handler(req:httpx.Request):
+        assert req.url.host=="drop-rate-api-live-production.up.railway.app"
+        assert req.headers["authorization"] == "Bearer fake-oidc"
+        if req.url.path==runner.SOURCE_PATH_YUGIOH+"/manifest":
+            return httpx.Response(200,content=raw)
+        if req.url.path.startswith(runner.SOURCE_PATH_YUGIOH+"/part/"):
+            ordinal=int(req.url.path.rsplit("/",1)[-1])
+            content=parts[ordinal]
+            if tamper and ordinal==0:
+                content=content[:-1]+b"!"
+            return httpx.Response(200,content=content)
+        return httpx.Response(404)
+    return httpx.Client(transport=httpx.MockTransport(handler),
+                        follow_redirects=False), bundle
+
+
+def test_yugioh_stage_is_immutable_unpublished_until_complete():
+    client, _ = fixture()
+    with client:
+        for day, expected in [(6,7),(6,7),(7,14),(8,21),(9,23)]:
+            current = datetime(2026,11,day,tzinfo=timezone.utc)
+            report=runner.run("a"*32,"dummy-test-token","1000","1",client=client,now=current)
+            assert report["d1_staged_rows" if "d1_staged_rows" in report else "d1_verified_rows"] == expected
+            assert report["market_value_writes"] == 0
+            assert report["owner_and_settlement_writes"] == 0
+            assert report["no_public_catalogue_cutover"] is True
+            active=FakeD1.conn.execute("select count(*) from shadow_live_cards").fetchone()[0]
+            assert active == (23 if expected == 23 else 0)
+        assert report["status"] == "REAL_R2_YUGIOH_TO_ISOLATED_D1_VERIFIED"
+        assert report["source_rows"]==23
+        assert FakeD1.conn.execute("select count(*) from shadow_daily_write_budget").fetchone()[0]==4
+        assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]==23
+
+
+def test_budget_duplicate_day_does_not_write_or_change_staged_rows():
+    client,_=fixture()
+    with client:
+        first=runner.run("a"*32,"dummy-test-token","1100","1",
+                         client=client,now=datetime(2026,11,6,tzinfo=timezone.utc))
+        before=FakeD1.mutations
+        second=runner.run("a"*32,"dummy-test-token","1101","1",
+                          client=client,now=datetime(2026,11,6,tzinfo=timezone.utc))
+    assert first["status"]=="YUGIOH_D1_SHADOW_PARTIAL_VERIFIED"
+    assert second["status"]=="YUGIOH_D1_SHADOW_DAILY_BUDGET_ALREADY_USED"
+    assert FakeD1.mutations == before
+    assert second["d1_staged_rows"]==7
+
+
+def test_source_change_mid_migration_fails_without_a_new_generation_or_writes():
+    client,_=fixture()
+    with client:
+        runner.run("a"*32,"dummy-test-token","1102","1",
+                   client=client,now=datetime(2026,11,6,tzinfo=timezone.utc))
+    staged_before=FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]
+    changed,_=fixture(name_prefix="Changed-source")
+    with changed, pytest.raises(MigrationGuard, match="differs"):
+        runner.run("a"*32,"dummy-test-token","1103","1",
+                   client=changed,now=datetime(2026,11,7,tzinfo=timezone.utc))
+    assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]==staged_before
+    assert FakeD1.conn.execute("select count(*) from shadow_active_partitions").fetchone()[0]==0
+
+
+def test_wrong_r2_digest_fails_before_any_cloudflare_writes():
+    client,_=fixture(tamper=True)
+    with client, pytest.raises((ValueError, MigrationGuard)):
+        runner.run("a"*32,"dummy-test-token","1104","1",client=client)
+    assert FakeD1.conn is None
+
+
+def test_tampered_staged_record_blocks_resume_and_publication():
+    client,_=fixture()
+    with client:
+        runner.run("a"*32,"dummy-test-token","1105","1",
+                   client=client,now=datetime(2026,11,6,tzinfo=timezone.utc))
+        FakeD1.conn.execute("update shadow_cards set name='TAMPERED' where "
+                            "card_key=(select card_key from shadow_cards limit 1)")
+        with pytest.raises(MigrationGuard, match="prefix"):
+            runner.run("a"*32,"dummy-test-token","1105","1",
+                       client=client,now=datetime(2026,11,7,tzinfo=timezone.utc))
+        assert FakeD1.conn.execute("select count(*) from shadow_live_cards").fetchone()[0]==0
+
+
+def test_cloudflare_database_count_guard_and_duplicate_uuid():
+    FakeD1.existing=[{"name":"shadow-"+str(i), "uuid":UUID} for i in range(10)]
+    with pytest.raises(MigrationGuard, match="budget"):
+        runner._database(FakeD1("a"*32,"dummy-test-token"))
+    FakeD1.existing=[{"name":runner.EXACT_DATABASE_NAME,"uuid":"unsafe-path"}]
+    with pytest.raises(MigrationGuard, match="UUID"):
+        runner._database(FakeD1("a"*32,"dummy-test-token"))
