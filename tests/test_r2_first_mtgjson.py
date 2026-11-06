@@ -571,7 +571,7 @@ def test_exact_mcm_cardmarket_id_preserved_as_identity_not_price():
     assert prepared.manifest["raw_bytes"] == result.normalized_raw_bytes
 
 
-@pytest.mark.parametrize("value", [None, 0, -4, True, False, "", "0", "01", "no", "4.5", 2**32, [], {}])
+@pytest.mark.parametrize("value", [None, 0, -4, True, False, "", "0", "01", "no", "4.5", 2**32])
 def test_invalid_mcm_ids_quarantined_without_removing_canonical_cards(value):
     source = card(identifiers={"mcmId": value})
     result = parse(payload([source]))
@@ -591,4 +591,10 @@ def test_mcm_id_is_exactly_preserved_for_distinct_printings():
     assert len(rows) == 4
     assert {row["details"]["cardmarket_product_id"] for row in rows} == {"30001","30002"}
     assert len({row["provider_id"] for row in rows}) == 4
+
+
+@pytest.mark.parametrize("value", [[], {}])
+def test_structurally_malformed_mcm_identifier_fails_closed(value):
+    with pytest.raises(SourceError, match="Malformed MTGJSON Cardmarket ID structure"):
+        parse(payload([card(identifiers={"mcmId": value})]))
 
