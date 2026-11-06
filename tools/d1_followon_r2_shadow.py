@@ -159,13 +159,17 @@ def _check_private_tables(cloud: D1Client, dbid: str):
 
 
 def _disk_used(cloud: D1Client, dbid: str):
-    pages=_query(cloud,dbid,"pragma page_count")
-    size=_query(cloud,dbid,"pragma page_size")
-    if (len(pages)!=1 or len(size)!=1
-            or type(pages[0].get("page_count")) is not int
-            or type(size[0].get("page_size")) is not int):
-        raise MigrationGuard("D1 database size was not measured")
-    used=pages[0]["page_count"]*size[0]["page_size"]
+    """Use Cloudflare's supported GET D1 database detail file_size.
+
+    Some SQLite pragmas such as page_count are rejected by D1 REST HTTP 400.
+    Never interpret a failed SQL pragma as evidence of available disk.
+    """
+    detail,_=cloud.call("GET",f"{cloud.path}/{dbid}")
+    if (not isinstance(detail,dict) or detail.get("uuid")!=dbid
+            or type(detail.get("file_size")) is not int
+            or detail["file_size"]<0):
+        raise MigrationGuard("D1 database file_size not proven by Cloudflare")
+    used=detail["file_size"]
     if used>=SAFETY_BYTES:
         raise MigrationGuard("D1 database nearing Free single-file storage ceiling")
     return used
