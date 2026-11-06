@@ -129,7 +129,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/reference-value-display.js?v=market-values-20261104" defer></script>',
         '<script src="/assets/market-value-column.js?v=grouped-reference-v5" defer></script>',
         '<script src="/assets/founder-workspace.js" defer></script>',
-        '<script src="/assets/founder-accounts.js?v=shared-reference-v2" defer></script>',
+        '<script src="/assets/founder-accounts.js?v=unified-founders-20261104" defer></script>',
         '<script src="/assets/catalogue-title-art.js?v=3" defer></script>',
         '<script src="/assets/catalogue-browser.js?v=market-values-20261105" defer></script>',
         '<script src="/assets/catalogue-browser-entry.js?v=ux-20261103" defer></script>',
