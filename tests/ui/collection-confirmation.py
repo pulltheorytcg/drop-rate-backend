@@ -81,7 +81,7 @@ def main():
                         assert all('/refresh-market' not in c['url'] and '/sync' not in c['url'] and '/approval-request' not in c['url'] for c in summary['calls'])
                         assert page.locator('.dr-scan-added').inner_text()=='Added to collection'
                         if mode=='RAW' and role=='seller':
-                            assert 'Value: £12.50' in page.locator('.dr-scan-review-item.added .dr-scan-card-value').inner_text()
+                            assert '£12.50' not in page.locator('.dr-scan-review-item.added .dr-scan-card-value').inner_text()
                             assert page.evaluate('scanner.totals().value') is None
                         await_saves=len(saves);page.evaluate('scanner.saveAll()')
                         assert len(page.evaluate('calls.filter(c=>c.headers?.["Idempotency-Key"])'))==await_saves
