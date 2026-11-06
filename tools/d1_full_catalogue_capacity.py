@@ -51,11 +51,15 @@ def inspect_capacity(account: str, token: str):
         uuid = record.get("uuid")
         if not isinstance(uuid, str) or len(uuid) != 36:
             raise MigrationGuard("D1 returned malformed database identity")
-        pages = _one_scalar(cloud, uuid, "pragma page_count", "page_count")
-        page_size = _one_scalar(cloud, uuid, "pragma page_size", "page_size")
-        if pages < 0 or not 512 <= page_size <= 65536:
-            raise MigrationGuard("D1 returned implausible size")
-        bytes_used = pages * page_size
+        # D1 REST does not universally accept SQLite PRAGMA page_count.
+        # Cloudflare documents the file_size number on GET database detail:
+        # GET /accounts/{account}/d1/database/{uuid}.
+        detail, _ = cloud.call("GET", f"{cloud.path}/{uuid}")
+        if (not isinstance(detail, dict) or detail.get("uuid") != uuid
+                or type(detail.get("file_size")) is not int
+                or detail["file_size"] < 0):
+            raise MigrationGuard("D1 database file_size not verified")
+        bytes_used = detail["file_size"]
         budgets.append({"bytes_used":bytes_used,
                         "storage_warning":bytes_used >= SHADOW_SAFETY_BYTES})
         if name == YGO:
