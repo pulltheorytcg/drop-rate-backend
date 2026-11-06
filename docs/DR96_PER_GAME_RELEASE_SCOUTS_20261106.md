@@ -46,3 +46,21 @@ Riftbound stays blocked pending Riot app-specific API access/approval. Yu-Gi-Oh!
 **Activation prerequisites:** The API command must be in a successful Railway healthchecked release; trusted n8n credentials and DR-90 must already be verified; the six workflows must be newly imported inactive with exact source-reviewed hashes, and an offline SQLite backup must be checked before publishing a trigger. Enable one source at a time, prove a signed live execution's true result and source cooldown, then publish the rest. n8n's existing persisted definitions are never silently overwritten on redeploy. Rollback unpublishes each DR-96 workflow; the existing background `run_loop` and last verified R2 generation remain intact.
 
 **Additional artwork release step:** `#966` and Cloudflare artwork staging `#968` must independently resolve rights-approved per-print art, exact D1 source/print mapping, actual R2 Worker deployment, storefront signed-in mobile/desktop display and physical slab photo provenance. DR-96 does not itself create, upload, rehost, display or commercial-license any third-party card image.
+
+
+## 5. Guarded live n8n activation
+
+A normal main-branch deploy imports six workflows inactive and never overwrites persisted IDs. The separately reviewed activation uses the Railway flag `DROP_RATE_N8N_RELEASE_SCOUT_PUBLISH_ON_BOOT=true` only after the signed FastAPI endpoint has passed deployment.
+
+The offline operator `automation/n8n/ops/guarded-release-scout-publish.cjs` performs:
+
+1. Reject unsupported/conflicting workflow mutation flags.
+2. Verify six exact source hashes, provider names, signing/verifier nodes, already-published DR-90 error handler.
+3. Verify pinned n8n 2.32.6 and offline persistent SQLite draft/history state.
+4. Take/verify a WAL-aware SQLite backup (SHA-256 manifest, private directory permissions).
+5. Recheck persistent definitions, publish only six DR-96 IDs one at a time, verify each published version hash.
+6. A repeat deployment returns ALREADY_PUBLISHED; unexpected drift blocks rollout rather than changing another workflow.
+
+Pinned n8n-image CI runs a **network-isolated SQLite publication smoke** that checks all six definitions, hash drift, duplicate activation, operator conflicts, backup and exact published state. Real provider ingestion requires later signed live receipt and current R2 generation readback.
+
+Rollback: set the flag false to stop future boot-driven publishing; that **does not unpublish already active n8n schedules**. Fully pausing the watches uses a separately checked, narrowly scoped n8n `unpublish:workflow --id=<specific DR96 ID>` operation with backup. Do not unpublish DR90 or DR94.
