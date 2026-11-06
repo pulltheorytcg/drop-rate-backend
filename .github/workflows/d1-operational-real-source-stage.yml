@@ -1,0 +1,136 @@
+name: Protected REAL Supabase to private operational D1 shadow (never live)
+on:
+  pull_request:
+    paths:
+      - 'tools/d1_operational_source_stage.py'
+      - 'tests/test_d1_operational_source_stage.py'
+      - '.github/workflows/d1-operational-real-source-stage.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'tools/d1_operational_source_stage.py'
+      - '.github/workflows/d1-operational-real-source-stage.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-operational-d1-real-source-single-writer
+  cancel-in-progress: false
+
+jobs:
+  offline-shadow-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Validate no source writes, foreign-key lineage, owner/penny parity and no public cutover
+        env:
+          PYTHONPATH: backend
+        run: |
+          python -m pytest -q tests/test_d1_operational_source_stage.py tests/test_d1_operational_shadow.py tests/test_cloudflare_full_exit_preflight.py
+
+  stage-real-private-d1:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: offline-shadow-parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment: production
+    permissions:
+      contents: read
+      statuses: write
+    env:
+      SUPABASE_PROJECT_ID: ozrxenrdladkooixutmm
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+      CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+      PYTHONPATH: backend:tools
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install asyncpg==0.30.0
+      - name: Prepare masked existing privileged postgres connection (READ-ONLY transaction)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from urllib.parse import quote
+          pw=os.environ.get('SUPABASE_DB_PASSWORD','')
+          project=os.environ['SUPABASE_PROJECT_ID']
+          if not pw or any(c in pw for c in '\r\n'):
+              raise SystemExit('Protected PostgreSQL credential missing/invalid')
+          encoded=quote(pw,safe='')
+          dsn=(f'postgresql://postgres.{project}:{encoded}'
+               '@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require')
+          for x in (encoded,dsn):
+              print('::add-mask::'+x.replace('%','%25'),flush=True)
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf8') as f:
+              f.write('FULL_EXIT_PG_READONLY_DSN='+dsn+'\n')
+          PY
+      - name: Stage only 2500 bounded records into isolated D1 generation (zero Supabase writes)
+        id: stage
+        run: |
+          set -euo pipefail
+          python tools/d1_operational_source_stage.py > d1-operational-source-stage-receipt.json
+          python - <<'PY'
+          import json
+          r=json.load(open('d1-operational-source-stage-receipt.json'))
+          assert r['status']=='PRIVATE_OPERATIONAL_D1_SOURCE_STAGED_NOT_LIVE'
+          assert r['verified_table_receipts']==9
+          assert r['source_business_writes']==0
+          assert r['production_read_switch'] is False
+          assert r['payment_or_settlement_executed'] is False
+          assert r['supabase_source_retired'] is False
+          print('PRIVATE_D1_SOURCE_PARITY_VERIFIED_ONLY')
+          print('SOURCE_COUNTS='+json.dumps(r['counts'],sort_keys=True))
+          print('SNAPSHOT_SHA256='+r['generation_sha256'])
+          PY
+      - name: Publish clearly labelled staging-only release receipt
+        if: always()
+        env:
+          STAGING_OUTCOME: ${{ steps.stage.outcome }}
+          GITHUB_STATUS_TOKEN: ${{ github.token }}
+          STATUS_REPO: ${{ github.repository }}
+          STATUS_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request
+          from pathlib import Path
+          ok=False
+          path=Path('d1-operational-source-stage-receipt.json')
+          if os.environ['STAGING_OUTCOME']=='success' and path.is_file():
+              d=json.loads(path.read_text())
+              ok=(d.get('status')=='PRIVATE_OPERATIONAL_D1_SOURCE_STAGED_NOT_LIVE'
+                  and d.get('verified_table_receipts')==9
+                  and d.get('source_business_writes')==0
+                  and d.get('production_read_switch') is False
+                  and d.get('r2_source_upload_verified_by_this_job') is False
+                  and d.get('payment_or_settlement_executed') is False)
+          state='success' if ok else 'failure'
+          description=('Private D1 owner/finance source hashes verified; NO production switch'
+                       if ok else 'Private D1 source staging not verified; production unchanged')
+          url='https://api.github.com/repos/'+os.environ['STATUS_REPO']+'/statuses/'+os.environ['STATUS_SHA']
+          req=urllib.request.Request(url,
+            data=json.dumps({'state':state,'description':description,
+               'context':'drop-rate-d1-operational-source-shadow-only'}).encode(),
+            method='POST',headers={
+             'Authorization':'Bearer '+os.environ['GITHUB_STATUS_TOKEN'],
+             'Content-Type':'application/json','Accept':'application/vnd.github+json'})
+          with urllib.request.urlopen(req,timeout=20) as resp:
+              if resp.status!=201: raise SystemExit('No readback status receipt')
+          print('D1 operational shadow status: '+state)
+          PY
+      - name: Attach public counts and hashes only; no private source rows
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-operational-shadow-receipt-only
+          path: d1-operational-source-stage-receipt.json
+          retention-days: 7
