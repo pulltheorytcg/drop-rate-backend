@@ -40,6 +40,7 @@ from .owner_inventory import add_reference_artwork
 from .inventory_reference_values import add_shared_reference_values, reference_portfolio, reference_totals, recommended_totals
 from .inventory_market_movers import shared_weekly_movers
 from .inventory_reference_media import add_shared_inventory_media
+from .inventory_photo_readiness import photo_action_queue
 
 
 router = APIRouter(prefix="/api/v1/owner", tags=["owner-portal"])
@@ -906,6 +907,25 @@ async def owner_catalogue_search(
                         break
 
     return jsonable_encoder({"items": items[:limit], "query": query})
+
+
+@router.get("/inventory/photo-actions")
+async def owner_inventory_photo_actions(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+    limit: int = Query(default=50,ge=1,le=100),
+    offset: int = Query(default=0,ge=0),
+) -> dict:
+    """Private owner Action Required queue; never proof of image-byte delivery."""
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+        readonly_snapshot=True,
+    ) as connection:
+        return await photo_action_queue(
+            connection,access["owner_id"],limit=limit,offset=offset)
 
 
 @router.get("/inventory")
