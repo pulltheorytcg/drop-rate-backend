@@ -61,7 +61,10 @@ window.DropRateReferenceValue = Object.freeze({
   },
   description(item) {
     const ref = this.displayReference(item);
-    if (!ref) return "";
+    // Current Market Value UI cannot market a guide/model or stale
+    // source as if it were an eligible sold-price valuation. The original
+    // reference record remains available to authorised source auditors.
+    if (!ref || ref.status !== "AVAILABLE") return "";
     if (this.ukEuEstimate(ref)) return [ref.reason || "Provisional estimate from eBay UK asking prices and Cardmarket guides.",
       "Item price only; postage excluded", "Evidence checked " + new Date(ref.observed_at).toLocaleDateString("en-GB")].join(" · ");
     const time = ref.checked_at ? new Date(ref.checked_at) : null;
