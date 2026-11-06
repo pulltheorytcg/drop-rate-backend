@@ -246,6 +246,7 @@ async def backup_operational_sources(pool, actor: UUID, *, upload: bool = False,
         if storage is None:
             raise ObjectStorageError("Verified private R2 object storage not configured")
     results: list[dict] = []
+    blocked: list[dict] = []
     with tempfile.TemporaryDirectory(prefix="drop-rate-private-exit-") as d:
         root = Path(d)
         # ONE PostgreSQL MVCC snapshot across owners, sales, money, media and audit.
@@ -253,8 +254,21 @@ async def backup_operational_sources(pool, actor: UUID, *, upload: bool = False,
             async with conn.transaction(isolation="repeatable_read", readonly=True):
                 await _authorize(conn, actor, "cloudflare-private-exit-export")
                 for name in TABLE_PKS:
+                    # A valid platform-admin login does NOT necessarily have
+                    # full SELECT visibility in every legacy RLS policy.
+                    # Never archive an incomplete table as if it were whole.
+                    visible = await conn.fetchval(f'select count(*) from tcg."{name}"')
+                    if type(visible) is not int or visible < MIN_ROWS[name]:
+                        blocked.append({
+                            "table": name, "visible_rows": visible,
+                            "minimum_source_rows": MIN_ROWS[name],
+                            "reason": "RLS_FULL_TABLE_VISIBILITY_NOT_PROVEN",
+                        })
+                        continue
                     proof = await export_table(conn, name, root / (name + ".ndjson.gz"))
                     results.append(proof)
+        if not results:
+            raise ObjectStorageError("No complete approved source tables are visible")
         # Only after the consistent SQL snapshot has closed do we write to R2.
         for proof in results:
             name = proof["table"]
@@ -279,6 +293,9 @@ async def backup_operational_sources(pool, actor: UUID, *, upload: bool = False,
         checkpoint = {
             "schema": SCHEMA, "created_at": datetime.now(timezone.utc).isoformat(),
             "relations": results, "relation_count": len(results),
+            "expected_relations": len(TABLE_PKS),
+            "blocked_relations": blocked,
+            "complete_approved_scope": not blocked,
             "total_source_rows": sum(r["rows"] for r in results),
             "restoration_method": "PG_READ_ONLY_JSON_POPULATE_RECORDSET_EVERY_COLUMN",
             "sql_source_mutations": 0, "supabase_retired": False,
@@ -303,9 +320,14 @@ async def backup_operational_sources(pool, actor: UUID, *, upload: bool = False,
             checkpoint["manifest_object"] = proof
     # Report only source row COUNTS and integrity digests, not any customer row.
     return {
-        "status": "PRIVATE_OPERATIONAL_R2_SOURCE_RESTORE_PROVEN" if upload
-                  else "LOCAL_OPERATIONAL_SOURCE_TYPED_ROUNDTRIP_VERIFIED",
+        "status": ("PRIVATE_OPERATIONAL_R2_SOURCE_RESTORE_PROVEN" if not blocked
+                    else "PRIVATE_OPERATIONAL_R2_PARTIAL_SOURCE_VERIFIED") if upload
+                  else ("LOCAL_OPERATIONAL_SOURCE_TYPED_ROUNDTRIP_VERIFIED" if not blocked
+                    else "LOCAL_OPERATIONAL_PARTIAL_SOURCE_VERIFIED"),
         "verified_relations": len(results),
+        "expected_relations": len(TABLE_PKS),
+        "complete_approved_scope": not blocked,
+        "blocked_relations": blocked,
         "source_counts": {r["table"]:r["rows"] for r in results},
         "source_sha256": {r["table"]:r["source_ndjson_sha256"] for r in results},
         "r2_uploaded": upload,
