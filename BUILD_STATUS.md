@@ -1,3 +1,10 @@
+## 6 November 2026 — Original TCG and Riftbound DR-97 release monitors (staged)
+
+- Added five **inactive** independently scheduled n8n DR-97 watches: Pokémon / TCGdex; One Piece / Punk and official; Dragon Ball / Masters and Fusion; Naruto / Kayou and Bandai; Riftbound / Riot permission readiness only.
+- Signed FastAPI command dispatches original-game source checks exclusively through existing `catalogue_maintenance.sync_source`, sharing daily import advisory lock `847220092`, source due receipts and the 400 MB Supabase safety threshold. No unapproved API access, no artwork, pricing, ownership or Shopify writes. Riftbound requires an approved app-specific Riot API key; no source content requested or published.
+- Separate n8n activation flag `DROP_RATE_N8N_LEGACY_SCOUT_PUBLISH_ON_BOOT` remains default off until CI, API deployment and inactive source import verification; a private SQLite backup and per-source exact SHA readback protect launch. Existing 6 DR-96 release workflows remain unaffected.
+- [DR-97 original games runbook](docs/DR97_ORIGINAL_GAMES_RIFTBOUND_20261106.md) · [Artwork workstream #966](https://github.com/pulltheorytcg/drop-rate-backend/issues/966).
+
 ## 6 November 2026 — Per-game new-release automation DR-96 (staged pending n8n activation)
 
 - Six separate **inactive** n8n release scouts created for YGOPRODeck/Yu-Gi-Oh, Lorcast/Lorcana, MTGJSON/Magic, two selected sports feeds, and curated figures. Daily or weekly staggered schedules, DR-90 error routing, HMAC-signed FastAPI source commands. Existing background importer remains; a shared advisory lock suppresses duplicate overlapping downloads.
