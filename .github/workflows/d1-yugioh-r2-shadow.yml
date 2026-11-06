@@ -66,16 +66,16 @@ jobs:
         id: real_import
         env:
           CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
-          CLOUDFARE_D1_PILOT_TOKEN: \${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
           PYTHONPATH: 'backend:tools'
         run: python tools/d1_yugioh_shadow.py
       - name: Publish truthful GitHub parity state without source or credential details
         if: always()
         env:
-          GITHUB_STATUS_TOKEN: \${{ github.token }}
-          D1_IMPORT_OUTCOME: \${{ steps.real_import.outcome }}
-          D1_IMPORT_COMMIT: \${{ github.sha }}
-          D1_IMPORT_REPOSITORY: \${{ github.repository }}
+          GITHUB_STATUS_TOKEN: ${{ github.token }}
+          D1_IMPORT_OUTCOME: ${{ steps.real_import.outcome }}
+          D1_IMPORT_COMMIT: ${{ github.sha }}
+          D1_IMPORT_REPOSITORY: ${{ github.repository }}
         run: |
           python - <<'PY'
           import json
