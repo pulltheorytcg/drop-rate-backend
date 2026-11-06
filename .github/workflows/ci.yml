@@ -77,6 +77,19 @@ jobs:
           docker run --rm --network none --entrypoint node drop-rate-n8n:ci \
             --no-warnings /opt/drop-rate/ops/guarded-release-scout-publish.cjs --verify-sources \
             | grep -F '"status":"SOURCE_VERIFIED","count":6'
+      - name: Import six DR96 workflows inactive through the actual pinned n8n CLI
+        run: |
+          docker run --rm --network none --entrypoint sh -e N8N_USER_FOLDER=/tmp/dr96-source-test -e N8N_ENCRYPTION_KEY=ci-only-never-production-key-123456 drop-rate-n8n:ci -c '
+            set -eu
+            for file in /opt/drop-rate/workflows/dr-96-*-release-scout.json; do
+              n8n import:workflow --input="$file" --activeState=false >/dev/null
+            done
+            actual="$(n8n list:workflow --onlyId)"
+            for id in DR96YugiohReleaseScoutV1 DR96LorcanaReleaseScoutV1 DR96MagicReleaseScoutV1 DR96SportsBowmanReleaseScoutV1 DR96SportsHeritageReleaseScoutV1 DR96FiguresReleaseScoutV1; do
+              printf "%s\n" "$actual" | grep -Fxq "$id"
+            done
+            echo "Six source-scoped DR96 workflows imported with inactive state"
+          '
       - name: Prove guarded DR96 publication and SQLite rollback in a disconnected pinned runtime
         run: |
           docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_release_scout_publish_smoke.cjs:/test/release-scout-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/release-scout-smoke.cjs
