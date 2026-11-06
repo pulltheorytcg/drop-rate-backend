@@ -25,11 +25,36 @@ REPORT = "d1-full-catalogue-capacity-report.json"
 
 
 def _one_scalar(client: D1Client, uuid: str, sql: str, field: str) -> int:
+    """Source-count SELECT only, never unsupported PRAGMA metadata."""
+    if not sql.lstrip().lower().startswith("select ") or "pragma" in sql.lower():
+        raise MigrationGuard("Unsupported D1 capacity read query")
     rows = _query(client, uuid, sql)
     if (len(rows) != 1 or field not in rows[0]
             or type(rows[0][field]) is not int):
-        raise MigrationGuard("D1 did not provide verified page usage")
+        raise MigrationGuard("D1 did not provide verified source count")
     return rows[0][field]
+
+
+def _database_size(client: D1Client, uuid: str) -> int:
+    """Read actual D1 size from Cloudflare's supported database metadata API.
+
+    D1 REST may reject SQLite 'pragma page_count' / 'pragma page_size' with
+    HTTP 400. Cloudflare documents file_size on GET /d1/database/{uuid}.
+    Missing, nonintegral, invalid or unexpectedly huge sizes fail CLOSED.
+    """
+    import re
+    if (not isinstance(uuid, str) or not re.fullmatch(
+            r"[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}", uuid)):
+        raise MigrationGuard("Invalid D1 database UUID for size lookup")
+    record, _ = client.call("GET", f"{client.path}/{uuid}")
+    if not isinstance(record, dict):
+        raise MigrationGuard("Missing D1 storage metadata")
+    size = record.get("file_size")
+    if type(size) is float and size.is_integer():
+        size = int(size)
+    if type(size) is not int or not 0 <= size <= 10_000_000_000:
+        raise MigrationGuard("Unverified D1 database file_size")
+    return size
 
 
 def inspect_capacity(account: str, token: str):
@@ -51,11 +76,7 @@ def inspect_capacity(account: str, token: str):
         uuid = record.get("uuid")
         if not isinstance(uuid, str) or len(uuid) != 36:
             raise MigrationGuard("D1 returned malformed database identity")
-        pages = _one_scalar(cloud, uuid, "pragma page_count", "page_count")
-        page_size = _one_scalar(cloud, uuid, "pragma page_size", "page_size")
-        if pages < 0 or not 512 <= page_size <= 65536:
-            raise MigrationGuard("D1 returned implausible size")
-        bytes_used = pages * page_size
+        bytes_used = _database_size(cloud, uuid)
         budgets.append({"bytes_used":bytes_used,
                         "storage_warning":bytes_used >= SHADOW_SAFETY_BYTES})
         if name == YGO:
