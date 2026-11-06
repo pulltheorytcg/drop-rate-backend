@@ -41,7 +41,7 @@ async def main():
             created_at timestamptz default now(),updated_at timestamptz default now());
           create table tcg.shopify_inventory_links(inventory_id uuid,owner_id uuid,sync_state text,test_mode bool,last_synced_at timestamptz);
           create table tcg.media_assets(id uuid default gen_random_uuid(),owner_id uuid,inventory_id uuid,catalogue_id uuid,
-            scope text,side text,capture_context text,media_kind text,media_language text,media_variant text,approval_status text,rights_status text,rights_tier text,source_status text,
+            scope text,side text,capture_context text,source_type text,source_provider text,media_kind text,media_language text,media_variant text,approval_status text,rights_status text,rights_tier text,source_status text,
             revoked_at timestamptz,approved_at timestamptz,created_at timestamptz default now(),shopify_file_status text,shopify_cdn_url text,public_source_url text);
           create table tcg.pricing_snapshots(id uuid,inventory_id uuid,owner_id uuid,catalogue_id uuid,evidence jsonb);
           create table tcg.request_receipts(owner_id uuid,request_key uuid,payload_hash text,response jsonb,unique(owner_id,request_key));
