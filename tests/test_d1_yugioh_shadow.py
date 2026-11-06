@@ -225,7 +225,7 @@ def test_main_branch_workflow_credentials_are_evaluated_not_literal_backslashes(
     """Run #7 failed D1 and GitHub status HTTP 401 when token strings were prefixed by '\\'."""
     workflow = (Path(__file__).resolve().parents[1]
                 / ".github/workflows/d1-yugioh-r2-shadow.yml").read_text()
-    assert "\\\\${{" not in workflow
+    assert (chr(92) + "$" + "{{") not in workflow
     assert "CLOUDFARE_D1_PILOT_TOKEN: " + "$" + "{{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}" in workflow
     assert "GITHUB_STATUS_TOKEN: " + "$" + "{{ github.token }}" in workflow
     assert "D1_IMPORT_OUTCOME: " + "$" + "{{ steps.real_import.outcome }}" in workflow
