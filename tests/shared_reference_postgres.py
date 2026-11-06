@@ -78,7 +78,7 @@ async def main():
   raw_snapshot=await snap();slab_snapshot=await snap('10',9900)
   async def asset(approval='APPROVED',physical=None,language='Japanese',suffix='shared'):
    return await db.fetchval('''insert into tcg.media_assets(owner_id,catalogue_id,inventory_id,scope,source_type,source_reference,public_source_url,rights_status,rights_basis,approval_status,alt_text,created_by_user_id,approved_by_user_id,approved_at,rights_tier,source_provider,media_language,media_variant,source_status)
-     values($1,$2,$3,$4,'OFFICIAL_PROVIDER','synthetic test',$5,'VERIFIED','Synthetic permission',$6,'Fixture',$7,$7,now(),$8,'Fixture',$9,'Foil','ACTIVE') returning id''',owners[0],None if physical else card,physical,'INVENTORY_ITEM' if physical else 'CANONICAL_CARD',f'https://www.onepiece-cardgame.com/{suffix}.png',approval,actors[0],'FIRST_PARTY_CAPTURE' if physical else 'STOREFRONT_ALLOWED',language)
+     values($1,$2,$3,$4,case when $3::uuid is not null then 'FOUNDER_UPLOAD' else 'OFFICIAL_PROVIDER' end,'synthetic test',$5,'VERIFIED','Synthetic permission',$6,'Fixture',$7,$7,now(),$8,'Fixture',$9,'Foil','ACTIVE') returning id''',owners[0],None if physical else card,physical,'INVENTORY_ITEM' if physical else 'CANONICAL_CARD',f'https://www.onepiece-cardgame.com/{suffix}.png',approval,actors[0],'FIRST_PARTY_CAPTURE' if physical else 'STOREFRONT_ALLOWED',language)
   media=await asset();await asset('PENDING',suffix='pending');await asset(language='English',suffix='wrong-language')
   async def setup(c):await c.execute('set role tcg_api')
   pool=await asyncpg.create_pool(dsn,min_size=1,max_size=3,init=_init_connection,setup=setup)
