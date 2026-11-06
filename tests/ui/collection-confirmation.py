@@ -57,7 +57,9 @@ def main():
                                 basis:'Japanese · Raw catalogue reference',
                                 reason:'Last recorded guide; not a current value.',physical_valuation_eligible:false};
                                 scanner.renderDetails();''')
-                            assert 'Value: £12.50' in page.locator('.dr-scan-detail-identity').inner_text()
+                            identity=page.locator('.dr-scan-detail-identity').inner_text()
+                            assert '£12.50' not in identity
+                            assert 'unavailable' in identity.lower()
                             assert page.evaluate('scanner.totals().value') is None
                         confirm=page.locator('[data-details-save]')
                         assert confirm.inner_text()=='Add to collection'
