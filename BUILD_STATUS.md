@@ -1,3 +1,11 @@
+## 6 November 2026 — DR-97 Pokémon/One Piece/Naruto/Dragon Ball/Riftbound release scouts (staged)
+
+- Eight independent **initially inactive** n8n schedules added for TCGdex Pokémon; One Piece official/Punk; Dragon Ball Masters/Fusion; Naruto Kayou/Bandai; Riot Riftbound access readiness. Signed FastAPI route delegates to existing legacy catalogue adapters and shared daily advisory lock, with daily due checks and Supabase capacity fail-close.
+- Last production check: Supabase ~430 MB, bulk data updates must remain **DEFERRED_CAPACITY** until Cloudflare data migration or safe archive frees space. No false publication claims or duplicate network loads.
+- Riot Riftbound requires official App-specific API access or written licence before importing or mirroring; status is **DEFERRED_RIOT_APPROVAL** only. No unofficial asset scraping.
+- CI must prove source signing, user/admin permissions, capacity, retry failures, source drift, guarded offline n8n backups and exact activation. New source-check successes do not approve artwork, physical slabs, Shopify listing, prices or owner changes.
+- [DR-97 runbook](docs/DR97_LEGACY_RIFTBOUND_RELEASE_SCOUTS_20261106.md). Production activations require subsequent readback.
+
 ## 6 November 2026 — Per-game new-release automation DR-96 (staged pending n8n activation)
 
 - Six separate **inactive** n8n release scouts created for YGOPRODeck/Yu-Gi-Oh, Lorcast/Lorcana, MTGJSON/Magic, two selected sports feeds, and curated figures. Daily or weekly staggered schedules, DR-90 error routing, HMAC-signed FastAPI source commands. Existing background importer remains; a shared advisory lock suppresses duplicate overlapping downloads.
