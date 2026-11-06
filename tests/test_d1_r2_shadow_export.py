@@ -175,3 +175,40 @@ def test_forged_active_manifest_never_leaks_part(monkeypatch):
     client,_,_=make_client(monkeypatch,valid_source=False)
     assert client.get("/api/v1/internal/d1-shadow/manifest",
         headers={"Authorization":"Bearer "+signed()}).status_code==503
+
+
+def test_real_source_failure_logs_closed_stage_and_type_without_sensitive_values(monkeypatch, caplog):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+    client, _, _ = make_client(monkeypatch)
+
+    class BrokenStorage:
+        def read_verified_reference_snapshot(self, sha):
+            raise RuntimeError("sensitive-r2-secret?token=hidden")
+
+    monkeypatch.setattr(service, "storage", lambda: BrokenStorage())
+    with caplog.at_level("WARNING", logger=export.__name__):
+        result = client.get("/api/v1/internal/d1-shadow/manifest",
+                            headers={"Authorization": "Bearer " + signed()})
+    assert result.status_code == 503
+    assert result.json()["detail"] == "Verified source unavailable"
+    assert "stage=manifest_object_read error_type=RuntimeError" in caplog.text
+    assert "sensitive-r2-secret" not in caplog.text
+    assert "token=hidden" not in caplog.text
+    assert "Bearer " not in caplog.text
+
+
+def test_storage_configuration_failure_is_503_without_leaking_configuration(monkeypatch, caplog):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED","true")
+    client, _, _ = make_client(monkeypatch)
+
+    def broken():
+        raise RuntimeError("sensitive-cloudflare-credential")
+
+    monkeypatch.setattr(service, "storage", broken)
+    with caplog.at_level("WARNING", logger=export.__name__):
+        result = client.get("/api/v1/internal/d1-shadow/manifest",
+                            headers={"Authorization": "Bearer " + signed()})
+    assert result.status_code == 503
+    assert "stage=storage_configuration error_type=RuntimeError" in caplog.text
+    assert "sensitive-cloudflare-credential" not in caplog.text
+
