@@ -98,7 +98,7 @@ def test_stage_complete_then_activate_and_revert_without_any_production_dependen
 def test_duplicate_source_id_or_invalid_source_scope_never_publishes():
     with snapshot() as snap:
         p = bridge.from_verified_snapshot(snap)
-        bad = replace(p, rows=p.rows + (p.rows[0],))
+        bad = replace(p, rows=p.rows[:3] + (p.rows[0],) + p.rows[4:])
         with sqlite3.connect(":memory:") as db:
             execute_schema(db)
             submit(db, [bridge.generation_statement(p)])
