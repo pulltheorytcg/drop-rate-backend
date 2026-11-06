@@ -204,8 +204,19 @@ def import_real_lorcana(account: str, d1_token: str, run_id: str,
     if client is None:
         with httpx.Client(follow_redirects=False, timeout=httpx.Timeout(20)) as http:
             return import_real_lorcana(account, d1_token, run_id, attempt, client=http)
-    identity = _oidc_token()
-    source, manifest = load_verified_source(client, identity)
+    # Main-branch CI and Railway deploy concurrently. Wait only for the
+    # narrow, feature-gated export route to finish its verified rollout.
+    # Never retry a bad OIDC identity (401/403) or a source checksum failure.
+    for stage_attempt in range(14):
+        identity = _oidc_token()
+        try:
+            source, manifest = load_verified_source(client, identity)
+            break
+        except MigrationGuard as exc:
+            if str(exc) not in {"R2 export rejected: HTTP 404",
+                                "R2 export rejected: HTTP 503"} or stage_attempt == 13:
+                raise
+            time.sleep(10)
     cloud = D1Client(account, d1_token)
     name, database_id = _new_isolated_real_shadow(cloud, run_id, attempt)
     _schema(cloud, database_id)
