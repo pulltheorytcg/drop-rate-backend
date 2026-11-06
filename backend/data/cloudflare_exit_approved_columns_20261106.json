@@ -3,44 +3,6 @@
   "captured_at_date": "2026-11-06",
   "project_id": "ozrxenrdladkooixutmm",
   "tables": {
-    "audit_events": [
-      {
-        "name": "id",
-        "type": "bigint"
-      },
-      {
-        "name": "occurred_at",
-        "type": "timestamp with time zone"
-      },
-      {
-        "name": "actor",
-        "type": "text"
-      },
-      {
-        "name": "request_id",
-        "type": "text"
-      },
-      {
-        "name": "action",
-        "type": "text"
-      },
-      {
-        "name": "entity_type",
-        "type": "text"
-      },
-      {
-        "name": "entity_id",
-        "type": "uuid"
-      },
-      {
-        "name": "old_values",
-        "type": "jsonb"
-      },
-      {
-        "name": "new_values",
-        "type": "jsonb"
-      }
-    ],
     "financial_ledger_entries": [
       {
         "name": "id",
@@ -255,96 +217,6 @@
       {
         "name": "sale_intent",
         "type": "text"
-      }
-    ],
-    "market_observations": [
-      {
-        "name": "id",
-        "type": "uuid"
-      },
-      {
-        "name": "catalogue_id",
-        "type": "uuid"
-      },
-      {
-        "name": "source",
-        "type": "text"
-      },
-      {
-        "name": "source_record_key",
-        "type": "text"
-      },
-      {
-        "name": "observation_type",
-        "type": "text"
-      },
-      {
-        "name": "observed_at",
-        "type": "timestamp with time zone"
-      },
-      {
-        "name": "price_minor",
-        "type": "bigint"
-      },
-      {
-        "name": "shipping_minor",
-        "type": "bigint"
-      },
-      {
-        "name": "currency",
-        "type": "text"
-      },
-      {
-        "name": "price_gbp_minor",
-        "type": "bigint"
-      },
-      {
-        "name": "shipping_gbp_minor",
-        "type": "bigint"
-      },
-      {
-        "name": "fx_rate_to_gbp",
-        "type": "numeric(18,8)"
-      },
-      {
-        "name": "condition",
-        "type": "text"
-      },
-      {
-        "name": "grading_company",
-        "type": "text"
-      },
-      {
-        "name": "grade",
-        "type": "text"
-      },
-      {
-        "name": "language",
-        "type": "text"
-      },
-      {
-        "name": "seal_status",
-        "type": "text"
-      },
-      {
-        "name": "source_country",
-        "type": "text"
-      },
-      {
-        "name": "sample_size",
-        "type": "integer"
-      },
-      {
-        "name": "evidence_quality",
-        "type": "numeric(5,4)"
-      },
-      {
-        "name": "metadata",
-        "type": "jsonb"
-      },
-      {
-        "name": "ingested_at",
-        "type": "timestamp with time zone"
       }
     ],
     "media_assets": [
@@ -853,5 +725,6 @@
         "type": "text"
       }
     ]
-  }
+  },
+  "scope_note": "11 low-risk operational tables only. Audit + market metadata are quarantined after read-only credential-pattern counts (157/46577 audit; 13/6241 market observations, possible false positives)."
 }
