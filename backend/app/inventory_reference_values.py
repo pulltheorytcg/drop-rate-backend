@@ -166,15 +166,27 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
     result.update(snapshot_id=str(selected["snapshot_id"]), checked_at=checked, method=selected["method"], basis=basis,
                   algorithm_version=selected["algorithm_version"], label="Drop Rate guide estimate" if estimate else "Drop Rate market value")
     if not fresh:
-        result.update(status="STALE", last_known_minor=selected["market_value_minor"], reason="Last recorded evidence is stale; no current reference value is available.")
+        # Historical guide prices are never a last-known physical Market Value.
+        # A verified, exact-profile sold snapshot can remain dated history, but
+        # may never fill the current monetary field.
+        result.update(status="STALE",
+                      last_known_minor=None if estimate else selected["market_value_minor"],
+                      reason="Last recorded evidence is stale; no current Market Value is available.")
+    elif estimate:
+        # Cardmarket guides are not sold transactions. Preserve a diagnostic
+        # source status/method without returning ANY value or retail amount to
+        # inventory, founder totals, and downstream UI compatibility fields.
+        result.update(status="REFERENCE_ESTIMATE",market_value_minor=None,
+                      recommended_retail_minor=None,
+                      reason="Cardmarket guide retained as source-only evidence; no verified sold Market Value for this copy.")
     else:
-        # Reuse the algorithm output from this SAME eligible snapshot. Never
-        # infer it from an asking price, stale per-copy cache or another basis.
+        # Only the independent exact-profile UK sold evidence can populate
+        # Market Value. Never substitute ask/guide/retail or an owner store price.
         recommended = selected.get("recommended_retail_minor")
         if type(recommended) is int and recommended >= MIN_STORE_PRICE_MINOR:
             result["recommended_retail_minor"] = recommended
-        result.update(status="REFERENCE_ESTIMATE" if estimate else "AVAILABLE", market_value_minor=selected["market_value_minor"],
-                      reason=selected.get("limitation") or ("Guide across conditions/languages, not an exact-copy valuation." if estimate else "Shared exact-profile UK sold evidence."))
+        result.update(status="AVAILABLE",market_value_minor=selected["market_value_minor"],
+                      reason=selected.get("limitation") or "Shared exact-profile UK sold evidence.")
     return result
 
 
