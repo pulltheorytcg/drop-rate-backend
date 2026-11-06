@@ -14,11 +14,14 @@ from uuid import UUID
 # library artwork is a separate non-publication fallback in the shared route.
 MEDIA_SQL = """
 select i.id as inventory_id,ma.id,ma.scope,ma.capture_context,ma.approval_status,ma.source_provider,
- ma.shopify_cdn_url,ma.public_source_url,ma.created_at
+ ma.source_type,ma.rights_tier,ma.shopify_cdn_url,ma.public_source_url,ma.created_at
 from tcg.inventory_items i
 join tcg.catalogue_products p on p.id=i.catalogue_id
 join tcg.media_assets ma on (
- (ma.scope='INVENTORY_ITEM' and ma.inventory_id=i.id and ma.owner_id=i.owner_id)
+ (ma.scope='INVENTORY_ITEM' and ma.inventory_id=i.id and ma.owner_id=i.owner_id
+   and ma.rights_tier='FIRST_PARTY_CAPTURE'
+   and ma.source_type in ('FOUNDER_UPLOAD','CONSIGNOR_UPLOAD')
+   and ma.approval_status='APPROVED')
  or (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and ma.inventory_id is null
    and ma.catalogue_id=i.catalogue_id and ma.approval_status='APPROVED'
    and ma.rights_tier='STOREFRONT_ALLOWED'
@@ -30,7 +33,7 @@ where i.id=any($1::uuid[]) and ma.side='FRONT' and ma.media_kind='IMAGE'
    or (ma.scope='INVENTORY_ITEM' and ma.inventory_id=i.id and ma.owner_id=i.owner_id
        and ma.capture_context='GRADED_SLAB'))
  and ma.source_status='ACTIVE' and ma.rights_status='VERIFIED'
- and ma.approval_status in ('PENDING','APPROVED') and ma.revoked_at is null
+ and ma.approval_status='APPROVED' and ma.revoked_at is null
  and coalesce(nullif(btrim(ma.shopify_cdn_url),''),nullif(btrim(ma.public_source_url),'')) is not null
 order by i.id,case when ma.scope='INVENTORY_ITEM' then 0 else 1 end,
  case when ma.approval_status='APPROVED' then 0 else 1 end,
@@ -66,7 +69,17 @@ async def shared_media_assets(connection, inventory_ids):
 async def add_shared_inventory_media(connection, items):
     best = {}
     for row in await shared_media_assets(connection, [item['id'] for item in items if item.get('id')]):
-        best.setdefault(str(row['inventory_id']), dict(row))
+        asset = dict(row)
+        # Defence in depth: RLS/SQL must never let INTERNAL_REFERENCE_ONLY
+        # PSA/ACE provider media masquerade as a first-party copy photograph,
+        # even if it has a Shopify CDN URL and GRADED_SLAB capture context.
+        if asset.get('scope') == 'INVENTORY_ITEM' and (
+            asset.get('rights_tier') != 'FIRST_PARTY_CAPTURE'
+            or asset.get('source_type') not in ('FOUNDER_UPLOAD', 'CONSIGNOR_UPLOAD')
+            or asset.get('approval_status') != 'APPROVED'
+        ):
+            continue
+        best.setdefault(str(row['inventory_id']), asset)
     for item in items:
         asset = best.get(str(item.get('id')))
         graded = is_graded_item(item)
