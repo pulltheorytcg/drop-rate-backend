@@ -1,3 +1,10 @@
+## 6 November 2026 — VERIFIED R2 byte audit, explicit copy-photo gap and sold-evidence shortage
+
+- One-shot Railway R2 byte-readback deployment `e27e8689-26cd-4bb6-bee0-329cabe0fd72`: **481/481 actual R2 objects passed downloaded SHA256, size and WebP checks** (all 401 *canonical* `media_object_mirrors` + 80 stratified provider references). Private receipt SHA256 `e805b45c73fa68f99648edd9a448aeb18f5984b50d4e1797b830b700d27b5046`. This is NOT 481 photographed physical copies. Full 66,218 reference-image byte verification has a separate explicit one-shot job and must not be marked complete before its own readback.
+- Live source: **621 physical items, 12 graded**. Only **43** items have linked `media_assets`, of which most are provider artwork; **0/621** have a linked R2 mirror for a physical item. Exact inventory/slab photo capture and private first-party storage remain a distinct migration blocker.
+- Market evidence: 1,083 eBay `SOLD` rows (1,040 recent GB positive across 145 product IDs), 5,158 Cardmarket `PRICE_GUIDE` rows. None of these aggregate counts alone certifies final legally usable Market Value. RRP, guide and asking must never be silently published as Market Value.
+- [Full source-backed image and pricing audit](docs/CLOUDFLARE_ARTWORK_PRICE_EVIDENCE_AUDIT_20261106.md). Production is still Supabase; no auth, multi-owner finance or store cutover.
+
 ## 6 November 2026 — 67,801 real operational source records backed up and read back in PRIVATE R2 (10/11 approved relations)
 
 - One-shot Railway [verified deployment](https://railway.com/project/9329767b-b092-495c-bf18-75cf69c28536) `36a888c4-a5f5-4b23-8d1a-8a8e35317c5e` completed at 20:16:26 UTC and produced `PRIVATE_OPERATIONAL_R2_PARTIAL_SOURCE_VERIFIED`, `r2_uploaded=true`, 10 verified relations, source SQL writes 0 and private manifest SHA256 `419698b6856f3cdef5ca57558e44397e919878f425c8957abfe7b1898416c3d4`. The 10 full-source tables contain **67,801 original records**; 66,222 of these are reference-image *metadata*, not verified image bytes.
