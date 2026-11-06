@@ -30,7 +30,14 @@ EXPECTED_REPOSITORY_ID = "1382317534"
 EXPECTED_WORKFLOW_REF = (
     EXPECTED_REPOSITORY + "/.github/workflows/d1-real-r2-to-d1.yml@refs/heads/main"
 )
-EXPECTED_SUBJECT = "repo:" + EXPECTED_REPOSITORY + ":ref:refs/heads/main"
+# GitHub automatically uses immutable name@id subjects for repositories
+# created after 15 July 2026; our repository was created after that rollout.
+EXPECTED_OWNER_ID = "331793868"
+EXPECTED_SUBJECT = (
+    "repo:pulltheorytcg@" + EXPECTED_OWNER_ID
+    + "/drop-rate-backend@" + EXPECTED_REPOSITORY_ID
+    + ":ref:refs/heads/main"
+)
 ALLOWED_SOURCE = ("lorcast", "DISNEY_LORCANA", "English")
 MAX_TOKEN_BYTES = 8192
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
@@ -60,6 +67,7 @@ def verify_github_oidc(authorization: str | None) -> dict:
     requirements = {
         "repository": EXPECTED_REPOSITORY,
         "repository_id": EXPECTED_REPOSITORY_ID,
+        "repository_owner_id": EXPECTED_OWNER_ID,
         "workflow_ref": EXPECTED_WORKFLOW_REF,
         "ref": "refs/heads/main",
         "sub": EXPECTED_SUBJECT,
