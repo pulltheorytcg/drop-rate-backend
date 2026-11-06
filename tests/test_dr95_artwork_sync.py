@@ -90,12 +90,13 @@ async def test_approved_canonical_media_mirrors_unattended_but_reference_flag_is
     monkeypatch.setattr(api, "mirror_approved_media", canonical)
     monkeypatch.setattr(api, "mirror_reference_images", reference)
     monkeypatch.setattr(api, "get_settings", lambda: SimpleNamespace(r2_reference_cache_apply_enabled=False))
+    monkeypatch.setattr(api, "worker_enabled", lambda: False)
     result = await execute(request(pool))
     assert calls == ["canonical"] and pool.capacity_checks == 1
     assert result == {
         "accepted": True, "execution_id": payload()["execution_id"], "status": "COMPLETED",
         "scope": "RIGHTS_APPROVED_CANONICAL_AND_LEGACY_REFERENCE_ONLY",
-        "canonical": mirror(), "reference": None,
+        "canonical": mirror(), "canonical_status": "MIRRORED_APPROVED_MEDIA", "reference": None,
         "reference_status": "DISABLED_BY_BACKEND_POLICY", "new_game_metadata_promoted": False,
     }
 
@@ -114,6 +115,7 @@ async def test_eligible_reference_bytes_are_cached_without_becoming_approved_med
     monkeypatch.setattr(api, "mirror_approved_media", canonical)
     monkeypatch.setattr(api, "mirror_reference_images", reference)
     monkeypatch.setattr(api, "get_settings", lambda: SimpleNamespace(r2_reference_cache_apply_enabled=True))
+    monkeypatch.setattr(api, "worker_enabled", lambda: False)
     result = await execute(request(pool))
     assert calls == [("canonical", 5), ("reference", 20)]
     assert result["status"] == "COMPLETED"
@@ -189,7 +191,7 @@ def test_dr95_n8n_workflow_is_signed_inactive_and_rejects_false_receipts():
     assert "createHmac('sha256'" in sign and "DROP_RATE_AUTOMATION_COMMAND_SECRET" in sign
     assert "REFRESH_ELIGIBLE_ARTWORK" in sign
     assert "/commands/storage/refresh-eligible-artwork" in sign
-    assert "canonical_limit:3,reference_limit:10" in sign
+    assert "canonical_limit:0,reference_limit:10" in sign
     http = nodes["Call Governed Artwork Refresh"]["parameters"]
     assert http["method"] == "POST" and http["contentType"] == "raw"
     assert http["options"]["response"]["response"]["fullResponse"] is True
@@ -199,3 +201,21 @@ def test_dr95_n8n_workflow_is_signed_inactive_and_rejects_false_receipts():
     assert "unexpected_artwork_publication_scope" in verify
     assert "APPROVED" not in workflow["name"].upper() or workflow["active"] is False
     assert "shopify" not in json.dumps(workflow).lower()
+
+
+@pytest.mark.asyncio
+async def test_live_existing_workers_are_delegated_without_duplicate_provider_requests(monkeypatch):
+    pool = Pool()
+    patch_signed(monkeypatch, payload(canonical_limit=0, reference_limit=10))
+    monkeypatch.setattr(api, "worker_enabled", lambda: True)
+    async def no_network(*args, **kwargs):
+        pytest.fail("Existing DR94 / reference worker own these image queues")
+    monkeypatch.setattr(api, "mirror_approved_media", no_network)
+    monkeypatch.setattr(api, "mirror_reference_images", no_network)
+    result = await execute(request(pool))
+    assert result["status"] == "COMPLETED"
+    assert result["canonical_status"] == "DELEGATED_TO_DR94"
+    assert result["canonical"]["mirrored"] == 0
+    assert result["reference_status"] == "DELEGATED_TO_REFERENCE_WORKER"
+    assert result["reference"] is None
+    assert result["new_game_metadata_promoted"] is False
