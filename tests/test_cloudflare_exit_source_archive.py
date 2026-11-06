@@ -141,6 +141,8 @@ async def test_full_snapshot_archive_and_verified_typed_readback(rows):
     assert result["status"]=="PRIVATE_OPERATIONAL_R2_SOURCE_RESTORE_PROVEN"
     assert result["verified_relations"]==11
     assert result["r2_uploaded"] is True
+    assert len(result["manifest_sha256"]) == 64
+    assert result["manifest_size_bytes"] > 0
     assert result["postgres_writes"]==0
     assert result["auth_sessions_exported"] is False
     assert result["customer_data_imported_to_d1"] is False
@@ -158,6 +160,7 @@ async def test_dry_run_never_stores_a_byte(rows):
     result=await arc.backup_operational_sources(pool,uuid4(),upload=False)
     assert result["status"]=="LOCAL_OPERATIONAL_SOURCE_TYPED_ROUNDTRIP_VERIFIED"
     assert result["r2_uploaded"] is False
+    assert result["manifest_sha256"] is None
 
 
 @pytest.mark.asyncio
