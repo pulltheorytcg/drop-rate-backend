@@ -329,3 +329,38 @@ CREATE TRIGGER IF NOT EXISTS ops_shadow_audit_no_update BEFORE UPDATE ON ops_sha
  BEGIN SELECT RAISE(ABORT,'audit entries are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS ops_shadow_audit_no_delete BEFORE DELETE ON ops_shadow_audit_events
  BEGIN SELECT RAISE(ABORT,'audit entries are append-only'); END;
+
+-- Exact sale and owner lineage cannot be silently edited after capture.
+CREATE TRIGGER IF NOT EXISTS ops_shadow_sale_no_identity_update
+ BEFORE UPDATE OF inventory_id,owner_id,order_id ON ops_shadow_order_items
+ BEGIN SELECT RAISE(ABORT,'sale lineage is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS ops_shadow_inventory_sold_owner_immutable
+ BEFORE UPDATE OF owner_id ON ops_shadow_inventory
+ WHEN EXISTS(SELECT 1 FROM ops_shadow_order_items
+   WHERE generation_id=OLD.generation_id AND inventory_id=OLD.id)
+ BEGIN SELECT RAISE(ABORT,'sold inventory ownership is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS ops_shadow_refund_lineage_match
+ BEFORE INSERT ON ops_shadow_refunds
+ WHEN NEW.owner_id != (SELECT owner_id FROM ops_shadow_order_items
+   WHERE generation_id=NEW.generation_id AND id=NEW.order_item_id)
+  OR NEW.inventory_id != (SELECT inventory_id FROM ops_shadow_order_items
+   WHERE generation_id=NEW.generation_id AND id=NEW.order_item_id)
+  OR NEW.order_id != (SELECT order_id FROM ops_shadow_order_items
+   WHERE generation_id=NEW.generation_id AND id=NEW.order_item_id)
+ BEGIN SELECT RAISE(ABORT,'refund line does not match original sale'); END;
+CREATE TRIGGER IF NOT EXISTS ops_shadow_ledger_lineage_match
+ BEFORE INSERT ON ops_shadow_ledger
+ WHEN NEW.order_item_id IS NOT NULL
+  AND NEW.owner_id != (SELECT owner_id FROM ops_shadow_order_items
+   WHERE generation_id=NEW.generation_id AND id=NEW.order_item_id)
+ BEGIN SELECT RAISE(ABORT,'ledger owner does not match sale'); END;
+CREATE TRIGGER IF NOT EXISTS ops_shadow_shopify_lineage_match
+ BEFORE INSERT ON ops_shadow_shopify_item_links
+ WHEN NEW.owner_id != (SELECT owner_id FROM ops_shadow_order_items
+   WHERE generation_id=NEW.generation_id AND id=NEW.order_item_id)
+ BEGIN SELECT RAISE(ABORT,'Shopify allocation does not match sale'); END;
+CREATE TRIGGER IF NOT EXISTS ops_shadow_reservation_owner_match
+ BEFORE INSERT ON ops_shadow_reservations
+ WHEN NEW.owner_id != (SELECT owner_id FROM ops_shadow_inventory
+   WHERE generation_id=NEW.generation_id AND id=NEW.inventory_id)
+ BEGIN SELECT RAISE(ABORT,'reservation owner differs from inventory owner'); END;
