@@ -168,6 +168,20 @@ case "${DROP_RATE_N8N_RELEASE_SCOUT_PUBLISH_ON_BOOT:-false}" in
     ;;
 esac
 
+# DR97 legacy game release scouts: opt-in, source-hash verified, n8n offline,
+# complete SQLite backup, exact eight workflow publications and DR90 readback.
+# This does not bypass the backend's 400MB DB capacity guard or Riot approval.
+case "${DROP_RATE_N8N_LEGACY_RELEASE_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-legacy-release-publish.cjs || exit 1
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_LEGACY_RELEASE_PUBLISH","status":"BLOCKED","reason":"UNEXPECTED_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
 # Opt-in metadata inspection only. The helper reads SQLite without n8n/ORM
 # initialization, emits a strict summary, and has a 15-second child deadline.
 # A diagnostic failure must never prevent this service from starting.
