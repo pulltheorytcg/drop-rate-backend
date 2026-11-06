@@ -229,3 +229,103 @@ CREATE TABLE IF NOT EXISTS ops_shadow_table_receipts (
  CHECK(exact_source_rows=exact_staged_rows),
  CHECK(source_sha256=staged_sha256)
 );
+
+-- Reservations, payouts and cross-channel allocations are operational state.
+CREATE TABLE IF NOT EXISTS ops_shadow_reservations (
+ generation_id TEXT NOT NULL,
+ id TEXT NOT NULL,
+ reservation_code TEXT NOT NULL,
+ inventory_id TEXT NOT NULL,
+ owner_id TEXT NOT NULL,
+ status TEXT NOT NULL,
+ source TEXT NOT NULL,
+ source_reference TEXT NOT NULL,
+ allocation_index INTEGER NOT NULL,
+ sale_price_minor_snapshot INTEGER NOT NULL CHECK(sale_price_minor_snapshot>=0),
+ acquisition_cost_minor_snapshot INTEGER CHECK(acquisition_cost_minor_snapshot IS NULL OR acquisition_cost_minor_snapshot>=0),
+ source_row_sha256 TEXT NOT NULL CHECK(length(source_row_sha256)=64),
+ source_row_json TEXT NOT NULL CHECK(json_valid(source_row_json)),
+ PRIMARY KEY(generation_id,id),
+ UNIQUE(generation_id,reservation_code),
+ FOREIGN KEY(generation_id,inventory_id) REFERENCES ops_shadow_inventory(generation_id,id),
+ FOREIGN KEY(generation_id,owner_id) REFERENCES ops_shadow_owners(generation_id,id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ops_shadow_one_active_reservation
+ ON ops_shadow_reservations(generation_id,inventory_id) WHERE status='ACTIVE';
+
+CREATE TABLE IF NOT EXISTS ops_shadow_payout_requests (
+ generation_id TEXT NOT NULL,
+ id TEXT NOT NULL,
+ owner_id TEXT NOT NULL,
+ payout_code TEXT NOT NULL,
+ amount_minor INTEGER NOT NULL CHECK(amount_minor>=0),
+ currency TEXT NOT NULL CHECK(length(currency)=3),
+ status TEXT NOT NULL,
+ version INTEGER NOT NULL CHECK(version>=1),
+ source_row_sha256 TEXT NOT NULL CHECK(length(source_row_sha256)=64),
+ source_row_json TEXT NOT NULL CHECK(json_valid(source_row_json)),
+ PRIMARY KEY(generation_id,id),
+ UNIQUE(generation_id,payout_code),
+ FOREIGN KEY(generation_id,owner_id) REFERENCES ops_shadow_owners(generation_id,id)
+);
+
+CREATE TABLE IF NOT EXISTS ops_shadow_shopify_item_links (
+ generation_id TEXT NOT NULL,
+ id TEXT NOT NULL,
+ order_item_id TEXT NOT NULL,
+ owner_id TEXT NOT NULL,
+ shopify_order_id TEXT NOT NULL,
+ shopify_line_item_id TEXT NOT NULL,
+ shopify_variant_gid TEXT NOT NULL,
+ allocation_index INTEGER NOT NULL CHECK(allocation_index>=0),
+ source_row_sha256 TEXT NOT NULL CHECK(length(source_row_sha256)=64),
+ source_row_json TEXT NOT NULL CHECK(json_valid(source_row_json)),
+ PRIMARY KEY(generation_id,id),
+ UNIQUE(generation_id,shopify_order_id,shopify_line_item_id,allocation_index),
+ FOREIGN KEY(generation_id,order_item_id) REFERENCES ops_shadow_order_items(generation_id,id),
+ FOREIGN KEY(generation_id,owner_id) REFERENCES ops_shadow_owners(generation_id,id)
+);
+
+-- Private metadata only: source media bytes remain in private R2 and each
+-- exact owner/rights/grade/source approval must be checked in FastAPI.
+CREATE TABLE IF NOT EXISTS ops_shadow_media_assets (
+ generation_id TEXT NOT NULL,
+ id TEXT NOT NULL,
+ owner_id TEXT NOT NULL,
+ inventory_id TEXT,
+ media_kind TEXT NOT NULL,
+ media_scope TEXT NOT NULL,
+ media_variant TEXT NOT NULL,
+ rights_status TEXT NOT NULL,
+ approval_status TEXT NOT NULL,
+ content_sha256 TEXT,
+ r2_private_object_key TEXT,
+ source_row_sha256 TEXT NOT NULL CHECK(length(source_row_sha256)=64),
+ source_row_json TEXT NOT NULL CHECK(json_valid(source_row_json)),
+ PRIMARY KEY(generation_id,id),
+ FOREIGN KEY(generation_id,owner_id) REFERENCES ops_shadow_owners(generation_id,id),
+ FOREIGN KEY(generation_id,inventory_id) REFERENCES ops_shadow_inventory(generation_id,id),
+ CHECK(content_sha256 IS NULL OR length(content_sha256)=64),
+ CHECK (r2_private_object_key IS NULL OR content_sha256 IS NOT NULL)
+);
+
+CREATE TABLE IF NOT EXISTS ops_shadow_audit_events (
+ generation_id TEXT NOT NULL REFERENCES ops_shadow_generations(generation_id),
+ id INTEGER NOT NULL,
+ occurred_at TEXT NOT NULL,
+ actor TEXT NOT NULL,
+ request_id TEXT,
+ action TEXT NOT NULL,
+ entity_type TEXT NOT NULL,
+ entity_id TEXT NOT NULL,
+ old_values_json TEXT,
+ new_values_json TEXT,
+ source_row_sha256 TEXT NOT NULL CHECK(length(source_row_sha256)=64),
+ PRIMARY KEY(generation_id,id),
+ CHECK(old_values_json IS NULL OR json_valid(old_values_json)),
+ CHECK(new_values_json IS NULL OR json_valid(new_values_json))
+);
+CREATE TRIGGER IF NOT EXISTS ops_shadow_audit_no_update BEFORE UPDATE ON ops_shadow_audit_events
+ BEGIN SELECT RAISE(ABORT,'audit entries are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS ops_shadow_audit_no_delete BEFORE DELETE ON ops_shadow_audit_events
+ BEGIN SELECT RAISE(ABORT,'audit entries are append-only'); END;
