@@ -29,6 +29,7 @@ def valid_claims(**changes):
         "exp":now+120, "iat":now-5, "nbf":now-10,
         "repository":export.EXPECTED_REPOSITORY,
         "repository_id":export.EXPECTED_REPOSITORY_ID,
+        "repository_owner_id":export.EXPECTED_OWNER_ID,
         "ref":"refs/heads/main",
         "workflow_ref":export.EXPECTED_WORKFLOW_REF,
         "event_name":"push", "runner_environment":"github-hosted",
@@ -54,6 +55,8 @@ def fixed_jwk(monkeypatch):
 @pytest.mark.parametrize("changes", [
     {"repository": "another/repo"},
     {"repository_id": "3"},
+    {"repository_owner_id": "3"},
+    {"sub":"repo:pulltheorytcg/drop-rate-backend:ref:refs/heads/main"},
     {"workflow_ref": "pulltheorytcg/drop-rate-backend/.github/workflows/other.yml@refs/heads/main"},
     {"event_name":"pull_request"},
     {"ref":"refs/heads/dev"},

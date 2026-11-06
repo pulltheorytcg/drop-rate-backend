@@ -52,15 +52,16 @@ def _oidc_token():
     # GitHub's documented token exchange service is vstoken; pipelines and
     # token are also GitHub-owned OIDC endpoints. Never follow redirects or
     # leak the runner's bearer token to any non-GitHub host.
-    trusted_hosts = frozenset({
-        "vstoken.actions.githubusercontent.com",
-        "pipelines.actions.githubusercontent.com",
-        "token.actions.githubusercontent.com",
-    })
-    if (parsed.scheme != "https" or parsed.hostname not in trusted_hosts
+    # GitHub's hosted runners use regional token-service subdomains.
+    # GitHub documents *.actions.githubusercontent.com for OIDC egress;
+    # constrain it to exactly ONE DNS label inside that GitHub-owned zone.
+    owned_host = bool(re.fullmatch(
+        r"[a-z0-9-]{1,63}\.actions\.githubusercontent\.com",
+        parsed.hostname or ""))
+    if (parsed.scheme != "https" or not owned_host
             or parsed.port not in (None, 443) or parsed.username or parsed.password
             or parsed.fragment):
-        raise MigrationGuard("GitHub Actions OIDC URL is outside trusted hosts")
+        raise MigrationGuard("GitHub Actions OIDC URL outside GitHub-owned token domain")
     separator = "&" if parsed.query else "?"
     url = auth_url + separator + "audience=" + quote(AUDIENCE, safe="")
     with httpx.Client(follow_redirects=False, timeout=15) as client:
