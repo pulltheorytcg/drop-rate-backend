@@ -20,6 +20,8 @@ SCHEMAS = {"tcg": 107, "tcg_private": 6, "auth": 27, "storage": 8}
 DESTINATIONS = {
     "catalogue": "R2_SOURCE_AND_D1_INDEX",
     "market_current": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+    "market_asking": "R2_ASKING_ONLY_AND_D1_NON_MARKET_EVIDENCE",
+    "market_policy": "D1_OPERATIONAL_PRICING_RULES_R2_BACKUP",
     "market_history": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
     "media": "R2_PRIVATE_MEDIA_AND_D1_RIGHTS_INDEX",
     "owners_inventory": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
@@ -41,6 +43,8 @@ CORE_TABLES = {
     ("tcg", "reference_market_prices"): "market_current",
     ("tcg", "reference_catalogue_prices"): "market_current",
     ("tcg", "reference_market_history"): "market_history",
+    ("tcg", "reference_asking_prices"): "market_asking",
+    ("tcg", "pricing_policies"): "market_policy",
     ("tcg", "reference_image_mirrors"): "media",
     ("tcg", "inventory_items"): "owners_inventory",
     ("tcg", "owner_memberships"): "owners_inventory",
