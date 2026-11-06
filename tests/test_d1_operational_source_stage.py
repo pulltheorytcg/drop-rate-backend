@@ -7,7 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from tools import d1_operational_source_stage as job
+import importlib.util
+import sys
+
+TOOL_ROOT=Path(__file__).resolve().parents[1] / "tools"
+sys.path.insert(0,str(TOOL_ROOT))
+spec=importlib.util.spec_from_file_location(
+    "d1_operational_source_stage",TOOL_ROOT / "d1_operational_source_stage.py")
+assert spec and spec.loader
+job=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(job)
 
 SQL=Path("database/cloudflare_d1/0001_operational_shadow.sql").read_text()
 H="a"*64
@@ -130,10 +139,10 @@ def test_duplicate_owner_or_inventory_source_key_fails_closed():
 
 def test_cross_owner_sale_is_rejected_by_d1_triggers():
     fixture=fixtures()
-    line=fixture["order_items"][0]
-    line[1]["owner_id"]="some-other-owner"
-    line[2]=json.dumps(line[1],separators=(",",":"))
-    line[3]=job.sha(line[2])
+    key,old,_,_=fixture["order_items"][0]
+    changed={**old,"owner_id":"some-other-owner"}
+    raw=json.dumps(changed,separators=(",",":"))
+    fixture["order_items"]=[(key,changed,raw,job.sha(raw))]
     db=FakeCloudflareD1()
     with pytest.raises(sqlite3.IntegrityError):
         job.stage(db,fixture,{"tables":["synthetic"]},{"c1":H})
