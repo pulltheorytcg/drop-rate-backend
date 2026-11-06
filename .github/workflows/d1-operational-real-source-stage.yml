@@ -10,6 +10,9 @@ on:
     paths:
       - 'tools/d1_operational_source_stage.py'
       - '.github/workflows/d1-operational-real-source-stage.yml'
+  schedule:
+    - cron: '37 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -35,7 +38,7 @@ jobs:
           python -m pytest -q tests/test_d1_operational_source_stage.py tests/test_d1_operational_shadow.py tests/test_cloudflare_full_exit_preflight.py
 
   stage-real-private-d1:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     needs: offline-shadow-parity
     runs-on: ubuntu-latest
     timeout-minutes: 18
