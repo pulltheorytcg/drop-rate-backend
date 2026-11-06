@@ -265,3 +265,87 @@ def test_no_or_unapproved_maintenance_actor_keeps_rls_and_returns_503(monkeypatc
     assert unauthorized.status_code==503
     assert "stage=rls_authorized_read error_type=ValueError" in caplog.text
 
+
+
+def test_yugioh_export_permits_only_its_signed_workflow_and_approved_events(monkeypatch):
+    old_claims=valid_claims(event_name="schedule", workflow_ref=export.YUGIOH_WORKFLOW_REF)
+    with pytest.raises(Exception) as exc:
+        export.verify_github_oidc("Bearer "+signed(old_claims))
+    assert exc.value.status_code == 403
+    good=export.verify_github_oidc(
+        "Bearer "+signed(old_claims),
+        workflow_ref=export.YUGIOH_WORKFLOW_REF,
+        allowed_events=("push","schedule"))
+    assert good["run_id"] == "123456789"
+    with pytest.raises(Exception) as err:
+        export.verify_github_oidc(
+            "Bearer "+signed(valid_claims(workflow_ref="other.yml", event_name="schedule")),
+            workflow_ref=export.YUGIOH_WORKFLOW_REF,
+            allowed_events=("push","schedule"))
+    assert err.value.status_code == 403
+    with pytest.raises(Exception) as err:
+        export.verify_github_oidc(
+            "Bearer "+signed(valid_claims(event_name="workflow_dispatch",
+                                          workflow_ref=export.YUGIOH_WORKFLOW_REF)),
+            workflow_ref=export.YUGIOH_WORKFLOW_REF,
+            allowed_events=("push","schedule"))
+    assert err.value.status_code == 403
+
+
+def test_yugioh_export_is_fixed_to_original_source_scope(monkeypatch):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED", "true")
+    original, pub, _ = fixtures()
+    pub.update(provider="ygoprodeck",system_code="YUGIOH")
+    # A Lorcana manifest cannot be switched into Yu-Gi-Oh! by changing a
+    # PostgreSQL pointer alone; exact source manifest binding must reject it.
+    monkeypatch.setattr(service, "storage", lambda:FakeStorage(original))
+    app=FastAPI()
+    app.include_router(export.router)
+    app.state.db_pool=FakePool(pub)
+    client=TestClient(app)
+    header={"Authorization": "Bearer "+signed(valid_claims(
+        workflow_ref=export.YUGIOH_WORKFLOW_REF,event_name="schedule"))}
+    denied=client.get("/api/v1/internal/d1-shadow/yugioh/manifest",headers=header)
+    assert denied.status_code==503
+    assert client.get("/api/v1/internal/d1-shadow/manifest",headers=header).status_code==403
+    assert client.get("/api/v1/internal/d1-shadow/yugioh/manifest").status_code==401
+
+
+def test_yugioh_export_source_is_exact_and_sha_checked(monkeypatch):
+    monkeypatch.setenv("TCG_R2_D1_SHADOW_EXPORT_ENABLED", "true")
+    sample={
+        "provider":"ygoprodeck","system_code":"YUGIOH","language":"English",
+        "provider_id":"ygoprodeck:synthetic-123",
+        "product_type":"CARD","name":"Sample Creature",
+        "set_id":"SYNTH","set_name":"Synthetic","card_number":"001",
+        "rarity":"Common","finish":None,"release_date":"2026-01-01",
+        "source_url":"https://db.ygoprodeck.com/api/v7/cardinfo.php",
+    }
+    prepared=codec.prepare_catalogue(
+        [sample],provider="ygoprodeck",system_code="YUGIOH",language="English",
+        source_url="https://db.ygoprodeck.com/api/v7/cardinfo.php",
+        source_revision="test-ygo",permission_ref="https://ygoprodeck.com/api-guide/")
+    raw=prepared._manifest_bytes
+    digest=hashlib.sha256(raw).hexdigest()
+    objects={digest:raw}
+    for item,part in zip(prepared.parts,prepared.manifest["parts"],strict=True):
+        objects[part["sha256"]]=item
+    monkeypatch.setattr(service,"storage",lambda:FakeStorage(objects))
+    p={key:prepared.manifest[key] for key in (
+        "provider","system_code","language","source_revision",
+        "source_url","permission_ref","record_count","raw_bytes")}
+    p["manifest_sha256"]=digest
+    app=FastAPI()
+    app.include_router(export.router)
+    app.state.db_pool=FakePool(p)
+    client=TestClient(app)
+    header={"Authorization":"Bearer "+signed(valid_claims(
+        workflow_ref=export.YUGIOH_WORKFLOW_REF,event_name="push"))}
+    got=client.get("/api/v1/internal/d1-shadow/yugioh/manifest",headers=header)
+    assert got.status_code==200
+    assert got.json()==prepared.manifest
+    part=client.get("/api/v1/internal/d1-shadow/yugioh/part/0",headers=header)
+    assert part.status_code==200
+    assert hashlib.sha256(part.content).hexdigest()==prepared.manifest["parts"][0]["sha256"]
+    assert client.get("/api/v1/internal/d1-shadow/yugioh/part/4",headers=header).status_code==404
+
