@@ -219,6 +219,11 @@ async def run_selected(pool, actor, source: str):
             return {"status": "ALREADY_RUNNING", "source": source, "metadata_only": True}
         try:
             result = await import_source(pool, UUID(str(actor)), source)
+            # The background 48h loop normally prewarms after imports. Keep
+            # newly published source generations available to app readers
+            # immediately after an n8n-triggered update too.
+            if result.get("status") in {"PUBLISHED", "CURRENT"} and service.enabled():
+                await service.prewarm(pool, UUID(str(actor)))
             log.warning("R2_FIRST_RELEASE_SCOUT %s", json.dumps(
                 {k: v for k, v in result.items() if k not in ("source_url", "provider_url")},
                 sort_keys=True,
