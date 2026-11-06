@@ -1,0 +1,1201 @@
+{
+  "format": "drop-rate-cloudflare-full-exit-table-register-v1",
+  "captured_on": "2026-11-06",
+  "source_project_ref": "ozrxenrdladkooixutmm",
+  "statement": "PostgreSQL pg_class metadata, approximate row estimates; not a data export, D1 proof or cutover",
+  "source_sql": "SELECT n.nspname schema_name,c.relname table_name,pg_total_relation_size(c.oid) bytes,greatest(c.reltuples,0)::bigint estimated_rows FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('tcg','tcg_private','auth','storage') AND c.relkind IN ('r','p') ORDER BY n.nspname,c.relname",
+  "target_cloudflare_platform": "R2+D1",
+  "source_table_count": 148,
+  "table_count_by_schema": {
+    "tcg": 107,
+    "tcg_private": 6,
+    "auth": 27,
+    "storage": 8
+  },
+  "tables": [
+    {
+      "schema": "auth",
+      "table": "audit_log_entries",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "auth",
+      "table": "custom_oauth_providers",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 57344
+    },
+    {
+      "schema": "auth",
+      "table": "flow_state",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "auth",
+      "table": "identities",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "auth",
+      "table": "instances",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 16384
+    },
+    {
+      "schema": "auth",
+      "table": "mfa_amr_claims",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 168,
+      "bytes": 114688
+    },
+    {
+      "schema": "auth",
+      "table": "mfa_challenges",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "auth",
+      "table": "mfa_factors",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 57344
+    },
+    {
+      "schema": "auth",
+      "table": "mfa_recovery_code_sets",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "auth",
+      "table": "mfa_recovery_codes",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "auth",
+      "table": "oauth_authorizations",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "auth",
+      "table": "oauth_client_states",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "auth",
+      "table": "oauth_clients",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "auth",
+      "table": "oauth_consents",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 49152
+    },
+    {
+      "schema": "auth",
+      "table": "one_time_tokens",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 114688
+    },
+    {
+      "schema": "auth",
+      "table": "refresh_tokens",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 279,
+      "bytes": 270336
+    },
+    {
+      "schema": "auth",
+      "table": "saml_providers",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "auth",
+      "table": "saml_relay_states",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "auth",
+      "table": "schema_migrations",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 82,
+      "bytes": 24576
+    },
+    {
+      "schema": "auth",
+      "table": "scim_tokens",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 49152
+    },
+    {
+      "schema": "auth",
+      "table": "scim_users",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 90112
+    },
+    {
+      "schema": "auth",
+      "table": "sessions",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 201,
+      "bytes": 172032
+    },
+    {
+      "schema": "auth",
+      "table": "sso_domains",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "auth",
+      "table": "sso_providers",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "auth",
+      "table": "users",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 9,
+      "bytes": 262144
+    },
+    {
+      "schema": "auth",
+      "table": "webauthn_challenges",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "auth",
+      "table": "webauthn_credentials",
+      "category": "identity_provider",
+      "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "storage",
+      "table": "buckets",
+      "category": "media_registry",
+      "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "storage",
+      "table": "buckets_analytics",
+      "category": "media_registry",
+      "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "storage",
+      "table": "buckets_vectors",
+      "category": "media_registry",
+      "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+      "estimated_rows": 0,
+      "bytes": 16384
+    },
+    {
+      "schema": "storage",
+      "table": "migrations",
+      "category": "media_registry",
+      "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+      "estimated_rows": 68,
+      "bytes": 73728
+    },
+    {
+      "schema": "storage",
+      "table": "objects",
+      "category": "media_registry",
+      "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+      "estimated_rows": 0,
+      "bytes": 73728
+    },
+    {
+      "schema": "storage",
+      "table": "s3_multipart_uploads",
+      "category": "media_registry",
+      "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "storage",
+      "table": "s3_multipart_uploads_parts",
+      "category": "media_registry",
+      "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+      "estimated_rows": 0,
+      "bytes": 16384
+    },
+    {
+      "schema": "storage",
+      "table": "vector_indexes",
+      "category": "media_registry",
+      "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "tcg",
+      "table": "action_required_items",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 58,
+      "bytes": 212992
+    },
+    {
+      "schema": "tcg",
+      "table": "audit_events",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 46552,
+      "bytes": 106618880
+    },
+    {
+      "schema": "tcg",
+      "table": "automation_component_heartbeats",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 0,
+      "bytes": 16384
+    },
+    {
+      "schema": "tcg",
+      "table": "automation_events",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 396,
+      "bytes": 761856
+    },
+    {
+      "schema": "tcg",
+      "table": "automation_heartbeats",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 1,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "automation_runs",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 0,
+      "bytes": 114688
+    },
+    {
+      "schema": "tcg",
+      "table": "card_gameplay_identities",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 360,
+      "bytes": 237568
+    },
+    {
+      "schema": "tcg",
+      "table": "card_printings",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 460,
+      "bytes": 376832
+    },
+    {
+      "schema": "tcg",
+      "table": "catalogue_job_runs",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 1663,
+      "bytes": 3465216
+    },
+    {
+      "schema": "tcg",
+      "table": "catalogue_market_snapshots",
+      "category": "market_current",
+      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "estimated_rows": 7736,
+      "bytes": 18186240
+    },
+    {
+      "schema": "tcg",
+      "table": "catalogue_product_profiles",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 2055,
+      "bytes": 1785856
+    },
+    {
+      "schema": "tcg",
+      "table": "catalogue_products",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 2055,
+      "bytes": 958464
+    },
+    {
+      "schema": "tcg",
+      "table": "catalogue_saved_references",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 16384
+    },
+    {
+      "schema": "tcg",
+      "table": "catalogue_taxonomy_assignments",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 927,
+      "bytes": 507904
+    },
+    {
+      "schema": "tcg",
+      "table": "collectible_systems",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "comic_printing_details",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 1590,
+      "bytes": 1818624
+    },
+    {
+      "schema": "tcg",
+      "table": "competitive_observations",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 73728
+    },
+    {
+      "schema": "tcg",
+      "table": "competitive_opportunities",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "tcg",
+      "table": "competitive_opportunity_evidence",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "tcg",
+      "table": "competitor_sources",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 57344
+    },
+    {
+      "schema": "tcg",
+      "table": "competitors",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "tcg",
+      "table": "condition_review_events",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 0,
+      "bytes": 114688
+    },
+    {
+      "schema": "tcg",
+      "table": "ebay_inventory_links",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 147456
+    },
+    {
+      "schema": "tcg",
+      "table": "ebay_oauth_attempts",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "ebay_order_item_links",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 147456
+    },
+    {
+      "schema": "tcg",
+      "table": "ebay_seller_connections",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "ebay_webhook_events",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "financial_ledger_entries",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 139264
+    },
+    {
+      "schema": "tcg",
+      "table": "founder_app_accounts",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 57344
+    },
+    {
+      "schema": "tcg",
+      "table": "founder_invites",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 1,
+      "bytes": 98304
+    },
+    {
+      "schema": "tcg",
+      "table": "fulfilment_cost_components",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 2,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "identity_verification_events",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 434,
+      "bytes": 958464
+    },
+    {
+      "schema": "tcg",
+      "table": "import_batches",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 3,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "import_candidates",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 945,
+      "bytes": 1744896
+    },
+    {
+      "schema": "tcg",
+      "table": "import_enrichment_items",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 181,
+      "bytes": 229376
+    },
+    {
+      "schema": "tcg",
+      "table": "inventory_items",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 621,
+      "bytes": 1548288
+    },
+    {
+      "schema": "tcg",
+      "table": "inventory_reservations",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "listing_inventory_members",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 49152
+    },
+    {
+      "schema": "tcg",
+      "table": "market_ingestion_runs",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 770,
+      "bytes": 770048
+    },
+    {
+      "schema": "tcg",
+      "table": "market_observations",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 6160,
+      "bytes": 11780096
+    },
+    {
+      "schema": "tcg",
+      "table": "market_source_mappings",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 73728
+    },
+    {
+      "schema": "tcg",
+      "table": "marketing_specialist_jobs",
+      "category": "marketing",
+      "target": "D1_AUTOMATION_STATE_AND_R2_ARCHIVE",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "marketing_specialist_runs",
+      "category": "marketing",
+      "target": "D1_AUTOMATION_STATE_AND_R2_ARCHIVE",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "marketplace_audit_events",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "media_assets",
+      "category": "media",
+      "target": "R2_PRIVATE_MEDIA_AND_D1_RIGHTS_INDEX",
+      "estimated_rows": 507,
+      "bytes": 851968
+    },
+    {
+      "schema": "tcg",
+      "table": "media_object_mirrors",
+      "category": "media",
+      "target": "R2_PRIVATE_MEDIA_AND_D1_RIGHTS_INDEX",
+      "estimated_rows": 401,
+      "bytes": 270336
+    },
+    {
+      "schema": "tcg",
+      "table": "order_item_reconciliations",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "order_items",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 73728
+    },
+    {
+      "schema": "tcg",
+      "table": "orders",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 49152
+    },
+    {
+      "schema": "tcg",
+      "table": "owner_invite_email_events",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "owner_invites",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 1,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "owner_login_failures",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "owner_memberships",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "owners",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 3,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "payout_preferences",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 49152
+    },
+    {
+      "schema": "tcg",
+      "table": "payout_requests",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "payout_scheduler_runs",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 917,
+      "bytes": 286720
+    },
+    {
+      "schema": "tcg",
+      "table": "pricing_policies",
+      "category": "market_current",
+      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "estimated_rows": 0,
+      "bytes": 16384
+    },
+    {
+      "schema": "tcg",
+      "table": "pricing_snapshots",
+      "category": "market_current",
+      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "estimated_rows": 6731,
+      "bytes": 14368768
+    },
+    {
+      "schema": "tcg",
+      "table": "provider_catalogue_mappings",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 1605,
+      "bytes": 1515520
+    },
+    {
+      "schema": "tcg",
+      "table": "purchase_lots",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "recognition_candidates",
+      "category": "recognition",
+      "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
+      "estimated_rows": 596,
+      "bytes": 1515520
+    },
+    {
+      "schema": "tcg",
+      "table": "recognition_feedback",
+      "category": "recognition",
+      "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
+      "estimated_rows": 0,
+      "bytes": 106496
+    },
+    {
+      "schema": "tcg",
+      "table": "recognition_hard_negatives",
+      "category": "recognition",
+      "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
+      "estimated_rows": 57,
+      "bytes": 237568
+    },
+    {
+      "schema": "tcg",
+      "table": "recognition_learning_examples",
+      "category": "recognition",
+      "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
+      "estimated_rows": 0,
+      "bytes": 196608
+    },
+    {
+      "schema": "tcg",
+      "table": "recognition_model_versions",
+      "category": "recognition",
+      "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "recognition_provider_reference_fingerprints",
+      "category": "recognition",
+      "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
+      "estimated_rows": 4506,
+      "bytes": 3923968
+    },
+    {
+      "schema": "tcg",
+      "table": "recognition_reference_fingerprints",
+      "category": "recognition",
+      "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
+      "estimated_rows": 0,
+      "bytes": 49152
+    },
+    {
+      "schema": "tcg",
+      "table": "recognition_runs",
+      "category": "recognition",
+      "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
+      "estimated_rows": 120,
+      "bytes": 802816
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_asking_history",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_asking_prices",
+      "category": "market_current",
+      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_asking_runs",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 7,
+      "bytes": 606208
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_card_product_details",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 0,
+      "bytes": 24576
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_cards",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 69697,
+      "bytes": 77152256
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_catalogue_prices",
+      "category": "market_current",
+      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "estimated_rows": 27676,
+      "bytes": 50053120
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_figure_market_observations",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_figure_market_values",
+      "category": "market_current",
+      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "estimated_rows": 0,
+      "bytes": 16384
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_figure_products",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_history_archives",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_history_r2_archives",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 51,
+      "bytes": 155648
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_image_mirrors",
+      "category": "media",
+      "target": "R2_PRIVATE_MEDIA_AND_D1_RIGHTS_INDEX",
+      "estimated_rows": 64188,
+      "bytes": 30474240
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_market_history",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_market_prices",
+      "category": "market_current",
+      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "estimated_rows": 59693,
+      "bytes": 58605568
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_sealed_market_prices",
+      "category": "market_current",
+      "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
+      "estimated_rows": 3889,
+      "bytes": 4259840
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_sealed_products",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 3893,
+      "bytes": 3276800
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_sets",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 1472,
+      "bytes": 548864
+    },
+    {
+      "schema": "tcg",
+      "table": "reference_sync_runs",
+      "category": "market_history",
+      "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
+      "estimated_rows": 348,
+      "bytes": 262144
+    },
+    {
+      "schema": "tcg",
+      "table": "refund_events",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 98304
+    },
+    {
+      "schema": "tcg",
+      "table": "request_receipts",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "schema_migrations",
+      "category": "audit_controls",
+      "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "sealed_product_details",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 0,
+      "bytes": 57344
+    },
+    {
+      "schema": "tcg",
+      "table": "sellable_listings",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 49152
+    },
+    {
+      "schema": "tcg",
+      "table": "seller_hub_launch_waitlist",
+      "category": "marketing",
+      "target": "D1_AUTOMATION_STATE_AND_R2_ARCHIVE",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "shopify_delivery_accounts",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "tcg",
+      "table": "shopify_delivery_refunds",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "shopify_inventory_links",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 507,
+      "bytes": 630784
+    },
+    {
+      "schema": "tcg",
+      "table": "shopify_order_item_links",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 98304
+    },
+    {
+      "schema": "tcg",
+      "table": "shopify_postage_actual_costs",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "tcg",
+      "table": "shopify_shipping_profiles",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "shopify_variant_pool_aliases",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "shopify_webhook_events",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "storage_locations",
+      "category": "owners_inventory",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "stripe_connected_accounts",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 81920
+    },
+    {
+      "schema": "tcg",
+      "table": "stripe_payout_executions",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg",
+      "table": "stripe_webhook_events",
+      "category": "orders_finance",
+      "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
+      "estimated_rows": 0,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "taxonomy_schemas",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 59,
+      "bytes": 32768
+    },
+    {
+      "schema": "tcg",
+      "table": "taxonomy_values",
+      "category": "catalogue",
+      "target": "R2_SOURCE_AND_D1_INDEX",
+      "estimated_rows": 216,
+      "bytes": 122880
+    },
+    {
+      "schema": "tcg_private",
+      "table": "live_catalogue_r2_market_publication",
+      "category": "private_publication",
+      "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
+      "estimated_rows": 1,
+      "bytes": 286720
+    },
+    {
+      "schema": "tcg_private",
+      "table": "live_catalogue_r2_publication",
+      "category": "private_publication",
+      "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
+      "estimated_rows": 1,
+      "bytes": 360448
+    },
+    {
+      "schema": "tcg_private",
+      "table": "r2_first_catalogue_events",
+      "category": "private_publication",
+      "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg_private",
+      "table": "r2_first_catalogue_links",
+      "category": "private_publication",
+      "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
+      "estimated_rows": 0,
+      "bytes": 40960
+    },
+    {
+      "schema": "tcg_private",
+      "table": "r2_first_catalogue_publications",
+      "category": "private_publication",
+      "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
+      "estimated_rows": 0,
+      "bytes": 65536
+    },
+    {
+      "schema": "tcg_private",
+      "table": "reference_figures_r2_publication",
+      "category": "private_publication",
+      "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
+      "estimated_rows": 0,
+      "bytes": 32768
+    }
+  ]
+}
