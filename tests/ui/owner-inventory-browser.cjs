@@ -70,7 +70,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.equal(await tile.locator('.owner-card-meta').count(),0,'Inventory grid still shows redundant specifications');
    const tileText=await tile.innerText();
    assert.doesNotMatch(tileText,/INV-D715B0E9|\bLANGUAGE\b|\bSEAL\b|\bTYPE\b|\bGAME\b/i);
-   assert.match(tileText,/Market value/);assert.match(tileText,/£8.66/);
+   assert.match(tileText,/Market value/);assert.doesNotMatch(tileText,/£8.66/);
    assert.ok(!tileText.includes("Manage") && !tileText.includes("Last known"),"Tile must omit manage/date clutter");
    assert.equal(await tile.locator('.owner-card-open-overlay').count(),1,'The whole card must be one native button');
    assert.equal(await tile.locator('.owner-inventory-details').count(),0,'No redundant Manage CTA');
@@ -162,10 +162,10 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    },item);
    const smallPriceText=await page.locator('.owner-card-prices').innerText();
    assert.ok(!smallPriceText.includes("Last known")&&!smallPriceText.includes("08/10/2026"));
-   assert.match(await page.locator('.owner-card-prices').innerText(),/£8.66/);
-   assert.match(await page.locator('.owner-card-historical-label').innerText(),/Historical value/);
+   assert.doesNotMatch(await page.locator('.owner-card-prices').innerText(),/£8.66/);
+   assert.equal(await page.locator('.owner-card-historical-label').count(),0);
    await page.locator('.owner-card-open-overlay').click();
-   assert.ok((await page.locator('.owner-item-values').innerText()).includes("Last known 08/10/2026"));
+   assert.ok(!(await page.locator('.owner-item-values').innerText()).includes("Last known 08/10/2026"));
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.evaluate(original=>{window.fixtureItem=original;renderInventoryCards([original]);},item);
    await page.evaluate(existing=>{window.fixtureItem={...existing,status:'APPROVED',
@@ -193,10 +193,10 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
      ...original,reference_value:{status:'STALE',last_known_minor:866,checked_at:'2026-10-08T12:00:00Z'}
    }]),item);
    const marketCell=page.locator('#owner-inventory-body tr:first-child td:nth-child(3)');
-   assert.match(await marketCell.innerText(),/£8.66/);
+   assert.doesNotMatch(await marketCell.innerText(),/£8.66/);
    const historicalRowText=await marketCell.innerText();
    assert.ok(!historicalRowText.includes("Last known")&&!historicalRowText.includes("08/10/2026"),"List must not display dated historical labels");
-   assert.match(await marketCell.locator('.owner-table-historical-label').innerText(),/Historical value/);
+   assert.equal(await marketCell.locator('.owner-table-historical-label').count(),0);
    await page.evaluate(original=>renderInventoryRows([original]),item);
    await page.locator('.owner-inventory-open').click();await page.locator('.owner-item-selling summary').waitFor();
    if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
@@ -232,7 +232,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    },item);
    assert.equal(await page.locator('.owner-inventory-card').count(),4);
    assert.equal(await page.locator('.owner-card-quantity').innerText(),'×2');
-   assert.match(await page.locator('.owner-inventory-card').first().innerText(),/£1.32/);
+   assert.doesNotMatch(await page.locator('.owner-inventory-card').first().innerText(),/£1.32/);
    assert.match(await page.locator('.owner-inventory-card').first().innerText(),/Mixed availability/i);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Raw quantities overflow');
    await page.screenshot({path:path.join(out,`raw-copy-quantities-${viewport.width}.png`),fullPage:true});
