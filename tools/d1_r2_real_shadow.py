@@ -83,10 +83,13 @@ def _oidc_token():
     return token
 
 
-def fetch_bytes(client: httpx.Client, path: str, token: str, size_limit: int) -> bytes:
+def fetch_bytes(client: httpx.Client, path: str, token: str, size_limit: int, *,
+                source_path: str = SOURCE_PATH) -> bytes:
     """Only fixed Railway origin and known private catalogue paths are accepted."""
-    if (path != SOURCE_PATH + "/manifest"
-            and not re.fullmatch(re.escape(SOURCE_PATH) + r"/part/[0-9]{1,3}", path)):
+    if source_path not in (SOURCE_PATH, SOURCE_PATH + "/yugioh"):
+        raise MigrationGuard("Unapproved R2 export partition path")
+    if (path != source_path + "/manifest"
+            and not re.fullmatch(re.escape(source_path) + r"/part/[0-9]{1,3}", path)):
         raise MigrationGuard("Non-allowlisted R2 export path")
     if type(size_limit) is not int or not 0 < size_limit <= 4_000_000:
         raise MigrationGuard("Invalid R2 response limit")
@@ -117,21 +120,31 @@ class BytesStorage:
         return raw
 
 
-def load_verified_source(client: httpx.Client, token: str):
-    """Read the ACTUAL published R2 objects by signed GitHub identity."""
-    raw_manifest = fetch_bytes(client, SOURCE_PATH + "/manifest", token, 1_000_000)
+def load_verified_source(
+    client: httpx.Client, token: str, *,
+    source_path: str = SOURCE_PATH,
+    allowed_scope: tuple[str, str, str] = ALLOWED_SCOPE,
+    min_rows: int = 1000,
+    max_rows: int = MAX_SOURCE_ROWS,
+    max_parts: int = MAX_PARTS,
+    max_bytes: int = MAX_TOTAL_BYTES,
+):
+    """Read the ACTUAL published R2 objects through an explicitly fixed path."""
+    raw_manifest = fetch_bytes(client, source_path + "/manifest", token, 1_000_000,
+                               source_path=source_path)
     manifest = source_codec.validate_manifest(source_codec._decode(raw_manifest))
     manifest_sha = source_codec.manifest_digest(manifest)
     if (hashlib.sha256(raw_manifest).hexdigest() != manifest_sha
-            or tuple(manifest[x] for x in ("provider", "system_code", "language")) != ALLOWED_SCOPE
-            or not 1000 <= manifest["record_count"] <= MAX_SOURCE_ROWS
-            or manifest["raw_bytes"] > MAX_TOTAL_BYTES
-            or len(manifest["parts"]) > MAX_PARTS):
+            or tuple(manifest[x] for x in ("provider", "system_code", "language")) != allowed_scope
+            or not min_rows <= manifest["record_count"] <= max_rows
+            or manifest["raw_bytes"] > max_bytes
+            or len(manifest["parts"]) > max_parts):
         raise MigrationGuard("Unapproved real R2 source partition")
     objects = {manifest_sha: raw_manifest}
     for ordinal, part in enumerate(manifest["parts"]):
-        raw = fetch_bytes(client, f"{SOURCE_PATH}/part/{ordinal}", token, MAX_EXPORT_CONTENT)
-        source_codec._parse_part(raw, part, ALLOWED_SCOPE)
+        raw = fetch_bytes(client, f"{source_path}/part/{ordinal}", token, MAX_EXPORT_CONTENT,
+                          source_path=source_path)
+        source_codec._parse_part(raw, part, allowed_scope)
         if part["sha256"] in objects:
             raise MigrationGuard("Repeated R2 content digest")
         objects[part["sha256"]] = raw
