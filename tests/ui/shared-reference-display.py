@@ -58,7 +58,7 @@ def main():
       }''')
       assert page.locator('[data-price-key]').inner_text().strip().removeprefix('Market value: ')==founder.removeprefix('Value: ')
       if status=='HISTORICAL_GUIDE':
-       assert '£' not in founder and 'unavailable' in founder.lower()
+       assert '£' not in founder and founder in {'Confirm details for value','Value unavailable','Stale evidence — value unavailable'}
        assert page.evaluate('sharedBrowse.rows[0].market_value_minor') is None
        if width in (390,1440):page.screenshot(path=str(OUT/f'{engine}-historical-search-{width}.png'),full_page=True)
       page.evaluate('''async()=>{sharedBrowse.filters.q='';sharedBrowse.filters.system_code='ONE_PIECE_CARD_GAME';
