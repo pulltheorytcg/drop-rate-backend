@@ -1,3 +1,9 @@
+## 6 November 2026 — New-game artwork exact-ID preview pilot (PR pending; NOT deployed)
+
+- Live Supabase read-only source registry: R2-first Yu-Gi-Oh 45,418, Lorcana 3,505 and MTG 153,662 metadata references; none are proven reference-art image deliveries. Existing 66,218 VERIFIED R2 reference images cover original games only.
+- Added disconnected, read-only, max-25-candidate YGO and Lorcast artwork preview functions with exact reference identity, official-host locator checks, alternate-art ambiguity rejection, and rights/printing-review status. Unit cases cover wrong print, malicious URLs, missing permission, duplicate keys and scope. Source adapters, snapshots, DB/R2/Shopify/media publication and prices are **unchanged**.
+- Source metadata access is not commercial card-image permission. Every candidate remains pending publisher rights and visual/byte verification; no live UI change, R2 image mirror or Shopify photo was created. Read [pilot design](docs/EXPANDED_ARTWORK_PILOT_20261106.md) and [issue #966](https://github.com/pulltheorytcg/drop-rate-backend/issues/966). CI/PR review and real-source pilot are distinct pending gates.
+
 ## 6 November 2026 — FULL source-verified reference R2 image bytes and all 1,083 eBay sold rows independently backed up
 
 - **21:19 UTC, real Railway deployment** `bed6c419-5a15-47b2-895b-ade96a38ae4f`: ALL **66,218** R2 objects linked from source-`VERIFIED` reference images + **401** canonical/provider media objects (**66,619/66,619**, 5,785,719,660 recorded bytes) had byte size, WebP and SHA256 readback verified; **0 errors**, full scoped reference coverage. Private receipt SHA256 `86613aef6139432bfd069b20eb83c240f59ec17ab2ea0f48dabc0bbfd118a0e2`. Four reference images remain `RETRY` and are not verified.
