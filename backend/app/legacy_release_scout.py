@@ -112,7 +112,10 @@ async def run_legacy_release_scout(pool, actor: str, source: str, settings) -> d
                         "reason": "VERIFIED_SOURCE_RECEIPT_MISSING",
                     }
                 evidence = written["report"] or {}
-                if not isinstance(evidence, dict) or type(evidence.get("new_sets")) is not int:
+                if (not isinstance(evidence, dict)
+                        or type(evidence.get("new_sets")) is not int
+                        or evidence["new_sets"] < 0
+                        or not isinstance(evidence.get("new_set_samples", []), list)):
                     return {
                         "status": "SOURCE_INCOMPLETE", "source": source,
                         "game": game, "new_sets": 0,
