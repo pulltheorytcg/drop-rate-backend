@@ -168,6 +168,20 @@ case "${DROP_RATE_N8N_RELEASE_SCOUT_PUBLISH_ON_BOOT:-false}" in
     ;;
 esac
 
+# Separate guard for Pokémon, One Piece, Dragon Ball, Naruto and Riftbound.
+# These calls remain capacity/rights gated by FastAPI. Activate only after
+# their signed API route has passed real Railway pre-deploy and health checks.
+case "${DROP_RATE_N8N_LEGACY_SCOUT_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-legacy-scout-publish.cjs || exit 1
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_LEGACY_SCOUT_PUBLISH","status":"BLOCKED","reason":"UNEXPECTED_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
 # Opt-in metadata inspection only. The helper reads SQLite without n8n/ORM
 # initialization, emits a strict summary, and has a 15-second child deadline.
 # A diagnostic failure must never prevent this service from starting.
