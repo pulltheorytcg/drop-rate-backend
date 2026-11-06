@@ -24,6 +24,13 @@ SOURCES = (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolate_provider_prewarm_from_railway_prod_environment(monkeypatch):
+    # Railway sets real R2 flags even while its pre-deploy pytest suite runs.
+    # Unit test workers must never prewarm real R2, PostgreSQL or credentials.
+    monkeypatch.setattr(source.service, "enabled", lambda: False)
+
+
 def payload(**changes):
     return {"schema_version": 1, "action": "REFRESH_APPROVED_RELEASE_SOURCE",
             "source": "lorcast", "execution_id": "releases-test-001",
@@ -165,6 +172,25 @@ async def test_targeted_release_import_reuses_background_global_lock(monkeypatch
         "select pg_try_advisory_lock(847220121)",
         "select pg_advisory_unlock(847220121)",
     ]
+
+
+@pytest.mark.asyncio
+async def test_real_published_generation_prewarms_app_reference_index(monkeypatch):
+    monkeypatch.setattr(source, "configured_sources", lambda: SOURCES)
+    async def importer(pool, actor, requested):
+        assert requested == "mtgjson"
+        return {"status": "PUBLISHED", "source": requested, "generation": 2}
+    warmed = []
+    async def warm(pool, actor):
+        warmed.append((pool, actor))
+    monkeypatch.setattr(source, "import_source", importer)
+    monkeypatch.setattr(source.service, "enabled", lambda: True)
+    monkeypatch.setattr(source.service, "prewarm", warm)
+    pool = Pool()
+    result = await source.run_selected(pool, ACTOR, "mtgjson")
+    assert result["status"] == "PUBLISHED"
+    assert warmed == [(pool, ACTOR)]
+    assert pool.lock.queries[-1] == "select pg_advisory_unlock(847220121)"
 
 
 @pytest.mark.asyncio
