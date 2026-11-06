@@ -30,6 +30,18 @@
     "NARUTO_BANDAI_LEGACY": {
       "file": "naruto.svg",
       "caption": "BANDAI LEGACY"
+    },
+    "YUGIOH": {
+      "file": "yugioh.png",
+      "caption": ""
+    },
+    "DISNEY_LORCANA": {
+      "file": "lorcana.png",
+      "caption": ""
+    },
+    "MAGIC_THE_GATHERING": {
+      "file": "magic.png",
+      "caption": ""
     }
   },
   "bundled_sets": [

@@ -1,3 +1,10 @@
+## 6 November 2026 — Branded logos for three game browse tiles (in review)
+
+- Local transparent/source-original PNG game marks added for Yu-Gi-Oh!, Disney Lorcana and Magic: The Gathering, using the existing 78px contain-fit logo tiles and automatic text fallback on broken image load. Exact game identifiers, search navigation and set mapping are unchanged.
+- Browser game art, server set-art fallback registry and source manifest now agree. The original files have documented third-party upstream provenance, byte sizes and SHA-256 checksums; this is **not a commercial-use licence**, so usage rights remain a pre-release review item.
+- Added regression coverage for client/server/source mapping parity, file integrity, checksums and unknown-set fallback. Bumped the owner page script cache key.
+- Status: **In review**, with CI and authenticated mobile/desktop visual verification pending. No catalogue or pricing records, inventory, ownership, settlement, Shopify assets, runtime services or production deployments were changed.
+
 ## 5 November 2026 — Market-value source and capacity recovery reconciled; no production change
 
 - Read-only Supabase, Railway and GitHub checks confirm PostgreSQL **430,419,091 bytes** (5 Nov 18:11 UTC), above the existing **400,000,000-byte** bulk refresh pause; live API logs still record `BULK_REFRESH_DEFERRED_CAPACITY`.

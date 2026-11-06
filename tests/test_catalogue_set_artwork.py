@@ -190,3 +190,32 @@ async def test_coverage_endpoint_is_founder_only(monkeypatch, role, authorized, 
         assert len(calls) == 2
     else:
         assert all("from tcg.reference_sets" not in query for query in calls)
+
+
+@pytest.mark.parametrize("system,filename", [
+    ("YUGIOH", "yugioh.png"),
+    ("DISNEY_LORCANA", "lorcana.png"),
+    ("MAGIC_THE_GATHERING", "magic.png"),
+])
+def test_browse_game_logo_assets_and_unknown_set_fallback_are_provenance_bound(system, filename):
+    """Client/server registry parity, original PNG bytes, and safe unknown-set art."""
+    import hashlib
+    source = json.loads((STATIC / "title-art" / "sources.json").read_text(encoding="utf-8"))
+    client = _snapshot((STATIC / "catalogue-title-art.js").read_text(encoding="utf-8"), "data")
+    mapping = {"file": filename, "caption": ""}
+    assert client["games"][system] == artwork._registry()["games"][system] == source["games"][system] == mapping
+    path = STATIC / "title-art" / filename
+    assert path.is_file()
+    raw = path.read_bytes()
+    assert raw.startswith(bytes([137, 80, 78, 71, 13, 10, 26, 10]))
+    assert int.from_bytes(raw[16:20], "big") >= 200
+    assert int.from_bytes(raw[20:24], "big") >= 70
+    entry = next(a for a in source["assets"] if a["file"] == filename)
+    assert entry["bytes"] == len(raw)
+    assert entry["sha256"] == hashlib.sha256(raw).hexdigest()
+    assert entry["source_url"].startswith("https://raw.githubusercontent.com/")
+    unresolved = {"system_code": system, "language": "English", "provider": "test", "set_id": "unknown", "set_name": "Unknown set"}
+    fallback = artwork.resolve_set_artwork(unresolved)
+    assert fallback["type"] == "GAME_LOGO"
+    assert fallback["file"] == filename
+    assert fallback["status"] == "SET_LOGO_MISSING"
