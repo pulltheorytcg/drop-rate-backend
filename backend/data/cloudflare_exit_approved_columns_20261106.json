@@ -1,0 +1,857 @@
+{
+  "format": "drop-rate-approved-operational-source-columns-v1",
+  "captured_at_date": "2026-11-06",
+  "project_id": "ozrxenrdladkooixutmm",
+  "tables": {
+    "audit_events": [
+      {
+        "name": "id",
+        "type": "bigint"
+      },
+      {
+        "name": "occurred_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "actor",
+        "type": "text"
+      },
+      {
+        "name": "request_id",
+        "type": "text"
+      },
+      {
+        "name": "action",
+        "type": "text"
+      },
+      {
+        "name": "entity_type",
+        "type": "text"
+      },
+      {
+        "name": "entity_id",
+        "type": "uuid"
+      },
+      {
+        "name": "old_values",
+        "type": "jsonb"
+      },
+      {
+        "name": "new_values",
+        "type": "jsonb"
+      }
+    ],
+    "financial_ledger_entries": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "owner_id",
+        "type": "uuid"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid"
+      },
+      {
+        "name": "order_item_id",
+        "type": "uuid"
+      },
+      {
+        "name": "payout_request_id",
+        "type": "uuid"
+      },
+      {
+        "name": "entry_type",
+        "type": "text"
+      },
+      {
+        "name": "amount_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "currency",
+        "type": "text"
+      },
+      {
+        "name": "funds_status",
+        "type": "text"
+      },
+      {
+        "name": "source_key",
+        "type": "text"
+      },
+      {
+        "name": "occurred_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "available_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "notes",
+        "type": "text"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone"
+      }
+    ],
+    "inventory_items": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "inventory_code",
+        "type": "text"
+      },
+      {
+        "name": "catalogue_id",
+        "type": "uuid"
+      },
+      {
+        "name": "owner_id",
+        "type": "uuid"
+      },
+      {
+        "name": "acquisition_cost_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "acquisition_date",
+        "type": "date"
+      },
+      {
+        "name": "currency",
+        "type": "text"
+      },
+      {
+        "name": "condition",
+        "type": "text"
+      },
+      {
+        "name": "grading_company",
+        "type": "text"
+      },
+      {
+        "name": "grade",
+        "type": "text"
+      },
+      {
+        "name": "certificate_number",
+        "type": "text"
+      },
+      {
+        "name": "language",
+        "type": "text"
+      },
+      {
+        "name": "location",
+        "type": "text"
+      },
+      {
+        "name": "store_price_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "imported_valuation_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "imported_valuation_date",
+        "type": "date"
+      },
+      {
+        "name": "imported_price_override_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "identity_confirmed",
+        "type": "boolean"
+      },
+      {
+        "name": "status",
+        "type": "text"
+      },
+      {
+        "name": "notes",
+        "type": "text"
+      },
+      {
+        "name": "import_batch_id",
+        "type": "uuid"
+      },
+      {
+        "name": "source_row",
+        "type": "integer"
+      },
+      {
+        "name": "source_copy",
+        "type": "integer"
+      },
+      {
+        "name": "source_record",
+        "type": "jsonb"
+      },
+      {
+        "name": "version",
+        "type": "integer"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "purchase_lot_id",
+        "type": "uuid"
+      },
+      {
+        "name": "seal_status",
+        "type": "text"
+      },
+      {
+        "name": "storage_location_id",
+        "type": "uuid"
+      },
+      {
+        "name": "intake_request_key",
+        "type": "uuid"
+      },
+      {
+        "name": "market_value_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "recommended_retail_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "pricing_updated_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "latest_pricing_snapshot_id",
+        "type": "uuid"
+      },
+      {
+        "name": "condition_review_status",
+        "type": "text"
+      },
+      {
+        "name": "condition_verified_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "condition_verified_by_user_id",
+        "type": "uuid"
+      },
+      {
+        "name": "sale_intent",
+        "type": "text"
+      }
+    ],
+    "market_observations": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "catalogue_id",
+        "type": "uuid"
+      },
+      {
+        "name": "source",
+        "type": "text"
+      },
+      {
+        "name": "source_record_key",
+        "type": "text"
+      },
+      {
+        "name": "observation_type",
+        "type": "text"
+      },
+      {
+        "name": "observed_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "price_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "shipping_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "currency",
+        "type": "text"
+      },
+      {
+        "name": "price_gbp_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "shipping_gbp_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "fx_rate_to_gbp",
+        "type": "numeric(18,8)"
+      },
+      {
+        "name": "condition",
+        "type": "text"
+      },
+      {
+        "name": "grading_company",
+        "type": "text"
+      },
+      {
+        "name": "grade",
+        "type": "text"
+      },
+      {
+        "name": "language",
+        "type": "text"
+      },
+      {
+        "name": "seal_status",
+        "type": "text"
+      },
+      {
+        "name": "source_country",
+        "type": "text"
+      },
+      {
+        "name": "sample_size",
+        "type": "integer"
+      },
+      {
+        "name": "evidence_quality",
+        "type": "numeric(5,4)"
+      },
+      {
+        "name": "metadata",
+        "type": "jsonb"
+      },
+      {
+        "name": "ingested_at",
+        "type": "timestamp with time zone"
+      }
+    ],
+    "media_assets": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "owner_id",
+        "type": "uuid"
+      },
+      {
+        "name": "catalogue_id",
+        "type": "uuid"
+      },
+      {
+        "name": "inventory_id",
+        "type": "uuid"
+      },
+      {
+        "name": "scope",
+        "type": "text"
+      },
+      {
+        "name": "media_kind",
+        "type": "text"
+      },
+      {
+        "name": "side",
+        "type": "text"
+      },
+      {
+        "name": "source_type",
+        "type": "text"
+      },
+      {
+        "name": "source_reference",
+        "type": "text"
+      },
+      {
+        "name": "public_source_url",
+        "type": "text"
+      },
+      {
+        "name": "rights_status",
+        "type": "text"
+      },
+      {
+        "name": "rights_basis",
+        "type": "text"
+      },
+      {
+        "name": "approval_status",
+        "type": "text"
+      },
+      {
+        "name": "alt_text",
+        "type": "text"
+      },
+      {
+        "name": "content_sha256",
+        "type": "text"
+      },
+      {
+        "name": "shopify_file_gid",
+        "type": "text"
+      },
+      {
+        "name": "shopify_file_status",
+        "type": "text"
+      },
+      {
+        "name": "shopify_error",
+        "type": "text"
+      },
+      {
+        "name": "created_by_user_id",
+        "type": "uuid"
+      },
+      {
+        "name": "approved_by_user_id",
+        "type": "uuid"
+      },
+      {
+        "name": "approved_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "version",
+        "type": "integer"
+      },
+      {
+        "name": "capture_context",
+        "type": "text"
+      },
+      {
+        "name": "shopify_cdn_url",
+        "type": "text"
+      },
+      {
+        "name": "rights_tier",
+        "type": "text"
+      },
+      {
+        "name": "source_provider",
+        "type": "text"
+      },
+      {
+        "name": "provider_asset_id",
+        "type": "text"
+      },
+      {
+        "name": "media_language",
+        "type": "text"
+      },
+      {
+        "name": "media_variant",
+        "type": "text"
+      },
+      {
+        "name": "permission_evidence_url",
+        "type": "text"
+      },
+      {
+        "name": "source_status",
+        "type": "text"
+      },
+      {
+        "name": "source_status_note",
+        "type": "text"
+      },
+      {
+        "name": "source_checked_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "rights_verified_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "revoked_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "revoked_by_user_id",
+        "type": "uuid"
+      },
+      {
+        "name": "revocation_reason",
+        "type": "text"
+      }
+    ],
+    "media_object_mirrors": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "media_asset_id",
+        "type": "uuid"
+      },
+      {
+        "name": "source_url",
+        "type": "text"
+      },
+      {
+        "name": "object_key",
+        "type": "text"
+      },
+      {
+        "name": "content_sha256",
+        "type": "text"
+      },
+      {
+        "name": "content_type",
+        "type": "text"
+      },
+      {
+        "name": "size_bytes",
+        "type": "integer"
+      },
+      {
+        "name": "verified_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone"
+      }
+    ],
+    "order_items": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid"
+      },
+      {
+        "name": "inventory_id",
+        "type": "uuid"
+      },
+      {
+        "name": "owner_id",
+        "type": "uuid"
+      },
+      {
+        "name": "sale_price_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "discount_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "net_sale_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "cost_basis_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "sold_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "commission_bps_snapshot",
+        "type": "integer"
+      },
+      {
+        "name": "commission_minor",
+        "type": "bigint"
+      }
+    ],
+    "orders": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "source",
+        "type": "text"
+      },
+      {
+        "name": "source_reference",
+        "type": "text"
+      },
+      {
+        "name": "order_number",
+        "type": "text"
+      },
+      {
+        "name": "currency",
+        "type": "text"
+      },
+      {
+        "name": "status",
+        "type": "text"
+      },
+      {
+        "name": "placed_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone"
+      }
+    ],
+    "owner_memberships": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid"
+      },
+      {
+        "name": "owner_id",
+        "type": "uuid"
+      },
+      {
+        "name": "role",
+        "type": "text"
+      },
+      {
+        "name": "active",
+        "type": "boolean"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone"
+      }
+    ],
+    "owners": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "display_name",
+        "type": "text"
+      },
+      {
+        "name": "owner_type",
+        "type": "text"
+      },
+      {
+        "name": "founder_slot",
+        "type": "smallint"
+      },
+      {
+        "name": "active",
+        "type": "boolean"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "commission_bps",
+        "type": "integer"
+      },
+      {
+        "name": "username",
+        "type": "text"
+      }
+    ],
+    "reference_image_mirrors": [
+      {
+        "name": "provider",
+        "type": "text"
+      },
+      {
+        "name": "system_code",
+        "type": "text"
+      },
+      {
+        "name": "language",
+        "type": "text"
+      },
+      {
+        "name": "provider_id",
+        "type": "text"
+      },
+      {
+        "name": "source_url",
+        "type": "text"
+      },
+      {
+        "name": "object_key",
+        "type": "text"
+      },
+      {
+        "name": "content_sha256",
+        "type": "text"
+      },
+      {
+        "name": "size_bytes",
+        "type": "integer"
+      },
+      {
+        "name": "status",
+        "type": "text"
+      },
+      {
+        "name": "failure_count",
+        "type": "integer"
+      },
+      {
+        "name": "next_retry_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "last_error_code",
+        "type": "text"
+      },
+      {
+        "name": "verified_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone"
+      }
+    ],
+    "refund_events": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "owner_id",
+        "type": "uuid"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid"
+      },
+      {
+        "name": "order_item_id",
+        "type": "uuid"
+      },
+      {
+        "name": "inventory_id",
+        "type": "uuid"
+      },
+      {
+        "name": "source_reference",
+        "type": "text"
+      },
+      {
+        "name": "amount_minor",
+        "type": "bigint"
+      },
+      {
+        "name": "currency",
+        "type": "text"
+      },
+      {
+        "name": "return_to_stock",
+        "type": "boolean"
+      },
+      {
+        "name": "reason",
+        "type": "text"
+      },
+      {
+        "name": "occurred_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone"
+      }
+    ],
+    "shopify_webhook_events": [
+      {
+        "name": "id",
+        "type": "uuid"
+      },
+      {
+        "name": "webhook_id",
+        "type": "text"
+      },
+      {
+        "name": "event_id",
+        "type": "text"
+      },
+      {
+        "name": "topic",
+        "type": "text"
+      },
+      {
+        "name": "shop_domain",
+        "type": "text"
+      },
+      {
+        "name": "api_version",
+        "type": "text"
+      },
+      {
+        "name": "triggered_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "resource_id",
+        "type": "text"
+      },
+      {
+        "name": "payload_sha256",
+        "type": "text"
+      },
+      {
+        "name": "status",
+        "type": "text"
+      },
+      {
+        "name": "received_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "processed_at",
+        "type": "timestamp with time zone"
+      },
+      {
+        "name": "error_code",
+        "type": "text"
+      }
+    ]
+  }
+}
