@@ -30,17 +30,24 @@ def test_cloudflare_d1_artwork_index_is_private_and_consistent() -> None:
              values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
     database.execute(sql,params)
     assert database.execute("select state from artwork_shadow_candidates").fetchone() == ("STAGED_PRIVATE",)
-    for changed in (
-        (13, 2), # wrong byte digest: blob identity mismatch
-        (14, "PUBLISHED"), # never publish from this staging schema
+    for field_index, replacement in (
+        (10, "drop-rate/private-media/" + "d" * 64 + ".webp"),  # image hash/key mismatch
+        (14, "PUBLISHED"),  # only staging state is permitted
     ):
         corrupt = list(params)
-        corrupt[changed[0]] = changed[1]
+        corrupt[0] = "x:" + ("d" if field_index == 10 else "e") * 64
+        corrupt[field_index] = replacement
         try:
             database.execute(sql,corrupt)
         except sqlite3.IntegrityError:
             pass
         else:
-            raise AssertionError("D1 schema accepted duplicate or published metadata")
+            raise AssertionError("D1 schema accepted unverified or published metadata")
+    try:
+        database.execute(sql, params)
+    except sqlite3.IntegrityError:
+        pass
+    else:
+        raise AssertionError("D1 schema allowed duplicated source printing")
     assert database.execute("select count(*) from artwork_shadow_candidates").fetchone()[0] == 1
     database.close()
