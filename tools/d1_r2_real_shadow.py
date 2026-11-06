@@ -67,7 +67,12 @@ def _oidc_token():
     with httpx.Client(follow_redirects=False, timeout=15) as client:
         response = client.get(url, headers={"Authorization": "Bearer " + request_token})
         if response.status_code != 200 or response.is_redirect:
-            raise MigrationGuard("GitHub Actions OIDC minting failed")
+            # Only the numeric status is safe to print. Never log runner
+            # request URLs, Location headers, token exchange response bodies
+            # or authorization values. A redirect remains fail-closed.
+            raise MigrationGuard(
+                f"GitHub Actions OIDC minting failed (HTTP {response.status_code})"
+            )
         body = response.json()
         token = body.get("value") if isinstance(body, dict) else None
         if not isinstance(token, str) or not 100 < len(token) < 8192:
