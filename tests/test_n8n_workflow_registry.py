@@ -11,13 +11,13 @@ def _registry() -> dict:
     return json.loads(REGISTRY.read_text())
 
 
-def test_n8n_workflow_registry_covers_45_founder_workflows() -> None:
+def test_n8n_workflow_registry_covers_46_founder_workflows() -> None:
     registry = _registry()
     workflows = registry["workflows"]
     assert registry["schema_version"] == 1
-    assert len(workflows) == 45
-    assert [row["sequence"] for row in workflows] == list(range(1, 46))
-    assert len({row["key"] for row in workflows}) == 45
+    assert len(workflows) == 46
+    assert [row["sequence"] for row in workflows] == list(range(1, 47))
+    assert len({row["key"] for row in workflows}) == 46
 
 
 def test_every_workflow_has_safety_and_activation_contract() -> None:
@@ -72,3 +72,15 @@ def test_per_game_release_scouts_are_metadata_only_and_source_scoped() -> None:
     assert len(row["implementation_paths"]) == 6
     assert all((ROOT / p).exists() for p in row["implementation_paths"])
     assert row["control_contract"] == "/api/v1/automation/commands/catalogue/refresh-release-source"
+
+
+def test_eight_older_game_scouts_preserve_existing_sources_and_riot_gate() -> None:
+    row, = [item for item in _registry()["workflows"]
+            if item["key"] == "older-tcg-riftbound-release-checks"]
+    assert row["status"] == "BUILT_INACTIVE"
+    assert row["authority"] == "ORCHESTRATE"
+    assert row["ai_may_assist"] is False
+    assert row["decision_engine"] == "FastAPI"
+    assert len(row["implementation_paths"]) == 8
+    assert all((ROOT / item).exists() for item in row["implementation_paths"])
+    assert "Riftbound" in row["activation_note"]
