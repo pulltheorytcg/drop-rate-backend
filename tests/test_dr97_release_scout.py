@@ -44,11 +44,14 @@ def test_strict_legacy_command_rejects_unapproved_provider_or_url(changes):
 class Connection:
     def __init__(self, previous=None):
         self.previous=previous
+        self.completed=None
         self.calls=0
     async def fetchrow(self, query, source):
         assert "tcg.reference_sync_runs" in query
         assert source in SOURCES
         self.calls+=1
+        if self.calls>1 and self.completed is not None:
+            return self.completed
         return self.previous
 
 
@@ -148,6 +151,49 @@ async def test_due_legacy_source_runs_only_one_existing_adapter_and_reports_new_
     assert len(mock.await_args_list)==1
     assert mock.await_args.args[2]=="naruto_kayou"
     assert pool.lock_calls==["acquire","release"]
+
+
+@pytest.mark.asyncio
+async def test_real_unchanged_legacy_importer_return_uses_persisted_new_set_receipt(monkeypatch):
+    settings=configure(monkeypatch)
+    mock=AsyncMock(return_value={"status":"COMPLETE","sets":3,"records":24})
+    monkeypatch.setattr(legacy.maintenance,"sync_source",mock)
+    pool=Pool()
+    pool.connection.completed={
+        "status":"COMPLETE","report":{"new_sets":2,
+        "new_set_samples":[{"system_code":"POKEMON_TCG","language":"English",
+                            "set_id":"2026-11","name":"Example release","release_date":"2026-11-06"}]},
+    }
+    result=await legacy.run_legacy_release_scout(pool,ACTOR,"tcgdex",settings)
+    assert result["status"]=="VERIFIED_SOURCE_REFRESH"
+    assert result["new_sets"]==2
+    assert result["new_set_samples"][0]["set_id"]=="2026-11"
+    assert pool.connection.calls==2
+    assert pool.lock_calls==["acquire","release"]
+
+
+@pytest.mark.asyncio
+async def test_missing_legacy_audit_receipt_fails_closed(monkeypatch):
+    settings=configure(monkeypatch)
+    mock=AsyncMock(return_value={"status":"COMPLETE","sets":3,"records":24})
+    monkeypatch.setattr(legacy.maintenance,"sync_source",mock)
+    pool=Pool()
+    pool.connection.completed={"status":"COMPLETE","report":{"new_sets":"not-an-integer"}}
+    result=await legacy.run_legacy_release_scout(pool,ACTOR,"tcgdex",settings)
+    assert result["status"]=="SOURCE_INCOMPLETE"
+    assert result["reason"]=="VERIFIED_SOURCE_RECEIPT_MALFORMED"
+
+
+@pytest.mark.asyncio
+async def test_partial_legacy_audit_receipt_does_not_publish_any_success(monkeypatch):
+    settings=configure(monkeypatch)
+    mock=AsyncMock(return_value={"status":"COMPLETE","sets":3,"records":24})
+    monkeypatch.setattr(legacy.maintenance,"sync_source",mock)
+    pool=Pool()
+    pool.connection.completed={"status":"INCOMPLETE","report":{"new_sets":1}}
+    result=await legacy.run_legacy_release_scout(pool,ACTOR,"tcgdex",settings)
+    assert result["status"]=="SOURCE_INCOMPLETE"
+    assert result["reason"]=="VERIFIED_SOURCE_RECEIPT_MISSING"
 
 
 @pytest.mark.asyncio
