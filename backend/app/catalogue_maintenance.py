@@ -264,8 +264,7 @@ async def sync_source(pool,actor,source,settings):
               json.dumps({'scheduled':True,'importer_revision':SOURCE_REVISIONS.get(source,1),
                 'new_sets':new_sets,'new_set_samples':discoveries,'failures':feed.failures[:30]}))
         log.warning('Daily catalogue source=%s status=%s sets=%s records=%s',source,status,sets,cards)
-    return {'status':status,'sets':sets,'records':cards,
-            'new_sets':new_sets,'new_set_samples':discoveries[:5]}
+    return {'status':status,'sets':sets,'records':cards}
 
 
 async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
