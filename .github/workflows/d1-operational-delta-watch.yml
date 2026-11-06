@@ -1,0 +1,98 @@
+name: Read-only founder, order and ledger D1 snapshot drift watch (no cutover)
+on:
+  pull_request:
+    paths:
+      - 'tools/d1_operational_source_delta_watch.py'
+      - 'tests/test_d1_operational_source_delta_watch.py'
+      - '.github/workflows/d1-operational-delta-watch.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'tools/d1_operational_source_delta_watch.py'
+      - '.github/workflows/d1-operational-delta-watch.yml'
+  schedule:
+    - cron: '43 */4 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-operational-d1-source-drift-reader
+  cancel-in-progress: false
+
+jobs:
+  offline-delta-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Prove changed ownership, ledger, new orders and missing records are always detected
+        env:
+          PYTHONPATH: backend:tools
+        run: python -m pytest -q tests/test_d1_operational_source_delta_watch.py
+
+  check-protected-real-source:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: offline-delta-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    environment: production
+    env:
+      SUPABASE_PROJECT_ID: ozrxenrdladkooixutmm
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+      CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+      PYTHONPATH: backend:tools
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install asyncpg==0.30.0
+      - name: Mask protected production PostgreSQL session-pooler secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from urllib.parse import quote
+          pw=os.environ.get('SUPABASE_DB_PASSWORD','')
+          project=os.environ['SUPABASE_PROJECT_ID']
+          if not pw or any(c in pw for c in '\r\n'):
+              raise SystemExit('Protected PostgreSQL credential missing or invalid')
+          encoded=quote(pw,safe='')
+          dsn=(f'postgresql://postgres.{project}:{encoded}'
+               '@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require')
+          for value in (encoded,dsn):
+              print('::add-mask::'+value.replace('%','%25'),flush=True)
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf8') as f:
+              f.write('FULL_EXIT_PG_READONLY_DSN='+dsn+'\n')
+          PY
+      - name: Compare SOURCE PostgreSQL original record SHA against private D1 generation
+        run: |
+          set -euo pipefail
+          python tools/d1_operational_source_delta_watch.py > private-d1-source-drift-status.json
+          python - <<'PY'
+          import json
+          data=json.load(open('private-d1-source-drift-status.json',encoding='utf-8'))
+          assert data['status']=='READ_ONLY_OPERATIONAL_D1_SNAPSHOT_PARITY'
+          assert data['verified_original_tables']==9
+          assert data['changed_or_missing_record_count']==0
+          assert data['source_postgres_writes']==0
+          assert data['shadow_d1_writes']==0
+          assert data['production_reads_switched'] is False
+          assert data['safely_authorizes_cutover'] is False
+          print('D1_SOURCE_PARITY_STILL_EXACT; live Supabase unchanged; NO CUTOVER')
+          PY
+      - name: Keep count-only drift status for audit, never source rows or credentials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-d1-read-only-source-drift-counts
+          path: private-d1-source-drift-status.json
+          if-no-files-found: ignore
+          retention-days: 3
