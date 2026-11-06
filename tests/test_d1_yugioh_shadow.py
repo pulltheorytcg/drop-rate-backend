@@ -183,3 +183,39 @@ def test_cloudflare_database_count_guard_and_duplicate_uuid():
     FakeD1.existing=[{"name":runner.EXACT_DATABASE_NAME,"uuid":"unsafe-path"}]
     with pytest.raises(MigrationGuard, match="UUID"):
         runner._database(FakeD1("a"*32,"dummy-test-token"))
+
+
+
+def test_temporary_503_before_railway_ready_retries_without_d1_write(monkeypatch):
+    client,_=fixture()
+    with client:
+        original=runner.load_verified_source
+        attempts=[]
+        delays=[]
+        def temporary(*args,**kwargs):
+            attempts.append(FakeD1.conn is None)
+            if len(attempts) <= 2:
+                raise MigrationGuard("R2 export rejected: HTTP 503")
+            return original(*args,**kwargs)
+        monkeypatch.setattr(runner,"load_verified_source",temporary)
+        monkeypatch.setattr(runner.time,"sleep",lambda seconds:delays.append(seconds))
+        result=runner.run("a"*32,"dummy-test-token","1106","1",client=client,
+                          now=datetime(2026,11,6,tzinfo=timezone.utc))
+    assert attempts==[True,True,True]
+    assert delays==[10,10]
+    assert result["d1_staged_rows"]==7
+
+
+def test_unauthorized_r2_export_fails_without_retry_or_cloudflare_creation(monkeypatch):
+    client,_=fixture()
+    with client:
+        delays=[]
+        monkeypatch.setattr(runner.time,"sleep",lambda sec:delays.append(sec))
+        def refused(*args,**kwargs):
+            raise MigrationGuard("R2 export rejected: HTTP 403")
+        monkeypatch.setattr(runner,"load_verified_source",refused)
+        with pytest.raises(MigrationGuard,match="403"):
+            runner.run("a"*32,"dummy-test-token","1107","1",client=client)
+    assert FakeD1.conn is None
+    assert delays==[]
+
