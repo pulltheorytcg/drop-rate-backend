@@ -1,3 +1,9 @@
+## 6 November 2026 — REAL Cloudflare D1 shadow has 1,184 verified source business rows (Live verified; NO cutover)
+
+- [Protected-main run 42283108326](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42283108326) completed successfully at 19:51 UTC after PR #946 merged as `db660dce5c65096c96faeb7b098fecf08b6ef989`. Its read-only repeatable-read **postgres** snapshot used existing scoped GitHub production secrets, not the application RLS login and not any changed policy/role.
+- Actual isolated operational D1 shadow import, original row SHA256 + key parity, nine source-table receipts and owner/currency penny balances verified: **6 owners (3 founders / 3 consignors), 6 memberships, 621 inventory, 3 orders, 3 order items, 13 ledger, 3 refunds, 14 webhooks, 515 media metadata = 1,184 exact source rows**. Source generation digest `b82fe8a43aba41b2835283fd3c588bececcb705f18afb2ffcba5b39d36ad54cc`.
+- **Still NOT R2 source-backup completion, actual artwork bytes, full market-value/price-history transfer, entire 148-table operational migration, replacement Auth, Shopify live order cutover, payment execution or Supabase retirement.** Private D1 generation state remains `STAGING`; no production active pointer. See [immutable source receipt](docs/CLOUDFLARE_OPERATIONAL_D1_REAL_SOURCE_RECEIPT_20261106.md) for exact restrictions and next proof gates.
+
 ## 6 November 2026 — Private R2 source checkpoint for real ownership, finance and media metadata (In review)
 
 - Built a one-shot, **read-only source-consistent** PostgreSQL → private R2 checkpoint worker for 11 reviewed, approved operational tables: owners, membership, 621 physical inventory, orders/items, ledger, refunds, Shopify webhook inbox, media assets and mirror metadata, reference artwork-mirror index records. Source counts at the 6 Nov read-only audit are documented in [checkpoint scope](docs/CLOUDFLARE_PRIVATE_R2_OPERATIONAL_SOURCE_STAGE1_20261106.md).
