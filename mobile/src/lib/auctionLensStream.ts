@@ -225,8 +225,12 @@ export class AuctionLensStream {
     if (this.anchorHash !== null) {
       const distance = hamming(this.anchorHash, frame.fingerprint64);
       if (distance > this.options.maxSameItemHashDistance) {
-        // Even an uncertain transition immediately removes the previous value.
-        this.resetScene("WATCHING");
+        // Even a possibly glare-induced transition invalidates the prior
+        // valuation. Large changes mean a new scene; intermediate changes
+        // remain uncertain until clear frames arrive.
+        this.resetScene(
+          distance > this.options.maxChangedHashDistance ? "WATCHING" : "CHECK_VERSION"
+        );
       }
     }
     if (this.anchorHash === null) {
