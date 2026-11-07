@@ -9,6 +9,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from .expanded_artwork_pilot import preview_yugioh, preview_lorcana
@@ -36,6 +37,22 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     source, source_sha = _json_file(args.source, SOURCE_MAX_BYTES)
     references, refs_sha = _json_file(args.references, REFERENCE_MAX_BYTES)
+    publication_digest = None
+    if isinstance(references, dict):
+        expected = {
+            "yugioh": ("ygoprodeck", "YUGIOH"),
+            "lorcana": ("lorcast", "DISNEY_LORCANA"),
+            "magic": ("mtgjson", "MAGIC_THE_GATHERING"),
+        }[args.game]
+        publication_digest = references.get("source_manifest_sha256")
+        rows = references.get("references")
+        if (references.get("schema") != "drop-rate-r2-artwork-sample-v1"
+                or (references.get("provider"), references.get("system_code")) != expected
+                or not isinstance(publication_digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", publication_digest)
+                or not isinstance(rows, list) or references.get("sample_count") != len(rows)):
+            raise ValueError("The R2 artwork sample is invalid or belongs to another game")
+        references = rows
     decisions = {"yugioh": preview_yugioh, "lorcana": preview_lorcana,
                  "magic": preview_mtgjson}[args.game](source, references)
     report = {
@@ -43,6 +60,7 @@ def main(argv=None) -> int:
         "game": args.game,
         "source_sha256": source_sha,
         "references_sha256": refs_sha,
+        "source_manifest_sha256": publication_digest,
         "reference_count": len(decisions),
         "status_counts": dict(sorted(Counter(row["status"] for row in decisions).items())),
         "all_artwork_unapproved": all(not row["can_mirror"] and not row["can_publish"] for row in decisions),
