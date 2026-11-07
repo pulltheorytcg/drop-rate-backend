@@ -45,3 +45,16 @@ The Worker has **no public image route**, no public D1 query endpoint, no Shopif
 - No approval of any UK completed-sale Market Value.
 - No new paid services, Shopify updates or owner/settlement changes.
 - No public D1 artwork resolver or founder/seller UI changes. Those remain later #966 gates after exact-print rights and mobile/desktop checks.
+
+
+## 7 November 2026 — DR102 EU-jurisdiction R2 binding correction
+
+**Evidence:** First actual manual DR101 GitHub workflow [run #42385886177](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42385886177) passed preflight and remote read-only D1 schema/bucket-name configuration checks. The first deployment failed because workers.dev had not yet been registered. Its second attempt successfully reached Cloudflare Worker upload but failed with Cloudflare **code 10085** ("R2 bucket 'drop-rate-private' not found"). The actual existing R2 bucket settings, confirmed by the account owner, explicitly show **Jurisdiction: European Union (EU)** and an EU-specific R2 S3 endpoint.
+
+**Code correction:** Keep the same Worker, existing bucket name and D1 UUID. Generate an \`ARTWORK_R2\` binding with \`"jurisdiction": "eu"\`. Cloudflare documents this field for EU-restricted R2 buckets: https://developers.cloudflare.com/r2/reference/data-location/ . No new bucket, content copy, R2 public URL, or new source-image permission is created.
+
+**Test:** \`tests/test_artwork_shadow_worker_deploy.py\` now asserts the precise EU jurisdiction for the unchanged account/D1 binding, with existing HMAC/auth/r2 byte integrity tests unchanged. Full PR CI and the dedicated DR101 preflight must pass before merge.
+
+**Rerun instructions:** The previous failed run is pinned to its *old* commit. **Do not use "Re-run failed jobs" for #42385886177.** Once the tested DR102 change is merged to \`main\`, use GitHub Actions → DR101 guarded private artwork shadow Worker release → **Run workflow** on \`main\` to create a fresh run using the corrected Worker configuration. Verify the Wrangler upload, HMAC secret binding and 404/401 negative network smokes; do not infer live success from CI alone.
+
+**Further boundaries:** A live private Worker is not public image delivery. YGO/Lorcana/MTG exact-artwork rights, owner-specific graded slab photography, and signed-in image visual checks remain separate issue #966 release gates. The R2 bucket stays private, the Worker does not return public images, and production Shopify/ownership/prices must remain unchanged.
