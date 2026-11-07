@@ -99,6 +99,12 @@ jobs:
       - name: Prove DR97 guarded publication with fake persisted SQLite and backups
         run: |
           docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_legacy_release_publish_smoke.cjs:/test/dr97-activation-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/dr97-activation-smoke.cjs
+      - name: Verify DR98 source-to-private-evidence bridge in the pinned n8n runtime
+        run: |
+          docker run --rm --network none --entrypoint node drop-rate-n8n:ci --no-warnings /opt/drop-rate/ops/guarded-enrichment-publish.cjs --verify-sources | grep -F '"status":"SOURCE_VERIFIED","count":6'
+      - name: Prove DR98 n8n activation backup, idempotency and exact-source rollback
+        run: |
+          docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_enrichment_publish_smoke.cjs:/test/dr98-activation-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/dr98-activation-smoke.cjs
       - name: Verify guarded inactive upgrade and exact publication in isolated pinned runtime
         run: |
           docker run --rm --network none --entrypoint node \
