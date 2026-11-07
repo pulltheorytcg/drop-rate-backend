@@ -36,7 +36,7 @@ READ_SQL = """
 select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key,
        r.provider,r.system_code,r.language,r.provider_id,r.set_id,r.name,r.card_number,
        s.name as set_name,c.quotes,c.checked_at,c.expires_at,c.refresh_revision,
-       b.quotes as catalogue_quotes
+       b.quotes as catalogue_quotes,b.expires_at as catalogue_expires_at
 from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
 left join tcg.reference_market_prices c using(provider,system_code,language,provider_id)
 left join tcg.reference_catalogue_prices b using(provider,system_code,language,provider_id)
@@ -284,6 +284,43 @@ def price_view(key: str, quotes: list[dict], *, now: datetime) -> dict:
             "market_quotes": current, "market_refresh_needed": False}
 
 
+def _cache_is_current(expires_at, now: datetime) -> bool:
+    """Never revive evidence simply because its observed_at is < 7 days old.
+
+    The provider's explicit expiry is an independent, stricter safety gate.
+    Missing or malformed expiry is not permission to publish a stale quote.
+    """
+    try:
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        return (
+            isinstance(expires_at, datetime)
+            and expires_at.tzinfo is not None
+            and expires_at.utcoffset() is not None
+            and now < expires_at
+        )
+    except (ValueError, TypeError, OverflowError):
+        return False
+
+
+def current_cached_price_view(reference: dict, *, now: datetime) -> dict:
+    """Display only valid non-expired quote caches, without fetching providers."""
+    raw = reference.get("quotes") or []
+    if not _cache_is_current(reference.get("expires_at"), now):
+        raw = []
+    view = price_view(reference["key"], raw, now=now)
+    identity = {field: reference[field] for field in ("name", "set_id", "card_number", "set_name")}
+    fallback = [
+        quote for quote in reference.get("catalogue_quotes") or []
+        if _cache_is_current(reference.get("catalogue_expires_at"), now)
+        and quote.get("source") == CATALOGUE_SOURCE
+        and quote.get("reference_identity") == identity
+    ]
+    if view["market_value_minor"] is None and fallback:
+        view.update(price_view(reference["key"], fallback + view["market_quotes"], now=now))
+    return view
+
+
 async def read_cached_reference_prices(pool, user_id, request_id, keys: list[str]) -> list[dict]:
     """Read existing exact-reference quotes only; a browse must never call providers.
 
@@ -297,13 +334,7 @@ async def read_cached_reference_prices(pool, user_id, request_id, keys: list[str
         references = await add_uk_eu_estimates(connection, references, now=now)
     by_key = {}
     for reference in references:
-        view = price_view(reference["key"], reference.get("quotes") or [], now=now)
-        identity = {field: reference[field] for field in ("name", "set_id", "card_number", "set_name")}
-        fallback = [quote for quote in reference.get("catalogue_quotes") or []
-                    if quote.get("source") == CATALOGUE_SOURCE
-                    and quote.get("reference_identity") == identity]
-        if view["market_value_minor"] is None and fallback:
-            view.update(price_view(reference["key"], fallback + view["market_quotes"], now=now))
+        view = current_cached_price_view(reference, now=now)
         by_key[reference["key"]] = view
         if reference.get("uk_eu_market_estimate"):
             view["uk_eu_market_estimate"] = reference["uk_eu_market_estimate"]
