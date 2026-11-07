@@ -22,7 +22,7 @@ def rebuild_enabled(request: Request) -> bool:
     return getattr(settings, "import_preview_rebuild_enabled", False) is True
 
 
-def validate_rebuild_batch(batch: Any, *, version: int, source_sha256: str) -> None:
+def validate_rebuild_batch(batch: Any, *, version: int, source_sha256: str, allow_zero_copy_intake: bool = False) -> None:
     if batch is None:
         raise HTTPException(status_code=404, detail="Import batch not found")
     if batch["version"] != version:
@@ -32,7 +32,7 @@ def validate_rebuild_batch(batch: Any, *, version: int, source_sha256: str) -> N
         })
     if batch["status"] != "PREVIEW" or batch.get("committed_at") is not None:
         raise HTTPException(status_code=409, detail="Only uncommitted PREVIEW batches can be rebuilt")
-    if batch.get("automatic_intake") or batch.get("last_auto_apply_version") is not None:
+    if not allow_zero_copy_intake and (batch.get("automatic_intake") or batch.get("last_auto_apply_version") is not None):
         raise HTTPException(status_code=409, detail="Seller Hub automatic-intake batches cannot be rebuilt")
     if batch["source_sha256"] != source_sha256:
         raise HTTPException(status_code=409, detail="Rebuilding requires the exact original file content")
@@ -42,15 +42,17 @@ def validate_rebuild_batch(batch: Any, *, version: int, source_sha256: str) -> N
 
 async def replace_preview(connection: asyncpg.Connection, *, actor_id: UUID,
                           owner_id: UUID, batch_id: UUID, version: int,
-                          source_sha256: str, preview: dict) -> dict:
+                          source_sha256: str, preview: dict, owner_recovery: bool = False) -> dict:
     candidates = preview["candidates"]
     if not 1 <= len(candidates) <= MAX_REBUILD_CANDIDATES:
         raise HTTPException(status_code=422, detail="Rebuild is limited to 10,000 preview rows including reconciliation rows")
     encoded = json.dumps(jsonable_encoder(candidates), separators=(",", ":"), ensure_ascii=False)
     if len(encoded.encode("utf-8")) > MAX_REBUILD_BYTES:
         raise HTTPException(status_code=422, detail="Rebuilt preview exceeds the supported size")
+    # Function identifier is selected only by trusted server code, never payload.
+    function = "replace_owner_import_preview" if owner_recovery else "replace_import_preview"
     result = await connection.fetchval(
-        """select tcg_private.replace_import_preview(
+        f"""select tcg_private.{function}(
             $1::uuid,$2::uuid,$3::uuid,$4::integer,$5::text,$6::text,
             $7::integer,$8::integer,$9::jsonb,$10::jsonb
         )""",

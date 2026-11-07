@@ -4,6 +4,8 @@ on:
     paths:
       - 'backend/app/import*.py'
       - 'backend/app/owner_auto_imports.py'
+      - 'backend/app/owner_import_recovery.py'
+      - 'database/migrations/*owner_import_preview_rebuild.sql'
       - 'backend/app/owner_imports.py'
       - 'backend/app/collectr_snapshot.py'
       - 'backend/app/static/owner-imports*'

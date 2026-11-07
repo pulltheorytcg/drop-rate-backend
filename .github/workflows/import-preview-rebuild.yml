@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'backend/app/imports.py'
+      - 'backend/app/owner_import_recovery.py'
+      - 'backend/app/owner_imports.py'
+      - 'tests/owner_import_recovery_postgres.py'
+      - 'database/migrations/*owner_import_preview_rebuild.sql'
       - 'backend/app/import_preview_rebuild.py'
       - 'backend/app/import_review.py'
       - 'backend/app/import_inventory.py'
@@ -46,3 +50,6 @@ jobs:
       - run: PYTHONPATH=backend python tests/import_preview_rebuild_postgres.py
         env:
           IMPORT_REBUILD_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/import_preview_rebuild_test
+      - run: PYTHONPATH=backend:tests python tests/owner_import_recovery_postgres.py
+        env:
+          OWNER_RECOVERY_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/import_preview_rebuild_test

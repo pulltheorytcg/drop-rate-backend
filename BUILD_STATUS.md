@@ -1,3 +1,10 @@
+## 7 November 2026 — Zero-copy seller import recovery (not deployed)
+
+- Issue #599: staged owner-only preview rebuild reuses existing parsing, exact file fingerprint, audit, locks and Collectr reconciliation. No inventory is added during rebuild; any already-added copy blocks it. Founder rebuild stays admin-only.
+- Existing dialog/layout/styling preserved. Eligible zero-copy imports reuse the submit control with explicit rebuild confirmation, authoritative readback and separate add action.
+- Default-off `TCG_OWNER_IMPORT_PREVIEW_REBUILD_ENABLED`; new narrowly scoped private SQL capability requires reviewed migration before activation. No production mutation or deployment.
+- Local: 86 unit tests, 22 mocked DOM scenarios and actual disposable PGlite/handler integration pass. Native PostgreSQL concurrency and full CI pending; real seller/iPhone acceptance remains outstanding. See `docs/SELLER_IMPORT_PREVIEW_RECOVERY.md`.
+
 ## 7 November 2026 — Full slab tiles and reviewed raw-card reference fallback (CI pending)
 
 - Founder and consignor Collection grids now give graded items a taller **uncropped** object-contain image frame on desktop and mobile, keeping the grading label and full slab visible.

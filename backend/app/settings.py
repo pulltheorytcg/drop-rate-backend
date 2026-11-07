@@ -115,6 +115,7 @@ class Settings:
     history_r2_archive_enabled: bool = False
     history_r2_archive_cleanup_enabled: bool = False
     import_preview_rebuild_enabled: bool = False
+    owner_import_preview_rebuild_enabled: bool = False
     catalogue_source_archive_enabled: bool = False
     catalogue_r2_cache_build_enabled: bool = False
     catalogue_daily_refresh_enabled: bool = False
@@ -244,6 +245,7 @@ class Settings:
             history_r2_archive_enabled=_boolean("TCG_HISTORY_R2_ARCHIVE_ENABLED", False),
             history_r2_archive_cleanup_enabled=_boolean("TCG_HISTORY_R2_ARCHIVE_CLEANUP_ENABLED", False),
             import_preview_rebuild_enabled=_boolean("TCG_IMPORT_PREVIEW_REBUILD_ENABLED", False),
+            owner_import_preview_rebuild_enabled=_boolean("TCG_OWNER_IMPORT_PREVIEW_REBUILD_ENABLED", False),
             catalogue_source_archive_enabled=_boolean("TCG_CATALOGUE_SOURCE_ARCHIVE_ENABLED", False),
             catalogue_r2_cache_build_enabled=_boolean("TCG_R2_CATALOGUE_CACHE_BUILD_ENABLED", False),
             catalogue_daily_refresh_enabled=_boolean("TCG_CATALOGUE_DAILY_REFRESH_ENABLED", False),

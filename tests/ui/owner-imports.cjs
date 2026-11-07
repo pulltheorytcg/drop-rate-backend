@@ -36,7 +36,14 @@ function fixture(records=[ready],options={}){
       if(options.loseResponse&&!lost){lost=true;throw new Error("Network response interrupted");}
       return result(count);
     }
-    if(url==="/api/v1/owner/imports/"+batchID)return {batch:{id:batchID,version,status:status(),automatic_intake:automatic,adapter:"COLLECTR",source_rows:rows.length,physical_units:records.reduce((n,r)=>n+r.quantity,0),filename:"collection.csv",warnings:[]},candidates:structuredClone(rows)};
+    if(url==="/api/v1/owner/imports/"+batchID)return {owner_rebuild_enabled:Boolean(options.recovery),owner_rebuild_eligible:Boolean(options.recovery)&&added===0&&status()==="PREVIEW",batch:{id:batchID,version,status:status(),automatic_intake:automatic,adapter:"COLLECTR",source_rows:rows.length,physical_units:records.reduce((n,r)=>n+r.quantity,0),filename:"collection.csv",warnings:[]},candidates:structuredClone(rows)};
+    if(url.endsWith("/"+batchID+"/rebuild")&&method==="POST"){
+      assert.equal(body.version,version);assert.equal(added,0);
+      if(options.rebuildError)throw new Error("Invalid source file");
+      rows=[structuredClone(ready)];version++;
+      if(options.rebuildLost)throw new Error("Lost response");
+      return {...result(0),rebuilt:true,review_edits_reset:true};
+    }
     if(url.endsWith("/"+batchID+"/commit")&&method==="POST")return result(apply());
     if(url.startsWith("/api/v1/owner/imports/catalogue-search?")){
       if(options.delaySearch)await new Promise(resolve=>{releaseSearch=resolve;});
@@ -174,6 +181,26 @@ function fixture(records=[ready],options={}){
     f.doc.querySelector(".owner-import-row-actions button").click();await pause();f.doc.querySelector(".owner-import-resolver-result button").click();await pause();
     assert.match(f.doc.getElementById("owner-import-message").textContent,/Chosen language conflicts/);
     assert.equal(f.added,0);assert.equal(f.doc.querySelector(".owner-import-resolver-result button").disabled,false);f.close();checks++;
+  }
+  {
+    const f=fixture([uncertain],{recovery:true});await f.open();await f.file();await f.upload();
+    assert.equal(f.added,0);assert.equal(f.doc.getElementById("owner-import-preview").textContent,"Rebuild preview");
+    f.w.confirm=()=>false;await f.upload();assert.equal(f.calls.filter(c=>c.url.endsWith("/rebuild")).length,0);
+    f.w.confirm=()=>true;await f.upload();assert.equal(f.added,0);
+    assert.equal(f.calls.filter(c=>c.url.endsWith("/rebuild")).length,1);
+    assert.match(f.doc.getElementById("owner-import-message").textContent,/No copies were added/);
+    f.doc.getElementById("owner-import-commit").click();await pause();assert.equal(f.added,2);f.close();checks++;
+  }
+  for(const option of ["rebuildError","rebuildLost"]){
+    const f=fixture([uncertain],{recovery:true,[option]:true});await f.open();await f.file();await f.upload();await f.upload();
+    assert.equal(f.added,0);assert.equal(f.doc.getElementById("owner-import-preview").disabled,false);
+    assert.ok(f.calls.filter(c=>c.url==="/api/v1/owner/imports/"+batchID).length>=2,"Interrupted rebuild must read back state");
+    f.close();checks++;
+  }
+  {
+    const f=fixture([ready,uncertain],{recovery:true});await f.open();await f.file();await f.upload();
+    assert.equal(f.doc.getElementById("owner-import-preview").textContent,"Import collection");
+    assert.equal(f.calls.filter(c=>c.url.endsWith("/rebuild")).length,0);f.close();checks++;
   }
   console.log(`Immediate Seller Hub intake: ${checks} mocked DOM scenarios passed (not a production login/checkout test).`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

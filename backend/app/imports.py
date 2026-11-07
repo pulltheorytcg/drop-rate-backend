@@ -999,9 +999,22 @@ async def get_import_batch(
             )
             item["issues"] = _json_value(item.get("issues"), expected_type=list, fallback=[])
             candidate_payloads.append(item)
+        owner_rebuild_enabled = getattr(getattr(request.app.state, "settings", None), "owner_import_preview_rebuild_enabled", False) is True
+        owner_rebuild_eligible = False
+        owner_intake_summary = None
+        if owner_rebuild_enabled:
+            from .owner_auto_imports import _summary as owner_summary
+            owner_intake_summary = await owner_summary(connection, batch_id, owner["id"])
+        if owner_rebuild_enabled and batch["status"] == "PREVIEW" and batch.get("committed_at") is None:
+            owner_rebuild_eligible = not await connection.fetchval(
+                """select exists(select 1 from tcg.inventory_items where import_batch_id=$1)
+                    or exists(select 1 from tcg.import_candidates where batch_id=$1 and status='COMMITTED')""", batch_id)
         return jsonable_encoder({"batch": dict(batch), "candidates": candidate_payloads,
                                  "summary": summary,
                                  "preview_truncated": summary["candidate_count"] > len(candidate_payloads),
+                                 "owner_intake_summary": owner_intake_summary,
+                                 "owner_rebuild_enabled": owner_rebuild_enabled,
+                                 "owner_rebuild_eligible": owner_rebuild_eligible,
                                  "rebuild_enabled": rebuild_enabled(request)})
 
 
