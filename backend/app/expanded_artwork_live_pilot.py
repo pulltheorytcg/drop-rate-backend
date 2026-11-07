@@ -205,7 +205,7 @@ def _expected_image(url: str, system: str) -> bool:
     return False
 
 
-async def _verify_bytes(client: httpx.AsyncClient, decision: dict) -> dict:
+async def _verify_bytes(client: httpx.AsyncClient, decision: dict, *, stage_callback=None) -> dict:
     url = decision.get("candidate_image_url")
     if not url or not _expected_image(url, decision["system_code"]):
         return decision
@@ -222,6 +222,22 @@ async def _verify_bytes(client: httpx.AsyncClient, decision: dict) -> dict:
         decision["image_sha256"] = hashlib.sha256(data).hexdigest()
         decision["image_size_bytes"] = len(data)
         decision["image_dimensions"] = {"width": w, "height": h}
+        # Only a platform-admin staging call may supply this callback, which
+        # writes to isolated PRIVATE-REVIEW, never public media or Shopify.
+        if stage_callback is not None:
+            content_type = "image/jpeg" if image.format == "JPEG" else "image/avif"
+            try:
+                receipt = await stage_callback(decision, data, content_type)
+                if (receipt.get("state") != "PRIVATE_REVIEW_ONLY"
+                        or receipt.get("verified") is not True
+                        or receipt.get("sha256") != decision["image_sha256"]):
+                    raise ValueError("Private R2 staging receipt mismatch")
+                decision["review_storage"] = receipt
+            except Exception:
+                # Never expose storage credentials, provider responses or
+                # raw exception text to the browser. The candidate can be
+                # retried without an approval or destructive cleanup.
+                decision["review_storage_error"] = "PRIVATE_R2_STAGE_UNAVAILABLE"
         # Byte validity never proves an exact printing, licence or storefront use.
     except (ArtworkSourceUnavailable, UnidentifiedImageError, OSError, ValueError) as exc:
         decision["image_validation_error"] = (
@@ -236,8 +252,11 @@ async def collect(
     *,
     verify_bytes: bool = False,
     client: httpx.AsyncClient | None = None,
+    stage_callback=None,
 ) -> dict:
     """Bounded sequential source reads, with per-record error receipts."""
+    if stage_callback is not None and not verify_bytes:
+        raise ArtworkPreviewError("Private R2 staging requires image byte verification")
     if system_code not in CONNECTIONS:
         raise ArtworkPreviewError("Unsupported artwork source")
     if not isinstance(references, list) or not 1 <= len(references) <= MAX_ROWS:
@@ -263,7 +282,8 @@ async def collect(
                         "MAGIC_THE_GATHERING": _magic}[system_code]
                 decision = await func(client, row)
                 if verify_bytes:
-                    decision = await _verify_bytes(client, decision)
+                    decision = await _verify_bytes(
+                        client, decision, stage_callback=stage_callback)
             except ArtworkSourceUnavailable as exc:
                 decision = _decision(row, row["key"], str(exc))
                 if str(exc) == "PROVIDER_RATE_LIMITED":
@@ -285,6 +305,12 @@ async def collect(
         "records": result,
         "can_publish": False,
         "can_mirror": False,
-        "storage_writes": 0,
+        "storage_writes": sum(
+            bool(row.get("review_storage"))
+            and not row["review_storage"].get("unchanged", False)
+            for row in result
+        ),
+        "review_staged_count": sum(bool(row.get("review_storage")) for row in result),
+        "review_stage_failures": sum(bool(row.get("review_storage_error")) for row in result),
         "database_writes": 0,
     }
