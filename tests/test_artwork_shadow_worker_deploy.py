@@ -44,7 +44,8 @@ def test_exact_existing_d1_config_and_read_only_calls():
     assert config["name"] == "drop-rate-artwork-shadow"
     assert config["workers_dev"] is True  # HMAC-only endpoint; no image GET routes
     assert config["r2_buckets"] == [
-        {"binding": "ARTWORK_R2", "bucket_name": "drop-rate-existing-r2",\n         "jurisdiction": "eu"}]
+        {"binding": "ARTWORK_R2", "bucket_name": "drop-rate-existing-r2",
+         "jurisdiction": "eu"}]
     assert config["d1_databases"][0]["database_name"] == stage.DB_NAME
     assert config["d1_databases"][0]["binding"] == "ARTWORK_D1"
     assert result["existing_staged_rows"] == 0
