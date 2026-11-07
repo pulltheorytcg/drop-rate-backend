@@ -1,3 +1,9 @@
+## 7 November 2026 — Offline reference-price recovery classification (not deployed)
+
+- Reuse existing R2 quote-backup manifests and row validation to verify bytes, identities, counts and hashes before producing aggregate recovery categories. Expiry, guide quotes and missing evidence remain separate; no archived amount becomes Market Value.
+- 85 targeted local tests passed. Historical archive readback is separate from current SQL parity and typed restoration; neither is inferred. No UI, production data, provider, capacity-safeguard or integration changes.
+- See [usage and next approval gates](docs/REFERENCE_PRICE_RECOVERY_AUDIT_20261107.md). CI/review pending.
+
 ## 7 November 2026 — Full slab tiles and reviewed raw-card reference fallback (CI pending)
 
 - Founder and consignor Collection grids now give graded items a taller **uncropped** object-contain image frame on desktop and mobile, keeping the grading label and full slab visible.
