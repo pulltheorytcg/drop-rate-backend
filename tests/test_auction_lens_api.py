@@ -1,4 +1,5 @@
 """Authenticated, opt-in Auction Lens pilot route: no real DB, no video storage."""
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -173,3 +174,28 @@ def test_market_value_selection_rejects_guides_or_expired_evidence(monkeypatch):
         "market_value_minor": 1277, "checked_at": now - timedelta(days=8),
     })
     assert asyncio.run(api._eligible_uk_value(con, catalogue_id=P_ID, now=now)) is None
+
+
+def test_slow_index_never_hangs_auction_or_returns_stale_identity(pilot, monkeypatch):
+    client, _connection, _seen = pilot
+    monkeypatch.setattr(api, "_LOOKUP_TIMEOUT_SECONDS", 0.002)
+
+    async def delayed_hints(*_args, **_kwargs):
+        await asyncio.sleep(0.025)
+        return [dict(HINT)]
+
+    monkeypatch.setattr(api, "discover_reference_candidate_hints", delayed_hints)
+    response = client.post("/api/v1/auction-lens/pilot/resolve", json=PAYLOAD)
+    assert response.status_code == 200
+    assert response.json() == {"generation": 8, "decision": "CHECK_VERSION"}
+
+    # A timed-out request must release the shared concurrency slot.
+    monkeypatch.setattr(api, "_LOOKUP_TIMEOUT_SECONDS", 2.5)
+
+    async def ready_hints(*_args, **_kwargs):
+        return [dict(HINT)]
+
+    monkeypatch.setattr(api, "discover_reference_candidate_hints", ready_hints)
+    next_result = client.post("/api/v1/auction-lens/pilot/resolve", json=PAYLOAD)
+    assert next_result.status_code == 200
+    assert next_result.json()["decision"] == "EXACT"
