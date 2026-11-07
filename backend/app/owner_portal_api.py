@@ -1062,6 +1062,12 @@ async def owner_inventory(
                 i.grading_company,
                 i.grade,
                 i.status,
+                (i.identity_confirmed and i.condition_review_status='VERIFIED_GRADED'
+                 and i.condition_verified_by_user_id is not null
+                 and i.status in ('APPROVED','RESERVED','SOLD')
+                 and length(btrim(i.certificate_number))>=6
+                 and upper(btrim(i.grading_company)) in ('PSA','ACE','BGS','CGC')
+                 and p.product_type='CARD') as graded_reference_allowed,
                 i.market_value_minor,
                 (select ps.evidence->>'method' from tcg.pricing_snapshots ps
                  where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
