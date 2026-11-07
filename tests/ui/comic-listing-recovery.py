@@ -128,6 +128,11 @@ def fixture_server():
                 if self.command == "GET" and url.path == f"/api/v1/owner/inventory/{FIRST}":
                     self.json_reply({"item": transport["item"], "copies": [transport["item"]]})
                     return
+                if self.command == "GET" and url.path == f"/api/v1/media/resolve/{FIRST}":
+                    # DR106 is an owner-scoped GET-only media preview, not a
+                    # second upload, photo approval, or marketplace publication.
+                    self.json_reply({"inventory_id": FIRST, "channels": {}, "mutated": False})
+                    return
                 assert self.command == "POST" and url.path == f"/api/v1/owner/inventory/{FIRST}/comic-photo/upload", "Unexpected write or publication request"
                 query = parse_qs(url.query)
                 side = query["side"][0]
@@ -253,10 +258,17 @@ def real_transport(page, front, back, server):
     assert not server.errors, server.errors
     assert len(transfers) == 2 and len({record["key"] for record in transfers}) == 2
     assert [record["side"] for record in transfers] == ["FRONT", "BACK"]
-    assert len(transport_requests) == 4, transport_requests  # two POSTs + two owner-scoped rereads
-    assert all(request["url"].startswith(server.origin + "/api/v1/owner/inventory/") for request in transport_requests)
-    assert all(request["method"] in ("POST", "GET") for request in transport_requests)
-    assert [request["method"] for request in server.transport["requests"]] == ["POST", "GET", "POST", "GET"]
+    photo_requests = [request for request in transport_requests
+                      if request["url"].startswith(server.origin + "/api/v1/owner/inventory/")]
+    media_previews = [request for request in transport_requests
+                      if "/api/v1/media/resolve/" in request["url"]]
+    assert len(photo_requests) == 4, photo_requests  # two POSTs + two owner-scoped rereads
+    assert all(request["method"] in ("POST", "GET") for request in photo_requests)
+    assert media_previews and all(request["method"] == "GET" for request in media_previews)
+    assert [request["method"] for request in server.transport["requests"]
+            if request["path"].startswith("/api/v1/owner/inventory/")] == ["POST", "GET", "POST", "GET"]
+    assert all(request["method"] == "GET" for request in server.transport["requests"]
+               if request["path"].startswith("/api/v1/media/resolve/"))
     assert page.evaluate("cspViolations") == []
     server_item = server.transport["item"]
     assert server_item["status"] == "INSPECTION" and all(asset["approval_status"] == "PENDING" for asset in server_item["comic_photos"])

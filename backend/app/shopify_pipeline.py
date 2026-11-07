@@ -21,6 +21,7 @@ from .media_resolver import (
     FIRST_PARTY_CAPTURE,
     STOREFRONT_ALLOWED,
     physical_photo_policy,
+    resolve_media,
     resolve_storefront_media,
 )
 from .ownership import current_owner as _owner
@@ -660,9 +661,11 @@ def _launch_completeness(
         item,
         physical_photo_threshold_minor=physical_photo_threshold_minor,
     )
-    media = resolve_storefront_media(
+    media = resolve_media(
         item,
         media_assets,
+        channel="SHOPIFY",
+        purpose="LISTING",
         threshold_minor=physical_photo_threshold_minor,
     )
     profile = shipping_profiles.get(str(plan["shippingProfileKey"]))

@@ -33,6 +33,7 @@ from .ebay_seller_connection import (
     seller_client,
 )
 from .ownership import current_owner as _owner
+from .media_resolver import resolve_media
 from .settings import Settings, get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
 
@@ -437,7 +438,10 @@ async def _load_listing_plan(
 
         media_rows = await connection.fetch(
             """
-            select side, shopify_cdn_url
+            select side, shopify_cdn_url, owner_id, inventory_id, scope,
+                   media_kind, source_type, rights_tier, capture_context,
+                   rights_status, approval_status, source_status, revoked_at,
+                   shopify_file_status
             from tcg.media_assets
             where owner_id=$1
               and inventory_id=$2
@@ -459,9 +463,14 @@ async def _load_listing_plan(
             inventory_id,
             graded,
         )
-        media = {str(media["side"]): str(media["shopify_cdn_url"]) for media in media_rows}
-        if "FRONT" not in media or "BACK" not in media:
-            blockers.append("approved FRONT + BACK physical photos are required")
+        # The SQL remains restricted to this owner's approved first-party
+        # physical photos; the shared deterministic media resolver rechecks
+        # owner, inventory, capture context and channel-specific requirements.
+        media_decision = resolve_media(
+            row, [dict(media) for media in media_rows],
+            channel="EBAY", purpose="LISTING",
+        )
+        blockers.extend(media_decision["blockers"])
         if blockers:
             raise HTTPException(status_code=409, detail={"blockers": blockers})
 
@@ -516,7 +525,7 @@ async def _load_listing_plan(
             "link": dict(link),
             "owner_id": owner["id"],
             "item": row,
-            "image_urls": [media["FRONT"], media["BACK"]],
+            "image_urls": media_decision["imageUrls"],
             "price_minor": price_minor,
         }
 

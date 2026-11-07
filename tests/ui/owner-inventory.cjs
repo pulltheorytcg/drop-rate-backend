@@ -282,6 +282,9 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const f=fixture(comic);f.w.DropRateScanPhotos={};let detailReads=0,finishBackground;
   f.run('loadOwnerInventory=()=>new Promise(resolve=>{window.finishCollectionReload=resolve;});');
   f.setHandler(async(url)=>{
+   // DR106 media decisions are a separate read-only call; do not count them
+   // as inventory detail reads when testing an interrupted photo refresh.
+   if(url.includes('/api/v1/media/resolve/'))return {inventory_id:comic.id,channels:{}};
    if(url.endsWith('/photos/refresh'))return {items:[]};
    if(url.endsWith('/withdraw'))return {message:'Copy removed.'};
    detailReads++;

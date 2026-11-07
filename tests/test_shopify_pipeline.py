@@ -355,7 +355,8 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     create_pos = sync.index("shopify.create_product(")
     assert completeness_pos < create_pos
     assert "No remote product was created or published." in sync
-    assert "resolve_storefront_media(" in source
+    assert "resolve_media(" in source
+    assert 'channel="SHOPIFY"' in source
     assert "ACTIVE_FAIL_CLOSED" in source
     assert "approval_status='APPROVED'" in source
     assert "rights_status='VERIFIED'" in source

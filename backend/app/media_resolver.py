@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
+from urllib.parse import urlsplit
 
 from .language import clean_language
 
@@ -407,3 +408,152 @@ def resolve_storefront_media(
         "selectedMedia": [_selected_summary(asset) for asset in selected],
         "actionRequiredReason": blockers[0] if blockers else None,
     }
+
+
+# New channels add an adapter here, not a new source-of-truth or a copied
+# ownership/rights policy. WHATNOT is intentionally non-publishing until the
+# seller account, listing API, and platform-specific media policy are verified.
+MEDIA_CHANNELS = frozenset({"DROP_RATE", "SHOPIFY", "EBAY", "WHATNOT"})
+MEDIA_PURPOSES = frozenset({"DISPLAY", "LISTING"})
+_FIRST_PARTY_SOURCES = frozenset({"FOUNDER_UPLOAD", "CONSIGNOR_UPLOAD"})
+
+
+def _channel_image_url(value: object) -> str | None:
+    """Only already-synced HTTPS Shopify media can be sent to eBay today."""
+    candidate = _text(value)
+    if not candidate:
+        return None
+    try:
+        parsed = urlsplit(candidate)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if (
+            parsed.scheme != "https"
+            or parsed.port not in (None, 443)
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.fragment
+            or host not in {"cdn.shopify.com"}
+            and not host.endswith((".shopifycdn.com", ".shopifycdn.net"))
+        ):
+            return None
+    except ValueError:
+        return None
+    return candidate
+
+
+def _ebay_physical_candidates(
+    item: Mapping[str, Any],
+    assets: list[Mapping[str, Any]],
+) -> dict[str, Mapping[str, Any]]:
+    """Select the exact owner's approved physical photos, never catalogue art.
+
+    The caller's SQL/RLS must additionally bind the authenticated owner. This
+    deterministic second check prevents a broader future asset query from
+    silently reusing another owner's photograph.
+    """
+    inventory_id = _text(item.get("id"))
+    owner_id = _text(item.get("owner_id"))
+    if not inventory_id or not owner_id:
+        return {}
+    graded = bool(_text(item.get("grading_company")) or _text(item.get("grade")))
+    ready = [
+        asset for asset in assets
+        if _text(asset.get("scope")) == "INVENTORY_ITEM"
+        and _text(asset.get("inventory_id")) == inventory_id
+        and _text(asset.get("owner_id")) == owner_id
+        and _text(asset.get("source_type")) in _FIRST_PARTY_SOURCES
+        and _text(asset.get("rights_tier")) == FIRST_PARTY_CAPTURE
+        and _text(asset.get("media_kind")) == "IMAGE"
+        and _text(asset.get("side")) in {"FRONT", "BACK"}
+        and _text(asset.get("approval_status")) == "APPROVED"
+        and _text(asset.get("rights_status")) == "VERIFIED"
+        and _text(asset.get("source_status")) == "ACTIVE"
+        and not asset.get("revoked_at")
+        and _text(asset.get("shopify_file_status")) == "READY"
+        and _channel_image_url(asset.get("shopify_cdn_url")) is not None
+        and (not graded or _text(asset.get("capture_context")) == "GRADED_SLAB")
+    ]
+    return _latest_by_side(ready)
+
+
+def resolve_media(
+    item: Mapping[str, Any],
+    assets: list[Mapping[str, Any]],
+    *,
+    channel: str,
+    purpose: str = "LISTING",
+    threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+) -> dict[str, Any]:
+    """One auditable, read-only media decision for an owned physical item.
+
+    DROP_RATE: signed-in own-item display; use existing approved media.
+    SHOPIFY: exact authorised official printing first for ordinary raw cards.
+    EBAY: GB used-card contract remains exact FIRST_PARTY_CAPTURE FRONT+BACK.
+    WHATNOT: preview the decision, but never claim the channel can publish.
+
+    This function does NOT retrieve source images, approve rights, upload bytes,
+    mutate ownership, or publish to any marketplace. Callers must apply owner
+    authentication/RLS before passing physical inventory and media records.
+    """
+    channel = _text(channel).upper()
+    purpose = _text(purpose).upper()
+    if channel not in MEDIA_CHANNELS:
+        raise ValueError("Unsupported media channel")
+    if purpose not in MEDIA_PURPOSES:
+        raise ValueError("Unsupported media purpose")
+
+    if channel == "EBAY":
+        by_side = _ebay_physical_candidates(item, assets)
+        blockers = [
+            "approved FRONT + BACK physical photos are required"
+        ] if not all(side in by_side for side in ("FRONT", "BACK")) else []
+        selected = [by_side[side] for side in ("FRONT", "BACK") if side in by_side]
+        image_urls = [_channel_image_url(asset.get("shopify_cdn_url"))
+                      for asset in selected]
+        result = {
+            "complete": not blockers,
+            "blockers": blockers,
+            "resolutionSource": FIRST_PARTY_CAPTURE if not blockers else "NONE",
+            "rightsTier": FIRST_PARTY_CAPTURE if not blockers else None,
+            "selectedMedia": [_selected_summary(asset) for asset in selected] if not blockers else [],
+            "shopifyFileIds": [],
+            "imageUrls": image_urls if not blockers else [],
+            "physicalPhotosRequired": True,
+            "requiredSides": ["FRONT", "BACK"],
+            "selectionReason": (
+                "eBay UK listing uses approved photographs of the actual physical item."
+                if not blockers else "eBay physical front and back photo review required."
+            ),
+        }
+    else:
+        storefront = resolve_storefront_media(
+            item, assets, threshold_minor=threshold_minor
+        )
+        result = {
+            **storefront,
+            "imageUrls": [
+                url for asset in storefront["selectedMedia"]
+                if (url := _channel_image_url(asset.get("shopifyCdnUrl")))
+            ],
+        }
+        if channel == "WHATNOT":
+            # A future Whatnot adapter must explicitly enable its own channel.
+            # A listing must never publish merely because Shopify is ready.
+            result["complete"] = False
+            result["blockers"] = list(dict.fromkeys([
+                *result["blockers"], "WHATNOT_CHANNEL_NOT_CONNECTED"
+            ]))
+            result["imageUrls"] = []
+            result["shopifyFileIds"] = []
+
+    result["channel"] = channel
+    result["purpose"] = purpose
+    result["publishReady"] = bool(
+        result["complete"] and purpose == "LISTING"
+        and channel in {"SHOPIFY", "EBAY"}
+    )
+    result["channelConnected"] = channel != "WHATNOT"
+    result["actionRequiredReason"] = (
+        result["blockers"][0] if result["blockers"] else None
+    )
+    return result
