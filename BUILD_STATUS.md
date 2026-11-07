@@ -1,3 +1,9 @@
+## 7 November 2026 — Auction Lens independently measured video QA gate (draft; no live capture)
+
+- Added a **standalone, offline** labelled-footage benchmark tool, \`backend/scripts/auction_lens_video_acceptance.py\`, with automated harness tests and a [rights-cleared video collection runbook](docs/AUCTION_LENS_VIDEO_ACCEPTANCE_20261107.md). This measures correct exact-print claims, abstention/coverage, median/p95 latency, stale scene generations, unsafe price displays and footage source authorisation, with a strict privacy-minimised JSONL schema. Unlabelled and tiny test sets fail the gate.
+- Isolated work from the independently active Auction Lens feature [draft PR #983](https://github.com/pulltheorytcg/drop-rate-backend/pull/983): no new capture API, live third-party feed, pricing source, native iPhone build, session credential path, n8n workflow, database migration or production configuration. **Current device/video accuracy is UNKNOWN; synthetic harness tests are not proof of live recognition.**
+- Release target remains evidence-dependent: consented native capture, rights-approved source, exact UK pricing, physical iPhone battery/thermal and background tests, signed build, and 100+ actual authorised labelled cases with no stale/unsafe values. Record CI receipts for this independent PR before calling the harness verified.
+
 ## 7 November 2026 — eBay first-party photo publication safety (PR in review; NOT deployed)
 
 - Live read-only SQL: the sole eBay listing link remains ERROR / PUBLISH:400, GBP 35, no stored offer/listing ID and no publication timestamp (last attempted 4 Nov 14:21 UTC). The connected EBAY_GB seller record is READY with all three API business policy IDs; this does **not** establish eBay seller registration/payment verification. Previous authenticated Seller Hub inspection showed missing payout and selling-cost payment methods and individual-account status.
