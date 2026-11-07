@@ -1094,6 +1094,11 @@
       "version_control_required": true,
       "error_workflow_required": true,
       "activation_requires": [
+        "deterministic backend contract",
+        "duplicate-delivery test",
+        "failure/retry test",
+        "observability/error routing",
+        "provider terms/rate-limit review where applicable",
         "exact six source-controlled workflows",
         "deterministic HMAC-verified backend command",
         "private R2 immutable verified worklist readback",
