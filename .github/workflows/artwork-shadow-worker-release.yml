@@ -1,0 +1,104 @@
+name: DR101 guarded private artwork shadow Worker release
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/artwork-shadow/worker.mjs'
+      - 'tools/artwork_shadow_worker_deploy.py'
+      - 'tests/test_artwork_shadow_worker_deploy.py'
+      - '.github/workflows/artwork-shadow-worker-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drop-rate-artwork-worker-only
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - run: python -m pip install pytest
+      - name: Test exact account/bucket/D1 binding, Worker HMAC and R2 SHA contracts
+        run: |
+          python tools/artwork_shadow_worker_deploy.py --validate-only
+          python -m pytest -q tests/test_artwork_shadow_worker_deploy.py tests/test_cloudflare_artwork_shadow.py tests/test_d1_artwork_shadow_provision.py
+
+  deploy-private-shadow:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DROP_RATE_ARTWORK_WORKER_DEPLOY_APPROVED == 'true'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: production-artwork-shadow
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - name: Verify separate credentials before any cloud write
+        env:
+          D1_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+          WORKER_TOKEN: ${{ secrets.CLOUDFLARE_ARTWORK_WORKER_TOKEN }}
+          WORKER_SECRET: ${{ secrets.ARTWORK_COMMAND_SECRET }}
+          ARTWORK_R2_BUCKET_NAME: ${{ vars.ARTWORK_R2_BUCKET_NAME }}
+        run: |
+          python - <<'PY'
+          import os
+          d1=os.getenv('D1_TOKEN','')
+          worker=os.getenv('WORKER_TOKEN','')
+          secret=os.getenv('WORKER_SECRET','')
+          bucket=os.getenv('ARTWORK_R2_BUCKET_NAME','')
+          assert len(d1)>=10 and len(worker)>=10, 'Dedicated Cloudflare tokens required'
+          assert d1!=worker, 'Do not use the D1 pilot token as the Worker deploy token'
+          assert len(secret)>=32, 'Separate HMAC staging secret missing'
+          assert bucket, 'Known production artwork R2 bucket name must be set'
+          print('Required separate credentials and explicit R2 bucket present')
+          PY
+      - name: Confirm exact existing D1 schema and produce Worker binding config
+        env:
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+          ARTWORK_R2_BUCKET_NAME: ${{ vars.ARTWORK_R2_BUCKET_NAME }}
+        run: python tools/artwork_shadow_worker_deploy.py
+      - name: Pin Wrangler and deploy the existing HMAC-only Worker script
+        env:
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ARTWORK_WORKER_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.136.3 deploy --config cloudflare/artwork-shadow/wrangler.generated.json 2>&1 | tee "$RUNNER_TEMP/artwork-deploy.txt"
+          python - <<'PY'
+          import os, re
+          from pathlib import Path
+          text=Path(os.environ['RUNNER_TEMP']+'/artwork-deploy.txt').read_text()
+          urls=set(re.findall(r'https://drop-rate-artwork-shadow\.[a-zA-Z0-9-]+\.workers\.dev',text))
+          assert len(urls)==1, 'Worker URL not confirmed; refuse to infer endpoint'
+          Path(os.environ['RUNNER_TEMP']+'/artwork-worker-url.txt').write_text(urls.pop())
+          print('Expected artwork-only Worker hostname verified')
+          PY
+      - name: Bind HMAC secret through Wrangler without printing the value
+        env:
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ARTWORK_WORKER_TOKEN }}
+          ARTWORK_COMMAND_SECRET: ${{ secrets.ARTWORK_COMMAND_SECRET }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$ARTWORK_COMMAND_SECRET" | npx --yes wrangler@4.136.3 secret put ARTWORK_COMMAND_SECRET --config cloudflare/artwork-shadow/wrangler.generated.json
+      - name: Prove public image route is absent and invalid HMAC is rejected
+        run: |
+          WORKER_URL="$(cat "$RUNNER_TEMP/artwork-worker-url.txt")"
+          python tools/artwork_shadow_worker_deploy.py --smoke-url "$WORKER_URL"
+          echo "Private shadow only: no approved media was staged or published."
