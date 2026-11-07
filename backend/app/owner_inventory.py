@@ -111,12 +111,6 @@ select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
  i.recommended_retail_minor,i.pricing_updated_at,p.product_type,p.game,p.name,p.set_name,
  p.card_number,p.variant,p.rarity,
  i.identity_confirmed as identity_ready,
- (i.identity_confirmed and i.condition_review_status='VERIFIED_GRADED'
-  and i.condition_verified_by_user_id is not null
-  and i.status in ('APPROVED','RESERVED','SOLD')
-  and length(btrim(i.certificate_number))>=6
-  and upper(btrim(i.grading_company)) in ('PSA','ACE','BGS','CGC')
-  and p.product_type='CARD') as graded_reference_allowed,
  (i.acquisition_cost_minor is not null) as cost_recorded,
  (i.storage_location_id is not null) as location_recorded,
  (i.storage_location_id is not null) as intake_ready,
