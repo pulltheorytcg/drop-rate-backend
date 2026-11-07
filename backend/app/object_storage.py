@@ -317,6 +317,67 @@ class S3ObjectStorage:
             self._verify_remote_file(key, digest, size)
         return {"key": key, "size_bytes": size, "sha256": digest, "verified": True}
 
+    def put_pending_artwork_review(
+        self,
+        data: bytes,
+        *,
+        content_type: str,
+        reference_key: str,
+        source_manifest_sha256: str,
+        source_provider: str,
+    ) -> dict[str, str | int | bool]:
+        """Immutable private-only source-image bytes, NEVER approved listing media.
+
+        This is distinct from private-media: the existing CDN/signing resolver
+        cannot select artwork-review keys, and no canonical media ledger row is
+        written. Caller must verify exact source identity and original bytes.
+        """
+        if (type(data) is not bytes or not 0 < len(data) <= 4_000_000
+                or source_provider not in {"ygoprodeck", "lorcast", "mtgjson"}
+                or not isinstance(reference_key, str)
+                or not re.fullmatch(r"x:[0-9a-f]{64}", reference_key)
+                or not isinstance(source_manifest_sha256, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", source_manifest_sha256)):
+            raise ObjectStorageError("Invalid private artwork review scope")
+        extension = {"image/jpeg": ".jpg", "image/avif": ".avif"}.get(content_type)
+        if extension is None or (
+            (content_type == "image/jpeg" and not data.startswith(b"\xff\xd8\xff"))
+            or (content_type == "image/avif"
+                and b"ftypavif" not in data[4:20])
+        ):
+            raise ObjectStorageError("Untrusted artwork review file format")
+        digest = hashlib.sha256(data).hexdigest()
+        key = (f"{self.config.prefix}/artwork-review/"
+               f"{source_manifest_sha256}/{reference_key[2:]}/{digest}{extension}")
+        unchanged = False
+        try:
+            self._verify_remote_file(key, digest, len(data))
+            unchanged = True
+        except ObjectStorageError:
+            # Existing damaged objects must never be overwritten.
+            raise
+        except Exception as exc:
+            reply = getattr(exc, "response", {})
+            code = reply.get("Error", {}).get("Code") if isinstance(reply, dict) else None
+            if str(code) not in {"NoSuchKey", "404", "NotFound"}:
+                raise ObjectStorageError("Private R2 object state unknown") from exc
+            self.client.put_object(
+                Bucket=self.config.bucket, Key=key,
+                Body=io.BytesIO(data), ContentType=content_type,
+                ContentDisposition="inline",
+                CacheControl="private, no-store",
+                Metadata={
+                    "sha256": digest, "source-provider": source_provider,
+                    "rights-state": "PENDING_REVIEW",
+                },
+            )
+            self._verify_remote_file(key, digest, len(data))
+        return {
+            "object_key": key, "sha256": digest, "size_bytes": len(data),
+            "verified": True, "unchanged": unchanged,
+            "state": "PRIVATE_REVIEW_ONLY",
+        }
+
     def put_verified_media(self, data: bytes) -> dict[str, str | int | bool]:
         """Upload a bounded, already decoded WebP to the *private* media area.
 
