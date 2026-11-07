@@ -1079,6 +1079,44 @@
       ],
       "control_contract": "/api/v1/automation/commands/catalogue/check-legacy-release-source",
       "activation_note": "Seven legacy source adapters are capacity-deferred while Supabase bulk refresh guard is active. Riftbound watcher is permission readiness-only; no Riot card data or artwork imported. All game scouts are metadata-only; new art needs verified rights/printing and live Cloudflare pipeline."
+    },
+    {
+      "key": "r2-first-release-enrichment-worklist",
+      "sequence": 47,
+      "domain": "Catalogue",
+      "authority": "ORCHESTRATE",
+      "status": "BUILT_INACTIVE",
+      "source_of_truth": "PostgreSQL/Supabase",
+      "decision_engine": "FastAPI",
+      "orchestrator": "n8n",
+      "ai_may_assist": false,
+      "idempotency_required": true,
+      "version_control_required": true,
+      "error_workflow_required": true,
+      "activation_requires": [
+        "exact six source-controlled workflows",
+        "deterministic HMAC-verified backend command",
+        "private R2 immutable verified worklist readback",
+        "cross-check authorised PostgreSQL publication generation before and after work",
+        "source permission and exact reference identity validation",
+        "provider metadata does not authorise image reproduction",
+        "market values require exact UK sold evidence; no RRP/asking substitution",
+        "n8n DR90 published and version-matched",
+        "private SQLite backup and exact six workflow version hash readback",
+        "failure and duplicate run smoke tests",
+        "no physical inventory, owner, Shopify or Market Value writes"
+      ],
+      "implementation_id": "DR98PrivateR2EnrichmentWorklistsV1",
+      "implementation_paths": [
+        "automation/n8n/workflows/dr-98-ygoprodeck-enrichment.json",
+        "automation/n8n/workflows/dr-98-lorcast-enrichment.json",
+        "automation/n8n/workflows/dr-98-mtgjson-enrichment.json",
+        "automation/n8n/workflows/dr-98-cardcollectorcapital-enrichment.json",
+        "automation/n8n/workflows/dr-98-cardcollectorcapital-heritage-enrichment.json",
+        "automation/n8n/workflows/dr-98-reviewed-figures-enrichment.json"
+      ],
+      "control_contract": "/api/v1/automation/commands/catalogue/prepare-enrichment-worklist",
+      "activation_note": "DR98 STAGES PRIVATE R2 TASKS ONLY. It does not fetch, license, match or publish new art; nor compute or persist Market Value. Per-card exact-print mapping and verified sold observations remain separate production dependencies; legacy sources remain capacity-deferred."
     }
   ]
 }
