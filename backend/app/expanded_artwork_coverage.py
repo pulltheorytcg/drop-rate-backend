@@ -10,9 +10,14 @@ No image retrieval, R2 writes, source approval, pricing or Shopify mutations.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import asyncio
+import logging
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
+
 from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
@@ -216,4 +221,99 @@ async def live_artwork_pilot(
         "limit": limit,
         "verified_image_bytes_requested": verify_bytes,
         **outcome,
+    })
+
+
+class PrivateReviewStageRequest(BaseModel):
+    source_manifest_sha256: str
+    confirm_private_review: bool = False
+
+
+_artwork_review_log = logging.getLogger(__name__)
+
+
+@router.post("/pilot/stage/{system_code}")
+async def stage_live_artwork_pilot(
+    system_code: str,
+    payload: PrivateReviewStageRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=5, ge=1, le=5),
+    offset: int = Query(default=0, ge=0, le=20),
+) -> dict:
+    """Stage five already validated candidates as PENDING inside private R2.
+
+    Only a platform administrator may request this readback-verified, immutable
+    cache. NO canonical media approval, SQL migration, Shopify/eBay listing, or
+    public URL. Original bytes preserved for later exact print/rights review.
+    """
+    if system_code not in GAMES:
+        raise HTTPException(404, "Unknown artwork game")
+    if offset + limit > 25:
+        raise HTTPException(422, "Artwork review batch must stay inside 25 printings")
+    if (payload.confirm_private_review is not True
+            or not re.fullmatch(r"[0-9a-f]{64}", payload.source_manifest_sha256)):
+        raise HTTPException(422, "Private review confirmation and manifest required")
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        snapshots = await r2_first_service.read(
+            connection, system_code=system_code, language="English"
+        )
+    if len(snapshots) != 1:
+        raise HTTPException(503, "Expected exactly one active source partition")
+    snapshot = snapshots[0]
+    if snapshot.manifest_digest != payload.source_manifest_sha256:
+        raise HTTPException(409, "Source generation changed; review the cards again")
+    with r2_first_service._borrow(snapshots):
+        found = snapshot.search(
+            limit=limit, offset=offset, sort="name", include_upcoming=False
+        )
+    references = found["items"]
+    if not references:
+        raise HTTPException(404, "No source printings in this slice")
+    for row in references:
+        if row.get("system_code") != system_code:
+            raise HTTPException(503, "Unexpected source partition during staging")
+        row["source_manifest_sha256"] = snapshot.manifest_digest
+    try:
+        storage = r2_first_service.storage()
+    except Exception as exc:
+        raise HTTPException(503, "Private artwork R2 storage unavailable") from exc
+
+    source_provider = expanded_artwork_live_pilot.CONNECTIONS[system_code][0]
+
+    async def stage_callback(decision, data, content_type):
+        receipt = await asyncio.to_thread(
+            storage.put_pending_artwork_review,
+            data,
+            content_type=content_type,
+            reference_key=decision["reference_key"],
+            source_manifest_sha256=snapshot.manifest_digest,
+            source_provider=source_provider,
+        )
+        # Structured non-sensitive provenance in the existing Railway log.
+        _artwork_review_log.info(
+            "DR109_ARTWORK_PRIVATE_STAGE actor=%s request=%s system=%s "
+            "reference_key=%s content_sha256=%s status=PRIVATE_REVIEW_ONLY unchanged=%s",
+            user.user_id, request.state.request_id, system_code,
+            decision["reference_key"], receipt["sha256"], receipt["unchanged"],
+        )
+        return receipt
+
+    result = await expanded_artwork_live_pilot.collect(
+        system_code, references, verify_bytes=True,
+        stage_callback=stage_callback,
+    )
+    return jsonable_encoder({
+        "schema": "drop-rate-private-artwork-review-v1",
+        "game": GAMES[system_code],
+        "source_manifest_sha256": snapshot.manifest_digest,
+        "offset": offset, "limit": limit,
+        **result,
+        "storage_scope": "PRIVATE_R2_REVIEW_ONLY",
+        "approved_canonical_media_created": 0,
+        "shopify_changes": 0,
+        "ebay_changes": 0,
+        "can_publish": False,
     })
