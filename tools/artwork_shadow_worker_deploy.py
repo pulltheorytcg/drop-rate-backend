@@ -83,6 +83,10 @@ def smoke_url(value: str) -> dict:
     )
     for method, path, body, expected in probes:
         req = request.Request(origin + path, method=method, data=body, headers={
+            # Cloudflare workers.dev Browser Integrity Check can block Python-urllib's
+            # default User-Agent with 403 before this Worker sees the request.
+            # Identify the test client explicitly; do not bypass Cloudflare security.
+            "User-Agent": "DropRate-Artwork-Shadow-Smoke/1.0 (GitHub-Actions)",
             "Content-Type": "application/json",
             "x-drop-rate-timestamp": "1000000000",
             "x-drop-rate-signature": "sha256=" + "0" * 64,
