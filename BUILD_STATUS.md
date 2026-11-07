@@ -1,3 +1,9 @@
+## 7 November 2026 — DR-100 first-party graded Shopify photo audit (CI pending)
+
+- Built an hourly, deterministic **owner-scoped** audit of existing non-test published Shopify graded inventory. The current 506 published physical item links include 8 graded copies; no READY approved `FIRST_PARTY_CAPTURE` slab front/back photos are in the media registry. Certification-image records remain `INTERNAL_REFERENCE_ONLY`.
+- Existing Shopify sync will emit/reopen idempotent HIGH Action Required `SHOPIFY_PUBLISHED_GRADED_PHOTOS_MISSING` for each exact physical copy without both first-party rights-approved READY sides, and close only that code when proof is obtained. Owner ID and inventory ID must match. The audit will not unpublish, relist, change stock, ownership, price, sales or founder review overrides. No bulk reference writes. Audit exceptions are included in SHOPIFY_SYNC heartbeat.
+- [DR-100 safety details](docs/DR100_SHOPIFY_GRADED_IMAGE_EXCEPTIONS_20261107.md). **CI/deployment not yet verified as of writing.**
+
 ## 7 November 2026 — DR-99 verified market-expiry regression repair (CI pending)
 
 - The legacy catalogue browser and /market-values can still display an old reference quote when its seven-day observed/updated timestamp is recent but its explicit `expires_at` passed. Live Supabase checked: **all 59,693 legacy market-price rows expired by 4 November 2026**, and no unexpired Market Value rows remained. Repair gates every m/b reference and sealed market value by `expires_at > now()`, makes coverage report expired evidence as `STALE_EVIDENCE`, and prevents provisional Cardmarket canonical snapshots populating Market Value via `STORED_SNAPSHOT` filter. No expiry extension or new pricing provider is claimed.
