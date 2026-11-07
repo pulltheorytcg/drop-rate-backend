@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "status": "STOPPED",
+  "database_writes": 0,
+  "newly_priced_references": 0,
+  "max_requests": 1,
+  "requests_sent": 1,
+  "proxy_pool": "standard",
+  "javascript": false,
+  "page": 1,
+  "reference": {
+    "provider": "Bandai Official",
+    "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+    "language": "English",
+    "provider_id": "583901:E-141"
+  },
+  "query": "Energy Marker E-141 English",
+  "search_url": "https://www.ebay.co.uk/sch/i.html?_nkw=Energy+Marker+E-141+English&LH_BIN=1&_sop=12&_ipg=60&_pgn=1",
+  "listing_status": "ACTIVE",
+  "price_basis": "ASKING_PRICE",
+  "identity_review_required": true,
+  "started_at": "2026-10-28T21:43:30.691592+00:00",
+  "response": {
+    "provider_http_status": 200,
+    "response_bytes": 251,
+    "provider_task_id": "7521325802709869569",
+    "diagnostic_error": "PROVIDER_SCHEMA_CHANGED"
+  },
+  "error": {
+    "code": "PROVIDER_SCHEMA_CHANGED",
+    "status": null,
+    "retry_after": null
+  },
+  "finished_at": "2026-10-28T21:43:34.566798+00:00"
+}
