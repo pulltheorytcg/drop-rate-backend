@@ -194,7 +194,7 @@ with static_page as (
    coalesce(case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
        then m.market_value_minor end,b.market_value_minor)
  when st.source_kind='SEALED_REFERENCE' then
-   case when s(m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
+   case when (sm.pricing_updated_at>=now()-interval '7 days' and sm.expires_at>now())
        then sm.market_value_minor end
  end as reference_value_minor,
  case when st.source_kind='REFERENCE' then
@@ -202,7 +202,7 @@ with static_page as (
                 and m.market_value_minor is not null
        then m.market_value_high_minor else b.market_value_high_minor end
  when st.source_kind='SEALED_REFERENCE' then
-   case when s(m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
+   case when (sm.pricing_updated_at>=now()-interval '7 days' and sm.expires_at>now())
        then sm.market_value_high_minor end
  end as reference_value_high_minor,
  case when st.source_kind='REFERENCE' then
@@ -218,7 +218,7 @@ with static_page as (
      case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
           then m.quotes else '[]'::jsonb end end
  when st.source_kind='SEALED_REFERENCE' then
-   case when s(m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
+   case when (sm.pricing_updated_at>=now()-interval '7 days' and sm.expires_at>now())
         then sm.quotes else '[]'::jsonb end
  else '[]'::jsonb end as market_quotes,
  (st.source_kind='REFERENCE' and st.provider='TCGdex'
