@@ -44,7 +44,8 @@ def test_exact_existing_d1_config_and_read_only_calls():
     assert config["name"] == "drop-rate-artwork-shadow"
     assert config["workers_dev"] is True  # HMAC-only endpoint; no image GET routes
     assert config["r2_buckets"] == [
-        {"binding": "ARTWORK_R2", "bucket_name": "drop-rate-existing-r2"}]
+        {"binding": "ARTWORK_R2", "bucket_name": "drop-rate-existing-r2",
+         "jurisdiction": "eu"}]
     assert config["d1_databases"][0]["database_name"] == stage.DB_NAME
     assert config["d1_databases"][0]["binding"] == "ARTWORK_D1"
     assert result["existing_staged_rows"] == 0
@@ -61,6 +62,22 @@ def test_unapproved_bucket_names_fail_closed(bad_bucket):
         stage.build_config(
             database_id="12345678-1234-1234-1234-123456789abc",
             bucket=bad_bucket)
+
+
+def test_exact_eu_r2_jurisdiction_is_pinned_in_generated_worker_config():
+    # Actual Cloudflare R2 bucket 'drop-rate-private' is jurisdiction EU;
+    # omitting the binding jurisdiction causes remote error code 10085.
+    config = stage.build_config(
+        database_id="12345678-1234-1234-1234-123456789abc",
+        bucket="drop-rate-private",
+    )
+    assert config["r2_buckets"] == [{
+        "binding": "ARTWORK_R2",
+        "bucket_name": "drop-rate-private",
+        "jurisdiction": "eu",
+    }]
+    assert len(config["r2_buckets"]) == 1
+    assert config["d1_databases"][0]["binding"] == "ARTWORK_D1"
 
 
 def test_wrong_account_or_wrong_d1_schema_fails_closed():
