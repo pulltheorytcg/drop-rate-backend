@@ -846,7 +846,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  // A bounded value-sort failure leaves the last successful ordering accurately labelled.
  {
-  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;state.inventory.offset=50;');
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;state.inventory.offset=50;state.inventory.sort="updated";');
   f.setHandler(async()=>{throw new Error('Value sorting supports up to 10,000 matching copies. Choose a filter.');});
   await f.w.DropRateCollection.setFilters({sort:'value_desc'});
   assert.equal(new URL(f.calls[0].url,'https://example.test').searchParams.get('sort'),'value_desc');
