@@ -14,7 +14,12 @@ from uuid import UUID
 # library artwork is a separate non-publication fallback in the shared route.
 MEDIA_SQL = """
 select i.id as inventory_id,ma.id,ma.scope,ma.capture_context,ma.approval_status,ma.source_provider,
- ma.source_type,ma.rights_tier,ma.shopify_cdn_url,ma.public_source_url,ma.created_at
+ ma.source_type,ma.rights_tier,ma.shopify_cdn_url,ma.public_source_url,ma.created_at,
+ -- WHERE below gates canonical artwork to a staff-reviewed graded inventory
+ -- item; this boolean records the server-approved choice without leaking the
+ -- certificate or reviewer fields in owner Collection responses.
+ (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
+  and nullif(btrim(i.grading_company),'') is not null) as graded_card_art_allowed
 from tcg.inventory_items i
 join tcg.catalogue_products p on p.id=i.catalogue_id
 join tcg.media_assets ma on (
@@ -48,9 +53,10 @@ where i.id=any($1::uuid[]) and ma.side='FRONT' and ma.media_kind='IMAGE'
    -- when the provider has no matching photo. This is NOT a slab photograph
    -- and never authorizes storefront/marketplace media or certificate claims.
    or (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and ma.inventory_id is null
-       and p.product_type='CARD' and i.status in ('APPROVED','RESERVED','SOLD')
-       and i.identity_confirmed is true and i.condition_review_status='VERIFIED_GRADED'
-       and i.condition_verified_by_user_id is not null
+       and to_jsonb(p)->>'product_type'='CARD' and i.status in ('APPROVED','RESERVED','SOLD')
+       and to_jsonb(i)->>'identity_confirmed'='true'
+       and to_jsonb(i)->>'condition_review_status'='VERIFIED_GRADED'
+       and to_jsonb(i)->>'condition_verified_by_user_id' is not null
        and length(btrim(i.certificate_number))>=6
        and upper(btrim(i.grading_company)) in ('PSA','ACE','BGS','CGC'))) 
  and ma.source_status='ACTIVE' and ma.rights_status='VERIFIED'
@@ -131,7 +137,7 @@ async def add_shared_inventory_media(connection, items):
                     asset.get('capture_context') == 'RAW_UNSLEEVED' and certificate):
                     asset = None
             elif asset and (asset.get('scope') not in {'CANONICAL_CARD','CANONICAL_PRODUCT'}
-                            or item.get('graded_reference_allowed') is not True):
+                            or asset.get('graded_card_art_allowed') is not True):
                 asset = None
         url = (asset.get('shopify_cdn_url') or asset.get('public_source_url')) if asset else None
         item['image_url'] = url
