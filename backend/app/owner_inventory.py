@@ -117,6 +117,10 @@ select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
  (select count(distinct m.side)=2 from tcg.media_assets m
    where m.owner_id=i.owner_id and m.inventory_id=i.id and m.scope='INVENTORY_ITEM'
      and m.media_kind='IMAGE' and m.side in ('FRONT','BACK')
+     and m.rights_tier='FIRST_PARTY_CAPTURE'
+     and m.source_type in ('FOUNDER_UPLOAD','CONSIGNOR_UPLOAD')
+     and ((coalesce(i.grade,'')='' and coalesce(i.grading_company,'')='')
+       or m.capture_context='GRADED_SLAB')
      and m.rights_status='VERIFIED' and m.approval_status='APPROVED'
      and m.shopify_file_status='READY' and m.shopify_cdn_url is not null
      and m.source_status='ACTIVE' and m.revoked_at is null) as ebay_photos_ready,
