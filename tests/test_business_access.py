@@ -49,8 +49,17 @@ async def test_ordinary_owner_gets_false_capability():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('path', ['', '/inventory', '/activity'])
-async def test_unregistered_admin_is_rejected_before_business_data(monkeypatch,path):
-    connection=Connection(authorized=False)
+@pytest.mark.parametrize('changes', [
+    dict(authorized=False),
+    dict(role='OWNER', authorized=False, slot=None, kind='CONSIGNOR'),
+    dict(role='CONSIGNOR', authorized=False, slot=None, kind='CONSIGNOR'),
+    dict(role='OWNER'),  # Forged founder metadata cannot override the role.
+    dict(slot=4),
+    dict(slot=None),
+    dict(kind='CONSIGNOR'),
+])
+async def test_non_founder_is_rejected_before_business_data(monkeypatch,path,changes):
+    connection=Connection(**changes)
     @asynccontextmanager
     async def pool(*args):
         yield connection
@@ -65,3 +74,39 @@ async def test_unregistered_admin_is_rejected_before_business_data(monkeypatch,p
         response=await client.get('/api/v1/founder/accounts'+path)
         assert response.status_code==403
         assert connection.data_queries==[]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('path', ['', '/inventory', '/activity'])
+@pytest.mark.parametrize('slot', [1, 2, 3])
+async def test_registered_founder_http_access_and_immediate_revocation(monkeypatch, path, slot):
+    """Real route/guard, synthetic identity and SQL: not production JWT evidence."""
+    connection = Connection(slot=slot)
+
+    @asynccontextmanager
+    async def pool(*args):
+        yield connection
+
+    monkeypatch.setattr(founder_accounts, 'user_connection', pool)
+    app = FastAPI()
+    app.state.db_pool = object()
+    app.dependency_overrides[require_user] = lambda: SimpleNamespace(user_id=connection.row['user_id'])
+
+    @app.middleware('http')
+    async def request_id(request, call_next):
+        request.state.request_id = 'business-unit'
+        return await call_next(request)
+
+    app.include_router(founder_accounts.router)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://fixture') as client:
+        response = await client.get('/api/v1/founder/accounts' + path)
+        assert response.status_code == 200
+        assert response.json()['read_only'] is True
+        assert connection.data_queries
+        if path == '':
+            assert response.json()['own_owner_id'] == str(connection.row['owner_id'])
+        connection.row['founder_authorized'] = False
+        connection.data_queries.clear()
+        response = await client.get('/api/v1/founder/accounts' + path)
+        assert response.status_code == 403
+        assert connection.data_queries == []
