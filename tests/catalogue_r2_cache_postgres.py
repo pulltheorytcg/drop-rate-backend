@@ -69,7 +69,7 @@ create table tcg.reference_sealed_products(provider text,system_code text,langua
  set_id text,name text,product_type text,image_url text,source_url text);
 create table tcg.reference_sealed_market_prices(provider text,system_code text,language text,
  provider_id text,market_value_minor bigint,market_value_high_minor bigint,
- pricing_updated_at timestamptz,quotes jsonb);
+ pricing_updated_at timestamptz,quotes jsonb,expires_at timestamptz);
 create table tcg.media_assets(id uuid primary key,catalogue_id uuid,owner_id uuid,
  scope text,side text,media_kind text,approval_status text,rights_status text,rights_tier text,
  source_status text,revoked_at timestamptz,approved_at timestamptz,created_at timestamptz default now(),
@@ -251,7 +251,7 @@ async def seed(db):
       ('TCGdex','POKEMON_TCG','English','box-fixture','cache-fixture','Fixture Box','BOOSTER_BOX',
        'https://fixture.invalid/box.webp','https://fixture.invalid/box');
       insert into tcg.reference_sealed_market_prices values
-      ('TCGdex','POKEMON_TCG','English','box-fixture',5000,5000,now(),'[]')""")
+      ('TCGdex','POKEMON_TCG','English','box-fixture',5000,5000,now(),'[]',now()+interval '1 day')""")
 
 
 def rows_by_id(rows):

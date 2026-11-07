@@ -1,3 +1,10 @@
+## 7 November 2026 — DR-99 verified market-expiry regression repair (CI pending)
+
+- The legacy catalogue browser and /market-values can still display an old reference quote when its seven-day observed/updated timestamp is recent but its explicit `expires_at` passed. Live Supabase checked: **all 59,693 legacy market-price rows expired by 4 November 2026**, and no unexpired Market Value rows remained. Repair gates every m/b reference and sealed market value by `expires_at > now()`, makes coverage report expired evidence as `STALE_EVIDENCE`, and prevents provisional Cardmarket canonical snapshots populating Market Value via `STORED_SNAPSHOT` filter. No expiry extension or new pricing provider is claimed.
+- Shopify SQL audit: all **506** approved for-sale physical copies show non-test `PUBLISHED` inventory links and valid product/variant GIDs; zero publication candidates. Exact Shopify GraphQL storefront/item-image readback still outstanding. **Eight** graded physical copies have no verified ready `FIRST_PARTY_CAPTURE` store photos in the database, but existing founder certification review/overrides must be checked individually; no silent delisting.
+- Artwork R2 reference mirrors: 66,218 verified and 4 source-unavailable retries; legacy Pokémon refs missing 3,475 image sources. R2-first source references: 204,411 metadata records across 6 active partitions; commercial exact-print artwork and sold-evidence inputs still unavailable. Riot Riftbound App-specific key/approval missing; no unauthorized ingestion.
+- Tests/docs: [DR-99 runbook](docs/DR99_MARKET_EXPIRY_AND_SHOPIFY_MEDIA_AUDIT_20261107.md). **Status at authoring: under CI; not yet merged/deployed.** Do not claim full four requested features finished.
+
 ## 7 November 2026 — DR-98 private R2 artwork/Market Value evidence bridge (staged)
 
 - New six independently scheduled, source-specific DR98 workflows run 15-minute signed FastAPI commands to convert previously published **R2-first catalogue source shards** into immutable, SHA-256 verified private R2 evidence worklists. No Supabase card bulk writes; no new image rights, Market Value, owner, stock or Shopify publication authority.

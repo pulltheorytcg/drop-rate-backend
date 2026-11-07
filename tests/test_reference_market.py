@@ -321,7 +321,7 @@ async def test_cached_market_values_never_contact_provider_or_write(monkeypatch)
     reference = {**REFERENCE, 'quotes': [{
         'source': market.SOURCE, 'finish': 'Normal', 'price_gbp_minor': 42,
         'observed_at': now.isoformat(),
-    }], 'catalogue_quotes': []}
+    }], 'catalogue_quotes': [], 'expires_at': now+timedelta(hours=1)}
     calls = []
     class Connection:
         async def fetch(self, sql, keys):

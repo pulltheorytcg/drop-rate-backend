@@ -212,13 +212,13 @@ with reference_base as not materialized (
         l.catalogue_id,'CARD'::text as product_type,r.system_code,r.game,r.name,r.set_name,
         r.set_id,r.card_number,r.provider_id as variant,r.rarity,r.language,r.image_url,
         r.release_date,r.provider,r.provider_id,r.source_url,'REFERENCE'::text as source_kind,
-        coalesce(case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_minor end,b.market_value_minor) as reference_value_minor,
-        case when m.pricing_updated_at>=now()-interval '7 days' and m.market_value_minor is not null
+        coalesce(case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) then m.market_value_minor end,b.market_value_minor) as reference_value_minor,
+        case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) and m.market_value_minor is not null
           then m.market_value_high_minor else b.market_value_high_minor end as reference_value_high_minor,
-        case when m.pricing_updated_at>=now()-interval '7 days' and m.market_value_minor is not null
+        case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) and m.market_value_minor is not null
           then m.pricing_updated_at else coalesce(b.pricing_updated_at,m.pricing_updated_at) end as reference_pricing_updated_at,
-        case when m.pricing_updated_at>=now()-interval '7 days' and m.market_value_minor is not null then m.quotes
-          else coalesce(b.quotes,'[]'::jsonb)||case when m.pricing_updated_at>=now()-interval '7 days' then m.quotes else '[]'::jsonb end end as market_quotes,
+        case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) and m.market_value_minor is not null then m.quotes
+          else coalesce(b.quotes,'[]'::jsonb)||case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) then m.quotes else '[]'::jsonb end end as market_quotes,
         (r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('English','Japanese')
           and b.market_value_minor is null
           and (m.expires_at is null or m.expires_at<=now() or m.refresh_revision<3)) as market_refresh_needed
@@ -232,7 +232,7 @@ with reference_base as not materialized (
         'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',r.set_name))
  left join tcg.reference_catalogue_prices b
  on (b.provider,b.system_code,b.language,b.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
- and b.pricing_updated_at>=now()-interval '7 days'
+ and b.pricing_updated_at>=now()-interval '7 days' and b.expires_at>now()
  -- Derived models and asking-only figures are not sourced market values.
  -- Retain their historical records, not their catalogue value display.
  and b.quotes->0->>'source' not in (
@@ -245,9 +245,9 @@ with reference_base as not materialized (
         null::uuid,'SEALED'::text,r.system_code,{GAME_CASE},r.name,s.name,r.set_id,
         null::text,r.provider||' sealed '||r.provider_id,r.product_type,r.language,r.image_url,
         s.release_date,r.provider,r.provider_id,r.source_url,'SEALED_REFERENCE'::text,
-        case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_minor end,
-        case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_high_minor end,
-        m.pricing_updated_at,case when m.pricing_updated_at>=now()-interval '7 days' then m.quotes else '[]'::jsonb end,false
+        case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) then m.market_value_minor end,
+        case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) then m.market_value_high_minor end,
+        m.pricing_updated_at,case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) then m.quotes else '[]'::jsonb end,false
  from tcg.reference_sealed_products r join tcg.reference_sets s using(provider,system_code,language,set_id)
  left join tcg.reference_sealed_market_prices m using(provider,system_code,language,provider_id)
  where s.release_date is null or s.release_date<=current_date
@@ -359,7 +359,7 @@ SORTS = {
 # This is also evaluated separately by the R2 reader, in the same authorised
 # snapshot, before applying planner settings needed for large array joins.
 REFERENCE_VALUES_SQL = """select p.id,v.* from tcg.catalogue_products p
-      left join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) v on p.product_type<>'COMIC'"""
+      left join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) v on p.product_type<>'COMIC' and v.valuation_source='STORED_SNAPSHOT'"""
 REFERENCE_VALUES_CTE = 'reference_values as materialized (\n      ' + REFERENCE_VALUES_SQL + '\n    )'
 
 
@@ -782,7 +782,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
           from page left join lateral (
             select value.* from tcg.catalogue_products p
             cross join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) value
-            where p.id=page.catalogue_id and p.product_type<>'COMIC'
+            where p.id=page.catalogue_id and p.product_type<>'COMIC' and value.valuation_source='STORED_SNAPSHOT'
           ) v on page.catalogue_id is not null
           left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null
           {REFERENCE_MIRROR_JOIN_SQL}
