@@ -290,5 +290,6 @@ def test_all_six_workflows_use_source_specific_signed_endpoint_and_strict_receip
         assert f"r.source!=='{source}'" in code[1]
         assert "r.artwork_published!==false" in code[1]
         assert "r.market_values_written!==0" in code[1]
+        assert "r.batch_worklist_manifest_sha256" in code[1]
         assert "r.ownership_or_price_changed!==false" in code[1]
     assert found==set(SOURCES)
