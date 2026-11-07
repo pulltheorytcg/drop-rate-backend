@@ -22,8 +22,7 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 15,
-              "triggerAtMinute": 2
+              "minutesInterval": 15
             }
           ]
         }
