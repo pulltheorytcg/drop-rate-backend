@@ -1,3 +1,9 @@
+## 7 November 2026 — DR101 existing Cloudflare artwork Worker release gate (PR pending CI)
+
+- Verified GitHub Actions run [42308082427](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42308082427) provisioned the named **EMPTY** artwork-only D1 shadow with two exact schema objects; this was an independent successful 6 November remote receipt, not an inference from merge. Current worker code remains **not confirmed deployed**, and no new-game card images are published.
+- Added a **manual-only, variable-gated** release workflow for the existing HMAC-only Cloudflare Worker with read-only exact-account D1/schema preflight, explicitly supplied existing R2 bucket, independent limited-scope Worker credential and HMAC secret, pinned Wrangler, and safe public-route 404 / bad-signature 401 smoke tests. No n8n DR95 activation, public artwork pointer, market values, Shopify, owner/finance or R2 image-write changes.
+- [DR101 exact setup, tests and rollback](docs/DR101_PRIVATE_ARTWORK_WORKER_RELEASE_20261107.md). **State: IN REVIEW** until PR CI, separately configured Cloudflare Worker token/bucket/HMAC credentials, manual release, remote deployment receipt and both network smokes are verified. A private evidence queue or empty D1 does not solve #966 rights/printing requirements.
+
 ## 7 November 2026 — DR-100 first-party graded Shopify photo audit (CI pending)
 
 - Built an hourly, deterministic **owner-scoped** audit of existing non-test published Shopify graded inventory. The current 506 published physical item links include 8 graded copies; no READY approved `FIRST_PARTY_CAPTURE` slab front/back photos are in the media registry. Certification-image records remain `INTERNAL_REFERENCE_ONLY`.
