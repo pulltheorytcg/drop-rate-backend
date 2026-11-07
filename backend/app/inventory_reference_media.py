@@ -53,7 +53,8 @@ where i.id=any($1::uuid[]) and ma.side='FRONT' and ma.media_kind='IMAGE'
    -- when the provider has no matching photo. This is NOT a slab photograph
    -- and never authorizes storefront/marketplace media or certificate claims.
    or (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and ma.inventory_id is null
-       and to_jsonb(p)->>'product_type'='CARD' and i.status in ('APPROVED','RESERVED','SOLD')
+       and to_jsonb(p)->>'product_type'='CARD'
+       and to_jsonb(i)->>'status' in ('APPROVED','RESERVED','SOLD')
        and to_jsonb(i)->>'identity_confirmed'='true'
        and to_jsonb(i)->>'condition_review_status'='VERIFIED_GRADED'
        and to_jsonb(i)->>'condition_verified_by_user_id' is not null
