@@ -102,7 +102,7 @@ COVERAGE_SQL = f'''with coverage as (
           then 'STALE_EVIDENCE'
         when b.market_value_minor>0 and (b.pricing_updated_at>=now()-interval '7 days' and b.expires_at>now()) then 'MIXED_LANGUAGE_GUIDE'
         when p.quotes<>'[]'::jsonb and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now()) then 'US_CONTEXT_ONLY'
-        when p.expires_at is null or p.expires_at<=now() then 'STALE_EVIDENCE'
+        when p.checked_at is not null and (p.expires_at is null or p.expires_at<=now()) then 'STALE_EVIDENCE'
         when p.pricing_updated_at<now()-interval '7 days' then 'STALE_EVIDENCE'
         -- These languages/games have no licensed exact GBP source in the
         -- connected daily adapters. A different-language guide is not proof.
