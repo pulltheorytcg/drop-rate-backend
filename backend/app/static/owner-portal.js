@@ -461,7 +461,16 @@ function renderInventoryCards(items) {
     // Do not nest interactive buttons inside a clickable card.
     const imageWrap = document.createElement("div");
     imageWrap.className = "owner-card-image-wrap";
+    const graded = [item.grading_company, item.grade, item.certificate_number].some(value => String(value || "").trim());
+    if (graded) imageWrap.classList.add("owner-card-image-wrap--graded");
     imageWrap.append(createCardImage(item, "owner-card-thumb"));
+    if (graded && ["GRADER_CERTIFICATE_RAW_REFERENCE","GRADED_CARD_ART_REFERENCE"].includes(item.reference_image_status)) {
+      const caption = document.createElement("span");
+      caption.className = "owner-graded-reference-caption";
+      caption.textContent = item.reference_image_status === "GRADER_CERTIFICATE_RAW_REFERENCE"
+        ? "Certificate card image · not slab" : "Card artwork · not slab photo";
+      imageWrap.append(caption);
+    }
     if((item.grouped_quantity||1)>1){
       const count=document.createElement("span");count.className="owner-card-quantity";
       count.textContent="×"+item.grouped_quantity;
