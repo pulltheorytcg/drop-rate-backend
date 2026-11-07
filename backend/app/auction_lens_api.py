@@ -21,7 +21,7 @@ from .auction_lens_pilot import (
 )
 from .db import user_connection
 from .inventory_reference_values import (
-    REFERENCE_VALUES_SQL, MAX_AGE, SOLD, resolve_reference_value,
+    REFERENCE_VALUES_SQL, MAX_AGE, SALE_AGE, SOLD, resolve_reference_value,
 )
 from .ownership import current_owner
 from .recognition_images import RecognitionImageError, decode_image_data_url
@@ -86,7 +86,18 @@ async def _eligible_uk_value(connection, *, catalogue_id: UUID, now: datetime) -
             or price["market_value_minor"] <= 0
             or not isinstance(price.get("checked_at"), datetime)):
         return None
-    expires = price["checked_at"] + MAX_AGE
+    # Sold observation expiry may precede the last-refresh seven-day window.
+    # The client must stop displaying the value at the FIRST expiring gate.
+    source_snapshot = next(
+        (row for row in snapshots if str(row.get("snapshot_id")) == str(price.get("snapshot_id"))),
+        None,
+    )
+    if not source_snapshot:
+        return None
+    oldest = source_snapshot.get("oldest_sale_at")
+    if not isinstance(oldest, datetime) or oldest.tzinfo is None:
+        return None
+    expires = min(price["checked_at"] + MAX_AGE, oldest + SALE_AGE)
     if expires <= now:
         return None
     return {
