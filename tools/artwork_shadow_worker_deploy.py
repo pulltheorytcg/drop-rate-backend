@@ -36,7 +36,9 @@ def build_config(*, database_id: str, bucket: str) -> dict:
         "main": "worker.mjs",
         "compatibility_date": "2026-11-06",
         "workers_dev": True,
-        # The production drop-rate-private bucket has EU jurisdiction.\n        # Omitting it makes Cloudflare falsely report R2 bucket not found (10085).\n        "r2_buckets": [{"binding": "ARTWORK_R2", "bucket_name": bucket, "jurisdiction": "eu"}],
+        # The production drop-rate-private bucket has EU jurisdiction.
+        # Omitting it makes Cloudflare falsely report R2 bucket not found (10085).
+        "r2_buckets": [{"binding": "ARTWORK_R2", "bucket_name": bucket, "jurisdiction": "eu"}],
         "d1_databases": [{
             "binding": "ARTWORK_D1", "database_name": DB_NAME,
             "database_id": database_id.lower(),
