@@ -1,3 +1,9 @@
+## 7 November 2026 — MTGJSON registry revision repair (local tests passed; not deployed)
+
+- Align the source registry's stale v1 metadata revision with the existing v2 downloader, preserving strict permission and checksum enforcement. No UI, price, schema, integration or capacity-safeguard changes.
+- Add a regression through the real registry-to-downloader entry point and reject the old descriptor explicitly. Affected local suites pass with simulated upstream data; production import and CI remain separate verification gates.
+- See [repair and rollback notes](docs/MTGJSON_REGISTRY_REVISION_REPAIR_20261107.md). This is an isolated Cloudflare migration repair, not completed pricing recovery or a production cutover.
+
 ## 7 November 2026 — Full slab tiles and reviewed raw-card reference fallback (CI pending)
 
 - Founder and consignor Collection grids now give graded items a taller **uncropped** object-contain image frame on desktop and mobile, keeping the grading label and full slab visible.
@@ -2317,9 +2323,3 @@ User clarified the required Seller Hub choices: **CGC for Marvel, DC and other c
 - Added CLI-generated migration `20261103184836_optional_seller_purchase_cost.sql` to allow nullable reservation costs and extend the existing nullable sale-cost guard to approved managed stock of every physical type. Owner, identity, sale status and dispatch checks remain enforced. The exact seller-held sealed exception is unchanged; existing sale, commission and audit records are not rewritten.
 - The default Collection, facets, overview totals, actionable state counts, grouping and page/value ordering now include active copies only. Removing a copy closes its detail after server readback and refreshes the Collection. Removed and sold records remain available for history; Sold is an explicit UI filter. The last empty page returns to a valid page, and obsolete saved Removed filters reset to the active view.
 - Local checks: focused backend/API suites, 74 inventory interactions, nine Collection control/pagination scenarios, six real Chromium Collection layouts, and actual PostgreSQL migrations/triggers across 42 type/owner/cost combinations passed. Disposable SQL verifies unchanged revenue commission, nullable reservations, exact-owner/dispatch guards, retained history and active Collection totals. CI, the approved database migration workflow and deployment remain release gates. No production data was mutated for these tests.
-## 7 November 2026 — MTGJSON registry revision repair (local tests passed; not deployed)
-
-- Align the source registry's stale v1 metadata revision with the existing v2 downloader, preserving strict permission and checksum enforcement. No UI, price, schema, integration or capacity-safeguard changes.
-- Add a regression through the real registry-to-downloader entry point and reject the old descriptor explicitly. Affected local suites pass with simulated upstream data; production import and CI remain separate verification gates.
-- See [repair and rollback notes](docs/MTGJSON_REGISTRY_REVISION_REPAIR_20261107.md). This is an isolated Cloudflare migration repair, not completed pricing recovery or a production cutover.
-
