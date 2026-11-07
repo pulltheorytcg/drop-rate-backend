@@ -134,7 +134,7 @@ async def test_magic_wrong_set_rarity_or_finish_rejected_without_crosslink():
 
 @pytest.mark.asyncio
 async def test_magic_multiface_requires_manual_front_back_review():
-    source = magic_source()["printings"][0]["scryfall"]
+    source = {**magic_source()["printings"][0]["scryfall"], "rarity": "rare"}
     source["card_faces"] = [{"name": "Front"}, {"name": "Back"}]
     async with client(lambda req: httpx.Response(200, json=source)) as http:
         result = await live.collect("MAGIC_THE_GATHERING", [make_row(magic_ref())], client=http)
