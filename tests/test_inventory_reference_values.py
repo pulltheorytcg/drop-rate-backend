@@ -70,7 +70,9 @@ def test_guide_is_labelled_and_never_substituted_for_a_slab_or_worn_card():
     guide=snapshot(method=GUIDE,basis_condition=None,input_sale_count='0',oldest_sale_at=None)
     for condition in ('Near Mint',None):
         raw=item();raw['condition']=condition
-        assert resolve_reference_value(raw,[guide],now=NOW)['status']=='REFERENCE_ESTIMATE'
+        value=resolve_reference_value(raw,[guide],now=NOW)
+        assert value['status']=='REFERENCE_ESTIMATE'
+        assert value['market_value_minor'] is None and value['recommended_retail_minor'] is None
     for changes in ({'condition':'Damaged'},{'condition':None,'grade':'10','grading_company':'PSA'},{'condition':None,'product_type':'SEALED','seal_status':'SEALED'}):
         raw=item();raw.update(changes);assert resolve_reference_value(raw,[guide],now=NOW)['market_value_minor'] is None
     assert resolve_reference_value(item(),[guide,snapshot(market_value_minor=777)],now=NOW)['market_value_minor']==777

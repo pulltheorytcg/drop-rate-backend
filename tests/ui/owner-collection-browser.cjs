@@ -66,7 +66,7 @@ const samples=[
    assert.equal(await page.locator('#owner-inventory-table-wrap').evaluate(node=>node.scrollWidth<=node.clientWidth+1),true,'List requires horizontal scrolling');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'Collection overflows viewport');
    assert.match(await rows.nth(0).innerText(),/Deadpool \/ Batman #1[\s\S]*English · Mint[\s\S]*Listing review/);
-   assert.match(await rows.nth(2).innerText(),/£825.00[\s\S]*Historical value/);
+   assert.match(await rows.nth(2).innerText(),/Stale evidence — value unavailable[\s\S]*£850.00/);
    assert.equal(await page.getByRole('button',{name:'List view',exact:true}).getAttribute('aria-pressed'),'true');
    assert.equal(await page.getByRole('button',{name:'Grid view',exact:true}).getAttribute('aria-pressed'),'false');
    const toolbar=page.locator('#owner-view-inventory .owner-inventory-toolbar'),toolbarBox=await toolbar.boundingBox();

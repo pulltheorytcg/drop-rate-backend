@@ -58,7 +58,7 @@ def main():
       }''')
       assert page.locator('[data-price-key]').inner_text().strip().removeprefix('Market value: ')==founder.removeprefix('Value: ')
       if status=='HISTORICAL_GUIDE':
-       assert 'Value: £8.00' == founder
+       assert '£' not in founder and founder in {'Confirm details for value','Value unavailable','Stale evidence — value unavailable'}
        assert page.evaluate('sharedBrowse.rows[0].market_value_minor') is None
        if width in (390,1440):page.screenshot(path=str(OUT/f'{engine}-historical-search-{width}.png'),full_page=True)
       page.evaluate('''async()=>{sharedBrowse.filters.q='';sharedBrowse.filters.system_code='ONE_PIECE_CARD_GAME';
@@ -73,10 +73,8 @@ def main():
       page.evaluate('sharedBrowse.destroy()')
      page.evaluate('DropRateInventory.open(item)');page.wait_for_selector('.owner-item-values strong')
      seller=page.locator('.owner-item-values strong').inner_text().strip();assert founder.removeprefix('Value: ')==seller,(status,founder,seller)
-     if status in ('AVAILABLE','REFERENCE_ESTIMATE','STALE'):assert '£99.00' == seller
-     elif status in ('CATALOGUE_GUIDE','CONDITION_REFERENCE'):assert '£1.32' == seller
-     elif status=='HISTORICAL_GUIDE':assert '£8.00' == seller
-     else:assert '£0' not in seller and 'pending' not in seller.lower()
+     if status=='AVAILABLE':assert '£99.00' == seller
+     else:assert '£' not in seller,(status,seller)
      assert all(call['method']=='GET' for call in page.evaluate('calls'))
      assert not errors,errors
      assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status)

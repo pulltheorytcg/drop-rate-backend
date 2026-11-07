@@ -193,6 +193,14 @@ def test_explicit_provider_rarity_spellings_do_not_collapse_parallel_rarities(te
     assert rarity_key(text) == expected
 
 
+def test_cardmarket_guide_only_cannot_fill_or_sort_as_market_value():
+    from app.inventory_reference_values import GUIDE
+    product,refs,evidence=fixtures()
+    guide={**evidence,"method":GUIDE,"input_sale_count":"0","oldest_sale_at":None,
+           "recommended_retail_minor":9000}
+    assert shared_prices([product],refs,[guide],now=NOW)=={}
+
+
 def test_model_only_canonical_reference_does_not_become_a_shared_market_value():
     from test_inventory_catalogue_reference import computed_fixture
     product, ref, _, _ = computed_fixture()

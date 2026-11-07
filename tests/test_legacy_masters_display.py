@@ -161,5 +161,7 @@ async def test_owner_and_catalogue_paths_share_guide_without_copy_money_changes(
     assert item["catalogue_reference"]["market_value_minor"]==3
     assert item["market_value_minor"] is None and item["store_price_minor"]==100
     prices=await read_shared_prices(Connection(),[{"card_number":"BT13-029"}],now=NOW)
-    assert prices["c:"+str(product["id"])]["market_value_minor"]==3
-    assert prices[reference_key(row)]["shared_price"]["physical_valuation_eligible"] is False
+    # Market Value and its search/sort index are sold-only; a legacy
+    # Cardmarket catalogue guide remains available for separate research.
+    assert "c:"+str(product["id"]) not in prices
+    assert reference_key(row) not in prices
