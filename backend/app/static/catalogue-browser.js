@@ -577,7 +577,7 @@ window.DropRateCatalogue = (() => {
       if(publisherReference&&!urls.length)wrap.classList.add("dr-browse-publisher-photo-pending");
       if(missingPokemonSource&&!urls.length)wrap.classList.add("dr-browse-reference-photo-pending");
       wrap.append(placeholder);
-      let exhausted=!(urls.length||referencePath),listingData=null,listingImage=null,attempted=new Set();
+      let exhausted=!(urls.length||protectedPath),listingData=null,listingImage=null,attempted=new Set();
       const clearListing=()=>{listingImage?.remove();listingImage=null;listingCredit?.replaceChildren();wrap.dispatchEvent(new CustomEvent("listing-photo-change",{detail:false}));};
       const listingFallback=()=>{
         if(!exhausted || !listingCredit || !current())return;
@@ -602,7 +602,7 @@ window.DropRateCatalogue = (() => {
         listingData=window.DropRateBookEbay?.validate(row,data);attempted=new Set();clearListing();
         if(exhausted){placeholder.hidden=false;placeholder.textContent="Image unavailable";listingFallback();}
       };
-      if(urls.length||referencePath){
+      if(urls.length||protectedPath){
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
         if(row.artwork_kind==="PUBLISHER_REFERENCE")image.alt+=" — publisher reference cover";
         if(community)image.alt+=" — community cover reference; cover may vary";
