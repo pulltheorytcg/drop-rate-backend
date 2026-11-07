@@ -162,11 +162,48 @@ async def run_batch(pool, actor: str, source: str, *, storage=None, slot=None) -
         return {"status": "STALE_GENERATION_PRIVATE_ONLY", "source": source,
                 "processed_parts": 0, "candidate_count": 0,
                 "source_manifest_sha256": digest, "worklist_sha256": []}
+    # One compact, immutable batch manifest gives downstream vetted evidence
+    # adapters an exact, discoverable R2 digest for every verified source part.
+    # No mutable R2 pointer, database row or unapproved commercial publication.
+    batch_document = _json({
+        "schema": "drop-rate-enrichment-batch-v1",
+        "source": source,
+        "provider": manifest["provider"],
+        "system_code": manifest["system_code"],
+        "language": manifest["language"],
+        "source_manifest_sha256": digest,
+        "source_generation": current["generation"],
+        "candidate_count": examined,
+        "identity_review_count": reviewed,
+        "part_worklists": receipts,
+        "artwork_publication_authorised": False,
+        "market_value_authorised": False,
+        "shopify_publication_authorised": False,
+    })
+    batch_digest = hashlib.sha256(batch_document).hexdigest()
+    manifest_write = await asyncio.to_thread(
+        storage.put_verified_reference_snapshot, batch_document,
+    )
+    if (manifest_write.get("verified") is not True
+            or manifest_write.get("sha256") != batch_digest
+            or await asyncio.to_thread(
+                storage.read_verified_reference_snapshot, batch_digest,
+            ) != batch_document):
+        raise EnrichmentError("R2 batch manifest failed verified readback")
+    # Recheck generation once more to catch a switch during final write.
+    verified_after_index = await _authorised_publication(pool, actor_id, descriptor)
+    if (verified_after_index is None
+            or verified_after_index["manifest_sha256"] != digest
+            or verified_after_index["generation"] != current["generation"]):
+        return {"status": "STALE_GENERATION_PRIVATE_ONLY", "source": source,
+                "processed_parts": 0, "candidate_count": 0,
+                "source_manifest_sha256": digest, "worklist_sha256": []}
     output = {
         "status": "PRIVATE_ENRICHMENT_WORKLIST_VERIFIED",
         "source": source, "system_code": manifest["system_code"],
         "generation": current["generation"],
         "source_manifest_sha256": digest,
+        "batch_worklist_manifest_sha256": batch_digest,
         "total_source_parts": len(parts),
         "processed_parts": len(receipts), "candidate_count": examined,
         "identity_review_count": reviewed,
