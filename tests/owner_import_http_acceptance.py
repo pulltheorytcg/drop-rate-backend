@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from pathlib import Path
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -55,7 +56,9 @@ async def main():
         owner_a,owner_b,owner_admin,actor_a,actor_b,actor_admin=[uuid4() for _ in range(6)]
         await db.executemany("insert into tcg.owners(id,display_name,owner_type,commission_bps) values($1,$2,'CONSIGNOR',1000)",[(owner_a,'HTTP Seller A'),(owner_b,'HTTP Seller B'),(owner_admin,'HTTP Founder fixture')])
         await db.executemany("insert into tcg.owner_memberships(user_id,owner_id,role) values($1,$2,$3)",[(actor_a,owner_a,'OWNER'),(actor_b,owner_b,'OWNER'),(actor_admin,owner_admin,'PLATFORM_ADMIN')])
+        await db.execute((Path(__file__).resolve().parents[1]/'database/migrations/20261107220000_owner_import_preview_rebuild.sql').read_text())
         app=FastAPI();app.state.db_pool=pool
+        app.state.settings=SimpleNamespace(owner_import_preview_rebuild_enabled=True)
         @app.middleware('http')
         async def request_id(request,call_next):
             request.state.request_id='http-intake-fixture'
@@ -98,6 +101,20 @@ async def main():
                 assert retry.status_code==201 and retry.json()['created_count']==0
                 stock=await db.fetch('select owner_id,status,identity_confirmed from tcg.inventory_items where import_batch_id=$1',UUID(batch_id))
                 assert len(stock)==3 and all(r['owner_id']==owner_a and r['status']=='DRAFT' and not r['identity_confirmed'] for r in stock)
+                preview=await client.post('/api/v1/owner/imports/preview',json=data,headers=headers(actor_b))
+                assert preview.status_code==201,preview.text
+                pending=preview.json(); recover='/api/v1/owner/imports/'+pending['batch_id']+'/rebuild'
+                correction={**data,'version':pending['version']}
+                assert (await client.post(recover,json=correction)).status_code==401
+                assert (await client.post(recover,json=correction,headers=headers(actor_b,exp=int(time.time())-60))).status_code==401
+                assert (await client.post(recover,json=correction,headers=headers(actor_a))).status_code==404
+                rebuilt=await client.post(recover,json=correction,headers=headers(actor_b))
+                assert rebuilt.status_code==200,rebuilt.text
+                assert rebuilt.json()['created_count']==0 and rebuilt.json()['version']>pending['version']
+                assert (await client.post(recover,json=correction,headers=headers(actor_b))).status_code==409
+                assert await db.fetchval('select count(*) from tcg.inventory_items where owner_id=$1',owner_b)==0
+                await db.execute('update tcg.owner_memberships set active=false where user_id=$1',actor_b)
+                assert (await client.post(recover,json={**correction,'version':rebuilt.json()['version']},headers=headers(actor_b))).status_code==403
                 await db.execute('update tcg.owner_memberships set active=false where user_id=$1',actor_a)
                 assert (await client.get(detail,headers=headers(actor_a))).status_code==403,'Revoked membership retained import access'
         print('PASS: real JWT signature/JWKS verification + authenticated owner HTTP routes + PostgreSQL; immediate partial intake, confirmation, replay, foreign/forged-metadata access, invalid/expired/anonymous tokens and revoked membership. Local test issuer, not production Supabase login.')
