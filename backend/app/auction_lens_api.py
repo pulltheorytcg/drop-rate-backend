@@ -31,6 +31,7 @@ from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/auction-lens", tags=["auction-lens"])
 _LOOKUP_LIMIT = asyncio.Semaphore(3)
+_LOOKUP_TIMEOUT_SECONDS = 2.5
 
 
 def _enabled(name: str) -> bool:
@@ -127,56 +128,60 @@ async def resolve_authorised_auction_frame(
     except TimeoutError:
         raise HTTPException(status_code=429, detail="Auction recognition is busy") from None
     try:
-        async with user_connection(
-            request.app.state.db_pool,
-            user.user_id,
-            request.state.request_id,
-            readonly_snapshot=True,
-        ) as connection:
-            await current_owner(connection)
-            hints = await discover_reference_candidate_hints(
-                connection, image.hashes, system_code="POKEMON_TCG",
-                max_rows=2048, min_similarity=0.60,
-                max_candidates=MAX_CANDIDATES,
-            )
-            if not hints:
-                return response
-            catalogue_ids = list({h["catalogue_id"] for h in hints})
-            media_ids = list({h["media_asset_id"] for h in hints})
-            rows = [dict(row) for row in await connection.fetch(
-                """
-                select p.id as catalogue_id,p.product_type,p.game,p.name,
-                       p.set_name,p.card_number,p.variant,p.language,
-                       ma.id as media_asset_id,ma.approval_status,
-                       ma.source_status,ma.rights_status
-                from tcg.catalogue_products p
-                join tcg.media_assets ma on ma.catalogue_id=p.id
-                where p.id=any($1::uuid[]) and ma.id=any($2::uuid[])
-                  and p.product_type='CARD'
-                """,
-                catalogue_ids, media_ids,
-            )]
-            exact = confirm_exact_printing(
-                hints, rows, ObservedCard(**payload.observed.model_dump())
-            )
-            if exact is None:
-                return response
-            response = {
-                "generation": payload.generation,
-                "decision": "EXACT",
-                "identityKey": exact["identityKey"],
-                "title": exact["title"],
-            }
-            if (
-                payload.confirmed_raw_condition == "Near Mint"
-                and _enabled("TCG_AUCTION_LENS_UK_SOLD_DISPLAY_RIGHTS_APPROVED")
-            ):
-                value = await _eligible_uk_value(
-                    connection, catalogue_id=UUID(exact["catalogue_id"]),
-                    now=datetime.now(timezone.utc)
+        async with asyncio.timeout(_LOOKUP_TIMEOUT_SECONDS):
+            async with user_connection(
+                request.app.state.db_pool,
+                user.user_id,
+                request.state.request_id,
+                readonly_snapshot=True,
+            ) as connection:
+                await current_owner(connection)
+                hints = await discover_reference_candidate_hints(
+                    connection, image.hashes, system_code="POKEMON_TCG",
+                    max_rows=2048, min_similarity=0.60,
+                    max_candidates=MAX_CANDIDATES,
                 )
-                if value:
-                    response["value"] = value
-            return response
+                if not hints:
+                    return response
+                catalogue_ids = list({h["catalogue_id"] for h in hints})
+                media_ids = list({h["media_asset_id"] for h in hints})
+                rows = [dict(row) for row in await connection.fetch(
+                    """
+                    select p.id as catalogue_id,p.product_type,p.game,p.name,
+                           p.set_name,p.card_number,p.variant,p.language,
+                           ma.id as media_asset_id,ma.approval_status,
+                           ma.source_status,ma.rights_status
+                    from tcg.catalogue_products p
+                    join tcg.media_assets ma on ma.catalogue_id=p.id
+                    where p.id=any($1::uuid[]) and ma.id=any($2::uuid[])
+                      and p.product_type='CARD'
+                    """,
+                    catalogue_ids, media_ids,
+                )]
+                exact = confirm_exact_printing(
+                    hints, rows, ObservedCard(**payload.observed.model_dump())
+                )
+                if exact is None:
+                    return response
+                response = {
+                    "generation": payload.generation,
+                    "decision": "EXACT",
+                    "identityKey": exact["identityKey"],
+                    "title": exact["title"],
+                }
+                if (
+                    payload.confirmed_raw_condition == "Near Mint"
+                    and _enabled("TCG_AUCTION_LENS_UK_SOLD_DISPLAY_RIGHTS_APPROVED")
+                ):
+                    value = await _eligible_uk_value(
+                        connection, catalogue_id=UUID(exact["catalogue_id"]),
+                        now=datetime.now(timezone.utc)
+                    )
+                    if value:
+                        response["value"] = value
+                return response
+    except TimeoutError:
+        # Fail closed instead of holding the UI on a slow DB/index read.
+        return {"generation": payload.generation, "decision": "CHECK_VERSION"}
     finally:
         _LOOKUP_LIMIT.release()
