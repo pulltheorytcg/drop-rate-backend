@@ -98,7 +98,14 @@ async def test_worklist_carries_verified_exact_printing_without_images_or_prices
     assert result["market_values_written"]==0
     assert result["shopify_updated"] is False
     assert result["ownership_or_price_changed"] is False
-    assert len(store.writes)==1
+    assert len(store.writes)==2
+    assert store.writes[1]==result["batch_worklist_manifest_sha256"]
+    batch_index=json.loads(store.objects[store.writes[1]])
+    assert batch_index["schema"]=="drop-rate-enrichment-batch-v1"
+    assert batch_index["source_manifest_sha256"]==pub["manifest_sha256"]
+    assert batch_index["part_worklists"][0]["worklist_sha256"]==store.writes[0]
+    assert batch_index["artwork_publication_authorised"] is False
+    assert batch_index["market_value_authorised"] is False
     digest=store.writes[0]
     assert digest==result["worklist_sha256"][0]
     body=json.loads(store.objects[digest])
@@ -113,7 +120,7 @@ async def test_worklist_carries_verified_exact_printing_without_images_or_prices
         assert card["market_state"]=="NEEDS_EXACT_UK_SOLD_EVIDENCE"
         assert not any("image_url" in k or "store_price" in k or "market_value_minor" in k
                        for k in card)
-    assert calls==[(ACTOR,"ygoprodeck"),(ACTOR,"ygoprodeck")]
+    assert calls==[(ACTOR,"ygoprodeck"),(ACTOR,"ygoprodeck"),(ACTOR,"ygoprodeck")]
 
 
 @pytest.mark.asyncio
@@ -122,7 +129,7 @@ async def test_duplicate_pass_is_content_addressed_and_idempotent(source_env):
     first=await queue.run_batch(object(),ACTOR,"ygoprodeck",storage=store,slot=1)
     second=await queue.run_batch(object(),ACTOR,"ygoprodeck",storage=store,slot=1)
     assert first["worklist_sha256"]==second["worklist_sha256"]
-    assert len(set(store.writes))==1
+    assert len(set(store.writes))==2
 
 
 @pytest.mark.asyncio
@@ -143,6 +150,20 @@ async def test_changed_source_during_upload_fails_closed(source_env,monkeypatch)
     result=await queue.run_batch(object(),ACTOR,"ygoprodeck",storage=store,slot=0)
     assert result["status"]=="STALE_GENERATION_PRIVATE_ONLY"
     assert result["worklist_sha256"]==[]
+
+
+@pytest.mark.asyncio
+async def test_generation_change_while_storing_batch_manifest_prevents_publishing_receipt(source_env,monkeypatch):
+    pub,store,_=source_env
+    before=deepcopy(pub)
+    later={**before,"generation":3,"manifest_sha256":"a"*64}
+    monkeypatch.setattr(queue,"_authorised_publication",
+                        AsyncMock(side_effect=[before,before,later]))
+    result=await queue.run_batch(object(),ACTOR,"ygoprodeck",storage=store,slot=0)
+    assert result["status"]=="STALE_GENERATION_PRIVATE_ONLY"
+    assert result["worklist_sha256"]==[]
+    # Private immutable orphan bytes are harmless; no live pointer changed.
+    assert len(store.writes)==2
 
 
 @pytest.mark.asyncio
@@ -228,6 +249,7 @@ async def test_api_reuses_shared_signature_checker_and_owns_no_media_or_price_wr
         "status":"PRIVATE_ENRICHMENT_WORKLIST_VERIFIED","source":"ygoprodeck",
         "generation":2,"source_manifest_sha256":"a"*64,
         "processed_parts":1,"candidate_count":3,"worklist_sha256":["b"*64],
+        "batch_worklist_manifest_sha256":"c"*64,
     })
     monkeypatch.setattr(api,"prepare_enrichment_batch",worker)
     request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())))
@@ -235,6 +257,7 @@ async def test_api_reuses_shared_signature_checker_and_owns_no_media_or_price_wr
         request,x_drop_rate_timestamp="123",x_drop_rate_signature="sha256=fixture")
     assert result["status"]=="PRIVATE_ENRICHMENT_WORKLIST_VERIFIED"
     assert result["scope"]=="EXACT_IDENTITY_REVIEW_AND_SOLD_EVIDENCE_TASKS_ONLY"
+    assert result["batch_worklist_manifest_sha256"]=="c"*64
     assert result["artwork_published"] is False
     assert result["market_values_written"]==0
     assert result["shopify_updated"] is False
