@@ -302,5 +302,6 @@ def test_catalogue_sql_excludes_internal_models_and_asking_only_prices():
     for source in ('DROP_RATE_COMPUTED_MARKET_V1', 'CARDTRADER_EXPANSION_ASKING',
                    'TCGCSV_TCGPLAYER_CATALOGUE'):
         assert "'" + source + "'" in sql
-    assert "coalesce(case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_minor end,b.market_value_minor)" in sql
+    assert "coalesce(case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now()) then m.market_value_minor end,b.market_value_minor)" in sql
+    assert "and b.expires_at>now()" in sql
     assert 'i.owner_id=$1' in sql
