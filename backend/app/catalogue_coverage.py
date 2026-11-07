@@ -87,19 +87,22 @@ async def shared_price_coverage(pool, user_id, request_id):
 COVERAGE_SQL = f'''with coverage as (
  select 'CARD'::text as kind,r.system_code,r.language,
    case when {DIGITAL_REFERENCE_SQL} then 'NOT_APPLICABLE_DIGITAL'
-        when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days'
+        when p.market_value_minor>0 and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now())
           and p.quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'MIXED_LANGUAGE_GUIDE'
-        when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days' then 'REFERENCE_AVAILABLE'
+        when p.market_value_minor>0 and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now()) then 'REFERENCE_AVAILABLE'
+        when p.market_value_minor>0 and (p.expires_at is null or p.expires_at<=now()) then 'STALE_EVIDENCE'
+        when b.market_value_minor>0 and (b.expires_at is null or b.expires_at<=now()) then 'STALE_EVIDENCE'
         when b.market_value_minor>0
           and b.quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
-          and b.pricing_updated_at>=now()-interval '7 days'
+          and (b.pricing_updated_at>=now()-interval '7 days' and b.expires_at>now())
           and b.expires_at>now() then 'DROP_RATE_CALCULATED_VALUE'
         when b.market_value_minor>0
           and (b.quotes->0->>'source'='DROP_RATE_COMPUTED_MARKET_V1'
                or b.pricing_updated_at<now()-interval '7 days')
           then 'STALE_EVIDENCE'
-        when b.market_value_minor>0 and b.pricing_updated_at>=now()-interval '7 days' then 'MIXED_LANGUAGE_GUIDE'
-        when p.quotes<>'[]'::jsonb and p.pricing_updated_at>=now()-interval '7 days' then 'US_CONTEXT_ONLY'
+        when b.market_value_minor>0 and (b.pricing_updated_at>=now()-interval '7 days' and b.expires_at>now()) then 'MIXED_LANGUAGE_GUIDE'
+        when p.quotes<>'[]'::jsonb and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now()) then 'US_CONTEXT_ONLY'
+        when p.expires_at is null or p.expires_at<=now() then 'STALE_EVIDENCE'
         when p.pricing_updated_at<now()-interval '7 days' then 'STALE_EVIDENCE'
         -- These languages/games have no licensed exact GBP source in the
         -- connected daily adapters. A different-language guide is not proof.
@@ -131,7 +134,7 @@ COVERAGE_SQL = f'''with coverage as (
  {asking_cache_join()}
  union all
  select 'SEALED',r.system_code,r.language,
-   case when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days' then 'MIXED_LANGUAGE_GUIDE'
+   case when p.market_value_minor>0 and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now()) then 'MIXED_LANGUAGE_GUIDE'
         when p.pricing_updated_at<now()-interval '7 days' then 'STALE_EVIDENCE'
         when r.system_code not in ('POKEMON_TCG','ONE_PIECE_CARD_GAME',
              'DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD') then 'PROVIDER_FEED_REQUIRED'
