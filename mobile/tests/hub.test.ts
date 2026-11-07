@@ -53,12 +53,15 @@ describe('existing hub role boundaries', () => {
     const redirects: string[] = [];
     let cleared = false;
     const context = {
-      window: {location:{replace:(url:string)=>redirects.push(url)},locationHash:''},
+      window: {location:{pathname:'/founders',search:'',hash:'',replace:(url:string)=>redirects.push(url)}},
+      document: {body:{classList:{remove:()=>{}}},dispatchEvent:()=>{}},
+      Event: class { constructor(_name:string) {} },
+      CustomEvent: class { constructor(_name:string,_opts:object) {} },
       apiRequest: async (path:string) => { calls.push(path); return path.endsWith('/access/me') ? {access} : {owner:{display_name:'Test'}}; },
       state:{session:{user:{email:'test@example.invalid'}}},
       byId:()=>({classList:{add:()=>{},remove:()=>{}},value:''}),
       reloadDashboard: async()=>{}, reloadOwnerDashboard:async()=>{},
-      activateOwnerView:()=>{},showOwnerOnboardingWelcome:()=>{},
+      activateOwnerView:()=>{},restoreCollectionView:()=>{},showOwnerOnboardingWelcome:()=>{},
       clearSession:()=>{cleared=true;},showForm:()=>{},showMessage:()=>{},
     };
     await runInNewContext(`${script}\n${functionName}()`,context);
@@ -75,10 +78,17 @@ describe('existing hub role boundaries', () => {
     expect(result.calls).toEqual(['/api/v1/access/me']);
     expect(result.cleared).toBe(true);
   });
-  it('hands an authorized founder to the existing founder hub',async()=>{
-    const result=await enter('owner-portal.js','openOwnerPortal',{access_role:'PLATFORM_ADMIN',founder_hq_allowed:true});
-    expect(result.redirects).toEqual(['/']);
+  it('allows a founder into the owner experience only with an explicit business capability',async()=>{
+    const result=await enter('owner-portal.js','openOwnerPortal',{
+      access_role:'PLATFORM_ADMIN',founder_hq_allowed:true,business_allowed:true,
+    });
+    expect(result.redirects).toEqual([]);
     expect(result.calls).toEqual(['/api/v1/access/me']);
     expect(result.cleared).toBe(false);
+  });
+  it('refuses an admin without the business capability at the owner portal',async()=>{
+    await expect(enter('owner-portal.js','openOwnerPortal',{
+      access_role:'PLATFORM_ADMIN', founder_hq_allowed:true, business_allowed:false,
+    })).rejects.toThrow('OWNER_PORTAL_ACCESS_DENIED');
   });
 });
