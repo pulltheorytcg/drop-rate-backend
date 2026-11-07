@@ -12,11 +12,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from . import r2_first_service
 
 router = APIRouter(prefix="/api/v1/artwork", tags=["artwork-coverage"])
 
@@ -121,3 +122,44 @@ async def artwork_coverage(
         **summarize(rows),
         "checked_at": datetime.now(timezone.utc).isoformat(),
     })
+
+
+@router.get("/sample/{system_code}")
+async def artwork_review_sample(
+    system_code: str,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=25, ge=1, le=25),
+) -> dict:
+    """Read exact already-verified R2 publication rows for a 25-print review.
+
+    This never fetches upstream imagery or leaks another seller's images.
+    Sources must be cached and pinned to an active SQL publication.
+    """
+    if system_code not in GAMES:
+        raise HTTPException(404, "Unknown source game")
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        snapshots = await r2_first_service.read(
+            connection, system_code=system_code, language="English",
+        )
+    if len(snapshots) != 1:
+        raise HTTPException(503, "Expected exactly one active approved source partition")
+    snapshot = snapshots[0]
+    with r2_first_service._borrow(snapshots):
+        found = snapshot.search(limit=limit, sort="name", include_upcoming=False)
+    references = found["items"]
+    # The original source set and printing identity must stay identical to R2;
+    # these rows feed the bounded offline candidate review with no approval.
+    return {
+        "schema": "drop-rate-r2-artwork-sample-v1",
+        "game": GAMES[system_code],
+        "provider": snapshot.provider,
+        "system_code": system_code,
+        "source_manifest_sha256": snapshot.manifest_digest,
+        "sample_count": len(references),
+        "references": references,
+        "can_publish": False,
+        "can_mirror": False,
+    }
