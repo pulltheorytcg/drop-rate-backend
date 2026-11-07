@@ -1,3 +1,10 @@
+## 7 November 2026 — DR-98 private R2 artwork/Market Value evidence bridge (staged)
+
+- New six independently scheduled, source-specific DR98 workflows run 15-minute signed FastAPI commands to convert previously published **R2-first catalogue source shards** into immutable, SHA-256 verified private R2 evidence worklists. No Supabase card bulk writes; no new image rights, Market Value, owner, stock or Shopify publication authority.
+- The backend derives canonical source keys, exact print identifiers, release dates, potential identity-review requirements and the remaining distinct image/UK sold-price proofs, with 6 shards (up to 3,000 candidates) per bounded run. Source binding is verified against active SQL publication both before and after R2 IO. Duplicate writes are idempotent; stale generations fail closed.
+- This **does not yet download/publish new game artwork or provide values**: rights-approved image sources and permitted UK sold evidence adapters remain outstanding; Cloudflare artwork Worker/D1 live staging deployment unresolved, as does full legacy Supabase 400MB capacity migration and Riot Riftbound access.
+- [DR-98 security and rollout guide](docs/DR98_R2_ARTWORK_MARKET_EVIDENCE_BRIDGE_20261107.md). CI and live activation pending verification. 
+
 ## 6 November 2026 — DR-97 Pokémon/One Piece/Naruto/Dragon Ball/Riftbound release scouts (staged)
 
 - Eight independent **initially inactive** n8n schedules added for TCGdex Pokémon; One Piece official/Punk; Dragon Ball Masters/Fusion; Naruto Kayou/Bandai; Riot Riftbound access readiness. Signed FastAPI route delegates to existing legacy catalogue adapters and shared daily advisory lock, with daily due checks and Supabase capacity fail-close.

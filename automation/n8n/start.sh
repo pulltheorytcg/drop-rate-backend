@@ -182,6 +182,21 @@ case "${DROP_RATE_N8N_LEGACY_RELEASE_PUBLISH_ON_BOOT:-false}" in
     ;;
 esac
 
+# DR98: verified private Cloudflare R2 enrichment evidence. On-boot publish
+# is opt-in, single-purpose and guarded by exact persisted SQLite source hashes,
+# a private database backup and an already-published DR90 error workflow.
+# No actual card art/pricing/Shopify content becomes public through this flag.
+case "${DROP_RATE_N8N_ENRICHMENT_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-enrichment-publish.cjs || exit 1
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_ENRICHMENT_PUBLISH","status":"BLOCKED","reason":"UNEXPECTED_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
 # Opt-in metadata inspection only. The helper reads SQLite without n8n/ORM
 # initialization, emits a strict summary, and has a 15-second child deadline.
 # A diagnostic failure must never prevent this service from starting.

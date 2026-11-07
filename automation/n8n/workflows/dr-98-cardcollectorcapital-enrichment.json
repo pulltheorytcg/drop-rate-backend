@@ -1,0 +1,144 @@
+{
+  "id": "DR98SportsBowmanEvidenceQueueV1",
+  "name": "DR-98 Private R2 Art & Market Evidence | Sports Bowman",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1",
+    "timezone": "Europe/London"
+  },
+  "nodes": [
+    {
+      "id": "DR98SportsBowmanEvidenceQueueV1Schedule",
+      "name": "Quarter-Hour Sports Bowman Evidence Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -600,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "DR98SportsBowmanEvidenceQueueV1Sign",
+      "name": "Sign Sports Bowman Enrichment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto=require('crypto');\nconst secret=String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET||'').trim();\nconst url=String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL||'').trim();\nif(secret.length<32) throw new Error('enrichment_secret_not_configured');\nif(!/\\/api\\/v1\\/automation\\/control\\/receipt$/.test(url)) throw new Error('enrichment_control_url_invalid');\nconst id=String($execution.id||'').trim().slice(0,120);\nif(!id) throw new Error('enrichment_execution_id_missing');\nconst body=JSON.stringify({schema_version:1,action:'PREPARE_R2_ENRICHMENT_WORKLIST',source:'cardcollectorcapital',execution_id:id,occurred_at:new Date().toISOString()});\nconst timestamp=String(Math.floor(Date.now()/1000));\nconst signature='sha256='+crypto.createHmac('sha256',secret).update(timestamp+'.'+body,'utf8').digest('hex');\nreturn [{json:{url:url.replace(/\\/control\\/receipt$/,'/commands/catalogue/prepare-enrichment-worklist'),body,timestamp,signature}}];"
+      }
+    },
+    {
+      "id": "DR98SportsBowmanEvidenceQueueV1Request",
+      "name": "Prepare Sports Bowman Private R2 Worklists",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 180000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "autodetect"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "DR98SportsBowmanEvidenceQueueV1Verify",
+      "name": "Verify Sports Bowman Worklist Proof",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response=$input.first().json||{};\nconst status=Number(response.statusCode);\nif(!Number.isInteger(status)||status<200||status>=300)throw new Error('enrichment_http_'+String(status));\nconst r=response.body||{};\nif(r.accepted!==true||r.source!=='cardcollectorcapital'||!r.execution_id||r.metadata_only!==true)throw new Error('enrichment_receipt_invalid');\nif(r.scope!=='EXACT_IDENTITY_REVIEW_AND_SOLD_EVIDENCE_TASKS_ONLY'||r.artwork_published!==false||r.market_values_written!==0||r.shopify_updated!==false||r.ownership_or_price_changed!==false)throw new Error('enrichment_scope_overreach');\nif(!['PRIVATE_ENRICHMENT_WORKLIST_VERIFIED','NO_ACTIVE_CATALOGUE_GENERATION','STALE_GENERATION_PRIVATE_ONLY'].includes(r.status))throw new Error('enrichment_status_invalid');\nif(r.status==='PRIVATE_ENRICHMENT_WORKLIST_VERIFIED'){\n  if(!/^[a-f0-9]{64}$/.test(String(r.batch_worklist_manifest_sha256)))throw new Error('enrichment_batch_manifest_not_verified');\n  if(!/^[a-f0-9]{64}$/.test(String(r.source_manifest_sha256))||!Number.isInteger(r.generation)||r.generation<1||!Number.isInteger(r.processed_parts)||r.processed_parts<1||r.processed_parts>6||!Array.isArray(r.worklist_sha256)||r.worklist_sha256.length!==r.processed_parts||r.worklist_sha256.some(d=>!/^[a-f0-9]{64}$/.test(d))||!Number.isInteger(r.candidate_count)||r.candidate_count<1)throw new Error('enrichment_r2_proof_invalid');\n}\nif(r.status==='STALE_GENERATION_PRIVATE_ONLY')throw new Error('enrichment_source_changed_during_batch');\nif(r.status==='NO_ACTIVE_CATALOGUE_GENERATION')throw new Error('enrichment_source_catalogue_unavailable');\nreturn [{json:{source:r.source,status:r.status,source_manifest_sha256:r.source_manifest_sha256,batch_worklist_manifest_sha256:r.batch_worklist_manifest_sha256,worklist_sha256:r.worklist_sha256,candidate_count:r.candidate_count,identity_review_count:r.identity_review_count,artwork_published:false,market_values_written:0}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Quarter-Hour Sports Bowman Evidence Check": {
+      "main": [
+        [
+          {
+            "node": "Sign Sports Bowman Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Sports Bowman Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sports Bowman Private R2 Worklists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sports Bowman Private R2 Worklists": {
+      "main": [
+        [
+          {
+            "node": "Verify Sports Bowman Worklist Proof",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-98",
+      "version": 1,
+      "source": "cardcollectorcapital",
+      "scope": "private-content-addressed-r2-enrichment-worklists-only",
+      "activationGate": "Can stage only reviewed canonical references as private artwork/market-evidence tasks. Does not supply art rights, fetch unapproved sources, generate Market Value, publish a live image or Shopify product. Published schedules require signed API readiness, R2 checksum tests and exact offline n8n backup/readback."
+    }
+  }
+}

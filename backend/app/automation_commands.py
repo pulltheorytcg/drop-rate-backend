@@ -15,6 +15,7 @@ from .r2_media import mirror_approved_media
 from .r2_reference_images import PENDING_REFERENCE_IMAGES_SQL, mirror_reference_images, worker_enabled
 from .database_capacity import check_database_capacity
 from .r2_first_import import run_selected
+from .catalogue_enrichment import run_batch as prepare_enrichment_batch, EnrichmentError
 from .legacy_release_scout import run_legacy_release_scout
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
@@ -102,6 +103,21 @@ class LegacyReleaseScoutCommand(BaseModel):
         "tcgdex", "one_piece_official", "punk",
         "dragon_ball_masters", "dragon_ball_fusion",
         "naruto_kayou", "naruto_bandai", "riftbound_riot",
+    ]
+    execution_id: str = Field(min_length=1, max_length=120)
+    occurred_at: datetime
+
+
+class EnrichmentWorklistCommand(BaseModel):
+    """Prepare private R2 evidence tasks, never publish an image or a price."""
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[1] = 1
+    action: Literal["PREPARE_R2_ENRICHMENT_WORKLIST"]
+    source: Literal[
+        "ygoprodeck", "lorcast", "mtgjson",
+        "cardcollectorcapital", "cardcollectorcapital_heritage",
+        "reviewed_figures",
     ]
     execution_id: str = Field(min_length=1, max_length=120)
     occurred_at: datetime
@@ -551,6 +567,59 @@ async def check_legacy_release_source(
         'reason': result.get('reason'),
         'metadata_only': True, 'artwork_published': False,
         'shopify_updated': False, 'ownership_or_price_changed': False,
+    }
+
+
+@router.post('/catalogue/prepare-enrichment-worklist')
+async def prepare_catalogue_enrichment_worklist(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(default=None, alias='X-Drop-Rate-Timestamp'),
+    x_drop_rate_signature: str | None = Header(default=None, alias='X-Drop-Rate-Signature'),
+) -> dict:
+    """Private exact-print and market-evidence tasks from approved R2 generations.
+
+    This writes only content-addressed R2 worklist snapshots; no artwork is
+    downloaded, no fake sold observations or Market Value are created, and no
+    database/Shopify/physical inventory information is modified.
+    """
+    raw = await _verified_command_body(
+        request, timestamp_header=x_drop_rate_timestamp, signature_header=x_drop_rate_signature,
+    )
+    try:
+        command = EnrichmentWorklistCommand.model_validate_json(raw)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail='Invalid enrichment worklist command') from exc
+    if command.occurred_at.tzinfo is None or command.occurred_at.utcoffset() is None:
+        raise HTTPException(status_code=422, detail='Enrichment timestamp needs timezone')
+    settings = get_settings()
+    if not settings.catalogue_maintenance_actor_user_id:
+        raise HTTPException(status_code=503, detail='Catalogue maintenance identity is unavailable')
+    try:
+        outcome = await prepare_enrichment_batch(
+            request.app.state.db_pool, settings.catalogue_maintenance_actor_user_id, command.source,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Provider information and credentials must not escape in errors.
+        raise HTTPException(status_code=503, detail={
+            'message': 'Private enrichment worklist not verified',
+            'retryable': True, 'error_type': type(exc).__name__,
+        }) from exc
+    if outcome['status'] not in {
+        'PRIVATE_ENRICHMENT_WORKLIST_VERIFIED', 'NO_ACTIVE_CATALOGUE_GENERATION',
+        'STALE_GENERATION_PRIVATE_ONLY',
+    }:
+        raise HTTPException(status_code=502, detail='Unexpected enrichment worklist result')
+    return {
+        'accepted': True, 'execution_id': command.execution_id,
+        **outcome,
+        'scope': 'EXACT_IDENTITY_REVIEW_AND_SOLD_EVIDENCE_TASKS_ONLY',
+        'metadata_only': True,
+        'artwork_published': False,
+        'market_values_written': 0,
+        'shopify_updated': False,
+        'ownership_or_price_changed': False,
     }
 
 
