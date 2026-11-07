@@ -444,6 +444,9 @@ async def _load_listing_plan(
               and scope='INVENTORY_ITEM'
               and media_kind='IMAGE'
               and side in ('FRONT','BACK')
+              and rights_tier='FIRST_PARTY_CAPTURE'
+              and source_type in ('FOUNDER_UPLOAD','CONSIGNOR_UPLOAD')
+              and ($3::boolean = false or capture_context='GRADED_SLAB')
               and rights_status='VERIFIED'
               and approval_status='APPROVED'
               and source_status='ACTIVE'
@@ -454,6 +457,7 @@ async def _load_listing_plan(
             """,
             owner["id"],
             inventory_id,
+            graded,
         )
         media = {str(media["side"]): str(media["shopify_cdn_url"]) for media in media_rows}
         if "FRONT" not in media or "BACK" not in media:
