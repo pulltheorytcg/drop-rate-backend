@@ -69,6 +69,72 @@
   coverageButton.type = "button";
   coveragePanel.append(coverageStatus, coverageDetails, coverageButton);
   tools.append(coveragePanel);
+
+  // Real source review is five exact published printings at a time, 25/game.
+  // Never automatically publishes, approves, downloads to R2 or changes prices.
+  const artworkPanel = node("section", "founder-control-group");
+  artworkPanel.setAttribute("aria-label", "Three-game artwork source review");
+  artworkPanel.append(node("h2", "", "Official artwork review"),
+    node("p", "muted", "Inspect real Yu-Gi-Oh!, Lorcana and Magic images against the exact card printing. Review only; not published."));
+  const artControls = node("div", "founder-coverage-actions");
+  const artGame = document.createElement("select");
+  artGame.setAttribute("aria-label", "Artwork game");
+  artGame.className = "owner-select";
+  for(const [value,label] of [["YUGIOH","Yu-Gi-Oh!"],["DISNEY_LORCANA","Disney Lorcana"],
+                              ["MAGIC_THE_GATHERING","Magic: The Gathering"]]){
+    const option=document.createElement("option");option.value=value;option.textContent=label;artGame.add(option);
+  }
+  const artRun = node("button", "ghost-button", "Review 5 printings");
+  const artNext = node("button", "ghost-button", "Next 5");
+  artRun.type=artNext.type="button";
+  const artStatus=node("p","muted","Select a game to check its first five printings.");
+  artStatus.setAttribute("role","status");
+  const artResults=node("div","founder-artwork-review-list");
+  artControls.append(artGame,artRun,artNext);
+  artworkPanel.append(artControls,artStatus,artResults);
+  tools.append(artworkPanel);
+  let artOffset=0,artEpoch=0,artBusy=false;
+  async function reviewArtwork(offset=0){
+    if(entry.hidden||artBusy)return;
+    artBusy=true;artRun.disabled=artNext.disabled=true;
+    const generation=++artEpoch,source=artGame.value;
+    artStatus.textContent="Checking actual source images and file integrity…";
+    try{
+      const url="/api/v1/artwork/pilot/"+encodeURIComponent(source)+"?limit=5&offset="+offset+"&verify_bytes=true";
+      const data=await apiRequest(url);
+      if(generation!==artEpoch||entry.hidden||artGame.value!==source)return;
+      const frag=document.createDocumentFragment();
+      for(const rec of data.records||[]){
+        const item=node("div","founder-artwork-review-card");
+        const title=node("strong","",(rec.set_id||"Unknown set")+" · "+(rec.card_number||"Unknown number"));
+        const detail=node("p","muted",(rec.status||"UNAVAILABLE").replace(/_/g," "));
+        const approved=node("p","muted",rec.image_byte_verified
+          ? "Image bytes verified · "+rec.image_dimensions.width+" × "+rec.image_dimensions.height+" · "+rec.image_size_bytes.toLocaleString("en-GB")+" bytes"
+          : "Image bytes not verified or source image unavailable");
+        item.append(title,detail,approved);
+        if(typeof rec.candidate_image_url==="string"&&/^https:\/\//.test(rec.candidate_image_url)){
+          const link=node("a","founder-control-card","Inspect source image");
+          link.href=rec.candidate_image_url;link.target="_blank";link.rel="noopener noreferrer";
+          item.append(link);
+        }
+        item.append(node("small","muted","Not approved for storefront publishing."));
+        frag.append(item);
+      }
+      artResults.replaceChildren(frag);
+      artOffset=offset;
+      artStatus.textContent=data.game+": checked "+data.requested+" printings; found "+data.candidate_count+" candidates and verified "+data.byte_verified_count+" images. Batch "+(Math.floor(offset/5)+1)+" of 5.";
+      artNext.disabled=offset>=20;
+    }catch(error){
+      if(generation===artEpoch&&!entry.hidden)
+        artStatus.textContent="Artwork preview unavailable: "+error.message;
+    }finally{
+      if(generation===artEpoch){artBusy=false;artRun.disabled=false;if(artOffset<20)artNext.disabled=false;}
+    }
+  }
+  artRun.addEventListener("click",()=>{artOffset=0;reviewArtwork(0);});
+  artNext.addEventListener("click",()=>reviewArtwork(Math.min(20,artOffset+5)));
+  artGame.addEventListener("change",()=>{artEpoch++;artOffset=0;artResults.replaceChildren();
+    artStatus.textContent="Select Review 5 printings to inspect the exact image sources.";artNext.disabled=false;artBusy=false;artRun.disabled=false;});
   let coverageEpoch = 0, coverageLoaded = false, coveragePending = false;
   const count = value => Number.isInteger(value) ? value.toLocaleString("en-GB") : "Not measured";
   async function loadCoverage() {
@@ -125,6 +191,6 @@
     if (entry.hidden) clearCoverage();
     if (!event.detail.allowed && !panel.classList.contains("hidden")) activateOwnerView("settings", false);
   });
-  window.addEventListener("hub-session-cleared", () => {entry.hidden = true; clearCoverage(); panel.classList.add("hidden");});
+  window.addEventListener("hub-session-cleared", () => {entry.hidden = true; clearCoverage(); artEpoch++; artOffset=0; artResults.replaceChildren(); artStatus.textContent="Sign in to review artwork."; panel.classList.add("hidden");});
 })();
 
