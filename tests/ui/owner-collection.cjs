@@ -27,10 +27,14 @@ function fixture(){
   assert.equal(options.some(option=>option.value==='WITHDRAWN'),false);
   assert.equal(options.some(option=>option.value==='SOLD'),true,'Past sales remain available through explicit history');
   assert.equal(new URL(f.calls.at(-1).url,'https://collection.test').searchParams.has('status'),false);
-  f.w.sessionStorage.setItem('drop_rate_collection_view:owner-a',JSON.stringify({status:'WITHDRAWN',offset:50,layout:'list'}));
+  assert.equal(new URL(f.calls.at(-1).url,'https://collection.test').searchParams.get('sort'),'value_desc',
+    'Founder and seller Collection must initially sort highest value first');
+  f.w.sessionStorage.setItem('drop_rate_collection_view:owner-a',JSON.stringify({status:'WITHDRAWN',offset:50,layout:'list',sort:'updated'}));
   f.run('collectionOwner=null;restoreCollectionView()');
   assert.equal(f.run('state.inventory.status'),'');assert.equal(f.run('state.inventory.offset'),0);
-  assert.equal(f.run('state.inventory.layout'),'list');f.close();checks++;
+  assert.equal(f.run('state.inventory.layout'),'list');
+  assert.equal(f.run('state.inventory.sort'),'value_desc','Migrate old implicit updated sort');
+  f.close();checks++;
  }
  for(const remaining of [0,50]){
   const f=fixture();f.run('state.inventory.offset=50');
@@ -112,7 +116,15 @@ function fixture(){
  }
  {
   const f=fixture();await f.run('loadOwnerInventory()');
+  await f.w.DropRateCollection.setFilters({sort:'updated'});
+  f.run('collectionOwner=null;restoreCollectionView()');
+  assert.equal(f.run('state.inventory.sort'),'updated','Explicit sort choice is retained after reload');
+  f.close();checks++;
+ }
+ {
+  const f=fixture();await f.run('loadOwnerInventory()');
   f.handle(async()=>{throw new Error('This collection is too large for value sorting');});
+  f.run('state.inventory.sort="updated"');
   await f.w.DropRateCollection.setFilters({sort:'value_desc'});
   assert.equal(f.run('state.inventory.sort'),'updated');assert.equal(f.w.document.querySelector('#owner-collection-sort').value,'updated');
   assert.match(f.w.document.querySelector('#owner-portal-message').textContent,/too large/);

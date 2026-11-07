@@ -8,7 +8,7 @@ const state = {
   access: null,
   providers: {google: false, apple: false},
   inventory: {offset: 0, limit: 50, total: 0, search: "", status: "", layout: "grid",
-    category: "", game: "", language: "", grading: "", format: "", listing_state: "", sort: "updated", selling: false},
+    category: "", game: "", language: "", grading: "", format: "", listing_state: "", sort: "value_desc", selling: false},
   sales: {offset: 0, limit: 50, total: 0},
   settlements: {offset: 0, limit: 50, total: 0},
   channels: {offset: 0, limit: 60, total: 0, search: "", channel: "ALL"},
@@ -148,13 +148,13 @@ function ownerInventoryDisplayGroups(items) {
 }
 
 const collectionFilterKeys = ["search", "status", "category", "game", "language", "grading", "format", "listing_state"];
-const collectionDefaults = {search:"",status:"",category:"",game:"",language:"",grading:"",format:"",listing_state:"",sort:"updated",offset:0,layout:"grid"};
+const collectionDefaults = {search:"",status:"",category:"",game:"",language:"",grading:"",format:"",listing_state:"",sort:"value_desc",offset:0,layout:"grid"};
 let collectionOwner = null, collectionPreviousFilters = null;
 function collectionHasFilters() { return collectionFilterKeys.some(key => Boolean(state.inventory[key])); }
 function collectionStorageKey() { return state.session?.user?.id ? `drop_rate_collection_view:${state.session.user.id}` : null; }
 function saveCollectionView() {
   const key = collectionStorageKey(); if (!key || state.inventory.selling) return;
-  try { sessionStorage.setItem(key, JSON.stringify(Object.fromEntries(Object.keys(collectionDefaults).map(name => [name, state.inventory[name]])))); } catch (_) { /* Session memory remains usable. */ }
+  try { sessionStorage.setItem(key, JSON.stringify({...Object.fromEntries(Object.keys(collectionDefaults).map(name => [name, state.inventory[name]])), defaultSortVersion:2})); } catch (_) { /* Session memory remains usable. */ }
 }
 function restoreCollectionView() {
   const account = state.session?.user?.id || state.session?.access_token;
@@ -166,7 +166,9 @@ function restoreCollectionView() {
     const saved = JSON.parse(sessionStorage.getItem(key));
     if (saved && typeof saved === "object") {
       for (const name of collectionFilterKeys) if (typeof saved[name] === "string" && saved[name].length <= 160) state.inventory[name] = saved[name];
-      if (["updated","newest","oldest","name","name_desc","value_desc","value_asc"].includes(saved.sort)) state.inventory.sort = saved.sort;
+      // Migrate an old implicit "updated" default, while retaining subsequent deliberate sorts.
+      if (["updated","newest","oldest","name","name_desc","value_desc","value_asc"].includes(saved.sort)
+          && (saved.defaultSortVersion === 2 || saved.sort !== "updated")) state.inventory.sort = saved.sort;
       if (["grid","list"].includes(saved.layout)) state.inventory.layout = saved.layout;
       if (Number.isInteger(saved.offset) && saved.offset >= 0 && saved.offset <= 100000) state.inventory.offset = saved.offset;
       if (state.inventory.status === "WITHDRAWN") {state.inventory.status = "";state.inventory.offset = 0;}
