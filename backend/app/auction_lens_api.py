@@ -93,6 +93,8 @@ async def _eligible_uk_value(connection, *, catalogue_id: UUID, now: datetime) -
         "marketValueMinor": price["market_value_minor"],
         "currency": "GBP",
         "source": "Drop Rate · eligible UK sold Market Value",
+        "basis": "English · Near Mint · raw",
+        "evidenceAtMs": int(price["checked_at"].timestamp() * 1000),
         "expiresAtMs": int(expires.timestamp() * 1000),
         "valuationEligible": True,
     }
