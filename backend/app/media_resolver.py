@@ -299,15 +299,23 @@ def resolve_storefront_media(
     """Resolve the exact storefront media for an inventory item, fail closed.
 
     Priority:
-      1. ready FIRST_PARTY_CAPTURE media for the exact inventory item;
-      2. for low-risk items only, exact STOREFRONT_ALLOWED canonical media;
-      3. otherwise Action Required / first-party capture.
+      1. copy-specific first-party front/back where mandatory (graded, high-risk);
+      2. for ordinary raw cards, exact STOREFRONT_ALLOWED canonical card art;
+      3. otherwise eligible owned-copy photo or Action Required.
+
+    Captured scan evidence remains on the physical inventory item regardless
+    of which eligible image is chosen as the Shopify listing's primary image.
     """
 
     policy = physical_photo_policy(item, threshold_minor=threshold_minor)
     physical = _latest_by_side(_inventory_capture_candidates(item, assets))
     physical_front = physical.get("FRONT")
     physical_back = physical.get("BACK")
+    # Keep physical intake evidence independent from the canonical image used
+    # as the default Shopify primary for ordinary, low-risk raw cards.
+    canonical_matches, canonical_diagnostics = _canonical_candidates(item, assets)
+    canonical = _latest_by_side(canonical_matches)
+    canonical_front = canonical.get("FRONT")
 
     selected: list[Mapping[str, Any]] = []
     blockers: list[str] = []
@@ -343,6 +351,19 @@ def resolve_storefront_media(
                 "Exact first-party media selected because physical photos are "
                 "mandatory for this inventory item."
             )
+    elif _text(item.get("product_type")) == "CARD" and canonical_front is not None:
+        # A successfully stored scan is evidence of this owned copy, not the
+        # default raw-card product artwork. Only an exact, rights-approved,
+        # Shopify-READY canonical printing can replace it on the storefront.
+        selected = [canonical_front]
+        if canonical.get("BACK") is not None:
+            selected.append(canonical["BACK"])
+        source = "CANONICAL_STOREFRONT"
+        rights_tier = STOREFRONT_ALLOWED
+        selection_reason = (
+            "Exact approved official card image is the raw-card Shopify default; "
+            "physical scan photos remain attached to the inventory record."
+        )
     elif physical_front is not None:
         selected = [physical_front]
         if physical_back is not None:
@@ -350,27 +371,23 @@ def resolve_storefront_media(
         source = FIRST_PARTY_CAPTURE
         rights_tier = FIRST_PARTY_CAPTURE
         selection_reason = (
-            "Exact first-party inventory media was available and takes "
-            "priority over reusable canonical media."
+            "No eligible exact official card image was available; selected "
+            "the approved physical-copy photograph instead."
         )
+    elif canonical_front is None:
+        blockers.append("exact storefront-allowed canonical front image")
+        blockers.extend(canonical_diagnostics)
     else:
-        canonical_matches, diagnostics = _canonical_candidates(item, assets)
-        canonical = _latest_by_side(canonical_matches)
-        canonical_front = canonical.get("FRONT")
-        if canonical_front is None:
-            blockers.append("exact storefront-allowed canonical front image")
-            blockers.extend(diagnostics)
-        else:
-            selected = [canonical_front]
-            canonical_back = canonical.get("BACK")
-            if canonical_back is not None:
-                selected.append(canonical_back)
-            source = "CANONICAL_STOREFRONT"
-            rights_tier = STOREFRONT_ALLOWED
-            selection_reason = (
-                "No physical photos are required by policy; exact canonical "
-                "media with verified storefront rights was selected."
-            )
+        # Non-card product types retain their existing media policy.
+        selected = [canonical_front]
+        if canonical.get("BACK") is not None:
+            selected.append(canonical["BACK"])
+        source = "CANONICAL_STOREFRONT"
+        rights_tier = STOREFRONT_ALLOWED
+        selection_reason = (
+            "No physical photos are required by policy; exact canonical "
+            "media with verified storefront rights was selected."
+        )
 
     blockers = list(dict.fromkeys(blockers))
     file_ids = [
