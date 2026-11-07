@@ -18,6 +18,7 @@ from fastapi.encoders import jsonable_encoder
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from . import r2_first_service
+from . import expanded_artwork_live_pilot
 
 router = APIRouter(prefix="/api/v1/artwork", tags=["artwork-coverage"])
 
@@ -163,3 +164,56 @@ async def artwork_review_sample(
         "can_publish": False,
         "can_mirror": False,
     }
+
+
+@router.get("/pilot/{system_code}")
+async def live_artwork_pilot(
+    system_code: str,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=5, ge=1, le=5),
+    offset: int = Query(default=0, ge=0, le=20),
+    verify_bytes: bool = False,
+) -> dict:
+    """Make real source-image candidates for five published exact printings.
+
+    Platform-admin-only route, strictly read-only, no image approval or
+    reproduction rights inference. Five offsets (0,5,10,15,20) make a
+    deterministic 25-card pilot without one long web request.
+    """
+    if system_code not in GAMES:
+        raise HTTPException(404, "Unknown artwork game")
+    if offset + limit > 25:
+        raise HTTPException(422, "Artwork pilot cannot exceed 25 source rows")
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        snapshots = await r2_first_service.read(
+            connection, system_code=system_code, language="English"
+        )
+    if len(snapshots) != 1:
+        raise HTTPException(503, "Expected one active, verified source partition")
+    snapshot = snapshots[0]
+    with r2_first_service._borrow(snapshots):
+        found = snapshot.search(
+            limit=limit, offset=offset, sort="name", include_upcoming=False
+        )
+    references = found["items"]
+    if not references:
+        raise HTTPException(404, "No source printings in the requested slice")
+    for row in references:
+        if row.get("system_code") != system_code:
+            raise HTTPException(503, "Source partition changed during review")
+        row["source_manifest_sha256"] = snapshot.manifest_digest
+    outcome = await expanded_artwork_live_pilot.collect(
+        system_code, references, verify_bytes=verify_bytes
+    )
+    return jsonable_encoder({
+        "schema": "drop-rate-live-artwork-pilot-v1",
+        "game": GAMES[system_code],
+        "source_manifest_sha256": snapshot.manifest_digest,
+        "offset": offset,
+        "limit": limit,
+        "verified_image_bytes_requested": verify_bytes,
+        **outcome,
+    })
