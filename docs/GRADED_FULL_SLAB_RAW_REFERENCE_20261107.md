@@ -15,7 +15,7 @@ When an exact slab photo is absent, a graded item can show a clearly labelled pr
 
 Step 4 is a **staff-reviewed identity artwork fallback**, *not* evidence that the grader looked up or photographed this exact certificate. Do not call it a certificate photo. Never construct a synthetic slab, and never attach unrelated grade labels to artwork.
 
-`graded_reference_allowed` is derived by the owner/detail query and the same independent eligibility predicates are checked within `MEDIA_SQL`; the Python response refuses a mocked/unreviewed canonical fallback. For official raw certificate photos, existing media-approval checks and exact provider+certificate matching are required; no new upload source is inferred and no media row is auto-approved.
+`graded_card_art_allowed` is derived within the private media SQL selector only; the owner Collection API does not need to expose a certificate number or identity-review fields. The Python response refuses canonical artwork unless the server-resolved candidate carries that eligibility flag. For official raw certificate photos, existing media-approval checks and exact provider+certificate matching are required; no new upload source is inferred and no media row is auto-approved.
 
 ## Live inventory example before rollout
 Charizard V, Darkness Ablaze 019/189, PSA 9, certificate 62398872, has **no approved inventory-bound provider image**. Its physical identity was confirmed and staff reviewed, and the exact printing's approved English/Holofoil TCGdex artwork is in the catalogue. The updated read-only SQL selects this **matching card artwork**, labelled 'Card artwork · not slab photo', until a verifiable certificate-bound raw image or genuine slab photo is approved. Do not claim the shown fallback comes from PSA.
