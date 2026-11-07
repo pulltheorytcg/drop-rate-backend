@@ -2,18 +2,61 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.encoders import jsonable_encoder
+import asyncpg
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .recognition_games import SYSTEM_BY_GAME, SOURCE_COVERAGE, collector_key
+from . import catalogue_r2_live, reference_library_r2
 
 router = APIRouter(prefix="/api/v1/reference-library", tags=["reference-library"])
+log = logging.getLogger(__name__)
+
+COVERAGE_SQL = """select s.system_code,s.provider,s.language,
+  count(distinct s.set_id)::int as sets,count(c.provider_id)::int as cards,
+  max(s.refreshed_at) as refreshed_at,
+  count(c.provider_id) filter(where s.release_date>current_date)::int as upcoming_cards
+  from tcg.reference_sets s left join tcg.reference_cards c
+  using(provider,system_code,language,set_id)
+  group by s.system_code,s.provider,s.language
+  order by s.system_code,s.provider,s.language"""
+
+SETS_SQL = """select s.*, (select count(*) from tcg.reference_cards c where
+  c.provider=s.provider and c.system_code=s.system_code and c.language=s.language
+  and c.set_id=s.set_id) as indexed_cards,
+  case when release_date>current_date then 'UPCOMING'
+    when release_date is null then 'UNKNOWN' else 'RELEASED' end as release_status
+  from tcg.reference_sets s where system_code=$1
+    and ($2='' or name ilike '%' || $2 || '%' or set_id ilike '%' || $2 || '%')
+  order by release_date desc nulls last,name,provider,language,set_id limit $3 offset $4"""
+
+SETS_R2_SQL = """select s.*,
+  case when release_date>current_date then 'UPCOMING'
+    when release_date is null then 'UNKNOWN' else 'RELEASED' end as release_status
+  from tcg.reference_sets s where system_code=$1
+    and ($2='' or name ilike '%' || $2 || '%' or set_id ilike '%' || $2 || '%')
+  order by release_date desc nulls last,name,provider,language,set_id limit $3 offset $4"""
+
+
+async def _r2_reference_snapshot(connection):
+    return await catalogue_r2_live.read(connection) if reference_library_r2.enabled() else None
+
+
+async def _r2_still_current(connection, snapshot):
+    return await catalogue_r2_live.read(connection) is snapshot
+
+
+def _r2_fallback(exc):
+    if isinstance(exc, (asyncpg.InterfaceError, asyncpg.PostgresConnectionError, TimeoutError, OSError)):
+        raise exc
+    log.warning("REFERENCE_LIBRARY_R2_READ_FALLBACK type=%s", type(exc).__name__)
 
 SYNC_SOURCE_BY_SYSTEM = {
     'POKEMON_TCG':'tcgdex','ONE_PIECE_CARD_GAME':'punk',
@@ -26,6 +69,33 @@ SYNC_SOURCE_BY_SYSTEM = {
 def number_key(value):
     # Preserve identifier components, fraction boundaries and printing symbols.
     return collector_key(value)
+
+
+def _reference_image_url(value):
+    # Sparse provider feeds can spell an absent image as null, "" or whitespace.
+    # Normalize them before the exact-identity upsert so blank strings cannot
+    # erase a verified repair or its provenance on the next scheduled refresh.
+    return (value.strip() or None) if isinstance(value, str) else value
+
+
+# These two M1S reviews bind image bytes to individually read printed identities.
+# A provider manifest can later expose the known misnumbered nominal URL. Keep
+# intact reviewed proof until an explicit new review, only for unchanged identity.
+_PINNED_M1S_ARTWORK_SQL = """
+    tcg.reference_cards.provider='TCGdex'
+    and tcg.reference_cards.system_code='POKEMON_TCG'
+    and tcg.reference_cards.language='Japanese' and tcg.reference_cards.set_id='M1S'
+    and ((tcg.reference_cards.evidence->'image_reference'->>'verification'='TCGDEX_REVIEWED_IMAGE_BYTES_V1'
+          and tcg.reference_cards.evidence->'image_reference'->>'review_manifest_sha256'=
+            'b9b4155be39e71acc6c9985060f501906a463161f3ec35b0c45b3cfd4d8b8a1d')
+      or (tcg.reference_cards.evidence->'image_reference'->>'verification'='TCGDEX_REVIEWED_ASSET_OVERRIDE_V1'
+          and tcg.reference_cards.evidence->'image_reference'->>'review_manifest_sha256'=
+            '040d59d5c8b992cc8ea5e4fbd85b3e16f5a328151f236c4e33be45184398b99d'))
+    and tcg.reference_cards.evidence->'image_reference'->>'image_url'=tcg.reference_cards.image_url
+    and tcg.reference_cards.evidence->'image_reference'->>'source_url'=tcg.reference_cards.source_url
+    and tcg.reference_cards.evidence->'image_reference'->>'scope'='REFERENCE_ONLY_NOT_APPROVED_MEDIA'
+    and tcg.reference_cards.evidence->'image_reference'->>'content_sha256' ~ '^[0-9a-f]{64}$'
+"""
 
 
 async def save_reference_set(connection, record, cards):
@@ -43,18 +113,32 @@ async def save_reference_set(connection, record, cards):
             record['name'],record.get('release_date'),record.get('declared_card_count'),record['source_url'])
         # A provider can repeat the same record on overlapping pages.
         unique = {str(card['provider_id']): card for card in cards}
-        await connection.executemany("""
+        await connection.executemany(f"""
             insert into tcg.reference_cards(provider,system_code,language,provider_id,
                 set_id,name,card_number,number_key,finish,rarity,image_url,source_url,evidence)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
             on conflict(provider,system_code,language,provider_id) do update set
                 set_id=excluded.set_id,name=excluded.name,card_number=excluded.card_number,
                 number_key=excluded.number_key,finish=excluded.finish,rarity=excluded.rarity,
-                image_url=excluded.image_url,source_url=excluded.source_url,
-                evidence=excluded.evidence,refreshed_at=clock_timestamp()
+                image_url=case when tcg.reference_cards.set_id=excluded.set_id and tcg.reference_cards.name=excluded.name
+                  and tcg.reference_cards.card_number=excluded.card_number
+                  and tcg.reference_cards.source_url=excluded.source_url
+                  and (tcg.reference_cards.evidence->>'provider_local_id') is not distinct from (excluded.evidence->>'provider_local_id')
+                  then case when {_PINNED_M1S_ARTWORK_SQL} then tcg.reference_cards.image_url
+                    else coalesce(excluded.image_url,tcg.reference_cards.image_url) end
+                  else excluded.image_url end,
+                source_url=excluded.source_url,
+                evidence=case when (excluded.image_url is null or ({_PINNED_M1S_ARTWORK_SQL}))
+                  and tcg.reference_cards.set_id=excluded.set_id and tcg.reference_cards.name=excluded.name
+                  and tcg.reference_cards.card_number=excluded.card_number
+                  and tcg.reference_cards.source_url=excluded.source_url
+                  and (tcg.reference_cards.evidence->>'provider_local_id') is not distinct from (excluded.evidence->>'provider_local_id')
+                  and tcg.reference_cards.image_url is not null and tcg.reference_cards.evidence ? 'image_reference'
+                  then excluded.evidence || jsonb_build_object('image_reference',tcg.reference_cards.evidence->'image_reference')
+                  else excluded.evidence end,refreshed_at=clock_timestamp()
         """, [(record['provider'],record['system_code'],record['language'],card['provider_id'],
                 record['set_id'],card['name'],str(card['card_number']),number_key(card['card_number']),
-                card.get('finish'),card.get('rarity'),card.get('image_url'),card['source_url'],
+                card.get('finish'),card.get('rarity'),_reference_image_url(card.get('image_url')),card['source_url'],
                 json.dumps(card.get('evidence') or {})) for card in unique.values()])
 
 
@@ -95,14 +179,20 @@ async def reference_candidates(connection, observation):
 @router.get("/coverage")
 async def library_coverage(request:Request,user:Annotated[AuthenticatedUser,Depends(require_user)]):
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
-        rows=await connection.fetch("""
-          select s.system_code,s.provider,s.language,count(distinct s.set_id)::int as sets,
-                 count(c.provider_id)::int as cards,max(s.refreshed_at) as refreshed_at,
-                 count(c.provider_id) filter(where s.release_date>current_date)::int as upcoming_cards
-          from tcg.reference_sets s left join tcg.reference_cards c
-            using(provider,system_code,language,set_id)
-          group by s.system_code,s.provider,s.language
-        """)
+        rows=None
+        snapshot=await _r2_reference_snapshot(connection)
+        if snapshot is not None:
+            try:
+                # A failed R2 SQL metadata query must roll back its savepoint
+                # before the legacy query can safely run in this connection.
+                async with connection.transaction():
+                    indexed=await reference_library_r2.indexed_coverage(connection,snapshot)
+                    if await _r2_still_current(connection,snapshot):
+                        rows=indexed
+            except Exception as exc:
+                _r2_fallback(exc)
+        if rows is None:
+            rows=await connection.fetch(COVERAGE_SQL)
         runs=await connection.fetch('''select distinct on (source) source,status,started_at,
             finished_at,sets_loaded,cards_loaded,report from tcg.reference_sync_runs
             order by source,started_at desc,id desc''')
@@ -121,14 +211,19 @@ async def library_sets(request:Request,user:Annotated[AuthenticatedUser,Depends(
     system_code:str=Query(max_length=80),search:str=Query(default="",max_length=160),
     limit:int=Query(default=50,ge=1,le=100),offset:int=Query(default=0,ge=0)):
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
-        rows=await connection.fetch("""
-          select s.*, (select count(*) from tcg.reference_cards c where
-             c.provider=s.provider and c.system_code=s.system_code and c.language=s.language and c.set_id=s.set_id) as indexed_cards,
-             case when release_date>current_date then 'UPCOMING' when release_date is null then 'UNKNOWN' else 'RELEASED' end as release_status
-          from tcg.reference_sets s where system_code=$1
-             and ($2='' or name ilike '%' || $2 || '%' or set_id ilike '%' || $2 || '%')
-          order by release_date desc nulls last,name,provider,language,set_id limit $3 offset $4
-        """,system_code,search,limit+1,offset)
+        rows=None
+        snapshot=await _r2_reference_snapshot(connection)
+        if snapshot is not None:
+            try:
+                async with connection.transaction():
+                    metadata=await connection.fetch(SETS_R2_SQL,system_code,search,limit+1,offset)
+                    indexed=reference_library_r2.indexed_set_page(metadata,snapshot)
+                    if await _r2_still_current(connection,snapshot):
+                        rows=indexed
+            except Exception as exc:
+                _r2_fallback(exc)
+        if rows is None:
+            rows=await connection.fetch(SETS_SQL,system_code,search,limit+1,offset)
     return jsonable_encoder({"items":[dict(r) for r in rows[:limit]],"has_more":len(rows)>limit,"offset":offset})
 
 

@@ -109,7 +109,12 @@ function ensureInventoryStateControls() {
 }
 
 async function loadInventoryState(items) {
+  items = items.filter(item => ["condition", "seal_status", "sale_intent", "version"].some(field => item[field] === undefined));
   if (!items.length || !state.session?.access_token) return;
+  if (items.length > 100) {
+    for (let start = 0; start < items.length; start += 100) await loadInventoryState(items.slice(start, start + 100));
+    return;
+  }
   const ids = items.map((item) => item.id).join(",");
   const data = await apiRequest(`/api/v1/inventory/state?ids=${encodeURIComponent(ids)}`);
   const byInventoryId = new Map(data.items.map((item) => [item.id, item]));

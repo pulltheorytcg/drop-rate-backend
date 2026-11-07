@@ -13,8 +13,8 @@ def test_owner_portal_has_separate_inventory_sales_balance_and_settlement_views(
         assert f'data-owner-view="{view}"' in html
         assert f'data-owner-view-panel="{view}"' in html
 
-    assert ">Payouts</span>" in html
-    assert "Order-by-order allocation" in html
+    assert ">Payouts →</button>" in html
+    assert "See the sale price, commission, deductions and proceeds" in html
 
 
 def test_owner_finance_ui_uses_only_owner_safe_finance_endpoints() -> None:
@@ -44,11 +44,11 @@ def test_owner_finance_ui_exposes_transparency_without_internal_profit_or_cost()
     for visible in (
         "Sales revenue",
         "Commission",
-        "Owner proceeds",
+        "Your proceeds",
         "Available to withdraw",
-        "Pending",
-        "Reserved payouts",
-        "Paid out",
+        "Awaiting clearance",
+        "Payouts in progress",
+        "Paid to you",
         "Your proceeds",
         "Other deductions",
         "Reconciled",

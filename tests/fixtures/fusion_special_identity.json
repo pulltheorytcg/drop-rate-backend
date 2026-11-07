@@ -1,0 +1,1223 @@
+{
+  "sb01": [
+    {
+      "id": "dbs_dc9a51ea3082adc43cb06488f4cce149bd7e1dad105659fdd2039f308f6203eb62609ffff84a0373c45df99af2f3bfa24a",
+      "card_info": {
+        "card_number": "SB01-001",
+        "name": "Cell - SB01-001",
+        "product_type": "card",
+        "rarity": "Leader",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Cell-Cell-SB01-001-Fusion-World-V1-Leader",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_09f822f5590142931838e79816ca16e82cbb2b62ef052a6e3628de08135fe0b9766bad4e2c8a18fa823fe0a671325fe13a",
+      "card_info": {
+        "card_number": "SB01-001",
+        "name": "Cell - SB01-001 (Gold)",
+        "product_type": "card",
+        "rarity": "Leader",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Cell-Cell-SB01-001-Fusion-World-V2-Alternate-Art",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_207d953968cf22fe84bd09561f449dfa9b262c818895e8ae78e330da4ea13ddca8a841e8da3a451179f22e41d18c8cac42",
+      "card_info": {
+        "card_number": "SB01-002",
+        "name": "Android 16",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-16-SB01-002-Fusion-World-V1-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_2156167857450edf5b05ce2f2d322b3731615fd441edab2a180fbb081d82065c8a0f70a15ab523ab5159898e2782cb19fd",
+      "card_info": {
+        "card_number": "SB01-002",
+        "name": "Android 16 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-16-SB01-002-Fusion-World-V2-Alternate-Art",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_e43dc35a1daa70b887b2dbee03131e0540c7f4ecd1daadd7fa9dcc95b5fc220987612fedb4e6b81c603b7918f8ee7f8dbb",
+      "card_info": {
+        "card_number": "SB01-003",
+        "name": "Android 17 - SB01-003",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-17-SB01-003-Fusion-World-V1-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_9577d4c203089f867752826efca6a77539a8224f921c3985757c823a1415fdf8a9c945d5e453d94f40e945a0986a183f8d",
+      "card_info": {
+        "card_number": "SB01-003",
+        "name": "Android 17 - SB01-003 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-17-SB01-003-Fusion-World-V2-Alternate-Art",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_1ebf0a9a8c9eb579658dc5fd91cd94d3e57e31e3615f0b7a077b58eba4360a17c8b1d37b6cb7188babddf43f2bbe4a5244",
+      "card_info": {
+        "card_number": "SB01-004",
+        "name": "Android 18 - SB01-004",
+        "product_type": "card",
+        "rarity": "Super Rare",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-18-SB01-004-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_68885b13cc708b9f054e1a6852426012967afaa1134efb7e9ef5d2c4ec9a2d94d80a42b699cff9c141567ce733671d3eba",
+      "card_info": {
+        "card_number": "SB01-005",
+        "name": "Android 18 - SB01-005",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-18-SB01-005-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_9cb6aed6b97d666806a5124cd778313ae7f831c89e1f495883fc3c4e4d7b3c3e76f6910c0f6c914669cab74f148fdf95bc",
+      "card_info": {
+        "card_number": "SB01-005",
+        "name": "Android 18 - SB01-005",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24368",
+        "set_name": "Manga Booster 01 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_46b8b2d73bfc77a123d9fc9fbbfe7fb9ab503d7cf3698a70008facaa0aef8c73c76b90c357747519f5bcf82674f47dd965",
+      "card_info": {
+        "card_number": "SB01-006",
+        "name": "Android 19",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-19-SB01-006-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_f627eeedce3efff26c6bb61e47935777cf27faa30800b9a87e3acf2baacf9a0993b67dd06a0844610176f3360a1895848f",
+      "card_info": {
+        "card_number": "SB01-006",
+        "name": "Android 19",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24368",
+        "set_name": "Manga Booster 01 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_2f0840df54e321bd669614357aa7155919bacf6d46f7b24d109ad8ed5e5312658a6f11d638edd28c079cc62536dfff4ed0",
+      "card_info": {
+        "card_number": "SB01-007",
+        "name": "Android 19/Android 20",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-19Android-20-SB01-007-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_d7b710ae44cab7a61062f8037d1c3e022c69c8f11e453903b7ba14cfbf44c25413604bd7f28fe34bb9714a112f83550a8c",
+      "card_info": {
+        "card_number": "SB01-007",
+        "name": "Android 19/Android 20",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "24368",
+        "set_name": "Manga Booster 01 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_7d41601942e8a0a2ed5475801a88126e4a279f474ead39d57b4e44cab4f4819d9cca0285265c17cd080a0405a4370fe64a",
+      "card_info": {
+        "card_number": "SB01-008",
+        "name": "Android 20",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24368",
+        "set_name": "Manga Booster 01 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_f5e73fdb927269a346eebed1ed1f60cc241c4da18b3a4a745251d271de71b92ad5765e71b115ca179e84b6dc6a07e3bd88",
+      "card_info": {
+        "card_number": "SB01-008",
+        "name": "Android 20",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Android-20-SB01-008-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_050ba0577417bbd0c1a14e3528e2d7def876e8b93813dbb11cf62d4cfa5ef843216fad56c19c49c893ccacdb947b6b5842",
+      "card_info": {
+        "card_number": "SB01-009",
+        "name": "Cell - SB01-009",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Cell-SB01-009-Fusion-World-V1-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_93010b333823a8c978113bc3fb33f203e4788457d09050e49bdccae3a3e5f4d5bd9c7669b014d66ada892c0cfe6a3de2b3",
+      "card_info": {
+        "card_number": "SB01-009",
+        "name": "Cell - SB01-009 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24335",
+        "set_name": "Manga Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-01-Fusion-World/Cell-SB01-009-Fusion-World-V2-Alternate-Art",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    }
+  ],
+  "st01": [
+    {
+      "id": "dbs_999d69a6701c4de1c48e61b4d16961d34c7cd4e412cb437079d6f04dc4ba9758ab87418fe3ba88e12e1ce935b8b82e6ec1",
+      "card_info": {
+        "card_number": "ST01-001",
+        "name": "Son Goten - ST01-001",
+        "product_type": "card",
+        "rarity": "Leader",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goten-Son-Goten-ST01-001-Fusion-World-V1-Leader",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_5265605f3336487dc20815869347b10f2ffc86423ebd3ef0820c64c5f461ff8a8e66031f7c7ca59d2f468b91096841b8c0",
+      "card_info": {
+        "card_number": "ST01-001",
+        "name": "Son Goten - ST01-001 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Leader",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goten-Son-Goten-ST01-001-Fusion-World-V2-Leader",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_01ef5edeb378e69744d4e58b686a95901b9e265bea3c274b6995dfdf78c5844eeb8e489f3c370b50ceb08f04d25b594376",
+      "card_info": {
+        "card_number": "ST01-002",
+        "name": "Krillin",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Krillin-ST01-002-Fusion-World-V1-Common",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_d55381c4e96de105c86ab48cd69c9ac01ab692976a284f0e7c0f1ea1095ede8daba9a3d10709d2314678803f59cafaf2ce",
+      "card_info": {
+        "card_number": "ST01-002",
+        "name": "Krillin (Dragon Ball Pattern)",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Krillin-ST01-002-Fusion-World-V2-Common",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_6cce5bc5fa5855c9457afc11f355920cbefcd8c7fbb30876b4965271b099dc13714415f01818ccc2b4a8967ef305d5adab",
+      "card_info": {
+        "card_number": "ST01-003",
+        "name": "Son Goku - ST01-003",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goku-ST01-003-Fusion-World-V1-Common",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_07b0b5ade0c9a7dde275c152b3a11027db824b8db8ecc333465f4bd0d814cb22e1e1af4829a81e8da2e1627377df75afc4",
+      "card_info": {
+        "card_number": "ST01-003",
+        "name": "Son Goku - ST01-003 (Dragon Ball Pattern)",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goku-ST01-003-Fusion-World-V2-Common",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_3104a99cdc637adef92be86ce6521b79a564bd40f369827c10e40696877e7c4a25188982200804879b4e143eb6ccca8591",
+      "card_info": {
+        "card_number": "ST01-004",
+        "name": "Son Goku - ST01-004",
+        "product_type": "card",
+        "rarity": "Super Rare",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goku-ST01-004-Fusion-World-V1-Super-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_23f7645831512dcc0e39aee08968472d5812ef24edad76119495ce59779643d63624ced07c77abb15b43be0896a051fa64",
+      "card_info": {
+        "card_number": "ST01-004",
+        "name": "Son Goku - ST01-004 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Super Rare",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goku-ST01-004-Fusion-World-V2-Alternate-Art",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_39d5bcc1973eb5dbe0f1ec05b702ed96ca98c5dc909677892abba6acf0eeb176bfa1ff1ee65f67d319bd3c0ee890d9ff64",
+      "card_info": {
+        "card_number": "ST01-005",
+        "name": "Son Goten - ST01-005",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goten-ST01-005-Fusion-World-V1-Common",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_d6859ad65d733e6a13598a8656966008f26544292135cbb78d9093c914a493a1711b85590966429ac7e763ad3fe71f0d75",
+      "card_info": {
+        "card_number": "ST01-005",
+        "name": "Son Goten - ST01-005 (Dragon Ball Pattern)",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goten-ST01-005-Fusion-World-V2-Common",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_558bb27943f775040435de6977033345391c48b5986b9c1359ac7f77e2d05cd28b33d3276a9eba52062939ab11229cb8b8",
+      "card_info": {
+        "card_number": "ST01-006",
+        "name": "Son Goten - ST01-006",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goten-ST01-006-Fusion-World-V1-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_3fd12caf2e98809aae3a0dc2c1edd03a6b68bdc8259fedadf1a6485aae8e393988c90f30cadedf156df5fe45c0cfdda191",
+      "card_info": {
+        "card_number": "ST01-006",
+        "name": "Son Goten - ST01-006 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goten-ST01-006-Fusion-World-V2-Feature-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_39cf3009a3d5e5748aaa3d4d3214b82207e9158076199fff5803b045418e1045b06f7d5ea88a1b4d8bdbc7f3e265208f87",
+      "card_info": {
+        "card_number": "ST01-007",
+        "name": "Son Goten - ST01-007",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goten-ST01-007-Fusion-World-V1-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_69b9151d3c4bb6d3b805a95c9d30d53d29fae44aa5e6a58bcf45e0f7d7814888af7618c39b7932bc8d7594a404cbb60dce",
+      "card_info": {
+        "card_number": "ST01-007",
+        "name": "Son Goten - ST01-007 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Goten-ST01-007-Fusion-World-V2-Special-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_47f38cf9a8933c83bc2cf597dbd4a8b559b1583ed7d14a65411c57a43f44801ff16bff5b5491ccca184f36bf784398e14a",
+      "card_info": {
+        "card_number": "ST01-008",
+        "name": "Son Goten/Son Gohan : Adolescence",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-GotenSon-Gohan-Adolescence-ST01-008-Fusion-World-V1-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_b87e48f3f45079d4902e8a55d2b3a3b57c900d5916141ffe4f52e9fadee3f354a0568b8001a823473cf9c18a468729b587",
+      "card_info": {
+        "card_number": "ST01-008",
+        "name": "Son Goten/Son Gohan : Adolescence (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-GotenSon-Gohan-Adolescence-ST01-008-Fusion-World-V2-Feature-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_731ce15587fa27412cc5328d7622d8d52401038965df7a07f6f89f8fb1488977c48c450a428f16e403b8c015f63f53f3b5",
+      "card_info": {
+        "card_number": "ST01-009",
+        "name": "Son Gohan : Adolescence - ST01-009",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Gohan-Adolescence-ST01-009-Fusion-World-V1-Common",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_1b9a8fbbc9fdae23ad7cd64079d5e8270caf4cc33f1d6a4a198094554ba974fc06195f2a9cf417278defdedd479a0ddae5",
+      "card_info": {
+        "card_number": "ST01-009",
+        "name": "Son Gohan : Adolescence - ST01-009 (Dragon Ball Pattern)",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24680",
+        "set_name": "Story Booster 01"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Story-Booster-01-Fusion-World/Son-Gohan-Adolescence-ST01-009-Fusion-World-V2-Common",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    }
+  ],
+  "sb02": [
+    {
+      "id": "dbs_f19b812e4e0065b8d283274f25801c00f7c88a4b4d6ee7558ab03c9cb94e9878400b2df969bc41f16b45a52aac78b1eb91",
+      "card_info": {
+        "card_number": "SB02-001",
+        "name": "Trunks : Future - SB02-001",
+        "product_type": "card",
+        "rarity": "Leader",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_d9c83b52705d762c15df9dfb57d17b54b102e7f9adc44620e74dd3b80147e68815aa3f295fccd77a6bfa555a34670e2571",
+      "card_info": {
+        "card_number": "SB02-001",
+        "name": "Trunks : Future - SB02-001 (Gold)",
+        "product_type": "card",
+        "rarity": "Leader",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_518ead06969c83821c226066389c94d2e3fd960d38bdad15d127dd60cee880e10706dbc69c6576361374bb1661b62d9abf",
+      "card_info": {
+        "card_number": "SB02-002",
+        "name": "North Kai",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24492",
+        "set_name": "Manga Booster 02 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_5cb18929d93f0182a2dc3bfa0fe627f99abb6307cf85a25e230cf1529bfaaff4922bdc4b4caf3f9746853e677fdf1c945c",
+      "card_info": {
+        "card_number": "SB02-002",
+        "name": "North Kai",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_bdfe31c3ea6936a4d5addb742fc54446ed694830b191646d7aa84b5b4374f49fd4cd0d3b247c5632d7db2daf546e990590",
+      "card_info": {
+        "card_number": "SB02-002",
+        "name": "North Kai - SB02-002 (Limited Pack MANGA Version 02)",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "23429",
+        "set_name": "Tournament and Championship Promos"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_51a5e4ecfeac52e0518de6b5249314bf21642ce58cd944e92965e88c1f2829a5fd0f61df0dba56e3dce487a8186cebc004",
+      "card_info": {
+        "card_number": "SB02-003",
+        "name": "Son Goku - SB02-003",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "24492",
+        "set_name": "Manga Booster 02 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_ba78d4863a7d32db01077be2c6b8f62f6399b61dd7320a4a5992f2fa2507367055e350ac3166842291a6d652d2ce46c31c",
+      "card_info": {
+        "card_number": "SB02-003",
+        "name": "Son Goku - SB02-003",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_b919e14a7c3df6c96f89187d26f184dbd4f9c8281f4f1571cd1d804c2e745d62cd5b25576a8d815e204658e076de8cd0e8",
+      "card_info": {
+        "card_number": "SB02-003",
+        "name": "Son Goku - SB02-003 (Limited Pack MANGA Version 02)",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "23429",
+        "set_name": "Tournament and Championship Promos"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_16337adfa1daeb639d2116e774ce1b873781b06a0235e146beb127927c7136c17d89d06ce282341ed0d10d05b8db4b70d4",
+      "card_info": {
+        "card_number": "SB02-004",
+        "name": "Son Goku - SB02-004",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_e200552f2f40cfbc42c326808e985c0c1b80175bc7b466419184c43497aef8508b4af95aa72103a00ab5af23f7f21d0216",
+      "card_info": {
+        "card_number": "SB02-004",
+        "name": "Son Goku - SB02-004 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_aed2c9acb5c286378223fb8fec029e9e4caf35a9848045b1c46b29ed430af4855b3cbc35c86c2d7cfff390da2ec6f16173",
+      "card_info": {
+        "card_number": "SB02-005",
+        "name": "Son Gohan : Childhood - SB02-005",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_ef908df69752b20555b390ad606530ea6370375785a1f57e541d2d9a9cd507b0c0b233f91b7ba932f1b1a257a3fc929fb5",
+      "card_info": {
+        "card_number": "SB02-005",
+        "name": "Son Gohan : Childhood - SB02-005",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "24492",
+        "set_name": "Manga Booster 02 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_44c92990feb60ed6f7f48ff349d20a05efab2a623c5b95358dd7352d8a372b8c8757a1900ba6d3d82be0a625389f9d2d8f",
+      "card_info": {
+        "card_number": "SB02-006",
+        "name": "Son Gohan : Childhood - SB02-006",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_1c756703d8de1d968b5c02bdda6a07ac4cd0029479cd95f0401e7541d1e77931a67ede70752894ba5d591e10e1a8224388",
+      "card_info": {
+        "card_number": "SB02-006",
+        "name": "Son Gohan : Childhood - SB02-006 (Alternate Art)",
+        "product_type": "card",
+        "rarity": "Rare",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_9189f473bed12190885822f2684bc9954b7edbcc73eb37c4451303f69d264275974ba37eb05cc7e0c323c0e96909f48fea",
+      "card_info": {
+        "card_number": "SB02-007",
+        "name": "Son Gohan : Childhood - SB02-007",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_95c0f704f5d4e9be21a05ace98e1d707e1615d6e42db3db98347f3084b93318cfc78d7c6da1cae2227a3feef04aaf91150",
+      "card_info": {
+        "card_number": "SB02-007",
+        "name": "Son Gohan : Childhood - SB02-007",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "23429",
+        "set_name": "Tournament and Championship Promos"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_9aafeb5a442d530a45f30c49b3eac973f869903e8e1c506acced19ddff2171bcea86eb1bd61e3b855b786ed9d06eddee08",
+      "card_info": {
+        "card_number": "SB02-007",
+        "name": "Son Gohan : Childhood - SB02-007",
+        "product_type": "card",
+        "rarity": "Uncommon",
+        "set_id": "24492",
+        "set_name": "Manga Booster 02 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_749885e05823bfb77a406e7edee1294732004f8ee6b03bfbad86a4b26d6da004f6240a96c2120b7528eb39a465388c150f",
+      "card_info": {
+        "card_number": "SB02-008",
+        "name": "Son Gohan : Childhood - SB02-008",
+        "product_type": "card",
+        "rarity": "Super Rare",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_4d36180db7f464095e79790aa5600d81c9282d7bd4d3e3c50c87a0d37422d3c0f915080085211d6672f6f1bb9d302bec0a",
+      "card_info": {
+        "card_number": "SB02-009",
+        "name": "Tien Shinhan",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24492",
+        "set_name": "Manga Booster 02 Release Event Cards"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "dbs_ee35225a8d218474e8b1e3c4159bde19961390114f5cebafb412980df668696b9ba0aca4777002f7aef4c91ef979e67222",
+      "card_info": {
+        "card_number": "SB02-009",
+        "name": "Tien Shinhan",
+        "product_type": "card",
+        "rarity": "Common",
+        "set_id": "24288",
+        "set_name": "Manga Booster 02"
+      },
+      "cardmarket": null,
+      "tcgplayer": null
+    },
+    {
+      "id": "c6e5b430baa961dd912e8dff6fc9907a8b4c76f7167992281ae92baef87a1615",
+      "card_info": {
+        "card_number": null,
+        "name": "North Kai (SB02-002) [Fusion World]",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/North-Kai-SB02-002-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "2c0ebf9ff1209a27982418720d7b9a278c6b18ae015627cfbb4e792e4db5cc47",
+      "card_info": {
+        "card_number": null,
+        "name": "Son Gohan : Childhood (SB02-005) [Fusion World]",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Son-Gohan-Childhood-SB02-005-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "358061d6502860c28733ca8632e2ed2ce21a0a5ebb3e4a243cb7abd7f4d55c3f",
+      "card_info": {
+        "card_number": null,
+        "name": "Son Gohan : Childhood (SB02-006) [Fusion World] (V.1 - Rare)",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Son-Gohan-Childhood-SB02-006-Fusion-World-V1-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "efa3fec4d57ecf3f24bd9b566a0050c172162f9d212ff05d5616c764c8ae9a85",
+      "card_info": {
+        "card_number": null,
+        "name": "Son Gohan : Childhood (SB02-006) [Fusion World] (V.2 - Alternate Art)",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Son-Gohan-Childhood-SB02-006-Fusion-World-V2-Alternate-Art",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "b81e62a233d58f873e9679fde2879a67907ddd03f4a64e901650a2daac06d360",
+      "card_info": {
+        "card_number": null,
+        "name": "Son Gohan : Childhood (SB02-007) [Fusion World]",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Son-Gohan-Childhood-SB02-007-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "b15b4b565d073cf73d80ea8b88b7375e7c3c9e37f8877f98b7a71b6a5f784289",
+      "card_info": {
+        "card_number": null,
+        "name": "Son Gohan : Childhood (SB02-008) [Fusion World]",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Son-Gohan-Childhood-SB02-008-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "a892f2c5e4451f8d3b447a026a59b4c6aa326a60dac7355403b0773268ab1490",
+      "card_info": {
+        "card_number": null,
+        "name": "Son Goku (SB02-003) [Fusion World]",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Son-Goku-SB02-003-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "0fd3ee11a0eccc6b2251af62b6f4605b4ad27113eb20e37ee8869f8701f2dab2",
+      "card_info": {
+        "card_number": null,
+        "name": "Son Goku (SB02-004) [Fusion World] (V.1 - Rare)",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Son-Goku-SB02-004-Fusion-World-V1-Rare",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "80564a53482797e4c04eda90f4581ac5c7cec56034feb8d21a7d80ea69f5f928",
+      "card_info": {
+        "card_number": null,
+        "name": "Son Goku (SB02-004) [Fusion World] (V.2 - Alternate Art)",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Son-Goku-SB02-004-Fusion-World-V2-Alternate-Art",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "dab7b080da41f3ed842135fa8507f3a081b884f10c725d5b37d322118b1c554b",
+      "card_info": {
+        "card_number": null,
+        "name": "Tien Shinhan (SB02-009) [Fusion World]",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Tien-Shinhan-SB02-009-Fusion-World",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "e2249ee3f4b9a4adf9bcfb5b55ce5335de0b6eec706304046831f62b407a8f1b",
+      "card_info": {
+        "card_number": null,
+        "name": "Trunks : Future // Trunks : Future (SB02-001) [Fusion World] (V.1 - Leader)",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Trunks-Future-Trunks-Future-SB02-001-Fusion-World-V1-Leader",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    },
+    {
+      "id": "e9c695d0c55257348225af66d13ea640dfe21be8a93282676f2af33d89d23d0b",
+      "card_info": {
+        "card_number": null,
+        "name": "Trunks : Future // Trunks : Future (SB02-001) [Fusion World] (V.2 - Alternate Art)",
+        "product_type": null,
+        "rarity": null,
+        "set_id": "23430",
+        "set_name": "Fusion World Energy Markers"
+      },
+      "cardmarket": {
+        "product_url": "https://www.cardmarket.com/en/DragonBallSuper/Products/Singles/Manga-Booster-02-Fusion-World/Trunks-Future-Trunks-Future-SB02-001-Fusion-World-V2-Alternate-Art",
+        "prices": [
+          {
+            "variant_type": "normal",
+            "trend": 1.23
+          }
+        ]
+      },
+      "tcgplayer": null
+    }
+  ]
+}

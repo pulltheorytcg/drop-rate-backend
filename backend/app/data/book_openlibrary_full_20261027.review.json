@@ -1,0 +1,5314 @@
+{
+  "source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+  "source_sha1": "c2b534d524ba7de1b7161574da00b3ffb51d2d69",
+  "quality_pass": {
+    "checked_candidates": 2537,
+    "held_candidates": 117,
+    "hold_reasons": {
+      "ABOUT_COMICS_MAGAZINE_FORM_REVIEW_REQUIRED": 1,
+      "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED": 13,
+      "ART_INSTRUCTION_COLLECTION_REVIEW_REQUIRED": 1,
+      "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED": 15,
+      "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED": 13,
+      "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED": 5,
+      "AUCTION_CATALOGUE_FORM_REVIEW_REQUIRED": 1,
+      "COLORING_BOOK_FORM_REVIEW_REQUIRED": 4,
+      "ESSAY_COLLECTION_FORM_REVIEW_REQUIRED": 1,
+      "FASHION_OR_PHOTO_BOOK_FORM_REVIEW_REQUIRED": 2,
+      "HOBBY_MAGAZINE_FORM_REVIEW_REQUIRED": 1,
+      "INSTRUCTION_BOOK_FORM_REVIEW_REQUIRED": 2,
+      "MANGA_CLASSIFICATION_CONFLICT_REVIEW_REQUIRED": 2,
+      "PROSE_EDITION_FORM_REVIEW_REQUIRED": 7,
+      "PROVISIONAL_SOURCE_TITLE_REVIEW_REQUIRED": 1,
+      "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED": 14,
+      "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED": 27,
+      "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED": 6,
+      "VOLUME_DATE_RANGE_PARSE_REVIEW_REQUIRED": 1
+    },
+    "reviewed_hold_records": 57,
+    "reviewed_holds_sha256": "72f742bd619b4586e15328f72fa30ff9628c0dfdc2b84a8d31b3590136ccacd0",
+    "version": "openlibrary-export-quality-v2"
+  },
+  "quarantine_reasons": {
+    "ABOUT_COMICS_MAGAZINE_FORM_REVIEW_REQUIRED": 1,
+    "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED": 13,
+    "ART_INSTRUCTION_COLLECTION_REVIEW_REQUIRED": 1,
+    "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED": 15,
+    "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED": 13,
+    "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED": 5,
+    "AUCTION_CATALOGUE_FORM_REVIEW_REQUIRED": 1,
+    "COLORING_BOOK_FORM_REVIEW_REQUIRED": 4,
+    "CONFLICTING_EDITION_ISBN": 1,
+    "EDITION_QUALIFIER_REVIEW_REQUIRED": 97733,
+    "ESSAY_COLLECTION_FORM_REVIEW_REQUIRED": 1,
+    "FASHION_OR_PHOTO_BOOK_FORM_REVIEW_REQUIRED": 2,
+    "HOBBY_MAGAZINE_FORM_REVIEW_REQUIRED": 1,
+    "INSTRUCTION_BOOK_FORM_REVIEW_REQUIRED": 2,
+    "KNOWN_OMNIBUS_TITLE_INCOMPLETE": 1,
+    "MANGA_CLASSIFICATION_CONFLICT_REVIEW_REQUIRED": 2,
+    "MULTIPLE_EDITION_ISBNS": 15425,
+    "PROSE_EDITION_FORM_REVIEW_REQUIRED": 7,
+    "PROVISIONAL_SOURCE_TITLE_REVIEW_REQUIRED": 1,
+    "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED": 14,
+    "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED": 27,
+    "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED": 6,
+    "VOLUME_DATE_RANGE_PARSE_REVIEW_REQUIRED": 1
+  },
+  "quality_hold_records": [
+    {
+      "isbn": "9781605490038",
+      "source_id": "OL12558830M",
+      "reason": "ABOUT_COMICS_MAGAZINE_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1605490032"
+          ],
+          "isbn_13": [
+            "9781605490038"
+          ],
+          "key": "/books/OL12558830M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 30, 2008",
+          "publishers": [
+            "TwoMorrows Publishing"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / General",
+            "General",
+            "Comics & Graphic Novels",
+            "Humor"
+          ],
+          "title": "Collected Jack Kirby Collector Volume 6",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780785119371",
+      "source_id": "OL8099127M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "078511937X"
+          ],
+          "isbn_13": [
+            "9780785119371"
+          ],
+          "key": "/books/OL8099127M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "December 27, 2006",
+          "publishers": [
+            "Marvel Comics"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Science fiction",
+            "Graphic Novels - Superheroes",
+            "Fine Arts",
+            "Comics & Graphic Novels",
+            "History: World",
+            "Comics & Graphic Novels / General",
+            "Encyclopedias",
+            "History & Criticism"
+          ],
+          "title": "Essential Official Handbook of the Marvel Universe - Update 89, Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780785121909",
+      "source_id": "OL8099256M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0785121900"
+          ],
+          "isbn_13": [
+            "9780785121909"
+          ],
+          "key": "/books/OL8099256M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 4, 2006",
+          "publishers": [
+            "Marvel Comics"
+          ],
+          "subjects": [
+            "Fantasy",
+            "Graphic novels",
+            "General",
+            "Comics & Graphic Novels",
+            "Literature - Classics / Criticism",
+            "History & Criticism",
+            "Comics & Graphic Novels / General",
+            "Graphic Novels - Superheroes"
+          ],
+          "title": "Fantastic Four Visionaries - John Byrne, Vol. 6",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780972897808",
+      "source_id": "OL8579725M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0972897801"
+          ],
+          "isbn_13": [
+            "9780972897808"
+          ],
+          "key": "/books/OL8579725M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "April 8, 2003",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Art",
+            "Art & Art Instruction",
+            "Study & Teaching",
+            "Techniques - Cartooning",
+            "Art / Cartooning"
+          ],
+          "title": "How To Draw Manga Supersize Volume 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781593074173",
+      "source_id": "OL8869911M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1593074174"
+          ],
+          "isbn_13": [
+            "9781593074173"
+          ],
+          "key": "/books/OL8869911M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "July 5, 2006",
+          "publishers": [
+            "Dark Horse"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "History & Criticism",
+            "Comics & Graphic Novels",
+            "Humor",
+            "Graphic Novels - General",
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "Tarzan: The Joe Kubert Years, Volume 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781840230697",
+      "source_id": "OL8914306M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "184023069X"
+          ],
+          "isbn_13": [
+            "9781840230697"
+          ],
+          "key": "/books/OL8914306M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "December 1, 2002",
+          "publishers": [
+            "Titan Books"
+          ],
+          "subjects": [
+            "Comic book & cartoon art",
+            "Graphic novels",
+            "Novels, other prose & writers: from c 1900 -",
+            "Writing & editing guides",
+            "Art",
+            "Composition & Creative Writing - Academic",
+            "Language Arts / Linguistics / Literacy",
+            "Career/Job",
+            "Composition & Creative Writing - Play/Scriptwriting",
+            "Comics & Graphic Novels / History & Criticism",
+            "Commercial - General"
+          ],
+          "title": "Writers on Comics Scriptwriting, Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781845760540",
+      "source_id": "OL11912935M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1845760549"
+          ],
+          "isbn_13": [
+            "9781845760540"
+          ],
+          "key": "/books/OL11912935M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 1, 2007",
+          "publishers": [
+            "Titan Books (UK)"
+          ],
+          "subjects": [
+            "History & Criticism",
+            "Comics & Graphic Novels",
+            "Literature - Classics / Criticism",
+            "History: World"
+          ],
+          "title": "Artists on Comic Art, Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781893905023",
+      "source_id": "OL8722324M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1893905020"
+          ],
+          "isbn_13": [
+            "9781893905023"
+          ],
+          "key": "/books/OL8722324M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 1999",
+          "publishers": [
+            "TwoMorrows Publishing"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "General",
+            "Comics & Graphic Novels",
+            "Fiction - General",
+            "History: World",
+            "Comics & Graphic Novels / History & Criticism",
+            "History & Criticism"
+          ],
+          "title": "Collected Jack Kirby Collector, Vol. 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781893905054",
+      "source_id": "OL8722327M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1893905055"
+          ],
+          "isbn_13": [
+            "9781893905054"
+          ],
+          "key": "/books/OL8722327M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "June 2004",
+          "publishers": [
+            "TwoMorrows Publishing"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Drawing",
+            "Literary History And Criticism",
+            "Comics & Graphic Novels",
+            "Literary Criticism",
+            "Graphic Novels - Superheroes",
+            "All star comics",
+            "Comics & Graphic Novels / History & Criticism",
+            "Justice Society of America (Fictitious characters)",
+            "History & Criticism",
+            "Fiction - General",
+            "Fiction"
+          ],
+          "title": "All-Star Companion Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781893905429",
+      "source_id": "OL8722357M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "189390542X"
+          ],
+          "isbn_13": [
+            "9781893905429"
+          ],
+          "key": "/books/OL8722357M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "April 2005",
+          "publishers": [
+            "TwoMorrows Publishing"
+          ],
+          "subjects": [
+            "Comic book & cartoon art",
+            "Fiction - General",
+            "Drawing By Individual Artists",
+            "Art",
+            "Graphic Novels",
+            "Techniques - Drawing",
+            "Humor",
+            "General",
+            "History & Criticism",
+            "Comics & Graphic Novels / History & Criticism"
+          ],
+          "title": "Comic Book Artist Collection, Vol. 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781893905597",
+      "source_id": "OL8722369M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1893905594"
+          ],
+          "isbn_13": [
+            "9781893905597"
+          ],
+          "key": "/books/OL8722369M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "June 7, 2006",
+          "publishers": [
+            "TwoMorrows Publishing"
+          ],
+          "subjects": [
+            "History & Criticism",
+            "General",
+            "Fine Arts",
+            "Literary Criticism",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "History: World",
+            "Comics & Graphic Novels / History & Criticism"
+          ],
+          "title": "Alter Ego Collection, Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781932453690",
+      "source_id": "OL8809148M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1932453695"
+          ],
+          "isbn_13": [
+            "9781932453690"
+          ],
+          "key": "/books/OL8809148M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "June 28, 2006",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "Fantasy",
+            "Graphic novels",
+            "General",
+            "Comics & Graphic Novels",
+            "Children's Books/All Ages",
+            "Humor",
+            "Study & Teaching",
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "Oz The Manga Pocket Manga Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781933122052",
+      "source_id": "OL9711842M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1933122056"
+          ],
+          "isbn_13": [
+            "9781933122052"
+          ],
+          "key": "/books/OL9711842M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 15, 2004",
+          "publishers": [
+            "Chester Comix"
+          ],
+          "subjects": [
+            "Juvenile Nonfiction / History / United States / 19th Century",
+            "Caricatures and cartoons",
+            "Children's 9-12 - History - General",
+            "Civil War, 1861-1865",
+            "Comic books, strips, etc",
+            "Examinations, questions, etc",
+            "History",
+            "Study and teaching",
+            "United States",
+            "Juvenile Fiction / Comics & Graphic Novels"
+          ],
+          "title": "Civil War, Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781933122069",
+      "source_id": "OL9611672M",
+      "reason": "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1933122064"
+          ],
+          "isbn_13": [
+            "9781933122069"
+          ],
+          "key": "/books/OL9611672M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 15, 2004",
+          "publishers": [
+            "Chester Comix"
+          ],
+          "subjects": [
+            "Juvenile Nonfiction / History / United States / 19th Century",
+            "Caricatures and cartoons",
+            "Children's 9-12 - History - General",
+            "Civil War, 1861-1865",
+            "Comic books, strips, etc",
+            "Examinations, questions, etc",
+            "History",
+            "Study and teaching",
+            "United States",
+            "Juvenile Fiction / Comics & Graphic Novels"
+          ],
+          "title": "Civil War, Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781605490007",
+      "source_id": "OL12558827M",
+      "reason": "ART_INSTRUCTION_COLLECTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1605490008"
+          ],
+          "isbn_13": [
+            "9781605490007"
+          ],
+          "key": "/books/OL12558827M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "June 11, 2008",
+          "publishers": [
+            "TwoMorrows Publishing"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / General",
+            "Art / General",
+            "General",
+            "Art"
+          ],
+          "title": "Best Of Draw! Volume 4",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620032",
+      "source_id": "OL9334073M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620032"
+          ],
+          "isbn_13": [
+            "9780865620032"
+          ],
+          "key": "/books/OL9334073M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 15, 1997",
+          "publishers": [
+            "SQP Inc."
+          ],
+          "subjects": [
+            "Fantasy",
+            "Graphic Novels",
+            "Conceptual",
+            "General",
+            "Art",
+            "Drawing",
+            "Erotic art",
+            "Fantasy fiction",
+            "Illustrations",
+            "Comics & Graphic Novels / General",
+            "Art / Drawing",
+            "Fiction - General"
+          ],
+          "title": "Warrior Queens Vol 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620131",
+      "source_id": "OL9464142M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "086562013X"
+          ],
+          "isbn_13": [
+            "9780865620131"
+          ],
+          "key": "/books/OL9464142M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "June 1, 1999",
+          "publishers": [
+            "SQP"
+          ],
+          "subjects": [
+            "Erotic fiction",
+            "Graphic Novels",
+            "Conceptual",
+            "General",
+            "Fiction - General",
+            "Art",
+            "Erotic art",
+            "Erotica",
+            "Fiction",
+            "Graphic Arts",
+            "Horror",
+            "Comics & Graphic Novels / General",
+            "Art / Graphic Arts",
+            "Fiction / Erotica"
+          ],
+          "title": "Rich Larson's Haunted House of Lingerie Volume 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620247",
+      "source_id": "OL9445712M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620245"
+          ],
+          "isbn_13": [
+            "9780865620247"
+          ],
+          "key": "/books/OL9445712M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "February 3, 2000",
+          "publishers": [
+            "SQP Inc."
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Modern fiction",
+            "Conceptual",
+            "Fiction - General",
+            "General",
+            "Art",
+            "Drawing",
+            "Erotic art",
+            "Fantasy fiction",
+            "Illustrations",
+            "Comics & Graphic Novels / General",
+            "Art / Drawing"
+          ],
+          "title": "Jungle Tails Vol 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620353",
+      "source_id": "OL9798885M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620350"
+          ],
+          "isbn_13": [
+            "9780865620353"
+          ],
+          "key": "/books/OL9798885M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "March 1, 2001",
+          "publishers": [
+            "SQP Inc."
+          ],
+          "subjects": [
+            "Fiction - General",
+            "Graphic Novels",
+            "Fiction",
+            "General",
+            "Art",
+            "Drawing",
+            "Erotic art",
+            "Fantasy fiction",
+            "Horror",
+            "Illustrations",
+            "Comics & Graphic Novels / General",
+            "Art / Drawing"
+          ],
+          "title": "Daughters of Darkness Vol 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620452",
+      "source_id": "OL9335611M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620458"
+          ],
+          "isbn_13": [
+            "9780865620452"
+          ],
+          "key": "/books/OL9335611M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "November 1, 2001",
+          "publishers": [
+            "SQP Inc."
+          ],
+          "subjects": [
+            "Fantasy",
+            "Graphic novels",
+            "Graphic Novels - General",
+            "Fiction",
+            "Comics & Graphic Novels",
+            "Fiction - Adult",
+            "Erotica - General",
+            "Art",
+            "Erotic art",
+            "Erotica",
+            "Graphic Arts",
+            "Horror",
+            "Comics & Graphic Novels / General",
+            "Art / Graphic Arts",
+            "Fiction / Erotica"
+          ],
+          "title": "Coven Vol 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620483",
+      "source_id": "OL9463505M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620482"
+          ],
+          "isbn_13": [
+            "9780865620483"
+          ],
+          "key": "/books/OL9463505M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "December 1, 2001",
+          "publishers": [
+            "SQP"
+          ],
+          "subjects": [
+            "Erotic fiction",
+            "Graphic Novels",
+            "Fiction - General",
+            "Fiction / Erotica",
+            "General",
+            "Art",
+            "Erotic art",
+            "Erotica",
+            "Fiction",
+            "Graphic Arts",
+            "Horror",
+            "Comics & Graphic Novels / General",
+            "Art / Graphic Arts"
+          ],
+          "title": "Rich Larson's Haunted House of Lingerie Volume 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620681",
+      "source_id": "OL8317836M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620687"
+          ],
+          "isbn_13": [
+            "9780865620681"
+          ],
+          "key": "/books/OL8317836M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "May 2, 2003",
+          "publishers": [
+            "SQP Inc."
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Modern fiction",
+            "Fiction - General",
+            "Conceptual",
+            "General",
+            "Art",
+            "Bondage (Sexual behavior)",
+            "Erotic art",
+            "Erotica",
+            "Graphic Arts",
+            "Comics & Graphic Novels / General",
+            "Art / Graphic Arts"
+          ],
+          "title": "Alazar's Book of Bondage Vol 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620773",
+      "source_id": "OL8317844M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620776"
+          ],
+          "isbn_13": [
+            "9780865620773"
+          ],
+          "key": "/books/OL8317844M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 2003",
+          "publishers": [
+            "SQP Inc."
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Modern fiction",
+            "Art",
+            "Photography / Subjects & Themes / Erotica",
+            "General",
+            "Erotic art",
+            "Erotica",
+            "Graphic Arts",
+            "Nudes & Erotic",
+            "Photography",
+            "Pinup art",
+            "Subjects & Themes - Erotica",
+            "Comics & Graphic Novels / General",
+            "Conceptual",
+            "Fiction - General"
+          ],
+          "title": "Artcore, Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620797",
+      "source_id": "OL8317846M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620792"
+          ],
+          "isbn_13": [
+            "9780865620797"
+          ],
+          "key": "/books/OL8317846M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 25, 2003",
+          "publishers": [
+            "SQP"
+          ],
+          "subjects": [
+            "History Of Art / Art & Design Styles",
+            "Popular culture",
+            "Graphic Novels - General",
+            "Fiction - General",
+            "Art",
+            "Erotic art",
+            "Nudes & Erotic",
+            "Pin-up art",
+            "Subjects & Themes - Erotica",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels / Graphic Novels / Erotica",
+            "Popular Culture - General"
+          ],
+          "title": "Naked Justice Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620872",
+      "source_id": "OL8317852M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620873"
+          ],
+          "isbn_13": [
+            "9780865620872"
+          ],
+          "key": "/books/OL8317852M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 15, 2004",
+          "publishers": [
+            "SQP Inc."
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Modern fiction",
+            "Popular Culture - General",
+            "Fiction - Adult",
+            "Art",
+            "Graphic Novels - Erotica",
+            "Adult",
+            "Bondage (Sexual behavior)",
+            "Erotic art",
+            "Nudes & Erotic",
+            "Subjects & Themes - Erotica",
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "Alazar's Book of Bondage Vol 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620889",
+      "source_id": "OL8317853M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865620881"
+          ],
+          "isbn_13": [
+            "9780865620889"
+          ],
+          "key": "/books/OL8317853M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "March 15, 2004",
+          "publishers": [
+            "SQP Inc."
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Modern fiction",
+            "Subjects & Themes - Human Figure",
+            "Art",
+            "Subjects & Themes - General",
+            "General",
+            "Erotic art",
+            "Nudes & Erotic",
+            "Photography",
+            "Photography, Erotic",
+            "Pin-up art",
+            "Pinup art",
+            "Subjects & Themes - Erotica",
+            "Comics & Graphic Novels / General",
+            "Photography / Subjects & Themes / Erotica"
+          ],
+          "title": "Artcore Volume 4",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865621046",
+      "source_id": "OL8317865M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865621047"
+          ],
+          "isbn_13": [
+            "9780865621046"
+          ],
+          "key": "/books/OL8317865M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 2004",
+          "publishers": [
+            "SQP"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Modern fiction",
+            "Popular Culture - General",
+            "Comics & Graphic Novels / Graphic Novels / Erotica",
+            "Fiction - Adult",
+            "Art",
+            "Erotica - General",
+            "Adult",
+            "Nudes & Erotic",
+            "Comics & Graphic Novels / General",
+            "Art / Popular Culture"
+          ],
+          "title": "Fastner & Larson's Little Black Book, Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781582407142",
+      "source_id": "OL8787118M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1582407142"
+          ],
+          "isbn_13": [
+            "9781582407142"
+          ],
+          "key": "/books/OL8787118M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "February 14, 2007",
+          "publishers": [
+            "Image Comics"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Drawing",
+            "Popular Culture",
+            "Art",
+            "Graphic Novels - General",
+            "Comics & Graphic Novels / General",
+            "Popular Culture - General",
+            "Techniques - Drawing"
+          ],
+          "title": "Drink And Draw Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781593073558",
+      "source_id": "OL8869877M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1593073550"
+          ],
+          "isbn_13": [
+            "9781593073558"
+          ],
+          "key": "/books/OL8869877M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "June 22, 2005",
+          "publishers": [
+            "Dark Horse"
+          ],
+          "subjects": [
+            "Comic book & cartoon art",
+            "Graphic novels",
+            "Individual Painters - Contemporary",
+            "Popular Culture",
+            "Art",
+            "Art & Art Instruction",
+            "Commercial - Illustration",
+            "Individual Artist",
+            "Comics & Graphic Novels / General",
+            "Popular Culture - General",
+            "Fantasy in art",
+            "Miniature painting"
+          ],
+          "title": "The Jackson 500 Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781593075330",
+      "source_id": "OL8869997M",
+      "reason": "ART_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1593075332"
+          ],
+          "isbn_13": [
+            "9781593075330"
+          ],
+          "key": "/books/OL8869997M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "June 28, 2006",
+          "publishers": [
+            "Dark Horse"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Painting",
+            "Art",
+            "Techniques - Painting",
+            "Graphic Novels - General",
+            "Comics & Graphic Novels / General",
+            "Individual Artist"
+          ],
+          "title": "The Jackson 500 Volume 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780785111634",
+      "source_id": "OL8098640M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0785111638"
+          ],
+          "isbn_13": [
+            "9780785111634"
+          ],
+          "key": "/books/OL8098640M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "November 1, 2003",
+          "publishers": [
+            "Marvel Comics"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Graphic Novels - Superheroes",
+            "Juvenile Fiction",
+            "Children: Grades 3-4",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels - General"
+          ],
+          "title": "The Art of Marvel, Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865620896",
+      "source_id": "OL8317854M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "086562089X"
+          ],
+          "isbn_13": [
+            "9780865620896"
+          ],
+          "key": "/books/OL8317854M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "April 2005",
+          "publishers": [
+            "SQP"
+          ],
+          "subjects": [
+            "Modern fiction",
+            "Individual Artist",
+            "Drawing By Individual Artists",
+            "Art & Art Instruction",
+            "Fiction - General",
+            "Art",
+            "Techniques - Drawing - Specific Subjects",
+            "Nudes & Erotic",
+            "Fiction",
+            "Comics & Graphic Novels / General",
+            "Subjects & Themes - Human Figure"
+          ],
+          "title": "The Art of Al Rio, Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780972897846",
+      "source_id": "OL8579728M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0972897844"
+          ],
+          "isbn_13": [
+            "9780972897846"
+          ],
+          "key": "/books/OL8579728M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 7, 2003",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Techniques - Drawing",
+            "Art",
+            "Children's Books/Ages 9-12 Nonfiction",
+            "Art / Cartooning",
+            "Techniques - Cartooning"
+          ],
+          "title": "How To Draw Shojo Supersize Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780977642472",
+      "source_id": "OL8591276M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "097764247X"
+          ],
+          "isbn_13": [
+            "9780977642472"
+          ],
+          "key": "/books/OL8591276M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "February 21, 2007",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "Comic book & cartoon art",
+            "Graphic novels",
+            "Drawing Of Specific Subjects",
+            "Popular Culture",
+            "Art",
+            "Graphic Novels-Manga",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels / General",
+            "Popular Culture - General",
+            "Techniques - Drawing",
+            "Comic books, strips, etc.",
+            "Drawing",
+            "Japan",
+            "Technique"
+          ],
+          "title": "How To Draw Pocket Manga Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780979272363",
+      "source_id": "OL11839926M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "097927236X"
+          ],
+          "isbn_13": [
+            "9780979272363"
+          ],
+          "key": "/books/OL11839926M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "December 15, 2007",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Humor",
+            "Graphic Novels - Manga",
+            "Manga - General",
+            "Comics & Graphic Novels / General",
+            "General"
+          ],
+          "title": "How To Draw Pocket Manga Volume 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780979771910",
+      "source_id": "OL11841654M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0979771919"
+          ],
+          "isbn_13": [
+            "9780979771910"
+          ],
+          "key": "/books/OL11841654M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "February 15, 2008",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Comics & Graphic Novels",
+            "Fiction",
+            "General",
+            "Comics & Graphic Novels / General",
+            "Graphic Novels - General"
+          ],
+          "title": "How To Draw Manga Pocket Manga Volume 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780979771989",
+      "source_id": "OL11841661M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0979771986"
+          ],
+          "isbn_13": [
+            "9780979771989"
+          ],
+          "key": "/books/OL11841661M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "June 25, 2008",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / General",
+            "Manga - General",
+            "Techniques - Drawing",
+            "Art"
+          ],
+          "title": "How To Draw Manga Pocket Manga Volume 4",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781560978794",
+      "source_id": "OL12121866M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1560978791"
+          ],
+          "isbn_13": [
+            "9781560978794"
+          ],
+          "key": "/books/OL12121866M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 31, 2008",
+          "publishers": [
+            "Fantagraphics"
+          ],
+          "subjects": [
+            "Comic book & cartoon art",
+            "Graphic Novels",
+            "Comics & Graphic Novels",
+            "Erotica",
+            "Graphic Novels - Erotica",
+            "Comics & Graphic Novels / Graphic Novels / Erotica"
+          ],
+          "title": "The Pin-Up Art of Dan DeCarlo Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781582405124",
+      "source_id": "OL9723117M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1582405123"
+          ],
+          "isbn_13": [
+            "9781582405124"
+          ],
+          "key": "/books/OL9723117M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "December 14, 2006",
+          "publishers": [
+            "Image Comics"
+          ],
+          "subjects": [
+            "Comic book & cartoon art",
+            "Individual artists",
+            "Graphic Novels - General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Fiction",
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "Arthur Suydam - The Art Of The Barbarian Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591820000",
+      "source_id": "OL8857373M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591820006"
+          ],
+          "isbn_13": [
+            "9781591820000"
+          ],
+          "key": "/books/OL8857373M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 2003",
+          "publishers": [
+            "Tokyopop"
+          ],
+          "subjects": [
+            "Popular Culture - General",
+            "Graphic Novels - Manga",
+            "Art & Art Instruction",
+            "Juvenile Fiction",
+            "Children: Grades 2-3",
+            "Comics & Graphic Novels - Manga"
+          ],
+          "title": "The Art Of Cardcaptor Sakura #1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591820130",
+      "source_id": "OL8857384M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591820138"
+          ],
+          "isbn_13": [
+            "9781591820130"
+          ],
+          "key": "/books/OL8857384M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 2003",
+          "publishers": [
+            "TokyoPop"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Fantasy - General",
+            "Juvenile Fiction",
+            "Fiction - Fantasy",
+            "Children: Grades 2-3",
+            "Action & Adventure",
+            "General",
+            "Comics & Graphic Novels - Manga"
+          ],
+          "title": "The Art of Cardcaptor Sakura Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781600100130",
+      "source_id": "OL8902993M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1600100139"
+          ],
+          "isbn_13": [
+            "9781600100130"
+          ],
+          "key": "/books/OL8902993M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "October 4, 2006",
+          "publishers": [
+            "IDW Publishing"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Horror & ghost stories",
+            "Comics & Graphic Novels",
+            "Humor",
+            "Graphic Novels - Media Tie-In",
+            "Comics & Graphic Novels / Graphic Novels / Media Tie-In"
+          ],
+          "title": "The Art Of Vampire Hunter D Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781932453331",
+      "source_id": "OL8809130M",
+      "reason": "ART_OR_INSTRUCTION_BOOK_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1932453334"
+          ],
+          "isbn_13": [
+            "9781932453331"
+          ],
+          "key": "/books/OL8809130M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 9, 2003",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Art",
+            "Art & Art Instruction",
+            "Techniques - Cartooning",
+            "Art / Cartooning"
+          ],
+          "title": "How To Draw Manga Supersize Volume 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780613831758",
+      "source_id": "OL9486070M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0613831756"
+          ],
+          "isbn_13": [
+            "9780613831758"
+          ],
+          "key": "/books/OL9486070M",
+          "languages": [
+            {
+              "key": "/languages/spa"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "October 1999",
+          "publishers": [
+            "Tandem Library"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels - General",
+            "Juvenile Fiction",
+            "Children's Baby - Fiction - General"
+          ],
+          "title": "Sailormoon Art Book Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865621060",
+      "source_id": "OL8317866M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865621063"
+          ],
+          "isbn_13": [
+            "9780865621060"
+          ],
+          "key": "/books/OL8317866M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 2004",
+          "publishers": [
+            "SQP"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Modern fiction",
+            "Nudes & Erotic",
+            "Art & Art Instruction",
+            "Art",
+            "Techniques - Painting - Specific Subjects",
+            "Comics & Graphic Novels / General",
+            "Individual Artist",
+            "Popular Culture - General"
+          ],
+          "title": "The Dave Nestler Sketchbook Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780865621176",
+      "source_id": "OL11051577M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0865621179"
+          ],
+          "isbn_13": [
+            "9780865621176"
+          ],
+          "key": "/books/OL11051577M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 25, 2005",
+          "publishers": [
+            "SQP"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Fiction - General"
+          ],
+          "title": "Alazar's Book Of Pin-Ups Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781560974895",
+      "source_id": "OL8619134M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1560974893"
+          ],
+          "isbn_13": [
+            "9781560974895"
+          ],
+          "key": "/books/OL8619134M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "October 2002",
+          "publishers": [
+            "Fantagraphics Books"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels",
+            "Art & Art Instruction",
+            "Humor",
+            "General",
+            "Graphic Novels - General"
+          ],
+          "title": "The R. Crumb Sketchbook, Vol. 9",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781560974901",
+      "source_id": "OL8619135M",
+      "reason": "ART_OR_SKETCH_COLLECTION_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1560974907"
+          ],
+          "isbn_13": [
+            "9781560974901"
+          ],
+          "key": "/books/OL8619135M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 2002",
+          "publishers": [
+            "Fantagraphics Books"
+          ],
+          "subjects": [
+            "Comic book & cartoon art",
+            "Graphic novels",
+            "Collections, Catalogs, Exhibitions - General",
+            "Commercial - Illustration",
+            "Art",
+            "Art & Art Instruction",
+            "Sketching",
+            "Techniques - Cartooning"
+          ],
+          "title": "The R. Crumb Sketchbook, Vol. 9",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781599670935",
+      "source_id": "OL12501935M",
+      "reason": "AUCTION_CATALOGUE_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1599670933"
+          ],
+          "isbn_13": [
+            "9781599670935"
+          ],
+          "key": "/books/OL12501935M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "November 1, 2006",
+          "publishers": [
+            "Heritage Auctions, Inc."
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "Heritage Comics and Comic Art Auction Adventures #822",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780978637200",
+      "source_id": "OL11837136M",
+      "reason": "COLORING_BOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0978637208"
+          ],
+          "isbn_13": [
+            "9780978637200"
+          ],
+          "key": "/books/OL11837136M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 1, 2007",
+          "publishers": [
+            "No Greater Joy Ministries"
+          ],
+          "subjects": [
+            "General",
+            "Religion / General",
+            "Graphic Novels"
+          ],
+          "title": "Good and Evil Coloring Book #1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780978637217",
+      "source_id": "OL11837137M",
+      "reason": "COLORING_BOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0978637216"
+          ],
+          "isbn_13": [
+            "9780978637217"
+          ],
+          "key": "/books/OL11837137M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 1, 2007",
+          "publishers": [
+            "No Greater Joy Ministries"
+          ],
+          "subjects": [
+            "General",
+            "Religion / General",
+            "Graphic Novels"
+          ],
+          "title": "Good and Evil Coloring Book #2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780978637224",
+      "source_id": "OL11837138M",
+      "reason": "COLORING_BOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0978637224"
+          ],
+          "isbn_13": [
+            "9780978637224"
+          ],
+          "key": "/books/OL11837138M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 1, 2007",
+          "publishers": [
+            "No Greater Joy Ministries"
+          ],
+          "subjects": [
+            "General",
+            "Religion / General",
+            "Graphic Novels"
+          ],
+          "title": "Good and Evil Coloring Book #3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780978637231",
+      "source_id": "OL11837139M",
+      "reason": "COLORING_BOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0978637232"
+          ],
+          "isbn_13": [
+            "9780978637231"
+          ],
+          "key": "/books/OL11837139M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 1, 2007",
+          "publishers": [
+            "No Greater Joy Ministries"
+          ],
+          "subjects": [
+            "General",
+            "Religion / General",
+            "Graphic Novels"
+          ],
+          "title": "Good and Evil Coloring Book #4",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780970678478",
+      "source_id": "OL8562066M",
+      "reason": "ESSAY_COLLECTION_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0970678479"
+          ],
+          "isbn_13": [
+            "9780970678478"
+          ],
+          "key": "/books/OL8562066M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 1, 2000",
+          "publishers": [
+            "Avatar Press"
+          ],
+          "subjects": [
+            "Nonfiction",
+            "Comics & Graphic Novels",
+            "Fiction",
+            "General",
+            "Comics & Graphic Novels / General",
+            "Graphic Novels - General"
+          ],
+          "title": "From The Desk Of Warren Ellis Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781413903652",
+      "source_id": "OL11725815M",
+      "reason": "FASHION_OR_PHOTO_BOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1413903657"
+          ],
+          "isbn_13": [
+            "9781413903652"
+          ],
+          "key": "/books/OL11725815M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "November 7, 2007",
+          "publishers": [
+            "ADV Manga"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Art",
+            "Crafts / Hobbies",
+            "General",
+            "Textile Arts - Costume",
+            "Comics & Graphic Novels / General",
+            "Fashion"
+          ],
+          "title": "Everybody Cosplay Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781427803481",
+      "source_id": "OL11882354M",
+      "reason": "FASHION_OR_PHOTO_BOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "142780348X"
+          ],
+          "isbn_13": [
+            "9781427803481"
+          ],
+          "key": "/books/OL11882354M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "June 17, 2008",
+          "publishers": [
+            "TokyoPop"
+          ],
+          "subjects": [
+            "General",
+            "Manga - General",
+            "Comics & Graphic Novels / Graphic Novels / Manga",
+            "Comics & Graphic Novels",
+            "Art & Art Instruction"
+          ],
+          "title": "Gothic & Lolita Bible Volume 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781605490021",
+      "source_id": "OL12558829M",
+      "reason": "HOBBY_MAGAZINE_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1605490024"
+          ],
+          "isbn_13": [
+            "9781605490021"
+          ],
+          "key": "/books/OL12558829M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 20, 2008",
+          "publishers": [
+            "TwoMorrows Publishing"
+          ],
+          "subjects": [
+            "Entertainment / Games",
+            "Comics & Graphic Novels / General",
+            "General",
+            "Comics & Graphic Novels",
+            "Humor"
+          ],
+          "title": "BrickJournal Compendium Volume 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780966358896",
+      "source_id": "OL11741024M",
+      "reason": "INSTRUCTION_BOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0966358899"
+          ],
+          "isbn_13": [
+            "9780966358896"
+          ],
+          "key": "/books/OL11741024M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "December 1, 2002",
+          "publishers": [
+            "Antarctic Press"
+          ],
+          "subjects": [
+            "General",
+            "Techniques - Drawing - Specific Subjects",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Fiction - General",
+            "Humor"
+          ],
+          "title": "How to Color Comics Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781593076252",
+      "source_id": "OL8870054M",
+      "reason": "INSTRUCTION_BOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1593076258"
+          ],
+          "isbn_13": [
+            "9781593076252"
+          ],
+          "key": "/books/OL8870054M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 22, 2007",
+          "publishers": [
+            "Dark Horse"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Drawing Of Specific Subjects",
+            "Popular Culture",
+            "Art",
+            "Art & Art Instruction",
+            "Commercial - Illustration - Sci-Fi & Fantasy",
+            "Comics & Graphic Novels / General",
+            "Popular Culture - General",
+            "Techniques - Drawing",
+            "Graphic Novels - General"
+          ],
+          "title": "Style School Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780785114642",
+      "source_id": "OL8098788M",
+      "reason": "MANGA_CLASSIFICATION_CONFLICT_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0785114645"
+          ],
+          "isbn_13": [
+            "9780785114642"
+          ],
+          "key": "/books/OL8098788M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 1, 2004",
+          "publishers": [
+            "Marvel Comics"
+          ],
+          "subjects": [
+            "Comic book & cartoon art",
+            "Graphic Novels",
+            "Graphic Novels - Superheroes",
+            "Juvenile Fiction",
+            "Children: Grades 4-6",
+            "Special Interest - Adventure",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels - Manga"
+          ],
+          "title": "Fantastic Four Visionaries - John Byrne, Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780785118657",
+      "source_id": "OL8099079M",
+      "reason": "MANGA_CLASSIFICATION_CONFLICT_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0785118659"
+          ],
+          "isbn_13": [
+            "9780785118657"
+          ],
+          "key": "/books/OL8099079M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 10, 2005",
+          "publishers": [
+            "Marvel Comics"
+          ],
+          "subjects": [
+            "Fantasy",
+            "Graphic novels",
+            "Graphic Novels-Manga",
+            "Graphic Novels - Fantasy",
+            "Comics & Graphic Novels",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels / General",
+            "Graphic Novels - General"
+          ],
+          "title": "Essential Spider-Man, Vol. 4",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780759531048",
+      "source_id": "OL26962634M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0759531048"
+          ],
+          "isbn_13": [
+            "9780759531048"
+          ],
+          "key": "/books/OL26962634M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "2009-12-15",
+          "publishers": [
+            "Yen On"
+          ],
+          "subjects": [
+            "Werewolves",
+            "Merchants",
+            "Graphic novels",
+            "Comic books, strips"
+          ],
+          "title": "Spice and Wolf, Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780809572137",
+      "source_id": "OL11316003M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0809572133"
+          ],
+          "isbn_13": [
+            "9780809572137"
+          ],
+          "key": "/books/OL11316003M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 1, 2007",
+          "publishers": [
+            "Wildside Press"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Short Story",
+            "Fiction",
+            "Fiction - General",
+            "Anthologies (multiple authors)",
+            "Fiction / Anthologies (multiple authors)",
+            "Action & Adventure",
+            "Adventure stories, American"
+          ],
+          "title": "The Ultimate Collection Of 20th-Century Adventure Tales Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781427800336",
+      "source_id": "OL11882292M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1427800332"
+          ],
+          "isbn_13": [
+            "9781427800336"
+          ],
+          "key": "/books/OL11882292M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "March 11, 2008",
+          "publishers": [
+            "TokyoPop"
+          ],
+          "subjects": [
+            "Graphic Novels - Manga",
+            "Manga - General",
+            "Comics & Graphic Novels / Graphic Novels / Manga",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fiction"
+          ],
+          "title": "Missing (Novel) Volume 2: Letter of Misfortune (Missing)",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781427800459",
+      "source_id": "OL8537259M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1427800456"
+          ],
+          "isbn_13": [
+            "9781427800459"
+          ],
+          "key": "/books/OL8537259M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "November 13, 2007",
+          "publishers": [
+            "TokyoPop"
+          ],
+          "subjects": [
+            "Fantasy - General",
+            "Comics & Graphic Novels / Graphic Novels / Manga",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels",
+            "Fiction - Fantasy",
+            "Graphic Novels-Manga",
+            "Fairy tales",
+            "Fantasy",
+            "Fiction"
+          ],
+          "title": "Good Witch of the West, The (Novel) Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781588993120",
+      "source_id": "OL8831074M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1588993124"
+          ],
+          "isbn_13": [
+            "9781588993120"
+          ],
+          "key": "/books/OL8831074M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "May 15, 2005",
+          "publishers": [
+            "Dr. Master Productions Inc."
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Science fiction",
+            "Comics & Graphic Novels",
+            "Humor",
+            "General",
+            "Comics & Graphic Novels / General",
+            "Fiction - General"
+          ],
+          "title": "Junk Force Novel Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781588993137",
+      "source_id": "OL12328298M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1588993132"
+          ],
+          "isbn_13": [
+            "9781588993137"
+          ],
+          "key": "/books/OL12328298M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "March 1, 2005",
+          "publishers": [
+            "ComicsOne"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "Junk Force Novel #2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781595821201",
+      "source_id": "OL9847467M",
+      "reason": "PROSE_EDITION_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1595821201"
+          ],
+          "isbn_13": [
+            "9781595821201"
+          ],
+          "key": "/books/OL9847467M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "November 15, 2007",
+          "publishers": [
+            "Dark Horse"
+          ],
+          "subjects": [
+            "Graphic Novels",
+            "Science Fiction And Fantasy",
+            "Fiction",
+            "Fiction - Science Fiction",
+            "Fantasy",
+            "Graphic Novels - Science Fiction",
+            "Science Fiction - General",
+            "Fiction / Science Fiction / General",
+            "Fantasy - Epic",
+            "Science Fiction - Adventure",
+            "Comic books, strips, etc.",
+            "Fantasy comic books, strips, etc",
+            "Gor (Imaginary place)"
+          ],
+          "title": "John Norman's Gor Omnibus Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781932480252",
+      "source_id": "OL12333199M",
+      "reason": "PROVISIONAL_SOURCE_TITLE_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1932480250"
+          ],
+          "isbn_13": [
+            "9781932480252"
+          ],
+          "key": "/books/OL12333199M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 25, 2004",
+          "publishers": [
+            "Broccoli Books"
+          ],
+          "subjects": [
+            "Manga - General",
+            "Comics & Graphic Novels / Graphic Novels / Manga",
+            "Graphic Novels-Manga"
+          ],
+          "title": "Di Gi Charat Theater - \"NOT YET TITLED ANTHOLOGY\" Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591820246",
+      "source_id": "OL8857395M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591820243"
+          ],
+          "isbn_13": [
+            "9781591820246"
+          ],
+          "key": "/books/OL8857395M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 16, 2002",
+          "publishers": [
+            "Children"
+          ],
+          "subjects": [
+            "Juvenile Fiction",
+            "Supernatural",
+            "Fiction",
+            "Children's Books/Ages 9-12 Graphic Novels",
+            "Sisters",
+            "Children: Grades 4-6",
+            "Princesses",
+            "Graphic novels",
+            "Comics & Graphic Novels - Manga",
+            "Comics & Graphic Novels / Graphic Novels / Manga",
+            "Action & Adventure - General"
+          ],
+          "title": "Shaolin Sisters Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591820253",
+      "source_id": "OL8857396M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591820251"
+          ],
+          "isbn_13": [
+            "9781591820253"
+          ],
+          "key": "/books/OL8857396M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 15, 2002",
+          "publishers": [
+            "Children"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels - Manga",
+            "Juvenile Fiction",
+            "Children's Books/Ages 9-12 Graphic Novels",
+            "Children: Grades 4-6",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Shaolin Sisters Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591820277",
+      "source_id": "OL8857398M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591820278"
+          ],
+          "isbn_13": [
+            "9781591820277"
+          ],
+          "key": "/books/OL8857398M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 12, 2003",
+          "publishers": [
+            "Children"
+          ],
+          "subjects": [
+            "Science Fiction, Fantasy, & Magic",
+            "Juvenile Fiction",
+            "Children's Books/Ages 9-12 Graphic Novels",
+            "Children: Grades 4-6",
+            "Comics & Graphic Novels - Manga",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Shaolin Sisters, Vol. 4",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591820529",
+      "source_id": "OL8857420M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591820529"
+          ],
+          "isbn_13": [
+            "9781591820529"
+          ],
+          "key": "/books/OL8857420M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 13, 2002",
+          "publishers": [
+            "Children"
+          ],
+          "subjects": [
+            "Graphic Novels-Manga",
+            "Children: Grades 2-3",
+            "Juvenile Fiction",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels / Graphic Novels / Manga",
+            "Fantasy - General",
+            "Comics & Graphic Novels - Manga",
+            "Fiction - Fantasy"
+          ],
+          "title": "The Art of Cardcaptor Sakura #3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591826941",
+      "source_id": "OL8857903M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591826942"
+          ],
+          "isbn_13": [
+            "9781591826941"
+          ],
+          "key": "/books/OL8857903M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 12, 2004",
+          "publishers": [
+            "Adult"
+          ],
+          "subjects": [
+            "Fantasy",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fiction",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Les Bijoux, Vol. 5",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591827092",
+      "source_id": "OL8857915M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591827094"
+          ],
+          "isbn_13": [
+            "9781591827092"
+          ],
+          "key": "/books/OL8857915M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "May 11, 2004",
+          "publishers": [
+            "Adult"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Fiction",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Doll, Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591827863",
+      "source_id": "OL8857969M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591827868"
+          ],
+          "isbn_13": [
+            "9781591827863"
+          ],
+          "key": "/books/OL8857969M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 10, 2004",
+          "publishers": [
+            "Adult"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fiction",
+            "Graphic Novels - Fantasy",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Warriors of Tao, Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591827870",
+      "source_id": "OL8857970M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1591827876"
+          ],
+          "isbn_13": [
+            "9781591827870"
+          ],
+          "key": "/books/OL8857970M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "November 9, 2004",
+          "publishers": [
+            "Adult"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Graphic Novels - Science Fiction",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fantasy",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Warriors of Tao, Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781591829645",
+      "source_id": "OL8858063M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "159182964X"
+          ],
+          "isbn_13": [
+            "9781591829645"
+          ],
+          "key": "/books/OL8858063M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 11, 2005",
+          "publishers": [
+            "Adult"
+          ],
+          "subjects": [
+            "High school students",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fantasy",
+            "Fiction",
+            "Juvenile delinquents",
+            "Comics & Graphic Novels / Graphic Novels / Manga",
+            "Cartoons and comics"
+          ],
+          "title": "Eternity, Vol. 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781595320520",
+      "source_id": "OL8881024M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1595320520"
+          ],
+          "isbn_13": [
+            "9781595320520"
+          ],
+          "key": "/books/OL8881024M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "February 8, 2005",
+          "publishers": [
+            "Adult"
+          ],
+          "subjects": [
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fantasy",
+            "Fiction",
+            "Fantasy - General",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Warriors Of Tao Vol. 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781595320537",
+      "source_id": "OL8881025M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1595320539"
+          ],
+          "isbn_13": [
+            "9781595320537"
+          ],
+          "key": "/books/OL8881025M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "May 10, 2005",
+          "publishers": [
+            "Adult"
+          ],
+          "subjects": [
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fantasy",
+            "Fiction",
+            "Graphic Novels - Fantasy",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Warriors Of Tao vol. 4",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781595322418",
+      "source_id": "OL8881157M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1595322418"
+          ],
+          "isbn_13": [
+            "9781595322418"
+          ],
+          "key": "/books/OL8881157M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "November 9, 2004",
+          "publishers": [
+            "Children"
+          ],
+          "subjects": [
+            "Fantasy",
+            "Graphic Novels-Manga",
+            "Comics & Graphic Novels",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Hyper Rune, Vol. 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781595322425",
+      "source_id": "OL8881158M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1595322426"
+          ],
+          "isbn_13": [
+            "9781595322425"
+          ],
+          "key": "/books/OL8881158M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 11, 2005",
+          "publishers": [
+            "Children"
+          ],
+          "subjects": [
+            "Teenagers",
+            "Human-alien encounters",
+            "Fiction",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fantasy",
+            "Science fiction",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels / Graphic Novels / Manga"
+          ],
+          "title": "Hyper Rune, Vol. 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781598169881",
+      "source_id": "OL8898005M",
+      "reason": "PUBLISHER_PLACEHOLDER_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1598169882"
+          ],
+          "isbn_13": [
+            "9781598169881"
+          ],
+          "key": "/books/OL8898005M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "December 11, 2007",
+          "publishers": [
+            "Adult"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / Graphic Novels / Manga",
+            "Graphic Novels - Manga",
+            "Comics & Graphic Novels",
+            "Graphic Novels-Manga",
+            "Fiction"
+          ],
+          "title": "Ai-Land Collection  Volume 2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781597980371",
+      "source_id": "OL12495095M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1597980374"
+          ],
+          "isbn_13": [
+            "9781597980371"
+          ],
+          "key": "/books/OL12495095M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 26, 2006",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Graphic Novels - General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Fiction"
+          ],
+          "title": "High Adventure #89",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781597980388",
+      "source_id": "OL8896581M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1597980382"
+          ],
+          "isbn_13": [
+            "9781597980388"
+          ],
+          "key": "/books/OL8896581M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 27, 2006",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Graphic Novels - General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Fiction"
+          ],
+          "title": "High Adventure #90",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781597980777",
+      "source_id": "OL8896592M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1597980773"
+          ],
+          "isbn_13": [
+            "9781597980777"
+          ],
+          "key": "/books/OL8896592M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "February 5, 2007",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Fiction / Action",
+            "Fiction / War",
+            "Hogan, Robert J.",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "G-8 And His Battle Aces #21",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781597981064",
+      "source_id": "OL12495106M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1597981060"
+          ],
+          "isbn_13": [
+            "9781597981064"
+          ],
+          "key": "/books/OL12495106M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 17, 2007",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / General",
+            "General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "G-8 And His Battle Aces #23",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781597981071",
+      "source_id": "OL8896601M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1597981079"
+          ],
+          "isbn_13": [
+            "9781597981071"
+          ],
+          "key": "/books/OL8896601M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "April 18, 2007",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Action & Adventure",
+            "Science Fiction - Military",
+            "War & Military",
+            "Fiction / Adventure",
+            "Fiction / General",
+            "Fiction : Science Fiction - Military",
+            "Fiction : War & Military",
+            "Fiction",
+            "Graphic Novels"
+          ],
+          "title": "G-8 And His Battle Aces #24",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781597981194",
+      "source_id": "OL8896605M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1597981192"
+          ],
+          "isbn_13": [
+            "9781597981194"
+          ],
+          "key": "/books/OL8896605M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 10, 2007",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #92",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937505",
+      "source_id": "OL12179078M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937508"
+          ],
+          "isbn_13": [
+            "9781886937505"
+          ],
+          "key": "/books/OL12179078M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 19, 2001",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Adventure / thriller",
+            "Graphic Novels",
+            "Comics & Graphic Novels / General",
+            "General",
+            "Comics & Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #60",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937536",
+      "source_id": "OL8707139M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937532"
+          ],
+          "isbn_13": [
+            "9781886937536"
+          ],
+          "key": "/books/OL8707139M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "August 1, 2001",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "G-8 And His Battle Aces #2",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937567",
+      "source_id": "OL8707142M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937567"
+          ],
+          "isbn_13": [
+            "9781886937567"
+          ],
+          "key": "/books/OL8707142M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 31, 2001",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #61",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937574",
+      "source_id": "OL8707143M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937575"
+          ],
+          "isbn_13": [
+            "9781886937574"
+          ],
+          "key": "/books/OL8707143M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 9, 2002",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Fiction",
+            "General",
+            "Comics & Graphic Novels / General",
+            "Graphic Novels - General"
+          ],
+          "title": "High Adventure #62",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937581",
+      "source_id": "OL8707144M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937583"
+          ],
+          "isbn_13": [
+            "9781886937581"
+          ],
+          "key": "/books/OL8707144M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "March 13, 2002",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Fiction",
+            "General",
+            "Comics & Graphic Novels / General",
+            "Graphic Novels - General"
+          ],
+          "title": "High Adventure #63",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937598",
+      "source_id": "OL8707145M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937591"
+          ],
+          "isbn_13": [
+            "9781886937598"
+          ],
+          "key": "/books/OL8707145M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "May 8, 2002",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #64",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937642",
+      "source_id": "OL8707148M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937648"
+          ],
+          "isbn_13": [
+            "9781886937642"
+          ],
+          "key": "/books/OL8707148M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "February 12, 2003",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor",
+            "General",
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "G-8 And His Battle Aces #7",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937659",
+      "source_id": "OL8707149M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937656"
+          ],
+          "isbn_13": [
+            "9781886937659"
+          ],
+          "key": "/books/OL8707149M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 10, 2002",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor",
+            "General",
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "High Adventure #65",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937666",
+      "source_id": "OL12179079M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937664"
+          ],
+          "isbn_13": [
+            "9781886937666"
+          ],
+          "key": "/books/OL12179079M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 11, 2002",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Adventure / thriller",
+            "Graphic Novels",
+            "Comics & Graphic Novels / General",
+            "General",
+            "Comics & Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #66",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937673",
+      "source_id": "OL8707150M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937672"
+          ],
+          "isbn_13": [
+            "9781886937673"
+          ],
+          "key": "/books/OL8707150M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "November 20, 2002",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #67",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937697",
+      "source_id": "OL8707152M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937699"
+          ],
+          "isbn_13": [
+            "9781886937697"
+          ],
+          "key": "/books/OL8707152M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 15, 2003",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #68",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937727",
+      "source_id": "OL12179080M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937729"
+          ],
+          "isbn_13": [
+            "9781886937727"
+          ],
+          "key": "/books/OL12179080M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "May 21, 2003",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Adventure / thriller",
+            "Graphic Novels",
+            "Comics & Graphic Novels / General",
+            "General",
+            "Comics & Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #70",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937734",
+      "source_id": "OL8707154M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937737"
+          ],
+          "isbn_13": [
+            "9781886937734"
+          ],
+          "key": "/books/OL8707154M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 16, 2003",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #71",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937758",
+      "source_id": "OL8707156M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937753"
+          ],
+          "isbn_13": [
+            "9781886937758"
+          ],
+          "key": "/books/OL8707156M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "April 30, 2003",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "G-8 And His Battle Aces #8",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937772",
+      "source_id": "OL8707158M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "188693777X"
+          ],
+          "isbn_13": [
+            "9781886937772"
+          ],
+          "key": "/books/OL8707158M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 17, 2003",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "High Adventure #72",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937802",
+      "source_id": "OL8707160M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "188693780X"
+          ],
+          "isbn_13": [
+            "9781886937802"
+          ],
+          "key": "/books/OL8707160M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 23, 2003",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels / General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Humor"
+          ],
+          "title": "G-8 And His Battle Aces #9",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937826",
+      "source_id": "OL8707162M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937826"
+          ],
+          "isbn_13": [
+            "9781886937826"
+          ],
+          "key": "/books/OL8707162M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 10, 2004",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Graphic Novels - Crime & Mystery",
+            "Fiction",
+            "Graphic Novels",
+            "Horror",
+            "Comics & Graphic Novels / General",
+            "General"
+          ],
+          "title": "High Adventure #74",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937918",
+      "source_id": "OL8707170M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937915"
+          ],
+          "isbn_13": [
+            "9781886937918"
+          ],
+          "key": "/books/OL8707170M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "March 10, 2004",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Mystery & Detective - Hard-Boiled",
+            "Fiction - General",
+            "Fiction",
+            "Mystery/Suspense",
+            "Action & Adventure",
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "High Adventure #74",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937925",
+      "source_id": "OL8707171M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937923"
+          ],
+          "isbn_13": [
+            "9781886937925"
+          ],
+          "key": "/books/OL8707171M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "May 19, 2004",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Graphic Novels - General",
+            "Fiction - General",
+            "Graphic Novels",
+            "Fiction",
+            "Comics & Graphic Novels / General",
+            "Men's Adventure"
+          ],
+          "title": "High Adventure #76",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781886937987",
+      "source_id": "OL8707176M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1886937982"
+          ],
+          "isbn_13": [
+            "9781886937987"
+          ],
+          "key": "/books/OL8707176M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "March 9, 2005",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "General",
+            "Comics & Graphic Novels",
+            "Graphic Novels",
+            "Fiction",
+            "Fiction / General",
+            "Fiction - General",
+            "Graphic Novels - General"
+          ],
+          "title": "High Adventure #81",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9789781597985",
+      "source_id": "OL13165874M",
+      "reason": "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "9781597984"
+          ],
+          "isbn_13": [
+            "9789781597985"
+          ],
+          "key": "/books/OL13165874M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "January 10, 2007",
+          "publishers": [
+            "Adventure House"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / General"
+          ],
+          "title": "High Adventure #92",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780786907915",
+      "source_id": "OL8143980M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0786907916"
+          ],
+          "isbn_13": [
+            "9780786907915"
+          ],
+          "key": "/books/OL8143980M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "February 24, 1998",
+          "publishers": [
+            "Wizards of the Coast"
+          ],
+          "subjects": [
+            "Graphic novels",
+            "Games",
+            "Games / Gamebooks / Crosswords",
+            "Games/Puzzles",
+            "Role Playing & Fantasy - Dungeons & Dragons",
+            "Non-Classifiable"
+          ],
+          "title": "Wizard's Spell Compendium, Volume 3",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9780977007141",
+      "source_id": "OL8589726M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "0977007146"
+          ],
+          "isbn_13": [
+            "9780977007141"
+          ],
+          "key": "/books/OL8589726M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "October 15, 2006",
+          "publishers": [
+            "Paizo Publishing, LLC."
+          ],
+          "subjects": [
+            "Fantasy",
+            "Role-playing & war games",
+            "Games",
+            "Graphic Novels",
+            "Role Playing Games",
+            "Games/Puzzles",
+            "General",
+            "Role Playing & Fantasy - General",
+            "Games / Role Playing & Fantasy"
+          ],
+          "title": "Dragon Compendium Volume 1",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781565042193",
+      "source_id": "OL8662823M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1565042190"
+          ],
+          "isbn_13": [
+            "9781565042193"
+          ],
+          "key": "/books/OL8662823M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "July 1996",
+          "publishers": [
+            "White Wolf Pub"
+          ],
+          "subjects": [
+            "Games",
+            "Games / Gamebooks / Crosswords",
+            "Fiction",
+            "Role Playing & Fantasy - Vampire",
+            "Graphic novels",
+            "Role-playing & war games"
+          ],
+          "title": "Chicago Chronicles Vol. 1: Chicago by Night 1st Edition and Succubus Club (Vampire: the Masquerade)",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781565042209",
+      "source_id": "OL8662824M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1565042204"
+          ],
+          "isbn_13": [
+            "9781565042209"
+          ],
+          "key": "/books/OL8662824M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "September 1996",
+          "publishers": [
+            "White Wolf Games Studio"
+          ],
+          "subjects": [
+            "Role Playing & Fantasy - Vampire",
+            "Games / Gamebooks / Crosswords",
+            "Fiction",
+            "Graphic novels",
+            "Role-playing & war games"
+          ],
+          "title": "Chicago Chronicles Vol. 2: Chicago by Night 2nd Edition and Under a Blood Red Moon (Vampire: the Masquerade)",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781565042216",
+      "source_id": "OL8662825M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1565042212"
+          ],
+          "isbn_13": [
+            "9781565042216"
+          ],
+          "key": "/books/OL8662825M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "December 1996",
+          "publishers": [
+            "White Wolf Games Studio"
+          ],
+          "subjects": [
+            "Role Playing & Fantasy - Vampire",
+            "Games/Puzzles",
+            "Games / Gamebooks / Crosswords",
+            "Graphic novels",
+            "Role-playing & war games"
+          ],
+          "title": "Chicago Chronicles Vol. 3: Milwaukee by Night, Ashes to Ashes, and Blood Bond (Vampire: the Masquerade)",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781565042346",
+      "source_id": "OL8662837M",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "1565042344"
+          ],
+          "isbn_13": [
+            "9781565042346"
+          ],
+          "key": "/books/OL8662837M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Paperback",
+          "publish_date": "October 1997",
+          "publishers": [
+            "White Wolf Pub"
+          ],
+          "subjects": [
+            "Role Playing & Fantasy - Vampire",
+            "Graphic novels",
+            "Games/Puzzles",
+            "Games / Gamebooks / Crosswords"
+          ],
+          "title": "Cities of Darkness Vol. 2: Berlin by Night and Los Angeles by Night (Vampire: the Masquerade)",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    },
+    {
+      "isbn": "9781600101953",
+      "source_id": "OL12503067M",
+      "reason": "VOLUME_DATE_RANGE_PARSE_REVIEW_REQUIRED",
+      "source_record": {
+        "dump_source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+        "edition": {
+          "isbn_10": [
+            "160010195X"
+          ],
+          "isbn_13": [
+            "9781600101953"
+          ],
+          "key": "/books/OL12503067M",
+          "languages": [
+            {
+              "key": "/languages/eng"
+            }
+          ],
+          "physical_format": "Hardcover",
+          "publish_date": "July 25, 2008",
+          "publishers": [
+            "IDW Publishing"
+          ],
+          "subjects": [
+            "Comics & Graphic Novels / Comics & Cartoons",
+            "Comics & Cartoons",
+            "Comics & Graphic Novels",
+            "Humor"
+          ],
+          "title": "The Complete Terry And The Pirates Volume 4-1941 - 1942",
+          "type": {
+            "key": "/type/edition"
+          }
+        },
+        "observed_on": "2026-10-27"
+      }
+    }
+  ],
+  "existing_catalogue_review_holds": [
+    {
+      "catalogue_id": "8b3ad15d-b499-560a-9600-eb85eb0e07a0",
+      "isbn": "9781563897306",
+      "series": "Legion of Super-Heroes Archives",
+      "number": "11",
+      "reason": "MULTIPLE_EDITION_ISBNS",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "80a5d125-128b-5d16-8737-224f712a10c1",
+      "isbn": "9781401201586",
+      "series": "Spirit, The - Archives",
+      "number": "14",
+      "reason": "MULTIPLE_EDITION_ISBNS",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "759ef0d5-a375-5400-a269-52853569b7eb",
+      "isbn": "9781932234855",
+      "series": "Andromeda Stories",
+      "number": "2",
+      "reason": "MULTIPLE_EDITION_ISBNS",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "3633ec5e-6545-5eb6-b11f-95560f190d8a",
+      "isbn": "9781421509853",
+      "series": "Boys Over Flowers",
+      "number": "22",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "3307e568-6e0d-57c6-b7a1-dc13adb9cd24",
+      "isbn": "9781594973536",
+      "series": "Chobits",
+      "number": "5",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "3cde415f-b8d4-54c3-bfa1-0cfc39d70295",
+      "isbn": "9781421501680",
+      "series": "Death Note",
+      "number": "1",
+      "reason": "MULTIPLE_EDITION_ISBNS",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "0aaf91b0-a0ad-54d9-b037-8168847005f5",
+      "isbn": "9781421501697",
+      "series": "Death Note",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "9d599c6d-465c-52b5-9343-e069dbd2ae9b",
+      "isbn": "9781421501703",
+      "series": "Death Note",
+      "number": "3",
+      "reason": "MULTIPLE_EDITION_ISBNS",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "4a6eecea-c734-5dbb-8017-0d789e074c02",
+      "isbn": "9781421503318",
+      "series": "Death Note",
+      "number": "4",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "4bb8f5dd-3bde-50b2-ba31-f42d3d946732",
+      "isbn": "9781421506265",
+      "series": "Death Note",
+      "number": "5",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "2ee80e4f-1d8c-5db2-90cc-1801c8b6f14d",
+      "isbn": "9781421506272",
+      "series": "Death Note",
+      "number": "6",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "9ae62323-2c29-5aca-8b3a-11e09682be41",
+      "isbn": "9781569319307",
+      "series": "Dragon Ball Z",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "5b02491e-4333-592e-a3b4-1006267fc189",
+      "isbn": "9781569319314",
+      "series": "Dragon Ball Z",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "f349c9dc-8221-5d7a-a1bc-06dfd1e38835",
+      "isbn": "9781569319321",
+      "series": "Dragon Ball Z",
+      "number": "3",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "41619a65-fffd-5253-93ff-e91397ba7910",
+      "isbn": "9781569319338",
+      "series": "Dragon Ball Z",
+      "number": "4",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "bd5f09ef-2f9d-51b2-a4ab-a60ee2658675",
+      "isbn": "9781569319345",
+      "series": "Dragon Ball Z",
+      "number": "5",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "fc853225-ae57-5a72-8d9e-c853752740f1",
+      "isbn": "9781569319352",
+      "series": "Dragon Ball Z",
+      "number": "6",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "61ef8ef9-e0ce-5de8-808c-f038ea143df4",
+      "isbn": "9781931514422",
+      "series": "Dragon Knights",
+      "number": "3",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "1c6d0de0-4ba8-5f61-9fc2-f956d57113bd",
+      "isbn": "9781598168310",
+      "series": "Innocent Bird",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "6f55b474-e0ca-5d81-ad53-25ccab2202f6",
+      "isbn": "9781421509082",
+      "series": "InuYasha Animanga",
+      "number": "24",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "9264f778-e6a2-5f59-b0d2-23e8d725f4e5",
+      "isbn": "9781569319000",
+      "series": "Naruto",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "71dc10fa-574c-541e-90df-9690ab63a316",
+      "isbn": "9781591161783",
+      "series": "Naruto",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "a8e6a89a-a3b9-5ca4-9c9f-ec29b69c25b8",
+      "isbn": "9781591161875",
+      "series": "Naruto",
+      "number": "3",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "1796876c-be98-5bab-95ad-2f6610c9286d",
+      "isbn": "9781591163589",
+      "series": "Naruto",
+      "number": "4",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "4fd99755-2b6b-5c88-aa4a-869f56e3cb7f",
+      "isbn": "9781591163596",
+      "series": "Naruto",
+      "number": "5",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "2877a237-c972-5d11-8081-49682131961d",
+      "isbn": "9781591167396",
+      "series": "Naruto",
+      "number": "6",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "7e323fc9-2458-5e2f-a206-51c1262c31c2",
+      "isbn": "9781569319017",
+      "series": "One Piece",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "d67ed53e-1a65-567b-8f96-81a07c92caa7",
+      "isbn": "9781591160571",
+      "series": "One Piece",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "ba3c8cf3-c594-587a-87a1-234e782e69c7",
+      "isbn": "9781591161844",
+      "series": "One Piece",
+      "number": "3",
+      "reason": "MULTIPLE_EDITION_ISBNS",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "a6f9ad41-ddfc-50d6-823b-b9499e627587",
+      "isbn": "9781591163374",
+      "series": "One Piece",
+      "number": "4",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "1c4a7190-b199-591d-8fcf-a4eb3d5c4889",
+      "isbn": "9781591166153",
+      "series": "One Piece",
+      "number": "5",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "53cbbb7a-b484-5308-b877-3ac8184ab768",
+      "isbn": "9781591167235",
+      "series": "One Piece",
+      "number": "6",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "d8b78507-1128-53d2-be7e-d6041aadb4ff",
+      "isbn": "9781569314302",
+      "series": "Ranma 1/2",
+      "number": "14",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "d50bdfdb-f201-5011-8b56-5f5eb35b8da2",
+      "isbn": "9781591828570",
+      "series": "Seikai Trilogy, The",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "7b2a73c8-775c-519a-b1cd-5f25f0405f67",
+      "isbn": "9780759523418",
+      "series": "Spiral",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "756247c1-93d1-5a4e-b36b-9ab04d220473",
+      "isbn": "9781421517650",
+      "series": "Switch",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "4f357701-a0cf-5de2-a5d3-a0339dbc0ed3",
+      "isbn": "9781421517735",
+      "series": "The Record of a Fallen Vampire",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "35517c2f-93a5-596c-9f39-e57caa04b040",
+      "isbn": "9781595329615",
+      "series": "Ultra Cute",
+      "number": "6",
+      "reason": "MULTIPLE_EDITION_ISBNS",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "e196fdfa-64f6-513d-b179-df10100f8bb1",
+      "isbn": "9781591823704",
+      "series": "Vampire Game",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "ea057cf2-c953-5b0c-ad06-7c507839604e",
+      "isbn": "9780785113188",
+      "series": "Captain America",
+      "number": "4",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "0152fedd-d285-5b81-a396-15bf2c7957f6",
+      "isbn": "9780785116851",
+      "series": "Essential Luke Cage/Power Man",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "4b54458d-9657-5772-a7ba-a8a703546ce7",
+      "isbn": "9780785122951",
+      "series": "Essential X-Men",
+      "number": "4",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "79996949-012e-50de-b917-aa673941c945",
+      "isbn": "9780785125198",
+      "series": "Friendly Neighborhood Spider-Man",
+      "number": "3",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "feecec1e-e288-5f50-b27d-77caf343b71e",
+      "isbn": "9780785119036",
+      "series": "Marvel Adventures Spider-Man",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "feab14a6-b988-538b-863a-fa01f6c85bad",
+      "isbn": "9780785122890",
+      "series": "Moon Knight",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "6f7dcc95-c4c6-5b2b-8581-6af41230a7a6",
+      "isbn": "9780785116295",
+      "series": "Ultimate Spider-Man",
+      "number": "12",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "895a3343-cb0d-501a-89d5-50464495583c",
+      "isbn": "9781593075507",
+      "series": "B.P.R.D.",
+      "number": "5",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "5037a659-c0ff-5285-a87b-3b5d70f55a2b",
+      "isbn": "9781600105319",
+      "series": "Bloom County: The Complete Library",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "3c809a1d-de02-5d26-aab3-023c4d53633d",
+      "isbn": "9781929998661",
+      "series": "Blue Monday",
+      "number": "3",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "e36628a8-ef85-5fa0-aa55-83b45ea6b8b5",
+      "isbn": "9781582408590",
+      "series": "Dynamo 5",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "8a091052-89e6-57a1-8c61-a225b3294dd0",
+      "isbn": "9781932796797",
+      "series": "G.I. Joe - America's Elite",
+      "number": "3",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "b3ebf114-240d-5c16-b189-5671171ad237",
+      "isbn": "9781607066620",
+      "series": "Invincible",
+      "number": "17",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "882fca8e-7b77-5b50-acb7-9f1771d531a7",
+      "isbn": "9781582405230",
+      "series": "Savage Dragon",
+      "number": "11",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "27c49827-01f3-5fe1-a493-a0559b7d4a03",
+      "isbn": "9780977767915",
+      "series": "The Mourning Star",
+      "number": "1",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "b701b919-274a-5864-8b0e-848fd57d16a2",
+      "isbn": "9781563894817",
+      "series": "Transmetropolitan",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    },
+    {
+      "catalogue_id": "e4eb9960-223b-50be-abb0-1f73db8df5b2",
+      "isbn": "9780972644341",
+      "series": "Werewolf The Apocalypse: Fang and Claw",
+      "number": "2",
+      "reason": "EDITION_QUALIFIER_REVIEW_REQUIRED",
+      "production_changed": false
+    }
+  ],
+  "note": "Review holds do not prove an edition is incorrect; no existing production identity was changed."
+}

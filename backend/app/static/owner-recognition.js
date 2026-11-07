@@ -31,7 +31,8 @@ state.ownerRecognition = {
     presenceFrames: 0,
     absenceFrames: 0,
     awaitingRemoval: false,
-    armed: true,
+    armed: false,
+    previousBox: null,
     currentCorrectionId: null,
     searchTimer: null,
     latestResultId: null,
@@ -222,7 +223,8 @@ function ownerSlabEvidenceValues(data) {
     provider: data?.normalized_provider || provider.provider || observation.grader || byId("owner-slab-grader")?.value || "",
     certificate: data?.normalized_certificate || provider.certificate_number || observation.certificate_number || byId("owner-slab-certificate")?.value || "",
     status: provider.status || data?.provider_error || "LABEL_READ_ONLY",
-    grade: provider.grade || observation.grade || "",
+    grade: Object.prototype.hasOwnProperty.call(data || {}, "normalized_grade") ? data.normalized_grade || ""
+      : provider.display_grade ?? provider.grade ?? observation.grade ?? "",
     name: provider.subject || observation.card_name || "",
     number: provider.card_number || observation.card_number || "",
     setName: provider.set_brand || observation.set_name || "",
@@ -364,8 +366,8 @@ function ownerSlabSearchResultCard(row) {
   ].filter(Boolean).join(" · ");
   const value = document.createElement("small");
   value.textContent = row.market_value_minor == null
-    ? "Reference value unavailable"
-    : `Market ${formatMoney(row.market_value_minor)}`;
+    ? "Value unavailable"
+    : `Value: ${formatMoney(row.market_value_minor)}`;
   copy.append(name, meta, value);
   const choose = document.createElement("em");
   choose.textContent = "Confirm";
@@ -583,7 +585,47 @@ function ownerScanStopCamera({hide = true} = {}) {
   }
 }
 
+function ownerSharedScanner() {
+  if (!window.dropRateScanner || !window.dropRateScanner.active()) {
+      window.dropRateScanner?.destroy();
+      window.dropRateScanner = new window.DropRateScanner.Scanner({
+        role: "seller", session: () => state.session,
+        // Scanner owns account-bound refresh; do not retry a stale request using a new login.
+        request: (path, options) => apiRequest(path, options, false),
+        refreshSession: token => authRequest("/token?grant_type=refresh_token", {
+          method: "POST", body: JSON.stringify({refresh_token: token}),
+        }),
+        saveSession: session => saveSession(session),
+        afterSave: () => Promise.all([loadOwnerOverview(), loadOwnerInventory()]),
+        viewInventory: () => activateOwnerView("inventory"),
+        openBooks: options => window.DropRateBooks?.open(options) ?? false,
+        onClose: () => {
+          // Closing the mobile modal must not expose the legacy photo-upload page.
+          // Do not redirect if another tab already closed this scanner.
+          if (window.matchMedia?.("(max-width: 900px)")?.matches
+              && !byId("owner-view-scan")?.classList.contains("hidden")) {
+            activateOwnerView("overview", true);
+          }
+        },
+      });
+    }
+  return window.dropRateScanner;
+}
+
 async function ownerScanStartCamera(facingMode = "environment") {
+  if (window.DropRateScanner) {
+    ownerScanStopCamera();
+    ownerSharedScanner();
+    // A tab click always opens the LIVE view even when previous scans still
+    // await review. They stay safely queued for Next / Review, not discarded.
+    const mode = window.matchMedia?.("(max-width: 900px)")?.matches
+      ? window.dropRateScanner.mode : ownerScanMode().toUpperCase();
+    await window.dropRateScanner.open(mode, {preferCamera: true});
+    return;
+  }
+  if (window.matchMedia?.("(max-width: 900px)")?.matches) {
+    throw new Error("Live scanner is temporarily unavailable. Reload the page and try again.");
+  }
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
     throw new Error("Live camera is not supported in this browser. Upload a photo instead.");
   }
@@ -849,7 +891,7 @@ function ownerScanCandidateCard(candidate, run, index) {
   for (const [labelText, valueText] of [
     ["Identity", ownerScanPercent(candidate.score)],
     ["Printing", ownerScanPercent(candidate?.signals?.printing_confidence?.match)],
-    ["Market", candidate.market_value_minor == null ? "—" : formatMoney(candidate.market_value_minor)],
+    [candidate.pricing_status === "REFERENCE_ESTIMATE" ? "Guide (GBP)" : "Market (GBP)", candidate.market_value_minor == null ? "—" : formatMoney(candidate.market_value_minor)],
   ]) {
     const box = document.createElement("div");
     const label = document.createElement("span");
@@ -1144,8 +1186,6 @@ async function ownerScanSubmitIntake(event) {
         });
     byId("owner-scan-market-value").textContent =
       data.inventory?.market_value_minor == null ? "—" : formatMoney(data.inventory.market_value_minor);
-    byId("owner-scan-store-value").textContent =
-      data.inventory?.store_value_minor == null ? "—" : formatMoney(data.inventory.store_value_minor);
     byId("owner-scan-inventory-code").textContent = safeText(data.inventory?.inventory_code);
 
     const note = byId("owner-scan-valuation-note");
@@ -1190,79 +1230,29 @@ function ownerBatchFingerprintDelta(left, right) {
 
 function ownerBatchFrameAnalysis(video) {
   if (!video?.videoWidth || !video?.videoHeight) return null;
+  // The authoritative four-edge detector is shipped by scanner-flow.js.
+  // If that module fails to load, FAIL CLOSED to manual capture rather than
+  // restore the old false-positive high-variance auto-capture heuristic.
   const crop = ownerScanCrop(video.videoWidth, video.videoHeight);
-  const width = 20;
-  const height = 28;
+  const width = 48, height = 68, xMargin = crop.sw * 0.11, yMargin = crop.sh * 0.11;
+  const sx = Math.max(0, crop.sx - xMargin), sy = Math.max(0, crop.sy - yMargin);
+  const sw = Math.min(video.videoWidth - sx, crop.sw + 2 * xMargin);
+  const sh = Math.min(video.videoHeight - sy, crop.sh + 2 * yMargin);
+  if (!(sw > 0 && sh > 0)) return null;
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = width; canvas.height = height;
   const context = canvas.getContext("2d", {willReadFrequently: true});
   if (!context) return null;
-  context.drawImage(
-    video,
-    crop.sx,
-    crop.sy,
-    crop.sw,
-    crop.sh,
-    0,
-    0,
-    width,
-    height
-  );
+  context.drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
   const pixels = context.getImageData(0, 0, width, height).data;
   const fingerprint = new Uint8Array(width * height);
-  let total = 0;
-  let totalSquared = 0;
-  let edgeTotal = 0;
-  let edgeCount = 0;
-  let borderTotal = 0;
-  let borderCount = 0;
-  let innerTotal = 0;
-  let innerCount = 0;
-
-  for (let pixel = 0, output = 0; pixel < pixels.length; pixel += 4, output += 1) {
-    const gray = Math.round(
-      pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114
-    );
-    fingerprint[output] = gray;
-    total += gray;
-    totalSquared += gray * gray;
-
-    const x = output % width;
-    const y = Math.floor(output / width);
-    const border = x < 2 || x >= width - 2 || y < 2 || y >= height - 2;
-    if (border) {
-      borderTotal += gray;
-      borderCount += 1;
-    } else {
-      innerTotal += gray;
-      innerCount += 1;
-    }
-    if (x > 0) {
-      edgeTotal += Math.abs(gray - fingerprint[output - 1]);
-      edgeCount += 1;
-    }
-    if (y > 0) {
-      edgeTotal += Math.abs(gray - fingerprint[output - width]);
-      edgeCount += 1;
-    }
+  for (let output = 0; output < fingerprint.length; output += 1) {
+    const pixel = output * 4;
+    fingerprint[output] = Math.round(
+      pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114);
   }
-
-  const count = fingerprint.length;
-  const mean = total / count;
-  const variance = Math.max(0, totalSquared / count - mean * mean);
-  const deviation = Math.sqrt(variance) / 255;
-  const edge = edgeCount ? edgeTotal / edgeCount / 255 : 0;
-  const borderMean = borderCount ? borderTotal / borderCount : mean;
-  const innerMean = innerCount ? innerTotal / innerCount : mean;
-  const borderContrast = Math.abs(innerMean - borderMean) / 255;
-  const present = (
-    (borderContrast >= 0.035 && deviation >= 0.055)
-    || (edge >= 0.065 && deviation >= 0.10)
-    || deviation >= 0.18
-  );
-
-  return {fingerprint, present, deviation, edge, borderContrast};
+  const detected = window.DropRateScanner?.analyzeCardPresence?.(pixels, width, height, ownerScanMode().toUpperCase());
+  return {fingerprint, present: detected?.present === true, box: detected?.box || null};
 }
 
 function ownerBatchFrameFingerprint(video) {
@@ -1304,6 +1294,8 @@ function ownerBatchStopLoop() {
   state.ownerRecognition.batch.presenceFrames = 0;
   state.ownerRecognition.batch.absenceFrames = 0;
   state.ownerRecognition.batch.awaitingRemoval = false;
+  state.ownerRecognition.batch.armed = false;
+  state.ownerRecognition.batch.previousBox = null;
 }
 
 function ownerBatchStartLoop() {
@@ -1404,7 +1396,8 @@ async function ownerBatchTick() {
     batch.absenceFrames += 1;
     batch.stableFrames = 0;
     batch.previousFingerprint = fingerprint;
-    if (batch.awaitingRemoval && batch.absenceFrames >= 2) {
+    batch.previousBox = null;
+    if (batch.awaitingRemoval && batch.absenceFrames >= 3) {
       batch.awaitingRemoval = false;
       batch.armed = true;
       batch.lastAcceptedFingerprint = null;
@@ -1412,27 +1405,37 @@ async function ownerBatchTick() {
     } else if (batch.awaitingRemoval) {
       ownerBatchSetCameraState("Remove the scanned item to continue");
     } else {
-      batch.armed = true;
+      if (batch.absenceFrames >= 3) batch.armed = true;
       ownerBatchSetCameraState("Place a card or sealed product inside the guide");
     }
     return;
   }
 
   batch.absenceFrames = 0;
-  batch.presenceFrames += 1;
   if (batch.awaitingRemoval) {
     batch.stableFrames = 0;
-    batch.previousFingerprint = fingerprint;
     ownerBatchSetCameraState("Item scanned · remove it before showing the next one");
     return;
   }
+  if (!batch.armed) {
+    ownerBatchSetCameraState("Clear the guide briefly, then place the card inside");
+    return;
+  }
 
+  batch.presenceFrames += 1;
   const movement = ownerBatchFingerprintDelta(fingerprint, batch.previousFingerprint);
+  const previousBox = batch.previousBox, box = analysis.box;
+  const aligned = !previousBox || !box || (
+    Math.abs(previousBox.left - box.left) <= 2
+    && Math.abs(previousBox.right - box.right) <= 2
+    && Math.abs(previousBox.top - box.top) <= 2
+    && Math.abs(previousBox.bottom - box.bottom) <= 2);
   batch.previousFingerprint = fingerprint;
-  batch.stableFrames = movement <= 0.028 ? batch.stableFrames + 1 : 0;
+  batch.previousBox = box;
+  batch.stableFrames = movement <= 0.022 && aligned ? batch.stableFrames + 1 : 0;
 
-  if (batch.presenceFrames < 2) {
-    ownerBatchSetCameraState("Item detected · hold steady");
+  if (batch.presenceFrames < 3) {
+    ownerBatchSetCameraState("Card detected · hold steady");
     return;
   }
   if (batch.stableFrames < 3) {
@@ -1805,8 +1808,8 @@ function ownerBatchSearchResultCard(row) {
   ].filter(Boolean).join(" · ");
   const value = document.createElement("small");
   value.textContent = row.market_value_minor == null
-    ? "Reference value unavailable"
-    : `Market ${formatMoney(row.market_value_minor)}`;
+    ? "Value unavailable"
+    : `Value: ${formatMoney(row.market_value_minor)}`;
   copy.append(name, meta, value);
 
   const choose = document.createElement("em");
@@ -1936,7 +1939,7 @@ function ownerBatchRenderReview() {
     const value = document.createElement("small");
     value.textContent = item.status === "unresolved"
       ? "Needs review before inventory"
-      : `Reference market value ${ownerBatchFormatValue(ownerBatchMarketValue(item))}`;
+      : `Value: ${ownerBatchFormatValue(ownerBatchMarketValue(item))}`;
     copy.append(name, meta, value);
 
     const actions = document.createElement("div");
@@ -2039,6 +2042,7 @@ async function ownerBatchAddAll() {
   button.disabled = true;
   let added = 0;
   let failed = 0;
+  let marketPending = 0;
 
   for (const item of items) {
     if (item.status === "added") continue;
@@ -2069,6 +2073,26 @@ async function ownerBatchAddAll() {
       item.identityStatus = data.identity_status || null;
       if (data.inventory?.market_value_minor != null) {
         item.selected.market_value_minor = data.inventory.market_value_minor;
+      } else if (
+        sealed
+        && data.inventory?.identity_confirmed
+        && item.inventoryCode
+      ) {
+        try {
+          const market = await apiRequest(
+            `/api/v1/owner/inventory/${encodeURIComponent(item.inventoryCode)}/refresh-market`,
+            {method: "POST", body: "{}"}
+          );
+          const marketValue = market.valuation?.market_value_minor;
+          if (marketValue != null) {
+            item.selected.market_value_minor = marketValue;
+          } else {
+            marketPending += 1;
+          }
+        } catch (marketError) {
+          marketPending += 1;
+          item.marketValueError = marketError.message || "Market value needs more UK sold evidence.";
+        }
       }
       added += 1;
     } catch (error) {
@@ -2093,9 +2117,44 @@ async function ownerBatchAddAll() {
     message.textContent = pending
       ? `${added} ${added === 1 ? "item" : "items"} added; ${pending} still ${pending === 1 ? "needs" : "need"} Drop Rate identity review.`
       : `${added} ${added === 1 ? "item" : "items"} added with verified identity.`;
+    if (!pending && marketPending) {
+      message.textContent += ` ${marketPending} market ${marketPending === 1 ? "value is" : "values are"} pending exact UK sold evidence.`;
+    }
     message.className = "owner-card-message success";
   }
 }
+
+// This entry point is called *synchronously from the Scan navigation click*.
+// Do not await recognition status, fetch config, or an animation before calling
+// ownerScanStartCamera: browsers require a user gesture for camera permission.
+function ownerRecognitionLaunchCamera() {
+  if (!state.session?.access_token || byId("owner-view-scan")?.classList.contains("hidden")) return;
+  if (window.dropRateScanner?.dialog?.open) return;
+  void ownerScanStartCamera("environment").catch(error => {
+    const reason = error?.name === "NotAllowedError"
+      ? (window.matchMedia?.("(max-width: 900px)")?.matches
+          ? "Allow camera access in your browser settings, then reopen Scan."
+          : "Allow camera access in your browser, or choose a photo instead.")
+      : error?.message || "Camera unavailable. Try opening Scan again.";
+    if (!byId("owner-view-scan")?.classList.contains("hidden")) {
+      ownerScanMessage(reason, "error");
+      window.dropRateScanner?.status?.(reason);
+    }
+  });
+}
+window.ownerRecognitionLaunchCamera = ownerRecognitionLaunchCamera;
+byId("owner-mobile-open-scanner")?.addEventListener("click", ownerRecognitionLaunchCamera);
+
+function ownerRecognitionLeave() {
+  // Invalidate pending camera permission grants, even on browser Back/hash
+  // navigation. Keep queued recognised cards intact until the user saves them.
+  ownerScanStopCamera();
+  const scanner = window.dropRateScanner;
+  if (!scanner) return;
+  scanner.stopCamera();
+  if (scanner.dialog?.open && !scanner.saving && !scanner.editBusy) scanner.close();
+}
+window.ownerRecognitionLeave = ownerRecognitionLeave;
 
 async function ownerRecognitionEnter() {
   if (!state.session?.access_token || state.ownerRecognition.status) return;
@@ -2224,11 +2283,10 @@ byId("owner-scan-another").addEventListener("click", () => {
   ownerScanMessage("Ready for your next card.");
   byId("owner-scan-open-camera").scrollIntoView({behavior: "smooth", block: "center"});
 });
-document.querySelectorAll('[data-owner-view="scan"],[data-owner-jump="scan"]').forEach((button) => {
-  button.addEventListener("click", () => ownerRecognitionEnter());
-});
+// Scan navigation owns readiness and automatic camera launch; no duplicate listeners.
 
 window.addEventListener("pagehide", () => ownerScanStopCamera());
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") ownerScanStopCamera();
 });
+

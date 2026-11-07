@@ -107,7 +107,7 @@ def test_owner_join_route_and_router_are_wired() -> None:
 
     assert '@app.get("/owner/join", include_in_schema=False)' in main
     assert "app.include_router(owner_onboarding_router)" in main
-    assert '<script src="/assets/owner-join.js?v=public-join-2" defer></script>' in html
+    assert '<script src="/assets/owner-join.js?v=ux-20261103" defer></script>' in html
 
 
 def test_owner_invite_ui_discloses_commission_before_signup() -> None:
@@ -265,7 +265,7 @@ def test_owner_join_flow_is_guided_and_acknowledged_before_redeem() -> None:
     source = JOIN_JS.read_text()
 
     assert "Seller onboarding" in html
-    assert "What your seller account includes" in html
+    assert "Collect now. Sell when you’re ready." in html
     assert 'id="owner-join-ack"' in html
     assert 'id="owner-existing-ack"' in html
     assert "acknowledged: true" in source
@@ -411,12 +411,13 @@ def test_seller_invitation_avoids_warning_style_owner_copy() -> None:
     html = JOIN_HTML.read_text()
     source = JOIN_JS.read_text()
 
-    assert "<title>Drop Rate — Sell With Us</title>" in html
-    assert "Sell with Drop Rate" in html
-    assert "Verified accounts" in html
-    assert "3 · Seller Hub" in html
-    assert "What your seller account includes" in html
+    assert "<title>Create your account — Drop Rate Seller Hub</title>" in html
+    assert "Your collection.<br><em>All in one place.</em>" in html
+    assert "Verify email" in html
+    assert "Start collecting" in html
+    assert "Collect now. Sell when you’re ready." in html
     assert "restricted owner account" not in html.casefold()
     assert "owner scoped" not in html.casefold()
-    assert "seller account only gives me access to my own inventory" in html
-    assert "verified seller profile" in source
+    assert "I can only access my own collection and account" in html
+    assert "commission shown above applies when I choose to sell" in html
+    assert "verified seller email" in source

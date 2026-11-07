@@ -1,3025 +1,2305 @@
+## 7 November 2026 — eBay first-party photo publication safety (PR in review; NOT deployed)
+
+- Live read-only SQL: the sole eBay listing link remains ERROR / PUBLISH:400, GBP 35, no stored offer/listing ID and no publication timestamp (last attempted 4 Nov 14:21 UTC). The connected EBAY_GB seller record is READY with all three API business policy IDs; this does **not** establish eBay seller registration/payment verification. Previous authenticated Seller Hub inspection showed missing payout and selling-cost payment methods and individual-account status.
+- The approved Luffy ST10-006 PSA 9 physical copy has two PSA-provider images marked \`INTERNAL_REFERENCE_ONLY\`, not \`FIRST_PARTY_CAPTURE\`. Current eBay publisher and owner detail readiness SQL check VERIFIED/APPROVED/READY but omit image rights tier, origin and graded capture context. This could accept reference-only images for a public sale.
+- Scoped code repair: require owner- and inventory-bound \`FIRST_PARTY_CAPTURE\` front/back images from actual founder or consignor upload, verified/approved and active, and \`GRADED_SLAB\` capture context for graded copies. Align the owner UI's nine-point eBay preparation check with the actual publisher. Do not substitute PSA reference images or relax media rights. Existing unique SKU offer recovery, owner/price/policy gates and retry handling remain unchanged.
+- PostgreSQL fixture tests now exercise the real publisher photo SQL and owner detail readiness SQL, including provider-only photos, foreign owners/copies, revoked/pending images, wrong capture context and raw-vs-graded behavior. **CI, merge, Railway deployment, seller onboarding, approved first-party photo capture and live eBay publication all remain unverified.**
+- No new item/offer, DB migration, inventory ownership, storefront price, settlement or production environment change is part of this PR. Live acceptance requires eBay seller verification and actual rights-cleared front/back photos before a controlled founder-app retry; require real eBay listing ID and URL for success.
+
+## 7 November 2026 — DR101 existing Cloudflare artwork Worker release gate (PR pending CI)
+
+- Verified GitHub Actions run [42308082427](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42308082427) provisioned the named **EMPTY** artwork-only D1 shadow with two exact schema objects; this was an independent successful 6 November remote receipt, not an inference from merge. Current worker code remains **not confirmed deployed**, and no new-game card images are published.
+- Added a **manual-only, variable-gated** release workflow for the existing HMAC-only Cloudflare Worker with read-only exact-account D1/schema preflight, explicitly supplied existing R2 bucket, independent limited-scope Worker credential and HMAC secret, pinned Wrangler, and safe public-route 404 / bad-signature 401 smoke tests. No n8n DR95 activation, public artwork pointer, market values, Shopify, owner/finance or R2 image-write changes.
+- [DR101 exact setup, tests and rollback](docs/DR101_PRIVATE_ARTWORK_WORKER_RELEASE_20261107.md). **State: IN REVIEW** until PR CI, separately configured Cloudflare Worker token/bucket/HMAC credentials, manual release, remote deployment receipt and both network smokes are verified. A private evidence queue or empty D1 does not solve #966 rights/printing requirements.
+
+## 7 November 2026 — DR-100 first-party graded Shopify photo audit (CI pending)
+
+- Built an hourly, deterministic **owner-scoped** audit of existing non-test published Shopify graded inventory. The current 506 published physical item links include 8 graded copies; no READY approved `FIRST_PARTY_CAPTURE` slab front/back photos are in the media registry. Certification-image records remain `INTERNAL_REFERENCE_ONLY`.
+- Existing Shopify sync will emit/reopen idempotent HIGH Action Required `SHOPIFY_PUBLISHED_GRADED_PHOTOS_MISSING` for each exact physical copy without both first-party rights-approved READY sides, and close only that code when proof is obtained. Owner ID and inventory ID must match. The audit will not unpublish, relist, change stock, ownership, price, sales or founder review overrides. No bulk reference writes. Audit exceptions are included in SHOPIFY_SYNC heartbeat.
+- [DR-100 safety details](docs/DR100_SHOPIFY_GRADED_IMAGE_EXCEPTIONS_20261107.md). **CI/deployment not yet verified as of writing.**
+
+## 7 November 2026 — DR-99 verified market-expiry regression repair (CI pending)
+
+- The legacy catalogue browser and /market-values can still display an old reference quote when its seven-day observed/updated timestamp is recent but its explicit `expires_at` passed. Live Supabase checked: **all 59,693 legacy market-price rows expired by 4 November 2026**, and no unexpired Market Value rows remained. Repair gates every m/b reference and sealed market value by `expires_at > now()`, makes coverage report expired evidence as `STALE_EVIDENCE`, and prevents provisional Cardmarket canonical snapshots populating Market Value via `STORED_SNAPSHOT` filter. No expiry extension or new pricing provider is claimed.
+- Shopify SQL audit: all **506** approved for-sale physical copies show non-test `PUBLISHED` inventory links and valid product/variant GIDs; zero publication candidates. Exact Shopify GraphQL storefront/item-image readback still outstanding. **Eight** graded physical copies have no verified ready `FIRST_PARTY_CAPTURE` store photos in the database, but existing founder certification review/overrides must be checked individually; no silent delisting.
+- Artwork R2 reference mirrors: 66,218 verified and 4 source-unavailable retries; legacy Pokémon refs missing 3,475 image sources. R2-first source references: 204,411 metadata records across 6 active partitions; commercial exact-print artwork and sold-evidence inputs still unavailable. Riot Riftbound App-specific key/approval missing; no unauthorized ingestion.
+- Tests/docs: [DR-99 runbook](docs/DR99_MARKET_EXPIRY_AND_SHOPIFY_MEDIA_AUDIT_20261107.md). **Status at authoring: under CI; not yet merged/deployed.** Do not claim full four requested features finished.
+
+## 7 November 2026 — DR-98 private R2 artwork/Market Value evidence bridge (staged)
+
+- New six independently scheduled, source-specific DR98 workflows run 15-minute signed FastAPI commands to convert previously published **R2-first catalogue source shards** into immutable, SHA-256 verified private R2 evidence worklists. No Supabase card bulk writes; no new image rights, Market Value, owner, stock or Shopify publication authority.
+- The backend derives canonical source keys, exact print identifiers, release dates, potential identity-review requirements and the remaining distinct image/UK sold-price proofs, with 6 shards (up to 3,000 candidates) per bounded run. Source binding is verified against active SQL publication both before and after R2 IO. Duplicate writes are idempotent; stale generations fail closed.
+- This **does not yet download/publish new game artwork or provide values**: rights-approved image sources and permitted UK sold evidence adapters remain outstanding; Cloudflare artwork Worker/D1 live staging deployment unresolved, as does full legacy Supabase 400MB capacity migration and Riot Riftbound access.
+- [DR-98 security and rollout guide](docs/DR98_R2_ARTWORK_MARKET_EVIDENCE_BRIDGE_20261107.md). CI and live activation pending verification. 
+
+## 6 November 2026 — DR-97 Pokémon/One Piece/Naruto/Dragon Ball/Riftbound release scouts (staged)
+
+- Eight independent **initially inactive** n8n schedules added for TCGdex Pokémon; One Piece official/Punk; Dragon Ball Masters/Fusion; Naruto Kayou/Bandai; Riot Riftbound access readiness. Signed FastAPI route delegates to existing legacy catalogue adapters and shared daily advisory lock, with daily due checks and Supabase capacity fail-close.
+- Last production check: Supabase ~430 MB, bulk data updates must remain **DEFERRED_CAPACITY** until Cloudflare data migration or safe archive frees space. No false publication claims or duplicate network loads.
+- Riot Riftbound requires official App-specific API access or written licence before importing or mirroring; status is **DEFERRED_RIOT_APPROVAL** only. No unofficial asset scraping.
+- CI must prove source signing, user/admin permissions, capacity, retry failures, source drift, guarded offline n8n backups and exact activation. New source-check successes do not approve artwork, physical slabs, Shopify listing, prices or owner changes.
+- [DR-97 runbook](docs/DR97_LEGACY_RIFTBOUND_RELEASE_SCOUTS_20261106.md). Production activations require subsequent readback.
+
+## 6 November 2026 — Per-game new-release automation DR-96 (staged pending n8n activation)
+
+- Six separate **inactive** n8n release scouts created for YGOPRODeck/Yu-Gi-Oh, Lorcast/Lorcana, MTGJSON/Magic, two selected sports feeds, and curated figures. Daily or weekly staggered schedules, DR-90 error routing, HMAC-signed FastAPI source commands. Existing background importer remains; a shared advisory lock suppresses duplicate overlapping downloads.
+- Backend source cadence: Lorcast and MTGJSON can refresh daily; YGOPRODeck remains 48h to respect its published two-day cache; sports/figures retain weekly policy. Immutable R2 metadata generation re-upload is skipped when fetched provider revision is unchanged. No new provider URLs, unapproved source, live price, owner, Shopify product, grade/slab or copyright/approval rights are inferred.
+- Existing Pokémon, One Piece, Dragon Ball and Naruto metadata maintenance is separate and currently subject to SQL capacity guard; Riftbound source remains gated on Riot API approval. Commercial artwork per-print mappings and live Cloudflare D1/Worker image publication are **not** solved by these metadata-only scouts.
+- [DR-96 detailed runbook](docs/DR96_PER_GAME_RELEASE_SCOUTS_20261106.md). Do not mark active until persistent n8n publication and signed execution are verified.
+
+## 6 November 2026 — All-eligible artwork n8n controller DR-95 (in review; NOT automatically publishing new games)
+
+- Production n8n deploy logs at 22:24 UTC confirmed existing DR-94 approved canonical artwork workflow already **ACTIVE**. The separate API reference-image worker also runs, but defers because live Supabase was **430,484,627 bytes**, above the 400 MB bulk-refresh guard. Current verified mirrors: **66,218** legacy reference images + **401** canonical image mirrors; four reference retries remain. Do not duplicate these workers or relax the capacity guard.
+- Added source-controlled, **inactive** DR-95 hourly HMAC-signed workflow and deterministic FastAPI `/api/v1/automation/commands/storage/refresh-eligible-artwork` orchestration. DR-95 ordinarily requests **zero canonical downloads** (DR-94 already handles these) and automatically delegates legacy reference work to the live API worker. An explicitly permitted failover can process small batches after SQL capacity clearance, with exact source/rights recheck and immutable R2 SHA-256 receipts. New R2-first metadata-only card references **do not gain images or Shopify publishing rights** through this controller.
+- Security/failure tests: invalid HMAC command schema, 0–5 canonical and 1–20 reference bounds, capacity deferrals, double-worker suppression, error receipts and reference-only separation. No AI price/owner/Shopify changes. DR-95 must pass CI, n8n stored-definition/DR90 routing and a signed production pilot before being activated; workflow provisioner imports it inactive by default.
+- [Runbook and evidence](docs/DR95_ARTWORK_AUTOMATION_20261106.md) · [Artwork workstream #966](https://github.com/pulltheorytcg/drop-rate-backend/issues/966).
+
+## 6 November 2026 — New-game artwork exact-ID preview pilot (PR pending; NOT deployed)
+
+- Live Supabase read-only source registry: R2-first Yu-Gi-Oh 45,418, Lorcana 3,505 and MTG 153,662 metadata references; none are proven reference-art image deliveries. Existing 66,218 VERIFIED R2 reference images cover original games only.
+- Added disconnected, read-only, max-25-candidate YGO and Lorcast artwork preview functions with exact reference identity, official-host locator checks, alternate-art ambiguity rejection, and rights/printing-review status. Unit cases cover wrong print, malicious URLs, missing permission, duplicate keys and scope. Source adapters, snapshots, DB/R2/Shopify/media publication and prices are **unchanged**.
+- Source metadata access is not commercial card-image permission. Every candidate remains pending publisher rights and visual/byte verification; no live UI change, R2 image mirror or Shopify photo was created. Read [pilot design](docs/EXPANDED_ARTWORK_PILOT_20261106.md) and [issue #966](https://github.com/pulltheorytcg/drop-rate-backend/issues/966). CI/PR review and real-source pilot are distinct pending gates.
+
+## 6 November 2026 — FULL source-verified reference R2 image bytes and all 1,083 eBay sold rows independently backed up
+
+- **21:19 UTC, real Railway deployment** `bed6c419-5a15-47b2-895b-ade96a38ae4f`: ALL **66,218** R2 objects linked from source-`VERIFIED` reference images + **401** canonical/provider media objects (**66,619/66,619**, 5,785,719,660 recorded bytes) had byte size, WebP and SHA256 readback verified; **0 errors**, full scoped reference coverage. Private receipt SHA256 `86613aef6139432bfd069b20eb83c240f59ec17ab2ea0f48dabc0bbfd118a0e2`. Four reference images remain `RETRY` and are not verified.
+- **21:22 UTC, real Railway deployment** `5be5b623-19ea-4439-ac7b-1b1c09365d32`: all **1,083** source-classified UK eBay sold observations copied to private immutable R2 with exact byte and source record roundtrip, excluding potentially sensitive provider JSON. Private report SHA256 `6946342d6e1ebadbcbeca3350d047fb46610efc85b341e8f65102bca7b8d714f`. Not a Market Value publication, usage-rights approval, or full price-history migration.
+- **CRITICAL remaining link/photography gap:** these 401 canonical/provider images are NOT first-party photographs of inventory copies. Live 21:27 audit: **621** physical items, including **12** graded; **0** have an inventory-linked R2 mirror. Correct physical-copy/slab image and owner-scoped scan upload still block media cutover, despite valid catalogue artwork bytes.
+- [Full live receipts and limitations](docs/CLOUDFLARE_R2_FULL_MEDIA_AND_UK_SOLD_LIVE_RECEIPTS_20261106.md). Supabase live, no founder/consignor Auth switch, D1 settlement cutover or money movement.
+
+## 6 November 2026 — VERIFIED R2 byte audit, explicit copy-photo gap and sold-evidence shortage
+
+- One-shot Railway R2 byte-readback deployment `e27e8689-26cd-4bb6-bee0-329cabe0fd72`: **481/481 actual R2 objects passed downloaded SHA256, size and WebP checks** (all 401 *canonical* `media_object_mirrors` + 80 stratified provider references). Private receipt SHA256 `e805b45c73fa68f99648edd9a448aeb18f5984b50d4e1797b830b700d27b5046`. This is NOT 481 photographed physical copies. Full 66,218 reference-image byte verification has a separate explicit one-shot job and must not be marked complete before its own readback.
+- Live source: **621 physical items, 12 graded**. Only **43** items have linked `media_assets`, of which most are provider artwork; **0/621** have a linked R2 mirror for a physical item. Exact inventory/slab photo capture and private first-party storage remain a distinct migration blocker.
+- Market evidence: 1,083 eBay `SOLD` rows (1,040 recent GB positive across 145 product IDs), 5,158 Cardmarket `PRICE_GUIDE` rows. None of these aggregate counts alone certifies final legally usable Market Value. RRP, guide and asking must never be silently published as Market Value.
+- [Full source-backed image and pricing audit](docs/CLOUDFLARE_ARTWORK_PRICE_EVIDENCE_AUDIT_20261106.md). Production is still Supabase; no auth, multi-owner finance or store cutover.
+
+## 6 November 2026 — 67,801 real operational source records backed up and read back in PRIVATE R2 (10/11 approved relations)
+
+- One-shot Railway [verified deployment](https://railway.com/project/9329767b-b092-495c-bf18-75cf69c28536) `36a888c4-a5f5-4b23-8d1a-8a8e35317c5e` completed at 20:16:26 UTC and produced `PRIVATE_OPERATIONAL_R2_PARTIAL_SOURCE_VERIFIED`, `r2_uploaded=true`, 10 verified relations, source SQL writes 0 and private manifest SHA256 `419698b6856f3cdef5ca57558e44397e919878f425c8957abfe7b1898416c3d4`. The 10 full-source tables contain **67,801 original records**; 66,222 of these are reference-image *metadata*, not verified image bytes.
+- `owner_memberships` was explicitly excluded: the maintenance account sees **1/6** rows under existing RLS. The separate protected-main operational **D1** run already verified **all 6 memberships** as part of 1,184 real source records, but that does not complete 11/11 R2 nor authorise cutover. Supabase/Shopify production remains unchanged.
+- Read [actual private R2 readback receipt](docs/CLOUDFLARE_PRIVATE_R2_OPERATIONAL_LIVE_READBACK_20261106.md). Continue strict source-snapshot reconciliation, sensitive audit/price data review, media bytes, replacement Auth, remaining table scope and operational access/rollback testing. This is **no longer an unexecuted backup design**, but it is a **partial** R2 checkpoint only.
+
+## 6 November 2026 — 1,184 REAL business records verified in PRIVATE Cloudflare D1 (No production cutover)
+
+- [Protected-main run 42283108326](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42283108326) succeeded at 19:51 UTC from PR #946 merge `db660dce5c65096c96faeb7b098fecf08b6ef989`. The existing privileged Postgres connection was used for a **read-only, repeatable-read** snapshot through protected GitHub Actions; no app RLS policy or login privilege was changed.
+- Exactly **1,184 source rows** now have matching source identity/hash readbacks in the isolated private D1 shadow: **6 owners (3 founder + 3 consignor), 6 memberships, 621 physical inventory, 3 orders, 3 order items, 13 immutable ledger, 3 refunds, 14 Shopify webhook records, and 515 media asset metadata**. Nine source-table receipts and all owner/currency ledger sums matched. Source SHA256 `b82fe8a43aba41b2835283fd3c588bececcb705f18afb2ffcba5b39d36ad54cc`.
+- **Do not confuse this with full Supabase exit:** D1 generation remains `STAGING` with no production pointer, no user/Auth cutover, no R2 byte-level artwork/price/archive confirmation, no payment movement and no deletion of SQL. Source mirror metadata and referenced-catalogue fingerprints are not claims of verified artwork bytes. See [source receipt](docs/CLOUDFLARE_OPERATIONAL_D1_REAL_SOURCE_RECEIPT_20261106.md).
+
+## 6 November 2026 — RLS-safe private R2 source checkpoint follow-up (In review)
+
+- [PR #944](https://github.com/pulltheorytcg/drop-rate-backend/pull/944) merged the **11-table** private source archival worker with all required CI checks; merge is code, not proof any R2 operational row was transferred.
+- Actual Railway read-only dry run on maintenance actor verified **only 1 of 6 owner-membership rows** are visible under existing `tcg_api` RLS. The prior all-or-nothing export failed closed. No R2 write was requested, no Supabase rows were changed and no D1 business rows were imported.
+- New follow-up skips **entire** tables when RLS full-source parity cannot be established and publishes only a source-exact private *partial* manifest if other tables pass, naming each blocked relation. Never export 1/6 memberships or represent 10/11 as complete. All source columns/types, identity checks and read-only typed roundtrip remain pinned. Standalone private archive is not a transactional D1 cutover; matching owner membership and any other blocked data must be exported under separately reviewed restricted admin access.
+- A distinct one-off Railway service dry-run pinned to this PR commit is an integration test, not production acceptance. Full source capture, D1 owner/ledger parity, artwork bytes, market history and Supabase Auth retirement remain pending. Do not relax RLS, force a full-coverage success or spend without approval.
+
+## 6 November 2026 — Private R2 source checkpoint for real ownership, finance and media metadata (In review)
+
+- Built a one-shot, **read-only source-consistent** PostgreSQL → private R2 checkpoint worker for 11 reviewed, approved operational tables: owners, membership, 621 physical inventory, orders/items, ledger, refunds, Shopify webhook inbox, media assets and mirror metadata, reference artwork-mirror index records. Source counts at the 6 Nov read-only audit are documented in [checkpoint scope](docs/CLOUDFLARE_PRIVATE_R2_OPERATIONAL_SOURCE_STAGE1_20261106.md).
+- It exports every original column, validates fixed primary-key identity and complete row counts in one repeatable-read snapshot, uses private immutable SHA256 object keys, verifies actual R2 download and reconstructs each record through **read-only** PostgreSQL typed JSON. A final R2 manifest is only published after every source passes. Production D1 remains empty; backup source values are not new Market Values.
+- No `auth`, OAuth/Stripe/eBay tokens, customer sessions, payment-card details, active settlement moves, existing SQL delete/UPDATE or store read switch. Explicit opt-in on an existing dedicated Railway service is required for R2 upload; default is offline verification. Added fail-closed tests for tampering, id collisions, schema mismatches and RLS actor checks.
+- Read-only content review found 157/46,577 audit rows and 13/6,241 market-observation rows with credential-like text patterns (false positives possible). These two raw-JSON tables are **excluded**, untouched and require a separately protected credential-sensitive archive path. Schema/SQL type allowlist is pinned to a 6 Nov production metadata manifest; a new source column blocks export.
+- **Status: In review; not executed in production.** Confirm CI and actual Railway source snapshot/R2 typed readback before reporting rows moved. This backs up only 11/148 source tables; it does not complete full Supabase exit, operational D1 parity, artwork bytes, complete price history or sign-in replacement.
+
+## 6 November 2026 — Cloudflare operational D1 private schema provisioned (Live verified; NO data cutover)
+
+- PR #942 merged at `c6222b4420949196b847f2b40a75bf8b8789ae67` after complete backend and D1 schema CI passed. Protected-main GitHub [run 42271327650](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42271327650) created `drop-rate-d1-operational-shadow-20261106`, read back **32/32** exact named operational schema objects, and published `drop-rate-d1-operational-schema-only: success`. DDL source SHA256: `bbae6a1b909069fd50e2f038abfa4659a1bc46ec86d557b443d75949f0cef9f9`. This is **an empty, isolated D1 schema** with no production route, not proof of imported inventory, values or financial records.
+- Supabase read-only exact source counts at 18:29:21 UTC: 621 physical inventory records, six owner records, 515 media assets, 401 physical media mirror records, 66,222 reference mirror index records of which 66,218 marked VERIFIED with hash/key, 59,693 market quote rows, 27,676 catalogue quote rows, 6,241 market observations, 92 history-R2 archive receipts totalling 117,148 archived history rows, 13 ledger rows, three orders and three order items. These are registry counts, not independently re-downloaded asset bytes, unique Market Value coverage, or seller payments.
+- The source remains PostgreSQL. **No owner/consignor, Shopify, user login/Auth, media binary, price history or monetary data was transferred by the D1 schema-only run**; all protected operational cutover, cross-owner authorisation, exact typed R2/D1 restore and financial reconciliation gates remain outstanding. No bulk cap raised, no paid Cloudflare plan, no Supabase deletion and no production feature flag changed. See [live receipt](docs/CLOUDFLARE_OPERATIONAL_D1_SCHEMA_LIVE_RECEIPT_20261106.md).
+
+## 6 November 2026 — Full Supabase exit coverage register and fail-closed live-schema preflight (In review)
+
+- Founder confirms migration of the **entire** Drop Rate stack away from Supabase to Cloudflare R2 + D1, not merely Magic or reference catalogues. Retain Shopify, Railway/FastAPI and n8n in their existing roles. A separate replacement identity provider and D1-native financial/permission implementation are required; neither is a database-string swap.
+- Read-only live PostgreSQL system-catalogue audit identifies **107 tcg application tables, 6 tcg_private, 27 auth and 8 storage relations**; tcg has **128 functions, 156 custom triggers, 272 RLS policies, 185 foreign keys, 396 indexes**. The full database was **430,476,435 bytes at 17:52:40 UTC**, above the unchanged bulk-ingestion guard. Numbers are dated and relation row estimates are not actual export parity.
+- Added `docs/CLOUDFLARE_FULL_EXIT_TABLE_REGISTER_20261106.json` with an explicit target/route for all **148** source relations; `tools/cloudflare_full_exit_preflight.py` rejects missing, new, wrongly categorised or duplicate tables and optionally verifies live metadata with the existing maintenance-admin and a read-only SQL transaction. New regression tests check inventory/ledger isolation, asking vs Market Value, Auth token non-copy and schema drift. See `docs/CLOUDFLARE_FULL_EXIT_EXECUTION_20261106.md`.
+- Existing real GitHub execution receipts: Lorcana 3,505 D1 parity success; Yu-Gi-Oh 8,000/45,418 (6 November daily staging receipt spent); follow-on 0/155,488 pending; typed legacy 0/79,186 pending. Approved source R2 manifests and partial shadow are **not** live operational D1, price, media, authentication or ledger cutover.
+- **Status: In review.** In addition to the full register/readonly schema preflight, this PR now includes `database/cloudflare_d1/0001_operational_shadow.sql` (isolated exact-owner inventory, orders, reservations, refunds, Shopify allocation, append-only ledger/audit, private image metadata), `0002_market_value_shadow.sql` (eligible sold-based GB GBP value only, separate guide/asking/missing), SQLite regression suites, and an account/slot-guarded protected-main workflow to provision the **empty operational D1 shadow schema** without importing customer data. A successful schema-only run is NOT live business cutover. Existing catalogue D1 jobs retain their daily source gates. No Supabase SQL row exports, R2 data/media transfer, customer/price/Shopify/ownership/settlement writes, auth switch, Cloudflare spend/plan change or production routing/retirement. Full operational source snapshots, price-history/media transfer, user migration, and end-to-end ledger parity remain unverified; CI, D1 schema readback and independent rollout review required.
+
+## 6 November 2026 — Branded logos for three game browse tiles (in review)
+
+- Local transparent/source-original PNG game marks added for Yu-Gi-Oh!, Disney Lorcana and Magic: The Gathering, using the existing 78px contain-fit logo tiles and automatic text fallback on broken image load. Exact game identifiers, search navigation and set mapping are unchanged.
+- Browser game art, server set-art fallback registry and source manifest now agree. The original files have documented third-party upstream provenance, byte sizes and SHA-256 checksums; this is **not a commercial-use licence**, so usage rights remain a pre-release review item.
+- Added regression coverage for client/server/source mapping parity, file integrity, checksums and unknown-set fallback. Bumped the owner page script cache key.
+- Status: **In review**, with CI and authenticated mobile/desktop visual verification pending. No catalogue or pricing records, inventory, ownership, settlement, Shopify assets, runtime services or production deployments were changed.
+
+## 5 November 2026 — Market-value source and capacity recovery reconciled; no production change
+
+- Read-only Supabase, Railway and GitHub checks confirm PostgreSQL **430,419,091 bytes** (5 Nov 18:11 UTC), above the existing **400,000,000-byte** bulk refresh pause; live API logs still record `BULK_REFRESH_DEFERRED_CAPACITY`.
+- The 5 Nov 00:12 UTC receipt recorded **39,680/67,217 (59.03%)** current *original SQL reference prices*, including Cardmarket guides, not eligible sold-market-value coverage. Published TCG source references total **269,599** after Yu-Gi-Oh!, Lorcana and Magic metadata-only R2 imports; their market-value/artwork coverage has not been established. Riftbound remains unpublished.
+- Existing 3 Nov R2 backup has a verified typed restore of **87,369** complete market/catalogue quote rows. It reclaimed **0 SQL bytes**; it is not permission to delete/overwrite SQL, relax the capacity guard or report a refreshed price.
+- Measured **133** distinct catalogues with last-seven-day eBay V4 snapshot dates, not a guarantee of strict comparable or sell-grade eligibility. Original SQL artwork URL gap remains **3,316**; the 380-candidate exact TCGdex repair returned HTTP 404 for all 380.
+- Documented source quality, accurate denominators, capacity options, R2 cutover parity/rollback, permitted new-game sourcing and test gates in [the 5 November recovery report](docs/MARKET_VALUE_RECOVERY_20261105.md). **Documentation only; no source, financial, inventory, media or production mutation.** Owner decision remains necessary before any paid capacity upgrade or physical SQL price-payload cutover.
+
+## 4 November 2026 — Manga demographic expansion deployed; signed-in acceptance pending
+
+- PR #908 merged as `d0adc8d6303c3f3e1096eef63af0bb6834e9b22b` with
+  the full GitHub Backend checks and R2-first catalogue safety suites green,
+  including PostgreSQL 17 group-query, SQL binding and owner-visibility tests.
+- Exact Railway `drop-rate-api-live` deployment
+  `a7a39c7a-2df4-48e9-ab2f-201c102762a7` reached SUCCESS after 10,109
+  pre-deploy tests passed (28 optional skips); startup completed and
+  `GET /health/ready` returned HTTP 200 at 18:16:51 UTC.
+- Post-deployment read-only SQL using the **52-key deployed allowlist**:
+  Shōnen 129, Shōjo 57, Seinen 69, Josei 6, Unclassified 544.
+  **261 of 805 catalogue manga references now classify (32.42%)**, up from
+  53/805 (6.58%), an increase of 208 correct exact-series matches.
+  These are reference counts, not unique physical stock or market coverage.
+- No SQL data write, schema change, R2 import, artwork/market value,
+  inventory, ownership, payout or Shopify mutation. Uncertain manhwa,
+  adaptations and series remain Unclassified; no Kodomo cases were invented.
+- A real authenticated device browse remains an explicit separate acceptance
+  gate; do not equate ready/SQL receipt with end-user visual verification.
+  Deployment evidence was recorded on PR #908. Reviewed source details:
+  [Manga demographic review](docs/MANGA_DEMOGRAPHIC_REVIEW_20261104.md).
+
+## 4 November 2026 — Reviewed manga demographic expansion — in review
+
+- Extend the existing strict, exact-series manga demographic allowlist with
+  42 independently reviewed original-publication title/edition keys. No
+  genre/publisher inference, fuzzy matching, physical stock or financial writes.
+- Read-only SQL baseline: 805 manga reference printings; 53 previously
+  classified, 752 Unclassified. The approved literal map is projected to
+  classify **208 additional rows** (261/805 classified, 544 Unclassified)
+  after the matching commit is deployed. These are catalogue references, not
+  owned inventory; no production row mutation is required.
+- Reviewed shōnen/shōjo/seinen/josei publisher-magazine evidence and exclusion
+  cases are recorded in
+  [Manga demographic source review](docs/MANGA_DEMOGRAPHIC_REVIEW_20261104.md).
+  Manhwa, ambiguous adaptations and sequel editions remain Unclassified.
+- Automated exact-series/negative matching and bound SQL parity tests are
+  added to full backend and R2 catalogue CI. Merge, exact Railway deployment,
+  health, correct owner-scoped browse and signed-in acceptance remain
+  separate gates until explicitly verified.
+- No artwork, quotes/prices, R2 data migration, schema, authentication,
+  permissions, ownership, storefront or settlement changes.
+
+## 4 November 2026 — eBay app blockers repaired; seller verification blocks publication
+
+- Fixed the missing `EBAY_INVENTORY_LINK` audit entity, first-offer HTTP
+  404/error 25713 handling and eBay's 65-character Card Name specific. The
+  complete canonical identity, unique physical-copy SKU, price, owner, photos,
+  preparation checks, RLS and append-only audit permissions are preserved.
+- PRs #895, #898, #899, #901 and #905 passed their CI checks and deployed.
+  Latest listing fix: `2c330a01ff42f1bd5abf206830fb7db8ab0fa1be`, Railway
+  `da770f7b-8bf3-429c-b5fc-ed0e4d192543` SUCCESS; 10,045 pre-deploy tests passed
+  and 28 optional tests skipped. Database regressions ran explicitly in CI.
+- The authorised founder retry at 13:33 UTC used the approved Luffy ST10-006
+  PSA 9 physical copy at GBP 35. It passed the Card Name rejection and reached
+  eBay publish validation: HTTP 400/error 25002, with static account and
+  verification requirement hints. The link remains ERROR / PUBLISH:400,
+  with no verified offer or listing ID; owner match remains true. This is
+  **not a successful listing**. Do not retry until the account action is resolved.
+- The app now maps this narrowly identified publication error to a static
+  instruction to check eBay Seller Hub. It does not guess which identity,
+  bank or contact information is missing, expose provider prose or credentials,
+  or change the API rejection into success. Other failures remain unchanged.
+- eBay Seller Hub requires a separate browser sign-in. Drop Rate's signed-in
+  founder session and connected API do not establish that seller verification
+  is complete. A live listing and subsequent sale remain unverified.
+- See [scope, validation and rollback](docs/EBAY_AUDIT_PUBLICATION_FIX_20261104.md).
+
+## 4 November 2026 — Catalogue groups deployed; Topps Heritage published
+
+- User confirmed Magic is visible in the app. New navigation groups expose
+  Comics → Marvel / DC / Indie / Other; Manga → Shōnen / Shōjo / Seinen / Josei /
+  Kodomo / Unclassified; Sports → Panini / Topps / Other; Figures → Funko Pops /
+  Figurines / Other. Empty groups are not advertised as complete catalogues.
+- Groups filter the full matching catalogue before counting and pagination,
+  including series, saved references and owner-scoped views. Canonical IDs,
+  physical inventory, ownership, valuation and sale approval are unchanged.
+  Exact reviewed publisher/series/manufacturer facts determine classification;
+  unknowns stay unclassified, and manga demographics are not inferred from genre.
+- PR #896 merged as `ccb72621a7a759e841450a3a2bf7fe75df101438` after all
+  12 PR workflows passed, including native PostgreSQL 17 group/RLS checks.
+  Local and Railway pre-deploy Python suites each passed 9,997 tests (25
+  optional skips); the full local dashboard UI suite passed.
+- Railway deployments `18615e6d-ab33-421a-8477-a73e8ccce8e9` (code) and
+  `43c924fc-8b1d-4bf7-844e-ed285ee9b1ee` (additive source activation) succeeded
+  for that exact commit. Public JS/CSS hashes matched the merged files; the
+  owner shell references the new assets, readiness passed and anonymous browse
+  correctly remained HTTP 401. Signed-in device acceptance is still pending.
+- The separate Topps Heritage partition published at 12:47:32 UTC with 100
+  released numbered references, one set, 104,647 raw bytes, verified R2 cold
+  readback/search and zero bulk SQL rows written. Existing five publication
+  pointers, generations and counts remained unchanged. Six R2-first partitions
+  now contain 204,208 source records / 202,159 released references. Existing SQL
+  reference tables remain 69,697 cards / 1,472 sets.
+- Coverage is deliberately partial: 1,822 selected Topps/Bowman R2 references,
+  four existing Funko references and two existing canonical Nendoroid references;
+  no new complete Panini or figure catalogue. Reviewed manga rules currently
+  classify 53 of 805 structured references (42 Shōnen, five Shōjo, six Seinen);
+  752 remain Unclassified. Josei/Kodomo currently have no matching records.
+- Artwork, market values and physical-language/parallel confirmation are not
+  supplied by the new checklist. Original identities, ownership and financial
+  history are not migrated or modified by this rollout.
+- Riftbound remains deferred pending Drop Rate-specific Riot approval/key.
+  Full Panini and bulk Funko/figure feeds still require appropriate source rights;
+  consumer websites and unofficial mirrors are not activated as bulk feeds.
+- Authenticated browse/pagination and real-browser visual acceptance are not
+  claimed from health or publication alone. See the [release receipt](docs/CATALOGUE_GROUPS_RELEASE_20261104.md),
+  [grouping and evidence](docs/CATALOGUE_BROWSE_GROUPS_20261104.md) and
+  [Topps Heritage source bounds](docs/TOPPS_HERITAGE_SOURCE_20261104.md).
+
+## 4 November 2026 — Shared Seller Hub for founders (release in progress)
+
+- Founders enter the real Seller Hub at `/owner`, with its existing Home, Collection,
+  Scan, Search, Selling, account menu and responsive navy/white/blue/orange design.
+- Settings contains a verified-founder dashboard: company account/stock/sale
+  oversight and access to existing inventory, identity, media, action-required,
+  finance, payout and platform controls. Advanced forms remain at `/founders`
+  with shared Hub navigation and a return to the founder dashboard.
+- Personal APIs remain bound to the signed-in owner ID; the three-account roster
+  still gates founder operations. Profile updates support verified founders and
+  retain uniqueness, caller scope and audited old/new values. No membership,
+  inventory, price, settlement, Shopify publication or money movement is made.
+- Validation: 9,433 Python tests passed, 25 optional tests skipped; full dashboard
+  interaction suite and dedicated shared-Hub navigation/access/revocation/logout
+  checks passed. Actual disposable PostgreSQL roster/profile/audit tests passed.
+  The backward-compatible profile migration is applied and verified in production.
+  No new security-advisor findings. Public-repository publication and deployment
+  are explicitly approved. GitHub CI and exact-commit Railway SUCCESS remain
+  release gates; signed-in visual acceptance is recorded separately.
+- See [design, security and rollback](docs/UNIFIED_FOUNDER_HUB_20261104.md).
+
+## 4 November 2026 — R2-first catalogues (five partitions published; Magic visible on device)
+
+- PR #892's reviewed expansion is deployed. PR #893's rolling-deployment lock
+  handover fix merged as `684acf69f304054b1c04f0cfb5d1fbf129f27207` after three
+  applicable GitHub workflows/six jobs passed. Exact Railway deployment
+  `09bc2af1-11c7-4333-ba41-79059fa06e12` reached `SUCCESS` at 11:51 UTC;
+  pre-deploy tests: 9,799 passed, 25 optional skips; readiness HTTP 200.
+- SQL readback and runtime receipts confirm 45,215 Yu-Gi-Oh!, 3,505 Lorcana,
+  1,722 selected sports-checklist and four curated Funko references in private
+  R2. Magic published at 11:56 UTC: 153,662 stored English paper printing/finish
+  references, 151,613 released/search-eligible across 669 sets; 2,049 future-release
+  records remain intentionally hidden from current search. Its immutable upload,
+  readback and cold-search reconstruction passed before generation 1 was activated.
+  All five partitions were independently read back from SQL at 11:57 UTC.
+- Total new-path R2 scope: 204,108 stored source records / 202,059 currently
+  released/search-eligible records, 119,677,864 raw bytes. These are reference facts,
+  not physical stock or comprehensive sports/Funko coverage. The user subsequently
+  confirmed Magic is visible in the app; this does not establish artwork, price
+  completeness or acceptance of the new grouping/import work above.
+- SQL reference tables remain 69,697 cards / 1,472 sets; database size remains
+  430,214,291 bytes. No bulk SQL catalogue insert, cleanup/deletion, capacity
+  override or ownership/financial mutation. Artwork/values remain absent where
+  unsupported; authenticated device acceptance and the separate operations
+  monitor/insights errors remain open checks.
+
+- Pre-release validation evidence: Lorcast (3,505 English printings), MTGJSON
+  (153,662 English paper printing/finish records), Card Collector Capital
+  (1,722 entries from three selected Bowman checklists), and four individually
+  reviewed Funko product references. The current publication receipts above
+  supersede those dry-run-only statuses. Existing Good Smile and sports records
+  are preserved.
+- No artwork or market values are inferred; partial sports/figure identity needs
+  seller confirmation. Attribution and source coverage are visible in the app.
+  Riftbound remains gated on Riot approval; no restricted Funko feed is used.
+- Private R2 holds reference metadata; PostgreSQL retains audited publication
+  pointers, approved canonical identity, all ownership and financial records.
+  No bulk reference-table inserts or database-capacity guard override.
+- CI, exact-commit Railway deployment and all five publication/readback gates
+  have passed; serving-reader and authenticated device acceptance remain open. See
+  [scope, permissions, bounds and rollout](docs/R2_CATALOGUE_EXPANSION_20261104.md).
+
+## 3 November 2026 — Direct-to-R2 catalogue expansion (in review; activation gated)
+
+Historical checkpoint; current rollout status is recorded in the 4 November
+R2-first catalogue checkpoint above.
+
+- New metadata catalogues ingest straight into private R2; no bulk insert into
+  Supabase reference cards/sets/quotes. PostgreSQL retains the approved version
+  pointer, publication audit, on-demand canonical IDs and all physical/financial
+  records. Existing catalogues and Shopify publication gates stay unchanged.
+- Immutable verified shards/manifests, cold-rebuildable Railway search index,
+  bounded pagination, owner-scoped exact links, saved references and atomic
+  inventory receipts. Empty/corrupt/stale imports cannot replace a good source.
+- Yu-Gi-Oh! metadata is the first explicitly opt-in source. Lorcana/Magic offline
+  adapters are prepared but data-use review remains; Riftbound/sports/Funko are
+  not claimed imported. No new artwork or verified prices are inferred.
+- Reader/import flags default off. Local/unit, real PostgreSQL, full CI and
+  exact Railway deployment/import evidence are distinct release gates.
+- Earlier lossless quote-table compaction recovered 23,248,896 bytes; the two
+  source tables retained all 87,369 rows. This is not a destructive quote offload.
+- See [architecture, bounds, source permissions and rollout](docs/R2_FIRST_EXPANSION_20261103.md).
+
+## 1 November 2026 — R2 startup reload capacity and exact comic listing blockers (in review)
+
+- **R2 diagnosis:** The production catalogue and market generations were already fully published. Background `ObjectStorageError` events on cold Railway startup are consistent with overlapping catalogue/market reloads exceeding a shared four-thread read budget; the log does not identify a narrower error reason. Whole-catalogue and market readers now wait asynchronously for that budget, while interactive exact-set reads retain their fail-fast SQL fallback. Publishers return `CURRENT` for an already-committed generation rather than duplicating a bulk download alongside startup prewarm. Newly changed generations still require byte-verified upload, full readback, SQL parity and atomic generation commit. No object deletion, manual cache invalidation, new R2 permissions or database mutation.
+- **Shopify:** Seller-safe comic details show the exact first-party photo and owner-scoped `COMIC_BOOK`/`MANGA_BOOK` shipping prerequisites, even if a generic catalogue cover image exists. A failed sync now displays the concrete backend blockers rather than only a generic error heading. These are *readiness messages*, not automatic approval or publication: inventory ownership, dispatch intake, verified physical media, package measurements and explicit shipping profiles remain gated. No particular customer's record is included in this public log.
+- **Verification:** New startup-collision and already-published-generation tests; existing R2, seller approval, media, Shopify and UI regressions; full CI, exact commit and Railway readiness are release gates. A signed-in real-device check remains separate from automated tests.
+
+## 1 November 2026 — Comic Shopify path, fast slab lookup, bounded reference values and scan-photo fallback (released in #866)
+
+- **Live diagnosis:** Read-only checks confirmed that an unapproved second-printing comic cannot be listed until exact identity, intake/dispatch, first-party media and shipping configuration pass the existing checks. No owner-specific inventory identifiers, costs or prices are recorded in this public release log. Publication remains fail-closed; this change performs no automatic inventory approval or live Shopify write.
+- **Shopify:** The COMIC path now has book-specific issue/printing/condition/language description, SEO, tags, metafields, the `Comic Books` Shopify taxonomy and `Comics`/`Manga` collection requirements. Book shipping uses an explicit `COMIC_BOOK`/`MANGA_BOOK` key (never a guessed profile or parcel weight); comics no longer incorrectly require a sealed status. Physical front photography of the *actual copy* is required, plus back for graded comics. Founder-owned comics enter the founder's photo queue with a dedicated comic count and labels. Consignor-owned physical-media intake and configured owner shipping still require an authorised founder/operator workflow; this code does not silently grant one or attach unverified publisher-cover art.
+- **Recognition:** Grade-label suggestions use a new owner-authenticated, bounded number-and-label candidate route without pricing, R2 market snapshots or stock counts; manual human printing/certificate review remains. The scanner can display its own local capture when exact catalogued art is missing or fails to load, explicitly labelled *Scan photo*; it does not persist or publish that capture as an approved asset. A recognised canonical raw card can reuse existing exact, same-printing, age-checked shared GBP guide data as **display-only** `shared_price`; no graded valuations, inventory totals or Store Prices are inferred.
+- **Catalogue:** Ordinary page market-guide enrichment now probes the existing production `catalogue_products_card_number_normalized_idx` in batches and evaluates expensive identity/mapping predicates only for the matching number family, preserving ambiguous unpriced sibling records. Value-sorted results retain their separate reviewed shortlist/full-fallback policy. PostgreSQL `EXPLAIN` confirms the indexed query and both new slab SQL statements parse against production; actual phone speed remains unverified until a signed-in smoke test.
+- **Price freshness:** No new prices were generated or source-expiry gate bypassed. The 04:00 UK daily job is a *verified archive* schedule; heavy free-provider repricing remains explicitly approved for Mondays at 03:00 UK, with the existing database-capacity guard. Some exact printings, comics and grades remain honestly unvalued until admissible fresh source evidence is ingested.
+- **Release gate:** Focused Python and UI regressions, full backend suite, GitHub CI, Railway exact-commit SUCCESS, authenticated founder/seller scanner and comic-preview smoke tests; do not infer live acceptance from mocked UI tests. Revert the single PR if catalogue identity/pricing parity, Shopify approval gates or scanner flow regress. No migration, credentials, new Railway service, provider subscription, price write or inventory mutation.
+
+## 1 November 2026 — Four exact TCGdex image 404s recovered from reviewed low-resolution assets (release in progress)
+
+- **Live evidence:** Eight TCGdex image mirror identities were in `RETRY/SOURCE_UNAVAILABLE` with up to 14 failures. Read-only source checks found `high.webp` returning 404 but `low.webp` returning 200 for exactly four: English Leftovers `sv03.5-163`, Abomasnow `A2a-021`, Shiftry ex `ex14-97` and Blacephalon `A3a-072`. Each 245×337 WebP was downloaded, hashed and visually matched to the exact printed English name and card number. The other four retry images have no verified same-path low asset and are untouched.
+- **Fix:** The TCGdex feed emits the exact verified `low.webp` URL and scoped review provenance only when provider ID, set, name, local number, printed fraction and original provider image base *all* match the reviewed tuple. A one-off guarded migration updates those four already-existing references immediately if their original `high.webp` link and provenance still match. The normal background mirror then sees a changed image URL and retries copying the exact low asset to R2. No high/low rewrite across the catalogue, no cross-print or cross-language fallback, no invented provider evidence.
+- **Safety:** Only reference-card artwork URL and `image_reference` evidence change; no owner image approval, personal scan, market value, inventory, Shopify, RLS or payment mutation. R2 mirror receipts still require fetched/decoded/optimized bytes, verified private storage and live source URL match. The alternate URL remains provider-hosted until the worker verifies its R2 copy; unknown sources keep an honest missing-artwork state.
+- **Test/release:** Exact four-card evidence, wrong identity/changed image base rejection, ordinary/null cases, full feed integration, guarded SQL and existing reference/mirror tests. Run full GitHub CI and deploy; apply the tracked migration and query back four exact URLs, then observe R2 mirror status and signed-in card details. Roll back this narrow URL repair if the source bytes drift or an exact printing mismatches. This does not resolve the 3,488 blank Pokémon source URLs or the unsupported price-source gap.
+
+## 1 November 2026 — Reuse bounded private R2 artwork links across catalogue views (in review)
+
+- **Problem:** Each authenticated catalogue response signed a fresh one-hour S3/R2 GET URL for every unchanged content-addressed reference image. A changing signature URL prevents the browser from reliably reusing its private image HTTP cache across search, sort and revisit requests, even when the same exact image remains eligible.
+- **Fix and connection:** `S3ObjectStorage.signed_media_url` now reuses a validated signed URL for up to five minutes per exact immutable object key and requested expiry. A short custom expiry is cached for at most half its lifetime. The existing database-authorized `with_signed_mirror` call still gates all signing by current media rights/source identity; R2 retains the bytes and Supabase retains the authoritative records. Cache memory is capped at 2,048 links per API process.
+- **Failure/security:** Do not sign scans, archives or arbitrary paths. Key and expiry validation happens before cache lookup, and bad-host signatures are never cached. Revoked/replaced source rows stop being returned by the existing SQL gate; already-issued bearer URLs retain their existing maximum one-hour validity, unchanged by the cache. An R2 or signing failure still falls back to the original provider image. No schema, ownership, price, provider quota, Shopify or scanner changes.
+- **Tests and rollout:** Exact signed-link reuse, 5-minute rollover, 60-second lifetime, LRU eviction, invalid paths and rights-disabled fallback; the existing R2 reference and object-storage suites. Run full backend/UI/native-PostgreSQL release checks, then measure actual repeat-image network requests on signed-in desktop and phone before claiming a visible speedup. Roll back this isolated patch if image loading or access control regresses.
+
+## 1 November 2026 — Exact bounded R2 market shortlist for value sorting (in review)
+
+- **Problem:** Pokémon/One Piece newest browse is fast, but value-desc/asc performs a full provider-catalogue ranking (sometimes >15 seconds) or sends tens of thousands of R2 identities as arrays to PostgreSQL. During mobile filter changes several requests were abandoned.
+- **Fix:** For eligible game-filtered value sorts only, verify the *current* R2 market publication under the normal owner-scoped SQL snapshot. Using the exact shared quote/printing/rarity/recency rules, conservatively retain every canonical-linked, alias-priced and potential top-page reference, including all ties at the cutoff. Hand the bounded shortlist back to the **unchanged** SQL value-sort, RLS owner join, pricing function and media rules. Use one compact typed JSON projection and bounded R2 price rows (<=1,800 candidate identities); unsupported predicates, missing current market snapshots, fewer valid candidates or near-expiry evidence fall back to the original authorised SQL.
+- **Safeguards:** No pre-sorting of the first 40 cards, arbitrary value generation, owner price snapshots, quote relaxations, provider calls, schema/permission changes or extra services. Supabase price-table triggers invalidate the R2 market generation on relevant writes. Both high and low value directions retain the same SQL order and stock/owner rules. No change to historical evidence.
+- **Failure tests:** Fake price-source/stale/identity/rarity and ties/canonical alias unit tests; two-owner native PostgreSQL parity in both sort directions; disabled market snapshot full-query fallback. GitHub backend/UI/R2/SQL CI and Railway readiness/finance checks required before declaring production success. Benchmark with logged staging and live signed-in catalogue timings; no target latency claimed until observed.
+- **Rollback:** Revert the PR if the bounded proof or database parity fails, or if production shows mismatched sorting/latency. The old full-SQL route stays available automatically for unsupported shapes.
+
+## 1 November 2026 — Defer per-book eBay context until deliberate interaction (in review)
+
+- **Problem:** Live Railway catalogue sessions showed repeated `/api/v1/catalogue-browser/books/{edition}/listing-context` requests during Manga/Comics browse, often 1–4s each; scrolling caused unnecessary owner-authorised API and permitted eBay context work for items nobody opened.
+- **Fix:** Keep the existing exact-edition, authenticated, rate-limited contextual eBay lookup and verified publisher/OL artwork. Book tiles now request their optional live asking-price/listing-photo context only after direct pointer hover or keyboard/touch focus; opening a book detail still requests it immediately. Merely rendering or scrolling a page triggers no per-book listing-context requests. The existing two-at-a-time bounded queue, cache, active-ask labels and context expiry remain.
+- **Safety:** Active eBay asks remain clearly **not UK sold valuations**, do not fill `market_value_minor`, Store Prices or inventory condition, and cannot approve a physical copy or a reference cover for Shopify. No DB, provider, workflow, paid quota, ownership or settlement changes.
+- **Testing:** Browser regression asserts no passive list-context calls, authenticated explicit-interest loading, detail lookup, zero leaks across owners, abort on close, expiry, and preserved images/links. Run CI and compare signed-in mobile network request counts and catalogue latency. Roll back by reverting this PR if details or cover fallbacks regress.
+
+## 1 November 2026 — Read-only catalogue stage timings (in review)
+
+- **What/why:** Previously only total HTTP time and broad R2 fallback events were visible. A slow user browse could spend time waiting for the connection pool, calculating shared catalogue prices, reading the R2 publication, executing SQL, enriching prices/history, or signing artwork. Add one sanitized stage log for requests taking at least 1.5 seconds, so real usage identifies the actual bottleneck without guesswork.
+- **Connection:** Existing `/api/v1/catalogue-browser/products` FastAPI handler. Captures monotonic timing and logs only the fixed sort/game/product-type labels, R2 availability flags, stage durations and bounded returned-row count.
+- **Security:** Never log user/customer/owner IDs, search text, card/provider IDs, watchlist keys, raw SQL, prices, financial data or private records. No query, retry, RLS, store price, physical inventory, provider, database or scheduled-workflow changes.
+- **Tests:** Pure timing calculation and AST-based no-private-log check, then full backend/dashboard/native Postgres release workflows. After Railway deployment, review stage logs from real signed-in browsing before attempting a new performance shortcut.
+- **Failure/rollback:** Logging only when slow limits volume; timing overhead is small but nonzero. Revert PR and redeploy if unexpected latency or any sensitive log data appears. No schema migration.
+
+## 1 November 2026 — Distinguish mobile scanner user exit from internal review hand-off (in review)
+
+- **Defect:** PR #852's shared scanner called its workspace `onClose` callback on every `Scanner.close()`. A comic/manga hand-off and the successful-save inventory transition also call `close()`, so those internal operations could incorrectly navigate the mobile Scan view to Home.
+- **Fix:** Explicit top-bar/review Close and native dialog cancel pass `{userExit:true}`; internal book review and save call `close()` without navigation. A close notification fires at most once for an open dialog. All existing camera cleanup, saved mode, pending queue, session isolation and desktop upload behaviour remain unchanged.
+- **Verification:** New JS tests assert book review opens without Home navigation, returns to the same unsaved scan queue, and native cancel navigates once. Existing founder/seller mobile close tests are updated to use the actual user action. Full CI, Railway readiness and real phone smoke remain release gates.
+- **Rollback:** Revert the dedicated PR if mobile navigation or book review regresses. No database, price, ownership, service or schedule changes.
+
+## 1 November 2026 — Warm verified R2 catalogue before the first customer browse (in review)
+
+- **What/why:** The R2 catalogue download and 75k-row in-memory browse index were started lazily by the first signed-in catalogue request after a Railway restart; cold users could fall back to expensive PostgreSQL queries. Reuse the existing authorised maintenance identity to start warming the shared R2 index during API startup, before a visitor reaches Search.
+- **Connection:** `main.py` schedules a best-effort `catalogue_r2_live.prewarm` task only with the current `TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED` gate and authorised `catalogue_maintenance_actor_user_id`. It runs the existing publication/version RLS check and verified R2 loader. Prices, ownership, mappings, exact identity, permissions and stock remain live in PostgreSQL.
+- **Safety/failure:** No database, price or Shopify writes; no new service or extra provider. Startup readiness is not blocked by a slow/missing R2 object; logged failures still fall back to the authorised SQL browse path. Download remains bounded and validated by existing R2 SHA-256 checks. Prewarming may compete briefly for I/O and CPU during a new deployment; monitor CPU, DB connections and readiness.
+- **Tests/release:** Test prewarm uses the existing RLS actor, returns without waiting for slow R2, warms the existing index when ready, and skips/handles unavailable dependencies. Run full backend, UI and real-PostgreSQL parity gates; inspect Railway deployment, cold-start logs and signed-in timings. A passing test does not establish a live speedup.
+- **Rollback:** Revert this PR and redeploy previous healthy API if startup resource pressure or catalogue failures increase. No migration or data rollback required.
+
+## 1 November 2026 — Mobile Scan-only release verification (Deployed, iPhone smoke pending)
+
+- **Merged:** PR #852 (https://github.com/pulltheorytcg/drop-rate-backend/pull/852), squash commit `b868ef3dea619087b6ee4bad7e126b4cf497a3c5`. Applies to Founder HQ and Seller Hub mobile Scan only. Desktop photo uploads are unchanged.
+- **GitHub release checks:** Six workflows completed successfully: Backend checks, Collection-first confirmation, Shared inventory images, Shared inventory reference consistency, Immediate owner imports and Seller inventory persistence.
+- **Railway deployment:** `6c69c404-28f4-4ebc-809e-8c5c9006b0d1` on production `drop-rate-api-live` was `SUCCESS` at 2026-11-01 02:25 UTC, matching commit `b868ef3`. The deployment pre-check reported `8665 passed, 25 skipped`; `/health/ready`, `/owner` and `/assets/scanner-flow.js?v=catalogue-history-v1` subsequently returned HTTP 200 in deploy/runtime logs.
+- **Environment snapshot:** 8 Railway services, zero recent failures and no services with issues at the verification check. Scanner navigation and gallery rules are client-side; this state does not prove every phone/browser layout.
+- **Outstanding real-device acceptance:** Founder and seller mobile: tap Scan → full-screen live camera; scan/confirm/review; close → Home, not upload page; reopen with same RAW/GRADED/SEALED mode and unsaved queue; launch from Search and close without route change; failed camera permission remains in scanner with retry; desktop upload remains available. A real iPhone smoke is still **UNKNOWN**; do not mark `Live verified` until checked.
+- **No impact:** No DB migration, RLS/policy change, new service, pricing calculation, inventory or Shopify write, payment or provider subscription. Roll back by reverting PR #852 if camera permission, navigation, session isolation or saving regresses.
+
+## 1 November 2026 — Mobile scanner-only navigation and exit cleanup (in review)
+
+- **User issue:** On iPhone, closing the full-screen scanner exposed the older card-photo upload form. The application carried two overlapping scan interfaces, creating an unnecessary extra screen.
+- **Fix:** On mobile widths ≤900px, both seller and founder Scan views expose only a small re-entry control, not the legacy upload/preview/results panels. Selecting the mobile Scan tab opens the shared full-screen live camera; closing its dialog returns the active Scan tab to Home. Opening the scanner from another page does not redirect that page. The scanner's mobile gallery/picker and file-replacement controls are disabled; desktop upload tools remain unchanged.
+- **Additional continuity:** Preserve the selected RAW/GRADED/SEALED/COMIC scanning mode and in-memory unsaved queue when reopening after a close. Failed camera permission stays inside the full-screen scanner with explicit permission/retry wording; no hidden legacy fallback starts on mobile.
+- **Connections:** Shared scanner presentation (`scanner-flow.js/css`), founder scanner launch (`recognition-scanner.js`), seller scanner launch (`owner-recognition.js`) and seller Scan markup (`owner.html`). Supabase/Railway inventory, recognition, financial and ownership rules are untouched.
+- **Failure checks:** Mobile/desktop nav, direct `#scan` entry, Escape/Close, stale camera grants, camera-denied state, unsaved queue retention, multi-mode reopen, gallery/file-picker gating, owner session changes. Run the existing UI and backend CI before merge, then verify Railway and an actual phone.
+- **Release and rollback:** PR `fix/mobile-scan-only-exit-20261101` pending CI. Revert that single PR if mobile Scan or intake regresses. No database migration, service, worker schedule, provider or payment change.
+
+## 1 November 2026 — Catalogue read-only pricing and versioned reference-artwork cache (in review)
+
+- **Problem:** User-reported slow catalogue browsing despite the recovered indexed catalogue. Frontend browsing requested a second `/api/v1/catalogue-browser/market-values` refresh, and value sorts calculated unrelated shared prices. Authenticated reference-image responses were globally marked `no-store`, preventing reuse across visits.
+- **Scope:** The browser renders stored market observations only; its legacy price endpoint returns existing verified evidence without provider HTTP or database writes. Shared-price ranking limits canonical aliases to the selected game/language/product scope while retaining exact-printing and buyer/owner isolation. Exact trusted reference-art image URLs include a SHA-256 source revision and receive a 7-day **private** client cache when versioned, with server-side identity and membership checks on network requests. Unversioned requests retain the previous 30-minute route policy. All other API, account, financial, personal scan and mutation responses remain no-store.
+- **Safety:** No price, ownership, inventory, catalogue, Shopify, database migration, maintenance schedule, workflow or provider configuration change. R2 content and its signing rules are unchanged. Artwork source permissions, exact variant checks and no invented prices remain enforced.
+- **Testing gate:** Complete backend/frontend CI, targeted exact-identity/owner isolation, missing image/error, provider no-write, middleware cache headers, and real-phone page/image latency. Deployment success alone is **not** a real-device performance confirmation.
+- **Release/rollback:** PR on `fix/catalogue-browse-read-cache-20261101`, pending CI and approval checks. Railway watches `main`; on regression, revert this PR and redeploy the last healthy release. Do not disable readiness, finance tests or RLS.
+- **Remaining:** Cache first-load/search timing and CDNs on a real iPhone; reference source URLs still missing for some Pokémon; 35% of reference valuations remain unpriced; recognition/provider reliability is a separate follow-up.
+
+## 1 November 2026 — Correct source-backed 89% coverage reporting (in review)
+
+- **Problem:** The daily catalogue KPI counted `DROP_RATE_CALCULATED_VALUE` internal same-set/rank model estimates in `priced` and toward the 89% supported-source target. Those estimates are useful provisional display guides, not fresh external market observations; the evidence-only pricing query and founder's target already exclude them.
+- **Fix and connection:** Keep the existing query status and display values, but count only `REFERENCE_AVAILABLE` and `MIXED_LANGUAGE_GUIDE` toward the main 89% target. Add an explicitly separate `provisional_model_estimates` count, preserving the original public JSON fields for consumers. Asking-price estimates remain their own optional labelled combined metric, not a verified sold price.
+- **Failure/security:** No database table, prices, owner inventory, Shopify Store Prices, authorization, source API, or scan logic is changed. Historical reports remain unchanged; future daily receipts use the corrected classification. Watch any dashboard using `physical_cards.priced` or `coverage_target.priced` for an expected downward correction, not a loss of data.
+- **Tests and rollout:** Synthetic 85 verified + 5 model + 10 missing below the 89% gate, mixed asking/model values without double counting, original digital exclusions, and full catalogue/report suites. Compare the signed-in API receipt to the read-only verified-source SQL before declaring the production KPI correct. Revert this patch only if the published reporting schema regresses.
+
+## 31 October 2026 — Official Japanese Pokémon R2 mirror repair (recovered batch complete)
+
+Production reference-image batches had been failing 20/20 with
+`InsufficientPrivilegeError` because forced-RLS mirror receipt policies did
+not allow independently verified official Japanese Pokémon artwork. PR #843
+passed both GitHub checks and merged; the exact-path INSERT/UPDATE policy
+migration is applied in Supabase as version `20261031232331`, corresponding
+to canonical repo migration `20261031230000`. Source identity, seller media
+rights, existing table grants, ownership and market values are unchanged.
+
+Live batches recovered immediately to 20/20 successful copies and zero
+failures. At 23:36 UTC, all 3,065 recovered official assets have current
+verified private-R2 mirrors, with zero pending and zero retries. Another 2,907 Japanese and 581 English Pokémon
+references have no source art URL and remain a separate provider-data gap.
+The recorded R2 receipts do not yet constitute signed-in mobile visual QA.
+See [artwork mirror repair](docs/R2_POKEMON_OFFICIAL_POLICY_20261031.md).
+
+## 31 October 2026 — Recognition failure diagnostics live; accuracy benchmark next
+
+PR #844 persists vision HTTP timings and token telemetry even when scans
+end early as empty-frame/no game/unknown object or failed provider calls;
+provider errors save only sanitized status/retryability. No model, prompt,
+image detail, hard identity gate, review decision or inventory rule changed.
+A time-sensitive unrelated price-redaction test blocked the initial Railway
+release, and was made deterministic by PR #845 without changing pricing code.
+Both PRs passed GitHub CI; the recovered Railway deployment
+`c05d1c47d` passed 8,638 tests (25 optional PGlite tests skipped) and the
+public `/health/ready` check returned HTTP 200.
+
+The latest 19 persisted scan attempts before rollout (29 October) were all
+provider rejections; there is no subsequent real scan acceptance evidence.
+The new instrumentation alone does not speed scans or demonstrate better
+card, sealed or manga recognition. Request a consented human-labelled photo
+benchmark and investigate any fresh provider rejection before tuning model
+or image detail. See [vision latency](docs/RECOGNITION_VISION_LATENCY.md).
+
+## 31 October 2026 — Shopify Seller Hub launch-list contact mirror (prepared; disabled)
+## 31 October 2026 — Shopify Seller Hub launch-list contact mirror (prepared; disabled)
+
+Added a consent-scoped customer contact mirror to the existing Seller Hub
+waitlist. A distinct explicit disclosure/version gates export. Old prelaunch
+opt-ins remain `NOT_REQUESTED` in Supabase, with no automatic Shopify sharing.
+Server-side `customerSet` upserts by email and `tagsAdd` appends the
+`Drop Rate Seller Hub - Launch List` segment without overwriting existing
+customer tags, profiles or general marketing subscription preferences.
+Postgres leases, retries and acknowledgement tokens keep the mirror safe when
+Shopify is unavailable; Supabase stays the consent record. No launch emails,
+theme publication or early seller-account marketing enrolment are enabled.
+
+Production Supabase migration `20261031203048` is applied and read-back
+verified; RLS is still forced, no browser/API table reads were granted, and
+the waitlist contains zero records as of the verification. Historical
+migration-version mappings include this and the original Seller Hub opt-in.
+
+**Activation blocked:** Installed Shopify app's active version lacks
+`write_customers`; updating its permissions/protected-customer-data approval
+and the explicit `TCG_SHOPIFY_WAITLIST_SYNC_ENABLED=true` rollout remain
+separate steps after code/CI and migration verification. See
+[Seller Hub contact sync](docs/SELLER_HUB_LAUNCH.md#optional-shopify-customer-contact-mirror).
+
+## 31 October 2026 — Seller Hub prelaunch registration (release in progress)
+
+Built the existing Railway/FastAPI public landing at `app.droprate.co.uk`
+(host-aware root and explicit `/seller-hub` route) with approved Drop Rate
+Seller Hub artwork, prelaunch feature descriptions, a consent-based launch
+list, and a clearly separate link to existing early seller account creation.
+Invitation-token onboarding, founder root on the Railway origin, Seller Hub
+auth and all commerce paths are retained.
+
+Canonical Supabase migration `20261031190234_seller_hub_launch_waitlist`
+creates a unique opt-in table with forced RLS, no direct `anon`/`authenticated`
+or `tcg_api` table privileges, and a private validated/idempotent registration
+function. No customer credentials or inventory are collected. Actual launch
+emails remain off until sender, unsubscribe and delivery gates are approved.
+No new Railway service, checkout change, store publication, n8n automation,
+owner grant, stock or financial mutation is included. See
+[the launch runbook](docs/SELLER_HUB_LAUNCH.md). CI, migration, production
+deployment, Squarespace subdomain, Shopify live Sell With Us link and mobile
+visual checks must be verified separately before claiming launch-list go-live.
+
+## 30 October 2026 — Resumable R2 reference image migration
+
+The existing API can now run the exact-reference image copier continuously in
+bounded batches of 20, with four downloads at once and a single-writer advisory
+lock. Both worker and apply flags are required. Every object is read back and
+hashed before its current provider/printing/source link is recorded. Restarts
+resume from durable mirror rows; failed sources back off. Signed R2 delivery
+already exists in the catalogue UI, with original-source fallback.
+
+The existing host scope covers Pokemon/Dragon Ball/One Piece. Naruto and the
+CardTrader-sourced Pokemon images require the separate host-policy extension.
+No success or bulk completion is claimed until deployed counts are read back.
+
+## 30 October 2026 — R2 value-sort publication repair
+
+Production generation 121595 has 161 independently verified objects but is not
+published: seven parity cases pass and the value-sort query times out. The reader
+now supplies the complete Railway-indexed R2 candidate population directly to
+the live price/owner joins, avoiding repeated joins across five source arrays.
+Canonical valuation uses the existing authorised resolver before the array-only
+planner settings. No prices, ownership rules or pagination order are weakened.
+Native PostgreSQL parity and deployed publication readback remain required.
+See [the migration record](docs/R2_LIVE_CATALOGUE_20261030.md).
+
+## 30 October 2026 — Complete R2 catalogue delivery prepared
+
+PR #799 passed CI, was merged, and deployed with build enabled and delivery off.
+Its first publication validation timed out because JSON row counts produced a
+nested-loop plan. The follow-up adds statement-scoped planner settings and a
+70,000-card/50,000-price PostgreSQL regression. No incomplete publication was
+activated; API health and ordinary catalogue reads remain available.
+The second attempt verified all 161 objects but still hit a JSONB query timeout.
+The follow-up uses compact column bindings and hash joins; a production read-only
+plan completed in 2.71 seconds. Delivery remains gated on final live parity.
+
+The new whole-catalogue R2 path covers games/sets, card browsing and searches,
+sealed products and comic/manga catalogue identities. A private generation
+record invalidates old objects atomically on source edits; complete verified
+publications feed the existing SQL rules and live owner/pricing overlays.
+Source rows, inventory, Store Prices, Shopify and archive automation are retained.
+This delivery change does not itself reclaim Supabase disk space.
+
+Local SQL parity and failure/access-control checks pass on PGlite PostgreSQL
+18.6. Native PostgreSQL 17 CI, migration, deployment and production readback
+remain release gates. Both new feature flags default false. See
+[scope, rollout and verification](docs/R2_LIVE_CATALOGUE_20261030.md).
+
+## 29 October 2026 — Pricing repair deployed; later Masters aliases and accurate coverage readback
+
+PR #781 is merged and both API/worker deployments reached SUCCESS. The live
+860-request continuation is `503d9c3f-b368-498c-89b7-6ffef19be279`; inspect
+its durable receipt before acting. At 08:01:47 UTC it was running at 280 calls
+with zero accepted prices. Inventory remains 616 unchanged rows.
+
+Five later Masters releases now have exact official short-name aliases,
+bringing the reviewed map to eleven releases. Local focused validation passes
+383 tests; this extension requires normal CI before the next run. Do not
+replace the active pinned worker to apply it midway through execution.
+
+The new [coverage SQL](docs/evidence/market_coverage_20261029.sql) counts valid
+asking estimates without double counting existing guides. Verified coverage
+is 43,454/67,066 (64.7929%), target 59,689, gap 16,235. Read the
+[full deployment, evidence and continuation handoff](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+The existing hourly continuation task has been updated; source limits,
+printing identity, daily budgets and physical inventory protections remain.
+
+## 29 October 2026 — Full details verified; final normalization and resumed allowance
+
+The repaired worker completed a second 100-call verification slice with 42
+searches, 58 full listing details and zero accepted prices. Actual details
+confirm missing language/finish evidence and some condition conflicts. The
+daily ledger is 1,140/2,000; the next continuation has at most 860 calls.
+
+Final normalization fixes accept explicit Non-Holofoil and deduplicate equal
+item-specific values while preserving contradictions. Unresolved suffixed
+Masters printings are excluded before search, and the bounded receipt shows
+different actual rejection reasons. All 348 focused tests pass locally; normal
+CI must pass on this final head before execution. Prior head passed 8,269
+backend tests and all six other applicable checks and deployed successfully.
+
+Coverage remains 43,454/67,066 (gap 16,235 to 89%); no gain is claimed from
+requests or tests. Resume run `d5722b11-ec47-4a16-b075-6cc05d5f2054` using the
+same English/apply scope. Full evidence and cursor are in
+[the detail recovery runbook](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
+## 29 October 2026 — Live detail canary completed; printing-specific follow-up
+
+The repaired worker completed a 40-request canary: 26 searches, 14 actual
+listing details, zero provider failures and zero accepted prices. It exposed
+unresolved Masters promotional identifiers and a negative grading sentinel.
+The follow-up skips unresolved specials before search, accepts the explicit
+ungraded wording and retains more useful detailed rejection evidence.
+
+Local focused validation now passes 322 tests. The previous head passed all
+applicable CI including 8,264 backend tests and deployed to the dedicated
+worker. The follow-up requires its own CI before execution. Today's durable
+ledger is 1,040/2,000 requests. Coverage remains 43,454; an independently added
+reference makes the current denominator 67,066 and the remaining gap 16,235.
+See [the live receipt](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
+## 29 October 2026 — Recover complete listing evidence after zero-yield batch
+
+The first cloud run finished at 00:36 UTC with 1,000 charged searches, 513
+summaries and zero accepted prices. It preserved its cursor and quota ledger.
+Last verified coverage remains **43,454/67,065 (64.7939%)**, gap **16,234**.
+
+The follow-up reads complete official eBay item details, structured condition
+descriptors and Bandai's documented former Masters game name. Discovery no
+longer requires language in the title; exact-language and printing checks
+remain. Search and detail requests share the same durable limits and pacing.
+`--max-queries 1000` caps total Browse calls, including details, so fewer than
+1,000 distinct cards may be checked. No arbitrary values are introduced.
+
+Six verified Masters releases also accept their official short set names.
+Local focused validation passed 317 tests. Normal CI, reviewed deployment and
+live readback remain required; no new price gain is claimed from code alone.
+See [detail recovery and live continuation](docs/REFERENCE_ASKING_DETAIL_RECOVERY.md).
+
+## 29 October 2026 — First 1,000-check batch running in the cloud
+
+Resolved the laptop command-session dependency by launching the existing
+pricing operator in a dedicated Railway worker, pinned to the tested release.
+Deployment `c40c993b-1335-4582-83f3-ea6d46224834` succeeded; durable run
+`ce1f435a-3a1c-4a94-889d-8fe887da7147` started at 00:16:32 UTC in apply
+mode for at most 1,000 English checks. At 00:17:42 UTC it had reserved 55
+requests and collected 54, with zero accepted estimates so far.
+
+The worker has no scheduler, automatic restart or public endpoint. Progress
+and quota reservations persist in PostgreSQL; the stable run ID prevents a
+new batch on an accidental restart. Existing API/storefront services were not
+reconfigured. See [the cloud runner receipt and recovery procedure](docs/REFERENCE_ASKING_CLOUD_RUNNER.md).
+The run is active; no final result or coverage increase is claimed yet.
+
+## 28 October 2026 — Larger reference-pricing batches
+
+PR #778 implements 1,000–2,000 eligible eBay Browse checks per run, with a
+2,000-request global UTC-day budget. Candidate scans use 100-row pages and a
+20,000-reference ceiling. Quota is refreshed every 100 attempts; a durable
+reservation marker preserves the 500-request provider headroom across restarts
+and UTC-day changes. Collection remains sequential at one request per second
+and stops after 45 minutes with a resumable cursor.
+
+Validation at commit `7fdd4fa41239aa0d2e2d60240c51933fb5bf49b9`: all three
+applicable workflows passed, including **8,169 backend tests** (18 skipped),
+dashboard/n8n checks, shared-inventory consistency and the real PostgreSQL
+500-to-2,000 migration/concurrency/permission contract. Independent review found
+stale quota reuse across invocations; the implementation now carries a global
+reservation anchor across runs and conservatively accounts for legacy receipts.
+
+Applied `20261028235621_reference_asking_budget_2000.sql`. All three existing
+run records and 30 charged requests have the identical before/after ledger
+snapshot `e3e748c71f7561ad6371a27e7eb6fb03`; no asking prices were added.
+The migration preserves history, audits and RLS. Exact identity, language,
+shipping and seller requirements remain unchanged. Larger batches are search
+capacity, not a guarantee of accepted prices.
+
+The planned first 1,000-check live batch has **not started**. The local operator
+session disconnected; the cloud connector can manage deployment but does not
+provide an authenticated command runner. Inspect the durable run ledger before
+launching or resuming. Last verified catalogue coverage is
+**43,454/67,065 (64.79%)**, leaving **16,234** records to reach 89%.
+
+## 28 October 2026 — Recovered pricing rollout and Black Bolt source matching
+
+PRs #774, #775 and #776 are merged and live. The latest code deployment is
+`89ed3d11e501364e2cede8f26e1d4d04dee478d2`; readiness is healthy.
+All four applicable final CI workflows passed, including 8,147 backend tests
+(18 skipped), dashboard checks, artwork preservation and the real PostgreSQL
+repair rollback contract.
+
+Corrected all 174 Japanese Black Bolt collector fractions from /174 to /086
+with 174 immutable old/new audit records and an importer guard against the
+stale upstream API. A scoped five-request dry run then five-request apply
+recovered **92** eligible Cardmarket catalogue guides. Exact full-set printing
+checks rejected 80 ambiguous fractions and two missing guide prices.
+
+Coverage is **43,454/67,065 (64.79%)**, up from 43,362 (64.66%). The 89% target
+is **not met**: **16,234** additional records are still needed. Three bounded
+eBay pilots used 30 Browse searches and accepted zero asking estimates;
+shorter retrieval queries recovered listings while identity/language checks
+remained strict. All 616 physical inventory records have an identical
+before/after snapshot, including ownership, costs and selling prices.
+
+Receipts, primary evidence and remaining source/mapping constraints:
+[SV11B live recovery](docs/SV11B_NUMBER_RECOVERY.md) and
+[asking-price pilots](docs/REFERENCE_ASKING_BACKFILL.md).
+
+## 28 October 2026 - Current-listing estimates and bounded backfill
+
+Recovery validation: all eight GitHub workflows passed on `999c6530`, including
+8,104 backend tests (18 skipped), dashboard UI and both native PostgreSQL
+contracts. The deployment tool applied `20261028224708_reference_asking_prices`;
+readback confirms forced RLS and no direct anon/authenticated access. Deployment and three bounded live batches are complete; the asking pilots
+accepted zero estimates. The separate reviewed SV11B repair recovered 92
+existing-source guides, as recorded in the latest section above.
+
+The 22:04 UTC read-only audit measured **43,362 / 67,065 (64.66%)** supported
+references/labelled guides; **16,326** additional records are needed for the
+**59,688** threshold. No coverage gain is attributed to this implementation.
+
+Adds a separate, explicitly labelled eBay asking-price estimate for missing
+catalogue references. Exact identity, language, raw NM/Mint condition, finish,
+three independent sellers, known delivery costs, robust statistics and a
+three-day expiry are required. Postage uses the configured shop postcode as a
+delivery benchmark, never a customer's checkout quote. Existing physical-card
+valuations, store prices and settlements retain their current rules.
+
+The operator backfill is explicit and resumable, with durable request
+reservations, provider quota checks, a 500/day application-side ceiling,
+database-capacity checks, immutable evidence and atomic cache/audit writes.
+There is no new Railway service, subscription or unattended schedule.
+Reference-only coverage remains available separately from coverage including
+asking estimates. Migration, final CI, deployment and live batch results are
+recorded in the associated PR before reporting this as active.
+
+See [current-listing rollout](docs/REFERENCE_ASKING_BACKFILL.md) and
+[database contract](docs/REFERENCE_ASKING_DATABASE_CONTRACT.md).
+
+## 28 October 2026 - Decodo eBay acquisition pilot prepared
+
+Verified **43,279 / 67,065 (64.53%)** at 19:39 UTC; **16,409** additional
+references are required for 89%. Added a separate Decodo Web Data API client,
+a 36-reference diagnostic manifest, reproducible read-only coverage SQL and a
+plan-first CLI. The client caps requests at 10/second and 200/run; the CLI starts
+at 1/second and 72/run and stops on provider, access-gate or schema errors.
+
+The founder instructed proceeding with Decodo while handling the eBay permission
+request separately. The remaining execution input is `TCG_DECODO_API_KEY`.
+No live scrape, new valuation, database write, subscription or schedule has been
+activated. Search results remain evidence for review until exact matching and
+live payload validation justify production imports.
+
+See [pilot usage and validation](docs/DECODO_EBAY_PILOT.md) and the
+[source evaluation](docs/MARKET_COVERAGE_SOURCE_PILOT_20261028.md).
+
+## 28 October 2026 — One Piece numbered-title recovery under verification
+
+The current measured coverage remains **43,277 / 67,065 (64.53%)**, requiring
+**16,411** additional supported prices for the 89% goal. Fresh One Piece bulk
+exports do not add safe candidates under the existing exact matchers.
+
+A narrowly scoped English base-title matcher accepts the provider's documented
+own-number suffix only with agreeing Cardmarket title/URL and base-version
+evidence. Existing collision, release, rarity, quota and write protections
+remain. Local tests pass after correcting a workspace-only transport dependency;
+normal CI and live source/deployment verification remain required. No new
+coverage is attributed to this candidate change. See the
+[matching contract](docs/ONE_PIECE_NUMBERED_NAME_RECOVERY_20261028.md).
+
+## 28 October 2026 — 89% physical-card pricing goal and importer recovery
+
+The founder's current coverage target is **89%**, using the unchanged full
+physical-reference denominator and supported dated price/guide rules. The
+10:07:18 UTC production receipt records **43,269 / 67,065 (64.52%)**, requiring
+**16,419** additional priced references to reach the exact **59,688** threshold.
+The 61-reference gain since yesterday belongs to existing scheduled work.
+
+This repair lets expired positive detailed caches re-enter One Piece/Dragon
+Ball source checks, revisits the Japanese Pokémon adapter's own older guides,
+and accepts the provider's documented negative Cardmarket-only set IDs. Exact
+release/collector/printing gates remain unchanged. Bounded rejection diagnostics
+and an opt-in three-call source probe separate provider shape from real quote
+coverage. PokéWallet's last-price-change timestamp remains distinct from the
+successful fresh observation date; failed calls never renew evidence.
+
+The local focused suites and native PostgreSQL persistence checks passed.
+Normal exact-head CI, deployment and live source/coverage verification remain
+required and are recorded in the associated PR. These code and reporting
+changes alone do not establish any new priced references or meet the target.
+See the [recovery contract](docs/PRICING_89_PERCENT_RECOVERY_20261028.md) and
+[measured baseline](docs/evidence/pricing-89-baseline-20261028.json).
+
+## 27 October 2026 — Ordinary eBay discovery works; publication-date alias repair
+
+PR #768 deployed successfully as `19c140e50a09cf38d6ae3d8f755fcc94fe4757b7`.
+All three normal CI jobs passed, with **7,657 backend tests**. At 22:00 UTC the
+ordinary ISBN lookup found two source offers in seven Browse calls, including
+the independently checked New paperback at **£13.20** with free quoted postage.
+Both exact returned photos decoded under the production image policy.
+
+Independent source-page review found that the cheaper candidate declares
+`Date of Publication: 2007-09-03`, conflicting with the canonical 2003 year.
+The matcher had checked only `Publication Year`. Activation is held while the
+equivalent date fields are added to the same conflict gate and diagnostics.
+The new offer has no conflicting date; absent date metadata remains distinct
+from a stated conflicting date. No prices, media or catalogue records were
+written. See the [ordinary lookup and source review](docs/evidence/book-ebay-normal-search-date-review-20261027.json)
+and [exact returned photo checks](docs/evidence/book-ebay-normal-search-images-20261027.json).
+
+## 27 October 2026 — Live eBay book offer verified; discovery expansion pending
+
+PR #767 is deployed as `cd23bce9ac2c03bb60e65debbb17573f71f23f8e`.
+All three applicable checks passed, and normal Railway gates passed **7,640
+tests**. The official Browse probe accepted Naruto volume 1, ISBN
+9781569319000, at **£5.03** in Good condition with zero quoted postage.
+Its returned listing photo decoded in Chromium and visibly matches the title
+and volume. This is an ACTIVE asking-price reference, not a sold market value.
+
+The normal first-ten-result search omitted that offer. Its three selected
+details were correctly rejected for a conflicting publication year, no explicit
+physical binding, or missing ISBN. A fifty-result GTIN check returned only
+fifteen results and still omitted the reviewed offers; exact ISBN13 and ISBN10
+keyword checks returned thirty-five and thirty-three and found both. The next
+release uses one documented ISBN keyword query and progressive detail checks
+within the same seven-call bound. Display remains disabled pending its normal
+live lookup. No catalogue, inventory,
+market, media or financial records were written. See the
+[actual offer and discovery receipt](docs/evidence/book-ebay-discovery-gap-20261027.json)
+and [returned photo check](docs/evidence/book-ebay-naruto-image-delivery-20261027.json).
+The [search comparison](docs/evidence/book-ebay-isbn-search-comparison-20261027.json)
+records the source discovery gap without treating summary prices as quotes.
+
+## 27 October 2026 — eBay book identifier compatibility follow-up
+
+PR #766 is deployed successfully on API release
+`27d746c03ebe203e2458d159cb073ffe67932ef9`. Public health and assets match the
+reviewed release, and all four previously blocked covers load using its actual
+image policy. All seven PR workflows passed; Python CI and Railway each passed
+7,550 tests, with 18 optional skips and one warning.
+
+The first live Naruto probe confirmed official Browse access with four calls,
+ten summaries and three examined details. None exposed an ISBN through the
+initially supported fields, so no quote was accepted and the display stayed
+disabled. The temporary probe command was removed after the run.
+
+The follow-up reads documented nested PRODUCT identifiers/aspects and supports
+a conditional COMPACT identity check tied to the same item and seller revision.
+It ranks the ten returned summaries before spending at most three detail slots.
+Normal requests remain bounded to seven Browse calls, and explicit pinned-item
+diagnostics require at most two. Conflicts still reject the quote; no sold or
+physical values are created. Activation requires a usable live source result.
+See [the contract](docs/BOOK_EBAY_LISTING_CONTEXT_20261027.md) and
+[the first source result](docs/evidence/book-ebay-first-production-probe-20261027.json).
+
+## 27 October 2026 — Book image redirects and eBay asking-price context
+
+The remaining artwork audit found an actual browser policy failure: four of
+twelve sampled medium Open Library covers redirect through Internet Archive.
+The corrected image policy loads all four in a real Chromium before/after
+comparison (zero before, four after). Other resource policies remain unchanged;
+this sample is not an assertion of full catalogue coverage.
+
+An opt-in, authenticated catalogue endpoint and display now provide exact-ISBN
+active eBay listing context through the official Browse API. Prices are labelled
+asking prices, with source condition, links and postage information. Matching
+listing photos can replace a failed source image and remain labelled references.
+The integration is bounded, cached, read-only and independent of sold pricing.
+It defaults off pending the bounded production provider probe. No book sold
+values, inventory values, physical printing status or approved media are created.
+
+See [the feature contract](docs/BOOK_EBAY_LISTING_CONTEXT_20261027.md) and
+[the real cover redirect check](docs/evidence/book-cover-redirect-browser-20261027.json).
+The associated PR records normal CI, deployment, provider and activation results.
+
+## 27 October 2026 — Comic/manga cover references and ISBN price matching repair
+
+The new book catalogue contained metadata without an artwork display path for
+its Open Library imports. This release adds a separate, attributed community
+cover reference in catalogue browsing, book selection, saved collections and
+the founder inventory grid. It verifies the exact unchanged import and provider
+mapping before returning a direct, lazy source image. Existing publisher/copy
+images keep priority; community references do not become approved media,
+recognition evidence, physical-printing proof or R2/Shopify assets.
+
+A read-only run of the new helper over all current source rows accepted 1,540
+edition references: 767 manga, 547 other comics, 130 Marvel and 96 DC. There are
+1,541 Open Library-sourced editions; the 1,542 mapping count includes a mapping
+to an already publisher-sourced edition. The known wrong-language/wrong-volume
+cover on OL9465913M is excluded. These are eligible source lookups, not a claim
+that 1,540 images have loaded or are correct. Six bounded source checks returned
+five decodable JPEGs and one 404; four images agreed with the visible title and
+volume, and the fifth produced the exclusion. The UI labels community images
+as cover references and handles missing images without another-edition guesses.
+
+Book sold-price matching now recognises an exact hyphenated ISBN without
+mistaking it for a multi-volume range or a publication year. Wrong/extended identifiers, real bundles,
+different printings, duplicate sales and condition/grade mismatches remain
+rejected. The actual v4 price calculation produces the same result for plain
+and formatted ISBNs in the five-sale regression. This repair does not create
+book prices or change the valuation policy.
+
+The 19:49 UTC live readback still contains zero book market observations and
+zero positive shared book snapshots. The latest recorded provider usage is
+zero remaining out of 250, with its recorded reset on 1 November; subsequent
+provider responses are 429 and the existing pause next checks at 20:34 UTC on
+27 October. Imported editions remain STRUCTURED. No source retry, invented
+printing verification, retailer-price substitution or production data write
+was used to fill missing values.
+
+Integrated focused artwork/market tests passed 85 checks; the full JavaScript
+DOM command passed, including five new cover behavior groups. The release also
+refreshes the founder catalogue script version and keeps attribution compact.
+Normal protected-branch CI and deployment verification remain the release gates;
+their exact results are recorded on the associated pull request. See the
+[cover contract](docs/BOOK_COMMUNITY_COVER_REFERENCES_20261027.md) and
+[dated source/provider evidence](docs/evidence/comic-manga-artwork-values-20261027.json).
+
+## 27 October 2026 — Founder import migration installed and rebuild enabled
+
+The import-specific connector blocker is resolved. After a fresh read confirmed
+the function and ledger entry were still absent, the exact reviewed migration
+from [PR #760](https://github.com/pulltheorytcg/drop-rate-backend/pull/760) was
+installed through the governed Supabase migration tool as
+`20261027192257_founder_import_preview_rebuild`. The 19:23:15 UTC preflight
+readback verifies unchanged role attributes, table and column privileges,
+RLS, private-schema permissions, import policies and candidate audit trigger.
+The function identity read at 19:23:30 UTC confirms the reviewed body SHA-256
+`2b4bc9cd72b3246992b7304befd58322ebbfdf4bd939493530904b3267b83db7`,
+owner `postgres`, fixed `search_path=pg_catalog`, two-second lock timeout and
+execution restricted to `postgres` and `tcg_api`. Advisor findings are unchanged.
+
+The migration blob is identical at the reviewed PR head, its merge, the deployed
+API release and current main. All four original PR workflows passed, including
+the native PostgreSQL 17.6 rebuild suite; no replacement migration or broader
+database permissions were introduced.
+
+`TCG_IMPORT_PREVIEW_REBUILD_ENABLED=true` is configured. Targeted API deployment
+`20131280-07c8-474e-8932-2a0df29baf71`, on the already successful release
+`fb19e7e8477779577736d90e745ddc171374627a`, reached **SUCCESS at
+19:26:37.659 UTC**. Its normal predeploy suite passed **7,256 tests, 18 skipped,
+1 warning** in 23.99 seconds at 19:25:56.352; the new runtime logged
+`GET /health/ready` **200 OK at 19:26:32.903 UTC**. This is a deployed and enabled
+capability, with authenticated founder acceptance still outstanding. No production
+batch was rebuilt, no historical import was replayed and no inventory copy was
+created. The live founder UI check needs the originating browser session and
+original source file; deployment readiness alone does not establish that result.
+
+The normal DR94 media command returned HTTP 200 at 19:00:04.503 UTC; storage
+health returned 200 at 19:00:24.483 and heartbeat at 19:00:34.195. This verifies
+the scheduled command response, not new image counts or durable receipt fanout.
+The current mirror registry still contains 401 verified entries; the latest
+mirror verification is dated 26 October at 23:18 UTC.
+The production eligibility query at 19:30:30 UTC returned zero eligible approved assets
+awaiting mirrors. DR93/94 validate command responses without invoking DR91, so
+these successful schedules do not establish production receipt fanout. See the
+[runtime readback](docs/evidence/runtime-continuation-readback-20261027.json).
+The weekly Drive copy remains disabled pending its existing OAuth and bounded
+live-copy requirements. Catalogue coverage is not changed by this migration.
+
+An independent read-only catalogue checkpoint at 19:34:16 UTC reports
+43,208/67,065 physical references with supported values or labelled guides
+(64.43%), retaining exact Pocket exclusions, seven-day price-row eligibility
+and identity gates. That is 73 more
+than the 12:04 checkpoint under existing background jobs; 17,151 additional
+priced references are needed for 90%. Artwork URL presence is 60,283/67,065
+(89.89%); measured core fields, artwork URL and value together are 38,992/67,065
+(58.14%). URL presence is not load or printing verification. The 19:36:26 book
+readback still has 785 comics and 805 manga, with no positive shared market
+snapshots and no verified product profiles. Database size is 370,740,371 bytes.
+See the [dated catalogue evidence](docs/evidence/catalogue-continuation-readback-20261027.json).
+
+See the [activation evidence](docs/evidence/import-preview-rebuild-activation-20261027.json)
+and [current completion sequence](docs/DROP_RATE_COMPLETION_PLAN_20261027.md).
+
+## 27 October 2026 — Automation database repair and live heartbeat recovery
+
+Supabase SQL reads are responding again. The reviewed automation migration from
+[PR #762](https://github.com/pulltheorytcg/drop-rate-backend/pull/762) is installed
+as `20261027173335_automation_control_runtime_repair`. Catalogue readback at
+17:57:21 UTC verifies both control functions against their reviewed body hashes,
+signatures, owners, settings and restricted execution grants. Table privileges,
+RLS and required index shapes are unchanged. The import migration has a separate
+remaining connector failure, described below.
+
+The API remains on `fb19e7e8477779577736d90e745ddc171374627a`, deployment
+`a91487a5-7e2b-42d8-809b-0439fdb01562`, which reached SUCCESS at 17:05:20 UTC
+after **7,256 passed, 18 skipped, 1 warning** and readiness 200. The earlier
+Railway BuildKit failure did not recur. Native PostgreSQL 17.6 regressions also
+passed with the captured production audit function and schema details overlaid
+in disposable local databases. Those checks used synthetic data and did not
+execute production business writes.
+
+Heartbeat recovery is **Live verified**: the first accepted scheduled execution
+was `41` at 17:45:34 UTC; the durable row advanced to execution `43`, count `3`,
+received at 17:55:34.490942 UTC. The ordinary R2 storage-health schedule then
+returned HTTP 200 at 18:00:23 UTC, followed by heartbeat HTTP 200 at 18:00:34.
+DR91 publication was independently verified at 17:55:12 UTC with a verified
+SQLite backup on successful n8n deployment
+`d20f969c-e663-4f84-b1ba-8546f908dfa2`; its one-time publication flag is cleared.
+DR94 approved-media publication was verified at 18:02:25 UTC, with another
+verified backup, on n8n deployment `73b85d89-b5a5-4931-bd16-eef34757c1cc`
+(SUCCESS at 18:02:42.855). Independent metadata confirms all five DR90–94
+definitions are active/published and match source. All six one-time boot
+mutation flags were cleared with `skipDeploys:true`. The first normal DR94
+opportunity is 19:00:03 London time (UTC on this date); its scheduled execution
+and live receipt fanout have not yet been observed.
+
+The R2 source archive is complete: fourteen reviewed files, 6,228,589 source
+bytes, with the earlier 14:14:49 UTC `BYTES_VERIFIED` receipt. A fresh, deduplicated
+cache checkpoint from the current deployment's 17:05–17:26 UTC warming logs is
+**100 sets / 14,297 references / 855,888 compressed bytes**. This is partial
+reference-input coverage, not the whole catalogue or additional database space.
+
+Founder preview rebuilding remains **Deployed, not enabled**. Two resumed
+governed import-migration attempts returned `Invalid or expired requestState`.
+The 17:57:21 UTC catalogue/ledger read confirms its function and migration are
+absent; the final migration list contains 136 entries, including only the
+automation repair of the two pending migrations. Existing advisor warnings are
+unchanged. `TCG_IMPORT_PREVIEW_REBUILD_ENABLED` remains false; no further retry
+or import replay was made. Weekly Drive transfer also remains disabled: native n8n
+Google OAuth is absent, and real receipt acceptance plus a bounded actual
+create/download/readback remain activation requirements. Existing source holds,
+historical imports, catalogue coverage counts and customer records are preserved.
+
+See the [recovery evidence](docs/evidence/automation-import-recovery-20261027.json)
+and [current completion sequence](docs/DROP_RATE_COMPLETION_PLAN_20261027.md).
+
+## 27 October 2026 — R2 source archive and n8n runtime inspection
+
+The founder authorized addressing the remaining work one item at a time.
+The first bounded release adds a private, hash-pinned archive of fourteen
+recovered book source/audit artifacts (6,228,589 source bytes), preserving the
+1,495 historical imports, 909 deferred records and 57 exact review holds.
+Every upload and the final manifest require actual remote-byte verification.
+The existing catalogue worker can run this after pricing with daily success
+and hourly failure bounds; its flag defaults off.
+
+A separate optional n8n startup inspector reads stored/published workflow
+metadata and Google Drive credential id/name/type only. It never reads tokens,
+changes stored workflows or publishes schedules. Source DR92/DR93 now link the
+existing error handler; actual stored definitions still require verification.
+
+Implementation/offline checks are complete for these bounded components;
+current-head CI, deployment, flag activation and runtime/storage readback are
+separate pending gates. Full R2 catalogue delivery, broad artwork migration and
+weekly Drive transfer are not claimed complete. See the
+[completion sequence](docs/DROP_RATE_COMPLETION_PLAN_20261027.md) and
+[source archive contract](docs/R2_CATALOGUE_SOURCE_ARCHIVE_20261027.md).
+
+## 27 October 2026 — Recovered book pipeline and historical comic image correction
+
+The interrupted final workspace is recovered: all code, workflow, tests and
+data match their saved checksums (20 of 21 manifest files; only the runbook had
+subsequent completion documentation). Existing PR #751 now carries the final
+book import safeguards, exact review registry, original subject audit, immutable
+snapshots and all 30 committed production receipts. No import is replayed.
+
+The continuation preserves a review hold by ISBN or source ID, rechecks old
+cached reviews, and adds an offline integrity gate over the already imported
+1,495-edition cohort. All 909 additional candidates remain deferred after a
+focused review found six possible form conflicts. The image route also stops
+rejecting the five identified historical publisher comic references merely
+because their exact release date is NULL; strict past-year and existing
+publisher/identity/digest checks still apply.
+
+Release state: **LIVE**. PR #751 merged as
+`e79ca7efadf6aa396e214ce93864052f6c43c472`. All seven current-head workflows
+passed: 7,047 backend tests plus the dedicated 80-case import/artwork suite
+with isolated PostgreSQL enabled. Railway deployment
+`39868c24-1d43-431d-a665-c3dcd06598a3` is **SUCCESS** at 12:50:44 UTC; its
+normal predeploy suite passed 7,047 tests, startup completed, and the new
+runtime logged readiness **200 OK at 12:50:41 UTC**.
+See the [release receipt](docs/evidence/catalogue-recovery-release-20261027.json).
+
+Detailed Supabase SQL reads stalled in this continuation. The last exact
+coverage checkpoint remains 12:03–12:04 UTC, and no newer percentage is claimed.
+No live authenticated owner image request is claimed; the actual SQL and all
+five reviewed identities passed the focused SQL/route tests.
+No provider, quota, scheduler revision, schema, inventory, ownership, market
+value or Store Price is changed by this code release. Auction scanning remains
+design only. See [recovered handover](docs/CATALOGUE_RECOVERY_20261027.md),
+[file integrity](docs/evidence/book-recovery-file-integrity-20261027.json) and
+[deferred review](docs/evidence/book-deferred-review-20261027.json).
+
+## 27 October 2026 — Card fixes live; 1,495 book editions imported
+
+PR [#752](https://github.com/pulltheorytcg/drop-rate-backend/pull/752) is merged as
+`7f98b9c803daec7bad8a404000f0ed2cac8e6f89`. All four current-head workflows
+passed, including **6,985 backend tests**. Railway deployment
+`ad845201-ebaf-4d56-aa9c-1953742c2ea8` is **SUCCESS**; its normal predeploy
+suite passed the same tests and the new runtime logged readiness **200 OK at
+12:15:22 UTC**.
+
+The release preserves reviewed M1S artwork through provider refreshes and adds
+bounded exact-number recovery for explicitly truncated Dragon Ball searches.
+Existing source permissions, quotas and scheduler revision remain unchanged.
+
+Already committed and independently read back: **92 Japanese Pokémon artwork
+repairs**, **one exact VIZ manga cover**, and **1,495 comic/manga metadata imports
+in 30 batches**. All three durable run receipts are COMPLETE. Live totals at
+12:03–12:04 UTC: **785 comics + 805 manga = 1,590 editions**, **43,135 / 67,065
+physical cards priced or carrying labelled guides (64.32%)**, and **38,919
+(58.03%)** with basic identity, artwork URL and a supported value/guide together.
+Physical artwork URL coverage is **60,283 / 67,065 (89.89%)**. The 90% pricing
+goal remains unmet by **17,224 references**.
+
+**Books still have zero positive shared market snapshots** and zero VERIFIED
+profile identities. Metadata growth is not complete artwork/printing/value
+coverage. Inventory remains 616 rows; the completed imports preserved its
+full-row checksum. Database size at readback is 370,625,683 bytes, writable and
+below the unchanged 400,000,000-byte guard.
+
+**Remaining release blocker:** the coding workspace disconnected before the
+final book subject-preservation/57-hold-registry patch and review datasets were
+uploaded. Draft PR [#751](https://github.com/pulltheorytcg/drop-rate-backend/pull/751)
+preserves the earlier version. Recover final local files before releasing that
+pipeline; do not rerun the already committed 1,495 imports. Another 909 novel
+records were staged, not imported. GitHub/Supabase/Railway connections still work.
+
+The live auction scanner is **design and research only, not implemented**.
+See [current production checkpoint and resume order](docs/CATALOGUE_RECOVERY_20261027.md),
+[machine-readable evidence](docs/evidence/catalogue-recovery-readback-20261027.json)
+and [scanner proposal](docs/LIVE_AUCTION_SCANNER_PROPOSAL.md).
+
+## 27 October 2026 — Catalogue scheduling fixes deployed and verified
+
+PR [#749](https://github.com/pulltheorytcg/drop-rate-backend/pull/749) is merged
+as `674bcb56d4df35420e6bba3c6b01c6bffa16f72a`. Railway API deployment
+`95ca326e-10cb-4030-8a55-262be89b6fde` reached **SUCCESS**; public readiness
+returned **HTTP 200**, with the database connected. All **6,924 backend tests**
+passed locally and during deployment; all eight GitHub workflows passed on the
+corrected PR head.
+
+Existing hourly price jobs now precede daily metadata, provider failures record
+INCOMPLETE, and discovery receipts distinguish newly added set identities from
+refreshes. The prepared TCGCSV importer rejects additional variant collisions
+and reports verified committed writes rather than attempted writes.
+
+TCGCSV remains **disabled**, with zero source-tagged price rows. Its upstream
+commercial permission is unresolved; free access and passing technical checks
+do not clear that hold. The existing approved-source jobs remain active. The
+hourly **Drop Rate Catalogue Watch** now explicitly carries the source hold and
+committed-count rule; the separate archive watch is unchanged.
+
+The live database readback at **10:25 UTC** contained a **10:07 UTC** coverage
+receipt: **43,033 / 67,065 physical cards (64.17%)**. This is 71 more covered
+references than the previous handover, from existing imports before this release.
+The user's 90% target remains unmet: **17,326** additional supported values or
+labelled guides are required. The 2,480 digital Pocket references remain excluded.
+
+A separate **10:32 UTC** intersection query found **38,819 / 67,065 (57.88%)**
+with basic identity fields, an artwork URL and a supported value/guide on the
+same record. This is core data presence, not full image/printing verification.
+
+Artwork URLs remain missing for **7,033 / 69,545** references. Approved R2 media
+has **401 verified mirrors and zero eligible backlog**; the broad reference-image
+mirror count remains zero. Comics/manga remains at **95 editions (37 comics,
+58 manga)**. Neither category has a positive shared catalogue market snapshot;
+**0%** of these imported editions has identity, cover and supported value complete.
+R2 history
+has **39,542 verified rows across 20 archives**. Database size is **357,608,595
+bytes**, writable and below the unchanged 400,000,000-byte guard.
+
+Four of the ten previously pending Fusion SB01 guides were filled by the existing
+importer; six remain. Railway's approval step declined the separate one-off
+preview, reporting that approval was not granted. The normal predeploy checks
+were restored before the successful scheduler release. No manual price addition
+or new-feed activation is claimed for this continuation.
+
+See [verified production checkpoint and resume order](docs/CATALOGUE_CONTINUATION_20261027.md)
+and [source rules and automation runbook](docs/FREE_CATALOGUE_AUTOMATION.md).
+
+## 26 October 2026 — Catalogue recovery deployed and verified
+
+The live implementation pass added **480 supported card values/guides**, restored
+**3,331 missing artwork links**, expanded comic/manga edition metadata from
+**48 to 95**, and cleared the approved R2 queue: **401 verified mirrors, zero
+eligible backlog**. Actual catalogue-query signing and private image delivery
+passed HTTP/WebP/SHA-256 verification.
+
+Final physical-card pricing coverage is **42,962 / 67,065 (64.06%)**. The user’s
+90% target is **not achieved**: 17,397 additional supported values are required.
+Coverage includes explicitly labelled marketplace guides, not just
+condition-specific UK sold comparables. The 2,480 documented Pokémon Pocket
+digital references remain excluded consistently. Sealed guides cover
+2,740 / 3,890 (70.44%).
+
+Artwork URLs are populated for **62,512 / 69,545 references**; **7,033 remain
+blank**. Every newly repaired image was decoded and verified, but this does not
+assert that every pre-existing external URL loads. The 95 book editions contain
+reviewed factual metadata; comprehensive books, covers and values remain open.
+
+PRs #736–#747 implement source-date preservation, bounded hourly refresh order,
+exact display/mapping repairs, reviewed book imports, safe R2 backfill, exact
+Hidden Fates/Generations/OP-16/Fusion guides and explicit V1 foil selection.
+The final backend suite passed **6,880 tests**, dashboard checks and n8n build;
+independent reviews cleared source/variant and operator safeguards.
+
+The final foil import committed **36 of 46 previewed guides** before the
+existing provider `SHARED_QUOTA_LOW` guard stopped it. Ten SB01 guides remain
+unapplied. Their identities and durable complete/incomplete receipts are saved
+in the implementation report. No quota bypass or paid feed was introduced.
+
+Normal deployment `cef03cbd-f59b-4815-abbc-22b9cc19abf6` is **SUCCESS**, readiness
+**HTTP 200**, with the original predeploy checks restored and no one-off import
+command. All 616 inventory rows retain their full-row checksum. Current prices,
+ownership and Store Prices remain authoritative in Supabase.
+
+Private R2 history contains **39,045 verified rows across nine archives**.
+Database size is **356,215,955 bytes**, below the unchanged refresh guard.
+Recurring DR94 remains inactive pending actual scheduler/error-routing proof;
+the broad reference-image cache remains source-permission gated.
+
+See [production receipts, final counts and resume order](docs/CATALOGUE_COMPLETION_RUN_20261026.md)
+and [machine-readable checkpoint](docs/CATALOGUE_COMPLETION_COUNTS_20261026.json).
+
+## 26 October 2026 - R2 history archival live verified
+
+PR #734 is merged as 8f5bf7955bf8a825c1df999cd70649783153c36a. All six
+CI workflows passed, including 6,493 backend tests, dashboard/browser checks,
+and real PostgreSQL 17 archive/concurrency/security/rollback tests. Migration
+20261026204421_reference_history_r2_archive is registered in Supabase; permission
+readback confirms forced RLS, no anonymous execution, no API receipt-table access
+and no general API TRUNCATE grant. No new security advisor finding was introduced.
+
+Copy-only deployment 3a27785b-bd0c-403e-b93f-50ad2d1010d5 reached SUCCESS;
+HTTP readiness returned 200. At 20:50:21 UTC the downloaded R2 snapshot passed
+full typed restoration for all 33,702 rows. Supabase still retained the identical
+count and content root before cleanup was enabled.
+
+Cleanup deployment 6cb32a73-5d43-4335-a57f-22ebf2dfc4ff reached SUCCESS with
+readiness 200. Durable receipt committed at 20:53:36 UTC: 33,702 rows archived,
+54,050,816 bytes reclaimed. Archive ID is r2-reference-history-
+2881bf674573c9e2f42dd0c60e485a9d670f8812ca199db8035b365486763b37
+(join the wrapped line); its suffix is the canonical full-row content root.
+The history relation fell from 54,083,584 to 32,768 bytes. Immediate database
+readback was 353,127,571 bytes, below the unchanged 400,000,000-byte refresh guard.
+All 616 inventory rows retained checksum b37b9df22b5ca5b6a525bc5a684d9d3c.
+A new REFERENCE_PRICES job was RUNNING at 20:53:55 UTC, proving the capacity
+blocker cleared; this does not assert that every provider or pricing gap is fixed.
+
+Both archive flags are enabled on the API service. Each attempt still downloads,
+restores and verifies before guarded cleanup; failures preserve the live history.
+The worker attempts at startup and at most hourly per process. Current prices,
+ownership, acquisition costs, Store Prices and settlements are not archival targets.
+Supabase remains their authority; previous Drive archives remain retained.
+
+Cloudflare's private bucket has public URL disabled, no custom domain and no
+completed-object expiry. A one-image approved-media signed bridge probe succeeded,
+increasing verified mirrors from 2 to 3; the one-shot flag was reset. Recurring
+DR94 remains off pending stored-workflow validation, DR90 routing and actual n8n
+execution proof. Broad reference-image caching remains source-permission gated.
+The R2 image CSP defect is fixed for either independent delivery switch.
+
+Latest pre-resumption coverage was 42,482 / 67,065 physical references (63.34%),
+including explicitly labelled guides. The 90% user target and 95% software target
+remain unmet. Live R2 price-cache delivery, a history-reading API for R2 archives,
+missing artwork/source permissions and the full comics/manga import remain
+separate unfinished work. Do not describe archiving as new pricing coverage.
+
+See [archive, recovery and live evidence](docs/R2_HISTORY_ARCHIVE_20261026.md).
+
+# Build status
+
+## 24 October 2026 - Pricing recovery (live verified, PR #699)
+
+PR #699 is merged as 7b22901e0b90ad4d377a00048bbae6d9c30a0159.
+Railway deployment 0b08188e-f4dd-4597-80f6-0510a6773123 reached SUCCESS at
+17:34:07 UTC; public readiness is HTTP 200 with the database connected, one
+running replica and no active failures. All five final PR workflows passed,
+including restricted-role PostgreSQL checks. The full local Python suite and
+all 6,307 Railway predeploy tests passed.
+
+Recovered 80 previously unpriced Fusion references: 56 starter records and
+24 records in other releases with escaped names. The guarded backfill used
+exact reference identities, current Cardmarket source data and verified ECB
+conversion; it committed exactly 80 new immutable history records. All guides
+remain labelled mixed-language reference context, ineligible for physical-copy
+valuation. No inventory, ownership, Store Price or Shopify changes.
+
+Catalogue coverage is now 40,628 / 67,065 physical references (60.58%), up from
+40,548. English Fusion coverage is 1,319 / 4,365. The overall 95% target is not
+met: 26,437 physical references still lack supported values or labelled guides.
+Missing source access, exact variant mappings and absent quotes remain explicit.
+
+Verified private archival preserved all 35,802 preceding history rows and
+reclaimed 56,606,720 bytes. Typed restore, full-field/quote digests, private
+upload, complete download SHA-256 and ZIP CRC passed. Inventory and all three
+current-price-cache fingerprints were unchanged. After the new price backfill,
+the database is 339,471,507 bytes, writable and below the unchanged 400 MB guard.
+Archive receipt: drop-rate-reference-history-20261024-172650.
+Coverage receipt: 66b0b505-498d-4267-96bf-181300289e09.
+See [scope, evidence and remaining gaps](docs/PRICING_RECOVERY_20261024.md).
+
+The preceding PR #698 release is also verified live. Its older pending wording
+below records the state when that patch was committed.
+
+## 22 October 2026 — Catalogue price visibility recovery (release verification pending)
+
+The founder requested live app polish, prioritising missing artwork and prices.
+A read-only audit measured 37,504 / 67,060 physical reference records with recent
+supported values or labelled guides, with 3,060 English Pokémon records classed
+as stale. Missing Pokémon image URLs remain 10,364 (1,240 English including
+159 digital Pocket entries, 9,124 Japanese); this patch does not claim to fill
+those source gaps.
+
+Catalogue browsing now returns eligible dated Cardmarket guides as explicitly
+last-known ranges when current evidence is unavailable. They keep original source,
+identity, currency conversion and observation dates; current valuation fields,
+retail recommendations, portfolio totals and value sorting stay unchanged. The
+existing on-demand refresh continues, preserves the dated display on empty/failed
+responses and replaces it when a current value arrives. Search, scanner review,
+founder and seller views share the same labels. Book-only lookups no longer skip
+shared-price resolution; stale near-mint comparisons retain their historical label.
+
+No schema, owner, stock, Shopify listing, provider credential or paid-plan change.
+All 6,276 Python tests and the full Node UI suite passed before final review;
+PostgreSQL and Chromium/WebKit CI release gates must pass on the final PR head.
+Local browser binary downloads were blocked by the network gateway. Railway
+project discovery did not respond, so a live deployment is not claimed here.
+The saved comic/manga artwork release still requires exact live asset readback.
+Capacity recovery completed through the existing full-content-guarded helper:
+42,724 history rows were exported, restored with exact row/quote digests, uploaded
+to the verified private Drop Rate Drive, downloaded and checksum/ZIP-CRC checked.
+The committed archive reclaimed 66,281,472 bytes; fresh database size is
+336,047,251 bytes (previously 402,328,723), writable and below the unchanged
+400 MB guard. Inventory and all three current-price-cache digests are unchanged.
+Drive archive: `1IkHkFIN3EeJXxFvGZDZI0vNazqJL9pwW`; package SHA-256:
+`7c923dbec50db19c60abf02ec973538f3410e9750a31869ba998c245849aea81`.
+Fresh pricing jobs and improved coverage still need live observation.
+
+## 21 October 2026 — Comic and manga bulk imports prepared for more storage
+
+The founder requested preparation now and the large data load after a storage
+upgrade. The new operator pipeline supports authorised GCD issue/series exports,
+PRH ISBN title feeds and publisher JSONL for both comics and manga. Download and
+staging checkpoints resume interrupted jobs; source mappings prevent duplicate
+products. Conflicting editions remain in review. Checked publisher covers connect
+to private catalogue thumbnails, scan research and saved-book Choose cover; GCD
+data retains source/CC BY-SA attribution without using its cover scans.
+
+No bulk production import or schedule is enabled. The preflight database size was
+402,304,147 bytes, above the unchanged decimal 400 MB bulk guard. A verified future
+quota can be supplied explicitly to the book job, retaining at least 20% / 100 MB
+headroom and all read-only checks. Real GCD/PRH account access and completed source
+snapshots are still required. The existing baseline remains 46 publisher editions
+(36 manga, 10 comics); no new stock, prices, ownership or listing-media approval.
+
+Local Python and Node suites pass, including 2,500-record staging/restart and both
+source/category adapters. Actual Postgres transaction/RLS/readback and existing
+mobile/desktop browser checks are release gates in the PR's collection workflow.
+The earlier artwork release remains subject to Railway deployment recovery; no
+live-artwork or full-catalogue claim is made. See the complete
+[source requirements, commands, activation and rollback runbook](docs/BOOK_BULK_IMPORT_20261021.md).
+
+## 21 October 2026 — Comic/manga catalogue imported; artwork release blocked by Railway outage
+
+The missing saved-book artwork is traced to receipt-only inventory reads and a
+14-edition catalogue. This change adds a reviewed 32-edition batch (46 publisher
+editions total), shares edition artwork with saved inventory, restores a unique
+barcode-matched legacy cover on read, and adds Choose cover for existing copies.
+The second legacy copy lacks variant/barcode evidence and requires that choice.
+Identity approval, ownership, physical copies, pricing and public listings are
+unchanged. PR #695 is merged as `a0ae3add`; all six final PR workflows passed,
+including 6,216 Python tests and mobile/desktop Chromium/WebKit checks. The 32
+reviewed editions are now imported: 46 publisher editions (36 manga, 10 comics),
+48 book products including the two seller entries, zero duplicate identity keys.
+Both physical inventory rows have the same digest before and after the import.
+
+The artwork fix is **not live**. Railway's 21 October outage has paused new builds
+in every region; the attempted release returned `Deploys have been paused temporarily`.
+The healthy live API still serves deployment `c69c96da` / commit `7558fd27` from
+18 October. Main's browser/PostgreSQL jobs passed, but its two production asset
+readbacks correctly failed because the new assets are not deployed. Deployment,
+exact asset verification and authenticated seller acceptance remain outstanding; see
+[scope, evidence, tests and rollback](docs/BOOK_CATALOGUE_LIBRARY_20261021.md).
+
+## 18 October 2026 — Default-camera book handoff (live verified, PR #693)
+
+The new phone recording loaded current assets but all eight comics entered the
+Cards-only API/schema, returning NONE/UNKNOWN before any publisher lookup. The
+default Auto camera now returns typed book evidence from the same vision request,
+uses the existing private book receipt/review, and includes compatible reviewed
+publisher artwork immediately. Explicit legacy comic observations get a bounded
+book-reader fallback. Mixed queues keep card/book types and removal behavior.
+Stored market values are checked automatically; missing data offers sold-listing
+comparison. Numeric book values are still blocked: zero production book snapshots,
+no verified book identities and the current eBay/Trawl HTTP 429 pause through
+18 October 17:39:35 UTC. No provider/config/schema or production data changes.
+All six final PR workflows passed, including 6,196 Python tests, the full Node
+suite (64 scanner cases), PostgreSQL receipt/RLS/retry/quota checks and Chromium/
+WebKit at 390/1440 widths. Final mobile Auto/book/artwork screenshots were inspected.
+Railway c69c96da-0209-4665-975d-0ee200e5449e reached SUCCESS at 15:34:05 UTC
+with main 7558fd27; predeploy passed all 6,196 tests. Live readback at 15:34:29 UTC
+verified all four book-auto-v6 asset hashes, owner/founder entrypoints, healthy
+readiness and anonymous receipt/cover 401. All three main workflows passed,
+including production readback. Fresh phone OCR accuracy remains unmeasured;
+the eight recorded failures are routing regression fixtures, not new model results.
+See [scope, evidence, limitations and rollback](docs/BOOK_AUTO_ROUTING_20261018.md).
+
+## 18 October 2026 — Automatic book artwork selection (Live verified, PR #691)
+
+Follow-up to the founder's Collectr/card-flow request: matched publisher artwork
+and its metadata are selected automatically, with a one-tap Add and optional
+Change cover. The prior separate cover-confirmation step is removed. Selection
+uses the existing verified, non-conflicting candidates and does not claim visual
+proof or invent unknown printing, condition or value. Background results preserve
+edits; pending saves retain the original artwork receipt and idempotency key.
+The Add action stays visible while optional fields scroll. All six PR workflows
+passed, including 6,180 Python tests, the full Node suite, PostgreSQL ownership/
+artwork/retry checks and Chromium/WebKit at 390/1440 widths. Final default/alternative
+cover screenshots were inspected. Railway 8d7cc901-ced5-4121-8d20-c4aa3c7b0f37
+reached SUCCESS at 14:58:45 UTC with main fc439fe6; predeploy passed 6,180 tests.
+Live readback at 14:58:58 UTC verified all four book/scanner asset hashes,
+owner/founder book-cover-v5 URLs, healthy readiness and anonymous receipt/cover 401.
+No production data, schema or provider changes. Fresh scans use the new default;
+earlier saved copies are not rewritten. Physical-phone recognition timing remains
+unmeasured, and unavailable publisher artwork is not invented.
+See [scope, checks and rollback](docs/BOOK_DEFAULT_ARTWORK_20261018.md).
+
+
+## 18 October 2026 — Continuous capture and progressive book review (live, PR #689)
+
+Follow-up to the founder's 14:58 recording: capture now queues beyond two active
+reads, with an integrated 44px remove control. Book OCR returns before publisher
+research; two bounded background lookups preserve user edits and pending saves.
+Owner-scoped original-photo receipts claim research once and recover disconnected
+responses without another paid lookup. Existing hourly caps remain unchanged.
+Nineteen reviewed publisher references bypass repeat web searches, including
+verified covers for Amazing Spider-Man #528/#795, Spectacular #11/#114 and Batman
+#463. Marvel image formats, its older image host and same-issue canonical slug
+handling are repaired. No universal artwork or measured phone-speed claim.
+All six PR workflows passed: 6,178 Python tests, complete Node UI suite with 63
+scanner scenarios, PostgreSQL owner/digest/concurrency checks and Chromium/WebKit
+at 390/1440 widths. Final mobile queue screenshots were inspected. Railway
+3b0dd56c-26e1-4e77-96de-9abf6af1060c reached SUCCESS with main cfbcb756 at
+14:32:24 UTC. Owner/founder entrypoints and all four scanner/book assets match
+the release; readiness is healthy and anonymous book receipt/cover reads return
+401. No schema, production data or configuration changes. Physical-phone
+recognition timing after release remains unmeasured.
+See [scope, sources, checks and rollback](docs/BOOK_SCAN_QUEUE_20261018.md).
+
+## 18 October 2026 — Book recognition and scan removal repair (live, PR #687)
+
+The founder's 14:10 iPhone recording and eight owner-scoped recognition receipts
+from 13:08–13:16 UTC exposed two skipped publisher lookups for unreadable issues,
+four publisher candidates with no artwork, and book thumbnails forced to camera
+photos. Research now accepts the cover when the issue is unreadable, with uncertain
+OCR separated from confirmed fields. Added DC's official archive to the existing
+publisher research, exact-issue bounded metadata cover recovery, source-bound
+preview delivery, and metadata prefill even when a cover cannot be inspected.
+Recognised books show a compact confirmation; optional copy details stay optional.
+Queued scans have accessible remove controls, including during recognition and
+inside book review. Late responses cannot resurrect removed scans. Uncertain saves
+retain their original retry; dismissing a saved scan never deletes inventory.
+
+Verified: all 6,172 Python tests in CI and production predeploy, 85 focused
+Python cases, 56 scanner interactions and the complete Node UI suite. All six
+PR workflows passed, including PostgreSQL RLS/retry and Chromium/WebKit browser
+checks at 390/1440 widths. No production dependency changed.
+Fetched/decoded the official DC Batman #463 cover and visually matched the supplied
+recording. Some Marvel publisher pages return HTTP 403; no bypass, substitute artwork
+or universal book coverage is claimed. Main b3819857 deployed successfully as
+Railway c4c41407-aee4-49c9-9751-96fd9d9e5c99. Owner/founder entrypoints and all
+four scanner/book assets match the release; readiness is healthy and anonymous
+book artwork/inventory reads return 401. Physical-phone recognition remains
+unverified after release.
+See [scope, source evidence and rollback](docs/BOOK_SCAN_REPAIR_20261018.md).
+
+## 18 October 2026 — Verified storage recovery and safe book rescans
+
+Archived/restored/verified all 50,378 reference-history rows in the private Drop
+Rate Drive, then used the existing atomic full-content guard to reclaim 77.05 MB.
+Production is writable at 328.61 MB; current-price and inventory fingerprints are
+unchanged. Bulk imports are below the 400 MB guard again; weekly timing is unchanged.
+Fixed host-timezone sensitivity in the disposable archive verifier. Released the
+book rescan fix so failed/new photo reads cannot retain the prior identity, artwork
+or value. Added browser regression cases and a bounded read-only artwork review
+through the existing CardTrader connection. No source backfill is claimed before
+matching/visual verification. See [receipts and phone check](docs/CATALOGUE_RECOVERY_20261018.md).
+All six PR #683 workflows passed, including the forced PostgreSQL retry race and
+Chromium/WebKit rescan cases. Main 88971bec deployed successfully as Railway
+52e920cc-f008-490c-8644-c23bac3a76f7. Follow-up PR #684 retained all 2,137 public
+source records below the log-ingestion limit. Verified and applied 540 missing
+English Pokémon images across ten releases; all ten now have zero artwork gaps.
+PR #685 fixed explicit gender/Prism source labels and restored three dated,
+mixed-language guide references. Latest main 4a3cfe56 deployed successfully as
+cf4b00cd-2915-410c-8299-3b13f08291fc with 6,161 production predeploy tests passing;
+readiness and exact book-script bytes match. The original predeploy was restored.
+Remaining Pokémon image gaps: 10,364; physical reference/guide coverage:
+40,446/67,060 (60.31%). Exact eBay sold access and the physical comic phone test
+remain pending. See [source proofs and rollback](docs/evidence/catalogue-recovery-20261018/README.md).
+
+## 17 October 2026 — Simple collection journey (live, PR #682)
+
+Home now leads with the collection; selling/payout panels move to More → Selling.
+Search and scan use Add to collection with optional raw condition and quantity,
+plain status labels and separate selling controls. Book confirmation keeps optional
+copy details out of the main path and can show the chosen catalogue cover.
+Source identity, owner isolation, immutable retry, sealed/slab constraints and
+Draft PERSONAL_COLLECTION admission remain. No invented price or artwork:
+read-only coverage remains 40,443/67,060 physical references, 10,904 Pokémon image
+URLs missing and bulk pricing paused at 405.66 MB. An opt-in four-call CardTrader
+artwork probe provides evidence only. No new service, schema, paid source, live
+stock write or Shopify theme publication. See [scope and gaps](docs/SIMPLE_COLLECTION_JOURNEY_20261017.md).
+All eight PR workflows and four post-merge workflows passed. Main bfb1f688 deployed
+successfully as Railway 81a81489-b08a-480d-8bf9-874a2929a862; readiness, owner HTML,
+13 exact changed asset hashes, founder bundle versions and anonymous 401 were
+verified. The public artwork probe was read-only and the original predeploy was
+restored. Final receipts are recorded in PR #682; physical-phone timing is pending.
+
+## 17 October 2026 — Pending import corrections and clean session reset (PR #681)
+
+Fixed the import-review dead end for unrecognised condition/grade and incomplete
+slab details through the existing owner-only confirmation route. Explicit card
+corrections preserve original CSV evidence, Collectr quantity identity, unrelated
+review issues and Draft-only admission. Duplicate slab certificates across a
+multi-copy row are rejected. Closing/leaving/signing out clears the upload form
+and hidden results; editing a search removes stale selectable matches. Mobile
+review controls are contained, including a light native-control palette for Safari.
+Local Python/DOM, signed HTTP, PostgreSQL/RLS and responsive browser checks pass.
+Final deployment and asset readback receipts are tracked in
+[PR #681](https://github.com/pulltheorytcg/drop-rate-backend/pull/681).
+No live customer import, stock rewrite, market-price change, migration or service.
+See [scope and verification](docs/IMPORT_PENDING_REVIEW_REPAIR_20261017.md).
+
+## 17 October 2026 — Beginner book research and cover confirmation (PR #678)
+
+The real-book recording showed OCR followed by manual edition research. The book
+scanner now prepares publisher-sourced suggestions and cover choices through the
+existing recognition service. Supported details prefill a compact confirmation
+screen; ambiguous covers remain choices and unknown printing stays optional.
+An explicitly selected publisher cover follows the saved draft copy through an
+owner-bound, identity-checked reference receipt. No market values, identity/media
+approvals, stock publication or financial actions are inferred. Full local Python
+suite: 6,124 passing; 50 scanner interactions passing. All six PR workflows passed,
+including real PostgreSQL owner isolation and Chromium/WebKit phone/desktop checks.
+The configured provider returned the exact known One Piece ISBN and matching VIZ
+cover; the release probe initially rejected VIZ's valid `/paperback` URL alias.
+The corrected probe accepts that specific print alias and additionally requires
+the exact expected image and a visual match. Deployment and live readback receipts
+are maintained in [PR #678](https://github.com/pulltheorytcg/drop-rate-backend/pull/678).
+See [implementation and release scope](docs/BOOK_RESEARCH_REVIEW_20261017.md).
+
+## 17 October 2026 — Comics/manga live scanner repair (live, PR #677)
+
+The reported iPhone flow was a form launcher: Comics / Manga closed the live scanner and opened a separate photo picker. It now selects a live `COMIC` mode using the same camera stream, shutter, gallery, auto-scan/removal gate and results tray. The existing book recognition endpoint reads the capture immediately; book review reuses that response and cover, and only an explicit book intake receipt marks the scan as added. Unknown identity/copy/price fields, owner guards, immutable save retry and the card/book intake boundary remain enforced. Released via main bd03cc8 and successful Railway deployment 84326318-f91b-414c-8148-204691ee8c54. The 50 scanner interactions, focused Python checks, Chromium/WebKit, PostgreSQL, full CI and live readback passed. See [scanner repair](docs/LIVE_BOOK_SCANNER_20261017.md).
+
+## 17 October 2026 — Publisher covers for 14 books; explicit market-price status (live, PR #676)
+
+Released on main e28d022 through successful Railway deployment 32474dea-b3b5-4e39-87bb-bdcb6ce78798. All seven PR workflows passed; deployed owner/founder browser asset v21 matched the reviewed bytes, readiness was healthy, anonymous artwork access was denied, and production counts remained 14 catalogue books / 614 physical copies / 0 physical books / 50,378 retained reference-history rows. Full release receipt is in PR #676.
+
+All 14 starter editions now have reviewed publisher cover references, including Marvel issue 112985. Search and details use the existing authenticated, bounded thumbnail transport, exact identity/language/source matching and approved-media priority. VIZ's missing Content-Type on the Jujutsu Kaisen JPEG is handled only after decoding a valid raster from a trusted publisher path. Book prices explicitly remain pending: production has 0 verified printings/physical book copies, and the eBay/Trawl HTTP 429 cooldown ends 17 October 17:00:42 UTC. PriceCharting cannot be adopted without redistribution permission and exact edition evidence. Added completed/sold comparison links; no numeric prices, media approvals, inventory/Shopify writes, new provider or paid plan. Both shells load browser asset v21. Local exact-identity/auth/SSRF/raster and UI checks pass; all 14 public covers were decoded through the thumbnail transport. See [artwork and price evidence](docs/BOOK_ARTWORK_AND_PRICE_STATUS_20261017.md).
+
+## 16 October 2026 — Publisher-backed starter book catalogue (live, PR #675)
+
+Released via main 1bda587 and successful Railway deployment c341d9f2. Production readback confirmed 14 entries, unchanged 614 physical copies and 50,378 retained history rows. Added 14 real English-language edition references: One Piece 1–3, Naruto 1–3, Dragon Ball Z 1, Hunter x Hunter 1, Jujutsu Kaisen 1, Death Note 1; Absolute Batman 1–2, Absolute Superman 1, Ultimate Spider-Man (2024) 1. Publisher URLs, release dates and ten ISBNs are recorded in the reviewed manifest. The append-only seed reuses the existing manual identity algorithm, rejects collisions and is idempotent. Records remain STRUCTURED; unknown physical printing/cover, condition, grade, stock and market values are not inferred. Catalogue selection prefills the existing book intake for explicit review/save. Cover URLs are recorded as pending-rights provenance, with publisher links; existing approved-media gates remain intact. No Shopify products, new services, schema, provider subscriptions or refreshes. See [starter catalogue](docs/BOOK_CATALOGUE_STARTER_20261016.md).
+
+## 16 October 2026 — Comic/manga scanner and exact-book market values (release verification pending)
+
+Seller Hub now connects the existing book intake to camera/gallery evidence recognition (up to three photos), with explicit field confirmation and draft save. Added an exact-printing branch to the existing UK sold/v4 pipeline, immutable book identity digests, shared inventory/catalogue values and a read-only form lookup. Uncertain identity, mismatched editions/grades, unverified book profiles and signed/restored/qualified copies cannot inherit a standard value. No new service/schema, asking-price update or Shopify publication. Production has zero canonical books and the existing sold provider is paused after HTTP 429 until 17 October 17:00 UTC; **no new live book prices or real-photo accuracy are claimed**. See [design, failure cases and verification](docs/BOOK_SCANNER_MARKET_VALUES_20261016.md).
+
+## 16 October 2026 — Comics/Manga first-class sections (CI and unpublished theme verification pending)
+
+Extended the existing **13 October owner-entered comics/manga** foundation, without new schema or reinventing intake. Supabase currently has **zero** comic/manga canonical product records, so we created no artificial products, costs, market values or owned stock. The owner-scoped catalogue browser will add **Comics** (Marvel, DC, Other) and **Manga** as separate browse families; actual approved canonical `COMIC` profiles appear automatically once entered, and zero-inventory groups offer the already-secure manual book intake. Generic card/SEALED intake remains blocked for books. Added full JSDOM category navigation tests, owner RLS/type SQL tests, and Safari versioned JS.
+
+In the verified **Drop Rate Shopify** account, created two smart category collections (**Comics** `/collections/comics`, GID `684163105115`; **Manga** `/collections/manga`, GID `684163137883`), exact tag rules `Drop Rate:Comics` / `Drop Rate:Manga`. Both correctly contain **zero products**, with no false stock or sale price. The unpublished Brand Redesign theme GitHub overlay includes homepage discovery and collection-nav links. **Do NOT claim this preview is live until remote theme file upload/checks succeed; never publish Horizon automatically.** The existing Shopify publication pipeline still excludes `COMIC` by design. See [book release plan](docs/COMICS_MANGA_BROWSE_RELEASE_20261016.md). Next price/provider work remains separate.
+
+## 16 October 2026 — Seller Hub homepage 104-item financial-metric clarity (CI/release pending)
+
+Audited the founder's 125s iPhone video and live owner-scoped Supabase data: **104 original physical inventory items = 101 cards + 3 sealed; 102 DRAFT / 2 APPROVED**. Only **one live guide-based GBP market reference (£0.03)** qualifies for the portfolio metric; deterministic **£1.00 recommended retail** applies to just that one. **Two actual owner-saved £10 asking prices total £20.00**; all 101 singles have no recorded Store Price. The old Home KPI placed the £1 automatic recommendation in the headline and relegated the actual £20 Store Prices to small text, leading to confusion. The new Home shows **Saved Store Prices £20.00 (2/104)**, keeps £1 as a separate clearly labelled guide-based suggestion, labels £0.03 as a **partial** market total (1/104), and accurately distinguishes **101 cards + 3 sealed products**. Zero valued/saved counts show `Unavailable`/`Not set` rather than zero portfolio worth. Added isolated JSDOM/home UI and owner-scope tests; no actual price, owner, stored asking or archive changes. Evidence limitations: **64 REVIEW media/identity mappings** (58 JP One Piece, 6 JP Pokémon), **24 Japanese OP16** owned numbers absent from the indexed JP reference catalogue, and stale Eevee/OP17 snapshots; no licence to automatically approve or borrow English/parallel prices. See [full recording audit](docs/SELLER_HOME_104_PRICE_REVIEW_20261016.md).
+
+## 16 October 2026 — Seller Hub full-tile details, concise historical value (release checks pending)
+
+Founder screenshot: mobile card titles, conditions and prices were buried under an oversized **Manage** button and long **Last known 08/10/2026** timestamp. Prepared native, keyboard-accessible full-tile open action (no Manage CTA), compact GBP values labelled **Historical reference** when stale, exact checked date retained in the existing detail modal, refresh icon repositioned over artwork without accidentally opening a detail view, and iPhone Safari asset cache bust. No seller ownership, pricing caches, store price, grading, listing eligibility, Shopify or archival SQL changed. Reference history retention audit: all 50,378 current rows are from 15 Oct; a 30-day raw retention window would retain almost all ~77MB and cannot clear 400MB Free-plan guard. Actual cold backup + compressed recent-history design remains separate and must pass verified Drive/typed-restore safeguards before any deletion. See [UI+retention decision](docs/SELLER_TAPPABLE_INVENTORY_20261016.md).
+
+## 16 October 2026 — Archived-data SLA watchdog in existing Railway worker (release verification pending)
+
+Daily 04:00 UK market-history archival remains an **enabled ChatGPT automation**, but not a native Railway/Supabase cron and has **no successful unattended archival receipt yet**. To make failure observable without purchasing a new service or exposing private Google Drive credentials, added `backend/app/archive_backlog.py` and a once-per-day **07:00 UK** overdue-history check to the existing authorised FastAPI catalogue worker. It read-only counts any `tcg.reference_market_history` recorded at/before the 04:00 UK cutoff and logs a structured warning if the daily archive did not clear it after a three-hour grace. It does NOT claim Drive backup success, delete rows, alter current prices, pause/unpause any other work, or bypass 400MB guard. Separate ChatGPT *Drop Rate Archive Watch* conditional task verifies archive registry and private Drive metadata after the daily window. First run 17 October. Original 50,378 history records, ~405.5MB Free database, 614 inventory copies remain intact unless a later fully verified archive completes. See [monitoring/runbook](docs/ARCHIVE_BACKLOG_WATCH_20261016.md).
+
+## 16 October 2026 — Daily archival schedule versus weekly bulk pricing (release gates pending)
+
+Founder authorised **daily 04:00 UK ChatGPT archive**, enabled starting **17 October**, and **weekly Monday 03:00 UK heavy market updates**, first eligible **19 October**. A ChatGPT schedule is **not** a Railway cron or proof of successful cloud archiving. Prepared deterministic `weekly_price_due` and `weekly_price_slot` in the existing Railway FastAPI worker for `REFERENCE_PRICES`, `SEALED_REFERENCE_PRICES`, `CATALOGUE_VALUES` and `CARDMARKET_VALUES`, preserving daily reference identity ingestion and independent Shopify reconciliation. Incomplete pages/failures retain their existing retry paths; IANA London DST respected. **400MB capacity guard and all 7-day quote validity remain unchanged**. Supabase still has 50,378 unarchived records / 405.5MB; do not run bulk refresh or delete history until complete correct-Drive archive/restore/readback succeeds. No paid sources, scraping, new services, migrations, stock or price changes in this release. See [cadence/runbook](docs/WEEKLY_BULK_PRICING_DAILY_ARCHIVE_20261016.md).
+
+## 15 October 2026 — Honest Pokémon missing-art reference display (release checks pending)
+
+Source audit: **10,904 TCGdex reference cards lack an image URL** (9,124 Japanese / 1,780 English). No already-approved exact canonical media matches were available. To avoid a broken-looking Seller Hub while protecting card identity, references with no real artwork (or with failed exact TCGdex low/high images) now show Drop Rate's *existing local Pokémon game mark*, explicitly labelled **Card image not yet available · Reference only**. It is not a replacement card photograph or a physical SKU approval. This does **not** add image URLs to the database and does not count as image-coverage growth. Mobile Safari JS/CSS cache versions bumped, with targeted functional/UI regressions. Details in [artwork fallback design](docs/POKEMON_REFERENCE_IMAGE_FALLBACK_20261015.md).
+
+## 15 October 2026 — Official Kayou Naruto sealed pilot (release verification pending)
+
+Prepared a hand-curated **four-product** official Kayou sealed reference import with source-backed manufacturer model numbers and exact box pack counts (Heaven Scroll Series 1, Earth Scroll Series 2, Chapter Jin Series 3, Ninja Age Premium Collector Box). No paid source, site scraping, invented package, standalone pack SKU, unauthorised image, sales estimate or copy/Store Price change. Reference language remains Unknown until a seller explicitly confirms it, exact release day is not invented, every manufacturer model is collision-checked, and all price fields stay absent. Seller Hub will show a truthful image-rights pending placeholder and clickable, host-validated manufacturer page, within the existing unified Naruto browse family. Implemented an opt-in admin-only atomic reference importer with offline dry-run and adversarial tests. **No production references added until tests and verified import/readback**. See [pilot manifest and test plan](docs/VERIFIED_KAYOU_NARUTO_SEALED_20261015.md).
+
+## 15 October 2026 — Seller Hub video: visible sorts, truthful Naruto sealed gap, Dragon Ball variant labels (release checks pending)
+
+The founder's 20:40 iPhone capture showed hidden sort controls, generic empty Naruto sealed results, visually repeated Dragon Ball cards, and missing price/artwork. The shared catalogue page now exposes compact Sort/Filters controls including Name A–Z/Z–A, Latest/Oldest, Number, GBP Value high/low; value sorting continues server-side before pagination, unknown prices last. Source-identified Dragon Ball `_pN` records display explicit `Printing variant pN` without merging distinct artwork/editions or borrowing the base-card quote. Naruto sealed shows an explicit verified-catalogue gap and a working card-browse action instead of an unhelpful no-match message. Read-only live audit: **0 Naruto sealed references**, **1,584 Fusion World repeated-number groups all with distinct image URLs**, and **10,904 TCGdex Pokémon records with no image URL** (9,124 JP / 1,780 EN). Price coverage and publisher SAMPLE artwork are **not fixed** by this UI release; no source, image or price data changed. See [video review and safety](docs/SELLER_SEARCH_RECORDING_AUDIT_20261015.md) and release PR.
+
+## 15 October 2026 — Free first-party Cardmarket 30-day fallback (release checks pending)
+
+Without any paid source or retailer scraping, exact matched singles may use the official public Cardmarket `avg30` statistic where `trend` is missing/zero, retaining source date/FX, explicit 30-day aggregate provenance and `physical_valuation_eligible=false`. Nonfinite/corrupt trend cannot fall through; parallel, language and duplicate identities remain blocked. Applies to One Piece/Dragon Ball and English Pokémon bulk references, with foil slots only where individually supported. No new prices have been imported yet; do **not** count hypothetical matches as live gains or force the scheduled refresh while Supabase Free storage remains near the limit. See [design and tests](docs/FREE_CARDMARKET_30DAY_GUIDE_FALLBACK_20261015.md) and release PR.
+
+## 15 October 2026 — Free database bulk-pricing capacity guard (release checks pending)
+
+Read-only checks confirm database **405,499,027 bytes** (Free allowance 500 MB), and 50,378 fresh history rows from the latest complete reference job. To protect current values, ownership and checkout, the existing operations monitor now warns from **400 MB** and reports a critical failure from **450 MB** or read-only state. The existing daily catalogue refresh skips bulk imports at **≥400 MB** rather than risking another data-capacity shutdown; it resumes below the threshold after verified archive cleanup. No history is deleted, archived or rewritten by this guard. Temporary stale prices are preferable to corrupt/unwritable inventory; the original seven-day source-age labels stay truthful. No new paid service/DB migration/worker. See [guard and verification](docs/FREE_DB_PRICING_CAPACITY_GUARD_20261015.md) and existing [history archive runbook](docs/REFERENCE_HISTORY_ARCHIVE_RUNBOOK.md).
+
+## 15 October 2026 — 95% global physical-card pricing acceptance target
+
+The founder set a **95% credible GBP price coverage** requirement across the entire global card reference library, not just owned inventory. Live evidence baseline: **40,443 / 67,060 physical references (60.31%)**; at least **63,707** priced identities are required, so **23,264** additional eligible prices are needed. The excluded digital Pokémon Pocket cohort contains 2,480 references. Missing: 13,064 needing permitted external evidence (including 7,166 Naruto), 9,358 unresolved exact provider mappings, 4,167 without exact quotes, and 28 US-only contexts. Existing daily coverage reports now calculate the exact target, shortfall and per-game/language progress without counting fabricated/stale/USD asking prices or changing physical stock. **Target is NOT met; this PR does not add new source prices.** See [scope, safety and source plan](docs/PRICING_95_PERCENT_COVERAGE_20261015.md). CI/deployment verification must finish before claiming release.
+
+## 15 October 2026 — Unified inventory copy quantities
+
+Matching raw cards and sealed products now share one inventory entry with a quantity in Seller Hub and Founder HQ. Exact printing/language/condition/seal boundaries remain; graded or certificate-bearing copies stay individual. Groups paginate before copy loading, and management still selects a physical copy. Market values render immediately per copy with their existing evidence labels. Read-only production audit: **614 copies → 557 entries**, removing **57 repeated tiles** across **43 groups** without merging/deleting stock or changing channel quantities. Full local backend/JSDOM checks passed; PostgreSQL, Chromium/WebKit and deployment gates tracked on the release PR. See [rules and evidence](docs/INVENTORY_COPY_QUANTITIES_20261015.md).
+
+## 15 October 2026 — Immediate shared prices across search, sets and inventory
+
+Inventory grid/table now render the shared price already in their first response. Search and set cards reuse eligible existing evidence across exact canonical/reference identities; explicit SuperRare/SR and SecretRare/SEC spelling aliases no longer block matches. Production-data comparison restores **27 additional catalogue displays** (24 provider entries, 3 canonical entries), without inventing values, choosing parallels or assigning ownership. Value sorts resolve these references before pagination. Indexed OP11-101 lookup returned the same five rows in **14 ms**, versus **3,036 ms** before (database execution sample). Existing global source gaps remain; no all-card completion or upstream quota recovery is claimed. See [evidence and release gates](docs/IMMEDIATE_MARKET_PRICES_20261015.md); final CI/deployment receipt is on the release PR.
+
+## 15 October 2026 — Missing inventory reference display repaired (release checks pending)
+
+The inventory resolver did not read the catalogue guide caches and hid near-mint comparisons for unfinished copies. A separate display-only reference now surfaces eligible dated guides/ranges and near-mint comparisons, while preserving physical valuation, recommendation and Store Price fields. Historical values remain visible with a **Last known** date when stale. Live-data replay restores **7** previously blank copy displays, including both Capone copies: **340/614** now have a current value or labelled comparison; **333** remain in existing valuation totals. **274 inventory copies and 26,617 physical catalogue references still lack eligible current values.** No all-card completion is claimed. No source subscription, schema or production financial write. Full local backend suite: **5,884 passed**; CI/deployment gates tracked on the PR. See [audit and acceptance](docs/INVENTORY_MARKET_DISPLAY_20261015.md).
+
+## 14 October 2026 — Inventory cards and mobile actions cleaned up
+
+The seller screenshot exposed unstyled native buttons and card contents wider than their clipped containers. Inventory cards now use one compact **Manage** action plus an accessible 44px refresh control where available. Text stays inside each card, actions align at the bottom, market/store prices have a clearer hierarchy, and the inventory panel no longer receives duplicate mobile padding. The search/import/view toolbar also keeps its controls in deliberate rows instead of stretching the refresh button across desktop.
+
+The existing real-browser check now loads the collector presentation, exercises 320/390/430/1440px layouts, checks each card's internal bounds and touch targets, and verifies refresh failure/retry behavior. The inventory CI workflow covers Chromium and WebKit. Local seller interaction checks (31 scenarios) and focused portal/sealed tests (48) pass. This is a presentation change in the existing Seller Hub; release verification is recorded on the associated PR and Railway deployment.
+
+## 14 October 2026 — Archive moved to the correct Drop Rate account
+
+The price-history archive is now private to **dropratetcg@gmail.com**, in the [Drop Rate archive folder](https://drive.google.com/drive/folders/1NhFIsWesgxlf059UMdx65ps9kFMqQeO9). The complete 70,408,023-byte / 722,511-record archive passed a fresh download SHA-256 and ZIP CRC check at **17:54:22 UTC**. The earlier part and corrected receipt also passed readback checks. The database archive registry now points to the new file with original content/restore evidence preserved; misplaced JUSO copies were removed afterward. The runbook requires explicit connection-email and destination-owner verification before future uploads. No current-price, inventory, schema or runtime change. See [account correction evidence](docs/DATABASE_READ_ONLY_INCIDENT_20261014.md).
+
+## 14 October 2026 — Free database archive and space recovery verified
+
+All **722,511** original price-history records are preserved in a private **70.4 MB Google Drive archive**, with full typed restore verification and fresh upload/download SHA-256 verification. Guarded reclamation committed at **17:04:18 UTC**. Database usage is **321,334,419 bytes (321 MB)**, down from **1.51 GB**; **1,189,609,472 bytes** of history storage reclaimed. All **614 inventory rows**, **69,538 card references**, and all three current-price caches are preserved; full-row cache/inventory checksums match. Supabase remains on **Free**, with normal default read-write mode. The FX-only duplicate-history guard and admin-only archive registry are applied. PR #643 merged; its readiness deployment exposed a pre-existing environment-dependent adapter test, now isolated and rechecked in this follow-up. Runtime deployment verification remains the final release gate. See [incident and archive receipt](docs/DATABASE_READ_ONLY_INCIDENT_20261014.md).
+
+## 14 October 2026 — Missing-price sources checked; access trial prepared
+
+Read-only source research reconfirms **40,423 priced / 26,635 unpriced physical references**; **zero new prices imported in this pass**. PriceCharting has exact Japanese sample pages but requires separate commercial display permission. Flipzi's tested Japanese Web Ivysaur exists in its catalogue with no returned RAW/UK quote; other Japanese quote coverage remains unverified. Naruto's public price index contains US asking prices, not eligible UK sold evidence. The existing Trawl feed's latest recorded failure is HTTP 429 after the measured free allowance exhaustion. Prepared 100 real unpriced discovery candidates and a bounded 100-query / 200-credit trial; **not executed, no paid plan activated**. Proposed Trawl Basic is USD $20/month, renewing monthly; commercial spend still requires founder approval. No runtime/schema/service/stock changes. See [source audit and access decision](docs/PRICING_SOURCE_AUDIT_20261014.md) and [candidate manifest](docs/PRICING_SOURCE_PILOT_20261014.json).
+
+## 14 October 2026 — Masters rarity and leader pricing; printed-number search (verified live)
+
+Worker revisions **21–22** recovered **745 additional GBP catalogue guide records / 670 distinct products**: 595 ordinary printings plus 150 faces for 75 two-sided leaders. Independent coverage **39,678 → 40,423/69,538**; Masters **4,416 → 5,161/9,002**. The remaining physical gap is **26,635/67,058 (39.72%)**; 2,480 digital records remain N/A. **All-card pricing is incomplete** where exact printing identities or eligible source evidence are unavailable. Printed-number Seller Hub searches now find Masters parallel printings with separate prices; changed rarity invalidates stale guides. PRs #638/#639, final pricing code `3ec3692ff6d95ecfcfd30a781184a3b5f9505410`; all seven final-head CI workflows passed, 5,854 local backend tests passed. Railway `55b50ac6-129b-4eb7-b8af-aed5e64e2910` SUCCESS; revision 22 COMPLETE at **07:01:26.380611 UTC**, zero provider failures/conflicts. Live readiness and production catalogue SQL readbacks pass. Inventory **614 / 327 stored values** and owner/status/Store Price fingerprint unchanged. No new service, source subscription, schema or stock publication. Detailed counts, exact product proofs and remaining requirements: [14 October live receipt](docs/PRICING_RECOVERY_LIVE_RESULTS_20261014.md).
+
+## 13 October 2026 — Expansion and deck pricing recovery (verified live)
+
+Reference worker revision **20** recognises 28 Masters expansion/anniversary/expert releases and nine exact One Piece deck labels that the earlier parser skipped. **Verified live gain: 471 supported GBP references** (396 Masters, 75 One Piece), from **39,204 to 39,675/69,538**. Cumulative recovery **5,703** from 33,972. Remaining physical gap **27,383/67,058 (40.83%)**; 2,480 digital records are N/A. Full reference identity, release/category, printed number and ambiguity checks remain required; all new quotes are explicitly excluded from physical-copy valuation. PR #636 / `e3a2ff802daf361fab748b983785d23d87c29ca0`, all four applicable CI workflows and **5,805 local tests** passed. Railway `737c3c71-8901-42a3-a1f7-d434995a0664` SUCCESS; revision 20 COMPLETE at **23:32:25.882622 UTC**, zero provider failures. Seller Hub's shared catalogue SQL returns recovered examples with original source timestamps. Inventory **614 / 327 stored values**; owner/status/Store Price fingerprint unchanged. No new source, schema, service or subscription. See docs/SUPPLEMENTAL_RELEASE_PRICE_RECOVERY_20261013.md and docs/PRICING_RECOVERY_LIVE_RESULTS_20261013.md. All-card pricing remains incomplete where exact mappings or eligible source quotes are unavailable.
+
+## 13 October 2026 — Pricing recovery verified: 5,056 additional records
+
+The session's deployed repairs are verified live at **39,028/69,538** priced card references, up **5,056** from 33,972. English physical Pokemon is **20,472/21,290 (96.2%)**. Remaining: **28,030 physical references** without eligible values and **2,480 digital Pocket records** explicitly N/A. **All-card pricing is not complete**: unresolved exact printings and missing source evidence are recorded in docs/PRICING_RECOVERY_LIVE_RESULTS_20261013.md with per-game counts and concrete requirements. Existing daily workers contain the fixes; no new services/subscriptions. Owner/Store Price/status fingerprint unchanged, physical inventory **613 / 327 valued**.
+
+## 13 October 2026 — Masters paired leader-face reference recovery (verified live)
+
+Worker revision **18** adds a separate guide matcher for official English Masters leader front/back records. Both exact names must appear together on one Cardmarket product in the independently confirmed release. Both official records must share the exact collector number/rarity, declare LEADER/OFFICIAL_CHECKLIST, and use the matching official `.png` / `_b.png` image identities. All same-name, third-face, parallel, product and release collisions still block. Current export replay finds **344 matched face records**, including **314 previously unpriced positive candidates (157 two-sided cards)**; read-only production checks confirm required official metadata for all 314. These are reference records, not 314 new physical cards. New quotes record both face IDs and remain ineligible for physical valuation. Baseline **38,684/69,538**; actual live lift remains an acceptance gate. See docs/MASTERS_PAIRED_LEADER_PRICE_RECOVERY_20261013.md.
+
+**Verified:** PR #631 / `9a7096e498c59019bdd2a57c750a46a7655eac1c`; all four applicable CI workflows and **5,750 local tests** passed. Railway `3904737b-3d75-463d-b3b4-1f238a52cc13` SUCCESS. Revision 18 COMPLETE at **18:06:15 UTC** with no provider failures. Actual net lift **344 face records / 172 paired card identities**, including 30 with eligible foil-field quotes beyond the conservative normal-trend replay. All 344 are excluded from physical valuation. Global **39,028/69,538** and owner/Store Price fingerprint unchanged.
+
+## 13 October 2026 — Pokemon numeric-level and explicit product-ID recovery (verified live)
+
+Worker revision **17** fixes numeric `Lv.50` name metadata while preserving `Lv.X` and printing suffixes: real-source replay identifies **612** additional previously unpriced candidates. The verified existing CardTrader connection now supplies explicit collector-number/singleton Cardmarket product-ID mappings across complete English Pokemon checklists, replacing the read-only eight-set probe. Prices still use the current Cardmarket export and ECB FX; all new quotes remain reference-only. Duplicate prints, conflicting cross-IDs and cross-release reuse fail closed; outages preserve prior dated bridge evidence. No subscription, source credential, schema or service added. Baseline **35,152/69,538**; bridge net gain requires live readback. See docs/POKEMON_IDENTITY_PRICE_RECOVERY_20261013.md.
+
+**Verified:** PR #630 / `9047b2acb4e0ae3bed120feba8d85d63853b1c63`, all four applicable CI workflows successful. Railway `e4e015a0-d9ff-42c3-bdc4-01ca075159bc`, revision 17 COMPLETE at **17:54:00 UTC**, no provider failures. CardTrader checked 100 releases with 103 calls; one cross-source conflict rejected. Actual global coverage **38,684/69,538**, net release gain **3,532**, cumulative session gain **4,712**. English physical Pokemon **20,472/21,290 (96.2%)**. Remaining physical gap **28,374**, digital references **2,480**. Inventory **613 / 327 valued** and owner/Store Price fingerprint unchanged.
+
+## 13 October 2026 — Existing CardTrader identity coverage verification (verified)
+
+Before introducing a paid feed, worker revision **16** adds a bounded read-only probe of the existing CardTrader connection for eight high-gap English Pokemon releases. At most ten read requests verify explicit collector numbers, singleton Cardmarket cross-IDs and exact source identities. Reports contain only public identity examples/counts, no credentials, and the probe writes **zero prices or mappings**. This is coverage investigation, not a claim of new values. See docs/CARDTRADER_REFERENCE_COVERAGE_PROBE.md.
+
+**Verified:** PR #629 / `bf6911c0f5c7fa86eecc5e11088ada569c121858`, all five CI workflows successful, Railway `edc25f5c-3a59-4f62-937b-e72139200ba0` SUCCESS. Revision 16 completed at 17:29:42 UTC, ten provider calls, zero diagnostic price writes. Existing CardTrader exposes exact number/cross-ID data, including 207 XY and 90 BW promo identity candidates. These counts are not price gains.
+
+## 13 October 2026 — Fusion World exact-number guide recovery (verified live)
+
+Found and fixed a second coverage defect: the existing general name matcher rejects distinct Fusion World collector numbers sharing a character name. An additional reference-only matcher uses exact English release/name/number, counts all official and market printing collisions, rejects unsupported source suffixes and requires the official base identity. Read-only replay finds **422 previously unpriced positive guides** across FB01–10 and SB01–02; **475** additional exact matches include currently absent quotes. Reuses existing source downloads and worker revision **15**, with explicit recovery/conflict receipts. New guides cannot value physical stock. Full backend suite **5,675 passed**; live release gates pending. See docs/FUSION_NUMBER_PRICE_RECOVERY_20261013.md.
+
+**Verified:** PR #628, commit `65c887a6e3e9a1d718dea3d1d8f386a1255a2c98`, all four CI workflows successful, Railway `b2751be0-4c09-4d24-b48b-c8042e7648ce` SUCCESS. Revision 15 COMPLETE at 17:15:57 UTC with **422** new Fusion prices and no provider failures. Global **35,152/69,538**, total session gain **1,180**. Physical gap **31,906**, digital references **2,480**. Inventory 613 / 327 valued and owner/Store Price fingerprint unchanged.
+
+## 13 October 2026 — Catalogue release aliases and physical/digital coverage (verified live)
+
+Current live baseline **33,972/69,538** positive GBP card references/guides. Full read-only replay of existing Cardmarket exports and original database checklists found **758 previously unpriced candidates**: 416 Pokemon EX, 300 Dragon Ball release-title corrections, 42 One Piece PRB reprints. Scoped release aliases preserve game/language/printing uniqueness and original quote identity; newly recovered guide types stay outside physical-copy valuation. Existing worker revision **14**, no new service/provider/schema or owner/Store Price/Shopify writes. Coverage explicitly identifies **2,480 TCG Pocket digital records** and provides a separate physical denominator without removing records or counting N/A as priced. Full CI, deployment, revision-14 receipt and post-write counts remain acceptance gates. Details: docs/CATALOGUE_RELEASE_PRICE_RECOVERY_20261013.md.
+
+**Verified:** PR #627, commit `99f8a18564df969deb3f8f93ce05dcc0f6788b3d`, all four CI workflows successful, Railway `02253a7a-5418-4d2c-a69e-8c0fbcf649ee` SUCCESS and readiness healthy. Revision 14 COMPLETE at 17:05:55 UTC with zero provider failures. Actual coverage **34,730/69,538**, gain **758**; **32,328** physical references still unpriced plus **2,480** digital. Inventory **613 / 327 valued** and owner/Store Price fingerprint unchanged.
+
+## 13 October 2026 — English Dragon Ball Masters high-gap Cardmarket price recovery (release checks pending)
+
+A separate exact-identity adapter for seven previously unpriced Bandai English Masters release families (Draft Box 04–06, three Themed Boosters, Battle Evolution Booster) reuses the *existing* Cardmarket game-13 daily products/price-guide and ECB FX. Verified read-only replay of **902 official reference records** against Cardmarket's 13 October product export found **579** unique market product matches and **558** eligible positive GBP guide candidates: 85 Dragon Brawl, 156 Divine Multiverse, 122 Giant Force, 58 Tournament of Power, 38 World Martial Arts, 50 Clash of Fates and 49 Battle Evolution. Original printed collector number (including two-digit EB1), exact official full set/name, both card/market uniqueness, independent release expansion/category and alternate/promo/front-back collision checks remain mandatory. This is a *source guide*, not an independently verified sold/graded/condition price. The reference job advances revision **12→13**; no new source, scraper, service, schema, Shopify publishing or owner/asking-price changes. The pre-release global denominator was **33,393/69,538** references with positive GBP quote/guide and **613 physical items / 327 valued**. **The 558 are replay candidates; do not claim live coverage gain until reference refresh, full CI, deployment and readback.** See docs/MASTERS_HIGH_GAP_CARDMARKET_BATCH_20261013.md.
+
+## 13 October 2026 — Larger pricing batches: multi-set Fusion World (implementation; release evidence in PR)
+
+Moved from one-set FB01 matching to **ten official Japanese Fusion World FB02–FB11 releases in one bounded batch**, processing 1,585 global reference identities (1,263 independently identified base-print candidates) using existing first-party Cardmarket game-13 source downloads and existing daily reference worker revision 12. Original English/Japanese Bandai IDs, printed numbers, official titles, unique source region IDs and exact market products are all required; alternate arts, promos, malformed/unpriced duplicates and conflicting expansions fail closed. Each resulting GBP quote remains `MIXED_NON_ENGLISH_REFERENCE`, physical valuation ineligible, *not* a verified Japanese sold/condition price.
+
+Actual source snapshot before release has positive regional prices largely for FB02–FB05; FB06–FB10 Non-English region expansions have no listed singles and FB11 has no positive guide trends. **Processed volume is not newly priced output** and this batch cannot honestly promise 1,000–2,000 new valuations without genuine upstream data. Per-set receipt separates `checked`, `base_candidate_count`, `unique_market_matches` and `priced`. No new provider, service, schema, workflow, owner, Store Price, Shopify or settlement write. Prior global GBP references: 33,096 of 69,538. Full source and acceptance: docs/MARKET_VALUATION_BATCH_02_1585_JP_FUSION.md. Do not claim production coverage lift until the actual reference job completes and the database is re-read.
+
+## 13 October 2026 — Market value in batches: Batch 1 (Japanese Fusion World FB01)
+
+This intentionally limited recovery reads existing Cardmarket game-13 first-party guides, matches only exact official Bandai FB01 Japanese base-print references and independent English counterparts, then selects a uniquely identified **Non-English** regional marketplace product. Quote provenance explicitly states `MIXED_NON_ENGLISH_REFERENCE`, `physical_language_confirmed=false`, `physical_valuation_eligible=false`. No Japanese sold or graded value is claimed. Prior global measured coverage **33,010/69,538** cards, JP Fusion World **0/3,227**; up to 88 unique positive-priced Non-English regional marketplace products could potentially qualify before strict official double-checklist matching, which must be measured in actual production readback. Existing reference job revision 10→11, no new providers, paid APIs, services, workflows, stock owner edits, store-price change or Shopify publishing. Tests/rollout/remaining gaps: docs/VALUATION_BATCH_01_JP_FUSION_FB01_20261013.md; **not complete until CI, deployed job and real reference increase are verified**.
+
+## 13 October 2026 — CRITICAL One Piece source-language isolation and data containment (release gates separate)
+
+After PR #620's Japanese/non-English guide backfill, read-only live pricing evidence exposed a collision: **454** Japanese cards had inadvertently inherited **English Cardmarket guide products** via the fallback dictionary keyed on the same provider ID. We caught it before signing off the 1,424 legitimate regional source matches. **Contained in production:** the 454 erroneous current quote values were atomically nulled with exact-source/role/match-basis criteria, historical provenance preserved by the existing audit trigger, and a newer checked_at preventing stale imports from restoring them. Verified current Japanese One Piece: **1,424** legitimate distinct Non-English/Asia-region guides, **0** English-only fallback quote rows; 454 invalid historical records retained for audit (do not use them as legitimate market history). No owner/Store Price/Shopify/finance mutation.
+
+Permanent fix: explicit separate EN vs JP product selection (an unmatched Japanese record cannot inherit an English price), plus new PostgreSQL CHECK requiring explicit Japanese-language provenance for **Japanese One Piece Cardmarket bulk price guides**. Add regressions for real starter and wrong-release provider-ID collisions; bump maintenance revision 9→10 to re-evaluate 4,480 JP rows. The migration must be applied with Supabase.apply_migration only after CI and a zero-violations read-only production preflight. The constraint persists across application rollbacks as a safety guard. See docs/JAPANESE_SOURCE_LANGUAGE_ISOLATION_20261013.md. All PR/CI/deploy/later receipt evidence recorded separately.
+
+## 13 October 2026 — One Piece Japanese reference-guide recovery from existing Cardmarket public feeds (release acceptance separate)
+
+Measured a new high-yield, independent regional source match instead of assigning English prices to Japanese cards. An actual **read-only replay** of 3,931 Japanese/English official One Piece base references against current first-party Cardmarket game-18 downloads identified **1,424 unique positive-priced Non-English/Asia-region marketplace products** across EB01–03 and OP01–14. Every match requires an exact official printed set code/card number/rarity, unique English label counterpart in official release, independently Non-English market expansion and one exact marketplace product; no pricing to ambiguity, parallels/reprints/promos or incorrect language. Source provenance is `MIXED_NON_ENGLISH_REFERENCE`, `physical_language_confirmed=false`, `physical_valuation_eligible=false` and displayed as "Non-English regional guide (Japanese language not verified)", **not a confirmed Japanese sold value**.
+
+This reuses the existing One Piece Cardmarket importer, immutable `tcg.reference_market_prices`, shared account-level catalogue view and maintenance worker revision **9**, without another data provider, scraping, paid API, database migration, marketing workflow, physical inventory/ownership/Store Price or Shopify changes. Baseline before production: 69,538 global card references / 31,586 with positive GBP quote or guide; Japanese One Piece **0/4,480** priced, physical copies 613 / 327 valued. **The 1,424 read-only matches are potential additions, not live production coverage until an actual revision-9 refresh and readback.** The official public guide does not guarantee Japanese-only prices or license public commercial redistribution; confirm Cardmarket display rights. See docs/JAPANESE_ONE_PIECE_REGIONAL_PRICE_BACKFILL_20261013.md. All final CI/deploy/post-write evidence in PR release notes; ambiguity and remaining 37k+ unpriced records remain Action Required.
+
+## 13 October 2026 — Price-engine source integrity hardening (PR release status separately)
+
+Hardened existing v4 FastAPI/GBP algorithm without schema/provider/Shopify/ownership changes: reject invalid, stale, future and duplicate market observations; require UK eBay **SOLD** / regional Cardmarket non-ACTIVE price anchors; count independent source sale IDs instead of claimed sample size; fail closed on contradictory IDs, missing physical-language/condition, nonfinite policies and active-only price data; detect volatility across sales inside a single eBay source. Reference guides remain labelled estimates; no guide/active-only automatic publishing even when multiple sources agree. Include `ruleset_revision=2026-10-13-source-integrity-1` in future calculation evidence while preserving database-compatible `algorithm_version=drop-rate-market-v4`. Local price-engine and 4,096 deterministic adversarial stress cases pass. Live acceptance requires exact-head backend/DB CI, successful Railway deploy/readiness, unchanged owner/Store Price/status fingerprints and no mass repricing. This does **not** raise existing 31,581/69,538 reference GBP guide coverage by itself; missing exact data remains a separate issue. Details: docs/PRICING_SOURCE_INTEGRITY_20261013.md.
+
+## 12 October 2026 — Measured Cardmarket coverage recovery and quota discipline (release verification pending)
+
+Read-only public-provider replay against 90 existing **One Piece EB-03 Heroines Edition English** catalogue references: **0 → 44** uniquely proven Cardmarket product matches, all 44 with a published trend quote, English expansion 6449 only; the remaining 46 are ambiguous or unmatched. This repairs the exact EB03 release-name mismatch without relaxing printed set-code, product-category, full name/collector number, language, regional or multiple-variant checks. The existing reference maintenance revision increases to 8 to run the public-source refresh at the next normal worker pass. **44 is a replay candidate count, not yet a verified production row-count increase.** The prior 69,538-card global denominator and 286 missing physical inventory values remain the baseline until production readback.
+
+The non-business-critical social eBay sold-data probe is now opt-in (`DROP_RATE_SOCIAL_SOLD_PROBE_OPT_IN=1`), preventing unrelated production deployments from burning exhausted Trawl provider credits. Actual eBay pricing/429 backoff remains unchanged. No new provider, paid subscription, Collectr price redistribution, secrets, n8n, ownership, Store Price, settlement, Shopify publication or database migration. See docs/ONE_PIECE_EB03_REFERENCE_PRICE_REPAIR_20261012.md; CI, deployment and live daily receipt verification are separate gates.
+
+## 12 October 2026 — Remaining market-source gaps: global triage (no invented prices)
+
+Read-only reference audit reconfirmed 69,538 card records, 31,537 with current positive GBP value or labelled guide, and 38,001 without one; sealed 2,726 / 3,879. At least **14,873** of the missing card references belong to Japanese One Piece (4,480), Japanese Fusion World (3,227), Naruto Legacy (4,487) or Kayou (2,679), for which no connected approved exact market GBP price feed currently exists. Daily reference-price jobs had completed; missing market data cannot be fixed through account-specific copying or arbitrary AI estimates.
+
+This bounded release extends the existing source-independent catalogue coverage API with explicit `SOURCE_ACCESS_REQUIRED`, `missing_by_reason`, `by_status` and per-game status totals so owners/admins can distinguish licensing gaps from exact matching, quote-unavailable, stale and US-context-only records. Strictly positive fresh market references alone count as covered. No data mutation, external API expense, paid provider, migration, new workflow/service or Shopify publication. Commercial source evaluation and actual 100%-pricing ambition remain **blocked on permitted sources and real market observations**; see docs/MARKET_SOURCE_GAP_TRIAGE_20261012.md. Merging, CI and Railway verification need separate release evidence.
+
+## 12 October 2026 — Seller manual search shared market follow-up (PR; deploy/acceptance tracked separately)
+
+Corrected the existing owner card-correction search to read the same catalogue market selector as the global browser and scanner; exact unmapped provider references now return eligible GBP guides from already-persisted source rows, with source/freshness/identity checks and explicit "Shared guide" labelling. Both owners see the same underlying reference or the same unavailable status; their ownership and asking prices remain private and unchanged. No new feed, provider, data backfill, schema, service or Shopify write. This does **not** close the 38,001-card genuine source-coverage gap. See docs/OWNER_SEARCH_SHARED_MARKET_20261012.md. Exact-head CI, deploy and physical signed-in tests are separate evidence.
+
+## 12 October 2026 — Shared reference market values across accounts (implementation; final release checks pending)
+
+- Read-only database audit: 69,538 reference cards, 613 owned inventory items, 464 canonical products. 31,537 references have a positive GBP reference or guide; 38,001 do not. Guide availability is not verified exact-condition/sold value. Daily market and coverage jobs already run.
+- Scanner previously only read canonical snapshots; 35 earlier unmapped provider candidates could have used existing positive reference quotes. This patch reads eligible owner-independent exact provider-print reference prices with source/identity/freshness checks and labels estimates as guides. Signed-in catalogue coverage API now returns global missing/priced counts.
+- Zero-coverage card families include JP One Piece, JP Dragon Ball Fusion World and both Naruto systems. Truly verified 100% exact-value coverage needs permitted market observations; no placeholder, cross-language borrowing, unlicensed scraper or owner asking-price substitute. No database migration, new service, n8n workflow, Shopify changes, automated listing approval, ownership or financial writes.
+- See docs/SHARED_CATALOGUE_MARKET_COVERAGE_20261012.md. An implementation entry is not evidence of deployment or signed-in multi-owner acceptance.
+
+## 12 October 2026 — Scanner video regressions (implementation; release evidence in PR)
+
+Bounded repair of existing raw/toploader/slab/sealed journey: server-side slab suggestion corroboration rather than bare-number first match; strict displayed-grade normalization with literal evidence preserved; explicit unverified manual certificate fallback when PSA API is unconfigured; shared authenticated reference artwork; manual capture/removal latch, same-item replacement photos, immutable save retries, cleared stale slab evidence and shared request deadline; readable candidate metadata and iPhone-sized form inputs. No model/provider/service, migration, data/price/ownership/finance write or Shopify publication. Missing translated catalogue aliases, reference images and valuation evidence remain unresolved rather than guessed. See `docs/SCANNER_VIDEO_REGRESSIONS_20261012.md`. CI/deployment and physical iPhone acceptance must be recorded separately; this entry alone proves neither.
+
+## Current correction — automatic retail recommendation summary (12 October 2026)
+
+## 12 October 2026 — Existing journey bug-fix QA (release verification in PR)
+
+- Reproduce/fix late-account request replay and response/profile races in both hubs; preserve same-account token refresh and backend authorization.
+- Fix stuck reopened imports, stale commit/resume/search completions and session-expiry cleanup without resetting real batches or changing idempotency.
+- Use shared exact-profile artwork/market/recommendation reads in Channels as well as inventory; reflect unchanged eBay scope rather than displaying unsupported sync controls.
+- Restore untouched retail suggestions after condition round trips; preserve manually chosen prices and collection-first intent.
+- Add actual-script Chromium/WebKit race regressions, extend restricted PostgreSQL/signed test HTTP channel consistency checks, run existing Business and shipping/pooling safety suites. No production data/price/ownership/publication writes.
+- See `docs/JOURNEY_REGRESSION_QA.md`. Full real-phone/scanner/checkout and signed-in production acceptance are NOT claimed by this pass. Release status requires exact-head CI and Railway/served-source verification recorded in the PR.
+
+
+Recommendations now reuse the same eligible algorithm snapshot as the shared market value, rather than an empty per-copy cache. Overview sums recommendations independently of saved asking prices, with explicit copy/guide coverage; item details show and prefill eligible suggestions without overwriting chosen prices or publishing. Null/stale/wrong-profile evidence never becomes a guessed recommendation. Existing daily catalogue jobs already run; no new provider, scheduler, service, migration, rate-limit bypass or stock/price/ownership/finance backfill. #609 shared imagery and #608 collection-first intent are preserved. See docs/AUTOMATIC_RETAIL_RECOMMENDATIONS.md; exact tests, deployment and live readback belong in the release comment. This entry alone is not acceptance evidence.
+
+## Current work — shared inventory references (12 October 2026)
+
+Owner-independent catalogue image/value resolution is being consolidated for founder and seller inventory, details and current totals. Read-only response enrichment reuses existing catalogue snapshots/media, matches exact language/condition/grader/grade/seal, labels guides and stale/missing evidence, and preserves own costs, selling prices, history and physical photo privacy. No migration, provider/service, account merge, stock reconciliation, image approval or Shopify publication. Implementation/tests and deployment must be distinguished; exact release evidence is recorded on the associated PR after verification. See `docs/SHARED_INVENTORY_REFERENCES.md`. Unresolved exact artwork and missing market evidence remain explicit exceptions, not fabricated completion.
+
 # Drop Rate — Live Build Status
 
-## 2026-10-01 — Corrected mobile scope: reuse existing hubs (local, not deployed)
-
-- Shopify stays the existing storefront. The single Android/iPhone shell loads the existing Seller Hub and Founder HQ, using server-verified role routing.
-- Replacement native dashboard/demo routes moved to `mobile/prototype-routes/`; not part of the active app.
-- Web hub session storage is shared; both entry points route authorized accounts to their existing hub. No API/RLS/financial permissions expanded. Founders do not yet gain seller-only API access or a hub-switch button.
-- Pending: backend deployment, live account acceptance, physical-device camera/OAuth/download testing, signing and distribution. No installer generated.
-
-
-## 2026-10-01 — Scan latency improvements (implementation; not deployed)
-
-- Measured production timings: AI vision dominates (19.90 seconds on average across 11 timed runs).
-- Overlap catalogue-image/learning enrichment with provider-image work; retain all recognition gates and await complete evidence. Add failure/cancellation regression tests.
-- Mobile photo preparation caps the longest edge at 1,500 pixels without upscaling. See `docs/RECOGNITION_VISION_LATENCY.md` for sample limits and outstanding real-device/model acceptance.
-
-
-
-## 2026-10-01 — Shared Android / iPhone client (local preview, not deployed)
-
-- Mobile theme now follows the browser portals: light surfaces, navy navigation and blue/cyan accents, including matching light system appearance.
-- Added `mobile/`, an Expo SDK 57 client for existing OWNER and PLATFORM_ADMIN accounts, with role-specific home/inventory/activity screens, camera/photo recognition, manual correction and review-gated draft intake.
-- Uses current main API contracts. No backend/schema/production configuration changes. Existing SwiftUI draft work is preserved separately.
-- Native sessions and immutable pending intake requests use device-only secure storage; browser demos use isolated sample data and memory-only storage. Uncertain saves retry the same key and payload.
-- Local TypeScript/lint and 24 session/workflow tests pass. Pending reads and completed-save results are discarded across session changes; retries coalesce only within the same session. Android/iOS Hermes and web bundles export; native projects generate. Browser demo intake and role navigation verified.
-- Not an APK/IPA or store release. Real-device acceptance, full native tooling/signing, privacy/release work and upstream dependency advisories remain. Advanced grading/media/publishing/payout mutations continue in the existing web portals. See `mobile/README.md`.
-
-
-## 2026-10-01 — Scanner presence, sealed routing and provider visual retrieval
-
-- ✅ Seller Hub mobile auto-scan now requires a collectible-like foreground to be present and stable before capture, then waits for physical removal before re-arming; stable empty backgrounds no longer qualify as scans.
-- ✅ Recognised/corrected batch results now prefer the matched governed reference image for the compact thumbnail instead of reusing the camera capture.
-- ✅ Recognition now classifies the photographed object before card matching. `NONE` fails closed, `UNKNOWN` requires review, and `SEALED_PRODUCT` is routed to a separate deterministic sealed resolver rather than the raw-card candidate engine.
-- ✅ Japanese One Piece **OP-17 single booster pack** is now a verified canonical `SEALED / BOOSTER_PACK / Japanese / OP-17` identity backed by Bandai product evidence. Pack metadata records **6 cards per pack / 24 packs per box** and explicitly does not reuse the official box price as a single-pack value.
-- ✅ PR #480 fixed empty-frame repeat scanning + compact reference thumbnails. PRs #481–#482 added sealed routing, sealed inventory intake and the corrected OP-17 production migration.
-- 🚧 Recognition engine **v1.7.0** adds a private/audited visual fingerprint index over the governed provider reference-card library. Strong visual similarity can retrieve a plausible card identity even when OCR/name extraction is wrong, but provider-library visuals remain **retrieval-only** unless existing deterministic exact-printing gates independently pass.
-- The provider visual index uses the existing dHash-256 multi-crop fingerprints and server-side Postgres Hamming ranking. It does not add a new data provider and does not allow AI/provider images to silently self-verify a printing.
-- Current provider reference coverage available to this layer is **53,111 images** across the existing Pokémon, One Piece, Dragon Ball and Naruto reference sources. Population/backfill is performed through a platform-admin-only rebuild path and remains separately verifiable from canonical exact-print media.
-- ✅ The provider visual-index execution path is now production-proven through an isolated one-shot Railway worker rather than the live API. After matching the live API's AMS/IPv6 network path, a **10-row Japanese One Piece smoke indexed 10/10 references with 0 unavailable**, each storing 8 hashes on `dhash16-multicrop-rotate-v1`. A concurrent duplicate deployment wrote 0 additional rows because the index upsert is idempotent.
-- 🚧 Full-corpus population is deliberately not started yet. The backfill runner is being hardened first with a per-system/language PostgreSQL advisory lock, bounded `--max-batches`, and unavailable-row skip progress so duplicate workers or one broken image cannot cause unbounded/repeated work. The visual index remains retrieval-only and cannot verify or publish catalogue identity.
-- ✅ Recognition **v1.8.0** is live as a focused One Piece accuracy path using the already-configured official CardTrader API. CardTrader single-card Blueprints are retrieval-only challengers with transient reference-image comparison: they may expose a wrong local match and force review, but they cannot independently satisfy exact-print acceptance or create canonical identity.
-- ✅ PR #485 merged as `98f0703e9c4c0e4ec972316f7e45251d0b60e99c`; GitHub Backend checks passed **2,276 tests** and the pinned n8n image check. Railway deployment `0cd910a9-0534-4eae-8343-3b52ae2fbc80` reached SUCCESS, application startup completed and `/health/ready` returned HTTP 200.
-- ✅ Recognition **v1.9.0** extends the same retrieval-only CardTrader path to One Piece sealed products (booster packs, booster boxes, starter decks, tins/cases/collections where provider categories prove the format). Provider code/type/image evidence may surface an unseen sealed product for review, but only an existing verified Drop Rate sealed catalogue row can become `EXACT_CANDIDATE` or enter inventory.
-- The sealed path keeps pack-vs-box/type mismatches fail-closed, never copies the camera-observed product code into provider evidence, keeps physical language unproven unless independently established, fails soft if CardTrader is unavailable, and records provider errors in recognition evidence.
-- ✅ PR #487 merged as `26e708dbd976a6ab2e70c8168db321dc6e17eaf9`; CI passed **2,284 tests** plus the pinned n8n image check. Railway deployment `642ce68a-ad41-4dff-ac6d-eee2f2fa65a4` reached SUCCESS, application startup completed and `/health/ready` returned HTTP 200.
-- 🚧 Sealed intake polish: verified Japanese OP-17 now has an English-readable display identity while retaining `language=Japanese`; verified exact sealed matches confirmed by the seller become `identity_confirmed=true` instead of remaining artificially pending, while provider-only/unverified sealed products remain review-gated. Seller Hub batch copy now reports the real identity state and uses generic item/sealed wording rather than card-only wording.
-- 🚧 Sealed market-value follow-up: add official CardTrader as a first-class market source for exact VERIFIED mappings. The initial OP-17 JP pack bootstrap is fail-closed: it requires exactly one provider booster blueprint with Japanese, available, `bundle_size=1` listings; boxes/multipacks are excluded. Accepted listings become immutable `ACTIVE` observations and feed the existing robust pricing engine rather than a scanner-specific price shortcut.
-
-## 2026-10-01 — Full-library recognition correction in progress
-
-- Production reference coverage is now measured at **67,996** card records across **6** recognition systems, with **53,111** reference images.
-- The blocker was not only Japanese recognition: Seller Hub batch correction searched canonical catalogue rows only, so a card could exist in the governed reference library and still show as unavailable if Drop Rate had never materialised that printing before.
-- This change extends **human correction only** to the reference library. Canonical catalogue results stay first; governed reference rows are used as fallback/extra choices and are ranked toward the scan's detected system/language when available.
-- Selecting an unseen reference calls the owner-scoped `select_recognition_reference` function, creates/reuses a `NEEDS_REVIEW` canonical identity, then records `CORRECTED_BY_SEARCH` feedback against the original recognition run.
-- Failed vision runs may now be rescued by **manual search correction only**; failed runs still cannot be confirmed as AI top/candidate matches.
-- Reference searches exclude future-dated releases and remain owner/run scoped. No reference selection auto-publishes inventory, approves canonical identity, changes pricing, or creates verified learning for normal owners.
-- Query-plan testing caught a performance issue before merge: the first reference-search SQL shape took about **4.0s** on production. It has been changed to filter candidate cards before joining release metadata; a representative same-game name lookup plans/runs in roughly **8ms**.
-- Exact collector-number correction across a wrongly detected game also gets a small global `reference_cards(number_key)` index so that cross-game human correction does not need to walk the composite per-game indexes.
-- ✅ PR #478 merged as `7dd74fcf61e1efe4efdc00d33a2552ab437e39d2`; GitHub CI and Railway deployment both passed **2,253 tests**.
-- ✅ Supabase applied `reference_cards_global_number_key_index`; production query-plan verification now uses `reference_cards_number_key_global_idx`.
-- ✅ Representative exact-number correction search fell from about **4,010ms** on the pre-fix join shape to about **54ms** after candidate-first filtering + the global collector-number index.
-- ✅ Rollback-only generic smoke passed for an English Pokémon Base Set Charizard reference selected from a completed recognition run; the review-gated catalogue identity was created inside the transaction and **0 rows persisted** after rollback.
-- ✅ Railway deployment `26138d43-d230-49fb-bd2e-972fa6dd27cf` reached SUCCESS, application startup completed, and `/health/ready` returned HTTP 200.
-- **Result:** Seller Hub manual recognition correction can now reach the governed reference library across supported games/languages instead of being limited to cards already canonicalised in Drop Rate.
-
-
-## 2026-10-01 — Recognition reference-search migration history alignment
-
-- Production Supabase contains migration `20261001140820_reference_search_corrections`, applied during the interrupted recognition repair session, but the migration file was missing from Git.
-- Live read-back confirms the function is `SECURITY DEFINER`, fixed to `search_path=pg_catalog`, owner-membership scoped, review-gated, and executable only by `tcg_api`.
-- Live data shows **0** catalogue profiles created through `HUMAN_SELECTED_REFERENCE`, so this dormant path has not altered canonical catalogue data.
-- This change source-controls the exact production migration and adds regression checks only; it does **not** activate new UI/API behaviour or expand recognition scoring.
-
-
-## 2026-10-01 — Immutable unseen-card materialisation repair in progress
-
-- Rollback-only production smoke testing of the real Japanese Trafalgar Law OP05-069 run exposed a second blocker after the SQL conflict fix: `tcg.recognition_candidates` is deliberately immutable, but the new materialisation function attempted to update `candidate.catalogue_id`.
-- The repair keeps recognition evidence immutable. A VERIFIED provider mapping is now resolved dynamically when returning run candidates instead of rewriting the historical candidate row.
-- Human feedback accepts the dynamically mapped provider candidate only when provider, printing ID, language and system all match the VERIFIED mapping.
-- The materialisation function no longer changes `recognition_candidates` or rewrites `recognition_runs.top_catalogue_id`; it only creates/reuses review-gated canonical data and the human-verified provider mapping.
-- This preserves original machine evidence while allowing the Seller Hub to continue from “New to Drop Rate” → human confirmation → normal DRAFT physical intake.
-- Failure testing remains fail-closed for provider identity/language/card-number conflicts and duplicate mappings.
-- ✅ PR #475 merged as `c9a1aa9a58038de0188e344136010d62013d8456`; GitHub and Railway both passed **2,245 tests**.
-- ✅ Supabase applied `fix_recognition_materialization_immutability` as migration version `20261001143426`.
-- ✅ Live function read-back confirms `SECURITY DEFINER`, `search_path=pg_catalog`, EXECUTE only for `tcg_api`, and no mutation of `recognition_candidates` or `recognition_runs.top_catalogue_id`.
-- ✅ The rollback-only production smoke against the real OP05-069 Japanese Trafalgar Law run now completes successfully and then rolls back cleanly: no catalogue row, provider mapping, candidate mutation or run-top rewrite persists.
-- ✅ Railway deployment `d3cf7582-f676-41cb-93c5-84c1ff4bc8fa` reached SUCCESS, application startup completed, and `/health/ready` returned HTTP 200.
-- **Result:** the unseen provider-backed card path is now production-safe across the generic recognition contract; it is not Japanese-specific.
-
-## 2026-10-01 — New-card scanner regression repair in progress
-
-- Live production investigation of the owner's failed scans isolated **two distinct raw-card failures** rather than a camera/upload outage.
-- Two recognition runs failed at the vision boundary with `VISION_PROVIDER_ERROR: Recognition vision response failed schema validation`.
-- A later scan correctly identified Japanese **Trafalgar Law OP05-069** with a ~0.93 provider-backed score, but every provider candidate had `catalogue_id = NULL`. The Seller Hub UI then filtered those candidates out, so a genuinely recognised new card appeared unusable.
-- Live catalogue read-back confirmed **OP05-069** and **OP12-056** are absent from `tcg.catalogue_products` / provider mappings even though the persisted One Piece reference library already contains those printings in English/Japanese.
-- Recognition engine version is bumped from **v1.6.0 → v1.6.1** so the same card image does not replay a cached v1.6.0 failed run after deployment.
-- Vision structured-output constraints now mirror the local Pydantic bounds, with bounded repair for numeric/list/text overflow. The repair never invents or changes card identity fields.
-- Seller Hub now shows safe unmapped provider candidates instead of discarding every result with no catalogue ID.
-- A human-confirmed **New to Drop Rate** path is added only for provider candidates that pass the existing exact threshold plus exact card-number/language and strong provider-identity gates with no OCR-number conflict.
-- Canonical creation is **not** granted directly through table RLS. A narrowly-scoped `SECURITY DEFINER` Postgres function independently revalidates current user, owner membership, run/candidate ownership, provider/reference identity and duplicate mappings, then creates:
-  - a CARD catalogue row;
-  - a `NEEDS_REVIEW` canonical profile;
-  - a human-verified provider mapping;
-  - the recognition-candidate link.
-- The new canonical row cannot auto-publish or self-approve. The seller still confirms the card again and normal inventory intake creates only a **DRAFT / identity_confirmed=false** physical copy.
-- No pricing, Shopify publication, ownership allocation, settlement or n8n behaviour changes in this repair.
-- ✅ PR #473 merged after the required application test gate passed.
-- ✅ Supabase applied the initial materialisation function as `20261001134725_recognition_provider_materialization`; security read-back confirmed `SECURITY DEFINER`, `search_path=pg_catalog`, and EXECUTE only for `tcg_api`.
-- A rollback-only smoke test against the real OP05-069 run exposed one PL/pgSQL ambiguity at `ON CONFLICT(catalogue_id)`; the transaction rolled back and read-back confirmed **no catalogue row, mapping or candidate link persisted**.
-- The follow-up repair targets the named `catalogue_product_profiles_pkey` constraint and preserves every identity/security gate. Production smoke verification remains pending this repair migration + Railway deployment.
-
-
-
-## 2026-10-01 — Graded Slab scanner + QR/certificate intake in progress
-
-- Explicit founder approval reopened the bounded graded-slab scanner slice.
-- Seller Hub scanner now has separate **Raw Card** and **Graded Slab** modes; Raw Card keeps the existing recognition engine unchanged.
-- Graded Slab mode is **QR-first** where the browser exposes native QR detection, with slab-photo/label OCR as the fallback.
-- QR payloads are accepted only from supported official grader domains (PSA / ACE / CGC / Beckett) or as a clean numeric payload with an explicitly selected grader. Unknown domains fail closed.
-- The backend slab reader extracts grader, certificate, grade, card name/number, set, year and language as visible evidence only.
-- Provider evidence is compared against visible slab-label evidence; grade/card-number conflicts block intake for review.
-- PSA can perform automatic provider verification once `TCG_PSA_PUBLIC_API_TOKEN` is configured. PSA's current Public API requires an account-generated bearer token; no unrelated secret is reused.
-- ACE / CGC / Beckett remain routed to official verification/manual review until approved machine access exists.
-- Graded card confirmation searches the canonical Drop Rate catalogue and requires the seller to confirm the exact card before creating inventory.
-- Added a dedicated server-side graded-certificate intake path. It re-runs provider verification server-side, never trusts a client claim of verification, and creates only `DRAFT` / `identity_confirmed=false` inventory pending Drop Rate review.
-- Live pre-migration read-back found **8** graded inventory items with certificate numbers and **0 duplicate grader+certificate pairs**.
-- Added a database uniqueness migration so one grader+certificate cannot create duplicate physical Inventory IDs.
-- No automatic Shopify publication, pricing override, ownership change, settlement action or external payout is introduced.
-- ✅ Supabase applied the uniqueness migration as `20261001034809_unique_graded_certificate`; live read-back confirms the unique index exists and duplicate grader+certificate pairs remain at 0.
-- ✅ PR #467 merged as `63ebf616b890b5808435d08036196d35376ef71d`; PR #468 aligned repository migration history as `baf8c2ecd9fa7a44cbca7ce7e4fcb9a2f3762edd`.
-- ✅ Final aligned Railway deployment `c48b589b-a751-4bb8-8b96-8d8b5df52354` reached SUCCESS; production pre-deploy reported **2,236 tests passed**, application startup completed, and `/health/ready` returned **200 OK**.
-- ✅ Graded Slab / QR scanner is live in `drop-rate-api-live`.
-- 🔒 Full automated PSA provider verification still requires an account-generated PSA Public API bearer token as `TCG_PSA_PUBLIC_API_TOKEN`; the production Railway services currently do not contain a valid PSA token.
-
-
-
-## 2026-10-01 — Unified grading certificate lookup gateway deployed
-
-- ✅ PR #465 merged as `32c5e63913ac9297b316b873de9b3d7ec98703be`.
-- ✅ Added one source-controlled FastAPI certificate gateway for PSA, ACE, CGC, BGS, BVG and BCCG.
-- ✅ Access is restricted to authenticated users with exactly one active Drop Rate owner membership; ordinary authenticated customer accounts cannot consume provider lookups.
-- **PSA** uses the documented PSA Public API `GET cert/GetByCertNumber/{cert}` when a dedicated `TCG_PSA_PUBLIC_API_TOKEN` is configured.
-- PSA lookup never reuses `TCG_PARSE_API_KEY`; missing/invalid provider configuration fails closed.
-- **ACE / CGC / Beckett** are first-class provider adapters but currently return `MANUAL_VERIFICATION_REQUIRED` with official verification destinations because no approved/documented machine API has been established for Drop Rate.
-- The normalized result contains provider/cert, verification state, card identity evidence, grade, language/printing evidence and exact provider media URLs where returned.
-- The gateway is evidence-only: it cannot mutate canonical identity, inventory, pricing, ownership, settlements or Shopify publication.
-- ✅ GitHub backend CI and the required n8n-image check passed.
-- ✅ Railway deployment `1f129392-00a6-45ae-8e06-65afd98479c5` reached SUCCESS; production pre-deploy reported **2,225 tests passed**, Uvicorn started cleanly and Railway's configured `/health/ready` probe returned **200 OK**.
-- Railway service-role audit remains:
-  - `psa-fetch-batch` is the retained PSA prototype;
-  - `psa-cert-lookup-temp` is currently a misnamed Dragon Ball/CardTrader media diagnostic, **not** a PSA cert service.
-- 🔒 Automated PSA lookup is deployed but intentionally reports unconfigured until a genuine PSA Public API bearer token is added as `TCG_PSA_PUBLIC_API_TOKEN` to `drop-rate-api-live`.
-
-
-
-## 2026-10-01 — Grading certificate lookup infrastructure clarified
-
-- **PSA certificate lookup is required production recognition infrastructure, not disposable diagnostic tooling.**
-- The Railway PSA services support slab workflows where a scanned/input PSA certificate number is resolved immediately to the corresponding graded card identity and reference data.
-- Keep the PSA lookup capability available. Do **not** delete the PSA services merely because their current names include `temp` / `batch`; document or deliberately rename them only after checking dependencies.
-- Extend the same capability to the other major grading companies:
-  - **Beckett / BGS** certificate lookup
-  - **ACE Grading** certificate lookup
-  - **CGC Cards** certificate lookup
-- Target architecture: FastAPI owns a common deterministic grading-certificate lookup contract and provider-specific adapters; recognition/intake calls that contract. Provider responses are evidence and must not silently override canonical identity when evidence conflicts.
-- Certificate lookup should return provider, certificate number, identified card/printing where supported, grade/subgrades where available, language/variant evidence where available, and provider slab/reference media only when permitted.
-- Unknown, invalid, unavailable or conflicting certificates fail closed into human review rather than creating/publishing inventory automatically.
-- Provider terms, authentication, rate limits and permitted media use must be verified independently for PSA, Beckett, ACE and CGC before production activation.
-
-
-
-## 2026-10-01 — Recognition benchmark truth recovery
-
-- Live read-only benchmark audit found **3 active human-labelled learning examples, all TRAIN**, so the new quality evaluator currently has **0 VALIDATION / 0 HOLDOUT** examples to measure.
-- Two explicit human feedback records were not materialised. One is a `CORRECTED_BY_SEARCH` scan whose source-image hash deterministically maps to **HOLDOUT**, but its original recognition run has `system_code = NULL`.
-- Added bounded learning-truth hardening: for `CORRECTED_BY_SEARCH`, materialisation resolves the system from the human-selected canonical CARD profile. Canonical selected-card truth overrides an unresolved or wrongly model-classified run system.
-- The path fails closed when the selected catalogue row cannot establish a canonical card system. It never guesses from AI/provider text.
-- **No recognition scoring, thresholds, provider scope, corpus scope, pricing, inventory, ownership, settlement or Shopify behaviour changed.**
-- Added regression coverage and updated `docs/RECOGNITION_QUALITY_BENCHMARK.md`.
-- Production historical backfill of the eligible HOLDOUT correction remains pending CI/review/merge and a controlled application-level repair; do not direct-insert benchmark truth by hand.
-
-
-## 2026-10-01 — Competitive Intelligence shadow provenance production verification
-
-- ✅ PR #460 merged with green CI.
-- ✅ Supabase applied the forward-only provenance migration and recorded it as `20261001025504_competitive_intelligence_shadow_provenance`.
-- ✅ Live read-back confirms the three automation provenance columns, validated SYSTEM/HUMAN provenance constraint, both legacy and provenance-aware ingestion function overloads, and `tcg_api`-only execution grants.
-- ✅ The Competitive Intelligence audit function now prefers the explicit `automation:competitive-intelligence` actor for automated inserts.
-- ✅ Railway deployment `7bd79827-a340-4b1c-8dc2-18ef2e6903f5` reached SUCCESS; **2,213 tests passed** and `/health/ready` returned HTTP 200.
-- ✅ No Competitive Intelligence observations existed during migration/read-back, so no historical evidence was rewritten.
-- This PR only aligns the repository migration filename with the version Supabase actually recorded; it does not re-run SQL.
-
-## 2026-10-01 — Competitive Intelligence shadow-ingestion provenance hardening
-
-- Built on the production-verified #454/#458 signed shadow-ingestion baseline.
-- Live read-back before this hardening showed **0 Competitive Intelligence observations**, so no historical evidence requires rewriting.
-- Adds workflow key/version/execution provenance to immutable SYSTEM observations and explicit `automation:competitive-intelligence` audit attribution.
-- Adds a provenance-aware ingestion function while retaining the original function as a compatibility wrapper for rolling deploy safety.
-- Existing APPROVED competitor / ACTIVE source / REVIEWED terms / non-MANUAL_REVIEW gates and strict dedupe collision handling remain unchanged.
-- No external collector is activated and no Shopify/eBay/pricing/inventory/ownership/settlement/finance path is touched.
-- Production application remains pending CI + merge + exact Supabase migration/read-back + Railway verification.
-
-## 2026-10-01 — Competitive Intelligence shadow-ingestion production verification
-
-- ✅ PR #454 merged after rebasing onto the final current `main` and passing the full GitHub backend+n8n gate.
-- ✅ Supabase applied `competitive_intelligence_shadow_ingestion` and recorded it as migration version `20261001024803`; this PR aligns the repo filename to that exact applied production history without re-running SQL.
-- ✅ Live function `tcg.ingest_competitive_observation_system(...)` is SECURITY DEFINER; `tcg_api` can execute it, while `anon`, browser `authenticated` and `service_role` cannot.
-- ✅ Competitive observations remain **0** after deployment: no source was activated and no data was created merely by deploying the ingress.
-- ✅ Railway deployment `c13ff97b-ea39-4ce0-8654-54df218ee747` completed SUCCESS with **2,207 tests passed** and `/health/ready` = HTTP 200.
-- n8n collection remains inactive; the next step is a source-controlled DR-43 shadow workflow targeting this signed endpoint.
-
-## 2026-10-01 — Competitive Intelligence signed shadow ingestion
-
-- Added the safe n8n → FastAPI → Postgres ingress path for DR-43 before any external collector is activated.
-- HMAC-signed bounded batches reuse the existing automation command secret and require no browser/founder session.
-- A SECURITY DEFINER database primitive re-checks APPROVED competitor, ACTIVE source and REVIEWED automated-source terms on every SYSTEM insert.
-- MANUAL_REVIEW sources cannot use automated ingestion; source identity/rights are database-derived.
-- Identical replay is idempotent; changed-content dedupe-key reuse fails closed. Replay is not broken by later edits to mutable source URL/rights metadata.
-- Automation timestamps must be timezone-aware and cannot be materially future-dated.
-- No external fetcher, n8n collector activation, Shopify/eBay mutation, pricing, inventory, purchase or finance action is included.
-- Production migration/deploy remains pending CI + merge + Supabase/Railway verification.
-
-## 2026-10-01 — eBay shipping readiness preview
-
-- Added a PLATFORM_ADMIN-only read-only preview for a proposed eBay shipping package.
-- Preview joins canonical eBay order-item links to the internal order item and physical Inventory ID, enforcing owner consistency, EBAY source/reference, PAID internal order state and SOLD physical inventory.
-- Live eBay order read-back must match the complete Drop Rate line-item mapping; requested line quantities must match exactly.
-- Existing remote shipping fulfilments are read before any future write: an exact existing carrier/tracking/package is reported idempotently, while a requested line already assigned to another package fails closed.
-- The endpoint takes **no external action** and makes no database mutation.
-- PR #451 shipping read-back foundation is already live in Railway; deployment `0486ee6e-7498-43d8-9760-156e3c7ab659` passed **2,190 tests** and `/health/ready` returned 200.
-- This preview is the deterministic safety contract required before a disabled-by-default shipping write path can be introduced.
-
-
-## 2026-10-01 — Recognition vision transport/telemetry refinement in progress
-
-- Started the next recognition-quality refinement from measured production timings rather than changing scoring heuristics.
-- Live evidence shows the external vision call dominates scan latency while deterministic resolution is already approximately millisecond-scale.
-- Recognition vision now reuses a bounded worker-level HTTP keep-alive client instead of creating a fresh client/connection for every scan.
-- Added provider request/token telemetry (request ms, response/model IDs, input/output/total/cached/reasoning token counts where supplied) to the existing recognition evidence/timing record.
-- Request semantics are intentionally unchanged: same model, prompt, structured schema, HIGH image detail, token ceiling, engine version, thresholds and hard gates.
-- No vision-result cache is introduced; transport reuse cannot cross-contaminate card observations.
-- Regression coverage verifies the outgoing request contract, transport reuse/shutdown and telemetry persistence.
-- Production deployment/measurement remains pending CI + review + merge.
-
-
-## 2026-10-01 — eBay shipping fulfilment read-before-write foundation
-
-- Added strict pure helpers for tracked eBay shipping package identity and future retry idempotency.
-- Tracking validation follows eBay's documented alphanumeric/no-space requirement.
-- Added official Fulfillment API read-back client methods for all fulfilments on an order and a single fulfilment.
-- Exact matching uses carrier + tracking number + line-item IDs/quantities; duplicate matching remote packages fail closed.
-- The current READY EBAY_GB seller connection already has both `sell.fulfillment` and `sell.fulfillment.readonly` OAuth scopes, so future controlled fulfilment writes do not require another consent expansion.
-- This slice deliberately adds **no** create-shipping-fulfilment provider write, admin route, UI button or n8n activation.
-- Next slice after production verification: deterministic internal order/Inventory mapping preflight + audited, disabled-by-default write contract.
-
-
-## 2026-10-01 — Competitive Intelligence hardening production verification
-
-- ✅ PR #445 merged and the forward-only replay/evidence hardening migration was applied successfully to Supabase.
-- Supabase recorded the migration as `20261001022925_competitive_intelligence_replay_hardening`; repo history is being aligned to that exact applied version with no SQL re-execution.
-- Live verification confirms both qualification columns, the immutable qualification trigger and the composite observation/source ownership index are present.
-- All five Competitive Intelligence tables remain empty; the hardening caused no production data rewrite.
-- Supabase security advisors report no Competitive Intelligence security finding. The earlier unindexed composite-FK performance finding is cleared; remaining Competitive Intelligence index notices are expected unused-index INFO findings on empty tables.
-- ✅ Railway production deployment from PR #445 reached SUCCESS; pre-deploy reported **2,184 tests passed**, the application started cleanly, and `/health/ready` returned **200 OK**.
-
-
-## 2026-10-01 — Competitive Intelligence replay/evidence hardening
-
-- The base Competitive Intelligence schema is live and empty, so this hardening remains forward-only with no production data rewrite.
-- Observation idempotency now compares the full immutable evidence contract, including source publication time, facts, evidence and normalized confidence/relevance.
-- New opportunity evaluation refuses competitive evidence whose source has been BLOCKED or whose competitor has been REJECTED.
-- Opportunity records persist the exact qualification threshold and immutable original qualification state, separately from later lifecycle state.
-- Duplicate opportunity keys must match the same hypothesis, threshold, deterministic result and normalized evidence contract or fail with conflict.
-- Inputs are normalized to the database NUMERIC(6,5) precision before scoring, persistence and replay comparison.
-- Added an additive-only hardening migration; no table rebuild/drop and no external monitoring/n8n/commerce activation.
-- Production application remains pending CI + merge + Supabase/Railway verification.
-
-## 2026-10-01 — Competitive Intelligence migration history reconciliation
-
-- Corrected repo migration history to match the migration version actually recorded by Supabase for Competitive Intelligence: `20261001022146_competitive_intelligence_v1.sql`.
-- The SQL body is unchanged; this is a filename/history reconciliation only.
-- The stale repo-only filename `20261001023000_competitive_intelligence_v1.sql` is removed.
-- No database migration is re-applied and no production data/schema is changed by this correction.
-
-
-## 2026-10-01 — Competitive Intelligence persistence/API foundation
-
-- Reconciled onto current `main` after PR #437 landed; the newer production verification notes are preserved.
-- Added canonical Postgres state for founder-approved competitors, source contracts, immutable observations, deterministic opportunities and immutable opportunity-evidence links.
-- Source contracts store collection method, rights status, terms-review decision, review provenance, cadence/rate-limit notes and activation state.
-- Automated source activation fails closed until source-specific terms/rights review is complete; MANUAL_REVIEW remains the only path that can be marked NOT_REQUIRED.
-- Competitor evidence is loaded from immutable stored observations so callers cannot invent extra competitor source keys/confidence to force qualification.
-- Opportunity persistence de-duplicates evidence by stable source key before scoring; competitor evidence alone still cannot produce a QUALIFIED opportunity without non-competitor corroboration.
-- Added founder-admin FastAPI endpoints for watchlist/source review, immutable observation intake and shadow opportunity evaluation.
-- Tables use forced RLS and direct public/anon/authenticated/service-role access is revoked.
-- No external monitoring adapter, n8n activation, Shopify mutation, pricing action, content publishing or ownership/finance mutation is included.
-- Production migration/application verification remains pending CI + merge.
-
-## 2026-10-01 — eBay parity: read-only reconciliation
-
-- Added a PLATFORM_ADMIN-only `GET /api/v1/ebay/reconciliation` diagnostic that compares owner-scoped canonical eBay links to live eBay offer + inventory-item read-back.
-- The reconciliation is intentionally read-only: no eBay publish/withdraw/update calls and no database mutation.
-- Explicit discrepancy codes cover remote offer/listing/SKU/marketplace/price drift, live quantity drift, withdrawn/sold offers still published, local unsellable inventory still live remotely, and cross-channel oversell risk.
-- Provider failures are surfaced per item; they never count as healthy.
-- Batch size is capped at 50 with concurrency 4.
-- Added deterministic reconciliation tests and `docs/EBAY_PARITY.md`.
-- This is safe pre-activation parity work; no real eBay listing or scheduled automation is activated by this slice.
-
-
-## 2026-10-01 — Phase 3 intelligence + eBay parity audit
-
-### Recognition quality
-- ✅ PR #435 merged and deployed: read-only recognition quality benchmark for human-labelled VALIDATION/HOLDOUT evidence, with TRAIN explicitly excluded from quality claims.
-- ✅ Production deploy after PRs #435/#436 completed SUCCESS; Railway `/health/ready` returned 200 and the deployment test run reported **2,155 passed**.
-- Current learning evidence is still too small for safe accuracy tuning: **3 human-labelled learning examples, all TRAIN** (2 CONFIRMED_TOP, 1 REJECTED_ALL), with **0 VALIDATION / 0 HOLDOUT** examples.
-- Current recorded recognition-run outcomes: **15 total = 11 NEEDS_REVIEW + 4 NO_MATCH**. Do not claim exact-print accuracy from this sample.
-- Five historical runs contain full stage timing telemetry. In that sample, vision inference dominated at roughly **8.7–22.3s**; provider visual comparison was roughly **1.5–5.4s**; catalogue lookup roughly **65–148ms**; deterministic resolution roughly **~1ms**.
-- Next recognition optimisation should therefore target vision/image/provider latency first while preserving all exact-print hard gates. Threshold/weight changes remain blocked until enough VALIDATION/HOLDOUT human truth exists.
-
-### Competitive Intelligence
-- ✅ PR #436 merged and deployed: governed Competitive Intelligence foundation is live in code but **not activated for external collection**.
-- The n8n programme is now **43** source-controlled workflow families; sequence 43 `competitive-intelligence` is `PLANNED / OBSERVE`.
-- Competitor observations cannot qualify alone: deterministic corroboration requires independent evidence plus a non-competitor origin (internal, market, social or official).
-- Automated sources require source-specific terms/rights review; access-control bypass and direct copying are prohibited.
-- Competitive Intelligence can only hand off proposals to later content/CRO/SEO/merchandising/acquisition-review systems. It cannot publish, change price, ownership or finance.
-
-### eBay live readiness / parity
-- Live seller connection is **READY** on `EBAY_GB` with **6 granted scopes** and no recorded seller error.
-- Payment policy, fulfilment policy, return policy, merchant inventory location, ORDER_CONFIRMATION notification destination and subscription are all configured.
-- Railway has the expected eBay application configuration variable names present; values remain secret/redacted.
-- Current production evidence still has **0 eBay inventory links, 0 eBay webhook events and 0 eBay order-item links**. The real eBay list → buy → order → stock-withdrawal → owner-attribution path has therefore not yet been proven with a live listing/order.
-- Existing code already covers seller OAuth/setup, official Inventory API item/offer publication, signed ORDER_CONFIRMATION handling, physical-Inventory-ID ownership attribution, Shopify stock withdrawal/read-back and return-to-inspection protections.
-- Remaining Shopify-parity gaps are concrete: eBay shipping-fulfilment creation/tracking, eBay-originated refunds/cancellations/returns, eBay fee/finance ingestion into auditable settlement, scheduled listing/order reconciliation, and the controlled first live listing/sale proof.
-- eBay production activation remains subject to the Phase 3 launch-stability gate; parity code and shadow/read-only reconciliation can be built before activation.
-
-
-## 2026-10-01 — Competitive Intelligence foundation in progress
-
-- Founder-prioritised Competitive Intelligence is now a formal fifth intelligence/growth pillar rather than an informal future idea.
-- Added deterministic source-policy, evidence-deduplication, corroboration and OBSERVE-only action primitives in `backend/app/competitive_intelligence.py`.
-- A competitor observation cannot qualify by itself: the engine requires independent source evidence plus at least one non-competitor corroborating origin (Drop Rate/internal, market, social or official).
-- Source preflight blocks unreviewed automated sources and any access-control bypass; competitor content is reference-only by default.
-- Competitive Intelligence can only hand off proposals (content, CRO/SEO experiment, merchandising, acquisition review); it cannot publish, copy creative, change price, ownership or finance.
-- Added `docs/COMPETITIVE_INTELLIGENCE.md` and regression coverage.
-- Expanded the source-controlled n8n roadmap from 42 to **43** workflows with `competitive-intelligence` as sequence 43, authority OBSERVE, status PLANNED.
-- No workflow JSON, external source adapter, database migration or production activation is included in this slice; the Phase 3 stability gate and per-source terms/rights review still apply.
-
-
-
-## 2026-10-01 — Recognition quality benchmark foundation
-
-- Started the recognition-refinement workstream without expanding the reference corpus or adding new recognition scope.
-- Added a read-only human-labelled evaluation layer for VALIDATION and HOLDOUT examples only; TRAIN examples are explicitly rejected from benchmark claims.
-- Metrics now cover exact precision/recall, unsafe exact decisions, top-1 accuracy, safe abstention/review rate, no-match/failure rate, P50/P95 latency, per-system breakdowns, risk-flag frequency and recurrent confusion pairs.
-- Superseded learning labels are excluded; unreviewed AI output is never evaluation truth.
-- Added a platform-admin, owner-scoped read-only endpoint at `/api/v1/recognition/learning/evaluation`.
-- The evaluator cannot mutate recognition, inventory, ownership, pricing, settlements or Shopify state and cannot auto-promote weights, thresholds or models.
-- Added regression tests and `docs/RECOGNITION_QUALITY_BENCHMARK.md`.
-- This is permitted recognition-quality refinement under the Phase 3 interpretation; it is not reference-corpus expansion.
-- Production deployment/benchmark read-back remains pending CI, review and merge.
-
-
-
-## 2026-10-01 01:39 BST — 30 September → 1 October full catch-up reconciliation
-
-A detailed evidence-backed worklog for the full period is now recorded in `docs/WORKLOG_2026-09-30_TO_2026-10-01.md`. This checkpoint reconciles the main chat, Work/Codex work, GitHub PR history and live Supabase/Shopify/Railway state rather than treating discussion as completion.
-
-### Current production truth at the cutoff
-
-- Supabase has **509 physical inventory items**, **507 Shopify inventory links**, **73 base tables in `tcg`**, **67,989 reference-card records** across **734 reference sets/language records**, and **2 canonical sealed-product records**.
-- Exactly **2 FOR_SALE physical items remain unlinked**, both deliberately fail-closed One Piece raw-card evidence/media exceptions: `DON!! Card (Egghead)` and `Monkey.D.Luffy (Release Event Leader)`.
-- Dragon Ball is now **35 / 35 FOR_SALE physical items linked and PUBLISHED**. Earlier intermediate notes showing eight unlinked Dragon Ball cards are superseded.
-- Automation outbox health is clean at this checkpoint: **0 PENDING / DISPATCHING / DEAD_LETTER** events. The historical events have been deliberately SUPERSEDED rather than accidentally replayed.
-- Action Required has **0 OPEN CRITICAL** items and **2 OPEN HIGH** items. Both HIGH items are exact graded-slab media tasks: Charizard V 019/189 PSA 9 needs exact approved slab FRONT + BACK; ACE cert 590532 has approved exact front media but still lacks the exact back image for record completeness.
-- Railway still contains the documented seven-service production topology. `drop-rate-api-live`, the operations monitor, payout scheduler, n8n and reconciliation worker are healthy/SUCCESS at this cutoff; the two on-demand PSA/CardTrader prototype services remain sleeping rather than deleted.
-- n8n production is healthy on **2.32.6** and the provisioner sees the source-controlled DR-00/01/02/90/91/92 definitions, but the latest startup still reports **0 draft workflows / 0 published workflows**. The automation control plane is therefore present without silently activating customer-impacting workflows.
-- Shopify test orders #1003 and #1004 successfully proved the real checkout → webhook → exact physical Inventory ID → Sunny owner attribution → ledger path and were then intentionally cancelled/refunded. Canonical Postgres now records #1003 CANCELLED and #1004 REFUNDED with their exact physical items returned to inspection.
-- Shopify's connected order-summary surface still displays #1003/#1004 as PAID/unfulfilled at this checkpoint. This is being treated as a channel-projection/final-financial-status reconciliation item; it does **not** override canonical Postgres order/ownership truth.
-
-### Storefront and catalogue work completed on 30 September
-
-- The Brand Redesign machine-verifiable launch gate passed and its source-controlled theme matched Shopify. It remains **UNPUBLISHED** at this cutoff because making it MAIN is a manual Shopify Admin action plus final real-device/browser smoke.
-- Published raw duplicate pooling is complete for the identified backlog: **20 duplicate raw groups / 48 physical inventory links** were consolidated into correct customer-facing pooled products without deleting physical ownership/history.
-- One Piece raw publication was reconciled and the Japanese Nami Round 1 promotional identity/media was corrected.
-- Both founder-owned One Piece sealed products were published with sealed-specific metadata/shipping and surfaced through a top-level **Sealed** destination, One Piece submenu and a dedicated responsive homepage component.
-- Premium Card Collection storefront imagery was upgraded to a 1600×1600 source and sealed-product media sizing/whitespace handling was refined through PRs #406, #408–#411.
-- Storefront **Sell With Us** now reaches a real public Seller Hub self-registration path. It creates only a restricted CONSIGNOR/OWNER identity at the existing default commission and cannot grant Founder HQ/admin access.
-- Public Seller Hub stale-invite reuse was fixed; the mobile storefront Sell placement was moved into the drawer/footer rather than crowding the header.
-
-### Seller Hub work completed late 30 September / early 1 October
-
-- The Seller Hub uses the exact approved integrated transparent logo with explicit image rendering, desktop-left/mobile-centred positioning, corrected spacing and cache busting.
-- Profile/account settings are live: display name, optional unique username, read-only account context, verified email-change path and password change with current-password verification.
-- Seller Hub password login now supports **email or username** while keeping Supabase Auth as credential authority.
-- Username resolution is server-only, browser roles cannot call the resolver directly, invalid-login responses are generic, and database-backed throttling is 8 failures/identifier or 30/network identity per 15 minutes with only hashes stored.
-- PR #431 is merged/deployed; migration `owner_username_login` is live; Railway deployment `784f5b11-54d6-4381-b03b-5a7f74c64c0f` succeeded after the recorded 2,138-test preflight.
-- The earlier “Seller Hub header breathing-room refinement — production verification pending” line below is historical and superseded: PR #427 is merged.
-
-### Recognition and Dragon Ball work completed
-
-- PR #398 deployed the unseen-card reference library with **67,989 records** spanning Pokémon, One Piece, Dragon Ball Masters/Fusion World and Naruto sources.
-- This is a reference/candidate library, not a claim of universal measured scanner accuracy. Exact fingerprints, physical language/finish and human-confirmed learning remain governed separately.
-- Dragon Ball storefront media was upgraded away from tiny ~180×251 CardTrader preview derivatives to the largest exact original from the same trusted Blueprint where available.
-- Exact Winner/Tournament Pack matching was hardened and official-reference fallback rules were added without weakening exact-print safeguards.
-- **PR #394 remains OPEN** for the measured high-resolution/2160px replacement gate. Better originals are live; “true 4K” replacement coverage is **not yet complete** and AI upscaling is not accepted as canonical exact media.
-
-### Work/Codex mobile-app work before the cutoff
-
-- **PR #433 is DRAFT / OPEN**, branch `codex/seller-hub-ios`: native SwiftUI iPhone Seller Hub with full-screen rear-camera scanning, match review before draft inventory creation, portfolio images and Market Value/Store Price, TCG search/language filters, Keychain session storage, refresh, editable PSA/BGS/ACE/CGC label OCR, manual card correction and payload-bound save retries.
-- The PR reports 2,143 backend tests passing locally, but this is **not a released app**. Physical iPhone proof, native CI, real-account smoke, Apple signing/TestFlight, interrupted-save recovery and complete native sales/payout/security surfaces remain.
-- Android remains planned; no Android production implementation should be inferred from the iOS draft.
-
-### Retained roadmap / do not lose these items
-
-- Sealed scanner recognition and a much larger sealed catalogue/reference library.
-- Sealed market-data ingestion plus deterministic Market Value / Recommended Retail / Quick-Sale / Target Acquisition pricing.
-- Continue building the very large governed card reference corpus so cards can be recognised before they have ever existed in Drop Rate inventory.
-- Complete Dragon Ball genuinely high-resolution exact-print media work.
-- Finish iOS and build Android while keeping desktop Seller Hub first-class.
-- Shopify buyer → verified Seller Hub account → purchased-card portfolio handoff, without rewriting historical sale/owner records.
-- eBay expansion plus future Whatnot, Cardmarket and TCGplayer adapters with shared cross-channel stock protection/order reconciliation.
-- The source-controlled 42-workflow n8n programme: inventory/intake, recognition, sealed, pricing/market data, Shopify, orders/refunds, ownership/settlement, consignments, cross-channel, customer portfolio, marketing, listing copy, SEO/CRO, creative/social, email, customer service, recommendations, intelligence, briefings, analytics, image quality, errors and hardware.
-- Google Shopping should use Shopify's native Google & YouTube feed path first; n8n adds value around diagnostics/monitoring rather than duplicating the feed. Paid Shopping remains an explicit spend decision.
-- Draft PRs #215/#216 remain non-production CRO/SEO and Content Machine foundations until real storefront signal justifies activation.
-
-
-## 2026-10-01 — Seller Hub email-or-username login
-
-- Added real **email or username** password sign-in for Seller Hub while keeping Supabase Auth as the credential authority.
-- The browser now sends `identifier + password` to a dedicated FastAPI public session endpoint instead of assuming the identifier is an email address.
-- Username-to-email resolution happens server-side through a SECURITY DEFINER PostgreSQL function that is executable only by `tcg_api`; browser `anon` / `authenticated` roles cannot call it.
-- Unknown usernames still exercise the normal Supabase password-auth path with a synthetic email so public failures remain generic and do not disclose whether a username exists.
-- Added shared PostgreSQL brute-force protection: 8 failed attempts per identifier or 30 per network identity inside 15 minutes; only SHA-256 hashes are stored, never raw usernames, emails, IPs or passwords.
-- Successful session responses are marked `no-store`; invalid credentials return the same generic response for email and username login.
-- Existing Google/Apple login, Supabase session refresh, Seller Hub owner-access checks and Founder HQ redirect behaviour remain unchanged.
-- Added runtime `httpx` dependency declaration, regression tests and `docs/SELLER_HUB_USERNAME_LOGIN.md`.
-- Production activation complete: PR #431 merged; the Supabase `owner_username_login` migration applied successfully; resolver/rate-limit functions exist with `tcg_api` execute access while `anon` and browser `authenticated` do not; the failure table has RLS enabled; at least one active seller currently has a username and the production resolver can resolve an active username server-side.
-- Railway deployment `784f5b11-54d6-4381-b03b-5a7f74c64c0f` completed successfully; pre-deploy verification reported **2,138 tests passed** and the new container returned HTTP 200 from `/health/ready`.
-- No real seller password was used during deployment verification, so credential-level live smoke testing remains naturally exercised by the next genuine Seller Hub login rather than by creating or altering a production account.
-
-
-## 2026-09-30 — Seller Hub CSS cache-bust v12
-
-- Bumped the Seller Hub stylesheet asset version to `owner-v12` so browsers immediately receive the deployed header-spacing and Profile-page styles instead of reusing the previous `owner-v11` cache.
-- No UI logic, auth, database, ownership, pricing, settlement or payout behaviour changed.
-
-
-## 2026-09-30 — Seller Hub profile & account settings
-
-- Added a dedicated **Profile** view for restricted Seller Hub owners.
-- Sellers can update their display name and claim an optional unique username; usernames are PostgreSQL-owned, lowercased, 3–30 characters and case-insensitively unique.
-- Profile changes are owner-scoped through a SECURITY DEFINER database function and write `OWNER_PROFILE_UPDATED` audit events with old/new values.
-- Added read-only seller account context: current email/verification state, seller type, membership date and commission rate.
-- Added authenticated email-change flow through Supabase Auth; the UI makes clear that email changes only take effect after the configured verification flow completes.
-- Added password-change flow that verifies the current password first, obtains a fresh Supabase session, then updates the password without storing credentials in Drop Rate.
-- Added Profile access from the account chip and Seller Hub navigation; mobile navigation becomes horizontally scrollable so Profile and existing destinations remain usable without crushed tabs.
-- No profile control can change owner type, founder slot, commission, inventory ownership, membership role, settlements or payout amounts.
-- Added `docs/SELLER_HUB_PROFILE_SETTINGS.md` and regression coverage for database constraints, owner scoping, browser security and responsive access.
-- Production activation complete: PR #428 merged; `owner_profile_settings` applied successfully in Supabase; `tcg_api` has EXECUTE while `anon` and browser `authenticated` do not; the case-insensitive username index is present; Railway deployment `a6827447-fb6d-42f3-8c83-2bbef058cd52` completed successfully; deployment preflight ran **2,131 tests** successfully and production readiness returned HTTP 200.
-- Security follow-up: Supabase's security advisor currently reports **Leaked Password Protection Disabled**. The connected management surface does not expose a safe Auth-config mutation for this setting, so it was not silently changed; enable it in Supabase Auth settings when available.
-
-
-## 2026-09-30 — Seller Hub header breathing-room refinement
-
-- Reduced the signed-in desktop Seller Hub lockup from 254×68 px to 220×56 px so the approved logo has more vertical breathing room inside the 78 px topbar.
-- Increased desktop topbar side padding from 28 px to 36 px and reduced the reserved brand width accordingly.
-- Mobile true-centred logo sizing and all account/sign-out controls remain unchanged.
-- No auth, ownership, inventory, pricing, order, settlement, payout or Shopify logic changed.
-- Production verification pending CI, merge and Railway deployment.
-
-## 2026-09-30 — Exact approved Seller Hub logo asset
-
-- Verified the previous repository Seller Hub PNG was not the same file as the newly approved artwork: the approved attachment is **2048×682** and the older static export had different dimensions/proportions.
-- Uploaded the exact user-approved transparent PNG unchanged to the connected Drop Rate Shopify CDN and wired Seller Hub auth/header branding to that permanent asset URL.
-- The existing CSP already permits `cdn.shopify.com`, so no security-policy widening was required.
-- Desktop remains left-aligned; mobile remains true-centred from PR #424; account/sign-out controls are unchanged.
-- Regression tests now assert the production Seller Hub markup uses the approved CDN asset and no longer references the superseded local Seller Hub PNG.
-- No auth, ownership, inventory, pricing, order, settlement, payout or Shopify commerce logic changed.
-- PR #425 passed CI, merged, and Railway production deployment `35a709c5-ab1a-49de-b541-afbd3aca4cca` completed **SUCCESS** at commit `196b7a8e34f034b1a891118fc84909e77d73685c`.
-- Shopify file read-back reports the approved logo **READY**, **2048×682**, **1,582,010 bytes**, matching the uploaded attachment's dimensions and byte size.
-- End-user browser rendering remains to be visually smoke-checked on desktop/mobile after the next storefront click-through.
-
-## 2026-09-30 — Seller Hub explicit logo rendering + mobile centring
-
-- Replaced the Seller Hub logo's CSS background-span rendering with a real transparent `<img>` using the approved integrated **Drop Rate Seller Hub** asset.
-- Desktop keeps the logo left-aligned at the start of the header.
-- Mobile positions the logo at the true horizontal centre of the topbar while the existing account/sign-out controls remain on the right.
-- Mobile logo width is constrained to avoid overlap with the unchanged account controls on narrow phones.
-- Seller Hub login branding uses the same explicit image rendering so the asset cannot disappear because of background sizing/clipping.
-- Cache-bumped Seller Hub CSS to `owner-v11` and the logo asset reference to `seller-hub-3`.
-- Added regression coverage for explicit image rendering, desktop sizing, mobile centring and removal of legacy split branding.
-- No auth, ownership, inventory, pricing, order, settlement, payout or Shopify logic changed.
-- PR #424 passed CI, merged, and Railway production deployment `9c3a1024-6ba4-48a3-8cef-6521b42f284b` completed **SUCCESS** at commit `6892c352e349266df7cca9820a86ac6c07c922b3`.
-- End-user desktop/mobile visual smoke remains pending the next real browser visit.
-
-## 2026-09-30 — Public Seller Hub stale-invite fix
-
-- Root cause found for storefront **Sell With Us** showing **“This invite cannot be used”**: a clean `/owner/join` visit could reuse an expired invite token from browser local storage.
-- Public invite-free entry now accepts an invite token only when it is explicitly present in the URL; cached invite state is recovered only during an authentication callback.
-- Genuine founder-issued invite links remain supported and continue using the existing invite redemption path.
-- Cache-bumped `owner-join.js` so production browsers receive the fixed join logic immediately after deploy.
-- Added regression coverage and updated the storefront Seller Hub contract documentation.
-- No owner permissions, founder access, ownership, pricing, settlement, payout or Shopify order logic changed.
-- PR #423 passed CI (**2,126 tests**) and Railway production deployment `00593bd1-a3aa-4ab4-be36-c306caf4f344` completed **SUCCESS** at commit `84afc34f63217691a9b35ad334259886eeb9d56c`.
-- Shopify Admin read-back confirms **Sell With Us** points to the clean production `/owner/join` URL with no invite token attached.
-- Supabase read-back confirms `tcg.self_register_owner(text,integer)` exists and remains server-only: `tcg_api` can execute; `anon` and browser `authenticated` cannot.
-- End-user click-through remains the final smoke check for clearing the previously cached invite failure in a real browser.
-
-## 2026-09-30 — Seller Hub brand lockup refinement in progress
-
-- Replaced the previous Seller Hub artwork with the user-approved transparent **Drop Rate Seller Hub** integrated lockup.
-- The Seller Hub header keeps the existing dark navy chrome and right-side account controls; no auth, ownership, inventory, pricing, settlement or navigation logic changes.
-- The same dedicated Seller Hub lockup is used consistently for desktop header and Seller Hub authentication surfaces.
-- Desktop/mobile logo dimensions were rebalanced for the integrated wide artwork and cache-busted so the old white-background asset cannot persist.
-- Founder HQ branding remains separate and unchanged.
-- Deployment remains pending CI and production read-back.
-
-## 2026-09-30 — Seller Hub integrated brand lockup
-
-- Replaced the Seller Hub's generic Drop Rate image + separately rendered product text with the approved integrated **Drop Rate Seller Hub** logo.
-- Added source-controlled transparent asset `backend/app/static/brand-assets/drop-rate-seller-hub.png`.
-- Removed the old topbar divider and separate `DROP RATE / Seller Hub / Inventory · Sales · Payouts` construction that caused the header to look misaligned.
-- Seller Hub auth and signed-in header now share the same Seller Hub-specific visual identity; Founder HQ remains unchanged.
-- Desktop topbar uses a 224 px-wide lockup; mobile uses a compact 154 px treatment so account/sign-out controls remain usable.
-- Cache-bumped `owner-portal.css` to `owner-v9`.
-- Regression tests verify the transparent PNG asset, absence of the legacy split lockup and responsive logo sizing.
-- No auth, permissions, inventory, pricing, order, settlement or Shopify logic changed.
-
-## 2026-09-30 — Seller Hub mobile placement refined
-
-- Removed the **Sell** pill from the Brand Redesign mobile header; desktop retains **Sell With Us** in the header.
-- Created a Brand Redesign-specific Shopify navigation menu copied from the current main menu, with **Sell With Us** added as a Seller Hub destination. Horizon's live `main-menu` is untouched.
-- Brand Redesign now points its header menu at `brand-redesign-main-menu`; the Seller Hub menu item is hidden at desktop widths and therefore appears only in the mobile drawer.
-- Added a compact Seller Hub footer callout that renders only below 750 px.
-- All Seller Hub links use the existing verified production `/owner/join` flow. No auth, owner, inventory, pricing or settlement logic changed.
-- Brand Redesign remains UNPUBLISHED until this UI refinement passes CI, theme sync and mobile/desktop preview read-back.
-
-## 2026-09-30 — Storefront “Sell With Us” → Seller Hub production verification complete
-
-- PR #414 is merged and deployed to `drop-rate-api-live` at commit `8e851f96e9aba1b747607e2881bebf9ebe357925`.
-- Railway production deployment is SUCCESS; pre-start/runtime verification reported **2122 tests passed** and `GET /health/ready` = 200.
-- Supabase migration `public_owner_self_registration` is applied in production (live migration version `20260930204126`).
-- Live function grants are fail-closed:
-  - `PUBLIC`: no EXECUTE;
-  - `anon`: no EXECUTE;
-  - Supabase `authenticated`: no direct EXECUTE;
-  - `tcg_api`: EXECUTE.
-- The self-registration function is SECURITY DEFINER but verifies the authenticated `auth.users` record, requires confirmed non-anonymous email, creates only `CONSIGNOR` + `OWNER` access at the existing 1000 bps / 10% default commission, and refuses conflicting roles.
-- Founder/admin boundary was exercised against an existing PLATFORM_ADMIN founder identity: self-registration was rejected and created **0** owner/audit records.
-- `Drop Rate — Brand Redesign` now contains the source-controlled `Sell With Us` desktop CTA / `Sell` mobile CTA linking to `/owner/join` on the production Seller Hub domain.
-- Shopify runtime read-back:
-  - Brand Redesign remains **UNPUBLISHED**;
-  - `processing=false`, `processingFailed=false`;
-  - `snippets/header-actions.liquid` checksum `7d4cfc59e588fd0a41ed414d9fa07b81`, 11504 bytes, updated 2026-09-30 20:45:13Z;
-  - Horizon remains the **MAIN** theme.
-- No external seller account was created during verification, preserving the no-external-owner-activation rule.
-- Shopify catalogue after Phase-B pooling: **461 ACTIVE**, **0 DRAFT**, **46 ARCHIVED** products.
-- Remaining human launch QA for this slice: visually open Brand Redesign on desktop/mobile and tap **Sell With Us**; confirm the hosted Supabase Auth redirect allow-list returns email/OAuth confirmations to `/owner/join`. The current connected Supabase tooling cannot read that hosted Auth allow-list, so it is not being changed blindly.
-- Brand Redesign is still intentionally unpublished pending the full storefront launch gate.
-
-## 2026-09-30 — Published raw-card pooling Phase B complete
-
-- Production reconciliation is complete for **20 duplicate raw-card groups / 48 physical inventory links** exposed by Brand Redesign launch QA.
-- Every affected physical Inventory ID remains independently owned and auditable in Postgres; only the customer-facing Shopify projection was consolidated.
-- Redundant Shopify products were not deleted: they were set to quantity 0 and ARCHIVED so historical order references remain intact.
-- Final production audit:
-  - **0** remaining eligible raw-card groups split across multiple Shopify products;
-  - **0** `(listing_key, allocation_priority)` collisions;
-  - all **20** pooled anchor products read back ACTIVE with Shopify quantity exactly matching currently sellable physical-copy count and the expected deterministic `DRP-...` SKU;
-  - **0 CRITICAL**, **0 SHOPIFY**, **0 SETTLEMENT**, and **0 SHOPIFY_ORDER_WEBHOOK_GAP** open Action Required items;
-  - **0** unhealthy automation events in PENDING / DISPATCHING / DEAD_LETTER.
-- Uta OP13-023 proved the historical-priority edge case: the refunded #1003 copy remains INSPECTION/ARCHIVED at historical priority 1, active pooled copies preserve 2/3/4, and the newly merged copy uses priority 5.
-- The reconciliation changed no owner, acquisition cost, sale history, refund history, settlement history or canonical card identity.
-- Brand Redesign remains UNPUBLISHED while the separate storefront **Sell With Us → Seller Hub** launch slice is completed and verified.
-
-## 2026-09-30 — Storefront “Sell With Us” → Seller Hub self-registration in progress
-
-- Added a customer-facing storefront conversion path so Brand Redesign can connect buyers directly to the restricted Drop Rate Seller Hub.
-- Existing `/owner/join` was verified as invitation-only before this change; the storefront CTA is therefore paired with a real invite-free registration contract rather than linking customers to a dead-end token page.
-- New self-registration remains fail-closed and role-safe:
-  - requires an authenticated, non-anonymous Supabase user with a confirmed email;
-  - creates `CONSIGNOR` ownership only;
-  - creates `OWNER` membership only;
-  - defaults commission to 1000 bps / 10%;
-  - idempotently reuses an existing active OWNER/CONSIGNOR membership;
-  - refuses to overwrite or downgrade PLATFORM_ADMIN / other conflicting access.
-- The database, not browser-supplied email, verifies the authenticated user against `auth.users`.
-- Founder HQ remains inaccessible to self-registered sellers; payout approval/execution and internal admin controls remain outside this flow.
-- Existing founder-issued seller invitations remain supported.
-- Brand Redesign header source now contains a prominent **Sell With Us** desktop CTA and compact **Sell** mobile CTA pointing to the Seller Hub join page.
-- The production migration and Brand Redesign theme sync are now applied and verified; Brand Redesign remains intentionally UNPUBLISHED pending human launch smoke testing.
-- See `docs/SELL_WITH_US_STOREFRONT.md`.
-
-## 2026-09-30 — Published pool historical-priority edge case fixed
-
-- First live Phase-B migration was deliberately limited to Uta OP13-023 after production deployment.
-- Shopify read-back succeeded: the pooled anchor is ACTIVE at quantity 4 and the redundant individual product is ARCHIVED at quantity 0.
-- The first database commit safely rolled back before mutation because the refunded #1003 physical copy correctly retained allocation priority 1 under the historical pool key; renumbering active members to 1..N would collide with the unique `(listing_key, allocation_priority)` constraint.
-- Live Uta reconciliation was then completed without rewriting history: existing active pool priorities 2/3/4 were preserved and the newly consolidated physical copy received priority 5. The refunded INSPECTION/ARCHIVED copy remains priority 1 and auditable.
-- Phase-B code is hardened accordingly: existing pool members keep their allocation priorities and newly merged members are assigned only after the maximum historical priority for that listing key.
-- That regression fix subsequently passed CI and deployed; all remaining eligible published duplicate groups were then reconciled, as recorded above.
-
-## 2026-09-30 — Published duplicate raw-card pooling Phase B in progress
-
-- Brand Redesign production checkout QA exposed a catalogue projection gap rather than an order-allocation defect.
-- Desktop grouped-copy order #1003 proved the pooled Shopify variant path end-to-end: Shopify payment/webhooks, exact physical allocation, Sunny ownership, SOLD transition, quantity decrement and ledger creation all succeeded.
-- #1003 cancellation/refund then returned the exact sold card to INSPECTION, archived its physical Shopify link and created item + shipping reversal ledger entries. Shopify's refund transaction was still PENDING at the immediate read-back.
-- Mobile Apple Pay order #1004 also completed successfully through Shopify Payments and the Drop Rate webhook/order/ownership/ledger path. Its later cancellation/refund returned the exact physical card to INSPECTION and archived that link.
-- The mobile purchase exposed that the same Uta OP13-023 English Near Mint Foil identity was still split between an existing pooled product and individual ACTIVE products.
-- Root cause: the original raw pooling release intentionally consolidated DRAFT duplicates only; a Phase-B migration for already-PUBLISHED duplicates had not yet been implemented.
-- Strict production audit ultimately identified **20 published duplicate raw groups / 48 currently sellable physical cards** that meet the full safety gate: identity-confirmed, raw only, same canonical card/language/condition/price, cost + storage present, no reservations/listing membership, same Shopify location/publication and synced price parity.
-- Added a PLATFORM_ADMIN-only published-pool plan/apply path that prefers an existing pool anchor, verifies live Shopify product/variant/inventory state, converts the anchor to the deterministic pooled SKU/quantity, archives redundant sellable products at quantity zero, repoints only current APPROVED/PUBLISHED physical links, preserves historical SOLD/ARCHIVED links and audit-logs every migrated Inventory ID.
-- Remote compensation is included if the database commit fails. Graded inventory and ambiguous groups remain fail-closed.
-- Those groups have now been reconciled with Shopify/Postgres parity verified; see the completion section above.
-- See `docs/SHOPIFY_PUBLISHED_POOLING.md`.
-
-## 2026-09-30 — Final storefront launch gate passed; manual Shopify theme publish remains
-
-- Completed the final machine-verifiable launch gate for `Drop Rate — Brand Redesign`.
-- Shopify theme state: UNPUBLISHED, processing=false, processingFailed=false.
-- Verified all **27** source-controlled Brand Redesign theme files against Shopify; **0 content mismatches**.
-- Latest full CI suite passed: **2110 tests**.
-- Shopify catalogue state at gate:
-  - **485 ACTIVE products**;
-  - **485 ACTIVE + published-to-Online-Store products**;
-  - **0 DRAFT products**;
-  - **0 ACTIVE-but-unpublished products**;
-  - **42 published collections**.
-- Navigation read-back confirms top-level Shop All / Singles / Graded / Sealed plus Pokémon / One Piece / Dragon Ball, with One Piece → Sealed present and customer-account menu retaining Shopify-native Orders/Profile.
-- `Sealed` smart collection is populated with 2 products; One Piece contains 270 products.
-- Production inventory/link integrity:
-  - **509 FOR_SALE physical inventory items**;
-  - **507 Shopify-linked / 2 intentionally unlinked**;
-  - **507 PUBLISHED non-test inventory links** backing **485 distinct Shopify products**;
-  - **0 missing owners**, **0 synced-price mismatches**, **0 wrong sale-intent links**, **0 missing Shopify variant/inventory/location IDs**;
-  - pooled identical physical copies intentionally share Shopify products/variants and remain individually owned in Postgres.
-- Open operational blockers: **0 SHOPIFY** Action Required items and **0 SETTLEMENT** Action Required items.
-- Reconciled 2 new `inventory.approved` outbox events for the already-published sealed products through the guarded audited supersede function. Outbox health returned healthy=true with pending/due/dispatching/dead-letter/stale all zero, and both automation alerts resolved.
-- Railway launch read-back: `drop-rate-api-live` SUCCESS, scheduled `drop-rate-api` operations monitor SUCCESS, n8n SUCCESS.
-- Final customer-path code contract remains covered by green tests: exact-copy cart quantity lock, grouped-copy PDP, Shopify-native checkout/account handoff, product-only partial-match search, collection facets/sort shell and current visual system.
-- The connected Shopify API exposes `themePublish`, but the connector safety layer explicitly blocks making a theme MAIN. A direct publish attempt was refused for that reason. **The remaining launch action is a manual Shopify Admin Publish click for Brand Redesign.**
-- Exactly 2 FOR_SALE cards remain intentionally unlinked after renewed evidence review:
-  - Monkey.D.Luffy (Release Event Leader), #P: exact card identity is strongly corroborated, but public catalogues disagree on Normal vs Foil and no governed exact-print storefront media is attached. Do not guess the physical printing.
-  - DON!! Card (Egghead), The Azure Sea's Seven: exact English identity is corroborated, but the stored exact image remains INTERNAL_REFERENCE_ONLY and currently available public image results include materially different Gold variants. Do not substitute a Gold image for the normal physical item.
-- These two inventory exceptions do **not** block the storefront theme launch; they remain fail-closed until exact physical/media evidence is available.
-
-## 2026-09-30 — Sealed artwork footprint matched to card grid
-
-- Kept the custom `Keep it sealed.` homepage feature intact; only its media treatment changed.
-- Homepage sealed media now uses the same solid `#f4f7fb` surface as standard product-card galleries instead of a separate gradient/ring treatment, so the Premium Collection white source matte blends consistently with the collection grid.
-- Reused the existing Shopify featured images; no replacement image or Photoshop-derived asset was introduced.
-- Normalised by visible artwork rather than file dimensions: current sealed products receive product-specific scale compensation for baked-in whitespace (Ace TS-02 1.42×, Premium Collection 1.28×), while future sealed products keep a conservative 1.12× default.
-- The same scale rules apply to both standard collection/search cards and the homepage sealed feature, preserving consistent visual footprint across desktop and mobile.
-
-## 2026-09-30 — Sealed media scale refinement
-
-- Reused the existing Shopify product imagery for sealed products; no alternate or Photoshop-derived asset was introduced.
-- Increased standard sealed-product grid scale from 82% to 94% so tins/collections occupy a visual footprint closer to normal card images while retaining `object-fit: contain`.
-- Increased the custom homepage sealed feature from 82%/172 px to 94%/190 px on desktop, with proportional 92% sizing on tablet and mobile.
-- Premium Card Collection retains the same high-resolution Shopify featured image and the same scoped background-blending treatment already used on collection cards, keeping homepage and browse presentation consistent.
-
-## 2026-09-30 — Sealed media sizing + Premium Collection background normalization
-
-- Normalized sealed product imagery in both the custom homepage feature and standard Shopify product-card galleries, so non-card-shaped sealed products do not visually overpower or undersize relative to trading-card products.
-- Standard product grids now detect `product_type = Sealed TCG Product`, keep the same card frame, use the Drop Rate cool-grey media surface and scale the contained product artwork to 82% of the available media area.
-- The homepage sealed feature uses a capped 82% / 172 px desktop media presentation, with smaller proportional tablet/mobile caps.
-- Premium Card Collection -6 assort vol.1- keeps its 1600×1600 high-resolution source, but uses a scoped multiply blend against the cool-grey media surface so the source JPEG's hard white square no longer reads as a pasted-on white tile.
-- The Premium Collection blend rule is product-specific; it does not alter colour handling for other sealed products.
-
-## 2026-09-30 — Sealed homepage UI refinement
-
-- Replaced the generic two-column Shopify product-list homepage treatment with a dedicated `dr-brand-sealed` component.
-- Desktop sealed cards are compact horizontal cards with a capped ~210 px media column instead of large half-page product tiles.
-- Tablet switches to a single compact row; mobile uses a proportional 118 px media column with tighter typography and metadata.
-- Visual treatment matches the existing Drop Rate storefront system: cool-grey section surface, white cards, navy/ink typography, blue/cyan accents, subtle borders/shadows and rounded product surfaces.
-- The section remains driven by the real `sealed` Shopify collection and supports up to four products without hard-coded product IDs.
-
-## 2026-09-30 — Sealed storefront CRO pass
-
-- Shopify `main-menu` now exposes `Sealed` as a top-level destination and as a One Piece submenu entry, both linked to the populated smart collection `/collections/sealed`.
-- The source-controlled Brand Redesign homepage features the real `sealed` collection directly after Latest Drops; the initial generic product-list treatment was superseded by the compact custom `dr-brand-sealed` component.
-- Premium Card Collection -6 assort vol.1- image quality was audited at 546x546 on the previous official Bandai asset; that low-resolution media was replaced on Shopify with a 1600x1600 product photograph for sharper collection/PDP rendering.
-- Supabase media provenance keeps the superseded 546x546 Bandai asset as revoked history and records the active 1600x1600 storefront reference separately. No ownership, price, quantity, settlement or canonical sealed identity changed.
-- Brand Redesign remains UNPUBLISHED; this change does not publish or replace the live theme.
-
-## 2026-09-30 — Japanese Nami + sealed One Piece publication + outbox recovery complete
-
-- Corrected Nami (Round 1 Promo) ST29-008 end-to-end from the previously incorrect English/base media path to the founder-confirmed Japanese ROUND1 promotional printing.
-  - Supabase inventory and canonical catalogue language are Japanese.
-  - card_printings identity status is VERIFIED with ROUND1 promo metadata.
-  - exact Japanese provider mapping and identity-verification audit evidence are recorded.
-  - prior English/base media records are revoked/rejected; the Japanese storefront media is the sole active approved canonical FRONT.
-  - Shopify product is ACTIVE as `Nami (Round 1 Promo) · JP · ST29-008 · One Piece Promotion Cards · Foil · Near Mint`, with `Language:Japanese` tag/metafield and exact Japanese ROUND1 image.
-- Published both founder-owned Japanese One Piece sealed products through the governed bootstrap -> bounded linked-draft reconciliation path:
-  - `One Piece Tin Pack Set Vol. 2 -Portgas.D.Ace- · JP` at £27.30, inventory `INV-C03F9CCD386C4798A90A45CC5CB00619`.
-  - `Premium Card Collection -6 assort vol.1- · JP` at £111.08, inventory `INV-5CD6E9E29B9B489D9D8B624A0D0E1609`.
-  - bootstrap considered exactly 2 and linked 2/2 with 0 failures; reconciliation considered exactly 2 and published 2/2 with 0 blockers.
-  - both are ACTIVE, quantity 1, vendor/game One Piece, product type `Sealed TCG Product`, language Japanese, seal status SEALED, and belong to both the `Sealed` and `One Piece` Shopify collections.
-  - official product media is attached; product-specific sealed shipping profiles are active at 300 g for the Ace TS-02 tin and 100 g for the Premium Card Collection.
-  - the old `SEALED_PUBLICATION_INPUTS_REQUIRED` HIGH Action Required items are RESOLVED after verified publication; the existing audit trigger records the resolution.
-- Merged PR #403 to clean sealed listing titles/tags/metafields and PR #404 to keep sealed descriptions product-specific (no card-only Variant/Condition/Rarity fields; explicit seal status).
-- Reconciled the automation outbox using the guarded audited supersede function:
-  - all 13 remaining PENDING `inventory.approved` events referenced inventory that was already non-test PUBLISHED in Shopify.
-  - marked those 13 SUPERSEDED, not DELIVERED or DEAD_LETTER, in accordance with `docs/AUTOMATION_EVENT_BACKLOG_RECONCILIATION.md`.
-  - outbox health now reports healthy=true with pending=0, due=0, dispatching=0, dead_letter=0 and stale_dispatching=0; prior outbox Action Required alerts are resolved.
-  - Railway scheduled `drop-rate-api` operations monitor is SUCCESS.
-- Railway `drop-rate-api-live` is SUCCESS after the final sealed-description deployment; full backend pre-deploy suite reported 2108 passed.
-- Exactly 2 FOR_SALE inventory items remain without Shopify links, both known One Piece raw-card media exceptions:
-  - Monkey.D.Luffy (Release Event Leader), number P, English Foil.
-  - DON!! Card (Egghead), The Azure Sea's Seven, English Normal.
-- One-off catalogue-bootstrap / linked-draft reconciliation controls were returned to disabled after the sealed publication run.
-
-## 2026-09-30 — One Piece raw publication reconciliation advanced
-
-- Reconciled live production after the Dragon Ball completion run: all Dragon Ball FOR_SALE inventory is now Shopify-linked; the earlier BUILD_STATUS note showing 8 unlinked Dragon Ball items is superseded by this section.
-- Started with 7 unlinked One Piece raw cards plus 2 One Piece collection/sealed products.
-- Added and merged the narrow One Piece promotional-reference disclosure guard (PR #397) before publication; CI passed.
-- Shopify catalogue bootstrap then considered exactly 5 eligible One Piece raw cards and linked 5/5 as non-test DRAFT products with 0 failures.
-- Published the first import batch as exactly 4/4 and the second batch as exactly 1/1 through the bounded linked-draft reconciliation path; Shopify/Supabase read-back confirmed correct SKU, price, quantity and PUBLISHED link state.
-- Newly published raw cards: Edward.Newgate ST15-002, Eustass\"Captain\"Kid P-003 participant promo, King OP17-064, I'll Feed on This Rage and Use It to Bring the World to Ruin!!! OP17-097, and Nami ST29-008 Round 1 Promo.
-- The one-off Shopify catalogue-bootstrap and linked-draft reconciliation controls were returned to disabled after use.
-- Exactly 4 FOR_SALE items remain unlinked: 2 One Piece raw cards and 2 One Piece collection/sealed products.
-- Raw-card exceptions remain deliberately fail-closed:
-  - Monkey.D.Luffy (Release Event Leader), collector number P: identity is confirmed, but current import metadata says Foil while external catalogue evidence for the standard English event leader is inconsistent with that variant; no approved storefront media is attached.
-  - DON!! Card (Egghead), The Azure Sea's Seven: identity is confirmed, but the only stored image is INTERNAL_REFERENCE_ONLY rather than STOREFRONT_ALLOWED.
-- Do not publish either raw exception by guessing or by copying arbitrary retailer/marketplace imagery. Require stronger exact-print evidence plus storefront-permitted media or a first-party physical capture.
-- Next inventory-publication concern is the 2 sealed/collection products, after the two raw exceptions remain explicitly tracked as blocked.
-
-## 2026-09-30 — Dragon Ball media cleanup wrapped to external-source boundary
-
-- Rechecked the remaining Dragon Ball media backlog after the production original-size rollout.
-- The storefront-quality regression itself is closed: all 25 currently published Dragon Ball products use the largest exact CardTrader Blueprint original available instead of the tiny preview derivative.
-- There are still 8 unlinked FOR_SALE Dragon Ball units, but only 7 remain genuinely media-unresolved: Vegeta FB05-039 Tournament Pack 06 Winner now has an exact CardTrader Winner candidate in `PENDING_REVIEW`; its old `MEDIA_UNRESOLVED` item is resolved.
-- The remaining 7 are six exact Masters pre-release printings plus Nappa FP-046 Tournament Pack 07. CardTrader cannot prove those exact printings: the Masters Blueprints are base-set images and CardTrader currently exposes Nappa as Tournament Pack 08.
-- External identity checks confirm the special printings themselves exist, but those sources are not being copied into Shopify: TCGplayer's public terms restrict crawling/scraping and outside use of its content, and Bandai's public card-list image is the base card rather than proof of the stamped pre-release physical printing.
-- The existing TCGGraph adapter is the clean no-photo fallback already present in the backend. It supports Dragon Ball Masters/Fusion World exact printings, exact line isolation, rights/provenance metadata and human approval before Shopify use.
-- Production still does **not** have `TCG_TCGGRAPH_API_KEY`. No paid provider subscription, credential, or new recurring dependency was created during this cleanup.
-- Until an approved storefront-permitted provider credential is configured, the 7 special-print items intentionally remain fail-closed rather than receiving visually similar or legally unclear images.
-
-## 2026-09-30 — Dragon Ball storefront media quality upgraded
-
-- Confirmed the quality fault was upstream media, not storefront CSS: all 25 published Dragon Ball products were using CardTrader `preview_` derivatives at roughly 180 x 251 px.
-- Proved Shopify `fileUpdate(originalSource)` can replace product media in place without changing product/variant/inventory identity.
-- Upgraded all 25 live Dragon Ball product images to the same exact CardTrader Blueprint's larger original; all 25 re-read as READY.
-- Verified resulting dimensions range from 251 x 350 on older Masters cards to 1279 x 1782 on the strongest current source; Fusion World examples are typically 600 x 838 to 716 x 1000.
-- Updated the 25 approved CardTrader media registry rows so Postgres now stores the original-size URL rather than the low-resolution preview derivative.
-- True 4K is **not** claimed where the provider source is smaller. The long-term 4K rule is genuine 2160+ px long-edge source or first-party high-resolution capture/scan, not synthetic enlargement.
-- CardTrader resolver hardening is being shipped in this slice so future exact Dragon Ball media automatically prefers the same Blueprint original URL.
-- Added strict Fusion World Winner handling for provider `w` collector suffixes only when the local card explicitly proves the same Tournament Pack Winner version.
-- Of the 8 remaining unlinked Dragon Ball cards, six pre-release Masters copies and Nappa Pack 07 remain fail-closed pending exact storefront-permitted media/physical capture; Vegeta FB05-039 Winner 06 now has an exact CardTrader Winner resolution path.
-
-
-## 2026-09-30 — Phase 2 system map + efficiency audit refreshed
-
-- Re-verified `docs/PHASE2_SYSTEM_MAP.md` against live Railway, Supabase and current Git state.
-- Confirmed Railway still has 7 services. Core steady-state services remain FastAPI, operations monitor, payout scheduler and n8n.
-- Preserved the prior founder-approved launch decision for the other three services: keep `psa-fetch-batch` as the working PSA cert/media prototype, keep `psa-cert-lookup-temp` for its current CardTrader discovery/probe role pending later rename/repurpose, and keep `shopify-reconciliation-worker` through launch as a recovery tool. No service was deleted.
-- Confirmed 17 unlinked FOR_SALE units remain: 8 Dragon Ball cards, 7 One Piece cards and 2 One Piece collection/sealed products.
-- Confirmed 2 OPEN HIGH `GRADED_SLAB_MEDIA_REQUIRED` and 2 OPEN HIGH `SEALED_PUBLICATION_INPUTS_REQUIRED` items remain.
-- Confirmed the two `SHOPIFY_ORDER_WEBHOOK_GAP` records are DISMISSED with explicit historical-test resolution metadata; they refer to cancelled Shopify order #1001 and are not active publish blockers.
-- Confirmed there are no OPEN CRITICAL Action Required items.
-- Confirmed DR-02 source is merged but its production migration is still unapplied; dispatcher-heartbeat migration also remains deliberately unapplied.
-- Confirmed production n8n remains at zero published workflows after the DR-01/DR-02 source deployments.
-- No workflow, migration, publication, payout, service deletion or production data change was activated by this audit.
-- Remaining Phase 2 publish proof is human/browser work: mobile + desktop smoke, Brand Redesign real test purchase, rollback confirmation, and the two timed efficiency tests.
-
-## 2026-09-30 — n8n Wave B: DR-02 Shopify product updates built inactive
-
-- Added inactive `DR02ShopifyProductUpdatesV1`, scheduled every 15 minutes once deliberately published.
-- v1 scope is intentionally **Store Price reconciliation only**; canonical `store_price_minor` remains Postgres truth.
-- Added narrow SECURITY DEFINER candidate/finalize functions for production, single-item, unreserved, PUBLISHED Shopify links only.
-- Test-mode products, pooled variants, Personal Collection, non-APPROVED inventory and unchanged prices are excluded.
-- FastAPI updates the exact Shopify variant, verifies returned variant identity and price, then revalidates link + inventory versions in Postgres before recording the sync.
-- Partial failures or concurrent-state changes fail the workflow so DR-90 handles the exception; successful runs record DR-91.
-- n8n contains no price-setting, ownership, inventory, Shopify GraphQL or finance business logic.
-- Registry state for `shopify-product-updates` is now `BUILT_INACTIVE`.
-- **Activation remains blocked:** migration application, DR-90/DR-91 publication/proof, deliberate Shopify automation enablement, and controlled no-op/duplicate/stale/API-failure/read-back tests.
-
-## 2026-09-30 — DR-01 inactive command-route correction
-
-- Found before activation: `DR01InventoryApprovedShopifyV1` still targeted the old automation-control URL after the signed Shopify command moved into the narrower automation-commands router.
-- No production business action occurred because DR-01 V1 and DR-00 V2 were imported inactive.
-- Added `DR01InventoryApprovedShopifyV2` with the correct `/api/v1/automation/commands/shopify/inventory-approved` path.
-- Added `DR00IngressV3` at `/drop-rate/events-v3`, routing `inventory.approved` only to DR-01 V2.
-- V1/V2 remain inactive audit history; the provisioner does not overwrite persistent workflow IDs.
-- Activation gate now points only to DR-00 V3 + DR-01 V2.
-
-## 2026-09-30 — operations-monitor Railway watch list repaired
-
-- Railway `drop-rate-api` operations-monitor watch patterns now include the n8n runtime heartbeat checker/migration and dispatcher heartbeat checker/migration.
-- This fixes the deployment sequencing gap where heartbeat monitor code could change without automatically rebuilding the cron service.
-- The dormant dispatcher log now reports `installed=false` explicitly when its manual-gated migration is absent.
-- No schedule, alert enablement, dispatcher activation, Shopify publication activation or database migration state changed.
-
-## 2026-09-30 — dispatcher-heartbeat dormant migration guard
-
-- Production operations-monitor cron exposed a sequencing bug: dispatcher-heartbeat monitoring was merged before its deliberately manual-gated Supabase migration was applied.
-- The dispatcher checker now probes for the narrow heartbeat function before calling it.
-- If the migration is absent **and alerts remain disabled**, the checker reports `AUTOMATION_DISPATCHER_HEARTBEAT_NOT_INSTALLED_DORMANT` and exits 0 so unrelated operations monitoring remains healthy.
-- If dispatcher-heartbeat alerts are enabled while the migration is absent, the checker still fails closed.
-- This does not apply the migration, create the dispatcher service, enable alerts or activate n8n workflows.
-
-## 2026-09-30 — n8n Wave B: DR-01 Shopify product creation built inactive
-
-- Restored the canonical `20260928183039_shopify_automation_publication` migration file to Git; production Supabase already reports that exact migration version/name as applied.
-- Extracted one deterministic `publish_inventory_to_shopify(...)` service from the current single-item Shopify path so manual founder testing and automation use the same publication/read-back rules.
-- Preserved current copy-group metadata sync after publication.
-- Added signed FastAPI automation command `POST /api/v1/automation/control/shopify/inventory-approved`.
-- Added inactive versioned ingress `DR00IngressV2` because the n8n provisioner intentionally does not overwrite persistent DR-00 V1.
-- Added inactive `DR01InventoryApprovedShopifyV1`.
-- DR-00 V2 accepts only a valid signed dispatcher envelope and currently routes only `inventory.approved`; unsupported events fail closed.
-- DR-01 validates deterministic event identity/idempotency, calls FastAPI, requires verified Shopify success, then records durable success through DR-91. Workflow errors route to DR-90.
-- n8n contains no ownership, readiness, Shopify product-building or financial business rules.
-- Registry state for `shopify-product-creation` is now `BUILT_INACTIVE`.
-- **Activation remains blocked:** DR-90/DR-91 publication/proof, the manual dispatcher-heartbeat migration gate, controlled DR-00 V2/DR-01 live test, duplicate/retry proof, and deliberate dispatcher webhook cutover are still required.
-
-## 2026-09-30 — n8n Wave A control plane implementation closed
-
-- **Wave A build scope is now implemented in source control:** registry, signed ingress, global error handling, reusable success receipts, Action Required integration, dead-letter/replay visibility, outbox backlog health, canonical n8n runtime heartbeat and dispatcher-process heartbeat.
-- The **Action Required bridge does not need a separate n8n workflow**. DR-90 failure receipts are HMAC-signed into FastAPI, where deterministic backend logic writes deduped `N8N_WORKFLOW_FAILED` Action Required items. Backend/Postgres health monitors likewise open and resolve their own deduped exceptions.
-- This keeps n8n as orchestration, FastAPI as deterministic business/control logic, and Postgres as durable truth.
-- Canonical n8n heartbeat remains `DR92RuntimeHeartbeatV1`; the brief duplicate heartbeat stays tracked only as an inactive orphan until supported authenticated cleanup is available.
-- PR #384 prepared dispatcher heartbeat monitoring without creating or activating a dispatcher Railway service.
-- **Production activation is intentionally not complete:** the dispatcher-heartbeat migration remains behind the existing manual Supabase migration gate; DR-00/DR-90/DR-91/DR-92 remain inactive/unpublished until their activation proofs are deliberately executed.
-- No historical backlog, business workflow, customer workflow or money movement was activated as part of Wave A.
-- Next build wave is **Wave B — Core Commerce Operations**, starting from the current controlled Shopify/order/refund/allocation foundations and keeping all new n8n workflows inactive until their proof gates pass.
-
-## 2026-09-30 — n8n Wave A: dispatcher heartbeat prepared
-
-- Added private `tcg.automation_component_heartbeats` state plus narrow `SECURITY DEFINER` heartbeat write/check functions.
-- The long-running automation dispatcher writes a `DISPATCHER` heartbeat at startup and periodically (default 30 seconds), including worker instance and component version.
-- Heartbeat health is independent from outbox health: it can detect a dead dispatcher even while the queue is empty.
-- Added `check_automation_dispatcher_heartbeat.py` to the existing combined operations monitor.
-- **Dormant by default:** `TCG_AUTOMATION_DISPATCHER_ALERTS_ENABLED=false` until the dispatcher service is intentionally deployed.
-- Once enabled, a missing/stale dispatcher heartbeat opens founder **CRITICAL `AUTOMATION_DISPATCHER_UNHEALTHY`** and fails the operations monitor; recovery resolves the alert.
-- Default health threshold is 90 seconds and is bounded between 30 seconds and 15 minutes.
-- No business state, outbox event state, inventory, Shopify, order, ownership, pricing, finance or settlement truth is mutated by the heartbeat monitor.
-- This prepares the dispatcher for production but does **not** create/deploy a new Railway service. Any dispatcher service deployment still requires BUILD_STATUS documentation and explicit activation sequencing.
-- Runbook: `docs/AUTOMATION_DISPATCHER_HEARTBEAT.md`.
-
-## 2026-09-30 — inactive n8n orphan explicitly source-controlled
-
-- Production n8n still contains one known inactive orphan, `DR92WorkflowHeartbeatV1`, imported briefly by superseded PR #381 before heartbeat consolidation.
-- Canonical heartbeat remains `DR92RuntimeHeartbeatV1`; the orphan must never be activated, published, called or re-imported.
-- The exact orphan JSON is retained under `automation/n8n/orphans/` so it is reviewable in Git without being copied into the n8n image or startup provisioning directory.
-- Supported cleanup is currently blocked by the absence of an authenticated n8n API key/admin automation path and the absence of arbitrary Railway container exec. Direct SQLite editing is intentionally prohibited.
-- Cleanup must use a supported authenticated n8n delete/archive operation, verify the exact orphan ID, and prove canonical DR-92 remains intact.
-- Regression coverage guarantees the orphan stays inactive and outside the provisioner.
-
-## 2026-09-30 — n8n heartbeat consolidation correction
-
-- The canonical n8n heartbeat remains **DR-92 n8n Runtime Heartbeat** from PR #380.
-- A second workflow-heartbeat implementation briefly merged in PR #381 duplicated DR-92's core purpose and introduced a variable-name collision in the combined operations monitor.
-- The duplicate workflow, checker, wrapper, test and unapplied migration are removed before the duplicate database function reached production.
-- `run_operations_monitor.py` is restored to one canonical `check_n8n_runtime_heartbeat.py` result and one `n8n_heartbeat_code` field.
-- This keeps one 5-minute scheduled n8n liveness path: n8n → signed FastAPI heartbeat → private Postgres heartbeat state → independent operations monitor → dormant/armed Action Required.
-- DR-91 remains the reusable durable success-receipt contract for real business workflows; it does not need a second heartbeat workflow to prove liveness.
-- No production data was deleted and heartbeat alerting remains dormant by default.
-
-## 2026-09-30 — n8n Wave A: source cutover verified + DR-92 runtime heartbeat built inactive
-
-- Production `drop-rate-n8n-e840` is now repo-controlled through `Dockerfile.n8n`, still pinned to n8n 2.32.6 and using the existing persistent `/home/node/.n8n` volume.
-- Railway deployment for merge `e1e1668` succeeded; startup detected DR-00/DR-90 as existing persistent workflows, imported DR-91 once as inactive, and n8n reported zero published workflows.
-- Added DR-92 runtime heartbeat as the next Wave A control-plane component:
-  - fixed 5-minute `n8n-runtime` heartbeat;
-  - HMAC-authenticated FastAPI endpoint;
-  - private/RLS-enabled latest-heartbeat table with no direct `tcg_api` table access;
-  - duplicate/out-of-order beats cannot advance the stored heartbeat;
-  - existing operations monitor checks freshness;
-  - Action Required escalation is HIGH and deduped, but **dormant by default** until explicit activation proof.
-- DR-92 cannot mutate inventory, ownership, price, settlement or customer state.
-- Activation remains gated on migration deployment, one durable manual heartbeat, duplicate replay proof and stale→healthy alert lifecycle proof.
-
-## 2026-09-30 — n8n Wave A: reusable durable success receipts
-
-- Added inactive reusable n8n sub-workflow `DR91SuccessReceiptV1`.
-- Parent workflows provide typed workflow/execution/idempotency/event metadata only after their governed action has completed and been verified.
-- DR-91 validates identifiers, creates a `SUCCEEDED` receipt, HMAC-signs it and requires durable FastAPI acceptance.
-- The FastAPI receipt control now uses the supplied **idempotency key** as `automation_runs.run_key`, rather than n8n execution ID. Separate n8n executions handling the same business event therefore collapse to one durable receipt.
-- Execution ID remains stored in receipt result metadata for diagnostics.
-- DR-90 failure receipts remain behaviorally compatible because their idempotency keys already include the failed execution identity.
-- No parent workflow should treat “started” or “HTTP request sent” as success; DR-91 belongs after deterministic/read-back verification.
-- No business truth is stored in n8n execution history; durable run truth returns to Postgres.
-
-## 2026-09-30 — n8n Wave A: automation run schema aligned with control-plane receipts
-
-- Pre-activation review found `tcg.automation_runs` still carried legacy-only checks: `job_type='INVENTORY_REVIEW'`, `initiated_by='AUTOMATION_SERVICE'`, and `run_key` length ≤96.
-- The DR-90/DR-91 receipt control plane uses bounded `N8N:<workflow-key>` job types, `N8N` initiator and Drop Rate idempotency keys up to 255 characters; without a schema fix the first real receipt would fail.
-- Added a narrow migration that:
-  - preserves legacy `INVENTORY_REVIEW` / `AUTOMATION_SERVICE`;
-  - permits only `N8N:[a-z0-9][a-z0-9-]{1,119}`;
-  - permits initiator `N8N`;
-  - widens only the run-key check from 96 to 255 characters.
-- Existing owner FK and unique `(owner_id,job_type,run_key)` constraints remain unchanged.
-- Production currently contains **0 automation_runs**, so no historical rows require conversion.
-- This is a prerequisite for activating DR-90/DR-91; neither workflow should be considered proven until a real signed receipt succeeds after this migration.
-
-## 2026-09-30 — n8n repo-controlled source cutover hardening
-
-- Production n8n still runs stock pinned image `ghcr.io/n8n-io/n8n:2.32.6`; no source cutover has been performed yet.
-- Repo `Dockerfile.n8n` uses the same pinned n8n version, preserving version parity for the eventual cutover.
-- Startup provisioning is hardened before any production source switch:
-  - require DR-00 webhook secret/runtime capabilities;
-  - require DR-90 automation command secret + governed FastAPI control receipt URL;
-  - create one-time persistent-volume rollback copy `database.sqlite.pre-drop-rate-provision-v1.bak` before imports;
-  - refuse workflow JSON unless `active=false`;
-  - import only missing stable IDs;
-  - verify all expected version-controlled workflow IDs after import;
-  - never wipe/recreate the n8n database or import credentials.
-- Railway already wires `DROP_RATE_AUTOMATION_COMMAND_SECRET` by direct reference to `drop-rate-api-live.TCG_AUTOMATION_COMMAND_SECRET`, preventing secret drift without exposing the value.
-- Railway already defines `DROP_RATE_API_AUTOMATION_CONTROL_URL`; no plaintext secret/config value is committed.
-- Source cutover remains a deliberate production action after CI + persistent-state provisioning checks; no duplicate n8n service will be created.
-
-## 2026-09-30 — n8n Wave A: guarded dead-letter recovery
-
-- Added Founder HQ dead-letter visibility and replay architecture so terminal automation failures can be recovered without manual SQL.
-- Normal transient failures still use the existing automatic retry/backoff budget first; this path applies only after an event reaches `DEAD_LETTER`.
-- Added narrow `SECURITY DEFINER` functions:
-  - `tcg.list_automation_dead_letters(limit,offset)` returns operational metadata only and excludes event payloads;
-  - `tcg.replay_dead_letter_automation_event(event_id,actor_user_id,reason)` can replay **DEAD_LETTER only**.
-- Replay is independently database-gated to an active FOUNDER `PLATFORM_ADMIN`, even though the FastAPI route also checks platform-admin access.
-- Replay preserves event identity, owner, aggregate, payload, idempotency key **and existing attempt history**. It returns the event to `PENDING`, clears dead-letter lease state, marks `MANUAL_REPLAY_REQUESTED`, and raises the retry ceiling only enough to permit one additional claim.
-- `DELIVERED` and `SUPERSEDED` history cannot be replayed by this path.
-- Every replay requires an explicit reason and writes an `AUTOMATION_EVENT_REPLAY_REQUESTED` audit event with the authenticated actor and originating request ID.
-- No inventory, Shopify link, order, price, ownership, finance, settlement or market-data row can be mutated by this recovery function.
-- Runbook: `docs/AUTOMATION_DEAD_LETTER_RECOVERY.md`.
-
-## 2026-09-30 — n8n Wave A: automation outbox health monitoring
-
-- Historical pre-routing backlog has now been reconciled in production: **396 / 396** obsolete `inventory.approved` events are `SUPERSEDED`, with **396** matching audit events; inventory remains **509** and published Shopify inventory links remain **492**.
-- Added a narrow `SECURITY DEFINER` automation-outbox health monitor; `tcg_api` still receives **no direct SELECT access** to `tcg.automation_events`.
-- Health snapshot covers PENDING, due, DISPATCHING, DEAD_LETTER, expired leases and oldest-pending age. `SUPERSEDED` is terminal history and is intentionally excluded from unhealthy queue counts.
-- The monitor has two explicit modes:
-  - **observe/dormant** (default): report metrics and return success without opening incidents;
-  - **alerting**: stale pending events, dead letters or stale leases create/update founder HIGH `AUTOMATION_OUTBOX_UNHEALTHY` Action Required items and cause the operations monitor to fail.
-- Added `backend/scripts/check_automation_outbox_health.py` to the existing 30-minute operations monitor alongside payout heartbeat and Shopify order reconciliation.
-- Alert activation is controlled by `TCG_AUTOMATION_OUTBOX_ALERTS_ENABLED`; pending-age threshold defaults to 30 minutes and is bounded 5 minutes–24 hours.
-- No outbox event is deleted, ACKed, replayed, superseded or dead-lettered by the health monitor.
-- Canonical workflow registry marks **error-exception-alerts** and **operational-monitoring** as `BUILT_INACTIVE`; they move to `PROVEN` only after deployment/live execution proof.
-
-## 2026-09-30 — n8n Wave A: historical outbox backlog retirement
-
-- Production currently has **396 PENDING `inventory.approved` automation events** created before n8n dispatcher activation.
-- Read-only reconciliation proves **all 396 / 396 already have PUBLISHED Shopify inventory links**; none remains an actionable publication job.
-- They must not be called DELIVERED because n8n never delivered them, and must not be called DEAD_LETTER because they did not fail.
-- Added a fifth terminal/event state: **SUPERSEDED** with explicit `superseded_at` and `superseded_reason`.
-- Added guarded `tcg.supersede_published_inventory_approved_events(...)`:
-  - PENDING only;
-  - `inventory.approved` only;
-  - `INVENTORY_ITEM` only;
-  - requires the same Inventory ID to already have a PUBLISHED Shopify link;
-  - bounded/locked batch;
-  - tcg_api-only execution;
-  - per-event audit record.
-- The function cannot mutate inventory, Shopify links, orders, pricing, ownership, finance or settlement state.
-- After merge/migration, the 396 historical events can be honestly retired before the dispatcher is activated.
-- Runbook: `docs/AUTOMATION_EVENT_BACKLOG_RECONCILIATION.md`.
-
-## 2026-09-30 — n8n Wave A control plane: durable execution/error receipts
-
-- First launch-grade n8n control-plane component is now in source control.
-- Added signed FastAPI endpoint: `POST /api/v1/automation/control/receipt`.
-- n8n receipts are authenticated with a dedicated `TCG_AUTOMATION_COMMAND_SECRET` / `DROP_RATE_AUTOMATION_COMMAND_SECRET` HMAC contract and a 5-minute replay window.
-- Execution receipts are written to existing `tcg.automation_runs` using the existing unique `(owner_id, job_type, run_key)` constraint.
-- Duplicate delivery of the same n8n execution is a pure no-op: it does not create a second run or bump the failure alert.
-- FAILED receipts create a deterministic HIGH `N8N_WORKFLOW_FAILED` Action Required item; n8n cannot choose the severity/category/code itself.
-- System-level failures without owner context fan out only to active FOUNDER owners. No customer/consignor owner is invented.
-- Added inactive version-controlled workflow `DR90GlobalErrorV1`:
-  - n8n Error Trigger;
-  - normalise failed execution;
-  - sign control receipt;
-  - call FastAPI;
-  - fail the error-workflow execution if FastAPI does not durably accept the receipt.
-- DR-90 is explicitly forbidden from using itself as its own error workflow, preventing recursive alert storms.
-- No inventory, ownership, price, Shopify publication, settlement or financial truth is mutated by this control-plane path.
-- Activation remains gated on backend deployment + matching secrets + one synthetic failure + duplicate replay proof.
-
-## 2026-09-30 — Founder override: n8n becomes a parallel pre-launch operating-system workstream
-
-- The business goal is now explicit: Drop Rate should be able to **run, operate and make money with minimal founder intervention beyond physical stock acquisition, strategic decisions and packing/dispatch**.
-- The earlier “one small boring n8n workflow first, advanced automation later” sequencing is superseded as the final delivery strategy.
-- New strategy: **build broad before launch; activate narrow based on proof**.
-- n8n remains the orchestration layer only:
-  - PostgreSQL/Supabase = durable business truth;
-  - FastAPI = deterministic rules/permissions;
-  - AI = interpretation/generation/prioritisation;
-  - n8n = event routing, scheduling, retries, provider coordination, notifications and closed-loop orchestration.
-- The full **42-workflow programme** is now a parallel pre-launch workstream rather than a post-launch-only backlog.
-- Added `docs/N8N_LAUNCH_OPERATING_SYSTEM.md` with the launch architecture, authority model, intelligence loop, control plane and pre-launch build waves.
-- Added `automation/n8n/workflow-registry.json` as the canonical source-controlled registry for all 42 workflow families.
-- Every registry entry requires:
-  - idempotency;
-  - version-controlled workflow JSON;
-  - deterministic backend contract;
-  - duplicate-delivery test;
-  - failure/retry test;
-  - error routing/observability;
-  - provider terms/rate-limit review where applicable.
-- Launch-critical target is no longer “one workflow works”; it is a **well-oiled automation control plane plus broad prebuilt workflow coverage**, with production activation gated by evidence.
-- The existing 396 PENDING `inventory.approved` outbox events are treated as a historical backlog and must not be accidentally consumed by the first activated gateway. Backlog disposition/replay must be deliberate.
-- Next implementation wave: **Control Plane** — global error workflow, Action Required bridge, execution receipts, dead-letter/replay visibility, dispatcher backlog monitoring and workflow heartbeat.
-
-## 2026-09-30 — PSA credential hardening
-
-- The retained PSA cert-lookup Function uses PSA's current documented Public API endpoint/auth contract, but production retest returned **HTTP 403** because no PSA-specific credential is configured.
-- The old Function incorrectly referenced `TCG_PARSE_API_KEY`, an unrelated provider secret. That fallback is removed.
-- The PSA Function now requires a dedicated `PSA_PUBLIC_API_TOKEN` and returns `503 PSA_PUBLIC_API_TOKEN_REQUIRED` until a valid official bearer token is configured.
-- No slab-media exception is closed from a failed lookup. Charizard V PSA 9 cert 62398872 remains `GRADED_SLAB_MEDIA_REQUIRED`.
-- Once a valid PSA token is available, configure it only on the PSA lookup service, redeploy, then verify a known-good cert plus 62398872 before scanner integration.
-
-## 2026-09-30 — Sealed catalogue + scanner architecture clarified
-
-- Sealed inventory is now explicitly defined as a **first-class canonical product family**, not one generic row per TCG set.
-- Initial priority sealed formats are:
-  - **Elite Trainer Boxes (ETBs)**;
-  - **Booster Boxes / Displays**;
-  - **Single Booster Packs**.
-- A TCG set is the parent release; each official sealed SKU under it is a separate canonical sealed product. Example: one set can have a standard ETB, Pokémon Center ETB, booster box, single pack, sleeved booster and booster bundle, each with different identity/market data.
-- Future scanner modes are now **Raw Card / Graded Slab / Sealed Product**.
-- Sealed recognition must combine packaging OCR, set/product text, barcode/product code, pack count, official reference images, language and region; low-confidence results fail closed.
-- The sealed catalogue must become a governed corpus large enough to recognise sealed products that have never previously been scanned by a Drop Rate user.
-- Sealed products get exact-SKU market-data mappings and their own pricing normalization; booster-box pricing must not be derived by simply multiplying single-pack value.
-- Language and region remain distinct. Different-language/region sealed products are not automatically interchangeable.
-- Real packed dimensions/weight, seal condition and shipping profile remain required publication inputs where applicable.
-- Full design: `docs/SEALED_PRODUCT_CATALOGUE_SCANNER_ARCHITECTURE.md`.
-- Implementation remains behind the current Phase 2 storefront stability gate, but sealed recognition/catalogue expansion should be a high-priority workstream once that gate reopens.
-
-## 2026-09-30 — Founder HQ proxy-image viewport loading
-
-- After the Shopify CDN + TCGdex direct-image optimisations, the remaining provider images still use the authenticated FastAPI proxy by design.
-- Founder HQ previously started every proxy request as soon as a visual-grid card was rendered, including cards well below the viewport.
-- Proxy-only inventory images now begin fetching only when their card is within roughly **320px of the viewport**, using `IntersectionObserver`.
-- Browsers without `IntersectionObserver` fall back to the existing immediate proxy behavior.
-- A one-shot guard prevents duplicate proxy downloads if multiple visibility/error signals occur.
-- Direct Shopify/TCGdex images keep native lazy loading; their proxy fallback still starts immediately only if the direct image actually fails.
-- This reduces initial backend/provider image bursts without changing media rights, approved hosts, inventory truth or security controls.
-
-## 2026-09-30 — Scanner language recognition added to deferred architecture
-
-- The approved future scanner architecture now includes **automatic language recognition** for **English, Japanese, Chinese and Korean** across both Raw Card and Graded Slab modes.
-- Detection must combine physical OCR/script evidence, collector/set metadata, canonical/provider evidence and grader certificate fields where available; artwork alone is not sufficient.
-- Language output is confidence-scored and human-confirmed when uncertain. Conflicting or low-confidence evidence must fail closed into Action Required rather than being guessed.
-- Chinese should retain room for Simplified/Traditional script detail even if the first UI groups both under Chinese.
-- Confirmed language is stored on the physical Inventory Item and feeds exact-print matching, pricing, Shopify metadata/filters and pooling/cross-channel eligibility.
-- Different-language physical copies must never be pooled as interchangeable stock.
-- This remains deferred behind the Phase 2 storefront stability gate alongside the PSA/ACE/CGC/TAG/BGS graded-slab scanner implementation.
-
-## 2026-09-30 — PSA certificate lookup compatibility repair
-
-- Phase 2 review confirmed the retained `psa-fetch-batch` Railway service is important graded-card infrastructure, but a live exact-cert check returned **HTTP 403** for PSA cert 62398872.
-- Root cause: the Railway Function still uses an obsolete PSA API shape: `https://api.psacard.com/cert/{cert}` with `X-PSA-API-KEY`.
-- PSA's current official Public API documents `https://api.psacard.com/publicapi/cert/GetByCertNumber/{cert}` with `Authorization: bearer <access token>`.
-- The Railway Function source is being brought into GitHub at `ops/railway/psa-fetch-batch/index.tsx` and updated to the current documented contract.
-- The utility remains read-only: provider cert evidence only, no inventory identity mutation, media approval, Shopify publication or Action Required resolution.
-- The function now supports `?cert=<number>` for one exact lookup as well as the retained diagnostic batch.
-- After merge, deploy this exact source back to the existing `psa-fetch-batch` service and re-test cert 62398872. If the existing token is expired/invalid, do not invent a workaround; refresh the PSA access token through the official account flow.
-- `GRADED_SLAB_MEDIA_REQUIRED` closes only if the exact cert returns exact permitted slab media; a successful cert lookup without scans is not sufficient.
-
-## 2026-09-30 — Founder HQ stacked inventory-filter correctness
-
-- Repo hygiene review found PR #230 still contained one unique unsuperseded bug fix.
-- The location-aware Founder HQ `loadInventory` override omitted `sale_intent`, so combining **Personal Collection** with a storage-location filter could silently drop the Personal Collection scope and show the wrong inventory.
-- The fix forwards `sale_intent` alongside search/status/brand/issue/location filters.
-- The composed dashboard DOM test proves `sale_intent=PERSONAL_COLLECTION` and `unlocated=true` coexist in the real overridden request and that Clear Filters/global search reset the collection scope.
-- No backend, ownership, inventory, pricing, Shopify or settlement mutation is involved.
-
-## 2026-09-30 — Founder HQ TCGdex direct-image fast path
-
-- Post-deploy coverage audit of PR #344 found only **10 / 490 displayed inventory images (2.0%)** currently have a Shopify CDN URL, so the first fast path was correct but too narrow to materially solve the measured grid latency alone.
-- TCGdex accounts for **195** selected Founder HQ inventory images. Its current API documentation explicitly supports direct card-image URLs and recommends the **low-quality WebP** variant when displaying many small images in a grid.
-- The direct-browser fast path is therefore expanded only to **Shopify CDN + TCGdex**:
-  - TCGdex `high.webp` grid URLs are converted to `low.webp`;
-  - the authenticated bounded proxy remains automatic fallback;
-  - official One Piece, CardTrader, OPTCG API, TCGGraph and unknown hosts remain proxy-only unless their display terms are separately confirmed.
-- Current production data indicates **202 / 490 displayed inventory images (~41.2%)** can use the direct path after this change.
-- No wildcard direct-provider path is introduced.
-
-## 2026-09-30 — Phase 2 audit consolidated onto current main
-
-- Phase 2 remains the active operating layer on top of the storefront-first manual. Brand Redesign remains unpublished until the full launch gate passes.
-- Added `docs/PHASE2_EFFICIENCY_AUDIT.md`, `docs/PHASE2_SYSTEM_MAP.md` and the verified `docs/STOREFRONT_ROLLBACK.md`.
-- Machine-side efficiency evidence is now explicit:
-  - normal inventory/readiness APIs are generally sub-second;
-  - exact supported-card recognition latency is dominated by the vision stage, not Postgres/scoring;
-  - inventory-image proxy responses were observed around 1.5–2.8s; PR #344 is merged and deployed with the Shopify-CDN-first optimisation.
-- Historical Shopify test order #1001 is fully reconciled:
-  - no local order was fabricated;
-  - PR #338 prevents a processed unpaid cancellation from reopening forever;
-  - the two old HIGH `SHOPIFY_ORDER_WEBHOOK_GAP` rows were guardedly dismissed with audit records;
-  - production now has **0 OPEN Shopify webhook-gap alerts**.
-- Media exception lifecycle is corrected by PR #340. The three stale Dragon Ball `MEDIA_UNRESOLVED` rows were guardedly resolved after verifying exact eligible media + published physical links. Production now has exactly **8 OPEN `MEDIA_UNRESOLVED` rows**, matching the eight genuine Dragon Ball exact-print blockers.
-- Current Action Required OPEN census: **37 total / 0 CRITICAL**:
-  - HIGH: 2 `GRADED_SLAB_MEDIA_REQUIRED`, 2 `SEALED_PUBLICATION_INPUTS_REQUIRED`;
-  - MEDIUM: 25 `MEDIA_REVIEW_REQUIRED`, 8 `MEDIA_UNRESOLVED`.
-- PSA certificate/media capability is retained. `psa-fetch-batch` is the actual working PSA cert/media prototype; the misleadingly named `psa-cert-lookup-temp` currently contains a CardTrader Dragon Ball probe and should be renamed/repurposed later rather than silently deleted.
-- PR #342 merged the deferred multi-grader **Raw Card / Graded Slab** scanner architecture for **PSA, ACE, CGC, TAG and BGS/BVG/BCCG**. Implementation remains frozen until the storefront stability gate explicitly reopens recognition/Seller Hub work.
-- Production n8n audit confirms **n8n 2.32.6 / 0 draft workflows / 0 published workflows / 0 active workflows**. There is no hidden UI-only workflow drift. No n8n error workflow is configured yet; that becomes a hard prerequisite before the first real production workflow is activated.
-- Rollback plan is now verified: Shopify reports Horizon as MAIN and Brand Redesign as UNPUBLISHED; Shopify's `themePublish(id: ID!)` contract is schema-valid. Emergency rollback is republish Horizon, verify Horizon=MAIN, then run the minimal recovery smoke. Theme publishing itself requires an authorized operator in Shopify Admin.
-- Remaining human-only Phase 2 gates are unchanged: real-phone card scan timing, full mobile smoke, full desktop smoke and one controlled Brand Redesign purchase with confirmation + exact owner/inventory attribution.
-- Stability threshold before reopening deferred scope remains: 72h Brand Redesign MAIN without rollback, 5 genuine paid non-founder orders, zero attribution/allocation/oversell/settlement errors, zero CRITICAL Action Required for 72h, no unresolved post-launch webhook gap, and one outside-person purchase test.
-
-## 2026-09-30 — Founder HQ inventory image latency fast path
-
-- Phase 2 production timing found inventory image responses frequently taking roughly **1.5–2.8 seconds** even while ordinary inventory/readiness metadata APIs remain sub-second.
-- Root cause: Founder HQ visual inventory always fetched `/api/v1/inventory/{id}/image`, causing FastAPI to re-download and stream the remote image for every card render; the global authenticated response policy is also `Cache-Control: no-store`.
-- The safe optimisation is **Shopify-CDN-first, authenticated-proxy fallback**:
-  - the inventory API exposes a direct URL only when the selected media asset already has a strict HTTPS Shopify CDN URL;
-  - Founder HQ loads that CDN image directly and lazily;
-  - if the CDN request fails, the existing authenticated bounded/allowlisted FastAPI proxy is used automatically;
-  - non-Shopify provider/source URLs continue through the existing proxy and are not exposed as the direct fast path.
-- CSP is widened only for Shopify CDN hosts; provider hotlinking/privacy boundaries are unchanged.
-- Existing proxy SSRF/content-type/size/redirect protections remain intact.
-- This is a measured Phase 2 efficiency fix, not new Seller Hub/recognition feature scope.
-
-## 2026-09-30 — Media Action Required lifecycle correction
-
-- Phase 2 queue review found three stale OPEN `MEDIA_UNRESOLVED` rows for Dragon Ball cards that later obtained exact media and were published: BT18-067, BT18-138 and BT13-142.
-- Root cause is in import enrichment state transition: moving from `PENDING` to `PENDING_REVIEW` or `REFERENCE_READY` did not close the older `MEDIA_UNRESOLVED` Action Required item.
-- The lifecycle is being corrected so `MEDIA_UNRESOLVED` remains open only while media is genuinely `PENDING`; once exact media advances, the obsolete blocker is resolved before any current review state is maintained.
-- No media is auto-approved, no ambiguous card is unblocked, and the eight genuinely unresolved Dragon Ball exact-print exceptions remain fail-closed.
-- The three historical stale rows still require one controlled lifecycle reconciliation after deployment; they are not being deleted directly from Postgres.
-
-## 2026-09-30 — Phase 2 Shopify #1001 reconciliation fix
-
-- Phase 2 launch-gate review confirmed historical Shopify test order #1001 was PENDING/unpaid, cancelled on 24 September, had a successfully processed `orders/cancelled` webhook, created no local `tcg.orders` row, left no reservation, and was followed by successful order #1002 on the same Sunny-owned Seel inventory.
-- The two HIGH `SHOPIFY_ORDER_WEBHOOK_GAP` rows are founder-scoped fan-out of that one historical order, not two missing sales.
-- Reconciliation is being tightened so a remote-only unpaid order with Shopify `cancelled_at` plus a PROCESSED `orders/cancelled` webhook is treated as terminally acknowledged; paid-like orders remain CRITICAL and missing-create pending orders remain HIGH.
-- This lets the monitor resolve #1001 durably instead of relying on a manual dismissal that the next 30-minute reconciliation run would reopen.
-
-## 2026-09-30 — Phase 2 pooled storefront copy correction
-
-- Phase 2 stale-PR audit found PR #317 contained unique customer-facing safety behaviour not present on current `main`; it was preserved rather than discarded.
-- Two live Dragon Ball quantity-2 pooled products were verified to still use single-copy wording and expose one physical member's internal Inventory ID. Both Shopify descriptions were corrected in place without changing status, quantity, SKU or price.
-- Current pooled-publication code is being hardened so future pooled offers rewrite and verify pooled-safe copy while still DRAFT, before activation.
-- PR #311 was also preserved and merged because its Brand Redesign PDP source change was still unique: internal inventory references are removed from the PDP and pooled stock can display `N in stock`.
-
-## 2026-09-30 — Consolidated checkpoint: 29 September → 30 September 01:52 BST
-
-**PRODUCTION VERIFIED / STOREFRONT CATALOGUE LIVE / BRAND REDESIGN THEME STILL UNPUBLISHED —** this section is the authoritative handover for all work completed since the Claude storefront-first operating manual was adopted on 29 September 2026. Historical entries below are retained as an audit trail; where an older count conflicts with this section, this section is the current state.
-
-### Current production state
-
-- **Shopify products:** 470 ACTIVE, 470 Online Store-published, 0 DRAFT, 22 ARCHIVED.
-- **Supabase inventory:** 509 physical inventory items with `sale_intent='FOR_SALE'`.
-- **Published ownership links:** 492 physical inventory rows are linked to PUBLISHED Shopify inventory; those 492 physical rows intentionally collapse to **470 distinct live Shopify products** because interchangeable raw duplicates are pooled as Shopify quantity while Supabase still owns exact Inventory ID / Owner / Cost / Condition / Language / Location / settlement attribution.
-- **Unlinked FOR_SALE inventory:** 17 total: 8 Dragon Ball raw cards, 7 One Piece raw cards and 2 One Piece sealed/collection products.
-- **Linked Shopify drafts:** 0. The legacy linked-draft backlog has been fully drained or deliberately converted into explicit unlinked Action Required exceptions.
-- **Theme state:** `Drop Rate — Brand Redesign` is still **UNPUBLISHED**. `Horizon` is still Shopify **MAIN**. Product publication and theme publication are separate launch gates.
-- **Action Required:** 42 OPEN, 0 CRITICAL. HIGH = 2 `GRADED_SLAB_MEDIA_REQUIRED`, 2 `SEALED_PUBLICATION_INPUTS_REQUIRED`, 2 `SHOPIFY_ORDER_WEBHOOK_GAP`. MEDIUM = 25 `MEDIA_REVIEW_REQUIRED`, 11 `MEDIA_UNRESOLVED`.
-- **n8n:** foundation remains intentionally production-dormant; the storefront-first freeze has not been lifted for advanced automation/marketing.
-- **eBay / new channel expansion:** still frozen for new scope under the operating manual.
-
-### 1. Immediate reliability work required by the Claude manual — COMPLETE
-
-The manual required six operational fixes before new storefront expansion. They were completed in the required order rather than bypassed:
-
-1. **Independent payout-scheduler heartbeat** — PR #255 added the >90-minute deterministic heartbeat, founder-only CRITICAL Action Required alert, automatic recovery resolution, restricted `SECURITY DEFINER` execution and a standalone monitor path. The Railway scheduler-start-command incident from 28 September had already been corrected; the independent check prevents the scheduler from being the only component responsible for detecting its own failure.
-2. **Shopify ↔ Drop Rate order reconciliation** — PRs #256/#258 added the read-only two-way reconciliation, payment/webhook-aware classification, fail-closed pagination/error handling and founder Action Required alerts without auto-fabricating missing orders.
-3. **Cron/RLS reconciliation correction** — PR #269 fixed false remote-only alerts caused by owner-scoped RLS when the cron ran as `tcg_api`; the fix used a narrow read-only `SECURITY DEFINER` function rather than weakening RLS. PR #271 aligned migration history to the production-applied version. PR #275 recorded the successful production monitor run: heartbeat healthy, Shopify remote=2/local=1/matched=1/remote-only=1/local-only=0, with the expected cancelled test-order webhook gap retained.
-4. **Railway dead-service cleanup** — the unused `drop-rate-api` service was repurposed as the internal operations monitor; the accidental duplicate heartbeat service was removed. The historical zero-change staged patch was investigated and documented as non-actionable rather than fabricating an origin.
-5. **`sale_intent` contract** — PR #259 documented FOR_SALE vs PERSONAL_COLLECTION, owner scope, status separation, idempotency/versioning, withdrawal behaviour and explicit relisting semantics.
-6. **Recognition image-retention decision** — PR #260 documented the current ephemeral raw-recognition-image policy and explicitly deferred any future raw-image retention until a privacy/storage/rights review. No silent storage expansion was introduced.
-
-PR #262 then recorded the resulting operations-monitor topology/status. The manual's instruction to do these reliability items before storefront expansion was therefore followed.
-
-### 2. Storefront built in the manual's required order — COMPLETE THROUGH ENGINEERING, THEME PUBLICATION STILL GATED
-
-The required order was `Collection/Browse → grouped-copy PDP → Shopify-native cart/checkout → simple name/collector-number search → Shopify-native customer accounts/orders`. That order was followed:
-
-- **Collection / browse:** PR #263 introduced the first real-data responsive browse/game/set routes on the unpublished Brand Redesign theme.
-- **Grouped-copy PDP:** PRs #264/#265 added deterministic grouping by Supabase `catalogue_id`, exact-copy sibling metadata and a bounded grouped-copy selector without changing owner attribution.
-- **Exact-copy cart / Shopify checkout:** PR #266 locked customer quantity for unique physical-copy lines while preserving Shopify's native cart form, remove action and checkout.
-- **Search v1:** PR #272 kept search Shopify-native and product-only, added last-term partial matching and customer-visible card/set/collector-number context. No AI/custom search index was introduced.
-- **Customer accounts/order history:** PR #273 verified Shopify New Customer Accounts remain native and separate from Founder HQ / Seller Hub auth; guest checkout remains available.
-- **Launch engineering QA:** PRs #276/#278 documented product/media/SKU/oversell/grouped-handle/search/account structural QA and kept theme publication gated on real visual preview.
-
-This means the **base-commerce engineering sequence is complete**, but the Brand Redesign theme itself is still unpublished pending final preview/smoke approval.
-
-### 3. Search & Discovery filters, set hygiene and browse structure — COMPLETE FOR CURRENT CATALOGUE
-
-- PR #302 records the approved Shopify-native filter order: **Set → Price → Rarity → Variant → Availability → Condition → Language → Grading Company → Grade**.
-- Filter values remain inventory-driven; empty languages/grades are not hard-coded merely to make them appear.
-- PR #288 canonicalized the known One Piece set-label alias `Carrying on His Will` → `Carrying On His Will` at import intake so duplicate-looking filter values are not reintroduced.
-- PR #303 completed mobile facet polish while preserving Shopify Search & Discovery: desktop facets expanded, mobile drawer facets collapsed by default unless active, with tighter mobile spacing.
-- Dragon Ball products now use the same `drop_rate` metafields as Pokémon/One Piece, so Dragon Ball does **not** have a duplicate custom filter system.
-
-### 4. Storefront visual system and mobile QA — COMPLETE FOR THE CURRENT DRAFT THEME, FINAL FULL-SMOKE STILL REQUIRED
-
-The Brand Redesign theme was aligned to the current Drop Rate navy/blue/cyan/white/cool-grey visual system rather than the old colour direction:
-
-- PR #289 — collection/browse visual alignment.
-- PR #290 — PDP and grouped-copy visual alignment.
-- PR #291 — exact-copy cart visual alignment.
-- PR #292 — Shopify-native search visual alignment.
-- PR #293 — native account/header visual alignment.
-- PR #295 — homepage source-control/visual alignment.
-- PR #297 — active global brand-layer cleanup so old late CSS overrides stopped flattening the newer components.
-- PR #299 — active global theme settings/header/footer source-control and colour alignment.
-- PR #301 — final machine-verifiable storefront gate.
-- PR #303 — user-recording-driven mobile polish: card symmetry, browse-button positioning, removal of accelerated checkout from browse cards, rotating homepage spotlight, mobile facet behaviour, Copy 1/Copy 2 labels for grouped physical listings.
-- PR #304 — status sync after the mobile QA polish and Search & Discovery configuration.
-
-On 30 September, direct visual QA from the user's Shopify preview also produced these additional refinements on **Brand Redesign only**:
-- `Fresh finds. New favourites.` and collection/header copy received a subtle optical left inset so headings do not feel flush to the viewport edge.
-- Collection headers were made self-contained rather than relying on a homepage-only `.dr-wrap` declaration.
-- card-number/set subtitle text is kept to one line with ellipsis so a long set name cannot push one product's purchase buttons lower than its neighbours.
-- Nico Robin ACE 10 cert 590532 retains the exact authenticated ACE image file; only that product's gallery presentation is visually scaled inside the existing frame so the slab occupies a similar footprint to PSA slabs without altering the slab image itself.
-- the exact runtime changes to `templates/index.json`, `dr-brand-discovery.liquid`, `dr-brand-collection.liquid`, `dr-card-title.liquid` and `_product-card-gallery.liquid` are source-controlled in the checkpoint PR rather than being left as Shopify-only drift.
-
-### 5. Shopify catalogue publication and raw-quantity architecture — MAJOR MILESTONE COMPLETE
-
-The starting point on 29 September was a large legacy linked-DRAFT backlog. We did **not** simply bulk-activate it.
-
-- PRs #306/#307 created and production-verified a **read-only linked-draft readiness audit** so the backlog became an explicit work queue.
-- PR #308 added controlled, resumable linked-draft reconciliation with exact identity, language, pricing, condition/grade, media, inventory, SKU, collection and compensation gates.
-- Raw duplicate architecture was corrected so interchangeable raw cards appear as Shopify **quantity**, while Supabase remains the master record for every physical copy and owner:
-  - PR #310 — DRAFT-only pooled raw inventory architecture.
-  - PR #315 — fixed the production audit-permission blocker with narrowly scoped protected audit writers rather than granting broad table access.
-  - PR #316 — safely published consolidated raw pools with re-lock/revalidation, remote Shopify verification, all-member transactional publication and compensation on DB failure.
-- PR #318 fixed the `inventory_id` audit alias bug found during publication; failed attempts compensated back to DRAFT and did not falsely commit publication state.
-- PR #319 changed the drain to DRAFT-only selection with bounded concurrency <=4 so it stopped reprocessing already-complete links.
-- PR #320 recorded the production publication completion state after the main backlog drain.
-
-The catalogue has since advanced further to the current verified state of **492 published physical links / 470 distinct live Shopify products / 0 drafts**.
-
-### 6. Sealed-product safety contract — IMPLEMENTED, TWO CURRENT ITEMS INTENTIONALLY BLOCKED
-
-The two One Piece sealed/collection items were not forced through card-oriented logic:
-
-- PR #279 widened Media Intake to CARD/SEALED/COLLECTION.
-- PR #281 recorded the production deployment/read-back.
-- PR #282 enforced physical capture-context rules: sealed requires `SEALED_PRODUCT`, graded requires `GRADED_SLAB`, raw cards require the approved raw capture contexts.
-- PR #283 recorded deployment verification.
-- PR #284 defined the sealed Shopify contract: Sealed TCG Product type/tags/collection rules and `SEALED_PRODUCT` shipping key.
-- PR #286 recorded production completion of that contract.
-
-The current two sealed One Piece items remain deliberately unlinked because they still require exact physical package evidence, language/region confirmation, packed weight/dimensions and a real sealed shipping profile; the Portgas.D.Ace tin also still needs seal-status evidence. No guessed shipping dimensions or stock-facing media have been fabricated.
-
-### 7. Graded-card publication and exact slab handling — COMPLETED WHERE EVIDENCE EXISTS
-
-The graded-media path was tightened rather than bypassed:
-
-- PR #324 allows exact inventory-bound official grading-provider slab media only for graded inventory that is already `VERIFIED_GRADED`, `OFFICIAL_PROVIDER`, `GRADED_SLAB`, APPROVED and VERIFIED. This does not create a general provider-media bypass for raw/sealed inventory.
-- Exact PSA front/back media allowed the relevant Luffy/Galarian Obstagoon/Mega Charizard graded listings to advance through the normal backend publication path.
-- Charizard V PSA 9 was permitted to use the correct current card-art image under an explicit founder media exception because PSA cert 62398872 confirms identity/grade but provides no slab scan; the exact-slab replacement Action Required remains open.
-- Nico Robin OP01-017 ACE 10 cert **590532** now uses the exact ACE front slab. On 30 September the founder explicitly approved storefront publication with the exact ACE front while retaining the missing-back Action Required. The backend recorded the graded review/audit state and the normal reconciliation worker published it at **£51.61**.
-- That publication moved Shopify from 469 ACTIVE / 1 DRAFT to the current **470 ACTIVE / 0 DRAFT** state. The original ACE image remains unmodified; only Brand Redesign presentation scale was adjusted for visual consistency.
-
-### 8. Dragon Ball/CardTrader backlog — 27/35 PHYSICAL ITEMS LIVE, 8 EXACT-PRINT EXCEPTIONS REMAIN
-
-The Dragon Ball work was undertaken as a **narrow storefront-unblocking backlog fix**, not as a new market-data expansion. It respected the manual freeze by reusing the existing import/media/Shopify pipelines and keeping all provider decisions fail-closed.
-
-Merged work:
-- PR #326 — read-only CardTrader API client + fail-closed exact-media resolver for Dragon Ball Super Masters / Fusion World; provider media starts PENDING and cannot infer physical language.
-- PR #327 — one-shot backlog runner, probe/read-only by default, explicit apply required.
-- PR #328 — normalized CardTrader's live `{"array":[...]}` response wrappers and blueprint-keyed marketplace payloads.
-- PR #330 — normalized `&` vs `and` set aliases while retaining exact set/printing gates.
-- PR #331 — hardened promo-name/pre-release comparison without weakening collector-number or physical-language gates.
-- PR #332 — required exact Fusion World Tournament Pack version proof.
-- PR #333 — allowed a very narrow Masters-only bare numeric collector suffix fallback when set/name/language/finish **and provider rarity** all agree.
-- PR #334 — recorded the verified Dragon Ball publication result.
-
-Production result:
-- **27 / 35 physical Dragon Ball FOR_SALE items are published**, represented by **25 Shopify products** because two pairs are intentionally pooled as quantity-2 listings.
-- The final ordinary Masters cards resolved safely: BT18-067 Krillin, BT18-138 Reaper's Cunning and BT13-142 Dark King Mechikabura.
-- Exactly **8** remain unlinked:
-  - Dawn of the Z-Legends pre-release: BT18-004, BT18-018, BT18-025, BT18-043, BT18-044.
-  - Supreme Rivalry pre-release: BT13-131.
-  - Nappa FP-046 imported as Tournament Pack 07, while CardTrader exposes Pack 08.
-  - Vegeta FB05-039 imported as Tournament Pack -Winner- 06, while CardTrader exposes ordinary Pack 06.
-- These are deliberately blocked on exact-print proof/media. Similar base-set/promo art was not substituted.
-- Bandai's official database was used only as identity/reference evidence during investigation; because its site prohibits unauthorized image/data reproduction, it was **not** turned into a storefront-image provider.
-
-### 9. Dragon Ball storefront merchandising/navigation — COMPLETE FOR CURRENT LIVE INVENTORY
-
-Before 30 September, Dragon Ball products existed but did not have Pokémon/One Piece-equivalent browse structure. This has now been corrected on the Brand Redesign storefront:
-
-- Dragon Ball top-level navigation now includes **Shop All Dragon Ball, Singles, Graded Cards, Series and Sets**.
-- Series routes: **Dragon Ball Super Masters** and **Dragon Ball Super Fusion World**.
-- Current set/promo routes: **Beyond Generations, Dawn of the Z-Legends, Perfect Combination, Power Absorbed, Prismatic Clash, Supreme Rivalry, Three Glorious Fighters, Tournament and Championship Promos, Wish For Shenron**.
-- All 13 newly created Dragon Ball collection routes were verified as published to the Online Store.
-- Dragon Ball uses the same existing Set/Price/Rarity/Variant/Availability/Condition/Language/Grading Company/Grade filter contract as the rest of Drop Rate.
-- Current Dragon Ball inventory is English; grader/grade filter values will remain empty until graded Dragon Ball stock exists rather than being hard-coded.
-
-### 10. Storefront title/SEO presentation cleanup — COMPLETE FOR IDENTIFIED DUPLICATION
-
-To improve grid symmetry without sacrificing search identity:
-- 3 Dragon Ball visible titles were shortened first: Son Goku : DA, Vegeta (Mini) : DA and Tien Shinhan.
-- A subsequent store-wide audit identified 37 affected One Piece presentation titles where collector number/source wording was duplicated in the visible name and the separate card-number/set subtitle.
-- **40 visible Shopify product titles in total** were cleaned without changing canonical Supabase card identity.
-- Meaningful distinctions such as Reprint, Alternate Art, Parallel, Zoro Deck, 3rd Anniversary and Premium Card Collection were retained where useful.
-- Collector number, set, language, rarity/variant and full searchable identity remain in the `drop_rate` metafields/backend data. A post-change audit checked all 40 affected Shopify products: 39 already retained the collector number in their explicit SEO title; Nico Robin ACE 10 was the only exception, so its SEO title was explicitly corrected to `Nico Robin OP01-017 ACE 10 | One Piece | Drop Rate`. The cleanup changed presentation copy, not canonical identity.
-- The card subtitle now uses one-line ellipsis so long set names do not create uneven purchase-button rows.
-
-### 11. Rights, provenance and provider safeguards — FOLLOWED
-
-- We did not assume scraping permission.
-- CardTrader was integrated through its authenticated API.
-- TCGGraph exact-listing rights policy was narrowed in PR #321 to product-sale listing use only, with PENDING human review, exact-match gates and no social/generic SEO/AI-training reuse.
-- PR #322 added provider-exact identity fallback only when one language returns a unique deterministic exact printing; zero/multiple/API-error cases fail closed.
-- Provider media never silently overrides physical language, condition, grade, ownership or price.
-- Bandai images were not reused after the provider's reproduction restriction was identified.
-- Historical observations/audit history were not destructively rewritten.
-
-### 12. Security, audit and failure behaviour preserved
-
-Across the 29–30 September work:
-- Supabase/Postgres remains the source of truth for physical inventory, ownership and financial attribution.
-- Shopify remains the storefront/cart/checkout/customer surface.
-- FastAPI remains the deterministic rule layer.
-- n8n was not used as a database or as a substitute for business rules.
-- RLS was not weakened to make cron jobs easier; narrow `SECURITY DEFINER` functions were used where required.
-- publication paths verify Shopify remotely before committing PUBLISHED state.
-- failed publication/pooling operations compensate back to safe Shopify state.
-- pooling never discards physical Inventory IDs or owners.
-- graded/high-value/ambiguous exact-print cases remain human-review/fail-closed.
-- migrations were version-controlled; historical migration rows were not destructively rewritten.
-- secrets were kept in Railway and were not printed during CardTrader probing.
-- tests/docs/status were kept with the implementation PRs; the current direct Brand Redesign visual tweaks are being brought back into GitHub in this checkpoint PR so there is no runtime-only theme drift.
-
-### 13. Claude operating-manual compliance audit
-
-**Followed:**
-- storefront-first priority;
-- immediate reliability fixes before storefront expansion;
-- required storefront build order;
-- no destructive production/data-history changes;
-- one concern per implementation PR, with superseded attempts closed rather than force-pushed into history;
-- schema changes through versioned migrations;
-- Supabase source of truth / FastAPI deterministic logic;
-- no AI/provider silent override of identity/ownership/price;
-- no new external owner/consignor activation;
-- no broad eBay expansion;
-- no autonomous merchandising/SEO/marketing automation before storefront launch;
-- human exception handling for ambiguous/high-risk items;
-- live Horizon left untouched while Brand Redesign was iterated as the launch candidate.
-
-**Narrow exceptions to the freeze, consistent with the manual's bug/storefront allowance:**
-- CardTrader/TCGGraph work was limited to resolving the already-existing storefront publication backlog and exact-media/identity defects; it was not a new pricing-provider or cross-channel expansion.
-- sealed-media and graded-slab changes were fixes to existing publication paths, not new product-scope expansion.
-- pooling was required to correct the storefront representation of already-owned duplicate raw inventory before launch.
-
-**Still frozen until storefront milestone is explicitly reopened:**
-- new recognition capabilities beyond existing correctness fixes/corpus work;
-- new Seller Hub features;
-- new market-data providers/pricing expansion;
-- new automation/outbox event types and autonomous n8n growth;
-- eBay/cross-channel expansion;
-- autonomous SEO/CRO/marketing experimentation.
-
-### 14. Overall milestone position after this work
-
-- **Milestone 1 — three-founder inventory/ownership:** internal architecture, owner-safe inventory and ownership tracking are effectively complete, but the final release proof still requires onboarding the genuine third founder and repeating cross-owner production isolation verification. No external owner/consignor activation has been silently opened.
-- **Milestone 2 — approved inventory → Shopify → sale → correct owner attribution:** technically far advanced. Real Shopify sale/refund/restock and deterministic settlement reporting already exist; the 29–30 September work has now made the catalogue/storefront side launch-ready at 470 live products. Remaining production proof is the final Brand Redesign launch smoke plus real multi-owner/same-card attribution under the pooled model and eventual live Stripe payout cutover. Automatic money movement remains intentionally locked behind verified settlement controls.
-- **Milestone 3 — automated valuation/recommended pricing:** infrastructure exists, but provider-by-provider production market-data activation remains intentionally gated. The CardTrader work in this checkpoint was exact identity/media support for storefront backlog, not a reopening of automated pricing-provider expansion.
-- **Consignment:** core architecture/status model exists in the wider roadmap, but full customer-facing consignment rollout remains after the storefront/current commerce milestone.
-- **Seller Hub:** the existing deployed seller-safe surfaces remain, but the requested future flow — Shopify signup/purchase → Seller Hub invitation → purchased cards automatically added to portfolio — remains intentionally deferred under the storefront-first freeze.
-- **AI listings/customer service/SEO/marketing:** not reopened. No autonomous CRO/A/B-testing, AI marketing, social publishing or large-scale SEO automation has been activated before the base storefront goes live and proves stable.
-- **n8n:** the signed-event/outbox foundation from 28 September remains dormant by design; no new event types/workflows were added during this storefront-first period.
-- **eBay/cross-channel:** deployed groundwork remains production-dormant and no new expansion was performed during the freeze.
-- **Recognition:** correctness/bug fixes already shipped are preserved, but new recognition feature scope remains frozen until storefront milestone reopening.
-
-### 15. Remaining work / next exact order
-
-1. **Final authenticated Brand Redesign smoke QA** — complete a full mobile and desktop pass through homepage → collection → filters/sort → PDP/grouped copies → exact-copy cart → native checkout entry → search/no-result → customer account/order-history handoff, including the 30 September spacing/title/Nico-image polish.
-2. **Publish Brand Redesign theme only after that smoke is approved.** Horizon remains MAIN until then.
-3. **Immediately run post-publication live smoke/reconciliation**: navigation, filters, cart stock, checkout handoff, account/login, exact-copy/pooled stock behaviour, Shopify↔Supabase ownership/link parity.
-4. **Resolve the 17 unlinked FOR_SALE items without guessing:**
-   - 8 Dragon Ball exact-print media exceptions;
-   - 7 One Piece raw cards requiring exact physical language/media/variant proof;
-   - 2 sealed One Piece items requiring exact package media + language/region + packed dimensions/weight + sealed shipping profile/seal-status evidence.
-5. **Resolve the two expected Shopify webhook-gap HIGH alerts** or formally close them when their known test-order status is reconciled.
-6. **Graded media follow-up:** obtain exact replacement slab/back evidence for the two remaining `GRADED_SLAB_MEDIA_REQUIRED` exceptions where possible; do not substitute another slab.
-7. **GitHub housekeeping:** close stale open PRs that have been superseded by merged production work (#309, #311–#314, #317, #325) after confirming none contains unique unmerged content.
-8. Once Brand Redesign is live and stable, **explicitly reopen the manual's deferred workstreams** in priority order rather than automatically resuming all of them at once.
-9. **Deferred graded-slab scanner architecture — APPROVED BACKLOG:** when recognition/Seller Hub scope is explicitly reopened, add a scanner choice for **Raw Card / Graded Slab** across Founder HQ and the future Seller Hub/mobile app. Graded Slab mode must detect the grader, read the certificate/serial, route through a grader adapter, verify the exact graded identity where permitted, store grader + grade + cert directly on the physical Inventory Item, attach exact official slab media where permitted/available, and require human confirmation before commit. Initial grader targets are **PSA, ACE, CGC, TAG and BGS/Beckett**. PSA has an official cert API and is the first full automation target; TAG should support certificate/QR → DIG report verification, TAG Score and grader-specific digital evidence through a permitted integration path; ACE/CGC should use provider verification only through permitted machine access; BGS remains adapter-ready but automatic lookup must stay disabled unless Beckett provides/approves machine access rather than bypassing its verification protections. Preserve BGS half grades/subgrades including 9.5 and Black Label 10, and preserve TAG's provider-specific score/metrics as evidence rather than flattening them into the core grade. Full design: `docs/GRADED_SLAB_SCANNER_ARCHITECTURE.md`.
-
-
-## 2026-09-30 — Founder-requested post-storefront roadmap additions
-
-**ROADMAP RECORDED / NOT YET COMPLETE —** the following founder-requested capabilities must remain visible in the build plan. They are not considered completed by the current storefront milestone and should be scheduled explicitly after the Brand Redesign launch is stable, unless a blocking bug requires earlier work.
-
-### Sealed-product commerce and intelligence
-
-- **Publish sealed products to Shopify:** complete the physical-input gate for current and future sealed inventory, including exact package media, language/region, seal status, packed weight/dimensions, shipping profile, pricing and Shopify collection/product presentation. Do not guess shipping dimensions or reuse card-oriented media rules.
-- **Sealed-product scanning/recognition:** extend intake so the platform can recognise sealed boxes, booster boxes, tins, collections and other supported sealed products from images/scans. Recognition must remain confidence-scored and fail closed for ambiguous/high-value products.
-- **Sealed-product market valuation:** extend the pricing/market-data layer so sealed products have deterministic market value, recommended retail, quick-sale and acquisition-price outputs using permitted provider data. Sealed valuation must remain separate from raw/graded-card assumptions where liquidity, pack count, product configuration or region materially differ.
-
-### Seller Hub / mobile application
-
-- **Seller Hub as full desktop + mobile product:** turn Seller Hub into a complete responsive desktop experience plus purpose-built iOS and Android apps, usable end-to-end on a phone rather than relying on a partial mobile web workflow.
-- The native mobile app should continue to use the existing FastAPI/Supabase backend rather than becoming a separate source of truth.
-- Core mobile flows should include camera/scanner intake, inventory management, pricing/value views, Action Required, sales/channel state, portfolio, payouts/settlements and account/profile operations.
-
-### Multi-channel commerce expansion
-
-- **Connect Whatnot, Cardmarket and TCGplayer** as additional sales channels alongside Shopify and the existing dormant eBay groundwork.
-- Each channel must use a replaceable adapter and backend API contract; n8n must not own inventory truth or allocation logic.
-- Cross-channel stock must remain Inventory-ID/owner aware and idempotent so one physical item cannot be oversold across Shopify/eBay/Whatnot/Cardmarket/TCGplayer.
-- Channel expansion remains gated behind provider/platform terms, available official APIs/authorised integrations, credentials, webhook/order support and seller-account approval. Do not assume scraping or unsupported automation is permitted.
-
-### Shopify customer → Seller Hub conversion
-
-- **Offer Seller Hub signup to Shopify customers:** when a customer provides an email by creating a Shopify account or making a purchase, present a clear invitation to create a Drop Rate Seller Hub account and explain the value proposition.
-- After a customer explicitly signs up/links the account, eligible purchases should be associated with that Seller Hub identity and purchased cards should be added to their portfolio automatically without transferring physical ownership records incorrectly.
-- Customer/storefront auth must remain separate from founder/admin permissions; do not silently create privileged Seller Hub accounts from checkout alone.
-- Consent, email matching/account linking, duplicate-account handling, refunds/returns and privacy rules must be defined before automatic portfolio import is enabled.
-
-### Founder Dashboard + Seller Hub simplification
-
-- **Simplify both Founder Dashboard and Seller Hub:** reduce complexity, duplication and unnecessary controls so routine inventory/sales work is fast and obvious on desktop and mobile.
-- Prioritise common actions, clear status, search/filtering, compact card grids, Action Required exceptions and context-aware controls rather than exposing internal system complexity.
-- Keep founder/admin-only capabilities clearly separated from seller/consignor/customer-safe functionality.
-
-### Hardware / scanner / printer integration
-
-- **Allow sellers/founders to connect supported printers and scanners** from Seller Hub / Founder Dashboard.
-- Support direct card intake from compatible scanners/cameras into the normal inventory/recognition pipeline rather than creating a separate unmanaged import path.
-- Add a Device Bridge / local connector architecture for hardware that requires local desktop/mobile access.
-- Printer support should cover useful operational workflows such as labels, inventory IDs, order/pick labels or other approved fulfilment outputs.
-- Hardware integrations must preserve authenticated user/owner context, audit events, duplicate protection and explicit device permissions.
-
-
-### Recognition corpus / massive canonical card database
-
-- **Build a large governed recognition corpus so the scanner can recognise cards that have never previously been scanned by Drop Rate.**
-- The corpus must be organised around canonical card/printing identity rather than a loose image folder. Each supported printing should be capable of carrying:
-  - game/line;
-  - set/expansion;
-  - canonical card name;
-  - collector number;
-  - rarity;
-  - variant/parallel/promo/event printing;
-  - language;
-  - foil/finish;
-  - provider/reference IDs;
-  - permitted reference media/fingerprints;
-  - image hashes/visual embeddings where appropriate;
-  - human-confirmed corrections;
-  - confidence/evidence history.
-- Initial supported families remain Pokémon, One Piece, Dragon Ball, Naruto and Riftbound, with future games added through modular adapters/corpus packs.
-- The scanner must not depend only on examples already seen by Drop Rate. Recognition should compare a new scan against the broader corpus plus deterministic metadata/provider evidence.
-- High-value, promo, parallel, pre-release, winner, event, graded or otherwise ambiguous exact printings must remain fail-closed and go to Action Required when evidence is insufficient.
-- Human-confirmed corrections should improve future recognition, but only confirmed outcomes may enter the governed learning loop.
-- Raw recognition images remain subject to the existing retention/privacy/rights policy. The corpus should prefer durable fingerprints/embeddings/reference metadata where rights/storage policy permits rather than becoming an uncontrolled image archive.
-- n8n may orchestrate corpus ingestion/enrichment jobs, but canonical identity, mappings, fingerprints and recognition state belong in Supabase/object storage/FastAPI rather than inside n8n.
-
-### Dragon Ball storefront media quality / high-resolution image programme
-
-- **Audit every live Dragon Ball storefront image for quality, exact-print correctness and resolution.**
-- Current Dragon Ball CardTrader images are materially lower quality than the Pokémon/One Piece catalogue and must be treated as an interim source where no better legitimate exact-print media exists.
-- Target high-resolution / approximately 4K-quality presentation where a legitimate exact-print source or first-party capture is available.
-- Do not upscale with generative reconstruction that changes card text/artwork/printing details. Any enhancement must preserve the exact source image faithfully.
-- Prefer, in order where permitted and exact:
-  1. first-party high-resolution physical capture;
-  2. official grading-provider slab scan for graded cards;
-  3. rights-cleared/permitted exact-print provider media;
-  4. existing lower-resolution provider media only as a temporary fallback.
-- Add an image-quality audit/remediation queue for low-resolution, incorrect crop/aspect, missing slab back, wrong printing and replacement-available cases.
-- Extend the same quality standard to other games when poorer legacy media is found; Dragon Ball is the first priority.
-
-### Planned n8n automation programme
-
-n8n remains the orchestration layer only. Supabase/Postgres remains the source of truth and FastAPI remains the deterministic business-rule layer. AI may assist inside workflows but must not silently alter canonical identity, ownership, price, settlement or financial truth.
-
-Planned automations/workflows:
-
-1. **New card intake** — react to new founder/seller inventory and call the normal backend intake pipeline with owner context, Inventory ID, media state and next required step.
-2. **Bulk card import** — orchestrate Collectr/CSV/bulk imports, deduplication, deterministic physical-quantity expansion and exception routing.
-3. **AI card identification** — send captured/scanned cards through recognition and route low-confidence/high-value results to Action Required.
-4. **Recognition corpus enrichment** — after human confirmation, add governed metadata/fingerprints/corrections to the canonical recognition corpus so future unseen-card scans improve.
-5. **Sealed-product recognition** — process booster boxes, tins, decks, collections and other sealed products through a sealed-specific identification pipeline.
-6. **Inventory status changes** — react to APPROVED/LISTED/RESERVED/SOLD/RETURNED etc. and trigger only valid downstream workflows.
-7. **Market-data ingestion** — periodically request permitted pricing/sales data from configured provider adapters.
-8. **Market-data normalisation** — normalise source/currency/shipping/condition/grade/language/sold-vs-listed/timestamp/provenance.
-9. **Pricing recalculation** — call FastAPI pricing rules when meaningful new evidence arrives; produce Market Value, Recommended Retail, Quick-Sale and Target Acquisition prices.
-10. **Sealed-product valuation** — run sealed-specific price/market workflows with region/configuration/liquidity-aware inputs.
-11. **Shopify product creation** — once backend readiness passes, create the Shopify product/media/metafields/collections/SEO/inventory linkage.
-12. **Shopify product updates** — synchronise legitimate backend changes without making Shopify the master record.
-13. **Shopify order processing** — consume verified webhooks idempotently and reconcile order state against Supabase.
-14. **Multi-owner order allocation** — route sold line items through deterministic Inventory → Owner → Fees/Commission → Net Proceeds allocation.
-15. **Refunds/returns/cancellations** — reverse the correct inventory/financial state and return items to inspection when required.
-16. **Founder/consignor settlement preparation** — generate deterministic settlement reports, balances, commissions, deductions and amount owed.
-17. **Payout monitoring** — watch scheduler health, payout requests, reconciliation and discrepancies; create Action Required exceptions rather than silently moving money.
-18. **Consignment submissions** — intake customer submissions and initialise the SUBMITTED → RECEIVED workflow.
-19. **Consignment processing** — orchestrate RECEIVED → INSPECTION → APPROVED → LISTED and exception handling.
-20. **Consignment sale/settlement updates** — update consignor visibility for sale, commission, amount owed and settlement state.
-21. **Cross-channel publishing** — controlled publishing to Shopify/eBay/Whatnot/Cardmarket/TCGplayer through replaceable channel adapters.
-22. **Cross-channel inventory protection** — on sale/reservation, immediately reserve/zero/withdraw the same physical stock from other channels.
-23. **Cross-channel order reconciliation** — compare channel orders/listings against Drop Rate and alert on mismatches without fabricating financial state.
-24. **Shopify customer → Seller Hub invitation** — after customer account creation/purchase/email capture, send a clear invitation explaining Seller Hub and its value.
-25. **Purchase → Seller Hub portfolio** — after explicit account linking, add eligible purchased cards to the customer's portfolio and handle refunds/returns safely.
-26. **New-stock marketing triggers** — detect grails, significant new inventory, set drops and noteworthy restocks.
-27. **Price-movement/trending triggers** — surface meaningful market moves/trends as internal events using deterministic thresholds before AI interpretation.
-28. **AI product listing copy** — generate titles/descriptions/SEO/tags/alt text only from confirmed database facts.
-29. **SEO maintenance** — identify weak/missing metadata, internal-linking gaps, collection/set content gaps and indexing issues.
-30. **SEO/CRO experimentation** — after sufficient traffic, propose/run controlled A/B tests for collection layouts, CTA copy, product-card layout and conversion flow with measurable rollback-safe results.
-31. **AI creative generation** — Event → AI brief → Higgsfield/Banana Pro → creative/caption/CTA → approval.
-32. **Social publishing** — publish approved social content on schedule and record source event/inventory/campaign linkage.
-33. **Customer email lifecycle** — welcome, post-purchase, back-in-stock, portfolio onboarding, relevant recommendations and lifecycle follow-up.
-34. **AI customer service** — resolve routine order/product/policy questions using live permitted context; escalate disputes/refunds/financially sensitive issues.
-35. **Recommendations** — recommend relevant cards/products from real catalogue/inventory/purchase/portfolio data rather than generic AI guesses.
-36. **Inventory intelligence** — surface ageing stock, low stock, high-value inventory, fast sellers, slow movers, liquidity issues and acquisition opportunities.
-37. **Founder/seller daily briefing** — summarise sales, valuation changes, Action Required, consignments, inventory and operational exceptions.
-38. **Analytics automation** — maintain sales/channel/inventory/owner performance datasets and surface meaningful changes automatically.
-39. **Image-quality audit automation** — detect low-resolution images, incorrect crops/aspect, missing slab backs and replacement-available media; Dragon Ball is first remediation target.
-40. **Error/exception alerts** — API failures, Shopify sync failure, provider failure, duplicates, missing owner, webhook gaps, settlement discrepancies, recognition uncertainty and other operational faults into Action Required.
-41. **Hardware workflow triggers** — receive scanner/device captures into the normal intake/recognition path and send approved printer jobs for labels/fulfilment.
-42. **Operational monitoring** — heartbeat/health checks for n8n, backend jobs, payouts, marketplace integrations and other critical scheduled workflows.
-
-Preferred automation activation order after storefront launch:
-**inventory/intake → Shopify/order/reconciliation → pricing/market data → Seller Hub/customer portfolio → consignments → cross-channel → customer lifecycle → SEO/CRO → AI marketing/social.**
-
-### Additional deferred product/workstream items already discussed
-
-- **Third-founder completion:** onboard the genuine third founder and repeat production cross-owner isolation verification to finish the final Milestone 1 release gate.
-- **Real multi-owner commerce proof:** production-test a same-order/multi-owner or pooled-stock sale through allocation, refund and settlement reporting.
-- **Live payout cutover:** keep automatic money movement locked until settlement/reconciliation is fully production-proven and explicitly approved.
-- **Consignor portal/full consignment rollout:** submissions, status tracking, listed stock, sales, commission, amount owed and settlement visibility.
-- **Seller Hub portfolio:** inventory value, top-valued cards, weekly movers, sales/channel state, payout tracking and portfolio performance.
-- **Shopify-customer portfolio ownership experience:** customers who buy from Drop Rate should be able to claim/link purchases into Seller Hub after explicit signup.
-- **Mobile-first scan experience:** full-screen camera, rapid capture, batch totals, manual capture fallback, correction flow and unresolved queue.
-- **Desktop/mobile UX simplification:** fewer internal/technical controls, compact grids, better defaults, clear common actions and a strong Action Required workflow.
-- **Device Bridge:** local desktop/mobile bridge for supported scanners, label printers and other hardware that browsers cannot securely access directly.
-- **One-click cross-listing:** once channels are authorised, list eligible stock to selected marketplaces while backend ownership/inventory remains authoritative.
-- **Channel dashboard:** seller-facing visibility of Shopify/eBay/Whatnot/Cardmarket/TCGplayer state without exposing unsafe channel controls.
-- **Recommendations and collection intelligence:** customer-facing recommendations plus founder-facing acquisition/stock intelligence.
-- **Native notifications:** mobile push/email/in-app notifications for sales, payouts, price movement, Action Required and significant inventory events.
-- **AI product listings:** controlled generation of product copy after canonical identity/pricing/media are confirmed.
-- **AI customer service:** routine support automation with human escalation.
-- **SEO programme:** collection/set/card metadata, internal linking, structured content and Search Console-style issue handling based on real database facts.
-- **CRO programme:** controlled A/B testing only after enough real traffic/conversion data exists.
-- **AI marketing programme:** new grails, new inventory, price movements, trending cards, new sets, major sales, low stock and collection drops.
-- **Analytics/optimisation:** founder dashboards for revenue, profit, inventory turn, owner performance, channel performance and campaign attribution.
-- **Data/provider expansion:** additional legitimate market/reference providers only after source-by-source terms, rights, API quality and economics are reviewed.
-- **Recognition performance:** parallelism, fingerprint caching, short-circuiting, per-stage timing and corpus-quality metrics after the storefront freeze is explicitly reopened.
-- **Counterfeit/risk review:** retain a human-review path for suspicious cards/products rather than treating AI confidence as authenticity proof.
-- **Backups/dev-prod/security hardening:** maintain separate environments, RLS/RBAC, secure secrets, webhook verification, audit logs, recovery/backups and controlled migrations as the platform grows.
-
-### Sequencing note
-
-These items are now part of the official roadmap but **do not override the current storefront-first launch gate**. Immediate order remains: final Brand Redesign smoke QA → publish Brand Redesign → post-launch verification → resolve remaining storefront inventory exceptions. After that, explicitly reopen deferred workstreams in controlled phases rather than building all roadmap items simultaneously.
-
-
-## 2026-09-30 — Dragon Ball publication final production verification
-
-**PRODUCTION VERIFIED —** the CardTrader Dragon Ball backfill/publication pass is complete for every exact printing the current permitted provider data can prove. Production now has **27 / 35 Dragon Ball physical FOR_SALE items published**, represented by **25 live Shopify products** because two duplicate physical copies are intentionally pooled into quantity-2 listings.
-
-The final three ordinary Masters cards with CardTrader bare numeric collector-number suffixes are live after the narrow rarity-guarded matcher was deployed: BT18-067, BT18-138 and BT13-142. The production safety rules remain fail-closed and do not extend that suffix fallback to Fusion World or promo cards.
-
-Exactly **8 Dragon Ball physical items remain intentionally unlinked**:
-- Dawn of the Z-Legends pre-release: BT18-004, BT18-018, BT18-025, BT18-043 and BT18-044.
-- Supreme Rivalry pre-release: BT13-131.
-- Fusion World promos: Nappa FP-046 imported as Tournament Pack 07 and Vegeta FB05-039 imported as Tournament Pack -Winner- 06.
-
-CardTrader does not provide exact-print proof for those eight. Production diagnostics show FP-046 only as Tournament Pack 08 and FB05-039 only as ordinary Tournament Pack 06; the six Masters pre-release records only resolve to ordinary base-set blueprints without pre-release evidence. The system therefore correctly refuses visually similar substitute art. Each unresolved printing has an OPEN `MEDIA_UNRESOLVED` Action Required record and requires an exact permitted provider source or first-party physical-card capture before normal Shopify bootstrap/publication.
-
-Shopify production is now **469 ACTIVE products / 469 Online Store-published products**, with **1 DRAFT** product (the known Nico Robin OP01-017 ACE 10 review hold) and **22 ARCHIVED** zero-stock/redundant shells. No duplicate Shopify product shells exist for the eight unresolved Dragon Ball cards.
-
-## 2026-09-30 — CardTrader Masters bare collector-number suffixes
-
-**SOURCE-CONTROL PR IN PROGRESS —** final production diagnostics found three ordinary Masters
-cards that are present on CardTrader with exact set/name/language/rarity/image evidence, but
-CardTrader stores their collector numbers as bare numeric suffixes rather than full BT codes:
-BT18-067 -> 067, BT18-138 -> 138 and BT13-142 -> 142. A narrow matcher is being added for
-Masters `BTxx-yyy` only; it requires the numeric suffix and explicit provider rarity to agree.
-Fusion World/promos cannot use the fallback.
-
-The main Dragon Ball publication pass is already live: 24 physical Dragon Ball items map to
-22 ACTIVE Shopify products, including two correct quantity-2 pooled listings. Shopify reports
-466 ACTIVE products and 466 Online Store-published products after this release. Eleven
-Dragon Ball items remain unlinked while exact-print media is unresolved; this fix targets
-only the three ordinary Masters cards within that exception set.
-
-## 2026-09-29 — Fusion World tournament-promo proof
-
-**SOURCE-CONTROL PR IN PROGRESS —** a production CardTrader Blueprint diagnostic showed that
-the local tournament-promo cards live under provider expansion `Fusion World Promos` (3678),
-not `Tournament & Championship Promos` (4300). The resolver is being narrowed to that
-production mapping while requiring the local Tournament Pack label to agree with the Blueprint
-version. This allows exact Pack 07 matches but deliberately blocks Nappa FP-046 (local Pack 07,
-provider Pack 08) and Vegeta FB05-039 (local Winner 06, provider ordinary Tournament Pack 06).
-No inventory/media mutation occurred during the diagnostic.
-
-## 2026-09-29 — CardTrader printing safeguards rebased on current main
-
-A clean follow-up hardens the production-tested Dragon Ball matcher without relaxing identity:
-Collectr promo-name suffixes may be removed only from the name comparison, collector number
-remains mandatory, and a local pre-release card may fall back to a base expansion only when
-the Blueprint version itself explicitly proves a pre-release printing. Current CardTrader data
-does not provide that proof for the six outstanding pre-release copies, so they remain blocked.
-This branch is rebased on current `main` after the earlier PR conflicted with concurrent
-CardTrader/status changes.
-
-## 2026-09-29 — Dragon Ball CardTrader set-alias verification
-
-Production CardTrader diagnostics confirmed the Fusion World local set `Tournament and Championship Promos` maps to provider expansion `Tournament & Championship Promos` (ID 4300). The adapter now normalizes ampersand/word-`and` equivalence while retaining exact set matching.
-
-CardTrader diagnostics also confirmed the six local pre-release cards (five Dawn of the Z-Legends + one Supreme Rivalry) only appear under ordinary base-set blueprints with no pre-release marker in CardTrader's blueprint metadata. Those six are therefore explicitly left unresolved rather than receiving the normal-print image. No production inventory/media mutation occurred during these diagnostics.
-
-## 2026-09-29 — CardTrader production response wrapper fix
-
-The first production Dragon Ball CardTrader probe authenticated successfully enough to reach provider endpoints but exposed a live response-shape difference: `GET /games` returns `{"array": [...]}` for this account, while `GET /expansions` returns the documented bare list. Marketplace products are also keyed by Blueprint ID per CardTrader's API reference. A focused client compatibility fix now normalizes these shapes and keeps unknown/missing wrappers fail-closed. No Dragon Ball inventory or media was mutated by the failed probe.
-
-## 2026-09-29 — Dragon Ball CardTrader one-shot backfill runner
-
-**SOURCE-CONTROL PR IN PROGRESS —** a dedicated management runner now exists for the 35-card Dragon Ball backlog. It reuses the existing import-enrichment core rather than duplicating identity/media business rules. The runner defaults to read-only `probe` mode and requires explicit `apply` mode before any enrichment mutation.
-
-The current production batch is `8f10fd72-b3d9-475a-9598-ce21503ffd98` and contains 29 Dragon Ball Super Masters + 6 Dragon Ball Super Fusion World FOR_SALE items. The founder explicitly confirmed all 35 physical copies are English. Production `drop-rate-api-live` now has `TCG_CARDTRADER_API_TOKEN` configured and the token deployment succeeded. The next execution sequence is: CI/merge runner → one-shot worker probe against representative Masters/Fusion World cards → if exact provider payloads validate, apply existing enrichment to all 35 → human review exact CardTrader media candidates → normal Shopify bootstrap/publication.
-
-## 2026-09-29 — CardTrader Dragon Ball exact-media Route B
-
-**SOURCE-CONTROL PR IN PROGRESS / PRODUCTION TOKEN NOT YET CONFIGURED —** the catalogue is now at **464 PUBLISHED physical inventory links / 444 distinct live Shopify products**. The 20-link difference remains intentional pooled raw quantity. Shopify has one remaining production DRAFT product: Nico Robin OP01-017 ACE 10. There are 44 unlinked FOR_SALE items: 35 Dragon Ball, 7 One Piece raw and 2 sealed One Piece.
-
-The 35 Dragon Ball cards are split into 29 Dragon Ball Super Masters and 6 Dragon Ball Super Fusion World. They already have sale price, Near Mint condition and registered storage location. Their remaining common blockers are confirmed physical language plus exact permitted storefront media.
-
-A read-only CardTrader provider path is being added as Route B so these cards do not depend on the paid TCGGraph subscription. CardTrader's official API exposes Games, Expansions, Blueprints and Blueprint `image_url` values, and its terms explicitly permit API use for inventory management on other sales channels. The adapter is fail-closed: Masters/Fusion World isolation, exact expansion, exact normalized name, collector-number evidence, supported normal/foil family, unique Blueprint and a CardTrader-owned HTTPS image host are all mandatory. Missing/ambiguous evidence creates no media.
-
-CardTrader is **not** used to infer the language of Drop Rate's physical copy. The existing import enrichment default-language flow remains the deterministic way to record a founder/admin-confirmed batch language. CardTrader provider media is inserted only as `PENDING`, never auto-approved or auto-published.
-
-Production currently has no `TCG_CARDTRADER_API_TOKEN`. After CI/merge/deploy, the external cutover gates are: configure a CardTrader Bearer token from the CardTrader account settings, confirm the physical language of the 35 Dragon Ball copies, run enrichment, review exact media candidates, then use the normal Shopify bootstrap/publication pipeline.
-
-Charizard V 019/189 PSA 9 is now ACTIVE using its current correct card-art image under an explicit founder media override because PSA cert 62398872 returns the correct MINT 9 identity but no provider slab scans. The exact-slab replacement Action Required remains open. Both Luffy slabs (ST10-006 PSA 9 English and P-001 [25th] PSA 10 Japanese) are PUBLISHED with exact PSA front/back media and verified graded audit history. Nico Robin ACE 10 cert 590532 now has the exact ACE front-slab image registered, approved, Shopify-ready and attached as the draft's featured image; identity/language and founder graded-review state remain intentionally unresolved.
-
-## 2026-09-29 — Official graded-slab bootstrap gate
-
-**SOURCE-CONTROL PR IN PROGRESS —** catalogue bootstrap currently excludes cert-linked grading-provider slab media because the inventory-media branch only accepts `FIRST_PARTY_CAPTURE`. This blocked the already founder-verified Monkey D Luffy P-001 Japanese PSA 10 even though exact PSA cert 165543324 FRONT/BACK media is approved, rights-verified and Shopify-ready.
-
-The bootstrap media gate is being narrowed to also accept an exact `INVENTORY_ITEM` asset only when the inventory is a graded card, both grader and grade are present, `condition_review_status='VERIFIED_GRADED'`, `source_type='OFFICIAL_PROVIDER'`, and `capture_context='GRADED_SLAB'`. Raw-card and sealed-product rules are unchanged; official provider media does not become a general storefront-media bypass.
-
-Production also advanced Monkey.D.Luffy ST10-006 English PSA 9 to `VERIFIED_GRADED` from explicit founder approval and published its existing £35 Shopify draft successfully. PSA cert lookup confirmed Charizard V Darkness Ablaze 019/189 cert 62398872 as MINT 9 but returned no provider slab images, so that listing remains blocked on exact slab media rather than using a substitute.
-
-## 2026-09-29 — Shopify publication remainder census (461/509 live)
-
-Production is now at **461 PUBLISHED physical inventory links out of 509 FOR_SALE inventory items**. Three additional items were safely promoted in the latest controlled reconciliation pass: Seel 021/094 English raw, Galarian Obstagoon 209/193 Japanese PSA 10, and Mega Charizard X ex 223/193 Japanese PSA 10. The two graded cards were explicitly founder-approved and recorded as `VERIFIED_GRADED` with exact FRONT/BACK graded-slab evidence before publication. Seel's legacy `test_mode=true` link was explicitly promoted to a normal production DRAFT link with its own audit event before the normal reconciler published it. The linked-draft worker was returned to `ENABLED=false` and `APPLY=false` immediately after the run.
-
-The exact **48 remaining** items are:
-- **3 linked graded Shopify drafts** — Nico Robin OP01-017 ACE 10 (no trusted slab media yet), Monkey.D.Luffy ST10-006 PSA 9 (front/back media ready; founder graded review still required), and Charizard V 019/189 PSA 9 (no trusted slab media yet).
-- **1 unlinked graded item** — Monkey D Luffy P-001 [25th] Japanese PSA 10; identity and front/back slab media are already ready, but founder `VERIFY_GRADED` is still required before Shopify bootstrap/publication.
-- **42 unlinked raw cards** — 29 Dragon Ball Super Masters, 6 Dragon Ball Super Fusion World, and 7 One Piece. All already have sale price, Near Mint condition and storage location. Their common blockers are identity/language confirmation and storefront-eligible exact media.
-- **2 unlinked sealed One Piece products** — Premium Card Collection -6 assort vol.1- and Tin Pack Set Vol. 2 -Portgas.D.Ace-. Both require first-party exact package photo, language/region confirmation, real packed weight/dimensions and a verified sealed-product shipping profile. The Ace tin additionally has no recorded `seal_status` yet.
-
-TCGGraph storefront-media policy is deployed and the provider-exact language/identity fallback is merged, tested and deploying. Production currently has **no `TCG_TCGGRAPH_API_KEY` configured**, so the 35 Dragon Ball/Fusion World cards cannot yet execute that provider path. TCGGraph account/subscription cost is an external commercial dependency and must not be purchased automatically.
-
-HIGH-priority Action Required rows now exist for both sealed products and all four remaining graded items, separating founder-review-ready slabs from slabs that still need exact physical media.
-
-## 2026-09-29 — Provider-exact import identity fallback
-
-**SOURCE-CONTROL PR IN PROGRESS / REQUIRES TCGGRAPH KEY FOR PRODUCTION USE —** import enrichment is being extended so unmarked-language cards do not need a blanket batch language. If normal import evidence cannot confirm identity, the backend may probe TCGGraph across the supported candidate languages and accept `PROVIDER_EXACT` only when exactly one language returns the same deterministic exact printing. Zero matches, multiple language matches, any provider/API error, or a concurrent inventory change fails closed.
-
-This path records the provider identity evidence in `identity_verification_events`; it does not approve media, condition, grading or Shopify publication. It is intended to remove the identity/language blocker from the 35 currently unsynced Dragon Ball Super / Fusion World raw cards once a production TCGGraph API key is configured. Production currently has no `TCG_TCGGRAPH_API_KEY` on the API or reconciliation worker, so no provider calls or identity mutations can occur yet.
-
-## 2026-09-29 — TCGGraph exact-listing storefront media policy
-
-**SOURCE-CONTROL PR IN PROGRESS / NO PRODUCTION MEDIA PROMOTION YET —** current TCGGraph terms were re-verified after their 28 September 2026 update. They expressly permit API-returned card data/images to be displayed inside paid products and cached, while leaving underlying publisher artwork rights with the publishers. Drop Rate's TCGGraph adapter is being narrowed to the same product-sale-only use boundary already used by the storefront media system: exact TCGGraph images may be eligible for the Shopify listing advertising the sale of that exact physical card under the project's UK CDPA 1988 s63 basis, but not for social media, generic SEO artwork, merchandise, AI training or unrelated marketing.
-
-The change does **not** auto-approve media, relax exact-print matching or bypass physical-photo policy. TCGGraph assets remain `PENDING`; exact game/line/language/name/collector-number/finish matching remains fail-closed; graded, high-value, condition-sensitive and sealed inventory still require first-party physical evidence where the existing policy says so. Only human-approved, rights-verified, source-active exact matches may advance to Shopify Files. This is intended to unblock the 35 currently unsynced Dragon Ball Super / Fusion World raw cards without weakening publication controls.
-
-## 2026-09-29 — Linked-draft drain throughput hardening
-
-- Production publication canary passed end-to-end: Shopify ACTIVE, Supabase link PUBLISHED, matching SKU/price/stock/media and a deterministic DRAFT→PUBLISHED audit event.
-- A 25-candidate production pass completed with 25/25 reconciliation results PUBLISHED and zero blockers; because the legacy selector also included already-PUBLISHED links, only 16 of those candidates advanced new draft links.
-- A larger sequential drain proved unnecessarily slow because it revalidated completed links before reaching outstanding drafts.
-- Source fix: launch-drain candidates are now DRAFT-only and independent items run with bounded concurrency capped at four and by the DB pool size. Per-item identity, language, price, stock, media, collection, ownership-state, audit and compensation gates are unchanged.
-- Production cutover is complete and verified. The optimized DRAFT-only/concurrency-4 worker published the remaining ordinary catalogue backlog across both import batches. Final production parity is **458 PUBLISHED physical inventory links / 438 distinct live Shopify products**, with the 20-link difference explained by the 15 pooled raw listings. Shopify now has exactly **6 DRAFT products** matching Supabase: **5 graded cards held for founder `VERIFY_GRADED` review** plus **1 deliberate test-mode Seel**. The 20 redundant pre-pooling individual product shells remain ARCHIVED at quantity 0 to prevent double-selling. Reconciliation switches were returned to `ENABLED=false` and `APPLY=false` after the run. Two deterministic Collectr price overrides were repaired and audited before shutdown: Galarian Obstagoon PSA 10 £40 and Monkey D. Luffy ST10-006 PSA 9 £35.
-
-## 2026-09-29 — Linked-draft publication audit alias fix
-
-- Standard linked-draft reconciliation was observed in production compensating products back to DRAFT after Shopify activation because the loaded item exposed `id` while the audit commit expected `inventory_id`.
-- No failed item was committed as PUBLISHED; compensation returned affected products to DRAFT.
-- The reconciliation worker was paused before continuing the catalogue.
-- Fix: explicitly select `i.id as inventory_id` in the loader, with regression coverage and documentation before the worker is resumed.
-
-
-_Last updated: 30 September 2026, 01:52 BST_
-
-This file is the persistent source of truth for project progress. A feature counts as **Completed** only after merge, production deployment and production verification where applicable.
-
-## Current progress
-
-- **Full Drop Rate roadmap:** ~65% overall. The core marketplace/MVP path is further ahead at ~82%; the lower full-roadmap number still includes customer storefront work, AI listings, customer service, SEO, marketing, native mobile and the majority of production n8n workflows. The n8n delivery foundation is now implemented in code but intentionally dormant.
-- **Milestone 1 — Inventory / ownership foundation:** ~99% for the internal founder build and ~96% against the final three-founder milestone. RBAC, admin-route hardening, dedicated OWNER onboarding, owner-safe inventory/finance APIs, the restricted owner portal, media/condition workflows and inventory-image delivery are deployed. The genuine second-account cross-owner isolation gate has passed; the remaining release gate is onboarding the genuine third founder and repeating production isolation verification.
-- **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
-- **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
-- **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
-- **Customer storefront / Shopify UX:** base-commerce engineering/data-contract QA and the source-controlled visual pass are complete on the unpublished Brand Redesign theme across global shell, homepage, browse, grouped-copy PDP, exact-copy cart/checkout handoff, search and Shopify-native customer accounts. Brand Redesign remains unpublished and the source-controlled overlay now contains **25 files**, including the native facet files changed during mobile QA, with Shopify/runtime parity verified before merge. The live Horizon theme remains untouched. Overall storefront milestone remains IN PROGRESS for the repeat mobile preview smoke, desktop preview smoke and subsequent publication. See `docs/STOREFRONT_LAUNCH_QA.md`.
-- **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
-- **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
-
-## 29 September 2026 — pooled raw Shopify inventory architecture
-
-**SOURCE-CONTROL PR IN PROGRESS / NO PRODUCTION POOL MUTATION YET —** The storefront inventory model is being corrected before the remaining Shopify draft backlog is published. Interchangeable raw copies will be represented as Shopify quantity while Supabase continues to own exact physical Inventory ID, owner, acquisition cost, condition, language, location and settlement attribution.
-
-Phase A is intentionally limited to raw duplicate products that are still Shopify DRAFT. The existing shopify_inventory_links schema already permits several physical inventory rows to point at the same Shopify variant, and the production Shopify order processor already allocates quantity deterministically across those physical rows. The new pooling path therefore reuses the existing exact-owner/order/refund logic rather than introducing a parallel allocation system.
-
-Phase A fail-closed requirements are: CARD, ungraded, APPROVED, FOR_SALE, identity-confirmed, language/condition/cost/storage/price present, one shared offer price, no reservation or marketplace-listing membership, and DRAFT/non-test Shopify links only. It chooses one deterministic draft product as the pool anchor, assigns a stable pool SKU, sets Shopify quantity to physical eligible count, zeros/archives redundant draft products, repoints each exact physical link to the anchor variant with deterministic allocation priority, and audit-logs every link mutation. A per-pool PostgreSQL advisory lock and best-effort Shopify compensation protect concurrent/error paths.
-
-Read-only production sizing before implementation: **27 DRAFT raw duplicate groups / 61 physical cards**; **15 groups / 35 physical cards are fully ready now**; 12 groups remain blocked on identity/language readiness; no ready group has a price mismatch.
-
-The old linked-draft reconciliation worker remains **APPLY=false**. Do not bulk-publish the remaining raw duplicate drafts as separate products and undo them later. Published duplicate products require a separate Phase B legacy-variant drain/alias migration so in-flight Shopify orders cannot lose attribution.
-
-Target storefront model after the staged migration: one canonical Shopify product per exact card printing, with sellable offer variants such as English Near Mint quantity N, Japanese Near Mint quantity N, and unique graded variants quantity 1. Shopify Plus is not required. **Drop Rate — Brand Redesign** remains the future MAIN theme and its existing native buy-button logic already hides quantity at stock 1 and exposes Shopify quantity above 1.
-
-See `docs/SHOPIFY_RAW_POOLING.md`.
-
-## 29 September 2026 — controlled Shopify linked-draft launch reconciliation
-
-**SOURCE-CONTROL PR IN PROGRESS / DISABLED BY DEFAULT —** A one-off, resumable
-reconciliation worker has been added for the legacy Collectr-linked Shopify draft backlog.
-It operates only on already-linked, non-test Shopify products and never creates replacement
-products. Exact import identity, per-set language evidence, deterministic price overrides,
-existing condition/graded-photo policy, exact Shopify product/variant/SKU, positive stock,
-remote image presence and browse collection membership are all enforced before activation.
-
-The worker regenerates Shopify title/description/SEO/tags/metafields from corrected backend
-data, publishes Shopify first, and only then marks the corresponding
-`shopify_inventory_links` row `PUBLISHED`. A database failure after remote activation
-triggers best-effort compensation back to Shopify `DRAFT`. Existing Shopify imagery is
-used only as a remote-presence gate for this controlled legacy reconciliation; no fake
-`media_assets` or rights claims are created and the standard ongoing media/publish
-pipeline is unchanged. Production execution remains pending dry-run validation.
-
-## 29 September 2026 — Shopify linked-draft readiness audit
-
-**DEPLOYED / VERIFIED / READ-ONLY —** PR #306 is merged and deployed to production. Founder HQ now exposes a separate readiness
-summary for Shopify-linked `DRAFT` products. This reuses the existing identity, approval,
-cost, language, condition/grade, price, location and media gates so the 369-product draft
-backlog can be worked safely without bulk activation. The audit performs **zero Shopify
-network calls and zero publication actions**; it does not infer missing language, confirm
-identity, alter price/quantity or change remote product status. Dashboard output separates
-unsynced inventory from already-linked Shopify drafts and exposes their core/media blocker
-counts. Production deployment `abf12ed481f8c7e7f0e16270da312c6f78d71a00` passed **1,904 tests** and Railway's `/health/ready` check returned HTTP 200.
-
-The post-deploy inventory baseline is **369 linked Shopify drafts**. After reconciling the already-verified Seel 021/094 English image from Shopify `READY` back into the media registry and approving its previously recorded founder physical review, **1 draft is now core-ready and media-ready** while remaining unpublished. Current linked-draft blockers are: 368 approval status, 368 identity confirmation, 367 card language, 5 graded slab verification and 2 store price. Storefront publication remains gated on refreshed mobile QA followed by desktop QA.
-
-## 29 September 2026 — storefront mobile launch-QA polish
-
-**RUNTIME DEPLOYED / SOURCE CONTROL MERGED / RE-PREVIEW REQUIRED —** review of the real mobile preview recordings found several presentation issues that did not invalidate the base-commerce path but should be fixed before publication. The unpublished `Drop Rate — Brand Redesign` theme now:
-- reserves a fixed two-line title footprint on product cards and anchors browse-card purchase actions so long titles do not break grid symmetry;
-- removes accelerated checkout from collection/home browse cards while retaining the native PDP/cart/checkout path;
-- turns the three-card homepage display into an interactive/automatic spotlight rotation; the active card's product name, price and link move with the front card, tapping a rear card promotes it, manual interaction pauses auto-rotation, and reduced-motion preference disables automatic movement;
-- keeps desktop vertical facets expanded but starts mobile drawer facets collapsed unless that facet already has an active value; mobile facet spacing is tightened without replacing Shopify-native Search & Discovery filtering;
-- labels grouped physical listings as `Copy 1`, `Copy 2`, etc. while preserving condition/language/grader/grade/price and exact-copy selection behavior.
-
-The runtime edits are confined to the unpublished theme. No live Horizon, product price, inventory quantity, ownership, cart identity or checkout mutation is included. Three native Horizon files that are now intentionally changed by Drop Rate (`blocks/filters.liquid`, `snippets/list-filter.liquid`, `snippets/price-filter.liquid`) are added to the overlay so this behavior is source-controlled rather than existing only in Shopify.
-
-**Language facet finding:** Shopify has one correctly tagged English product, `Seel · EN · 021/094 · Phantasmal Flames`, but it is DRAFT. The current customer-visible ACTIVE catalogue is Japanese, so Shopify correctly exposes Japanese but not English as a live Language value. Filter values remain inventory-driven; do not hard-code empty English/Korean/Chinese values merely to make them appear. English should appear automatically when an ACTIVE collection product carrying `drop_rate.language=English` exists.
-
-**Next gate:** repeat the mobile preview through homepage → collection → filters/sorting → PDP/grouped copies → exact-copy cart → checkout entry → search/no-result → customer account. If that pass is clean, continue immediately with desktop QA. **Do not publish yet.**
-
-## 29 September 2026 — storefront final machine-verifiable gate
-
-**Machine-verifiable storefront gate: COMPLETE / TWO EXTERNAL GATES REMAIN —** the
-unpublished `Drop Rate — Brand Redesign` theme is now fully aligned across the active
-global brand layer, Shopify current settings/header/footer, homepage, collection/browse,
-grouped-copy PDP, exact-copy cart, search and native customer-account chrome. The
-source-controlled overlay now contains **22 files**, and the newly added settings/header/
-footer files were deployed only after their pre-write Shopify checksums matched the values
-captured before CI. Post-write read-back confirms those files match GitHub byte-for-byte;
-the previously deployed 19 files had already been independently parity-verified.
-
-Shopify runtime/config checks also pass:
-- `Drop Rate — Brand Redesign` remains **UNPUBLISHED**.
-- `Horizon` remains **MAIN** and its last update remains
-  **24 September 2026 17:17:28 UTC**.
-- customer accounts use **NEW_CUSTOMER_ACCOUNTS**; login links are visible, accounts are
-  optional and login is not required at checkout, so guest checkout remains available;
-- the homepage's four configured feature products are ACTIVE and its Trading Cards,
-  Pokémon, One Piece, Graded Cards and four set destinations all resolve with products;
-- the `Sealed` collection remains exactly **0 products**, so its count-gated browse link
-  stays hidden;
-- the old yellow/teal/cream palette is no longer present in the active source-controlled
-  brand/component layer. Preset-only Horizon values are not treated as active Brand
-  Redesign styling.
-
-Current publication gates:
-1. **Shopify Search & Discovery is installed and configured** with the approved native
-   filter order: Set, Price, Rarity, Variant, Availability, Condition, Language, Grading
-   Company and Grade. Facet values remain inventory-driven.
-2. **Visual smoke is in progress through user-supplied preview recordings.** The first
-   mobile recording pass verified the base commerce path and exposed presentation issues
-   that were fixed in PR #303. A refreshed mobile pass is now required, followed by the
-   desktop pass, before publication.
-
-Do **not** publish Brand Redesign or reopen deferred recognition/seller/market-data/
-automation scope until the refreshed mobile and desktop storefront gates are intentionally cleared.**
-
-## 29 September 2026 — active global theme settings + footer
-
-**Storefront global shell settings: DEPLOYED / BROWSER QA PENDING —** QA found that, after the active
-`dr-brand-system` fix, Brand Redesign's Shopify-managed current palette/footer JSON still
-contained legacy teal/cream values. `config/settings_data.json`, `header-group.json` and
-`footer-group.json` are now source-controlled and only active colour values are aligned to
-the current Drop Rate navy/ink/blue/cool-grey/white system. The existing
-`drop-rate-brand-logo.png`, logo sizes, `main-menu`, announcement/footer copy, block IDs
-and layout settings are unchanged. No live Horizon, product, price, inventory, ownership,
-cart or checkout mutation is included. Completion requires CI, deployment of the exact
-three files to the unpublished Brand Redesign theme and source/runtime parity.**
-
-## 29 September 2026 — active global brand layer
-
-**Storefront global brand CSS: DEPLOYED / BROWSER QA PENDING —** QA found the live unpublished theme renders
-`dr-brand-system` after `drop-rate-global-styles`. That active runtime snippet still
-contained legacy yellow/teal purchase actions and late overrides that flattened the newer
-product-card, facet and PDP presentation. The snippet is now source-controlled and narrowed
-to current Drop Rate global primitives (navy/ink/blue/cyan/cool-grey/white), gallery media,
-product-card purchase controls, focus/header and footer basics. Component-specific
-browse/PDP/cart/search styling remains owned by `drop-rate-global-styles`. No product,
-price, inventory, ownership, checkout behavior or live Horizon theme change is included.
-Completion requires CI, deployment to the unpublished Brand Redesign theme and full
-source/runtime parity.**
-
-## 29 September 2026 — homepage visual alignment
-
-**Storefront homepage design/source control: DEPLOYED / BROWSER QA PENDING —** the four custom Brand Redesign
-homepage sections are now mirrored in GitHub and aligned to the same current Drop Rate
-navy/blue/cyan/cool-grey/white visual system as browse, PDP, cart, search and account.
-The older yellow/teal hero/set accents are removed. Native Shopify behavior is preserved:
-discovery search remains a product-only GET to `routes.search_url`, product and collection
-choices remain theme-editor settings, and no pricing, inventory, ownership, merchandising
-decision or checkout rule is moved into Liquid. The live Horizon theme remains untouched.
-Completion requires CI, deployment to the unpublished Brand Redesign theme, source/runtime
-parity and desktop/mobile preview QA.**
-
-## 29 September 2026 — customer account/header visual alignment
-
-**Storefront account/header presentation: DEPLOYED / BROWSER QA PENDING —** Shopify's native customer account
-surface and cart header actions now use the current Drop Rate white/ink/blue/cyan visual
-tokens. The `<shopify-account>` component remains the customer auth/order-history surface;
-Founder HQ/Seller Hub auth remains separate, guest checkout stays available, and no custom
-login or checkout path is introduced. No customer record, product, price, inventory,
-ownership, order or live Horizon theme change is included. Completion requires CI,
-deployment to the unpublished Brand Redesign theme, source/runtime parity and preview QA
-of signed-out/signed-in account handoff on desktop/mobile.**
-
-## 29 September 2026 — search visual alignment
-
-**Storefront search presentation: DEPLOYED / BROWSER QA PENDING —** Shopify-native product search now uses
-the current Drop Rate white/cool-grey/blue visual system while preserving the already-tested
-v1 search contract: product-only results, last-term partial matching and unavailable
-products last. The search field, focus state, help text and no-results state were restyled;
-no custom search backend, AI index, query semantics, product data or live Horizon theme
-change is introduced. Completion requires CI, deployment to the unpublished Brand Redesign
-theme, source/runtime parity and desktop/mobile search/no-result preview QA.**
-
-## 29 September 2026 — cart visual alignment
-
-**Storefront exact-copy cart presentation: DEPLOYED / BROWSER QA PENDING —** the cart now aligns to the
-current Drop Rate navy/blue/cyan visual system while preserving Shopify-native commerce.
-Customer-safe copy metadata uses compact blue/cyan states, the one-physical-copy lock is
-more explicit, and the native checkout CTA is styled in the current blue brand action.
-The physical Inventory ID contract, fixed quantity behavior, remove action, exact Shopify
-variant and native cart/checkout flow are unchanged. No product, price, inventory quantity,
-ownership, order or live Horizon theme change is included. Completion requires CI,
-deployment to the unpublished Brand Redesign theme, source/runtime parity and
-desktop/mobile cart→checkout preview smoke.**
-
-## 29 September 2026 — PDP visual alignment
-
-**Storefront PDP/grouped copies: DEPLOYED / BROWSER QA PENDING —** the next storefront-first presentation
-slice aligns the product page to the current Drop Rate navy/blue/cyan system. The card
-heading, deterministic facts panel, one-copy purchase note, grouped-copy selector and
-primary add-to-cart action now use white/cool-grey surfaces with explicit blue selected-copy
-states instead of the older cream/yellow treatment. Exact sibling handles, current-copy
-selection, Shopify variant identity, native buy buttons and accelerated checkout structure
-are unchanged. No product, price, inventory quantity, ownership, order or live Horizon
-theme change is included. Completion requires CI, deployment to the unpublished Brand
-Redesign theme, byte-for-byte source/runtime parity and desktop/mobile preview QA.**
-
-## 29 September 2026 — collection visual alignment
-
-**Storefront collection design: DEPLOYED / BROWSER QA PENDING —** the first visible theme pass after the
-storefront engineering gate is now source-controlled. The collection hero, browse chips,
-product-card chrome and Shopify-native filter surfaces are aligned to the current Drop Rate
-Seller Hub palette: deep navy, blue/cyan accents, cool grey background and white cards,
-replacing the older cream/beige treatment on this surface. The browse route also wires the
-existing `Sealed` smart collection behind a product-count gate, so it remains invisible
-until real sealed inventory is publishable. No live Horizon theme, product status, price,
-inventory quantity, ownership or checkout behavior is changed. Completion requires CI,
-deployment to the unpublished `Drop Rate — Brand Redesign` theme, source/runtime parity,
-and desktop/mobile preview QA.**
-
-## 29 September 2026 — storefront set-facet canonicalization
-
-**Storefront facet data hygiene: COMPLETE —** Shopify collection filtering is already
-enabled in the unpublished Brand Redesign template, and all 95 ACTIVE products carry the
-core `drop_rate` metafields needed for customer filters. QA found one duplicate-looking
-Set value: `Carrying on His Will` versus the canonical `Carrying On His Will`.
-The historical one-off migration for this label had already run before a later Collectr
-import recreated the provider casing. The import boundary is therefore being hardened with
-a narrow known-alias canonicalization rule rather than generic title-casing. Unknown set
-labels remain unchanged. This work changes display metadata only; it does not change
-catalogue IDs, card numbers, variants, languages, ownership, prices, inventory quantities
-or publication state. Completion requires CI, production deployment, a one-row source-of-
-truth backfill, Shopify metafield resync and verification that the live Set facet value is
-no longer duplicated.**
-
-## 29 September 2026 — sealed Shopify product contract
-
-**Sealed Shopify representation: COMPLETE / PUBLICATION STILL FAIL-CLOSED —** PR #284
-ports the sealed-storefront contract onto current `main` without losing the newer media
-hardening. `SEALED`/`COLLECTION` inventory now plans as Shopify product type
-`Sealed TCG Product`, tag `Sealed Product`, required collections `Sealed` + game,
-sealed-specific customer/SEO copy, and shipping key `SEALED_PRODUCT`; it no longer
-inherits raw-card tags or the raw-card `Trading Cards` collection requirement. The existing
-Shopify `Sealed` smart collection is present and deterministically keys on
-`Sealed Product`.
-
-GitHub **Backend checks** passed for PR #284, including the regression proving sealed
-publication completeness fails closed when the real sealed shipping profile is absent.
-Railway production deployment `a585b073-cba1-4760-b1e2-962f3bf5de16` completed
-**SUCCESS** from merge commit `c6f97a53ac3b13a660c5c5d9f8a95f4dd5697210`; the
-production pre-deploy suite reported **1,883 passed**, and `/health/ready` returned
-**200 OK**.
-
-Post-deploy production read-back confirms only `RAW_CARD` and `GRADED_CARD` shipping
-profiles exist. There is still no `SEALED_PRODUCT` profile, so no package weight,
-dimensions or carrier assumptions were guessed. Both current sealed One Piece inventory
-items remain **DRAFT / FOR_SALE**, identity-unconfirmed and without a Shopify inventory
-link/product GID. No schema, inventory, ownership, price, media, Shopify product or live
-theme mutation occurred. Sealed publication remains blocked until the normal
-identity/seal/media gates and a verified sealed shipping profile are complete.**
-
-## 29 September 2026 — sealed capture-context queue hardening
-
-**Sealed media context validation: COMPLETE —** PR #282 closes the remaining safety
-condition recovered from superseded PR #253 without bringing forward that PR's stale broad
-query change. Media Intake now counts approved first-party physical images only when their
-capture context matches the workflow: sealed/collection requires `SEALED_PRODUCT`, graded
-cards require `GRADED_SLAB`, and raw cards accept only `RAW_UNSLEEVED`,
-`PENNY_SLEEVE` or `TOP_LOADER`. The supported route filter remains explicitly bounded
-to `CARD`, `SEALED` and `COLLECTION`, with existing `require_user` / `_founder`
-owner scoping unchanged.
-
-GitHub **Backend checks** passed for PR #282, including the regression proving a
-wrong-context raw-card FRONT remains queued for a sealed item while the same approved asset
-under `SEALED_PRODUCT` clears the one-FRONT requirement. Railway production deployment
-`6745ac08-dcaa-4a1d-900a-da5804b9cd89` completed **SUCCESS** from merge commit
-`c7061496615fba7655d77550a6c0daac0c7d7bd1`; the production pre-deploy suite reported
-**1,881 passed**, and `/health/ready` returned **200 OK**.
-
-Post-deploy production read-back confirms both current sealed One Piece items remain
-**DRAFT / FOR_SALE** with **0 inventory media** and **0 FIRST_PARTY_CAPTURE media**, so the
-hardening caused no inventory, ownership, pricing, identity, media-rights or Shopify
-publication mutation. No schema change was required because `media_assets.capture_context`
-already existed.**
-
-## 29 September 2026 — sealed media intake queue fix
-
-**Sealed storefront media intake: COMPLETE —** PR #279 widened the existing
-`/api/v1/shopify/media-assets/intake-queue` candidate filter from CARD-only to
-`CARD`, `SEALED` and `COLLECTION` while preserving the deterministic physical-photo
-policy. GitHub **Backend checks** completed successfully for head
-`6e9b2a33587c06392d3c867b23bb088e167cd330`. Railway production deployment
-`30c91562-c6ae-4fe6-a77c-0560fc328eb2` completed **SUCCESS** from merge commit
-`65fa522146417056a37d4d900b60e94e81ebea8e`, and its configured
-`/health/ready` check returned **200 OK**.
-
-Production read-back confirms both current sealed One Piece inventory items now satisfy
-the exact owner/status/sale-intent/product-type candidate contract and still have zero
-physical media rows, so both correctly remain capture work rather than being silently
-excluded:
-
-- `INV-5CD6E9E29B9B489D9D8B624A0D0E1609` — Premium Card Collection -6 assort vol.1-
-- `INV-C03F9CCD386C4798A90A45CC5CB00619` — One Piece Tin Pack Set Vol. 2 -Portgas.D.Ace-
-
-Both remain **DRAFT**, `FOR_SALE`, unconfirmed for identity and un-published. The route
-remains behind `require_user` and resolves the requesting founder through `_founder`,
-then scopes both inventory and media reads by owner. No schema, ownership, price,
-inventory status, identity confirmation, seal decision, media-rights decision or Shopify
-publication was changed by this completion proof.**
-
-## 29 September 2026 — storefront launch engineering QA
-
-**Base-commerce engineering QA: COMPLETE / PUBLICATION PENDING —** the unpublished
-`Drop Rate — Brand Redesign` theme is healthy and all **14/14** source-controlled theme
-files match Shopify byte-for-byte. Shopify reports **95 ACTIVE / 95 Online Store-published**
-products and 369 intentionally unpublished products. A full sweep of the 95 published
-products found **0** physical-copy invariant failures: one variant per listing, SKU =
-Inventory ID, quantity 1, oversell DENY and available-for-sale true. All **95/95** have
-READY featured media. Grouped-copy QA checked **14 products / 28 sibling references** with
-zero broken references. Search passed collector-number, card-name, Pokémon-name and
-no-result cases. Shopify New Customer Accounts remain optional with guest checkout.
-The native cart checkout action is intact. QA also removed unfinished empty Sealed
-navigation from the unpublished runtime theme and restored source-control parity.
-Detailed evidence is in `docs/STOREFRONT_LAUNCH_QA.md`. The only remaining v1 storefront
-gate is authenticated desktop/mobile visual preview and cart→checkout browser smoke before
-theme publication. The live Horizon theme has not been changed.**
-
-## 29 September 2026 — storefront search v1 slice
-
-**Customer storefront / simple search: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** Shopify-native product search is now
-explicitly configured for product-only results, last-term partial matching and unavailable
-products last. The unpublished Brand Redesign search input uses TCG-specific name/set/
-collector-number language and reuses the compact storefront card grid. Live connected-store
-checks confirmed free-text matches for `OP16-071`, **Benevolent King** and **Eiscue ex**.
-No custom search backend, AI index, schema, product data, price, ownership or live-theme
-publication was added. CI is green; connected-store name/collector-number/no-result checks passed. Remaining gate: authenticated visual/result QA on the unpublished theme.**
-
-## 29 September 2026 — storefront customer account / order surface
-
-**Customer storefront / account & order history: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** Shopify is
-already configured for OPTIONAL **New Customer Accounts**, with storefront/checkout login
-links enabled and login not required at checkout. The unpublished Brand Redesign header
-uses Shopify's native `<shopify-account>` component; Shopify therefore remains the
-customer identity and order-history surface for v1. The account action has no dependency
-on `/owner`, Founder HQ, Supabase customer auth, owner/consignor identity or a custom
-Drop Rate order-history API. Guest checkout remains available. The exact header account
-snippet is mirrored under `storefront/theme/**` with contract tests enforcing the
-customer-vs-owner auth boundary. No customer/account record, product, price, inventory,
-ownership, ledger, settlement or live-theme publication was changed. Remaining gate is
-normal browser/mobile visual QA as part of the unpublished-theme launch review.**
-
-## 29 September 2026 — storefront exact-copy cart slice
-
-**Shopify-native cart / checkout presentation: ENGINEERING QA COMPLETE / BROWSER QA PENDING —** the unpublished Brand
-Redesign cart now recognises Drop Rate physical products by their `inventory_id`
-metafield, shows concise card/set/condition/language details and locks the customer-facing
-quantity control to one physical copy while preserving Shopify's existing cart form,
-remove action and native checkout. Representative live variants are also verified with
-Shopify `inventoryPolicy=DENY` and quantity 1, so the storefront presentation matches the
-platform stock invariant. No price, stock quantity, ownership, order, ledger, settlement
-or live-theme publication changed. GitHub CI is green and the complete 95-product Shopify sweep passed the physical-copy inventory contract. Remaining gate: authenticated browser cart→checkout handoff/visual QA on the unpublished theme.**
-
-## 29 September 2026 — storefront grouped-copy PDP slice
-
-**Customer storefront / PDP grouped copies: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** exact physical copies are now
-grouped by Supabase `catalogue_id`, not fuzzy card text. The guarded Shopify publish path
-now refreshes derived `copy_handles` metadata for published siblings and keeps a hard
-20-handle Shopify Liquid safety limit. The unpublished Brand Redesign product template
-renders available sibling copies with thumbnail, condition/grade, language and exact price,
-while the Shopify-native buy button remains attached to the selected physical product.
-Seven current canonical groups (14 active products) were backfilled and representative
-One Piece/Pokémon pairs were verified in Shopify with shared metadata, quantity 1 and
-`availableForSale=true`. No price, status, quantity, ownership, ledger or live-theme
-publication was changed. Theme/runtime files match the GitHub overlay byte-for-byte.
-GitHub backend/theme contract CI is green. Connected-store QA verified 14 grouped products and 28 sibling references with zero broken/unpublished handles. Remaining gate: desktop/mobile visual QA and exact-copy browser handoff.**
-
-## 29 September 2026 — storefront launch structural QA
-
-**Base storefront engineering QA: PASSED / VISUAL + SEARCH & DISCOVERY FACET QA PENDING —**
-the unpublished Brand Redesign theme has been checked against the connected Shopify
-catalogue without publishing it. Current verified launch data:
-- 95/95 ACTIVE Shopify products have a featured image;
-- 95/95 have the customer-safe language plus condition or graded metadata required by the
-  theme's metafield/tag fallback contract;
-- every active product has one priced SKU and one exact Drop Rate Inventory ID;
-- all 16 set routes currently hard-coded into Pokémon/One Piece browse navigation have at
-  least one ACTIVE product;
-- all homepage hero/discovery/spotlight product handles resolve to ACTIVE stock with
-  quantity 1;
-- search by collector number `OP16-071` returns the expected two-copy active group;
-- empty Dragon Ball, Naruto, Riftbound and Sealed destinations are not exposed by the
-  current browse strip;
-- an unfinished Sealed-navigation runtime drift was removed and the affected unpublished
-  theme files restored to GitHub parity.
-
-The required `drop_rate` product metafield definitions for Set, Language, Condition,
-Rarity, Variant, Grading Company and Grade exist in Shopify. The remaining facet gate is
-merchant-side Shopify Search & Discovery configuration/visual verification because that
-storefront-filter selection is not exposed through the connected Admin API. The live
-`Horizon` theme remains untouched.**
-
-## 29 September 2026 — storefront Milestone 1 browse slice
-
-**Customer storefront / collection-browse milestone: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** the first real-data
-browse slice has been written to Shopify's **UNPUBLISHED**
-`Drop Rate — Brand Redesign` theme; the live `Horizon` theme was not modified.
-At verification time Shopify contained 464 catalogue products: 95 ACTIVE and 369 DRAFT.
-The browse implementation uses existing real smart collections (Pokémon 202, One Piece
-262, Singles 457, Graded 7), hides empty game destinations, preserves two-column mobile
-density, displays product counts, adds TCG metadata badges with metafield/tag fallbacks,
-and provides game/set browse routes. Exact changed theme files are now mirrored under
-`storefront/theme/**` and were verified byte-for-byte against the unpublished Shopify
-theme. No product status, price, ownership, inventory quantity or live theme publication
-was changed. Connected-store QA confirmed empty game destinations remain hidden and removed an unfinished empty Sealed-navigation runtime drift; the runtime theme is again byte-for-byte aligned with GitHub. Remaining gate: authenticated desktop/mobile visual preview before publication.**
-
-## 29 September 2026 — recognition image-retention decision
-
-**Recognition source-image retention: DOCUMENTED / CURRENT POLICY UNCHANGED —** raw
-recognition source pixels remain ephemeral during the storefront-first feature freeze.
-This is now explicitly a temporary policy, not a permanent architecture decision.
-Recognition continues to retain hashes, dimensions, derived fingerprints, observations,
-candidate evidence and human feedback, but historical verified scans cannot be
-re-fingerprinted from original pixels under the current design. Any future source-image
-retention requires a separately reviewed privacy/storage/rights design after recognition
-development is deliberately re-opened; no raw-image persistence was added in this PR.**
-
-## 29 September 2026 — inventory sale-intent contract
-
-**`sale_intent` documentation: COMPLETE —** `docs/SALE_INTENT.md` now defines the
-existing two-state contract: `FOR_SALE` and `PERSONAL_COLLECTION`. The document
-separates commercial intent from workflow status, records SOLD/RESERVED restrictions,
-optimistic-version/idempotency behavior, founder/owner scoping, audit events, channel
-withdrawal semantics and the rule that returning to `FOR_SALE` never silently republishes
-a listing. No schema or runtime behavior changed. Production snapshot on 29 September
-2026: 509/509 inventory items are `FOR_SALE`; 0 are `PERSONAL_COLLECTION`.**
-
-## 29 September 2026 — reconciliation migration history alignment
-
-**Migration history alignment: COMPLETE IN REPO / NO SCHEMA CHANGE —** Supabase production
-records the already-applied RLS-safe reconciliation migration as
-`20260929021203_shopify_reconciliation_rls_read`. The live function definition matches
-the merged migration SQL. The repository filename has therefore been renamed from
-`20260929022000_...` to `20260929021203_...` so version-controlled history matches
-production without deleting, rewriting or re-applying any Supabase migration row.
-
-## 29 September 2026 — Shopify order reconciliation hardening
-
-**Shopify ↔ Drop Rate order reconciliation: COMPLETE —** the corrected 30-minute
-production operations monitor completed successfully at **2026-09-29 02:30 UTC**. The
-heartbeat step remained healthy and reconciliation reported `remote_count=2`,
-`local_count=1`, `matched_count=1`, `remote_only_count=1`,
-`remote_anomaly_count=1`, `local_only_count=0`, `resolved_alerts=2`; both monitor
-steps exited 0. This proves the RLS-safe order-read function now sees Shopify test order
-#1002 / `8488435581275` correctly while preserving the known cancelled #1001 /
-`8488414282075` webhook-gap proof case. Supabase verification shows the two false
-CRITICAL #1002 alerts are RESOLVED and the two expected HIGH #1001 founder alerts remain
-OPEN. No order, inventory, ownership, ledger, settlement or payout record was reconstructed
-or rewritten. The migration history is aligned in repo as
-`20260929021203_shopify_reconciliation_rls_read`.**
-
-## 29 September 2026 — verified 24-hour build delta
-
-**Production application head is healthy —** deployed application commit `b3d29745d6` ("Fix seller portal runtime error and polish Seller Hub branding") is healthy. Documentation-only build-status commits may sit ahead of that application SHA on `main`. Railway deployment `324e7d2d-e8d0-487e-b29d-c3188aef2836` completed **SUCCESS**, production pre-deploy passed **1,847 tests**, and `/health/ready` returned **200 OK**. This section summarises the merged work in the preceding 24-hour window; prepared-but-dormant infrastructure is called out separately rather than counted as live automation.
-
-### Recognition, media and mobile scanning
-- **Recognition v1.5 / v1.5.1 shipped:** persistent exact-print visual retrieval, provider challengers, stronger One Piece ROUND1 recovery and fail-closed handling for unmapped printings. External/provider identities may challenge a local candidate but still cannot silently create canonical identity.
-- **Inventory-image delivery hardened:** founder/seller card art loads through authenticated backend media paths rather than direct browser hotlinks; verified OPTCG images were added to the allowed resolution path and graded cards without real slab media are visibly flagged.
-- **Dragon Ball exact-media adapter hardened:** TCGGraph Masters vs Fusion World line mapping is explicit, exact-print checks are stricter and TCGGraph media remains **PENDING / INTERNAL_REFERENCE_ONLY** until separate storefront-rights approval. Production still has no TCGGraph API key, so this remains a prepared fallback rather than live automatic Dragon Ball imagery.
-- **Seller scan → inventory flow deployed:** restricted owners can use the same recognition engine, confirm/correct a match and add a physical card to their own inventory. Seller-created items remain **DRAFT** with `identity_confirmed=false` until Drop Rate verification.
-- **Restricted-owner recognition access fixed:** the seller scanner now reaches the recognition APIs without inheriting Founder-only permissions.
-- **Mobile batch scanner deployed:** full-screen camera, running card count/value, unresolved-card retention, manual "Capture now" fallback, catalogue/card-number correction search and idempotent batch intake.
-- **Continuous scanner v2 deployed:** camera remains open between cards, latest-match card is shown inline with market value, one-tap Fix/Remove is available, duplicate auto-capture suppression is short-lived, success/review feedback is visible, and auto-scan pauses while a correction is open. Seller assets were cache-busted to avoid stale Safari behaviour.
-- **Mobile production bugs fixed:** malformed Inventory/Channels pagination bind placeholders were causing seller-facing 500s; both were corrected. The mobile scanner also previously hid its manual shutter, which is now always available as a fallback.
-
-### Seller Hub, onboarding and owner-safe operations
-- **Owner Portal v2 / Seller Hub deployed:** seller-first navigation, mobile bottom navigation, owner-safe overview/inventory/sales/payouts/settlements, visual inventory cards and safe image handling. Founder-only acquisition-cost, storage, purchase-lot, internal-note and provider-control fields stay hidden.
-- **Seller onboarding completed:** branded seller invite flow, restricted OWNER membership creation, commission display/acknowledgement, secure invite preview/redemption and invite-contract fixes are merged. Invite email delivery infrastructure exists; sender-domain/production email configuration remains a separate operational setup item.
-- **Seller Hub branding corrected:** Founder HQ artwork and warning-style "restricted owner" language were removed from seller-facing surfaces, and the top bar was rebuilt into one deliberate Drop Rate Seller Hub lockup.
-- **Seller portal runtime crash fixed:** the production `replaceChildren` null crash in the Channels empty-state path was fixed and the shared empty renderer was hardened.
-- **Portfolio intelligence added:** seller dashboard now shows **Top Valued Cards**, **Weekly Top Movers** using real historical pricing snapshots, and a prominent **Next Payout** tracker that distinguishes scheduled requests from estimates based on currently cleared/unreserved balance.
-- **Channels workspace added:** seller-safe Shopify/eBay link state, channel price, last sync/verification, errors and live eBay listing links are visible. A Whatnot adapter slot is shown as **PLANNED**; no fake publish/pause controls were added. Postgres remains the inventory source of truth.
-
-### Collectr import and enrichment
-- **Collectr import path production-verified against real portfolio data:** snapshot/delta reconciliation prevents unchanged rows from being duplicated, physical quantity expansion remains deterministic and imports still create one physical Inventory ID per unit.
-- **Post-import enrichment pipeline deployed:** committed imports can be enriched in restart-safe bounded chunks through identity validation, exact media resolution, provisional benchmark pricing and Action Required exception creation.
-- **Explicit unmarked-language control added:** imported rows with explicit `(JP)`/language evidence continue to win; a founder can optionally choose a default language for otherwise unmarked rows instead of Drop Rate silently inferring one.
-- **English Pokémon exact-media support added through TCGdex:** exact set/card-number/finish matching is required. Japanese Pokémon and Japanese One Piece retain their existing exact-provider paths.
-- **TCGGraph fallback integrated safely:** supported exact matches can be stored as internal reference media, but they do not become storefront-approved merely because a provider returned an image.
-- **General Action Required queue deployed:** unresolved identity, media, physical-photo and pricing exceptions are durable, owner-scoped and deduplicated rather than disappearing into logs.
-- **Recent import/resume UX added:** Founder HQ can see recent import batches, enrichment counts and resume interrupted enrichment instead of relying on browser memory.
-- **`import.committed` automation event added:** successful import commit now emits a durable automation-outbox event, ready for n8n routing when the dispatcher/workflow is deliberately activated.
-
-### Sealed products
-- **Sealed-product media architecture deployed for the two current One Piece sealed products:** **Premium Card Collection – 6 assort vol.1** and **Tin Pack Set Vol. 2 – Portgas.D.Ace** are the current exact products in scope; `CANONICAL_PRODUCT` reusable media scope and `SEALED_PRODUCT` first-party capture context are now part of the media model.
-- **Exact physical packaging photo policy added:** current `COLLECTION` / `SEALED` inventory requires the exact physical front packaging photo rather than borrowing ordinary card-art logic. Region/language remains unknown where the Collectr row does not prove it.
-- **Seller/Founder/Shopify media paths updated:** sealed products now enter Media Intake, first-party sealed photos can render in Seller Hub, and Shopify readiness/bootstrap understands canonical sealed media without conflating it with `CANONICAL_CARD`.
-- **Rights boundary preserved:** official Bandai imagery may be used as identity evidence, but is not silently copied into storefront media where reuse rights are not established.
-
-### Shopify, multi-owner commerce and finance hardening
-- **Multi-owner Shopify order/refund support merged:** the previous order-level single-owner assumption was removed. Each physical allocation now carries its own owner context through reservation, paid-order snapshots, ledger entries, cancellation release and refunds. Shipping remains allocated deterministically per order item/owner.
-- **Commerce torture/retry suite added:** high-volume deterministic tests now cover penny conservation, weighted allocation, rounding boundaries, malformed Shopify payloads, replay/deduplication, cross-channel retries and transaction boundaries.
-- **Personal Collection sale intent deployed and production-verified:** `FOR_SALE ↔ PERSONAL_COLLECTION` is now a separate owner-intent dimension; moving an item to personal collection withdraws availability without rewriting ownership or lifecycle history.
-- **Shopify catalogue bootstrap hardened:** image-backed approved/draft inventory can create Shopify drafts, missing Store Price no longer blocks safe draft linking, startup failures are surfaced, and catalogue bootstrap now runs through audited RLS context.
-- **Shopify catalogue population materially advanced:** the store reached **464 draft products**, with **457/464 carrying images** at the verified checkpoint. Base catalogue grouping was **Trading Cards 464 / Pokémon 202 / One Piece 262**. Products remained Draft rather than being silently published, preserving launch control while taxonomy, media and storefront work continue.
-- **Storefront development theme started:** an unpublished development theme now carries the first CRO/navigation pass — search-first navigation, game shortcuts, trust messaging, denser product grids, filter/chip patterns, quick-add concepts and mobile two-column browsing. The live theme was intentionally left unchanged; product-page/cart CRO, analytics, full SEO, deeper collection hierarchy and launch QA remain unfinished.
-- **Founder workspace/Shopify access fixes deployed:** Founder HQ filtering/access regressions and Shopify test-sync shipping-profile initialization were corrected.
-- **Payout scheduler incident resolved:** Railway start-command handling was corrected and a controlled run completed successfully with normal hourly scheduling restored.
-
-### Milestone 1 / ownership and security
-- **Second-account production isolation gate passed:** a genuine second founder account was tested under restricted OWNER semantics in rollback-only production probes. Cross-owner inventory/finance visibility was zero and cross-owner mutation was blocked. The reciprocal owner check behaved correctly; live memberships were restored after the probe.
-- **Ownership reassignment defense verified:** application inventory patch schemas do not accept `owner_id`, owner mutations bind to the authenticated owner, and `tcg_api` cannot directly update `inventory_items.owner_id`.
-- **Milestone 1 is still not being called 100% complete:** the remaining gate is onboarding/verifying the genuine third founder account in production.
-
-### n8n and automation foundation
-- **Durable automation foundation merged:** transactional `automation_events` outbox, lease/retry/dead-letter semantics, HMAC-signed event envelopes and Railway-ready dispatcher code are version-controlled.
-- **DR-00 signed event ingress added:** Railway-private webhook delivery validation, signature/replay protection contract and pinned n8n image CI are in place.
-- **n8n provisioning/runtime hardened:** reproducible provisioning files and CI version checks are merged; unsafe external-image/runtime boundaries were tightened.
-- **Important status:** this automation foundation is still intentionally **production-dormant** where noted. It is prepared infrastructure, not evidence that all n8n workflows are active.
-
-### Product/UX blueprints added
-- **Storefront + Founder HQ UX blueprint added:** collection-led Shopify structure, TCG-native filtering, graded-card presentation, customer search/discovery, Founder workflow improvements and governed AI merchandising/CRO boundaries are documented.
-- **Native iOS + Android Founder app blueprint added:** same FastAPI/Supabase backend, camera-first workflow, not a webview wrapper. Planned phases include scanning, media/condition, Action Required, sales, consignments, notifications and later Device Bridge printing/scanner support.
-- **Governed AI CRO/SEO experimentation blueprint added:** Postgres owns experiment truth, FastAPI owns eligibility/statistical decisions, Shopify renders validated variants and n8n will eventually orchestrate low-risk experiment loops with rollback. Pricing/ownership/finance/legal/payment behaviour remain outside autonomous AI authority.
-- **Claude production safety contract added:** external AI assistance is explicitly constrained so deterministic business rules, ownership, pricing and finance cannot be silently overridden.
-
-### Immediate next build priorities after this 24-hour push
-1. Run real-world iPhone batch scans against a mixed stack and tune trigger sensitivity/latency from actual production behaviour.
-2. Finish physical media capture for the two sealed One Piece products and verify their Shopify-ready images end-to-end.
-3. Onboard the genuine third founder and repeat the production owner-isolation test.
-4. Run the controlled multi-owner / same-card Shopify sale + refund attribution test.
-5. Add real seller-controlled channel actions only after the existing Shopify/eBay publisher paths are safely owner-scoped; keep Whatnot as an adapter-ready future channel.
-6. Continue permitted provider onboarding so Dragon Ball/other games gain exact reference coverage without scraping or weakening rights controls.
-
-
-## Original business milestone status
-
-| Milestone | Current status | Remaining to call it complete |
-|---|---|---|
-| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~96% overall / ~99% core inventory engine** | Restricted OWNER onboarding + owner-safe inventory/finance portal are deployed, and the genuine second-account cross-owner production isolation gate has passed. Final gate is onboarding the genuine third founder and repeating the live isolation verification. |
-| **2 — Approved card syncs to Shopify, sells, and sale is attributed to the correct owner** | **~92%** | Single-owner real sale/refund is proven and restricted seller proceeds/settlement views are deployed; still need multi-owner/same-card production test and live payout cutover |
-| **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
-
-
-## 28 September 2026 — Personal Collection + owner-isolation production verification
-
-**Personal Collection sale intent: PRODUCTION-VERIFIED —** `FOR_SALE ↔ PERSONAL_COLLECTION` is now a separate owner-intent dimension rather than another inventory lifecycle status. A controlled production verification used the existing archived single-item Shopify test inventory only: the physical Inventory ID, owner, acquisition cost, storage location and catalogue identity remained unchanged; moving to `PERSONAL_COLLECTION` wrote a dedicated `SALE_INTENT_CHANGED` audit event; there were zero active pooled memberships and zero live/uncertain eBay links; the remote Shopify product was confirmed at quantity 0 and changed from ACTIVE to DRAFT; returning the item to `FOR_SALE` wrote the reverse audit event and did **not** reactivate or restock Shopify. The item finished back in `FOR_SALE` / `INSPECTION`, while the archived Shopify product remained DRAFT with zero inventory.
-
-**Milestone 1 owner isolation: SECOND-ACCOUNT PRODUCTION GATE PASSED / THIRD FOUNDER STILL OUTSTANDING —** production currently has two active founder owners. Using the genuine second founder account inside a rollback-only production security probe, its membership was temporarily evaluated as restricted `OWNER`: RLS exposed exactly one owner row, zero of Founder 1's 509 inventory items, zero Founder 1 order items/ledger rows/payout requests, and a cross-owner inventory UPDATE affected zero rows. The reciprocal probe evaluated Founder 1 as restricted `OWNER` and exposed its own 509 inventory rows, one order item and five ledger entries while allowing its own-row update. The restricted account also failed the platform-admin check as expected. All role changes and mutation probes were transactionally rolled back; the live second founder membership remains `PLATFORM_ADMIN`.
-
-**Ownership reassignment defense: VERIFIED —** the application inventory patch schema does not accept `owner_id`, every founder inventory mutation binds the requested Inventory ID to the authenticated current owner, and `tcg_api` has no UPDATE privilege on `inventory_items.owner_id`. A rollback-only production probe attempting to change another founder's `owner_id` was rejected by column privilege. Platform admins intentionally retain broad internal visibility for Founder HQ/system workflows, so route-level owner binding remains an important second boundary.
-
-**Remaining Milestone 1 gate:** onboard the real third founder account and perform the same live login/isolation check. No placeholder owner or invented physical stock will be created to manufacture this result.
-
-## 28 September 2026 — repository re-baseline after n8n foundation
-
-**Build-order correction: ACTIVE — n8n work is now treated as prepared infrastructure, not the current product phase.** The automation outbox/dispatcher, Railway-private webhook validation and version-controlled n8n image/provisioning foundation are merged, but advanced workflows remain gated. Product work returns to the original milestone sequence: close Milestone 1 multi-owner verification first, then finish the controlled Shopify/multi-owner sale loop, then production market-data/pricing automation. Consignment, AI listings, customer service, SEO, marketing and advanced n8n orchestration remain later phases.
-
-**GitHub/main health: GREEN —** latest main CI after PR #220 passes both backend tests and the pinned n8n Docker image build/version check. PR #218 fixes the restricted OWNER invite creation 500; PR #217 permits dispatcher delivery to exact Railway-private HTTP hosts while continuing to reject unsafe public HTTP/lookalike URLs; PRs #219–#220 add reproducible n8n provisioning and CI validation without switching the live n8n service source.
-
-**Open-PR hygiene:** PRs #215 (CRO/SEO experiment foundation) and #216 (Content Machine foundation) are intentionally not part of the current milestone and must not be merged until their known correctness/schema issues are fixed and the build reaches those phases. PRs #136 and #166 are older/superseded candidates and should be reviewed/closed rather than allowed to distort current build status.
-
-**Immediate engineering priority:** prove Milestone 1 with a genuine second restricted OWNER account and cross-owner isolation across inventory, orders/finance, payouts/Stripe and Founder-HQ denial. Then run the controlled multi-owner/same-card sale attribution test for Milestone 2. Recognition/media correctness work continues only where it blocks those controlled inventory/Shopify tests; broad recognition expansion, storefront CRO/content and n8n workflow families do not take precedence over these gates.
-
-## Current stage
-
-## 28 September 2026 — AI experimentation / CRO / SEO blueprint
-
-**AI experimentation engine: BLUEPRINTED — Drop Rate will treat CRO/SEO as a governed closed-loop optimization system rather than one-off AI copy generation. Postgres will own experiment truth; FastAPI will own experiment eligibility/statistical decisions; Shopify theme/app-extension surfaces will render validated variants; Shopify Web Pixels/customer events will provide behavior measurement; n8n will orchestrate hypothesis generation, launch, monitoring, rollback and rollout. AI may eventually autonomously launch and act on approved low-risk experiment classes, but arbitrary pricing, scarcity claims, ownership/finance, legal/privacy, checkout/payment behavior and unsupported factual claims remain outside autonomous authority. SEO experiments use page/template cohorts or sequential tests with stable public URLs and no crawler-specific cloaking. Detailed design lives in `docs/N8N_AUTOMATION_FOUNDATION.md` and `docs/STOREFRONT_AND_UX_BLUEPRINT.md`.**
-
-
-## 28 September 2026 — Recognition v1.5.1 provider-challenger recovery
-
-**Recognition v1.5.1: DEPLOYED — PR #213 / `5b507ed9` fixes a structural bias where provider-only exact-print candidates could be discovered and persisted but could not challenge a surviving local catalogue candidate in the resolver/UI. Strong unmapped provider printings can now surface as top evidence or runner-up challengers and force `NEEDS_REVIEW`; they remain non-confirmable until mapped to a real Drop Rate catalogue ID, so external data still cannot silently create canonical identity. Low-confidence collector-number OCR is now removed from One Piece provider retrieval when confidence is below 0.55, or below 0.85 with a strong ROUND1 marker, allowing name + gameplay stats + visual evidence to recover from tiny-number OCR errors. The number remains preserved as conflicting evidence for review. Engine version bumped to v1.5.1 so old image hashes do not replay stale v1.5.0 decisions. Full GitHub Backend checks passed and Railway deployment `770d79e1-665b-4212-ab46-4a8e61a1dde1` succeeded.**
-
-**ROUND1 real-scan diagnosis: VERIFIED — production history showed three distinct Nami failure modes: (1) with clean ST29-008 OCR the local Round 1 catalogue candidate scored ~97.2% but exact-printing stayed fail-closed because provider artwork was ambiguous; (2) with tiny-number OCR `P-0?3`, the correct ST29-008 provider identity was present but buried among generic Nami candidates; (3) with OCR `OP02-036` at 0.78 confidence, provider retrieval anchored too strongly on the wrong number. v1.5.1 directly addresses (2) and (3) without weakening the exact-print confirmation gate.**
-
-**Nami ST29-008 Round 1 external identity: CORROBORATED / MEDIA STILL UNRESOLVED — TCGplayer product 707242 and independent market references identify the Round 1 Promo as ST29-008, Yellow, cost 3, power 1000. No market-source mapping is being silently inserted through privileged SQL; the existing governed mapping API requires REVIEW → explicit verification. No marketplace photo or ordinary/full-art ST29-008 image has been attached as canonical media. `ST29-008_p1` remains explicitly NOT the Round 1 printing.**
-
-## 28 September 2026 — n8n foundation + Dragon Ball adapter hardening
-
-**n8n automation foundation: MERGED / PRODUCTION-DORMANT — PR #211 / `727f6819` adds a transactional `tcg.automation_events` outbox, lease/retry/dead-letter semantics, HMAC-SHA256 signed event envelopes, a Railway-ready dispatcher worker and the first domain event contract `inventory.approved`. GitHub Backend checks passed and the main API deployment succeeded. The database migration is intentionally NOT applied yet, no automation-dispatcher Railway service exists, no n8n webhook/secret is configured, and no Shopify/social action is enabled. Activation gate: create a signed n8n Event Gateway, verify signature/replay protection, apply the migration deliberately, deliver a development event, prove duplicate delivery is safe, then create the dispatcher service. Architecture/workflow plan: `docs/N8N_AUTOMATION_FOUNDATION.md`.**
-
-**Dragon Ball TCGGraph hardening: DEPLOYED — PR #210 / `37591e59` fixes the adapter so Drop Rate's `Dragon Ball Super` maps to TCGGraph `line=masters` while `Dragon Ball Super Fusion World` maps to `line=fusion-world`; returned provider records must match the expected line. TCGGraph-derived images no longer auto-enter APPROVED/STOREFRONT_ALLOWED state: new matches remain PENDING + INTERNAL_REFERENCE_ONLY until exact-print and separate storefront-rights review. This is a correctness/rights hardening step only: production still has 0/33 Dragon Ball reference images because no production provider key is configured and current Dragon Ball physical languages remain unconfirmed.**
-
-**Payout scheduler cron incident: RESOLVED — root cause was Railway Dockerfile Start Command exec-form handling. The old override `PYTHONPATH=backend python backend/scripts/run_payout_scheduler.py` was treated as a literal executable name and failed before Python started. Railway service config now uses `python /app/backend/scripts/run_payout_scheduler.py`, while `Dockerfile.scheduler` provides `PYTHONPATH=/app/backend`. PR #212 / `d1f8dc6e` added safe startup diagnostics; PR #214 / `47178e43` forced a fresh scheduler snapshot after the config correction. A controlled verification run at 2026-09-28 04:12:30 UTC completed SUCCESS, checked one owner, created zero payout requests, reported NO_BALANCE once and zero errors. Normal hourly schedule `0 * * * *` has been restored. No payout amounts, eligibility rules, Stripe state or money-movement logic were changed.**
-
-
-## 29 September 2026 — Railway immediate-fix cleanup
-
-**Dead-service cleanup: COMPLETE —** the previously unused Railway `drop-rate-api`
-service has been repurposed as the internal 30-minute operations monitor rather than
-deleted. The accidental duplicate `drop-rate-payout-heartbeat` service created during
-the fix session has been removed. Production now has four services: the repurposed
-operations monitor, `drop-rate-api-live`, the hourly payout scheduler and n8n.
-
-**Historical empty staged patch: INVESTIGATED / NO RECOVERABLE ORIGIN —** Railway's
-available API does not expose historical patch-content or origin metadata, so the
-27 September zero-change patch cannot be attributed after the fact. It is no longer the
-active patch. During this audit Railway created a fresh zero-change patch
-(`changes: []`); the discard operation returned success but Railway's status API may
-continue to display the empty shell. It carries no resource change and no deployable
-configuration. Do not treat an empty patch as pending product work.
-
-**Migration-history note —** Supabase currently records two historical migration-ledger
-entries named `payout_scheduler_heartbeat` from the heartbeat rollout. The SQL itself is
-idempotent and the live function is singular/correct. In accordance with the non-destructive
-migration-history rule, those historical ledger rows have not been deleted or rewritten;
-Claude should treat this as an audit note, not a schema repair request.
-
-## 29 September 2026 — payout scheduler heartbeat hardening
-
-**Payout scheduler heartbeat alerting: IN PROGRESS — production plumbing is now in place
-and verified except for the first scheduled execution of the final combined operations
-monitor after its networking correction.** PR #255 shipped the 90-minute deterministic
-heartbeat, founder-only CRITICAL Action Required alerting, automatic recovery resolution,
-failure-path coverage and a locked-down `SECURITY DEFINER` function executable only by
-`tcg_api`. The migration is applied in production. A temporary independent SFO heartbeat
-cron executed successfully at **2026-09-29 01:01 UTC** and reported the latest hourly
-payout scheduler run healthy (`SUCCESS`, finished **01:00:26 UTC**). The final monitor
-now lives on the repurposed Railway `drop-rate-api` service, runs
-`backend/scripts/run_operations_monitor.py` every 30 minutes, has outbound IPv6 enabled,
-and the redundant temporary heartbeat service has been removed. The final service remains
-**IN PROGRESS**, not Completed, until one real scheduled run of that exact combined monitor
-successfully completes after the IPv6 correction. No payout eligibility, amount, approval,
-Stripe state or money-movement rule changed.**
-
-## 28 September 2026 — recognition + image corpus checkpoint
-
-**Recognition v1.5.1 / exact-printing retrieval: DEPLOYED — mobile/desktop scan intake, multi-signal evidence, exact-printing candidate handling, persistent recognition-reference fingerprint infrastructure, fail-closed promo/parallel handling, confidence-aware provider retrieval and unmapped-provider challenger surfacing are now in the live codebase. The system no longer treats card identity and exact physical printing as the same confidence problem. TCGAutomate remains the external benchmark; printer/device integration is intentionally later than recognition correctness.**
-
-**Founder inventory image delivery: DEPLOYED — Founder HQ now loads eligible artwork through an authenticated Drop Rate backend proxy instead of direct browser hotlinks. The proxy validates image responses, supports source fallback ordering and prefers INVENTORY_ITEM media over CANONICAL_CARD media. Latest live deployment after the graded-card UI change is SUCCESS.**
-
-**Card-by-card media audit: ACTIVE / HIGH COVERAGE — live inventory is 509 physical items / 462 unique catalogue entries. 420/462 unique entries currently have active front-image coverage: Pokémon 198/198, One Piece 222/231, Dragon Ball Super 0/28 and Dragon Ball Super Fusion World 0/5. One Piece language mismatches are 0 and all earlier guessed `Bandai Official Cardlist` rows have been removed/replaced. The remaining One Piece gaps are exact special-print/product cases and are deliberately unresolved rather than receiving approximate art.**
-
-**Graded-media rule: DEPLOYED — graded inventory now distinguishes canonical reference artwork from the actual slab photo. INVENTORY_ITEM slab media takes precedence; canonical art is only fallback/reference. Founder HQ visibly marks graded items with canonical art but no slab photo as `Reference art · slab photo required`. Current graded inventory: 8 items, 0 slab-front photos, 7 canonical references, 1 canonical exact-image gap. Certificate numbers are still absent from the imported graded rows and should be captured when slab media is added.**
-
-**Nico Robin correction: VERIFIED — ACE 10 Nico Robin OP01-017 Premium Card Collection - ONE PIECE FILM RED Edition was previously mapped to `OP01-017_p2`, which is the English 1st Anniversary Set artwork. Independent product-level verification confirmed the correct FILM RED printing is `OP01-017_p1`; the live media row has been corrected.**
-
-**Storefront + Founder UX benchmark: BLUEPRINTED — `docs/STOREFRONT_AND_UX_BLUEPRINT.md` now defines the Shopify customer experience, autonomous merchandising/management model, TCG-native search/filtering, grouped-copy UX, graded PDP requirements, AI listing boundaries and Founder HQ workflow improvements. RandCards is the customer-storefront inspiration benchmark for collection-led shopping, live stock/condition clarity, set discovery and graded-card presentation; TCG Automate is the operations benchmark for scan/batch speed, quick corrections, card search, repricing, cross-listing and device workflows. Drop Rate must learn from those patterns without copying their design or brand, and exceed both through exact-print recognition, multi-owner/consignor accounting, auditable settlements and consumer recognition features.**
-
-**Native mobile product direction: BLUEPRINTED — Founder HQ is planned to become a first-class iOS + Android app using the same backend and permissions as web, with inspiration from modern TCG collection/market apps such as Collectr, Pulse TCG and HoloDex while remaining operationally focused. It will be camera-first, support scan/intake, inventory, media/condition, pricing evidence, Action Required, sales, consignments, notifications and later Device Bridge printing/scanner workflows. The web dashboard remains the dense desktop control centre; mobile is purpose-built rather than a shrunken web UI.**
-
-
-**Shopify ↔ eBay cross-channel inventory v1: DEPLOYED / PRODUCTION-DORMANT — PR #143 merged as `52dd8937`; controlled single-item eBay publishing, exact Inventory ID/SKU linkage, signed `ORDER_CONFIRMATION` intake, Shopify→eBay withdrawal, eBay→Shopify zeroing with remote verification, deterministic eBay channel pricing, audited eBay fee/postage reconciliation, return-to-INSPECTION isolation and safe re-listing are now deployed. GitHub CI and Railway pre-deploy both passed **563 tests**; Railway deployment `e3f6bade-f6e5-4c0a-a192-5b06340431a5` succeeded and `/health/ready` returned **200**. Production Supabase migrations `20260926144848_ebay_cross_channel_v1` and `20260926144947_index_ebay_cross_channel_fks` are applied. Live eBay tables remain empty and eBay publication is explicitly disabled. The remaining external blocker is seller-authorised eBay OAuth plus the seller's payment/fulfilment/return policy IDs, merchant inventory location and enabled order-confirmation notification subscription; no live eBay listing has been fabricated or published.**
-
-**eBay seller OAuth connection v1: DEPLOYED / AWAITING RUNAME — PR #145 merged as `3688ea02`; Founder HQ now has a secure Connect eBay seller flow using eBay's Authorization Code Grant, 10-minute single-use CSRF state, encrypted refresh-token storage in Supabase with a separate Railway encryption key, and live discovery/selection of immediate-payment, fulfilment, return policies and enabled inventory locations. GitHub CI and Railway pre-deploy both passed **572 tests**; Railway deployment `87e5aeb8-5406-4b04-86d6-f4abe003bb73` succeeded and `/health/ready` returned **200**. Production publishing remains disabled. The only current manual prerequisite is the Production OAuth RuName generated in the eBay Developer Portal and configured with Drop Rate's callback URL; no seller refresh token or listing has been created yet.**
-
-**Physical identity + language review v1: DEPLOYED — the verification queue now combines physical identity, EN/JP language evidence and optional registered location in one audited, version-protected review step. Identity confirmation fails closed while language is unknown or conflicts with the canonical card.**
-
-**Founder media intake v1: DEPLOYED — founder-owned JPG/PNG/WebP card photos can now use Shopify staged uploads, explicit rights confirmation, governed media approval and the existing fail-closed Shopify media readiness gate. The first authenticated `write_files` scope + real-image upload remains a manual production verification.**
-
-**Controlled commerce verification: ACTIVE — first real paid Shopify sale and full £5.48 refund/restock are production-verified; Finance Reconciliation v1 + Owner Settlement Report v1 are deployed, #1002 has exactly one £0.36 payment fee and explicit £0 postage reconciled, and a founder-only bounded batch fee-sync path is now live. External bank notification on 26 Sep confirms the #1002 refund is now on its way to the customer account. Shopify order remains REFUNDED; do not cancel it yet. Final fee/reconciliation completion is still to be verified before any cancellation decision.**
-
-**Provider-independent sold-history evidence status v1: DEPLOYED — confirmed inventory can now report how many exact immutable SOLD observations Drop Rate already owns, dedupe the same external sale across multiple access paths, select the newest 5–10 exact comps, and recommend a refresh only when fewer than 5 usable sales exist or the newest evidence is stale. No provider call or Store Price write occurs in this status path. PR #125 / `386b466` is production-verified with 474 tests and `/health/ready` 200.**
-
-**Provisional Store Price backfill: DEPLOYED/APPLIED — 506 previously-unpriced active items received auditable provisional Store Prices from the original dated Collectr Market Price export. Collectr values are treated as USD and normalized to GBP through the existing ECB historical FX model; 2026-09-20 observations use the previous available ECB business-day rate (2026-09-18), and 2026-09-24 observations use that day's ECB rate. Existing Store Prices were not overwritten. Live state after backfill: 507/509 active items priced; 2 remain unpriced because they only contain currency-ambiguous Price Override values. Every backfilled item received an immutable pricing snapshot; auto-publish remains false and sold-history evidence is still required for robust final pricing. PR #127 introduced the provisional workflow; PR #129 corrected USD→GBP normalization. Production baseline: 486 tests passing.**
-
-**£1 minimum Store Price rule: DEPLOYED/APPLIED — Store Price is now commercially floored at £1.00 while Market Value remains evidence-derived and may legitimately be below £1. Manual intake/edit, provisional pricing, eBay sold pricing and the database constraint all enforce the floor. 363 live items were raised to exactly £1 with 363 immutable `store-price-floor-v1` snapshots; 362 of those retain a true Market Value below £1. Live state: 507/509 active items priced, 0 below the floor, 363 exactly at £1. The robust engine explicitly treats eBay UK and Cardmarket as the UK/EU pricing anchors; Collectr/TCGplayer are supporting confidence evidence and cannot set the displayed UK Market Value by themselves. PR #131 / `3728199`; production baseline 494 tests passing.**
-
-**Shopify Store Price resync v1: DEPLOYED — founder-owned DRAFT/PUBLISHED Shopify links can now receive price-only updates when Drop Rate Store Price differs from the last synced price. Shopify I/O occurs outside DB transactions, exact remote variant/price is verified, local state is re-locked/version-checked before synced_price_minor changes, and SOLD/ARCHIVED/ERROR links are excluded. No quantity, SKU, cost, shipping, publication or inventory-state changes are performed by price resync. PR #128 / `68c98fa`. Current live eligible Shopify links have no price drift. The only drift is the archived Seel test link, which intentionally preserves the historical £0.49 Shopify price while the current inventory Store Price is now £1.00.**
-
-**Dashboard inventory intelligence v1: DEPLOYED — the founder Dashboard now shows total Inventory Market Value, total Store Price value, Top 5 highest-value products and genuine 7-day Market Value movers. Movement is calculated only from immutable historical pricing snapshots; the UI explicitly stays empty until a real 7-day baseline exists rather than fabricating change from the initial backfill. Live production snapshot: 509 active items; 506 have Market Value totalling £979.57; 507 have Store Price totalling £1,281.88. The oldest current pricing snapshot is 25 Sep 2026 23:25 UTC, so there is not yet a genuine 7-day comparison baseline. Commit `ee5c9f2` is production-verified.**
-
-**Audited exact-import identity confirmation v1: DEPLOYED — original import evidence may confirm identity only when source name, set, collector number, compatible finish and one explicit EN/JP marker all exactly agree with the current record. The second locked phase re-validates the evidence and writes an `IMPORT_EXACT` verification event; it never pretends an inferred match was a physical review. Live state: 97/509 active items are confirmed (96 Japanese, 1 English). The remaining 412 unconfirmed items all still have unknown physical language, so they remain fail-closed for human/physical verification rather than being bulk-confirmed. Commit `b881f1e` is production-verified.**
-
-**Batch founder media intake v1: DEPLOYED — Settings can now validate and upload a founder-owned image batch sequentially against the live media queue. Raw equivalent copies share one canonical FRONT capture; graded cards require item-specific FRONT + BACK. Duplicate live sides fail closed in both API logic and database unique indexes. The two production uniqueness indexes are verified present. Current live media registry contains 0 assets, so no stock is being treated as media-ready without evidence. Commit `942d6d9` is production-verified.**
-
-**Shopify readiness funnel v1: DEPLOYED — the Dashboard separates deterministic sellability blockers from governed media blockers. As of the Media & Condition rollout, raw cards also require photo-backed Near Mint verification and graded cards require slab verification before they can count as sellability-ready. The endpoint remains founder-scoped, read-only, makes zero Shopify network calls and has no publication action; final Shopify completeness remains a separate fail-closed check.**
-
-**Mobile founder media capture station v1: DEPLOYED — the single-card founder media flow now supports rear-camera capture on compatible phones, shows the exact selected queue identity + required side, adds Previous/Next queue navigation with no API side effects, clears stale file/alt-text state when changing cards, and advances after a completed queue item disappears. Existing rights confirmation, duplicate-side protection, governed upload/approval/sync flow and final Shopify publication gates remain unchanged. PR #138 / `7244ecb`; GitHub CI and Railway pre-deploy both passed 517 tests and production `/health/ready` returned 200.**
-
-**Media & Condition workflow v1: DEPLOYED — every physical card Inventory ID now requires its own FRONT + BACK photos; raw capture records whether the card is unsleeved, in a penny sleeve or in a top loader, while graded inventory uses a graded-slab context. Canonical/reference media can no longer satisfy a card's sellability media gate. Raw cards require human photo-backed `VERIFIED_NEAR_MINT`; graded cards require `VERIFIED_GRADED`; below-NM cards remain auditable and are blocked from Shopify. Reshoots reopen the exact evidence side. Media management now lives in a dedicated Media & Condition workspace rather than Shopify Settings, with a simplified founder navigation and cleaner desktop/mobile UI. Existing 509 inventory records were deliberately left `NOT_REVIEWED`; no condition status or media was fabricated. PR #139 / `6d2da16`; GitHub CI and Railway pre-deploy both passed **526 tests**, production `/health/ready` returned 200, and post-migration RLS/security checks found no new condition-review security warning.**
-
-**Founder dashboard anime/TCG redesign v2: DEPLOYED — the founder workspace now uses the established Drop Rate compass/card/ribbon brand language with deep navy, turquoise, gold and orange/red rather than the previous grey/lime admin styling. Dashboard hierarchy is simplified around command-centre hero → KPIs → portfolio/readiness → action required; Inventory prioritises the stock table and moves Storage Locations/Purchase Lots into expandable utility drawers. Desktop navigation is a branded left rail, mobile remains compact, and Media & Condition shares the same visual system. Stylesheet cache-busting was added so stale browser assets cannot mask the redesign. PR #140 / `3fb1e6a`; GitHub CI and Railway pre-deploy both passed **531 tests** and production `/health/ready` returned 200.**
-
-**Founder UI + Sales Analytics v3: DEPLOYED — the recreated brand mark/wordmark has been removed in favour of the user's uploaded Drop Rate logo artwork, with only a subtle `FOUNDER HQ` label beneath it. The same logo artwork is reused on the dashboard hero card backs and the buggy orbit/spinner effect has been removed. Media & Condition now uses a compact refresh action and an aligned Evidence Registry grid. Sales now has founder-scoped deterministic date-range analytics from Postgres/ledger data with Europe/London business-day boundaries: All time, Today, Yesterday, Last 7 days, This week, This month, This quarter, This year and custom dates; KPIs include Total Sales, Net Revenue, Net Profit, Orders, Items Sold and Average Order Value, with refunds, fees, postage, materials, COGS and adjustments included and profit left pending while Shopify reconciliation is incomplete. PR #141 / `7f09c14`; GitHub CI and Railway pre-deploy both passed **537 tests**, deployment `29dd8ac7-0d10-4219-9383-33a439e7830b` succeeded and production `/health/ready` returned 200.**
-
-The latest pass exposed an important process improvement: we were testing individual features well, but not performing a sufficiently explicit system-level regression/review after every cluster of changes. From this point forward, every material feature is subject to a repeatable quality gate covering code tests, failure-path review, database invariants, migration reproducibility, production deployment/health and live-data verification.
-
-The current backend is intentionally fail-closed: identity confirmation is required before pricing/listing, Shopify bulk publishing is disabled, market-data persistence is disabled, and no automatic money movement is enabled.
-
-The next Shopify checkpoint is to re-check the external Shopify Payments refund settlement for #1002, use the new batch fee-sync path to verify final fee completion/idempotency, then verify the first founder media upload in production. The £0.36 payment fee and legitimate £0.00 postage are already reconciled. Operational inventory cleanup continues in parallel.
-
-## Production-verified foundation
-
-### Architecture / infrastructure
-- private GitHub repository + branch / PR / CI workflow
-- Railway production deployment
-- Supabase/PostgreSQL master database
-- FastAPI deterministic business layer
-- Supabase authentication
-- audit logging
-- optimistic version protection
-- browser security headers
-- single-founder scope for current phase
-- provider adapters separated from deterministic pricing logic
-- n8n intentionally not used as database or core business-logic layer; durable outbox + signed dispatcher foundation is merged, with production activation deliberately gated until a verified n8n Event Gateway exists
-- `database/migrations/**` is the canonical version-controlled migration directory
-- legacy `migrations/**` is frozen historical material; new migrations must not be added there
-- Supabase-native migration history is the authoritative applied-migration ledger
-
-### Inventory
-- canonical catalogue separated from physical inventory
-- unique physical Inventory IDs
-- search / filters / pagination
-- Action Required workflow
-- acquisition cost/date with unknown cost preserved as NULL
-- Purchase Lots, fees, shipping and landed-cost allocation
-- raw-card TCGplayer condition scale
-- sealed/unsealed inventory state
-- grading company / grade / certificate
-- language
-- registered Storage Locations + stock audit
-- manual single-item intake
-- manual intake idempotency now validates payload identity: same key + same payload replays; same key + different payload returns conflict
-- unified CSV import framework
-- Collectr / eBay Purchases / HoloDex / Generic CSV presets
-- conservative catalogue matching with REVIEW state for ambiguous rows
-- raw import provenance and SHA-256 duplicate-file protection
-- manual import REVIEW-row resolution
-- approval/readiness workflow
-- persisted JSON/JSONB is decoded consistently at the asyncpg connection boundary
-- PostgreSQL now enforces physical-state invariants regardless of write path
-- SOLD/historical mutation failures are returned as safe conflict responses rather than generic server errors
-
-### Purchase lots / storage
-- deterministic total landed cost = purchase price + fees + shipping
-- equal/manual allocation support
-- penny-perfect allocation
-- registered `storage_location_id` is now the canonical approval/readiness location gate; the legacy text `location` field is synchronized from the registered location
-- unnecessary `DELETE` permission on purchase lots was removed from the application role
-- missing application-role UPDATE grants for newer inventory fields were fixed, including storage, purchase-lot, seal-state and pricing-output fields
-
-### Internal commerce / founder finance
-- internal orders and physical order items
-- acquisition-cost snapshot at sale time
-- SOLD inventory state
-- append-only owner financial ledger
-- revenue / COGS / gross profit / net profit
-- payment/platform fees
-- shipping income / shipping cost
-- refund/return foundation
-- deterministic penny-perfect allocation
-- pending / available / reserved / paid-out balances
-- payout request + cancellation workflow
-- Finance Reconciliation v1: typed Shopify transaction-fee import, zero-safe postage reconciliation, RLS-protected/audited reconciliation metadata, refund-driven fee invalidation and founder Sales controls
-- founder-only bounded batch fee reconciliation: pending Shopify fee records can be checked in batches without holding a database transaction open across Shopify API I/O; per-order blocked/pending states remain fail-closed and visible
-- Owner Settlement Report v1: read-only owner-scoped settlement aggregation showing gross proceeds, explicit external deductions/adjustments, net owner proceeds, effective COGS, owner profit, reconciliation state and pending/available funds
-- no automatic money movement
-- manual/off-platform sale support before Shopify
-- duplicate/repeated actions protected by source/reference uniqueness and idempotent paths
-
-### Founder seller portal
-Production navigation is split into:
-
-- **Dashboard**
-- **Inventory**
-- **Sales**
-- **Reports**
-- **Balance**
-- **Settings**
-
-Existing working inventory/finance components were reorganised rather than rewritten. URL hashes such as `#inventory` and `#balance` are supported.
-
-## Access-control boundary — Founder HQ vs seller/consignor portal
-
-**Founder HQ is an internal administrative product.** It is intended only for the primary platform administrator and any explicitly invited trusted admin/staff accounts. External sellers and consignors must never receive Founder HQ access merely because they own inventory.
-
-Account permission and physical inventory ownership are separate concepts:
-
-- **PLATFORM_ADMIN / trusted internal admin:** full Founder HQ access across all owners, inventory, company-wide sales/analytics, market-data controls, Shopify/eBay/Stripe integrations, payout approval, owner assignment, commission settings, audit views and global configuration.
-- **SELLER / CONSIGNOR user:** owner-scoped portal only. May view their own submitted/approved/listed/sold inventory, own sale proceeds, deductions/commission, settlement status and payout history/preferences. Permitted edits must be explicit and narrow (for example profile/payout settings and future listing-price requests); no global settings or other-owner records.
-- **Server-side enforcement required:** hidden navigation is not security. Every seller-facing API/query must be owner-scoped through database/RLS + FastAPI authorization. Cross-owner reads/writes, owner reassignment, commission edits, settlement adjustments, payout approval, integrations and global analytics remain admin-only.
-- **Separate shell recommended:** build a dedicated seller/consignor dashboard rather than reusing Founder HQ with merely hidden tabs. This reduces accidental privilege leakage and keeps the UX focused on each owner's own stock and money.
-- **Action Required:** design the role/permission schema and invitation/onboarding flow before enabling any non-admin user accounts.
-
-## Market-data infrastructure
-
-### Core market framework
-- provider-neutral source mappings
-- supported source slots: eBay, Cardmarket, TCGplayer, Collectr
-- VERIFIED mapping gate before automatic ingestion
-- immutable historical market observations
-- observation deduplication by `(source, source_record_key)`
-- source / condition / grade / language / seal-state normalization fields
-- GBP-normalized values + FX provenance fields
-- provider-neutral adapter registry
-- immutable market-ingestion run history
-- provider health/status API
-- deterministic pricing engine remains separate from provider access
-- no raw provider response can silently overwrite Store Price
-- UK pricing guardrail requires UK/EU anchor evidence for trusted displayed Market Value
-- TCGplayer / Collectr remain supporting evidence rather than sole UK Market Value anchors
-
-### Market hardening completed in this chapter
-- Parse authentication verified with the current production key
-- safe provider error messages do not expose credentials or raw response bodies
-- smoke/provider diagnostics are authenticated and non-persistent
-- provider calls no longer hold a PostgreSQL transaction open while waiting on external HTTP
-- real ingestion was refactored to avoid the same idle-in-transaction failure class
-- diagnostic run timestamps use the database clock
-- diagnostic run logging persists correctly
-- Parse snapshot pinning is optional; current canonical releases can be used deliberately
-- eBay retrieval queries were broadened while post-retrieval identity acceptance remains strict
-- title matching tolerates punctuation / seller word order without weakening hard card/variant/grade identity checks
-- real production ingestion is **explicitly gated off by default**; presence of a Parse key alone cannot enable persistence
-- provider probe counts the provider-specific result collection instead of the largest array in the response
-- eBay finish matching now rejects explicit Foil listings for Normal targets plus Non-Holo/Non-Holofoil and Non-Foil contradictions, preventing those titles from contaminating pricing evidence
-
-### Final cross-provider live validation
-Final production probe on 23 September 2026:
-
-| Source / endpoint | Result | Interpretation |
-|---|---:|---|
-| eBay UK active | **72 listings** | ✅ live provider access working |
-| eBay UK sold | **0 listings** | ⚠️ isolated upstream sold-search issue; Drop Rate receives an empty provider array before matching |
-| TCGPlayer search | **10 cards** | ✅ live provider access working |
-| Collectr search | **30 items** | ✅ live provider access working |
-| Cardmarket search | earlier probe: **29 results** | ✅ provider previously validated; final run did not emit a response-shape line and should be rechecked before production ingestion |
-
-Important conclusions:
-- Drop Rate's provider plumbing is working; the system is not generally blocked on market APIs.
-- eBay's active path works, while the Parse/eBay UK sold path currently returns an empty `items` array before Drop Rate filtering.
-- Cardmarket is the strongest currently validated UK/EU pricing-anchor candidate, but production ingestion remains gated until source access/terms and live contract are approved.
-- TCGPlayer and Collectr can provide supporting/global evidence after source-specific ingestion re-validation.
-- eBay sold should be treated as an independent provider issue rather than blocking the rest of the platform.
-
-### Pricing engine
-- robust source-level weighted pricing rather than simple average
-- sold vs active-listing weighting
-- recency weighting / half-life logic
-- comparability by condition / grading / language / seal state
-- outlier handling
-- volatility and confidence calculation
-- source-count and evidence-quality weighting
-- outputs:
-  - Market Value
-  - Recommended Retail
-  - Quick-Sale Price
-  - Target Acquisition Price
-- immutable pricing snapshots
-- pricing policy configuration
-- high-value / low-confidence / volatile-price review guards
-- batch and single-item recalculation API
-- pricing history API
-- latest pricing outputs visible in Settings
-- **Store Price is never silently overwritten by pricing calculation**
-- graded-card comparison now treats grading company + grade as the condition dimension rather than incorrectly requiring a raw marketplace condition too
-- current pricing algorithm version after that correction: `drop-rate-market-v4`
-
-## Current live inventory readiness
-
-Production checkpoint on 24 September 2026:
-
-- physical inventory items: **509**
-- status: **508 DRAFT / 1 INSPECTION**
-- unknown acquisition cost: **0**
-- missing condition: **10**
-- missing storage location: **507** (Baltoy is in `ROOM-BOX`; approved Seel test candidate is in `ROOM-BOX/BINDER-01`)
-- missing Store Price: **508**
-- identity not yet confirmed: **508**
-- missing owner: **0**
-- missing catalogue reference: **0**
-- duplicate Inventory IDs: **0**
-- language: **1 English / 96 Japanese / 412 unknown/review required**
-- portfolio acquisition cost basis: **£951.83 total (£1.87 per physical unit)**
-- largest known cleanup group: **178 Phantasmal Flames items**
-
-Acquisition cost is now populated for the current imported portfolio. Future unknown costs must still remain NULL until deliberately assigned.
-
-### Language evidence correction — production verified
-
-A production audit found that all **413** rows previously marked English had been changed from `NULL → English` in one unsupported bulk operation. None of those 413 source records contained explicit English evidence, while all **96 Japanese** rows contained explicit JP/Japanese evidence.
-
-The unsupported English backfill was therefore rolled back fail-closed:
-- inventory: **0 English / 413 unknown / 96 Japanese**
-- affected catalogue identities: **373** changed from English to unknown
-- audit trail: **413 inventory + 373 catalogue** English→NULL events under migration request `migration:20260924220735_revert_unsupported_english_language_backfill`
-- current Collectr importer already sends missing language to REVIEW and does **not** infer English
-- Shopify links/listings/reservations remained **0** throughout the correction
-
-The first physical test candidate, Baltoy `INV-041416049F4249C6BB29A846E29DDC37`, remains **DRAFT**. Near Mint condition and physical location `ROOM-BOX` are retained, but identity confirmation was revoked after the imported `Ninja Spinner 046/083 + English` combination failed external identity validation. Its Store Price remains NULL and it has not been published to Shopify.
-
-The controlled Shopify candidate Seel `INV-06F489A853594CDC80E418271933D044` has now completed the first production-verified **paid sale + full refund/restock** lifecycle:
-- canonical identity: **Seel / Phantasmal Flames / 021/094 / Normal / English**
-- physical condition: **Near Mint**
-- registered storage: **ROOM-BOX/BINDER-01**
-- acquisition cost snapshot: **£1.87**
-- Store Price / sale price: **£0.49**
-- Shopify order: **#1002**
-- original Shopify Payments transaction: **SUCCESS / £5.48 / not test mode**
-- original shipping charged: **£4.99**
-- exact Shopify Inventory ID/SKU link: verified
-- exact order-item allocation to this physical Inventory ID: verified
-- original ledger: **£0.49 SALE_REVENUE + £4.99 SHIPPING_REVENUE**
-- full refund webhook verified: **−£0.49 REFUND + −£4.99 SHIPPING_REFUND**
-- Drop Rate order state: **REFUNDED**
-- physical inventory state: **INSPECTION** (never auto-returned to APPROVED)
-- Shopify inventory link state: **ARCHIVED**
-- Shopify stock after return handling: **0 available / 0 committed / 0 on hand**
-- refund events: **1**
-- total ledger entries for the sale/refund lifecycle: **5** (sale + shipping revenue + item refund + shipping refund + payment fee)
-- Shopify Payments refund transaction was still **PENDING settlement** at the latest check; do **not** cancel #1002 until that external refund state is re-verified
-- exactly one Shopify Payments fee is recorded: **−£0.36 PAYMENT_FEE**; actual postage is explicitly reconciled at **£0.00** because the test order was not shipped. Fee reconciliation remains incomplete while Shopify's REFUND transaction is still externally pending
-- Shopify delivered `orders/paid` before `orders/create`; the late create initially failed, then the event-ordering/idempotency path was hardened and deployed so paid-before-create and semantic duplicate paid events fail closed/no-op correctly
-
-## Supabase live checkpoint
-
-Current production data after the latest hardening + language pass:
-
-- project: `pull-theory-dev`
-- region: `eu-west-2`
-- PostgreSQL: **17.6**
-- physical inventory: **509**
-- market observations: **0**
-- pricing snapshots: **0**
-- market ingestion/diagnostic runs: **25**
-- audit events: **3,591**
-- Shopify inventory links: **1 total / 0 active sellable** (Seel link is ARCHIVED after refund)
-- marketplace listings: **0**
-- active reservations: **0**
-- physical identity confirmation events: **3**
-- Shopify orders: **1**
-- Shopify order-item links: **1**
-- refund events: **1**
-- financial ledger entries: **5**
-- Shopify webhook events: **5**
-- RLS remains enabled across operational business tables; `tcg.schema_migrations` is the known exception and currently grants only `SELECT` to `tcg_api`
-- provider diagnostics have **not** polluted market observations, pricing snapshots or inventory values
-
-Supabase security advisor status:
-- database/security configuration reviewed during this chapter
-- leaked-password protection is still disabled and remains a **manual pre-launch Auth setting** to enable in Supabase
-- `tcg.schema_migrations` currently has RLS disabled; current grants were checked and only `tcg_api` has `SELECT`. Do not enable RLS blindly without a migration-tooling policy.
-- currently-unused-index notices are expected on newly created / low-row-count modules and are not being removed prematurely
-
-## Regression / hardening work completed
-
-The following areas were reviewed and defects found were corrected:
-
-### Authentication / security
-- authenticated dashboard/API routes verified in production
-- owner/catalogue integrity checked in live inventory
-- RLS coverage reviewed
-- provider credentials kept out of logs and API responses
-- historical/immutable mutation errors normalized safely
-- application-role privileges reviewed and tightened
-
-### Inventory / imports
-- unknown acquisition cost remains NULL
-- inventory-code uniqueness verified
-- manual intake idempotency strengthened against key reuse with different payloads
-- import REVIEW resolution completed
-- JSONB decode path fixed for import commit and generalized at DB connection boundary
-- physical-state database invariants added/verified
-- live inventory contains zero physical-state invariant violations
-- unsupported historical English-language backfill identified from audit history and rolled back to unknown without altering the 96 evidence-backed Japanese items
-- Baltoy physical verification trail preserved as CONFIRMED then REVOKED after catalogue/language conflict discovery; physical condition and storage remain intact
-
-### Purchase lots / storage
-- approval/readiness now requires the canonical registered Storage Location, matching the Shopify test-sync gate
-- application-role UPDATE permissions corrected for newer columns
-- purchase-lot DELETE privilege removed
-
-### Finance
-- append-only / uniqueness protection reviewed
-- SOLD-state protections reviewed
-- refund/payout/ledger foundations retained
-- database conflict failures no longer fall through as generic 500s where historical mutation is rejected
-- explicit `SHIPPING_REFUND` ledger type added; full Shopify shipping refunds no longer remain as false retained revenue
-- refund handler caps shipping reversal at recorded shipping revenue and allocates it deterministically/penny-perfect across order items
-- full refund with restock verified in production: Seel moved SOLD → INSPECTION, Shopify link ARCHIVED and Shopify available stock forced to 0
-- finance dashboard now distinguishes **shipping paid by the customer** from **actual postage cost**
-- unknown Shopify/payment fees and postage cost display as **Pending**, not £0.00
-- profit remains **Pending** with a provisional figure until fee/postage entries actually exist
-- owner settlement reporting keeps **net owner proceeds** separate from **owner profit** so acquisition cost is never incorrectly withheld from owner proceeds
-- first live `Sync fees` and `Set postage` attempts returned HTTP 500 because the generic finance audit trigger assumed an `id` column; `order_item_reconciliations` is keyed by `order_item_id`
-- production migration `20260925144808_fix_order_item_reconciliation_audit_trigger` now uses a dedicated audited trigger keyed by `order_item_id`; RLS and finance rules were not weakened, PUBLIC execute was revoked, and regression coverage was added
-- post-hotfix live retry verified both reconciliation endpoints at HTTP 200; payment fee ledger now contains exactly one −£0.36 entry and £0 postage is explicitly reconciled without a fake zero-value ledger row
-- settlement adjustments are explicit signed ledger components; pending vs available cash remains separate from reconciliation readiness
-- returned-to-stock items use effective COGS £0 for that realised sale because the physical asset has returned to inventory
-
-### Market / pricing
-- provider transaction boundary fixed in smoke tests and real ingestion
-- ingestion-run logging fixed
-- flexible-but-strict eBay identity matching added
-- explicit finish-negation guards added: Normal cannot accept Foil, Holo/Holofoil cannot accept Non-Holo/Non-Holofoil, and Foil cannot accept Non-Foil
-- provider-response diagnostics added
-- production-ingestion safety gate added
-- guarded Shopify single-item readiness now exposes exact blockers and uses the same eligibility function as the actual publish action
-- registered storage location is enforced consistently by approval/readiness and Shopify sync
-- Shopify 2026-07 inventory quantity payload fixed (`changeFromQuantity`, no obsolete `ignoreCompareQuantity`)
-- Shopify inventory activation fixed to avoid conflicting `available` + `onHand` arguments
-- unpaid checkout reservations are tracked on exact physical Shopify links/inventory state, not in finance orders
-- `tcg.orders` again rejects PENDING rows at the database constraint level; unpaid checkout state stays outside finance records
-- first real paid order #1002 verified exact Inventory ID → SOLD → order item → COGS snapshot → sale/shipping ledger
-- paid-before-create webhook ordering and semantic duplicate paid handling hardened after Shopify delivered #1002 events out of order
-- graded comparable-condition bug fixed
-- cross-provider live access validated as recorded above
-
-### Deployment / reproducibility
-- Railway production service remains `drop-rate-api-live`
-- latest production deployment is **SUCCESS** on commit `72b789a9fd8a3d4c4a1d4f7f31e650cdae002c1f`; `/health/ready` returned **200 OK**
-- PR and post-merge GitHub CI are green for the latest hardening commits
-- Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
-- Railway now installs pinned **Node 22.23.3 LTS** alongside Python through `RAILPACK_PACKAGES`, so frontend/static checks run in the production pre-deploy gate too
-- current Railway regression result: **444 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
-- live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
-- migration history reconciled through `20260925162748_shopify_shipping_profiles`, including Finance Reconciliation v1, the reconciliation-specific audit-trigger hotfix and deterministic Shopify shipping profiles
-- `database/migrations/**` is now the only canonical location for new migration files
-- Railway `Wait for CI` still reads **OFF** (`checkSuites=false`) after two attempted staged updates; treat this as an external Railway/GitHub-integration permission/configuration blocker until the setting can be re-authorised and verified
-- the guarded Supabase migration workflow is merged (`workflow_dispatch`, dry-run by default, explicit apply mode). Its required GitHub secrets and first production dry-run still need to be verified before the next schema change
-- no unintended staged Railway configuration remains
-
-## Quality / regression gate
-
-A feature is not considered complete merely because its unit tests pass. For material changes, the following gates are now mandatory:
-
-1. **Design review:** what is changing, why it belongs, dependencies, failure modes and exact test plan are recorded before implementation.
-2. **Automated regression:** targeted tests plus the full backend suite must pass.
-3. **Security / integrity review:** RLS/permissions, ownership boundaries, idempotency, concurrency and immutable/audit behaviour are checked where relevant.
-4. **Migration review:** every database change has a version-controlled migration in `database/migrations/**`; production migration history must match the repository.
-5. **Production deployment:** Railway deployment succeeds and health/readiness is verified.
-6. **Live invariants:** production queries verify counts, uniqueness, state transitions and cross-table relationships after deployment or data mutations.
-7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
-8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
-
-Current production regression baseline: **448 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
-
-GitHub status checks can be required on protected branches, but the current integration cannot read classic branch protection for this private repository, and the GitHub rulesets endpoint reports that private-repo rulesets require GitHub Pro (or a public repository). Treat branch protection as a manual/account-plan check before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
-
-## Shopify product completeness contract
-
-A Shopify product is not considered publishable merely because a product/variant exists. The backend must treat **product completeness as a deterministic publication gate**. Products remain `DRAFT` until every required field below has an approved source, passes validation and is written successfully.
-
-| Shopify field | Source / rule |
-|---|---|
-| Title | Deterministic backend template from canonical card identity + explicit language + card number + variant + condition/grade. Never AI-invented. |
-| Description | Structured facts from Supabase; AI may polish wording, but validators must prevent invented set/rarity/condition/grade/language/price claims. |
-| Media | Approved media pipeline only; provenance and source rights must be stored. See media strategy below. Missing required media blocks publication. |
-| Category | Deterministic Shopify taxonomy mapping by product type/game. |
-| Price | `store_price_minor` from Drop Rate only. Shopify never becomes pricing source of truth. |
-| Inventory | Exact sellable physical quantity from Drop Rate. Single-item listing = 1; no overselling. |
-| Shipping | Deterministic owner-scoped shipping profile. RAW_CARD / GRADED_CARD weight is configured once, written to Shopify `InventoryItem.measurement.weight`, then read back and verified. Missing profile blocks publication; no AI assumptions. |
-| Variants | Unique/physical-item listings use one controlled variant unless a deliberate pooled-listing model says otherwise. Language/condition/grade must never be silently collapsed. |
-| Product metafields | Exact Drop Rate identifiers and structured card facts. Inventory ID is mandatory for single-item listings. Ownership remains backend-private and is not customer-facing. |
-| Search engine listing | Deterministic handle plus validated SEO title/meta description generated from real database facts. |
-| Status | `DRAFT` until completeness gate passes; only then `ACTIVE`. |
-| Publishing | Publish only to explicitly configured publication/channel after all gates pass. Bulk publishing stays separately controlled. |
-| Sales | Shopify records checkout/order facts; Drop Rate resolves each sale back to exact physical Inventory ID and owner. |
-| Product organisation | Deterministic product type, vendor, normalized collections and tags from game/set/variant/language/status rules. |
-| Theme template | Explicit product template selected by product type/listing model; never Shopify default by accident. |
-
-### Media strategy — avoid manually scanning the whole inventory
-
-The system should support two media classes:
-
-1. **Canonical/licensed reference media** for ordinary raw cards where a permitted provider supplies reusable card imagery. The source URL/provider/license/provenance must be recorded against the canonical CARD. One approved canonical image can serve multiple equivalent physical copies.
-2. **Physical-item media** for high-value, graded, unusual-condition, signed, altered, sealed or otherwise item-specific inventory. These items should require actual front/back/item photography before publication.
-
-The intended operational workflow is **batch capture, not manual scanning**:
-- camera/phone capture station
-- Inventory ID / QR or barcode associates each shot with the exact item
-- automatic crop/deskew/background cleanup
-- AI may help detect front/back, orientation and image quality
-- human review only for low-confidence/image-quality exceptions
-- approved files stored once and referenced by the backend
-- Shopify receives only media that has passed provenance + quality checks
-
-Do **not** assume card-image reuse from eBay, Collectr, TCGplayer, Cardmarket or other providers is permitted. Reuse only when provider terms/licensing explicitly allow it. If no permitted canonical media exists, the item remains DRAFT until approved physical media is captured.
-
-### Product completeness release rule
-
-Before activation/publication, the backend must verify at minimum:
-- canonical identity confirmed
-- language explicit
-- condition/grade valid
-- registered physical location
-- acquisition cost known
-- Store Price known
-- exact SKU / Inventory ID
-- media policy satisfied
-- shipping profile resolved (`RAW_CARD` or `GRADED_CARD`) with an approved positive weight/unit
-- Shopify `requiresShipping=true` and remote weight/unit exactly match the Drop Rate shipping profile
-- required metafields present
-- title/description/SEO validators pass
-- product type/vendor/collections/tags/template resolved
-- Shopify quantity matches backend sellable quantity
-- publication target configured
-- no duplicate active Shopify link for the physical item
-
-Any failed check leaves the product DRAFT and creates an Action Required reason rather than guessing.
-
-### Shipping specification implementation
-
-- production registry: `tcg.shopify_shipping_profiles`
-- supported v1 forms: `RAW_CARD`, `GRADED_CARD`
-- owner/profile key is immutable; updates use optimistic versioning
-- profiles are RLS-protected and audit logged
-- Shopify 2026-07 inventory input writes `requiresShipping=true` plus `measurement.weight`
-- draft and final verification read the remote weight back before publication is treated as complete
-- optional Shopify package GID can be stored, but v1 only treats surfaces that can be remotely verified as hard completeness evidence
-- no default weight has been seeded; zero profiles currently exist until the founder explicitly configures them
-- migration `20260925162748_shopify_shipping_profiles` was applied early during preflight because the migration file contained its own transaction; the empty backward-compatible schema was verified and the Supabase migration ledger was then reconciled to the canonical merged file without rerunning `CREATE TABLE`
-
-## Storefront / UX issues now explicitly tracked
-
-These are now first-class roadmap items rather than informal design ideas:
-
-1. **No custom Drop Rate Shopify theme yet:** the Shopify integration/backend is mature, but the customer storefront remains largely generic/unbuilt.
-2. **Duplicate physical-copy clutter risk:** multiple Inventory IDs for the same canonical card must not flood collection pages; solve this at the storefront presentation layer without weakening ownership accounting.
-3. **TCG-native search gap:** customers need card-number, set-code, rarity, language, printing, condition and grade search—not generic ecommerce search alone.
-4. **Graded product presentation:** actual slab front/back + grader + grade + certificate should be primary customer evidence.
-5. **Autonomous merchandising:** New Drops, Grails, Graded, Fresh Japanese Stock, movers, low-stock and set collections should be database-driven rather than manually curated.
-6. **Autonomous Shopify operations:** creation, price/stock/media sync, collections, SEO, archive/restore, drift detection and safe retries should be automated through backend rules.
-7. **Founder HQ throughput:** evolve toward TCG Automate-level batch speed while retaining Drop Rate's stricter exact-print evidence, owner attribution and auditability.
-8. **Mobile-first store + operations:** storefront collection/search/PDP and Founder HQ scan/intake need purpose-built mobile layouts.
-9. **Performance at scale:** design now for 5,000–50,000+ cards with dense grids, pagination/virtualisation, image delivery and indexed search.
-10. **AI authority boundary:** AI may generate content and suggestions but cannot silently change identity, owner, price rule, settlement or publication gates.
-11. **Native app parity:** mobile workflows must use the same backend truth, permissions and audit rules as Founder HQ while being purpose-built for camera-first operational use.
-
-Detailed implementation blueprint: `docs/STOREFRONT_AND_UX_BLUEPRINT.md`.
-
-## Known remaining items
-
-These are **not blockers to the current backend foundation**, but remain explicit work:
-
-1. **GitHub branch protection:** verify `main` requires pull requests + passing CI before the project expands to multiple contributors.
-2. **Railway Wait for CI:** `checkSuites` remains false despite two attempted updates; re-authorise/check the Railway GitHub App permissions and verify the toggle persists.
-3. **Supabase migration delivery:** guarded workflow is merged; configure/verify its two GitHub secrets and run a production dry-run before the next schema change.
-4. **eBay UK sold via Parse:** provider returns an empty list; investigate separately or use an alternative official/permitted source path.
-5. **Cardmarket production ingestion:** re-probe/contract validation plus source-access/terms approval before persistence.
-6. **Collectr production adapter:** diagnostic search is live, but the production detail/graded-price contract must be re-validated before enabling ingestion.
-7. **TCGPlayer production ingestion:** supporting evidence only; validate the exact live detail/pricing endpoints before enabling persistence.
-8. **Supabase leaked-password protection:** enable manually before launch.
-9. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
-10. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
-11. **Operational inventory cleanup:** live snapshot on 26 Sep: 509 active items; 97 identities confirmed (96 Japanese, 1 English) and 412 remain unconfirmed. All 412 remaining unconfirmed records have unknown physical language; 410 are card-language blockers and the other 2 are non-card records, so no language is being guessed. **0 active items are missing a registered storage location**. 507/509 have Store Price; 506/509 have Market Value; acquisition costs remain complete. Current total Store Price value is £1,281.88 and Market Value is £979.57. The verification screen handles identity + language + optional location together so physical evidence is captured once; future unknown costs must still remain NULL.
-12. **Shopify settlement enrichment:** Finance Reconciliation v1 + Owner Settlement Report v1 are deployed and #1002 fee/postage reconciliation is live-verified. Founder batch fee reconciliation is now deployed; next re-check the externally pending refund/final fee-complete state, then later add permitted shipping-provider cost ingestion.
-13. **Refund settlement follow-up:** Shopify accepted the £5.48 refund for #1002, but the external refund transaction was still pending at the last check; verify completion before any further order action.
-14. **Shopify shipping profile configuration:** registry and hard publication gate are live. RAW_CARD is configured at 40g for Royal Mail Tracked 48 using a 110x145x21mm package; Settings now exposes the package facts and audited £0.83 material total (£0.75 packaging + £0.08 top loader). GRADED_CARD is active at 120g for Royal Mail Tracked 48 using the founder-supplied 116x164x25mm, 33g box. Packaging is £1.20 per order; see `docs/GRADED_CARD_FULFILMENT_RESEARCH.md`. Because 25mm is the exact Large Letter ceiling, every sealed package must pass a thickness gauge.
-15. **Shopify media readiness:** completeness/media registry remains fail-closed. Founder Media Intake v1 plus batch capture are healthy in production. Settings verifies Shopify `write_files`, creates short-lived staged upload targets, uploads image bytes directly to Shopify, requires explicit founder rights confirmation, and reuses the audited create → approve → sync workflow. Batch capture is sequential and duplicate live sides are database-enforced. Live registry currently has 0 media assets. The immediate operational opportunity is the 96 approved/core-ready cards (93 raw, 3 graded) that can move forward once their required media is captured and approved. Manual next check: confirm `write_files` is granted and complete one real founder image upload/batch.
-
-## Stripe Connect payout foundation — 26 Sep 2026
-
-- **Phase 1 deployed (PR #151 / `789896e`):** Stripe Connect Express account mapping, Stripe-hosted onboarding, transfers-capability readiness, signed/idempotent webhook intake, founder payout approval queue and immutable PREPARED payout execution records. Railway deployment `f406de9b-ba43-42da-8a40-320169ff9988` passed 594 tests and `/health/ready` returned 200.
-- **Deterministic authority remains Drop Rate:** Shopify/eBay order allocation, refunds, fees, postage and owner balances are computed in PostgreSQL/FastAPI before Stripe can be involved.
-- **Fail-closed approval:** incomplete KYC, payouts disabled, transfers inactive, unreconciled marketplace costs or owner balance shortfalls block approval.
-- **No automatic money movement:** `TCG_STRIPE_PAYOUT_EXECUTION_ENABLED=false`. The backend contains no Stripe Transfer/Payout execution endpoint in Phase 1.
-- **Live connected-account creation remains locked:** `TCG_STRIPE_CONNECT_LIVE_ENABLED=false`.
-- **Production DB migrations applied:** `20260926180043_stripe_connect_payout_phase1`, `20260926180715_index_stripe_payout_connected_account`, `20260926181040_harden_stripe_payout_control`.
-- **Provider credential blocker:** ChatGPT's Stripe plugin OAuth callback is currently broken/uninstalled, so no Stripe secret or webhook signing secret has been retrieved through the plugin. Production currently has 0 connected accounts, 0 Stripe payout executions and 0 Stripe webhook events. Do not paste Stripe secrets into chat.
-- **Phase 2 gate:** confirm a permitted platform-balance funding path because Shopify customer receipts do not automatically fund the Stripe platform balance; then test Transfer → connected balance → bank payout → webhook → refund/reversal handling before enabling real money.
-
-See `docs/STRIPE_CONNECT_PAYOUTS.md`.
-
-## Consignor commission — 26 Sep 2026
-
-- **10% default deployed (PR #153 / `1ccdb06`):** every future `CONSIGNOR` owner defaults to **1000 bps = 10.00%** commission; `FOUNDER` owners are enforced at **0%**.
-- **Commission basis:** item net sale after item-level discounts; shipping revenue is excluded.
-- **Historical integrity:** `commission_bps_snapshot` and `commission_minor` are frozen on each immutable order item, so later rate changes cannot rewrite old sales.
-- **Ledger:** commission is an explicit append-only `COMMISSION` deduction, separate from marketplace/payment/postage/material costs. Partial/full item refunds append proportional `COMMISSION_REVERSAL` entries.
-- **Payout effect:** owner available balance is computed from the complete ledger, so Stripe payout requests automatically use the post-commission amount.
-- **Live transactional test passed:** £90.00 net sale → £9.00 commission → £81.00 owner ledger; 50% refund restored £4.50 commission → £40.50 ledger; full refund restored remaining £4.50 → £0.00. Transaction rolled back and left 0 test rows.
-- **Regression/deploy:** GitHub and Railway both passed **604 tests**; Railway deployment `35215d97-67f5-4008-a76b-ebb5d128a403` succeeded and `/health/ready` returned 200.
-- **Production state remains clean:** 0 real consignor commission ledger rows exist because there are currently 0 consignor owners. Existing founder commission remains 0%.
-
-## Milestone 1 checklist
-
-| Requirement | Status |
-|---|---|
-| Login/authentication | ✅ Complete |
-| Physical inventory model | ✅ Complete |
-| Ownership | ✅ Complete |
-| Manual add inventory | ✅ Complete |
-| Import inventory files | ✅ Complete |
-| Manual import REVIEW resolution | ✅ Complete |
-| Search/filter inventory | ✅ Complete |
-| Acquisition cost model | ✅ Complete |
-| Purchase provenance / cost lots | ✅ Complete |
-| Card condition | ✅ Complete |
-| Sealed/unsealed state | ✅ Complete |
-| Grade/certificate | ✅ Complete |
-| Language | ✅ Complete |
-| Controlled physical locations | ✅ Complete |
-| Stock audit/location counts | ✅ Complete |
-| Approval/readiness workflow | ✅ Complete |
-| Core regression / hardening pass | ✅ Complete |
-| Production inventory data cleanup | 🚧 Operational task for next session |
-| Leaked-password Auth setting | 🚧 Manual pre-launch action |
-
-## Build roadmap
-
-| Phase | Area | Status |
-|---|---|---|
-| 1 | Architecture / documentation | ✅ Core complete; documentation maintained continuously |
-| 2 | Database / authentication | ✅ Core complete; one manual pre-launch Auth setting remains |
-| 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; audited identity + language + location review workflow deployed; operational data cleanup remains |
-| 4 | Inventory dashboard functionality | ✅ Core complete; portfolio valuation, Top 5 value ranking, genuine weekly movers, Shopify readiness and dedicated Media & Condition workspace deployed |
-| 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
-| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; per-Inventory-ID front/back media, photo-backed NM/slab condition gates, deterministic product-completeness/media/shipping gates and Shopify readiness are deployed; bulk publishing remains locked; first live photo/condition batch + refund settlement follow-up remain |
-| 6 | Orders / allocation / settlements | 🚧 Exact Shopify/eBay ownership attribution + deterministic settlement reporting are deployed; Stripe Connect sandbox transfer/reversal is verified; payout preferences + hourly scheduled REQUESTED-worker are live; real execution remains locked; multi-owner production verification remains |
-| 6.5 | RBAC / seller & consignor portal | 🚧 Dedicated OWNER onboarding and restricted `/owner` inventory/sales/balance/settlement/payout/Stripe self-service are deployed. Next: genuine two-account cross-owner isolation proof, then controlled first seller/consignor onboarding |
-| 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
-| 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
-| 9 | AI card identification | 🚧 Recognition v1.7 is in rollout: mobile presence-gated scanning, card/sealed object routing, OP-17 sealed recognition, multi-signal exact-print logic, full-library human correction and provider visual-retrieval infrastructure are implemented. Remaining: complete/backfill visual reference indexes, expand permitted provider coverage, harden promos/parallels/graded-card evaluation, and complete Dragon Ball media coverage |
-| 10 | Consignment | 🚧 Payout/commission foundation deployed: 10% consignor commission, Stripe Connect readiness and payout approval control exist; consignor onboarding/intake portal remains to build |
-| 11 | AI product listings | ⬜ Not started |
-| 12 | AI customer service | ⬜ Not started |
-| 13 | SEO | ⬜ Not started |
-| 14 | AI marketing | ⬜ Not started |
-| 15 | n8n orchestration | ⬜ Advanced workflows not started |
-| 16 | Analytics / optimisation | 🚧 Founder sales analytics, inventory value intelligence, Top 5 value cards and genuine 7-day mover framework are deployed. Broader marketplace/product/marketing optimisation remains |
-
-## Immediate work order
-
-### Next session — recognition/media closeout + multi-owner release gate
-0. Resolve the **ROUND1 candidate-universe mismatch** exposed by the scanner audit: independently verified references distinguish ROUND1 Nico Robin (EB03-054) from ST29-009 Nico Robin (Promotion Pack EX Vol.4). Confirm the exact physical scan and ensure the correct ROUND1 printing can exist as a viable candidate even when OCR reads a conflicting number.
-1. Resolve the **9 remaining One Piece image gaps** only with exact product/printing evidence; do not substitute base art for ROUND1, release-event, regional, anniversary or stamped versions.
-2. Complete **Dragon Ball image coverage (33 unique cards across Masters + Fusion World)** through a permitted exact-print provider. TCGGraph adapter exists but production access is not configured yet.
-3. Capture real **FRONT + BACK slab photos for all 8 graded items** and record certificate numbers where available. Physical slab media becomes the customer-facing primary image; canonical art remains recognition/reference evidence.
-4. Build/refresh verified recognition fingerprints only from exact-print media that has passed the trust gate; do not train on merely visible reference art.
-5. Run the genuine **second OWNER cross-isolation test** and then a controlled multi-owner/same-card sale attribution test.
-6. Re-check Shopify #1002 final refund-fee settlement/idempotency before any cancellation action.
-
-### Next session — inventory operations + controlled verification
-1. ✅ Seel 021/094 selected, physically verified, priced and published through the guarded single-item path.
-2. ✅ Shopify product sync verified: exact SKU/Inventory ID, ACTIVE product, publication and quantity handling.
-3. ✅ Real paid Shopify order #1002 verified: exact physical Inventory ID attribution, SOLD state, £1.87 COGS snapshot, £0.49 sale revenue and £4.99 shipping revenue.
-4. ✅ Shopify 2026-07 inventory API incompatibilities and paid-before-create webhook ordering defects found in live testing and hardened.
-5. ✅ Full **£5.48 refund + restock** verified: −£0.49 item refund, −£4.99 shipping refund, order REFUNDED, physical item INSPECTION, Shopify link ARCHIVED and available stock 0.
-6. **Next check (26 Sep):** verify the Shopify Payments refund transaction has finished settling before taking any further order action. Do not cancel #1002 merely because it is fully refunded; first confirm the final Shopify refund/order state.
-7. ✅ **Finance Reconciliation v1 deployed:** typed Shopify transaction-fee ingestion, auditable reconciliation metadata, explicit £0 postage support, refund invalidation and Sales-tab controls are live.
-8. ✅ **Finance Reconciliation v1 live-verified on #1002:** retry returned HTTP 200 for both actions; exactly one **−£0.36 PAYMENT_FEE** was recorded, postage was explicitly reconciled at **£0.00** using `TEST-NOT-SHIPPED`, and reconciliation audit INSERT/UPDATE events were written against the correct `order_item_id`. Fee reconciliation remains intentionally incomplete while Shopify's REFUND transaction is still PENDING.
-9. ✅ **Owner Settlement Report v1 deployed:** Reports now show gross proceeds, deductions, signed adjustments, net owner proceeds, effective cost basis, owner profit, reconciliation state and pending/available funds without moving money.
-10. Re-check the Shopify Payments refund settlement, then use the deployed batch fee-sync control to verify final fee completion, duplicate reconciliation idempotency and #1002's final settlement row.
-11. ✅ **Shopify deterministic shipping-spec engine deployed:** owner-scoped RAW_CARD/GRADED_CARD registry, fail-closed completeness gate, Shopify weight write/read-back verification and Settings controls are live.
-12. ✅ **RAW_CARD shipping configured:** 40g operating weight, 110x145x21mm package, 27g empty package and Royal Mail Tracked 48. Packaging cost is £0.75 per order. GRADED_CARD is configured and active at 120g using the 116x164x25mm, 33g box with £1.20 packaging allocated once per order.
-13. ✅ **Founder Media Intake v1 deployed:** Shopify Settings now supports founder image selection, physical-vs-canonical scope, front/back side, alt text and explicit rights confirmation; the backend validates Shopify `write_files` and issues no-store staged upload targets so image bytes go directly to Shopify. GitHub CI and Railway pre-deploy both passed **436 tests** and the production readiness healthcheck returned 200. First authenticated scope + real-image upload remains manual verification.
-14. ✅ **Physical identity + language review v1 deployed (PR #113 / `eb1381f`):** the founder verification queue exposes identity/language/location progress; confirmation can set English/Japanese and optional registered location in the same locked/versioned transaction; unknown language or a canonical-language mismatch blocks confirmation rather than guessing. Railway pre-deploy passed **439 tests** and `/health/ready` returned 200.
-15. ✅ **Founder batch Shopify fee reconciliation deployed (PR #116 / `296be5f`):** pending fee records can be checked in bounded founder-only batches; Shopify network I/O runs outside database transactions, writes are revalidated/idempotent, and blocked/unsettled orders remain visible rather than being marked complete.
-16. ✅ **eBay finish identity edge cases hardened (PR #117 / `72b789a`):** contradictory Foil/Non-Holo/Non-Foil wording now fails closed. The stale predecessor PR #56 was closed as superseded after its useful protections were verified on current `main`.
-17. ✅ **Ready-to-Sell Inventory Ops v1 deployed (PR #119 / `995f466`):** Inventory rows now show visible core-readiness progress/blockers; Storage Locations has an owner-scoped, idempotent `Assign unlocated` action that never moves SOLD/RESERVED stock; future imports preserve explicit EN/JP evidence found at the end of either card titles or set names while keeping the original set identity stable and failing closed on conflicts. GitHub CI passed and Railway production pre-deploy passed **448 tests**; `/health/ready` returned 200.
-18. ✅ **Dashboard Inventory Intelligence v1 deployed (`ee5c9f2`):** portfolio Market Value / Store Price totals, Top 5 highest-value products and real 7-day movers are live. Current live totals are £979.57 Market Value and £1,281.88 Store Price value; movers intentionally remain empty until a genuine seven-day baseline exists.
-19. ✅ **Audited exact-import identity + batch founder media deployed (`b881f1e`, `942d6d9`):** exact original-import identity evidence is revalidated under lock and audited; media batches are rights-gated, sequential and duplicate-side protected. Live state is 97 confirmed identities, 412 still correctly fail-closed for unknown physical language, and 0 media assets.
-20. ✅ **Shopify Readiness Funnel v1 deployed (PR #137 / `ff452d4`):** Dashboard distinguishes deterministic sellability blockers from media blockers without Shopify network calls or publication actions. The later Media & Condition release strengthened this gate with photo-backed condition verification.
-21. ✅ **Mobile Founder Media Capture Station v1 deployed (PR #138 / `7244ecb`):** phone-friendly rear-camera capture, exact selected-card/side context, safe Previous/Next navigation and conditional queue advance are live. GitHub CI and Railway pre-deploy passed **517 tests**; `/health/ready` returned 200.
-22. ✅ **Media & Condition v1 deployed (PR #139 / `6d2da16`):** every physical card requires exact FRONT + BACK evidence plus capture context; raw cards must be human-verified Near Mint and graded cards must have slab verification. Canonical media cannot bypass physical evidence. UI moved into its own streamlined workspace. **526 tests** passed in GitHub and Railway and production readiness returned 200.
-23. **Next inventory-to-Shopify action:** photograph and condition-review a small first batch from the 96 cards that had already cleared identity/approval/cost/price/location gates. They are intentionally not sellability-ready until the new photo-backed condition gate is passed. Keep the remaining 412 unknown-language records in Verify.
-
-### Next major engineering milestone — Shopify
-Build the complete controlled sale loop:
-
-`Approved inventory → Shopify product/SKU → Shopify checkout/order → webhook verification → physical Inventory ID → owner attribution → deterministic fees/proceeds → refund/cancellation handling → auditable settlement report`
-
-Required controls:
-- Shopify webhook signature verification
-- webhook/event idempotency
-- duplicate-order protection
-- no ownership inference from Shopify alone
-- backend/Supabase remains source of truth
-- failure/exception queue for sync and order-allocation problems
-
-### Market work after/alongside Shopify
-- re-validate Cardmarket detail/pricing contract and source permission
-- re-validate Collectr production adapter contract
-- validate TCGPlayer detail/pricing support path
-- keep eBay active as listing/liquidity context
-- solve eBay sold independently rather than blocking the wider provider model
-- only then enable persisted observations and automatic pricing runs source by source
-
-## Major deferred decisions / features
-
-- native iOS/Android Founder app is now a defined product phase: shared FastAPI/Supabase backend, camera-first recognition/intake, inventory, media/condition, Action Required, sales, consignments, push notifications and later scanner/printer Device Bridge; see `docs/STOREFRONT_AND_UX_BLUEPRINT.md`
-
-- customer-facing Shopify theme/storefront is now a defined major build phase: custom Shopify Online Store 2.0 theme in GitHub, TCG-native search/filtering, collection/product-card system, raw/graded PDPs, grouped physical-copy presentation, database-driven merchandising, AI listing copy and later Scan to Find / Scan to Sell; see `docs/STOREFRONT_AND_UX_BLUEPRINT.md`
-
-- multi-user owner onboarding remains gated until owner-safe portal APIs and two-owner isolation tests pass; Founder HQ is now explicitly PLATFORM_ADMIN-only and a separate `/owner` portal boundary is deployed
-- consignor intake/onboarding portal remains to build on top of the deployed 10% commission + Stripe Connect payout foundation
-- automated media intake/product-enrichment follows the controlled Shopify sale loop; AI identification comes after core commerce/pricing reliability
-- the future iOS-assisted scan-to-list workflow is specified in `docs/MOBILE_CARD_CAPTURE_BLUEPRINT.md`: camera identification, explicit confirmation, manual card-number recovery, physical inventory creation and guarded Shopify publication through the backend
-- AI marketing, SEO automation and advanced n8n orchestration come after inventory, Shopify, settlement and market pricing foundations
-- value-weighted Purchase Lot allocation waits for reliable market reference values
-- no automatic money movement until settlement reporting is thoroughly verified
-
-## Stripe Connect + scheduled payout control plane — 26 Sep 2026
-
-- ✅ Stripe Connect test recipient onboarding is live in Founder HQ **Balance**; the verified test account reports READY, payouts enabled and transfers ACTIVE.
-- ✅ Consignor commission baseline is deterministic at **10% (1000 bps)**. Live database finance probes verify £100 gross → £10 commission → £90 owner proceeds.
-- ✅ Stripe sandbox money movement was exercised end-to-end: £100 test funding → £90 Connect transfer → idempotent transfer replay → £90 reversal → idempotent reversal replay → funding refund. Production payout execution remains locked.
-- ✅ Owner payout preferences are live: Manual, Daily, Weekly, Every 2 weeks and Monthly, with Europe/London schedule calculation, version protection, RLS and audit logging.
-- ✅ Scheduled payout request worker deployed (PR #168) with database-level cycle idempotency and atomic re-checks for owner activity, Stripe readiness, current preference version, available ledger funds and existing payout reservations.
-- ✅ Dedicated Railway cron service `drop-rate-payout-scheduler` deployed using `Dockerfile.scheduler` (PRs #169–#170), scheduled **hourly** with no Stripe secret. The worker only creates REQUESTED payout rows and cannot move money.
-- ✅ Payout-preference API auth bug fixed in PR #171: route now uses the actual `AuthenticatedUser.user_id` field. Latest production deployment passed **640 tests** and `/health/ready` returned 200.
-- ✅ A real sandbox preference is now saved as **DAILY**. The scheduler sees **1 eligible schedule candidate**; no scheduled payout request exists yet because there is currently no due eligible balance.
-- 🔒 Automatic Stripe execution remains disabled until scheduled-request behavior is observed against real eligible balances and the approval/execution policy is intentionally promoted.
-- 🧪 **Stripe sandbox → live cutover TODO:** current schema permits only one connected Stripe account per owner. Before real onboarding, migrate the mapping so one TEST and one LIVE Connect account can coexist (unique by owner + livemode), preserve the sandbox account/history, add an admin-only disconnect/reset control, then create a separate live Connect account using real KYC/bank details. Do not overwrite the sandbox account or reuse test data for live payouts.
-
-## RBAC access-control foundation — 26 Sep 2026
-
-- ✅ PR #172 deployed: application permission is now separate from inventory ownership.
-- ✅ Membership roles are now `PLATFORM_ADMIN` and `OWNER`; the least-privilege default is `OWNER`.
-- ✅ Existing founder membership migrated from legacy `FOUNDER` permission to `PLATFORM_ADMIN` with an audit event.
-- ✅ Current production state has **1 active PLATFORM_ADMIN membership and 0 OWNER memberships**.
-- ✅ PLATFORM_ADMIN can resolve all active owners through the role-aware owner RLS boundary; OWNER remains limited to its explicitly linked owner.
-- ✅ Founder invite creation is PLATFORM_ADMIN-only and redeemed founder invitations receive PLATFORM_ADMIN explicitly.
-- ✅ `GET /api/v1/access/me` exposes the authenticated access context and whether Founder HQ is allowed.
-- ✅ Reusable FastAPI `require_platform_admin()` guard is deployed for privileged-route hardening.
-- ✅ Architecture documented in `docs/ACCESS_CONTROL_MODEL.md`: Founder HQ is internal/admin-only; future sellers/consignors use a separate restricted owner portal.
-- ✅ Production deployment `1a386c6b-74f5-4ca5-b3f4-fffcc6f3baf1` passed **646 tests** and `/health/ready` returned 200.
-- 🔒 No OWNER account should be invited until the privileged-route audit is complete and the separate owner portal has owner-safe APIs.
-
-## Security / authentication hardening — 26 Sep 2026
-
-- ✅ Legacy migration metadata is now infrastructure-only (PRs #173–#174): `tcg.schema_migrations` has forced RLS, application-role privileges revoked and an explicit deny-all `tcg_api` policy. Only the postgres migration authority retains access.
-- ✅ Supabase password requirements are configured to **12+ characters** with lowercase, uppercase, number and symbol requirements.
-- ⚠️ Supabase **Leaked Password Protection** cannot be enabled on the current plan. It is recorded as a Pro-plan pre-public-launch hardening requirement; do not upgrade solely for this toggle unless/when the wider plan benefits justify it.
-- 🔒 Before external seller/consignor launch, require MFA for `PLATFORM_ADMIN` accounts and retain email verification, rate limits and session controls.
-- ✅ Google + Apple OAuth frontend support deployed in PR #176. Buttons are shown only when Supabase reports the provider enabled; OAuth authentication never grants Founder HQ permission by itself.
-- ⏳ Google provider still requires its real OAuth client ID/secret + production origin/callback configuration in Google/Supabase.
-- ⏳ Apple provider still requires Apple Developer Services ID/key/client-secret configuration. Web OAuth secret rotation must be operationally tracked.
-- ✅ Founder HQ now checks `GET /api/v1/access/me` and opens only when `founder_hq_allowed=true`.
-- ✅ PR #175 made the internal control-plane routers PLATFORM_ADMIN-only.
-- ✅ PR #177 replaced remaining legacy `FOUNDER` permission checks with the central PLATFORM_ADMIN guard.
-- ✅ PR #178 completed the mixed-route audit: owner-safe reads/self-service remain scoped; inventory mutations, purchase lots, finance reconciliation/manual sales, refund creation, Shopify controls and eBay seller/OAuth controls are admin-only; signed external provider callbacks/webhooks remain outside user-session RBAC.
-- ✅ PR #179 deployed a separate `/owner` portal shell. PLATFORM_ADMIN redirects to Founder HQ; only `OWNER` + `OWNER_PORTAL` may enter; unlinked users fail closed. It intentionally exposes no inventory/finance business modules yet.
-- ✅ Latest production deployment `49eb4fbb-1154-4512-a01d-8dee2d16430d` passed **667 tests** and `/health/ready` returned 200.
-- ✅ Current production memberships remain **1 PLATFORM_ADMIN / 0 OWNER**, so no external seller has been exposed to unfinished portal functionality.
-- ➡️ Next security slice: dedicated owner-safe API contracts + two-owner cross-isolation tests, then OWNER invitation/onboarding, then owner portal inventory/sales/balance/payout modules.
-
-## Seller / consignor portal + scheduler verification — 26 Sep 2026
-
-- ✅ PR #180 deployed dedicated read-only owner APIs: `/api/v1/owner/overview` and `/api/v1/owner/inventory`, with explicit safe field allowlists, owner_id defence-in-depth and fail-closed ambiguous membership handling.
-- ✅ PR #181 deployed the read-only `/owner` inventory dashboard with owner-scoped inventory counts, market/store value, card search, status filters and pagination. Acquisition cost, internal notes, storage locations, purchase-lot data and provider IDs remain excluded.
-- ✅ PR #182 deployed a separate restricted OWNER invitation flow:
-  - PLATFORM_ADMIN-only create/revoke
-  - email-locked invites
-  - verified Supabase JWT email used at redemption
-  - creates physical owner type `CONSIGNOR`
-  - creates access role `OWNER`
-  - default commission 1000 bps / 10%
-  - hashed invite tokens + audit logging
-  - email/password + Google/Apple-compatible `/owner/join` onboarding
-- ✅ Founder invite redemption is now also bound to the verified JWT email instead of trusting a browser-supplied email.
-- ✅ PR #183 deployed dedicated owner-safe finance reads for summary, sales, settlements and payout history. Seller proceeds come from the append-only ledger; acquisition cost/company profit/customer-address/provider-secret fields are excluded.
-- ✅ PR #185 deployed restricted owner Sales, Balance & payouts and Settlements dashboard views, including transparent commission/deductions, reconciliation state, payout history and owner-controlled payout cadence.
-- ✅ PR #186 deployed OWNER Stripe Connect self-service for account status/create/onboarding/sync only. Payout queue approval/rejection/execution remain admin-only. OWNER Stripe return/refresh URLs are forced to trusted `/owner` origin.
-- ✅ PR #184 added durable `tcg.payout_scheduler_runs` operational logging so every scheduler run has an auditable SUCCESS/FAILED record even when Railway omits short-lived cron stderr.
-- ✅ Scheduler networking now has outbound IPv6 enabled.
-- ✅ PR #187 added scheduler image compile validation and triggered a clean scheduler-specific Railway build.
-- ✅ A real scheduled verification run completed at **2026-09-26 23:20:31 UTC** with **SUCCESS**: checked=1, created=0, duplicate=0, no_balance=1, stripe_not_ready=0, errors=0. This is the expected outcome with £0 available balance.
-- ✅ Scheduler restored to **hourly** (`0 * * * *`) after the 5-minute verification; active deployment `57b468c0-e58f-4ed2-b138-90c3c52336f0` is SUCCESS.
-- ✅ Current GitHub main baseline: **707 tests passed**.
-- 🔒 Production still has no external OWNER membership yet; first external onboarding remains gated on the real two-account cross-owner isolation proof.
-- ➡️ Next release gate: create one controlled restricted OWNER test account, assign isolated test inventory/financial fixtures, prove Owner A cannot read/write Owner B across inventory, orders, ledger, payouts, Stripe and Founder HQ routes, then remove or retain the account as an approved sandbox owner.
-
-## Completion rule
-
-- **Coding only:** In Progress.
-- **PR open / CI green:** In Progress.
-- **Merged but not deployed:** In Progress where deployment is applicable.
-- **Production deployment + health verification successful:** Completed.
-- **External provider limitation:** recorded explicitly; does not silently count as platform failure.
+## 11 October 2026 — Collection-first confirmation / separate selling (implementation; release evidence pending)
+
+The existing scanner now saves a confirmed selection immediately, without a second whole-queue save or waiting for uncertain neighbours. Newly added scan/manual/CSV physical copies explicitly start DRAFT / PERSONAL_COLLECTION. Missing raw condition, acquisition cost, selling price or market value does not block collection admission. Canonical language is reused with conflict checks; owner/request locking and retry receipts prevent duplicate submissions. Pricing is no longer awaited inside the scan save transaction.
+
+Seller inventory keeps selling fields and channel controls under an optional List for sale disclosure. Raw condition can be supplied in that explicit versioned listing request; existing raw/slab selling review and channel publication guards remain. Approved sealed selling is unchanged. No account merge, existing-row rewrite, overlapping-import reconciliation, media-policy relaxation, channel activation, product/theme publication, migration, new service or n8n flow. The existing overlapping Draft import and explicit hold remain separate work. #607 shared-artwork loading is preserved.
+
+See docs/COLLECTION_FIRST_INTAKE.md. Source checks, real restricted PostgreSQL/signed HTTP, mocked browser tests, exact deployment/readback and real physical-device acceptance are distinct. PR release comment must record actual results; this entry is not evidence that deployment or signed-in production acceptance passed.
+
+
+## 11 October 2026 — Shared inventory artwork delivery (implementation; release verification pending)
+
+Founder HQ and Seller Hub now use the same bounded authenticated image route for provider-hosted inventory artwork. Catalogue artwork is selected by exact catalogue identity, independent of the uploading owner; physical photos remain restricted to the exact owned copy. Seller images load near the viewport, use trusted CDN fast paths, and fall back through the shared route/reference endpoint without forwarding credentials to providers. An additive SELECT-only policy covers approved shared CANONICAL_PRODUCT media, matching the already shared card-art concept. No inventory, import, price, ownership, listing or finance write. See docs/SHARED_INVENTORY_IMAGES.md. Real database and browser tests, migration, deployment, live source checks and real signed-in acceptance are separately reported.
+
+## 11 October 2026 — Founder-only Business area (implementation; release evidence pending)
+
+The user selected the Seller Hub visual approach with a dedicated Business area for the three verified founder accounts only. The first bounded release replaces the existing Accounts presentation with Overview, Sellers, Stock ownership and recorded Sales & payouts. Search active accounts by name/username and inspect their exact physical inventory; retain IDs, owners, history and private API/RLS boundaries. Ordinary sellers get no Business entry or API access; generic admin/metadata claims do not bypass the verified founder roster.
+
+Reuses existing founder account APIs, adds explicit Business capability/guard and richer read-only stock fields. No new service, database migration, role enrollment, account merge, ownership change, import commit, publishing, money movement or n8n workflow. Counts are labelled stock records, not a deduplicated portfolio valuation; known overlapping Draft imports remain unreconciled. Existing founder tools remain linked with their existing scope. See `docs/FOUNDER_BUSINESS_AREA.md`; exact-head CI, deployment and real-session acceptance are separate evidence categories. Account consolidation and further editing functions remain later work.
+
+## 11 October 2026 — Immediate recognised Seller Hub intake (implementation branch; release verification pending)
+
+New explicit founder decision supersedes the all-rows-reviewed/manual-whole-batch rule: an intentional collection upload adds eligible >=95% matches directly to individually owned **Draft** inventory; uncertain rows remain for explicit confirmation and are added independently when confirmed. No Shopify publication, invented values, automatic owner transfer or financial changes.
+
+The first admission method is unique complete exact catalogue identity, recorded as a deterministic rule result, NOT an empirically calibrated probability. No fuzzy/AI/CSV confidence is trusted. Grade, language, variant and physical safety checks remain. Replays/partial imports use the existing candidate receipts and unique physical source keys. One incremental Collectr snapshot per owner remains open until exceptions are confirmed/skipped; newer files cannot bypass it.
+
+Fixes include narrow batch-processing column grants, replacing the invalid ownership-row lock with a transaction advisory lock, shared physical-copy insertion, clearer source/added/review counts and immediate inventory refresh. Existing pending real previews are not imported by deployment; their owner must explicitly choose Import/Add recognised cards. See `docs/IMMEDIATE_OWNER_IMPORTS.md` and #599. Exact-head CI, migration/deployment readback and authenticated production acceptance are separate gates; do not mark them passed merely from this entry.
+
+## 11 October 2026 — Automatic owner NET Shopify shipping charge policy (in development)
+
+- Founder confirmed **seller sees ONLY net shipping charge**. For customer-paid shipping (UK Tracked48 below £50, paid Tracked24, paid EU/international), Drop Rate retains checkout shipping and absorbs the carrier postage; seller postage debit **£0**. For **free UK Tracked48 at £50+**, actual verified Royal Mail label cost is deducted automatically from the responsible seller, no per-order consent button. Unknown actual label cost displays *Pending automatic charge*. No customer/label amounts disclosed to seller. Final carrier label purchase remains disabled until reliable carrier receipt journal/custody/FO split pilot.
+- Added immutable company-only `tcg.shopify_delivery_accounts` (one true paid customer checkout charge/order), `tcg.shopify_delivery_refunds` (unique refund evidence), and `tcg.shopify_postage_actual_costs` (unique verified carrier cost and owner net charge), all restricted by platform-admin RLS, audit triggers and immutability triggers. `tcg.owner_net_shopify_postage` SECURITY DEFINER returns only one member's actual net charge/status.
+- New `orders/paid` Shopify webhook classifies discounted real delivery + GB/Tracked48/service and net merchandise, creating **no owner SHIPPING_REVENUE**. Legacy existing orders retain their original accounting. Verified founder postage reconciliation automatically posts owner SHIPPING_COST only on eligible free UK Tracked48; company pays customer-paid labels, zero owner postage debit. Partially refunded/cancelled orders cannot add new seller postage cost.
+- Seller Hub Fulfill displays one Net shipping charge, £0 for paid or pending automatic fee for qualifying free delivery until verified; no per-order seller approval. This change needs migration-first deployment, full CI and safe pilot. See [shipping finance policy](docs/SHOPIFY_AUTOMATIC_OWNER_NET_SHIPPING.md).
+
+## 11 October 2026 — Seller Hub collection CSV/TSV Import
+
+- User requested **Inventory → Import** menu supporting Collectr, Holodex and Other. Reviewed existing founder bulk CSV importer and found it already had deterministic Collectr snapshot deltas, candidate preview, exact-file fingerprint, manually resolved/skip rows and Draft physical item commit, but all import routes were founder-admin-only and its UI was never included in Seller Hub.
+- Added an independent Seller Hub import menu + mobile-friendly lazy modal, per-format CSV/TSV upload, optional column mapping and game/language defaults, full paginated candidate preview, exact catalogue search and resolve/skip, owner-scope versioned commit, resume history and refresh inventory. Reuses the existing PostgreSQL import tables and business functions, not a new uploader.
+- New **OWNER-only** `/api/v1/owner/imports` allowlist uses `require_owner_portal_request`; original founder `/api/v1/imports` and enrichment remain platform-admin. Collectr unmatched canonical identities are held for human review for Seller Hub users; no restricted seller can create a shared canonical card silently. Skipped new Collectr rows are excluded from future snapshot baseline to prevent false duplicate/imported quantities.
+- Every committed physical copy remains owned by the importing account with a unique Inventory ID, state **DRAFT**, identity unconfirmed. No listing/Shopify sync, market valuation override, settlement payment, external seller activation, DB migration or automation created. Holodex formats may require manual header mapping; XLSX and remote account sync are not claimed. See [CSV import operating note](docs/SELLER_CSV_IMPORTS.md).
+- Tests: owner authorization, Collectr re-export/duplicate/baseline behaviour, role-scoped catalogue creation, CSV/TSV mapping, live DOM import/review flow, existing real PostgreSQL and dashboard suites. CI/deployment pending before marking live.
+
+## 11 October 2026 — Verify discounted Shopify delivery payment in seller shipping preview
+
+- Corrected the owner shipping breakdown to read `ShippingLine.discountedPriceSet` (buyer delivery payment **after** shipping promotions) and `Order.currentShippingPriceSet` (current price **after discounts and refunds**), validating against Shopify's refunded total and each current shipping line. `Order.totalShippingPriceSet` can retain an original higher rate and must not be assumed to be what was paid when Standard becomes free from £50.
+- Added regressions for free shipping discounted from a £3.95 original rate to **£0**, as well as mismatched current order/shipping line values blocking review. No carrier label, seller deduction, checkout setting or automated fulfilment was changed.
+
+## 11 October 2026 — Seller Fulfill shipping cost visibility
+
+- Founder's instruction: sellers must **see the amount they are being charged**, while customer shipping may have been paid at checkout. Added an owner-authenticated read-only preview that fetches **actual Shopify order shipping price/refunded price/service** and the seller's exact allocated `SHIPPING_REVENUE` / `SHIPPING_REFUND` ledger share. It displays a **verified** carrier expense and net shipping adjustment only if the existing postage reconciliation is complete; otherwise shows **Pending — not approved**, never £0 or a guessed carrier quote. Supports UK Tracked 48 free from £50, paid Tracked 24, paid Europe and paid selected International without hard-coding customer fees.
+- In Seller Hub `Fulfill`, seller sees customer's whole checkout delivery charge separately from **their allocated share** (one Shopify shipping payment is not copied to multiple owners), alongside true verified label cost or Pending. Pure finance / SQL owner-scope / browser tests cover free/paid, mixed owners, partial refund and missing postage.
+- **No new seller deductions, carrier label purchasing, new Shopify orders, payments or quote provider.** Shopify Shipping's supported Admin API does not provide a guaranteed upfront merchant label-price quote: this remains a transaction gate. Existing ledger rules may produce a postage shortfall on customer-paid orders with multiple senders; business policy for platform-funded shortfalls and seller charges on free-delivery orders requires explicit founder approval before changing settlement behaviour. See [seller dispatch design](docs/SELLER_DISPATCH_REVIEW_V1.md).
+
+## 11 October 2026 — Seller Hub Fulfill wizard and Shopify packing slip (print stage)
+
+- Founder requested **Fulfill** next to each seller's Shopify order, then printing both an official Shopify Shipping label and a Shopify-based packing slip, followed by dispatch. Added `Fulfill` to existing Sales → To Ship, displaying a four-stage mobile-friendly wizard (verify the exact Shopify paid order/allocated copy, print owner-only Shopify packing slip, Shopify carrier label, confirm dispatched). This reuses FastAPI, existing Shopify Admin credentials and Supabase physical allocations; no new primary navigation or service.
+- `GET /api/v1/fulfilment/to-ship/{order_item_id}/packing-slip` rechecks current Shopify Order.lineItems and open remaining FulfillmentOrder quantities, queries only the active seller's exact physical order lines and constructs a **Shopify-order-derived** print document. Native Shopify Admin's packing-slip PDF is **not publicly exposed through the supported API**, so the document is generated by Drop Rate from Shopify order identity/title/SKU without buyer addresses or other sellers' inventory. Browser prints the document directly, with no unsafe HTML interpolation.
+- **Important incomplete phase:** Shopify carrier-issued label purchasing, printing label PDF, post-print dispatch confirmation/tracking and verified postage allocation are still disabled. The native shipping label purchase API is integrated internally but cannot safely expose company-funded purchases before real rate/charge reconciliation, seller custody verification, durable duplicate-purchase protection and mixed-owner FulfillmentOrder split pilot. Printing the packing slip alone never alters Shopify or pays for a label.
+- Add backend and UI tests for paid/refunded/closed/mixed-owner cases, one-of-two pooled variant physical owner, cross-owner privacy, print-generated DOM escaping, and duplicate identities; full CI and production proof pending. No database mutation, label purchases, Shopify orders, seller balances, auto-synced fulfilments, themes or n8n flows were changed by this phase.
+
+## 11 October 2026 — Direct Shopify Shipping integration: live order verification and guarded label adapter
+
+- Founder confirmed native Royal Mail labels are purchasable inside **Drop Rate Shopify Admin**, so selected **Shopify Shipping** (no separate carrier integration). The backend already uses Shopify Admin API **2026-07**; the ChatGPT connector's older 2026-01 GraphQL schema does not expose label purchasing. Official `shippingLabelPurchase` / `ShippingLabelPurchaseResult` adapter is implemented and unit-tested **without any public purchase route**.
+- New owner-authenticated `GET /api/v1/fulfilment/shopify-status` checks the backend Shopify app credentials, store, scopes and API version. New exact-item `GET /api/v1/fulfilment/to-ship/{order_item_id}/shopify` verifies paid/cancel status and exact remaining Shopify FulfillmentOrder lines against the owner's PostgreSQL allocations; mixed-owner FO, same pooled variant sharing, partial refunds, invalid location and physical custody are blocked. No buyer address, secret, or other owner's data is exposed.
+- Existing Seller Hub **Sales → To ship** gains real **Verify Shopify** and per-card **Check Shopify** actions with authenticated read-only API, no fake Buy label or Dispatch action. A real historical Shopify order was independently read as REFUNDED/CLOSED/0 remaining; no current live PAID orders exist to perform a purchased-label pilot. More validations in [dispatch design](docs/SELLER_DISPATCH_REVIEW_V1.md).
+- **Purchase, print, tracking write and seller postage ledger remain disabled.** Shopify label purchase is an actual charge, async and may duplicate on blind retry; the Shopify Shipping label object has no auditable direct postage price. Need per-owner custody/origin, quoted-cost confirmation, persisted idempotent purchase journal, label PDF access permissions, split-owner fulfillment tests and real-order pilot before any billing or seller settlement change. CI must be green and production deployment independently verified. No Supabase schema migration, new Railway service, n8n activation or Shopify theme changes.
+
+## 10 October 2026 — Shopify owner dispatch review v1 (PR in progress)
+
+- Added owner-scoped read-only **Sales → To ship** queue inside existing Seller Hub. It lists exact paid or partly refunded Shopify physical order items from the canonical `orders → order_items → inventory_items → shopify_order_item_links` path, scopes every row to the active owner membership, and does **not** expose buyer shipping addresses or customer details.
+- Every candidate remains **REVIEW_REQUIRED** or **AWAITING_DISPATCH_SETUP**; missing exact Shopify line, partially refunded order or inconsistent physical SOLD status creates explicit review blockers. A physical storage location does not prove dispatch custody. No fake Buy label, Dispatch, PDF or tracking action; public API capabilities are explicitly false until carrier, seller identity and remote Shopify FulfillmentOrder preflights are implemented.
+- Current live database has **no eligible paid Shopify orders** (2 cancelled / 1 refunded); real end-to-end dispatch and mobile acceptance are still unverified. Adds pure blocker tests, fake owner-scoped SQL/PII tests and responsive Sales UI guard tests. No new DB migration, provider, Railway service, n8n workflow or storefront theme. See [seller dispatch v1](docs/SELLER_DISPATCH_REVIEW_V1.md).
+- Future phase: custody/address policy, carrier-issued label quote/purchase, private PDF, verified tracking/partial Shopify fulfillment, exact postage reconciliation and controlled real-order pilot. **Do not mark full fulfilment complete** until those gates pass.
+
+## 10 October 2026 — Launch shipping tariff agreed, Shopify API blocked
+
+- Founder superseded the former **free UK shipping from £10** idea: launch target is **UK Standard £3.95 below £50 and FREE from £50**, UK Express £6.99, EU £14.99 and existing International £23.99, with *no free international threshold initially*. Shopify remains the sole source of buyer checkout rates. The £50 UK free condition and paid international options already exist.
+- Attempted an exact UK-only `deliveryProfileUpdate` (4.99 → 3.95, preserving all other rates). Shopify rejected the write: `This method definition cannot be updated because it uses new configurations that are only available through Shopify's updated APIs.` The connected schema exposes legacy fields only. **No Shopify price was changed**: live UK Standard still **£4.99**, free from £50, Express £6.99, EU £14.99, International £23.99, confirmed by full independent readback. Admin/updated-API edit and UK £49.99/£50 checkout tests remain mandatory.
+- Added pure multi-seller/postage examples to existing deterministic finance tests. Seller-funded *actual* label expense is assigned only to the verified physical sender; customer shipping revenue is allocated once; a missing invoice blocks settlement. The shown Royal Mail 50g/£2.95 calculator is illustrative, not an approved packing weight/quote: 25×2.3g cards alone are 57.5g. No carrier labels/accounts, addresses, owner deductions, payments, production database, shipping configurations or new automation were changed. See [shipping plan](docs/SELLER_WHATNOT_AND_SHIPPING_FULFILLMENT_PLAN.md).
+
+## 10 October 2026 — Seller Hub quantity-control video bug: proposed count and actual save
+
+- In the supplied 9.6s signed-in iPhone recording, the OP17 group shows saved Qty 2. Tapping + or − only swaps a confirmation message; the central number remains 2, looking broken. Root cause: `owner-inventory.js` renders `copies.length` as immutable text and never shows the proposed adjustment. The confirmation routes exist, but this presentation hid the pending state.
+- Fix the existing item dialog (no new API/DB): + previews **3, not saved**, − previews **1, not saved** for two owned copies; opposite arrow or Cancel returns to **2** with no network mutation. Exactly **one** separately tracked physical copy is changed per confirmation. Save returns from the owner-scoped existing `POST /copies` or `POST /withdraw`, then re-fetches saved quantity. Failed/ambiguous saves re-read actual owner stock and preserve the existing idempotent add-copy retry key.
+- Newly added copies remain separate **DRAFT / PERSONAL_COLLECTION** items awaiting per-copy approval; quantity **on Shopify does not rise merely by pressing +**. The details view distinguishes awaiting approval from approved physical units, and Shopify stock is still governed by existing publication verification. Withdrawal continues through sale-intent protection and Shopify/other-channel reconciliation, not a guessed counter decrement.
+- Unit/JSDOM, Android-sized and iPhone-sized Chromium fixture cases cover immediate preview, cancel/undo, no request until confirmation, owner-specific physical withdrawal, after-save server reread, no duplicate POST and failure replay. No live physical stock, Shopify inventory, payments, other owners, theme or settings are mutated during testing. Exact-head CI and deployment/read-back are separate acceptance gates.
+
+## 10 October 2026 — Fresh Phase 2 system audit and shipping API boundary
+
+- Updated the existing [Phase 2 production system map](docs/PHASE2_SYSTEM_MAP.md) rather than creating a duplicate: seven Railway services; 90 `tcg` Supabase base tables; 511 tracked physical items, 327 stored valuations and 507 PUBLISHED physical Shopify links. Both PSA-labelled prototype services remain retained per the founder's previous decision; diagnostics are not silently deleted.
+- Independently verified the OP17 Shopify quantity-two listing at £10 with distinct preserved owner/inventory IDs and historic variant aliases. Reconfirmed UK delivery at £4.99 Standard, £6.99 Express, and free Standard at **£50 (not yet £10)**. The connected Shopify API is not suitable for a safe legacy-condition in-place change; documented a UK-only settings/API gate with £9.99/£10.00 checkout acceptance. No production state, customer orders, delivery zones, payouts or storefront publication changed.
+
+## 10 October 2026 — Customer-paid delivery and actual seller postage allocation
+
+- Founder confirmed: Shopify sets the customer's delivery charge; under £10 orders pay delivery, and when shipping is free the **actual carrier label price** is deducted from the responsible seller's proceeds. Customer-paid shipping contributes `SHIPPING_REVENUE` and actual label costs `SHIPPING_COST`, never a duplicate flat £4.99 debit. Existing deterministic finance functions already support this model; new pure regression tests cover free, paid, multiple-owner, shared-vs-separate parcels and still-unreconciled postage.
+- Read-only Shopify live audit: General profile, UK Standard **£4.99**, Express **£6.99**, free Standard **currently £50**; EU **£14.99**, other international **£23.99**. **£10 threshold NOT live**. Shopify rejected the narrow `deliveryProfileUpdate` condition edit, and no shipping rates have been changed; UK versus worldwide applicability requires user confirmation before another live attempt.
+- Shopify's stable API 2026-07 adds official asynchronous `shippingLabelPurchase` support, but the connected Shopify GraphQL schema does **not** expose the mutation; merchant terms, label purchase permission, shipping origin/custody and cost-before-purchase controls remain unsatisfied. The Seller Hub carrier-issued label and Shopify fulfilment workflow is still **NOT IMPLEMENTED** and must not be presented as operational. No address exposure, label charge, fulfilment mutation or vendor app installation occurred.
+- Details in [shipping and Whatnot integration design](docs/SELLER_WHATNOT_AND_SHIPPING_FULFILLMENT_PLAN.md); no new DB tables, secrets, n8n workflows or inventory changes in this policy/test release.
+
+## 10 October 2026 — Whatnot seller-account connection correction and shipping decision gate
+
+- Removed the misleading Seller Hub Whatnot **Set up** action pointing to the Shopify app for the **company's unified Drop Rate store**. Owners must eventually authorise **their own Whatnot accounts** via seller-specific OAuth. Official Seller API is developer preview and does not accept new applicants; no credentials or merchant API access are available. Current state reports `DEVELOPER_ACCESS_REQUIRED`, `SELLER_OAUTH`, `sync_enabled=false`, with honest `Not available yet` UI. No fake connected listings or user credentials collected.
+- Completed a read-only Shopify/DB shipping audit: Shopify grants `write_merchant_managed_fulfillment_orders`/read scopes, ownership and order-item allocation are deterministic in Supabase; however, there is **no owner shipment/label ledger**, no UK label provider/credentials on Railway, no approved label cost bearer, and no independent custody/dispatch policy for seller-held vs Drop Rate-held consignments. Real label purchase, PDF printing, carrier tracking and Shopify partial fulfilment remain **NOT IMPLEMENTED** and must not be presented as operational.
+- The Phase 2 storefront-first launch/efficiency gates still apply; any activated shipping integration requires provider, payer, owner custody, permissions, quotes, refund/duplicate testing and explicit pilot authorisation. Plan: [seller Whatnot and shipping fulfilment design](docs/SELLER_WHATNOT_AND_SHIPPING_FULFILLMENT_PLAN.md). No new Railway service, automation, DB schema, Shopify theme or third-party owner activation.
+
+## 10 October 2026 — Set artwork coverage audit and backend identity contract
+
+- PR #577 previously corrected Seller Hub set-tile layout and removed the random-card-image fallback. A 10 October read-only Supabase audit still found only **161 / 1,449 provider/language set records** with matching exact-title logos: Pokémon English 159/220, Japanese 0/186, CardTrader unknown-language 0/459, One Piece 2/201, Dragon Ball 0/302, Naruto 0/81. These are catalogue *source records*, not deduplicated physical releases. The generic Eevee Grove A3b title image is due to a missing TCGdex logo mapping, despite external official artwork.
+- The follow-up adds a registry mirroring existing permitted TCGdex and checked-in publisher set images, a deterministic backend set-artwork resolver, typed catalogue responses, and founder-only `/api/v1/catalogue-browser/set-artwork-coverage` diagnostics. New indexed images still require explicit set/game/language matching. Unknown assets fail safely to the game mark/Drop Rate placeholder. Original source/provenance is **not** a commercial licence grant. No DB, Shopify, inventory, theme, payout or new provider changes.
+- The existing TCGdex refresh updates both backend registry and browser lookup; parity, RBAC, URL safety, no-card-preview and UI regressions have added tests. The source-by-source backlog, especially Japanese Pokémon, One Piece, Dragon Ball and Naruto, remains **open**, not falsely claimed complete. Eevee Grove's archived official logo is listed for rights review rather than silently embedded from a fair-use host. See [coverage and sourcing record](docs/CATALOGUE_SET_ARTWORK_COVERAGE.md).
+- The unrelated two-identical-OP17-packs issue is still tracked separately in #576; quantity pooling must not be simulated by archiving a Shopify product without deterministic Supabase/order allocations. This work does not modify OP17.
+- The Brand Redesign publishing gate remains in place. CI, production deployment/readback and signed-in handset checks remain required for the new continuation.
+
+## 10 October 2026 — Two OP-17 packs published and branding verified
+
+- Both requested Japanese OP-17 packs are **ACTIVE and published to Online Store**, at **£10 each**, with available/on-hand quantity **1 per exact listing** and zero committed. Shopify readback confirms the original product/variant IDs and SKUs, the single approved official image, and Sealed/One Piece collection membership. Backend links and the automatic worker are COMPLETE / PUBLISHED, with zero publication failures.
+- The original copy remains `d715b0e9-b3c4-451b-a909-5fa233f8a0e5`; the one explicitly requested additional copy is `55fe97fc-7bfa-4a73-a269-664ec56d3004`. Both remain with owner `cba99d5c-fedf-4544-86aa-ab9a2785860f`, with unknown cost/storage preserved. The 509 unrelated inventory records retain fingerprint `b6c8fdfacd3b3c5b2890f44ec4adcf8e`.
+- PR #574 merged as `a5adc8d46a7b0e0b3c144a6668c9d3714ad7ebc2` after all five exact-head CI jobs passed, including actual SQL publication/owner/actor tests. Migration `20261010154057_shopify_publication_actor` is applied with runtime execute retained and anonymous execute denied. Railway `000c5590-7fba-4ecb-bc6f-b51f2ffa2069` reached SUCCESS at 15:42:03 UTC; pre-deploy passed **5,070 tests** and readiness returned 200.
+- The [listing brand standard](docs/SHOPIFY_BRAND_STANDARD.md) matches existing sealed-product copy and image presentation. Publication rejects changed copy/SEO/markup and any missing or unexpected image. The exact artwork was visually reviewed against representative existing products; no whole-store visual-audit claim is made.
+- **Remaining setup:** Drop Rate Backend lacks Shopify `write_files`. Existing approved associations are safely reused; automatic attachment of new files requires a merchant permission grant and otherwise records PERMISSION_REQUIRED. No permission was silently granted, no new services or theme launch occurred, and no fresh signed-in phone acceptance is claimed. Full [publication evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md) retains the failures and repairs.
+
+## 10 October 2026 — Seller publication actor correction
+
+- PR #573 deployed as `6062f10aae62067056b4a1048011329070c68b66`; all six CI jobs passed, Railway `6c1afe0d-755e-4942-a2f4-5f61dd5798bf` reached SUCCESS at 15:32:37 UTC, 5,070 pre-deploy tests passed and readiness returned 200. The exact OP-17 drafts now pass remote brand/stock verification with the approved image, £10 and quantity one.
+- Persistence then correctly refused the founder actor under an obsolete rule requiring a PLATFORM_ADMIN membership inside the seller's owner account. The existing platform authority deliberately requires a founder to have exactly one founder membership, so adding a seller membership would invalidate it.
+- Align both draft/published link functions with `tcg.is_platform_admin()` and require the supplied actor to equal the authenticated `tcg.current_user_id()`. Retain exact item/owner/version/sale-intent, remote product identity, event authorization and audit guards. No memberships, owners, RLS policies, grants or historical links change.
+- Extend the disposable PostgreSQL gate to reproduce the original failure and exercise actual link functions as `tcg_api`, including cross-owner founder publication, spoofed actors, disabled founders, wrong owners, stale versions, changed intent, wrong remote IDs, retries and audits. Migration application and final publication remain pending. See [evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md).
+
+## 10 October 2026 — Approved-image retry and Shopify permission diagnosis
+
+- PR #572 is deployed as `fb952da10921d26b8766aa8e4753af56887cf6c2`; all eight CI jobs passed, Railway `96921431-1654-488d-a929-ae3a82b89415` reached SUCCESS at 15:22:10 UTC, pre-deploy passed 5,063 tests and readiness returned 200. Branding uses the shared existing copy template and an exact approved-gallery check, including Shopify-equivalent HTML serialization.
+- The resumed two-pack attempt exposed a separate missing permission: installed **Drop Rate Backend** lacks `write_files`. The explicitly approved file was attached to both existing drafts through the authorized Shopify connection and read back with its original media ID. No new products/copies or backend permission grants were made.
+- Publication now reads existing product-media associations before writing. An exact existing association is reused; a missing association still requires `write_files`, otherwise the worker records `PERMISSION_REQUIRED` / `MISSING_WRITE_FILES_SCOPE` and remains incomplete. Exact full-gallery and copy readback still gate publication. This does not grant or bypass the missing scope; automatic attachment of new media needs the merchant to grant it.
+- Follow-up tests/deployment and final two-pack publication remain pending. See [release evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md).
+
+## 10 October 2026 — OP-17 release resumed; automatic collection repair
+
+- The seller requires strict consistency with existing Shopify products. Compared the OP-17 title/copy and exact artwork with live sealed-product references; preserve the shared template and clean product-led imagery. Add a durable [listing brand standard](docs/SHOPIFY_BRAND_STANDARD.md) and reject any unexpected Shopify gallery media, in addition to the existing title/description/SEO checks. Regression cases cover copy drift and missing/additional images.
+- PR #571 merged as `5759a8b4a7b28ba68f6f3045a0570421d943e628`; all five CI gates passed. Migration `20261010145452_seller_held_sealed_publication` is applied. Railway `80f7bf34-ee2d-4c9f-9cb0-c308828b9e1f` reached SUCCESS; pre-deploy passed 5,050 backend tests, readiness returned 200 and live Seller Hub HTML/JS matched the release.
+- Registered the exact READY OP-17 official catalogue image for the requesting seller. Added only the missing second physical copy under a persisted receipt; both are APPROVED / FOR_SALE at 1000p with unknown acquisition costs/storage retained. The exact-product shipping profile records a **15 g nominal product-weight estimate**, including measurement-source URLs and its exclusion of mailing packaging.
+- The first live sync created two drafts but Shopify rejected manual assignment to the rule-based Sealed/One Piece collections. Those drafts remain unpublished, have zero stock, and are reused by deterministic handles on retry. Repair collection discovery to identify automatic collections and leave membership to Shopify; the existing draft/final readback must still verify every required collection. Heartbeats now report incomplete publication passes rather than healthy price-only results.
+- Regression coverage includes automatic versus manual collections, missing automatic membership failing before publication, existing draft reuse and publication failures reflected in the heartbeat. Release/readback for this follow-up remains pending. No extra physical copies, store-price changes, unrelated seller activation or theme launch. See [evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md).
+
+## 10 October 2026 — Seller-held sealed publication correction
+
+- The seller explicitly confirmed two Japanese OP-17 packs at the saved £10 price and reuse of the exact Seller Hub image. Replace warehouse-intake review with owner-scoped self-approval for verified intact sealed consignments; retain exact physical ownership, identity, media readiness and sale intent.
+- Unknown acquisition cost/location remain unknown. Shopify omits cost; a restricted database exception preserves NULL in the immutable sale snapshot, and finance reports unknown profit without changing commission or payout proceeds. No historical financial records are rewritten.
+- All 5,050 backend tests and 24 inventory UI scenarios pass locally. Exact-head CI, real PostgreSQL finance/owner checks, migration, deployment and two-copy publication remain pending. The exact official image is READY in Shopify; the owner/product shipping configuration is still being resolved. See [scope and evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md).
+- The Brand Redesign hold and other sellers remain unchanged.
+
+## 10 October 2026 — Seller inventory controls deployed and verified
+
+- The reported seller Inventory screen was read-only: no item details, price/approval actions or stock controls. Add an accessible detail dialog from grid/list views, exact reference artwork fallback, seller price editing, sale approval/review requests and the existing Shopify sync action. Keep founder-only physical approval and listing-media checks intact.
+- Quantity changes create separately tracked unapproved copies with persisted retry receipts or withdraw the exact selected copy through existing channel protection before reducing active stock. Reject stale versions, cross-owner access and sold/reserved edits; never duplicate graded certificates or delete history.
+- The pictured OP-17 Japanese pack has no assigned media, selling price, acquisition cost or storage location. An idempotent profile-only migration attaches the inspected official single-pack reference image; it does not approve a listing photo. Readiness blockers are visible in the detail view.
+- PR #569 merged as `a40b733b7b0ab8d741840bcf5d57d2c965d1545b`. All five exact-head CI jobs passed: **5,030 backend tests**, full dashboard UI (23 new inventory scenarios), n8n image, real PostgreSQL/RLS and Chromium at 430px/1440px. Railway `ed11d7e3-3f23-4558-ac56-d9e881a88cb5` reached SUCCESS at 14:18:49 UTC, including the unchanged pre-deploy gates. Same-account token refresh preserves inventory reload; logout/account changes discard stale responses.
+- The reviewed artwork migration is recorded as `20261010141736_inventory_op17_reference_artwork`. The exact live reference query now returns the official Japanese single-pack image. After release, all **510** physical items retain the same ownership/Store Price/status/sale-intent fingerprint; **447** media approvals remain unchanged. Health/readiness and page/assets return 200; deployed JS/CSS exactly match the release, and unauthenticated detail/artwork requests return 401.
+- The reported copy still requires a selling price, intake review and an approved listing photo before publication. Browser checks used isolated fixtures; no fresh signed-in iPhone acceptance or real inventory mutation is claimed. See [scope and release evidence](docs/SELLER_INVENTORY_CONTROLS.md). No new service/provider or theme publication.
+
+## 10 October 2026 — Market continuation deployed and verified
+
+- PR #567 merged as `926745d2186ea37429601fa48c9c78fc8e6df257`. Railway `01247982-7743-422c-929f-9d5faf9c1bd2` reached SUCCESS at 13:29:36 UTC; readiness is 200 and unauthenticated catalogue coverage is rejected with 401. All four exact-head CI workflows / six jobs passed, including three real PostgreSQL suites. CI and unchanged pre-deploy gates passed **4,995 backend tests**; all dashboard suites passed.
+- Revision 7 completed at 13:32:37 UTC with zero provider failures: all 23,770 English Pokémon, 4,527 English One Piece and 13,362 English Dragon Ball references were rechecked. Live coverage is **31,537 / 69,538 cards** (up 1,686) and **2,725 / 3,879 sealed references**. The actual Seller Hub catalogue query returns the recovered guides on four previously unpriced, unowned example cards. All reference identity fields remain complete.
+- Physical valuation completed at 13:33:05 UTC: 244 guide bases across 463 canonical products, zero provider calls and zero Store Price updates. Exact before/after comparison finds **327 / 510 inventory items valued**, three newly valued copies, zero ownership/Store Price/status changes and zero changes to previously valued amounts or recommended prices. The receipt's 76 inventory updates include refreshed existing evidence, not 76 newly valued copies.
+- The Shopify worker is healthy. Fresh remote checks of eight active listings across all four games match their exact linked variant/SKU and approved Store Price; the database records no selling-price differences. Daily refresh remains at 03:00 Europe/London, with immediate processing after seller For Sale approval and the minute recovery sweep.
+- Remaining: **38,001 card references and 183 inventory copies lack usable values**; missing exact printing/language/grade sources, unsupported Japanese/Naruto references and eBay quota remain explicit. No fresh signed-in iPhone acceptance is claimed. The Brand Redesign launch hold, financial controls and seller asking-price policy remain intact. See [verified continuation evidence](docs/CATALOGUE_MARKET_CONTINUATION.md).
+
+## 10 October 2026 — Market continuation: numbered and supplemental Dragon Ball releases
+
+- Verified the previous handoff: PR #566 (`2267946`) is live on Railway `d6001a3d-c949-4254-8f10-8df8b347aa4c`, SUCCESS. Revision 6 finished at 12:53:20 UTC with no provider failures; coverage is **29,851 / 69,538 card references** and **2,725 / 3,879 sealed references**. All reference identity fields are present. Physical inventory remains 324/510 valued. The latest Shopify receipt is healthy, with no recorded approved Store Price differences.
+- Fixed omitted `Series N Booster` names and full-release joins through ordinary Dragon Ball booster/box packaging. Added explicit Fusion World Manga/Story release/code parsing with reference-only physical guards. A full read-only replay finds **1,686 additional priced references** (1,587 Masters, 99 Fusion), retaining every one of the existing 1,841 Dragon Ball matches with identical marketplace IDs. No Story Booster increase is claimed.
+- Coverage now rejects changed-identity bulk guides using the same condition as Seller Hub. Revision 7 resumes the existing daily worker using persisted detailed-cache progress. No new provider, service, migration, seller asking-price policy or storefront publication.
+- Local verification: **4,995 backend tests**, all dashboard suites (39 catalogue scenarios), and the current first-party export/ECB replay passed. Exact-head CI, real PostgreSQL and production read-back remain required at this checkpoint. See [continuation evidence](docs/CATALOGUE_MARKET_CONTINUATION.md).
+
+## 10 October 2026 — Starter references and full-catalogue catch-up
+
+- A further read-only replay identifies 214 English One Piece and 86 Masters starter-card references omitted by booster-only release matching. Extend exact full-release/category matching for starter catalogues; duplicate expansions, regional products, alternate printings and incorrect numbers remain blocked. Starter guides explicitly stay outside physical valuation authority because deck finish distributions differ.
+- Reference job revision 6 adds those matches. Successful bounded pages continue on the next worker tick rather than waiting the failure backoff; actual provider failures and interrupted work still wait an hour. Previously completed revision-3 card checks are reused after deployment.
+- Follow-up exact-head CI and production read-back are required; the preceding database-wide deployment and measured checkpoint remain documented below.
+
+## 10 October 2026 — Database-wide reference fix live
+
+- PR #565 deployed as `5b991e959a25ecd2912e4da892dc7d1a61a67849`, Railway `ad6fb48b-897c-4771-a69c-14e3c8f63c7a` SUCCESS at 12:23 UTC. All six exact-head checks passed, including three real PostgreSQL jobs. CI and unchanged Railway pre-deploy gates each passed **4,929 backend tests**; dashboard UI includes 39 catalogue scenarios.
+- The independent direct pass checked **all 23,770 English Pokémon references** and cached **9,258 guides**. Live total card-reference pricing rose **24,928 → 29,185 of 69,538**, including **4,257 newly priced references**. These counts describe the shared database, not inventory. All 69,538 card references and 3,879 sealed references have complete identifying/source fields in the full coverage receipt.
+- Readiness is 200, the deployed catalogue JavaScript exactly matches the tested source and is served with `no-store`, and unauthenticated coverage access is rejected with 401. The new guide table has forced RLS and no anonymous/authenticated reads or API deletes; security findings are unchanged. No Railway changes remain staged.
+- The revised detailed TCGdex pass is still RUNNING; 2,600 revision-3 checks had persisted at read-back. Do not claim the full detailed backfill is finished. Live read-only provider replay recovered labelled unlimited/stamped Charizard, Pikachu and Servine references. The existing eBay sold probe still reports a provider credit/rate limit.
+- All owner/Store Price/status fields retain fingerprint `7db86dd9fbdb662b3f766ea08c14cee8`. Daily schedules, Shopify approval gates and the unpublished theme are unchanged. **40,353 card references still lack a GBP guide at this checkpoint**; unsupported sources, unresolved printing mappings and digital Pocket references remain explicit. See [full evidence and scope](docs/DATABASE_WIDE_REFERENCE_PRICING.md).
+
+## 10 October 2026 — Entire reference catalogue pricing correction
+
+- The acceptance scope is all 69,538 card references and 3,879 sealed references, independent of inventory. All card references have provider/printing/set/name/number/source fields; baseline GBP coverage is 24,928 cards. The 463 canonical products are not the whole database.
+- Add independent daily Cardmarket Pokémon catalogue guides for unique names in complete matching releases, plus named TCGdex variant references. Preserve original source/FX evidence, separate physical pricing authority, immutable history and RLS. The complete English source replay finds 9,258 guides, including 4,257 previously unpriced references; deployment read-back remains required.
+- Product Details exposes card/set references, marketplace IDs and variant labels. An authenticated full-catalogue coverage read reports every game/language, including unsupported and stale records. Existing eBay/physical valuation, Store Prices, Shopify approval gates and unpublished Brand Redesign are unchanged.
+- Verification and exact-head CI/deployment gates are in progress. See [database-wide reference pricing](docs/DATABASE_WIDE_REFERENCE_PRICING.md) for matching rules, tests and the remaining Japanese/Naruto/digital-reference limits.
+
+## 10 October 2026 — Pricing repairs verified in production
+
+- PRs #562 and #563 are merged. Final application `6248f03f1820ad8485dfb0b47297f837f1c61860` is live on Railway `38d759f7-4cf4-4216-b284-015fab10e0f2` (SUCCESS, readiness 200). All four follow-up CI workflows passed, including actual PostgreSQL; both CI and pre-deploy passed **4,893 backend tests**. Infrastructure configuration and original financial/social checks are unchanged, with nothing staged.
+- Cardmarket revision 4 completed at 01:24:35 UTC: 463 canonical products checked, 241 guide bases, eight further shared snapshots and six additional inventory estimates. Overall inventory coverage improved **251 → 324 of 510** (73 newly valued copies). Exact comparison confirms zero owner/Store Price/status changes across all 510 and zero value/recommended-price/snapshot changes among all prior 251 or the intermediate 318 valued copies.
+- Reference pricing has **24,928 priced card references**, including 1,823 One Piece and 1,755 Dragon Ball. Sealed revision 3 completed at 01:24:55 UTC: all 3,878 sealed references checked, **2,717 priced**, including 246 Masters and 66 Fusion World, zero provider failures. The complete 73,416-reference coverage audit followed at 01:25:01 UTC.
+- **186 physical copies remain pending:** One Piece 139, Masters 16, Fusion World 6 and Pokémon 25. Exact printing/grade/language mappings, source quotes and eBay sold-feed capacity remain gaps; no universal-pricing claim. Guides retain the existing v4 calculation and explicit Cardmarket estimate label, original source dates, no invented sold transactions and no automatic publication eligibility.
+- Daily refresh remains at 03:00 Europe/London with recovery; approved seller Shopify processing is unchanged. No new paid service, selling-price change or theme publication. No fresh signed-in iPhone acceptance is claimed. See [complete release evidence](docs/CARDMARKET_MULTIGAME_REPAIR.md).
+
+## 10 October 2026 — Multi-game prices live; sealed follow-up in review
+
+- PR #562 deployed as `377c571a262332d962c5b9a3bf07b179c0b5f3fc` on Railway `25a62932-d944-428d-bbd8-423e9696682f` (SUCCESS, readiness 200). All five exact-head CI workflows passed, including PostgreSQL; CI and Railway each passed 4,874 backend tests. The additive migration is applied with SECURITY INVOKER, fixed search paths and no anonymous/authenticated execute grant. Security findings are unchanged from baseline.
+- The reference refresh completed at 01:15:51 UTC: **1,823 One Piece, 1,124 Masters and 631 Fusion World references priced**, with zero provider failures. The full 463-product Cardmarket calculation completed at 01:16:15 UTC: 233 guide bases, 69 new snapshots, **67 newly valued inventory copies**, zero provider calls and zero Store Price updates.
+- Inventory is now **318/510 valued**, up from 251. All 510 owner/Store Price/status fields and all 251 prior value/recommended-price/snapshot fields are identical in an exact row comparison. The remaining 192 copies are One Piece 145, Masters 16, Fusion World 6 and Pokémon 25; this is not universal pricing coverage.
+- Follow-up repairs the existing sealed worker's Dragon Ball exclusion using already-saved explicit CardTrader/Cardmarket IDs, matching packaging categories and one shared game-13 download. A source replay finds 312 guides; production read-back is still required. Repeated matching collector numbers in imported card titles are normalized for comparison only; conflicting numbers, edition qualifiers and duplicate printing candidates remain blocked. No canonical identity is edited.
+- Daily refresh remains 03:00 Europe/London with recovery. Seller prices/publication gates are unchanged, with no new paid provider, service or storefront launch. See [repair evidence and limits](docs/CARDMARKET_MULTIGAME_REPAIR.md).
+
+## 10 October 2026 — Multi-game pricing repair: release candidate
+
+- Confirmed Pokémon-only physical Cardmarket fallback, excluded older One Piece checklists and absent Dragon Ball bulk-price ingestion. Extend the existing daily pipeline with full-release/unique-print checks and separate normal/foil fields. Preserve One Piece rarity from existing full-pack downloads.
+- Source replay finds 1,823 One Piece and 1,755 Dragon Ball reference guides. Physical estimates stay limited to exact supported English printings and confirmed ungraded Near Mint stock, with existing eBay priority. Ambiguous variants, Japanese translation/mapping gaps, slabs and inconsistent imported finishes remain unknown.
+- Add a SECURITY INVOKER reference-cache/identity guard and enforce review mappings across providers. Original EUR/ECB evidence, zero-sale guide labels, owner isolation and seller Store Prices remain intact. No new service, paid plan or theme publication.
+- Targeted and full backend tests passed locally before the final added foil-rarity guard; final CI, real PostgreSQL, migration, deployment and live read-back are release gates. See [multi-game repair evidence](docs/CARDMARKET_MULTIGAME_REPAIR.md).
+
+## 10 October 2026 — Recorded catalogue repair deployed and verified
+
+- PR #560 is merged as `e64a41122dc01c7862d19a0fbe4a1135ee5df070`. Railway deployment `b569a463-a4c8-4d53-991a-ec69dbbc30ca` is SUCCESS; readiness is 200 and the deployed browser asset matches the repository. Four current-head CI workflows passed, including real PostgreSQL; CI and Railway each passed 4,842 backend tests. Catalogue UI coverage is 37 scenarios, with 2,048 generated price-identity collision cases in the backend suite.
+- Official discovery completed at 00:23:09 UTC: 520 printings across OP-15/EB04, OP-16 and OP-17, adding 365 missing English references. Daily reference pricing completed at 00:23:19 UTC with 316 Cardmarket guides and no provider failures. Per-set priced counts are 122/196, 97/155 and 97/169. Database-wide reference scope is 69,538 cards plus 3,878 sealed products.
+- The recorded `Eb04 007` query now returns three English and two Japanese Zoro printings without the unrelated Bonney. The English SP has a £277.01 Cardmarket reference (product 904150, expansion 6492), independently of inventory. Ambiguous variants remain unavailable. Original EUR, source time and ECB conversion are preserved.
+- Inventory stays 510 copies / 251 valued, with owner/Store Price/status fingerprint unchanged at `ab62e1122c7e51df7a2288288a3c3005`. The existing daily Pokémon worker refreshed 95 guide snapshots for the new UTC day; an audit confirms zero amount or quote-evidence changes. No new service, paid plan, schema migration or theme publication occurred.
+- Image payloads sampled are 71–82% smaller; loaded nodes persist during pagination. The available browser remains signed out, so fresh iPhone end-to-end timing is outstanding. Older One Piece, Dragon Ball, Naruto and ambiguous printing mappings remain explicit pricing work. See [production evidence and limits](docs/CATALOGUE_MOBILE_REPAIR.md).
+
+## 10 October 2026 — Recorded catalogue failures: release candidate
+
+- Reproduced the two iPhone recordings against matching Railway request logs: reference images had a 1,728 ms median, the English EB04-007 Zoro printings were absent, and the newest reference rows had no pricing source. The earlier Pokémon price fill is now COMPLETE: 11,910 English and 9,440 Japanese references priced.
+- Fixes preserve images on pagination, add bounded authenticated WebP thumbnails and shared HTTP connections, discover released OP-15+ English boosters, accept promo numbers and make full collector-number search exact. Rarity is searchable. Daily Cardmarket reference pricing now has an unambiguous release/printing matcher and protects against changed identities.
+- Live source dry run: 520 official printings across three sets, 316 unambiguous Cardmarket matches, including the English Zoro SP. These are not yet production-refresh counts. Images tested are 71–82% smaller; cold mobile timing still requires deployed verification.
+- Local full backend/UI suites pass, including 2,048 generated identity/collision cases and 37 catalogue UI scenarios. Current-head CI, real PostgreSQL and production read-back remain required before claiming release. No inventory/Store Price changes, new service, schema migration or theme publication are intended. See [recorded catalogue repair](docs/CATALOGUE_MOBILE_REPAIR.md) for evidence and the remaining multi-game price gaps.
+
+## 9 October 2026 — Cardmarket fallback released and verified
+
+- PRs #557 and #558 are merged. Final application commit `2d3d519e6624195581a56d191e5f15d1eb73e25a` is live on Railway deployment `526cd73a-947d-4aaa-a06a-c9b4153c8e8c` with SUCCESS status and readiness 200. Current-head backend/UI and real PostgreSQL checks passed, as did all 2,759 pre-deploy tests and the original financial checks. Original infrastructure configuration remains intact and nothing is staged.
+- Revision 2's CARDMARKET_VALUES receipt completed at 20:10:23 UTC: all 463 canonical products checked, 164 exact guide bases/snapshots saved, 95 inventory copies updated, zero provider calls and zero Store Price updates. Current inventory coverage is **251/510**, up from 156/510. Shared catalogue evidence now covers 224 distinct products across both sources; guides remain independent of ownership.
+- All 156 previously valued copies retained the same amounts and snapshot IDs (fingerprint `0f4f76adfd4a711cd0e1735c8ab66e4b`). All 510 copies retain owner/Store Price/status fingerprint `ab62e1122c7e51df7a2288288a3c3005`. The 95 new estimates have zero sold observations, no automatic publication, confidence 0.4904, matching current catalogue digests and valid shared-snapshot links. Their original source times remain 09:52 UTC, not the calculation time. The 164 new public observations retain unspecified source language/condition and are PRICE_GUIDE evidence.
+- Pending physical copies remain **259**: One Piece 199, Dragon Ball Super 29, Pokémon 25 and Fusion World 6. Other-game mappings, grades, unsupported finishes and missing exact guides remain explicit gaps. The cache contains Cardmarket guides for 11,910 English and 4,590 Japanese Pokémon references plus 2,403 sealed references. The expanded reference fill is still incomplete after deployment interruption; its existing hourly continuation remains scheduled.
+- Daily maintenance remains due at 03:00 Europe/London; approved For-sale Shopify processing retains its immediate wake-up and minute recovery pass. Cardmarket changes did not change seller asking prices or trigger price publication. Shopify read-back confirms Brand Redesign UNPUBLISHED and Horizon MAIN. No fresh signed-in/iPhone acceptance is claimed. See [Cardmarket release evidence](docs/CARDMARKET_VALUATIONS.md).
+
+## 9 October 2026 — Cardmarket production permission correction
+
+- PR #557 deployed successfully as `b0e9668` on `999d9e89-b8fd-4c45-be4c-8b172531a5bd` after all four current-head workflows, 2,759 backend tests and UI suites passed. The migration is applied, readiness is 200 and Brand Redesign remains UNPUBLISHED.
+- The first calculation exposed a fixture/production grant mismatch: a catalogue `FOR SHARE` requires UPDATE, while canonical products are read-only to the API. The first product transaction rolled back; inventory remains 156/510 valued and there are zero committed Cardmarket catalogue snapshots. The failed receipt is retained.
+- Revision 2 retains inventory locking and adds a catalogue ID/digest condition to the final owner/version-checked update, without expanding permissions. The real PostgreSQL fixture now uses production-style limited grants and checks a printing changed between selection and saving. The corrected head still requires CI, deployment and actual coverage read-back.
+
+## 9 October 2026 — Cardmarket valuation fallback implementation
+
+- The founder requested Cardmarket as an additional valuation source. The existing v4 engine now receives exact cached Cardmarket printing/finish guides through a catalogue-wide calculation and a labelled physical-inventory fallback. Fresh exact eBay values take priority; slabs, worn/unknown-condition copies, mismatched languages, ambiguous references and pending provider mappings are excluded. No new paid API, canonical approval or Store Price change.
+- Cardmarket guides retain EUR/ECB provenance, mixed-language/condition limitations and original dates. They have zero sold transactions, confidence capped at 0.60 and automatic publication disabled. Public catalogue snapshots remain independent of inventory. Cached intake/manual recalculation works without another provider request, and daily receipts make coverage explicit.
+- Inventory rows and portfolio totals label/count Cardmarket estimates. The source-labelled catalogue reader is security-invoker; the prior eBay helper remains intact. A pre-release read-only match check found 165 candidate catalogue guides before the final rarity check; actual post-deploy inventory coverage must be measured separately.
+- Focused and full backend tests plus 34 catalogue UI scenarios pass locally. Expanded real PostgreSQL CI covers both workers, unowned products, stale updates, owner isolation, retry deduplication and immutable history. Current-head CI, migration, deployment and live read-back remain release gates. See [Cardmarket valuations](docs/CARDMARKET_VALUATIONS.md).
+
+## 9 October 2026 — Catalogue refresh release verified
+
+- PRs #551–#555 are merged. Final application commit `18c5a4e2272f948962840581337335037aa753de` deployed successfully as `4280c6a4-87b7-4a6a-9ea3-ba59c2fa159b`. Current-head Backend checks, Catalogue maintenance persistence and Independent catalogue valuations passed. Railway pre-deploy passed 2,728 tests; readiness returned 200 in deployment logs. Original financial/social checks and infrastructure configuration remain intact, with no staged changes.
+- The revision-2 shared calculation completed at 19:16:47 UTC: 463 canonical products checked, 129 valued products/bases, 334 without sufficient current exact evidence, zero inventory rows read and zero provider calls. The 125 raw/sealed catalogue identities available before activation exactly matched the new reader's identities (zero lost). After that verification, `activate_catalogue_reference_values` was applied from `20261009185130_activate_catalogue_reference_values.sql`.
+- Live function read-back uses shared snapshots and contains no inventory lookup. Forced RLS remains enabled; anonymous/authenticated Supabase roles cannot call the helper, and the API role cannot update/delete snapshots. Original provider-check timestamps remain 8–9 October, not the recalculation clock. All 510 physical inventory rows retain owner/Store Price/status fingerprint `ab62e1122c7e51df7a2288288a3c3005` (colon-delimited fields, pipe-delimited rows).
+- All eight scheduled catalogue sources have a COMPLETE latest receipt. Current scope is 69,173 card references, 1,447 provider sets and 3,878 sealed references, all sealed references with artwork URLs. Current cached GBP guides cover 11,910 English and 2,510 Japanese cards, plus 2,403 sealed products. These are reference guides, not five-sale physical eBay valuations. The first expanded Pokémon fill was interrupted by deployment and is due to resume after its one-hour backoff; no claim of a completed full price backfill.
+- Daily work remains due at 03:00 Europe/London; seller-approved For-sale transactions wake Shopify processing after commit, with the minute sweep for recovery. The latest idle Shopify receipt completed without candidates/failures; no new publication was manufactured. Brand Redesign remains UNPUBLISHED and Horizon remains MAIN. The current browser session is signed out, so this final release has backend/database/automated UI evidence, not fresh signed-in or iPhone acceptance.
+- Remaining universal-pricing gaps are explicit: exhausted Trawl capacity, insufficient exact sold depth, missing product/finish/language mappings and a catalogue-only external eBay acquisition path. The new independent calculation reuses saved evidence; external eBay collection is still inventory-driven. TCGplayer exact-variant parsing is tested, including a read-only live response, but the production quote cache still contains zero TCGplayer rows until the expanded fill reaches eligible English references. No paid upgrade, asking-price change or eBay listing activation occurred. See [valuation review](docs/CATALOGUE_VALUATION_REVIEW.md).
+
+## 9 October 2026 — Legacy catalogue evidence-basis compatibility
+
+- PR #554 deployed successfully as `9777749` on `de7415b5-1687-4704-9b8d-063b05177faa`. All three current-head checks passed; the additive snapshot migration is applied. The reference-helper activation is deliberately held until coverage read-back is satisfactory.
+- The first shared pass checked all 463 canonical products but only produced three values: 330 legacy products have no canonical language although their exact sold evidence has one. Keep canonical identity unchanged and use the independently verified observation language as an explicit valuation basis; conflicting known languages still fail. Also recognize the existing exact sealed-pack ingestion rule. Revision 2 rechecks the prior pass.
+- The corrected sealed import completed 703 sets / 3,878 products. Its price pass checked 3,414 supported packaging references and priced 2,403 (2,134 Pokémon, 269 One Piece), with zero provider failures; unmatched/unsupported references remain unknown.
+- The real PostgreSQL fixture now has an unspecified canonical language and no inventory table, verifies the English quote basis, and proves the canonical language stays null. No bulk identity correction is performed.
+
+## 9 October 2026 — Inventory-independent catalogue valuations
+
+- Daily canonical valuation now reads public exact eBay observations and successful provider-check receipts, not physical inventory or owner pricing policies. Every canonical product is checked; five matching recent sales feed the existing v4 engine, with separate physical bases and immutable catalogue snapshots.
+- The reference helper uses the shared catalogue snapshot and checks current printing identity, language and original provider freshness. Selling/removing the last held copy no longer removes a valid catalogue value. Recalculation does not refresh the provider timestamp.
+- Public Cardmarket feed fixtures also confirm its Pokémon Display and One Piece Preconstructed Decks labels; explicit packaging equivalents avoid guessing categories. The guide revision triggers a corrected pass after the cross-ID repair.
+- Release uses additive schema first, deployment and verified CATALOGUE_VALUES receipt second, then the reference-helper migration. Actual PostgreSQL checks prove valuation with no inventory table, retry/identity/language/freshness guards and forced RLS. Current-head CI and live read-back remain gates.
+
+## 9 October 2026 — Live provider cross-ID contract correction
+
+- PR #552 deployed successfully as `1a42ef8` on `ab9869e7-585d-4de2-9a61-1045f4e8cddc`; full backend/UI and PostgreSQL persistence CI passed and the evidence migration is applied. Existing 11,910 public quotes were retained in immutable history.
+- The live sealed pass exposed zero cross-IDs from the older scalar example. Current CardTrader documentation specifies `card_market_ids` arrays. Revision 4 accepts one unambiguous positive ID, supports the old scalar form and rejects multiple/conflicting/malformed IDs. The earlier revision remains journalled.
+- Added current-contract fixtures and ambiguity checks. Actual sealed price coverage still requires post-deploy read-back; no catalogue or inventory identity is inferred from a name.
+
+## 9 October 2026 — Catalogue-wide price evidence extension
+
+- Audited v4, actual provider evidence, catalogue scope and channel behavior; see [valuation review](docs/CATALOGUE_VALUATION_REVIEW.md). Daily reference work now includes Japanese Pokémon, exact-variant TCGplayer US context and ID-matched Cardmarket packaging guides. These remain separate from physical five-sale eBay UK values and seller Store Price.
+- Full-reference coverage receipts make unmapped/unsupported/stale evidence visible; append-only quote history preserves provenance and deduplicates retries. Bounded daily-slot continuation avoids reprocessing completed parts of the first fill. No paid plan or new service is added.
+- PR #551 is deployed as `bb7dabf`, Railway deployment `299992fa-c3a6-46ea-9748-b830c9200c0c` SUCCESS. Its immediate approval trigger passed full backend/UI and PostgreSQL CI. Brand Redesign remains unpublished.
+- This extension still requires current-head CI, migration, deployment and live coverage read-back before release completion. eBay capacity and exact mappings remain real coverage gaps, not zero values.
+
+## 9 October 2026 — Immediate approved-stock Shopify trigger
+
+- The founder requested prompt Shopify sync when a seller approves stock for sale, while keeping Brand Redesign unpublished. Successful approval/edit/For-sale transactions now wake the existing sync worker after commit; it re-reads exact inventory/owner/version through the existing publication gates. No new service, queue type, schema change or eBay publication is introduced.
+- Coalesced signals preserve approvals arriving during a pass. The existing minute sweep recovers after restarts or other-replica writes. Draft, personal, sold, unapproved and archived stock retain their existing boundaries; provider processing is asynchronous, not instant.
+- Focused tests cover committed versus failed transactions, idle wake-up, in-flight wake-up, duplicate signals and disabled workers. Current-head CI, deployment and live read-back remain release gates.
+
+## 9 October 2026 — Recurring refresh deployed and checked
+
+- PRs #548 and #549 are merged. Live API commit `c269f6d`, deployment `4a3e46b4-dc01-4c12-b0df-466f12c404c3`, reached SUCCESS at 15:23 UTC after 2,712 tests and all original financial/social pre-deploy checks. Current-head GitHub backend/UI and PostgreSQL integration passed. The original pre-deploy command is restored; no staged infrastructure changes remain.
+- Both recurring jobs are enabled on the existing always-on API, using the authorized founder actor. Daily source/price work is due at 03:00 Europe/London; eligible inventory and asking-price sync checks run each minute. Existing publication and seller-sync switches are enabled. No new Railway service, n8n scope or paid provider plan was added.
+- Both required migrations are applied. Forced RLS on sealed references/operational receipts and denied anonymous/authenticated execution of the existing price functions were read back. Shopify recorded a COMPLETE heartbeat at 15:21 UTC with zero publication candidates, zero price candidates and zero failures; this verifies an idle pass, not a manufactured new live publication.
+- The initial source catch-up remains in progress. Masters completed 90 sets / 9,002 references (previously 8,982), and official OP16 completed 155 references. Interrupted source attempts remain journalled and resume after backoff; a transient TCGdex request stopped its first pass after 306 sets / 27,884 records, with the next two public set endpoints subsequently responding 200. No full-source completion is claimed.
+- Signed-in Search verified 23/23 available Seel images and labelled Cardmarket reference values; One Piece sets show exact-set card previews. Inventory is still 510 copies, 512 media assets and 505 published links, with no inventory changes since 08:01 UTC. Store-price reconciliation has zero due changes.
+- Corrected sealed importer started at 15:28 UTC. The first read-back showed 920 products across 210 provider sets, all 920 with artwork URLs, spanning Pokémon, One Piece, Masters and Fusion World. Live Sealed search returned Elite Trainer Boxes and cases with 30 nearby images loaded; six below-fold images remained lazy. Physical language remains unconfirmed and reference-only sealed prices remain pending. This is measured partial coverage while the initial import continues.
+- Our eBay UK v4 coverage remains 156/510 copies. Exhausted free Trawl credits block further supported refreshes until renewal/approved capacity; 269 copies also lack five exact sold matches, and three need identity/taxonomy work. Cardmarket references are separate from inventory valuation; TCGplayer is not an active quote feed. No paid upgrade is authorized.
+
+## 9 October 2026 — Live refresh activation corrections
+
+- PR #548 is deployed as `9079848` (deployment `5eaab097-e5d8-4de4-a441-afdf0de7751e`, SUCCESS); 2,711 backend tests, all UI suites and actual PostgreSQL/RLS CI passed. The additive daily-maintenance migration is applied and the two new jobs are enabled. Reference imports began on production; these are live observations, not a claim of full source completion.
+- The first live pass exposed prefixed CardTrader category names (for example `Pokémon Booster Box`) missing from older fixtures. Importer revision 2 normalizes only the matching game prefix, retains exact category matching, excludes accessories and separates shared-game Fusion World expansions from Masters. Revisioned receipts permit this corrected importer to run without rewriting the prior failed attempt.
+- Existing Shopify publication/seller-sync switches are now enabled for the requested automatic pipeline. The first check identified an unapplied existing dependency, `20260930124000_shopify_price_reconciliation.sql`. No new copies or price candidates were eligible. Added real PostgreSQL coverage of that dependency's selection, stale-version rejection, finalization and audit before applying it live.
+- A bounded read-only provider taxonomy probe ran alongside all original pre-deploy checks; the original pre-deploy configuration has been restored. No credentials were logged. Remaining gates are current-head CI, dependency migration, corrected sealed import and durable Shopify heartbeat.
+
+## 9 October 2026 — Daily catalogue and eligible Shopify sync
+
+- User explicitly requested daily cards/sets/values and automatic customer-inventory Shopify updates. Added opt-in tasks to the existing API: reference imports/price cache due at 03:00 Europe/London and eligible Shopify checks each minute. No new service, n8n workflow or paid subscription.
+- Added CardTrader sealed packaging references, separate from canonical inventory, with explicit game/category scope, required physical language during draft intake, exact-reference image delivery and no auto-approval. Real migration/query/RLS and publication-selection integration is included.
+- Source and job receipts, restart checks, advisory locks, bounded batches and retry backoff make results observable. Daily Cardmarket references stay separate from the existing eBay UK inventory algorithm; its exhausted sold-data quota remains a limitation.
+- Shopify reuses exact Inventory ID/owner/version publication and price-sync rules. All 505 currently approved For-sale copies are already linked/published; three drafts and two inspection copies remain outside automatic publication. Market refresh never sets an asking price.
+- PR #547 is live as `cae67e3` on deployment `6e450418-5d8b-4614-8edf-0ccd4ed03d06` SUCCESS. Signed-in browsing now shows Seel reference prices across multiple sets and all 23 available Seel images; the visible sealed tab returns the three existing products, including OP17 at £8.66. Wider sealed imports and recurring jobs require this release's migration, CI and activation/read-back. See [daily maintenance](docs/DAILY_CATALOGUE_MAINTENANCE.md).
+
+## 9 October 2026 — Catalogue speed and price-request repair
+
+- Fixed the unencoded browser market-price POST body, which the real hub transport forwarded directly to fetch. Existing source/finish/freshness rules and eBay valuation gates remain intact.
+- Added bounded account-lifetime artwork reuse, direct delivery for known restricted official artwork, nearby-image loading, and immediate recent catalogue rendering with background revalidation. First-load phone latency is not claimed to be zero.
+- Added visible Cards / Sealed products controls and exact-set, language-safe card previews when set logos are unavailable. Only three sealed products currently exist; worldwide sealed coverage remains incomplete.
+- Focused backend tests and 31 catalogue UI scenarios pass; the paginated preview query ran read-only against production. Full suites, current-head CI and live deployment verification remain release gates. See [catalogue loading repair](docs/CATALOGUE_LOADING_REPAIR.md).
+- Previous artwork release is complete: PR #546 / `1a914fa`, production deployment `9945c126-3e5b-42e2-aab8-f462858aa08c` SUCCESS after 2,704 tests. The audited repair restored all 3,981 targeted Japanese links, the original pre-deploy configuration was restored, and signed-in English/Japanese One Piece images loaded. Inventory identities, ownership, Store Prices and media registry fingerprints were unchanged.
+
+## 9 October 2026 — Catalogue artwork import repair
+
+- Traced 3,981 missing Japanese One Piece images to the lightweight provider index. All 26 affected full pack records passed source validation. Future imports now read exact-print artwork; sparse imports retain existing artwork and provenance only for unchanged identities.
+- Added a bounded, explicit, admin-only reference artwork backfill and disposable PostgreSQL persistence checks. The repair has no inventory, valuation, canonical media approval or publication writes.
+- Corrected misleading image placeholders and bumped both app shells' catalogue script version. Signed-in desktop inspection confirmed existing Pokémon and Dragon Ball images load; some Pokémon records have no source artwork. No iPhone-wide reproduction is claimed.
+- Reproduced the blank English One Piece grid: official images send `Cross-Origin-Resource-Policy: same-site`. Added authenticated exact-reference image delivery using the existing scanner image loader, bounded fetching, normal catalogue access checks and cleanup on account/navigation changes. No arbitrary client URLs are fetched.
+- The full backend and UI suites pass locally. Current-head CI, the one-off live backfill, configuration restoration and post-deploy read-back remain release gates at this checkpoint. See [catalogue artwork repair](docs/CATALOGUE_ARTWORK_REPAIR.md).
+
+## 9 October 2026 — Comparable weekly history
+
+- The full eBay refresh exposed a reporting error: weekly movers could compare new sold values with old import/floor snapshots. Restrict both ends to v4 eBay-backed evidence with five sales, matching snapshot owner and catalogue. Historical rows remain untouched; insufficient comparable history shows no movement.
+- Expanded the real PostgreSQL integration to prove imported, floor, Cardmarket, insufficient-sale and wrong-owner baselines are excluded while a valid older eBay snapshot produces a mover. It also checks the current-snapshot gate and owner-scoped portfolio totals.
+- PR #544 is live as `604cc461f7d4e06562ff5f65f0984309227e55f3` on deployment `536193f3-a8e3-4c65-ab32-abed35b60c5f`. The 500-group pass stopped safely on HTTP 429 after the provider reported zero remaining monthly credits. Across both passes, 380 identities / 427 copies were checked and 155 copies updated. Including the already-valued OP17 pack, 156 of 510 copies now have eBay values; 269 lack five exact sales, three need print/sealed identity details, and 82 unvalued copies remain unchecked. This is partial coverage, not completion of every price.
+- Read-back retained all 510 inventory rows and the exact owner/Store Price/status fingerprint `731a328f655ed1023fb2ebbe14f0f3f4`. Historical snapshots increased from 871 to 1,026 and observations from six to 646. No historical row was deleted. The partial verified portfolio totals 81,209p; this is not a complete collection valuation.
+- The existing API no longer sleeps between visits so the refresh loop can continue. Provider checks pause for 24 hours after the cap; the Free account resets on 1 November. A provider upgrade requires explicit spending approval and does not guarantee five exact sales for sparse prints. No subscription was purchased.
+
+## 9 October 2026 — Live refresh release and provider capacity
+
+- PR #543 merged as `ea36320601b6cc5f5a0990368be2e163ec4f24eb`; production deployment `350b2453-d2dd-4d9f-9171-46e1aaca2d57` reached SUCCESS after 2,683 tests. The real PostgreSQL integration and full UI suite passed. Migration/read-back confirmed current-snapshot lookup and server-only function access; readiness returned 200 and deployed catalogue JavaScript matched Git.
+- The bounded ten-identity live pass updated three graded copies through v4, retaining their exact five sold records. Seven identities remained pending, including two unverified sealed types. The provider reports Free-tier capacity of 250 monthly credits, with 228 remaining. Full-inventory coverage is not yet complete.
+- The follow-up reuses identical searches across finishes within a pass while validating each finish separately. It reduces credit use without changing the algorithm, identity gates or source. No provider upgrade or additional purchase was made. Full-pass results remain to be verified.
+
+## 9 October 2026 — Live eBay UK inventory valuation repair
+
+- The founder explicitly requested all market values use our sold-market algorithm. Found the old batch only selected missing Store Price; 506 copies were still on imported/floor snapshots, two had v4 values and two had no value.
+- Added a bounded task in the existing API: exact physical grouping, five recent eBay UK sales, existing v4 calculation, immutable observations/snapshots and durable refresh attempts. It preserves Store Price, ownership, publication and history. Old benchmark values cease to count as live market values.
+- Current-snapshot catalogue lookup and visible Cardmarket reference labels prevent source confusion. No new providers, services, n8n workflows or automatic selling-price changes.
+- Focused matching/transaction tests and the full backend suite pass locally. Current-head CI, production release, refresh coverage and provider quota evidence are still required before claiming completion. See [Live eBay market refresh](docs/LIVE_EBAY_MARKET_REFRESH.md).
+
+
+## Read this with the full history
+
+The complete build log through the marketing installation checkpoint is preserved unchanged in [BUILD_STATUS.history-through-20261004.md](BUILD_STATUS.history-through-20261004.md). Its Git blob is `bf3fa9436687cae18357ca2b124bbc9dff35174e`, identical to BUILD_STATUS.md at production commit `a0432bb82694868026c804d5b0af57cda9c128bd`. No historical entry was deleted or rewritten; the archive remains at repository root so its relative links keep their original meaning.
+
+This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
+
+## 8 October 2026 — Catalogue market release and sealed-comparable repair
+
+- PR #541 is live as `ade06f8` on API deployment `ae2816c0-564a-4618-bca0-dc72f8c5545d`, which passed 2,647 backend tests and readiness. Its final reference basis is Cardmarket EUR via TCGdex, with historical GBP conversion and explicit finish mapping.
+- Recovered one previously unvalued, confirmed Seel Normal inventory item from its exact Cardmarket reference using `drop-rate-market-v4`. Added immutable observation/snapshot evidence and checked the inventory version/owner/identity. Market value is 3p; Store Price remains £1 and automatic publication is blocked. No ownership, ledger or media changes occurred.
+- The read-only sealed probe found actual multi-pack lots passing the single-pack matcher. Tightened set-code, quantity, language and sealed-state exclusions and expanded the bounded query to two pages. The five exact sold-comparable minimum and owner/version guards remain intact. Diagnostic results were not written as prices. See [sealed market repair](docs/SEALED_MARKET_REPAIR.md).
+
+## 8 October 2026 — Seller Hub catalogue market data repair
+
+- Connected the existing TCGdex card-detail prices omitted by checklist imports. English Pokémon raw references now use explicit finish/product IDs, dated ECB conversion and a PostgreSQL cache; product details show finish prices and their source/date. Broad references show a range where finishes differ.
+- Price requests run after card rendering, retain recent values during provider outages, reject stale search/session responses and leave open intake forms intact. Forced RLS and existing browser access checks remain in place. This display cache does not write inventory prices, approve mappings/media, change ownership or publish stock.
+- Added a bounded read-only sealed-provider diagnostic. Full backend and UI suites pass; live public-provider checks returned real Seel and Umbreon quotes. The additive cache migration, RLS/role checks and normal/value-sorted database read-back are verified. Other games, Japanese/graded cards and missing sealed evidence remain separate coverage work. Current-head CI, deployment and HTTP read-back remain release gates at this checkpoint. See [market reference repair](docs/SELLER_HUB_MARKET_REFERENCES.md).
+
+## 8 October 2026 — Game navigation and appearance settings
+
+- Replaced the dashboard colour-selector row with real game catalogue shortcuts. All games resets previous filters; normal Search navigation retains them.
+- Moved colour themes into More → Settings → Appearance for sellers and founders, preserving the saved device preference. Added seller Settings routing and mobile touch targets; no changes to inventory, finance, identity or permissions.
+- The new integration test loads both real script bundles and verifies catalogue requests, Settings navigation, theme persistence and filter reset. Local UI and focused backend checks pass. CI/deployment/device validation remain distinct release gates. Details: [Collector Hub design](docs/COLLECTOR_HUB_DESIGN.md#8-october-2026--separate-game-navigation-from-appearance).
+
+## 8 October 2026 — Seller Hub image and valuation display
+
+- Fixed the image policy for the existing Dragon Ball, Naruto and CardTrader hosts, including CardTrader's observed `www` redirect. Added same-product approved artwork fallback and cache-version updates.
+- Diagnosed missing valuation coverage separately: stored prices still return, but unlinked catalogue references and the inspected unvalued seller item have no verified market value. Owner totals now expose coverage and show “Value pending” when all active items are unvalued; no prices or ownership were changed.
+- Targeted backend checks and the full browser interaction suite passed. Current-head CI, deployment and live-header verification are remaining release gates at this checkpoint. See [Seller Hub display repair](docs/SELLER_HUB_DISPLAY_REPAIR.md).
+
+## 8 October 2026 — Storefront mobile arrow rendering
+
+- Updated the unpublished **Drop Rate — Brand Redesign** theme (`202073866587`) to render the homepage diagonal arrows as a shared decorative SVG. This prevents iPhone emoji substitution while preserving the diagonal direction, inherited link colours, relative icon size and existing spacing.
+- Covered hero CTA/featured caption, discovery search/game links, editorial CTA and set links. No changes to link destinations, settings, merchandising, products, checkout or backend services; Horizon remains the live theme.
+- Shopify accepted all five files with no user errors. A separate read-back matched every deployed file byte-for-byte to the implementation. The nine existing homepage/brand tests passed, as did Shopify Liquid validation for all five changed files (existing cross-section CSS warnings only; the repository is a partial theme overlay).
+- Browser visual verification was blocked by the storefront password screen. No real-device or authenticated desktop visual pass is claimed. This icon repair does not satisfy or reopen the broader publication gate.
+- Implementation and rollback notes: [Storefront launch QA](docs/STOREFRONT_LAUNCH_QA.md#8-october-2026--mobile-diagonal-arrows).
+
+## 5 October 2026 — Gunko post metrics baseline (read-only)
+
+- PR #525 merged as `14722ade1f93667a1730275206087b07e168c4f7` and added a strictly read-only Buffer metrics reader for the two already-delivered Gunko pilot posts. It has no post mutation, schedule, database write or recurring analytics job.
+- Fresh API deployment `505da5fb-2ae6-4594-902a-d5ad059ead2b` passed **2,560 tests** and readiness 200. Its bounded live probe read the exact Instagram/TikTok post IDs and channel identities already recorded by the publishing pilot.
+- Instagram metrics were available with `metricsUpdatedAt=2026-10-05T00:03:34.559Z`; Buffer reported Reactions 0, Comments 0, Engagement Rate 0, Views 0, Shares 0, Saves 0, Follows 0 and Reach 0.
+- TikTok metrics were available with `metricsUpdatedAt=2026-10-05T00:06:35.657Z`; Buffer reported Reactions 0, Comments 0, Engagement Rate 0, Video Views 0, Shares 0 and Reach 0, plus provider values **Watch Time (min) 0.02** and **Avg. Watch Time (sec) 1.89**. Preserve those provider labels/units as returned; do not derive extra conclusions from the early baseline.
+- The temporary metrics diagnostic was removed after the read. The live API pre-deploy command is back to the normal compile/test/Stripe self-test chain, with no staged Railway changes. Recurring metrics collection/analysis remains off.
+
+## 5 October 2026 — YouTube video pilot contract prepared (not live)
+
+- PR #526 merged as `06886af5bb812619d5c818bd5417484fd95d2f38`; API deployment `03005678-d39f-4b6c-9a58-29d655d5e12b` reached SUCCESS after **2,589 tests** and readiness 200. The release emitted no Buffer readiness/metrics/publish diagnostic lines; the contract is inactive validation code only.\n- Added a separate fail-closed contract for the future YouTube Shorts pilot after channel readiness was verified. It is intentionally **not** a FastAPI route and contains no Buffer credential or GraphQL mutation, so it cannot publish.
+- The future approved asset must be one HTTPS Shopify Files `video/mp4`, exact 9:16, at most three minutes, with exact SHA-256/byte count plus affirmative approved-audio/narration/caption declarations. The contract binds the verified Buffer organization/channel IDs and founder approval metadata.
+- Added pure construction of the future immediate/automatic Buffer YouTube input and deterministic channel/post validation. Subscriber notifications are disabled for the bounded pilot; public/not-for-kids and AI-disclosure fields are explicit rather than provider defaults.
+- Media preflight streams the file without redirects, caps the pilot at 512 MiB, requires exact MIME/length/hash and an MP4 `ftyp` marker. It does not pretend to infer narration/caption quality from bytes; the exact hash binds runtime bytes to the human-approved media revision.
+- Tests cover strict manifest parsing, approval/URL/aspect/duration/audio/caption gates, exact provider input, channel binding, media integrity and YouTube delivery URLs, plus an explicit no-route/no-Buffer-mutation assertion. See [YouTube video pilot contract](docs/YOUTUBE_VIDEO_PILOT_CONTRACT.md).
+- Still blocked: no approved narrated/captioned MP4 has been supplied. Do not add/activate the live route or n8n YouTube publishing workflow until that exact asset and its title/description/category are approved.
+
+## 5 October 2026 — Buffer YouTube channel readiness verified
+
+- PR #521 merged as `29a089b61d123888bdd4097b32fdc93800484f2d` with a read-only Buffer YouTube readiness probe. Clean API deployment `f25b668f-3bbd-46b7-b937-688475273b1f` passed **2,550 tests** and readiness 200 before the live diagnostic.
+- The first config-only redeploy did not prove that the newly configured probe executed, so no readiness claim was made from it. PR #522 merged as `2ff4689e4d97070d9b37997593d7037c6470cdaf` to flush operator evidence; fresh source deployment `2132c13b-d699-4afa-ad87-1d449f668146` then passed **2,550 tests**, ran the read-only Buffer channels query and returned readiness 200.
+- Buffer returned exactly one YouTube channel for organization `6ac1a59ca59739d7c3e08601`: channel `6ac1a694ea19ca0bde6c8ba3`, service `youtube`, provider-returned name/display name `Drop Rate ` (trailing space preserved), timezone `Europe/London`. It is not disconnected, locked or queue-paused, and `scheduleUpdates` is allowed. The readiness result is **READY** with no blockers.
+- No Buffer mutation occurred: no post was created, edited, queued, scheduled or deleted, and no database write or recurring n8n schedule was introduced. Future YouTube identity must bind to the exact channel ID/organization ID rather than the mutable display name.
+- Immediately after evidence capture, the temporary diagnostic was removed from Railway: the original API pre-deploy command was restored, the temporary timeout was cleared to the default, and no staged changes remain.
+- YouTube delivery is **not** yet proven. Publishing remains blocked until an explicitly approved narrated/captioned video is bound to a separate immutable YouTube pilot manifest and the live path passes provider delivery read-back plus intentional duplicate-trigger replay without a second upload. See [YouTube publishing readiness](docs/YOUTUBE_PUBLISHING_READINESS.md).
+
+## 4 October 2026 — Gunko social publishing pilot completed
+
+- PR #519 merged as `5191cba757382618ae8ed2335a1997f371f2625d`. The subsequent bounded live Gunko pilot completed through the real n8n → signed FastAPI → Buffer path for Instagram and TikTok. This is execution evidence for the explicitly approved one-off pilot, not activation of the general six-agent or recurring marketing system.
+- API deployment `e79cb45d-ed35-420f-8667-caf81fa60102` reached SUCCESS after **2,539 tests** and readiness 200. Read-only n8n deployment `4fc66826-3262-4c92-87a0-6211e71c5372` then returned `READY` for both intended Buffer accounts, including the hosted-image validation that had previously blocked publication.
+- Real publish deployment `4a4d523b-6e37-442a-8bf5-273614363eb3` submitted the approved manifest `880123ba424f5a109a023be5f385b160208e53b51897957e2811cf9da2aac94d`. Instagram @dropratetcg produced Buffer post `6ac29d1f6ae9cbb01a564d9f`; TikTok @dropratetcg produced Buffer post `6ac29d1ffe1389e4133cde22`. A separate real status read-back on n8n deployment `603f2c64-2164-41cf-b1b2-deaa4b9fe004` returned `DELIVERED` for both with platform URLs.
+- Idempotency is live-verified for this pilot. Intentional repeat publish deployment `85abd755-81d2-4355-9a4e-8a907c4e2f4f` returned `DELIVERED`, `replayed: true` and the **same post IDs/URLs**. PostgreSQL then still contained exactly **2 intents, 2 claims, 2 submissions and 2 observations**—one per channel—with **0 Action Required** items for this pilot. No duplicate provider submissions or journal records were created.
+- Cleanup is complete. n8n's temporary pre-deploy command was removed and its timeout restored; `TCG_APPROVED_SOCIAL_PILOT` was cleared after the replay. Cleanup API deployment `4bc47f07-0379-49b0-b6fd-ddf2bccc32b3` reached SUCCESS, again passed 2,539 tests and returned readiness 200. Daily/recurring publishing and the generic preparation specialists remain off.
+- Verification boundary: delivery was re-read from Buffer and recorded in PostgreSQL, but independent public visual/audio inspection of the returned social URLs was not completed, so `public_visibility_verified` remains false. The Umbreon/Goku price posters remain pending source/FX checks, and YouTube still requires the approved narrated/captioned video. This pilot does **not** prove general campaign intake, autonomous content production, arbitrary-post approval or daily scheduling.
+
+## 4 October 2026 — Colour metadata compatibility (live-test repair)
+
+- PR #518 merged as `d21706869daff13e5974fd29127ccb61b5e563d8`; Backend `37222469633` and Marketing integration `37222469535` passed. API deployment `08fe2c4e-b248-412f-9c38-ce2e36839223` reached SUCCESS after 2,533 tests and readiness 200.
+- The actual n8n check on deployment `a5291b63-49ef-4db7-b133-2f7f6e2c1e9a` then returned PILOT_MEDIA_COLOUR_METADATA_CHANGED for both channels. It did not publish. The conservative validator rejected colour/EXIF metadata before reaching pixel comparison; no claim of exact live pixel verification yet.
+- Replace blanket ICC/EXIF rejection with bounded real colour management: valid embedded profiles are converted to sRGB and the resulting pixels must equal the exact approved SHA-256. Harmless EXIF with identity orientation is allowed; changed orientation, invalid/oversized profiles, nonstandard unprofiled gamma, altered pixels and prior size/format/alpha/frame checks still fail closed. No name-only profile trust or pixel tolerance.
+- The selected source PNG contains no colour profile, and local sRGB-to-sRGB conversion preserves every pixel of both publication copies. Added six metadata/transform regressions. Manifest hash, media, caption, accounts and approval are unchanged. Current-head CI and next live check remain separate gates. See [Colour-profile validation](docs/SOCIAL_PILOT_COLOUR_VALIDATION.md).
+
+## 4 October 2026 — Live connection reached; lossless media repair
+
+- PR #517 merged as `fbf4033ffacb2857cf6d72c50bdbe45bed3c7c6c`. The actual n8n runner now reaches signed production FastAPI commands and Buffer's two expected accounts. On deployment `6cad92a0-8a72-4279-92c6-6c200ae4e00e`, the check returned BLOCKED / PILOT_MEDIA_CHANGED for Instagram and TikTok. This is evidence that channel validation passed, not successful publication. No publish operation was selected and prior journal reads contained no claims.
+- Aligned the disposable operator process with its tested env-access/crypto settings and the existing public HTTPS API URL. Persistent n8n configuration/workflows and the volume are unchanged. Multiple settings were aligned together; do not infer a single root cause from the old generic diagnostic.
+- The prior JPEG file-byte fingerprints did not match the CDN response. Added lossless PNG copies with exact dimensions and SHA-256 of every decoded RGB8 pixel. Compression/text metadata can differ; even a one-value pixel change is rejected. ICC/EXIF changes, unexpected transparency, animation, excessive dimensions/bytes and invalid images fail closed. No perceptual tolerance or skipped approval check.
+- Same selected Gunko design, same caption/accounts/pilot ID, new format-only manifest revision: `880123ba424f5a109a023be5f385b160208e53b51897957e2811cf9da2aac94d`. Previous `2b0560...` revision is retained in Git history, not silently accepted. No existing publication intent/claim is overwritten. Both PNGs are hosted on the existing verified Drop Rate Shopify Files CDN, without product/theme changes.
+- Fixed diagnostic classification to read actual n8n resultData.error, not guard strings embedded in the dumped workflow source. Earlier HASH_NOT_CONFIGURED classification is not conclusive root-cause evidence.
+- Code, exact workflow revision, adapter/media tests, actual n8n CI fixture, docs and status are in the same repair PR. Deployment, exact live pixel read-back and delivery still require execution. See [Lossless pilot media](docs/SOCIAL_PILOT_LOSSLESS_MEDIA.md). Keep publishing/daily schedules off until the read-only check reports READY; remove the temporary operator command after the pilot.
+
+## 4 October 2026 — Pilot runtime diagnosis (continuation)
+
+- PR #516 merged as `dc57859c84d5e947121004161f6bd6fa07eabb12` after Backend checks `37219010958` and Marketing integration `37219010950` passed. Existing API deployment `f2bbf92c-3c2b-4da8-8725-ad390cc0e403` and n8n deployment `79c9d5cf-9b60-4ca6-8d05-cf2b891956b5` reached SUCCESS. API pre-deploy passed 2,501 tests and readiness returned 200.
+- Read-only live check first failed before runner output with shell-style assignments in the Docker exec command. Using explicit `env NAME=value ... node ...` started the runner, but it returned RUN_UNVERIFIED. No successful live preflight or social delivery is claimed by those results; no publish operation was selected.
+- Added fixed phase and allowlisted failure categories to the existing pilot runner. Raw stdout/stderr, environment values, signatures, provider messages and URLs remain excluded from diagnostic output. This does not change the approved manifest, HMAC, submission, duplicate protection, or production n8n database.
+- Tests exercise the actual JavaScript classifier, known failures, unknown input, and redaction. Existing actual n8n check/submit/status fixture remains the integration gate. Live retry is check-only until verified readiness; inspect the durable journal before any publishing recovery.
+- See [Pilot runtime diagnostics](docs/SOCIAL_PILOT_RUNTIME_DIAGNOSTICS.md). Current-head CI/deployment and the next actual run are separate gates. Preserve the earlier healthy deployment, remove temporary operator commands after testing, and leave daily scheduling off.
+
+## 4 October 2026 — Approved Gunko publishing pilot (implementation checkpoint)
+
+- The founder approved the latest posters for an immediate one-off n8n publishing test. Start with the Gunko story on Instagram and TikTok. The price posters still need separate source/FX checks; YouTube needs the approved narrated/captioned video, not a substituted silent slideshow. No daily activation.
+- Recovered exact latest Gunko image, preserved the whole design in Instagram's 4:5 navy-padded JPEG and TikTok's same-ratio JPEG, and hosted both on the verified Drop Rate Shopify Files CDN. No product/theme changes. The manifest stores original and hosted hashes, exact captions, channel identities and approval source.
+- Added a narrow signed FastAPI command with check/publish/status, exact manifest binding and expiry. It verifies actual channels and media bytes, then uses immediate automatic Buffer submission. Existing PostgreSQL automation_runs provides append-only intent/claim/submission/observation records; no new migration, database or service.
+- Stable unique claims prevent duplicate/ambiguous retries. Provider failures become UNKNOWN and require reconciliation; failed records create owner-scoped Action Required. No caller-supplied media/copy/provider URLs and no broad publishing permission.
+- Committed the actual inactive manual n8n export and explicit temporary-database runner. It is packaged separately, never invoked by normal startup, and does not alter persistent n8n workflows or enable the six preparation agents. This tests the publishing leg using approved assets, not autonomous research/design.
+- Added adapter, signed-route, real PostgreSQL journal and network-isolated actual n8n fixture tests. Initial local adapter tests passed 27 cases; current-head CI, deployment, live preflight, real submission and separate delivered/public-visibility evidence remain required. The accompanying PR must record actual results rather than infer them from source or deployment success.
+- Technical/approval details, sources, operating sequence and rollback: [Approved social pilot](docs/APPROVED_SOCIAL_PILOT.md). Remove any temporary n8n operator command and disable its API publication flag after the test. Preserve all journal/history and provider content.
+
+## Verified installation — PR #514, 4 October 2026
+
+- PR #514 merged as `a0432bb82694868026c804d5b0af57cda9c128bd` after Backend checks `37206549614` and Marketing integration `37206549593` passed.
+- Supabase migration `20261004133308_marketing_specialists_v1` is applied. Marketing job/run tables have forced RLS; the latest read-only check returned zero jobs and zero runs.
+- API deployment `f93752ea-4f97-4d40-9bd9-2496685a177c` and n8n deployment `eb2e1e84-3c29-469e-afb5-9b877b3a37bc` reached SUCCESS. API pre-deploy passed 2,453 tests and readiness returned 200. n8n logged all seven inactive imports while preserving previous workflows.
+- Installed roles: research, briefs, copywriting, design instructions, deterministic blocked publishing, and supplied-metrics analysis, plus the preparation coordinator.
+- Both specialist flags remain absent/default-off. Installation is not a real model run. Research still consumes supplied evidence; design does not render finished media; social management does not collect metrics or send replies.
+- Final installation evidence is on PR #514. Earlier draft/not-deployed entries in the history describe older checkpoints.
+
+## Marketing terminal attention repair — released PR #515
+
+- PR #515 merged as `bd9be18373a42343bb0fadec8046bcc6f9ef660a`. API deployment `6a412a5c-7898-48e1-9917-b64158072b97` and n8n deployment `c6968707-c2d6-417d-8bef-d39a8380970f` succeeded; API pre-deploy passed 2,465 tests and readiness returned 200. Final evidence is on PR #515.
+- Branch: `fix/marketing-run-attention-20261004`. The prior runtime could save FAILED/UNKNOWN/NEEDS_REVIEW without a corresponding Action Required item. Stale RUNNING recovery was also silent.
+- Added actor-scoped Action Required creation in the same database transaction as a terminal marketing state. Owner identity comes from verified platform-admin membership, not model output or caller metadata. The existing OWNER entity and AUTOMATION category are used; no schema change.
+- A stable per-persisted-run dedupe key and ON CONFLICT DO NOTHING prevent duplicate or reopened resolved alerts. Alert text/metadata contain identifiers and fixed status only, not provider/model/source text. An alert failure rolls back the state transition.
+- Added focused unit checks and extended the existing local-only PostgreSQL smoke for failure/review states, no success/media-wait alerts, actor isolation, duplicate/late results, resolved-alert replay and transactional rollback. Those isolated checks passed; no production marketing job was implied.
+- This repair does not fix the shared accountless DR90 control route, provide external email/Slack delivery, or add a background watchdog. Abandoned runs are discovered only when the existing claim path executes. Details: [Marketing run attention](docs/MARKETING_RUN_ATTENTION.md).
+
+## Remaining general marketing gates
+
+- The six-agent preparation chain still needs one actual authenticated job, saved-output reuse and live error visibility. The previously safety-blocked broad live-probe harness is not present and must not be recreated as a workaround.
+- The approved single-image pilot above is a distinct, manually initiated publishing test. It does not complete generic asset revision approval, automatic content creation, arbitrary campaigns, recurring scheduling or YouTube production.
+- Rejected Buffer validation drafts remain excluded. Never substitute them for the approved media. Earlier design feedback alone was not final publication approval.
+- Current chat discovery exposes no Buffer actions despite the earlier custom plugin. The existing Railway Buffer credential is preserved; unattended backend access uses a runtime reference, not a key copied to chat. The pilot does not depend on the chat plugin.
+- Railway's coding agent hit its existing usage limit; no increase is authorised or applied. Direct repository/infra tools are separate from that agent. No new services, public n8n endpoint, paid plan, stock, ownership, pricing, settlement or live money changes are included.
+
+## Standing controls
+
+PostgreSQL is authoritative; FastAPI enforces business rules; n8n coordinates. Keep authentication, signed commands, RLS, immutable history, provider terms, approval and duplicate protection. No recurring marketing release is implied. Unique unmerged work in #512/#513 is preserved; neither is silently superseded. Other frozen workstreams remain governed by the manuals and their explicit user decisions.
+
+Rollback after a repair release is a code revert to the previous successful API build with flags disabled. Preserve marketing jobs/results, Action Required history, n8n's persistent volume and prior social content; never reset or delete them as a shortcut.
+
+
+## Seller comics/manga intake and reference pricing revision 19 — 2026-10-13
+
+User explicitly requested the remaining price recovery plus adding Marvel/DC comics, graded comics and manga to Seller Hub. Implemented an owner-bound book form from Inventory and Scan: publisher/series, issue or volume, edition/year, printing, cover/artist, language and ISBN/barcode; raw book condition or grader/grade/certificate; optional cost, selling price and copy notes. Each new copy is an unconfirmed PERSONAL_COLLECTION DRAFT. Seller-entered identities are NEEDS_REVIEW, never automatically verified or published. Existing canonical COMIC tables support both comics and manga; manga and other-comic system registry rows are additive. Restricted insert policies allow only self-attributed unreviewed book identities. Existing owner RLS, admin-only identity updates and certificate uniqueness remain enforced. Inventory detail exposes book metadata without another submitter's user ID. No automated book certificate lookup, photo recognition or book pricing provider is claimed.
+
+Pricing revision 19 preserves the printed Pokémon delta symbol while normalising Cardmarket's redundant “δ Delta Species” label, and corroborates the exact XY Kalos Starter Set from its three published theme-deck names. Complete-checklist, exact-release and ambiguity checks still apply; these are reference guides, never automatic physical-copy or Store Price changes. Offline replay found 150 newly matched positive Delta Species guides and 34 Kalos identities; production net coverage must be read after deployment.
+
+Validation: unit/contract suite and existing dashboard tests; signed local-JWKS HTTP with actual PostgreSQL physical guards, restricted role, owner isolation, concurrent replay, edition separation and duplicate slab protection; real Chromium/WebKit book form checks at 390/1440 px with intercepted fixture API calls. CI and production verification are required before reporting the feature live. Migration: database/migrations/20261013222139_seller_comics_manga.sql (filename generated by Supabase CLI).
+
+Live verification completed: PR #633 merged as `dc3f8951ac4913af53aa1a0ad93c23f6bb5bea13`; all nine applicable CI workflows passed, with 5,776 local backend tests passing. Railway deployment `153c2c40-94f4-41ef-9c0a-87d50428f907` succeeded. Seller Hub HTML and four book/inventory/portal assets returned HTTP 200 and matched the committed bytes; readiness is healthy and the book intake endpoint rejects unauthenticated writes with HTTP 401. Supabase applied `seller_comics_manga` as `20261013224334`; migration staging records that version instead of replaying the canonical file. No production book or physical copy was created for testing. The fresh 614-item/327-valued stock baseline and ownership/Store Price/status fingerprint were unchanged across deployment. Details: [live book intake receipt](docs/SELLER_BOOKS_LIVE_RESULTS_20261013.md).
+
+Reference revision 19 completed at **2026-10-13 22:49:51.645823 UTC** with zero provider failures. Source-aware coverage rose by **176** to **39,204/69,538** card references, for **5,232** recovered across these passes. English physical Pokémon is **20,648/21,290 (97.0%)**. **27,854 physical references remain without eligible prices**, plus 2,480 digital Pocket records where physical resale pricing is not applicable. Automatic book market pricing is not included. The remaining exact identities and source-evidence requirements are documented in the [updated pricing receipt](docs/PRICING_RECOVERY_LIVE_RESULTS_20261013.md); no claim of complete pricing is made.
+
+## Comic and manga grading choices — 2026-10-13
+
+User clarified the required Seller Hub choices: **CGC for Marvel, DC and other comics; CGC or BGS for manga**. Replaced the generic grading dropdown with category-specific choices and bumped the book script version. A company change clears the old grade/certificate, including switching BGS manga to a comic, so certificate data cannot silently move to a different company. Existing records and the general intake API remain compatible. Extended the existing browser and disposable PostgreSQL fixtures for both manga graders and certificate handling; 49 focused unit/contract checks and JavaScript/Python syntax checks passed locally. This changes entry options, not market-data provider connections or grading authentication.
+
+
+### 30 October 2026 — R2 catalogue, current prices and artwork
+
+- PRs 814–816 repair publication value-query transport and authenticated
+  reference-image leases. Production delivery is gated by all eight parity cases.
+- Add independent, content-verified R2 copies of the four shared price caches,
+  with atomic freshness invalidation and bounded default/search/owned/sealed
+  page delivery. Existing SQL still validates exact identity and expiry.
+- Extend private reference image coverage to existing Naruto and CardTrader
+  sources with matching application and RLS policies. No owner data is exported,
+  no source rows are deleted, and no store/Shopify media approvals change.
+- Local unit and disposable SQL checks cover corrupted/partial uploads,
+  generation races, owner separation, stale prices and authenticated image
+  receipts. Production publication and copy progress still require readback.
+
+
+### 30 October 2026 — R2 production readback and safe value routing
+
+- Market publication verified: 91,054 records, 366 parts, 103,799,009 raw bytes;
+  price generation 1 published at 14:15:14 UTC. Both market feature gates enabled.
+- Keep full-catalogue value sorting on its existing SQL query. Remove the large
+  R2 array transport and diagnostic EXPLAIN that stalled a production connection.
+  Compare every catalogue identity before publishing; report SQL value delivery
+  explicitly alongside the seven R2 page/navigation comparisons.
+- Market publication precedes catalogue proof. Only the offline source baseline
+  has a 30-second comparison budget; live request limits stay unchanged.
+- Canonical migration filenames match the production registry, including the
+  CardTrader filename fix. One stalled read-only connection was cleared; the
+  waiting migration completed and no lock queue remained.
+- Whole-catalogue delivery remains pending the new production parity readback.
+  Artwork copying continues automatically; no source catalogue or inventory rows
+  were deleted.
+## 1 November 2026 — Comic seller preparation and photo review (In review)
+
+- Recovered the unfinished `Resume Fixes Scanning Last` workflow. Draft PR #868 adds owner-scoped comic holding/dispatch, actual purchase cost, measured parcel details, first-party Shopify Files photo intake, and staff-only approval/retake with written reasons. Signed upload tokens and pending media cannot approve or publish a product.
+- Local focused API (118) and full dashboard UI tests passed. Full Python suite stalled at an unrelated existing HTTP guard test; GitHub CI and production migration/RLS verification remain release gates. No production database changes, physical inventory approvals, Shopify products or theme publication occurred. See `docs/COMIC_SELLER_REVIEW_HANDOFF_20261101.md` for exact diagnosis and remaining gates.
+## 1 November 2026 — Scoped comic media RLS applied after founder approval (Verified for release pending CI/deployment)
+
+- Supabase project `ozrxenrdladkooixutmm`: `platform_comic_photo_review` migration applied successfully, recorded as version `20261101203926`. Policy readback confirms the **additional cross-owner review** `SELECT`/`UPDATE` is admin-only for matching consignment comic media; existing owner-scoped access remains intact. The media identity immutability trigger is present. No production inventory or Shopify product was changed.
+- PR #868 passed 7/7 GitHub workflows at `114aa714434c15f4a90ed78c7ea6a62a8bd5a572`; aligning the tracked migration filename to the actual Supabase history now requires a new exact-head CI receipt. No pending physical consignment comic photos exist to exercise real actor review until seller uploads one. Railway deployment, authenticated phone flow and Shopify Files capability/readback remain unverified.
+
+## 3 November 2026 — Optional seller purchase cost and active Collection (local verification)
+
+- The user's current rule makes purchase cost optional across approval, Shopify/eBay preparation, pooling, reservation and paid/manual sale allocation. Blank costs remain NULL; entered zero remains zero. Commission snapshots and ledger calculations remain unchanged: the configured consignor default is 10% of item revenue after discounts. Unknown purchase cost leaves profit unknown, without reducing seller proceeds.
+- Added CLI-generated migration `20261103184836_optional_seller_purchase_cost.sql` to allow nullable reservation costs and extend the existing nullable sale-cost guard to approved managed stock of every physical type. Owner, identity, sale status and dispatch checks remain enforced. The exact seller-held sealed exception is unchanged; existing sale, commission and audit records are not rewritten.
+- The default Collection, facets, overview totals, actionable state counts, grouping and page/value ordering now include active copies only. Removing a copy closes its detail after server readback and refreshes the Collection. Removed and sold records remain available for history; Sold is an explicit UI filter. The last empty page returns to a valid page, and obsolete saved Removed filters reset to the active view.
+- Local checks: focused backend/API suites, 74 inventory interactions, nine Collection control/pagination scenarios, six real Chromium Collection layouts, and actual PostgreSQL migrations/triggers across 42 type/owner/cost combinations passed. Disposable SQL verifies unchanged revenue commission, nullable reservations, exact-owner/dispatch guards, retained history and active Collection totals. CI, the approved database migration workflow and deployment remain release gates. No production data was mutated for these tests.

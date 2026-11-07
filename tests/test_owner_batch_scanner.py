@@ -36,7 +36,7 @@ def test_candidate_reference_value_is_global_safe_projection_not_owner_inventory
     sql = MIGRATION.read_text()
 
     run_payload = api[api.index("async def _run_payload") : api.index('@router.get("/status")')]
-    assert "tcg.recognition_catalogue_reference_value(" in run_payload
+    assert "tcg.catalogue_reference_value_v2(" in run_payload and "tcg.reference_market_prices" in run_payload
     assert "where i.owner_id=$2" not in run_payload
     assert "REFERENCE_SNAPSHOT" in run_payload
 
@@ -57,7 +57,7 @@ def test_owner_catalogue_search_returns_only_safe_card_identity_and_approved_med
     assert "p.card_number" in block
     assert "p.name" in block
     assert "p.set_name" in block
-    assert "tcg.recognition_catalogue_reference_value" in block
+    assert "tcg.catalogue_reference_value_v2" in block
     assert "m.approval_status='APPROVED'" in block
     assert "m.rights_status='VERIFIED'" in block
     assert "m.rights_tier='STOREFRONT_ALLOWED'" in block
@@ -84,7 +84,7 @@ def test_owner_intake_accepts_audited_search_correction_but_not_unconfirmed_cata
     assert '"confirmation_source": feedback["outcome"]' in block
     assert 'feedback["selected_catalogue_id"] != payload.selected_catalogue_id' in block
     assert "verified_exact_sealed_identity" in block
-    assert "$11,'DRAFT',$12,$13::jsonb,'FOR_SALE'" in block
+    assert "$11,'DRAFT',$12,$13::jsonb,'PERSONAL_COLLECTION'" in block
 
 
 def test_verified_learning_can_include_search_corrections_only_after_materialisation() -> None:
@@ -194,7 +194,7 @@ def test_batch_camera_requires_present_stable_item_and_waits_for_removal() -> No
     assert 'ownerBatchSetCameraState("Place a card or sealed product inside the guide")' in source
     assert "batch.awaitingRemoval = true" in source
     assert 'ownerBatchSetCameraState("Item scanned · remove it before showing the next one")' in source
-    assert "batch.absenceFrames >= 2" in source
+    assert "batch.absenceFrames >= 3" in source
 
 
 def test_batch_recognised_results_use_reference_thumbnail_when_available() -> None:

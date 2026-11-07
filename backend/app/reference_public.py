@@ -154,6 +154,15 @@ async def bandai_feed(feeds, *, fusion):
             url=str(__import__('httpx').URL(base,params={'search':'true',parameter:sid}))
             try:
                 cards=bandai_cards(await feeds.get_text(url),fusion=fusion,url=url,set_id=sid)
+                if fusion and re.fullmatch(r'58[34]0[0-9]{2}', sid):
+                    from .fusion_official_rarity import filtered_cards, attach_rarities
+                    sources=[]
+                    for rarity in ('C','UC'):
+                        filtered_url=str(__import__('httpx').URL(base,params={
+                            'search':'true','category[]':sid,'rarity[]':rarity}))
+                        sources.extend(filtered_cards(await feeds.get_text(filtered_url),
+                            url=filtered_url,set_id=sid,rarity=rarity))
+                    cards=attach_rarities(cards,sources,set_id=sid,language=language)
             except ReferenceFeedError as exc:
                 feeds.failures.append({'source_url':url,'reason':str(exc)})
                 continue

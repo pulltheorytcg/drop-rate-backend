@@ -9,7 +9,7 @@
       <p class="dr-eyebrow"><span class="dr-spark" aria-hidden="true">✦</span> {{ section.settings.eyebrow | escape }}</p>
       <h1 id="dr-hero-{{ section.id }}">{{ section.settings.heading | escape }}<br><em>{{ section.settings.highlight | escape }}</em></h1>
       <p class="dr-hero__intro">{{ section.settings.description | escape }}</p>
-      <a class="dr-btn" href="{{ section.settings.link }}">{{ section.settings.button_label | escape }} <span aria-hidden="true">↗</span></a>
+      <a class="dr-btn" href="{{ section.settings.link }}">{{ section.settings.button_label | escape }} <span aria-hidden="true">{% render 'dr-arrow-up-right' %}</span></a>
       <a class="dr-text-link" href="{{ collections['graded-cards'].url }}">{{ 'dr_brand.hero.graded' | t }} <span aria-hidden="true">→</span></a>
       <p class="dr-hero__small">{{ 'dr_brand.hero.note' | t }}</p>
     </div>
@@ -20,7 +20,7 @@
       {% if right_card.featured_image %}<a class="dr-fan dr-fan--right" href="{{ right_card.url }}" aria-label="{{ right_card.title | escape }}" data-dr-hero-card data-title="{{ right_card.title | split: ' · ' | first | escape }}" data-price="{{ right_card.price | money | escape }}">{{ right_card.featured_image | image_url: width: 500 | image_tag: widths: '250, 400, 500', sizes: '(max-width: 749px) 130px, 210px', loading: 'eager' }}</a>{% endif %}
       {% if feature.featured_image %}
         <a class="dr-fan dr-fan--main" href="{{ feature.url }}" aria-label="{{ feature.title | escape }}" data-dr-hero-card data-title="{{ feature.title | split: ' · ' | first | escape }}" data-price="{{ feature.price | money | escape }}">{{ feature.featured_image | image_url: width: 700 | image_tag: widths: '350, 500, 700', sizes: '(max-width: 749px) 180px, 265px', loading: 'eager', fetchpriority: 'high' }}</a>
-        <a class="dr-feature-caption" href="{{ feature.url }}" data-dr-hero-caption><span><small>{{ 'dr_brand.hero.spotlight' | t }}</small><strong data-dr-hero-title>{{ feature.title | split: ' · ' | first | escape }}</strong></span><b><span data-dr-hero-price>{{ feature.price | money }}</span> <span aria-hidden="true">↗</span></b></a>
+        <a class="dr-feature-caption" href="{{ feature.url }}" data-dr-hero-caption><span><small>{{ 'dr_brand.hero.spotlight' | t }}</small><strong data-dr-hero-title>{{ feature.title | split: ' · ' | first | escape }}</strong></span><b><span data-dr-hero-price>{{ feature.price | money }}</span> <span aria-hidden="true">{% render 'dr-arrow-up-right' %}</span></b></a>
       {% endif %}
     </div>
   </div>

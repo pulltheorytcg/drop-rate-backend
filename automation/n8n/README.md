@@ -6,7 +6,7 @@ This directory makes production n8n workflows version-controlled and reproducibl
 
 - Base image is pinned in `Dockerfile.n8n`.
 - Workflow JSON contains no credentials or secrets.
-- Startup provisioning is additive: it imports a workflow only when its stable workflow ID is absent.
+- Default startup provisioning is additive: it imports a workflow only when its stable workflow ID is absent. The explicit guarded upgrade below handles the reviewed exception.
 - Startup must never delete/recreate the n8n SQLite database.
 - Existing persistent workflows are not silently overwritten.
 - Workflow publishing is a separate deliberate step after import/validation.
@@ -14,7 +14,7 @@ This directory makes production n8n workflows version-controlled and reproducibl
 
 ## Why additive first
 
-Blind re-imports can overwrite a workflow while an older execution is running or erase a manual emergency correction. V1 therefore bootstraps missing workflows only. A later deployment tool can perform explicit, version-aware updates with backup/rollback.
+Blind re-imports can overwrite a workflow while an older execution is running or erase a manual emergency correction. V1 therefore bootstraps missing workflows only. The guarded control-plane upgrade below adds an explicit version-aware update with a verified backup and separate recovery procedure.
 
 ## Production migration gates
 
@@ -77,7 +77,7 @@ The registry is source-controlled and tested. n8n UI state is never the authorit
 
 `DR90GlobalErrorV1` is the first control-plane workflow.
 
-It is imported **inactive** until the backend receipt endpoint and matching runtime secrets are deployed and a synthetic failure is proven end-to-end.
+It is imported **inactive**. Once the backend receipt endpoint and runtime configuration are deployed, verify the stored definition and publish DR90. n8n 2.32.6 loads only a published error handler. The staged health activation below proves live signed heartbeat/storage connectivity before approved-media scheduling. Live error-receipt fan-out and replay remain separate evidence gaps until observed; the isolated CI canary does not prove them.
 
 Flow:
 
@@ -93,15 +93,14 @@ Rules:
 - `DROP_RATE_AUTOMATION_COMMAND_SECRET` must match FastAPI `TCG_AUTOMATION_COMMAND_SECRET`;
 - `DROP_RATE_API_AUTOMATION_CONTROL_URL` points to the governed FastAPI receipt endpoint.
 
-Before activation:
+Production readiness sequence:
 1. deploy backend receipt endpoint;
 2. configure matching command secret;
 3. configure private/internal FastAPI control URL;
-4. import DR-90;
-5. trigger one synthetic failure;
-6. prove exactly one automation_run per founder and one deduped Action Required per founder;
-7. replay the same receipt and prove no duplicate state;
-8. only then set DR-90 as the error workflow for other workflows.
+4. verify the exact inactive stored DR90 definition and its isolated automatic-routing CI proof;
+5. publish DR90, then the diagnostic DR92/DR93 subset and observe actual signed health receipts;
+6. keep production error fan-out and duplicate-receipt proof explicitly unverified until a real error or separately reviewed technical check establishes one automation_run and one deduped Action Required item per founder;
+7. do not create a synthetic production failure merely to enable the diagnostic health schedules.
 
 
 ## Production source cutover safety
@@ -114,7 +113,162 @@ The 30 September cutover proved persistent state was retained: DR-00 and DR-90 w
 
 The provisioner never wipes/recreates the persistent database and never imports credentials. The volume-local copy protects the source/provisioning rollback path; it does not replace normal platform-level backups.
 
+## Read-only stored workflow and Drive credential inspection
+
+`ops/inspect-stored-metadata.cjs` provides a bounded inspection on the next normal
+startup when the operator explicitly sets
+`DROP_RATE_N8N_METADATA_INSPECT_ON_BOOT=true`. It is disabled by default. The
+startup hook runs after additive import verification and does not import,
+overwrite, execute or publish a workflow. Remove or disable the flag after the
+required evidence has been collected.
+
+The helper uses Node's read-only SQLite connection directly. It does not start
+the n8n CLI/ORM, run migrations, export credentials, read the credential `data`
+column, or load the encryption key. The pinned n8n 2.32.6 image uses Node 24.18.0,
+which supplies the required `node:sqlite` API. A separate child receives only the
+database-location settings, has a 15-second hard deadline and a 64 KiB output
+limit, and never receives application secrets or `NODE_OPTIONS`. Inspection
+failure emits a fixed diagnostic and remains nonfatal to n8n startup.
+
+One JSON log event, `DROP_RATE_N8N_METADATA_INSPECTION`, reports:
+
+- Only `DR90GlobalErrorV1`, `DR91SuccessReceiptV1`, `DR92RuntimeHeartbeatV1`,
+  `DR93ObjectStorageHealthV1`, and `DR94R2ApprovedMediaMirrorV1`.
+- Normalized source, stored-draft and (when present) published-version SHA-256
+  hashes, comparison results, source/stored `errorWorkflow`, and separate
+  `active` and `published` states. In n8n 2.32.6, `activeVersionId` determines
+  publication; the legacy `active` flag alone is not sufficient.
+- At most 50 credential records containing **only** `id`, `name`, and `type`,
+  restricted to `googleDriveOAuth2Api` and `googleApi`. The latter can be a Google
+  service-account credential; its presence does not prove Drive access, usable
+  scopes, or ownership of the intended account/folder. A truncation indicator
+  prevents a partial result from being presented as a complete inventory.
+
+Normalization `drop-rate-workflow-definition-v1` sorts object keys and hashes
+`id`, `name`, `nodes`, `connections`, `settings`, and `nodeGroups` (empty by
+default), preserving array order. It excludes generated timestamps/version IDs,
+publication state, editor metadata, pinned data and static execution state. All
+node parameters and credential references affect the hash, but their contents
+are never logged. Published hashing follows n8n's export behaviour: nodes,
+connections and node groups come from the referenced workflow-history version;
+shared workflow settings come from the workflow entity. Each JSON column is
+limited to 1 MiB. All reads share one read-only SQLite snapshot.
+
+The helper follows the upstream database-path rule: append `.n8n` to
+`N8N_USER_FOLDER` (or `HOME`, then the working directory), and resolve
+`DB_SQLITE_DATABASE` relative to it. It supports a bounded alphanumeric/underscore
+`DB_TABLE_PREFIX`. Unsupported database types, external config files, env-file
+configuration, absent databases and schema mismatches produce fixed unavailable
+or partial results; the helper never searches for another database or creates a
+replacement file. It does not read or print configuration-file contents, paths,
+environment values, raw errors, workflow code or credential data.
+
+Source DR92 and DR93 now declare `DR90GlobalErrorV1` as their error workflow and
+remain inactive. Existing stored copies are intentionally preserved, so a hash
+mismatch is expected when their older stored definitions lack this setting.
+Inspect and review that difference before choosing an explicit versioned update.
+This inspection flag does not enable the existing DR94 publication switch.
+
+The pinned n8n 2.32.6 implementation requires a published DR90 version: its
+`loadErrorWorkflowData()` returns without running an unpublished handler.
+This version-specific implementation takes precedence over the generic Error
+Trigger documentation. A manual execution does not prove automatic error
+routing. Publish the verified handler first, then enable only DR92/DR93 to
+establish real automatic health receipts. A heartbeat cannot prove scheduling
+before its schedule is published. The production error-receipt and fan-out
+proof remains explicitly separate from this diagnostic activation.
+
+Run the offline fixture tests with the API's Node 22.23.3 or the pinned n8n image's Node 24.18.0:
+
+```sh
+node --no-warnings --test tests/n8n_stored_metadata.test.cjs
+```
+
+The pytest wrapper includes these tests in the existing backend CI job. They use
+disposable SQLite databases, deny credential-data reads with an erroring SQLite
+view and an authorizer when the runtime provides one,
+verify that the database file is unchanged, compare stored/published versions,
+exercise malformed and oversized data, and prove startup survives an inspector
+failure. They make no network calls.
+
+Primary compatibility references:
+
+- [Pinned n8n image and Node version](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/docker/images/n8n/Dockerfile)
+- [Pinned workflow entity and publication field](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/%40n8n/db/src/entities/workflow-entity.ts)
+- [Pinned published workflow export behaviour](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/cli/src/commands/export/workflow.ts)
+- [Pinned n8n folder resolution](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/%40n8n/config/src/utils/utils.ts)
+- [Node SQLite read-only connection](https://nodejs.org/docs/latest-v24.x/api/sqlite.html)
+- [Pinned error-handler publication requirement](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/cli/src/workflows/workflow-execution.service.ts)
+- [n8n Error Trigger automatic execution testing](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.errortrigger/)
+
+## Guarded control-plane upgrade and publication
+
+The observed 27 October stored copies of DR90, DR92, DR93 and DR94 are inactive
+and unpublished. The explicit plan in `ops/control-plane-upgrade-20261027.json`
+pins both their observed and reviewed hashes. All four receive a response
+parser correction: n8n 2.32.6 streams responses to raw requests, so
+`responseFormat: autodetect` consumes the JSON response before the existing
+strict acceptance checks. Raw HMAC-signed request bytes stay unchanged. DR92,
+DR93 and DR94 also gain `settings.errorWorkflow = DR90GlobalErrorV1`.
+
+DR91 receives the same source parser correction and read-only inspection, but
+is excluded from this write/publication plan. Its old source hash is an expected
+definition, not an observed production state. Deploy first with both mutation
+flags false, collect fresh stored/publication metadata for all five workflows,
+and review it before enabling the four-ID repair. DR91 requires its own reviewed
+upgrade after its actual stored state is observed.
+
+`DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT=true` enables only this reviewed
+inactive update. Before the server starts, the helper verifies the exact
+runtime, source and stored hashes, confirms inactivity, takes a private,
+WAL-aware SQLite backup, rechecks the state, and imports the four definitions
+with `--activeState=false`. A retry with already-matching inactive definitions
+does not import again. A failed requested upgrade stops startup with a bounded,
+metadata-only diagnostic. The ordinary metadata inspector remains nonfatal.
+
+Publication is a later, separate operation. Disable the upgrade flag, then use
+`DROP_RATE_N8N_CONTROL_PLANE_PUBLISH_ON_BOOT=error-handler` to publish only the
+exact verified DR90. The `health-schedules` value publishes only DR92 and DR93
+and requires DR90 already published at the exact reviewed hash. Observe an
+actual durable heartbeat and successful signed read-only storage check before
+using `media-schedule` for DR94. The media phase also requires both health
+workflows already published at their exact reviewed hashes; the helper cannot
+infer their successful live execution from publication alone. The legacy DR94
+switch has the same publication prerequisites. Do not enable two mutation
+phases in the same startup.
+
+The pinned-image CI job exercises the real n8n importer and publication commands
+against disposable SQLite state, then runs an isolated automatic error-routing
+canary using the exact DR90 definition. The canary verifies one failed webhook
+execution, one successful error-handler execution and one signed local receipt.
+It does not use the production database, credentials or backend and explicitly
+reports `production_backend_verified: false`. It has no automatic production
+startup hook.
+
+See [the guarded rollout and recovery procedure](../../docs/N8N_GUARDED_CONTROL_PLANE_UPGRADE_20261027.md)
+for the phases, expected receipts, backup handling and remaining live gates.
+
 ## DR-91 durable success receipt
+
+The 27 October live inspector confirmed DR91's old raw-response definition was
+inactive and unpublished. Its separate, default-off operator is documented in
+[`N8N_SUCCESS_RECEIPT_UPGRADE_20261027.md`](../../docs/N8N_SUCCESS_RECEIPT_UPGRADE_20261027.md).
+`DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE_ON_BOOT=true` upgrades only that exact
+observed DR91 definition, after all four core definitions are current. Existing
+core publication is preserved. The later
+`DROP_RATE_N8N_SUCCESS_RECEIPT_PUBLISH_ON_BOOT=true` phase publishes only the
+source-matching DR91 and requires the exact DR90 handler already published.
+These two flags are mutually exclusive with each other and the core/media
+mutation flags. Both default off. Neither runs a workflow, binds a credential,
+enables DR95, or proves a live success receipt.
+
+The separate `DROP_RATE_N8N_HEARTBEAT_PAUSE_ON_BOOT=true` operation unpublishes
+only DR92 before startup, with the same source/offline/lock/backup guards. It is
+mutually exclusive with all upgrade/publication flags and leaves DR90, DR93,
+DR94 and DR91 unchanged. See
+[`N8N_HEARTBEAT_PAUSE_20261027.md`](../../docs/N8N_HEARTBEAT_PAUSE_20261027.md).
+Clearing that pause flag does not republish the persisted workflow. Keep DR91
+publication and Drive activation off while the backend receipt repair is blocked.
 
 `DR91SuccessReceiptV1` is a reusable inactive sub-workflow for parent workflows that have completed and verified their governed action.
 
@@ -152,13 +306,17 @@ Rules:
 - when alerting is deliberately enabled, stale heartbeats create one deduped HIGH Action Required item per active founder and a healthy heartbeat resolves it;
 - no inventory, ownership, pricing, settlement or customer state is mutated.
 
-Activation gate:
+Staged activation:
 1. deploy and apply the heartbeat database contract;
-2. import DR-92 inactive;
-3. manually execute it once and verify a durable heartbeat row;
-4. replay the same execution and prove duplicate safety;
-5. prove the stale/healthy Action Required lifecycle;
-6. only then activate DR-92 and enable heartbeat alerts.
+2. verify the inactive source-matching DR92 definition and publish the exact DR90 handler;
+3. publish DR92/DR93 through the guarded `health-schedules` phase while heartbeat alerts remain disabled;
+4. verify the next automatic execution produces a fresh durable heartbeat row and the signed storage health request succeeds;
+5. observe continued heartbeat progression before declaring recurring execution healthy;
+6. test duplicate safety and the stale/healthy Action Required lifecycle before separately enabling heartbeat alerts. These alerting checks do not require holding the diagnostic heartbeat schedule unpublished.
+
+The pinned `n8n execute --id` CLI cannot start these schedule-only definitions:
+its start-node selector requires a manual/chat or execute-workflow trigger. Do
+not claim a CLI run of a modified wrapper is an exact scheduled execution.
 
 ## DR-00 V2 + DR-01 Shopify publication
 
@@ -206,3 +364,41 @@ Title, description, SEO, media and arbitrary metafield rewrites are **not** incl
 
 The workflow is imported inactive. Its migration must be applied through the normal manual production migration gate before any controlled activation test.
 
+
+
+## DR-95 eligible artwork sync (all supported games, gated; inactive by default)
+
+DR-95 is a **new** hourly HMAC-signed orchestrator, not an overwrite of the live DR-94 workflow. Live production logs show DR-94 already active, and the separate legacy reference-image API worker already runs. The new API command therefore delegates to DR-94 when \`canonical_limit=0\` and skips the reference batch when the existing worker is enabled. This avoids duplicate provider downloads; references can fall back to a bounded signed backend batch when the existing worker is disabled but its apply policy remains enabled.
+
+\`Schedule → sign REFRESH_ELIGIBLE_ARTWORK → FastAPI /api/v1/automation/commands/storage/refresh-eligible-artwork → verify receipt → DR-90 on failure\`
+
+This is **not** a bulk permission override or a new artwork source. Current source-published Yu-Gi-Oh!, Lorcana and Magic R2-first catalogues are **metadata-only** and need separate rights-checked exact-print artwork adapters before their images can appear. Certified slabs still require the exact physical slab photograph. The SQL database is currently above its 400 MB bulk-refresh safety threshold, so the backend defers all media writes until capacity checks pass. Newly imported DR-95 remains inactive until the persistent n8n workflow definition, rollback, DR-90 routing, and a real signed request/receipt have passed acceptance testing.
+
+[Full DR-95 contract, test plan, source gaps and rollback](../../docs/DR95_ARTWORK_AUTOMATION_20261106.md).
+
+
+## DR-96 six independent source-specific new-release metadata scouts
+
+The new DR-96 workflows are source-controlled **inactive** schedules, one each for YGOPRODeck (daily), Lorcast (daily), MTGJSON (daily), sports Bowman (weekly), sports Heritage (weekly), and the four-item curated figures feed (weekly). These are intentionally **not image scrapers** or Shopify publication triggers.
+
+Each uses a closed, literal source name inside its HMAC-signed FastAPI command. FastAPI calls the pre-existing R2-first source adapter and enforces the same source permissions, cadence, provider request limits, advisory lock, source-revision no-op, R2 full-byte verification and SQL compare-and-swap publication. n8n only schedules, validates the receipt and routes errors to DR-90. New metadata is available in the app through the existing catalogue resolver after its release date, but no source gets card artwork rights or slab photographs via these jobs.
+
+**Do not confuse newly imported n8n workflows with published/active ones.** DR-96 activation requires verified stored source hashes, backup and real signed pilot. Source-specific details and blockers: [DR96 runbook](../../docs/DR96_PER_GAME_RELEASE_SCOUTS_20261106.md).
+
+
+## DR-97: additional Pokémon, One Piece, Naruto, Dragon Ball and Riftbound game release scouts
+
+Eight new **initially inactive** daily n8n release scouts use the signed FastAPI command `/api/v1/automation/commands/catalogue/check-legacy-release-source`. Their backend calls only the existing legacy daily source importers after a PostgreSQL capacity check, an authoritative due check, and the same global maintenance lock. They **cannot** bypass the 400 MB Supabase refresh threshold, publish images or Shopify products, or make pricing/ownership changes. Dragon Ball Masters and Fusion World, One Piece Official and Punk, Naruto Kayou and Bandai are independent source jobs.
+
+The Riot Riftbound job is an official app-permission readiness monitor only until access to the authorised Riot API is connected, because public website access is not permission to commercialise the images. The workflow returns `DEFERRED_RIOT_APPROVAL` with no network call.
+
+A separate scoped, guarded n8n publication operator `/opt/drop-rate/ops/guarded-legacy-release-publish.cjs` is controlled by `DROP_RATE_N8N_LEGACY_RELEASE_PUBLISH_ON_BOOT=true`. It proves source hashes, DR90, pinned runtime version, private SQLite backup, 8 published versions and rollback rather than replacing already active DR96 or DR94 definitions. [Runbook](../../docs/DR97_LEGACY_RIFTBOUND_RELEASE_SCOUTS_20261106.md).
+
+
+## DR-98 — verified, private R2 evidence worklists after each approved metadata generation
+
+The six R2-first catalogue sources have separate signed 15-minute n8n orchestration workflows: YGOPRODeck, Lorcast, MTGJSON, sports Bowman/Heritage, and curated figures. They call `POST /api/v1/automation/commands/catalogue/prepare-enrichment-worklist`, which reads the current authorised source generation and its verified R2 shards, writes append-only SHA-256/private-artwork-and-market-evidence tasks into R2 with complete readback, and returns only bounded metadata receipts.
+
+These are **enrichment candidate worklists**, not image downloaders or Market Value publishers. The existing DR94 rights-approved mirror remains the current approved image path; the missing legal source art and verified sold-value adapters are separately gated.
+
+The independent n8n publisher `/opt/drop-rate/ops/guarded-enrichment-publish.cjs` uses opt-in `DROP_RATE_N8N_ENRICHMENT_PUBLISH_ON_BOOT=true` only after Railway API health and prior six-source test pass. It validates exact six stored hashes, DR90, offline persistent SQLite backup and exact published version readback, and never alters DR90–97. [Runbook](../../docs/DR98_R2_ARTWORK_MARKET_EVIDENCE_BRIDGE_20261107.md).

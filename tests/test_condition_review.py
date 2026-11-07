@@ -1,5 +1,10 @@
 from pathlib import Path
+from unittest.mock import AsyncMock
 
+import pytest
+from fastapi import HTTPException
+
+from app import condition_review
 from app.shopify_pipeline import _test_sync_missing
 
 
@@ -14,6 +19,23 @@ MIGRATION = (
     / "migrations"
     / "20260926003000_media_condition_review.sql"
 )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role,owner_type,allowed", [
+    ("PLATFORM_ADMIN", "FOUNDER", True), ("OWNER", "FOUNDER", False),
+    ("OWNER", "CONSIGNOR", False), ("PLATFORM_ADMIN", "CONSIGNOR", False),
+    ("FOUNDER", "FOUNDER", False),
+])
+async def test_founder_condition_review_uses_current_role_and_retains_owner_scope(monkeypatch, role, owner_type, allowed):
+    owner = {"id": "synthetic-founder", "role": role, "owner_type": owner_type}
+    monkeypatch.setattr(condition_review, "_owner", AsyncMock(return_value=owner))
+    if allowed:
+        assert await condition_review._founder(object()) == owner
+    else:
+        with pytest.raises(HTTPException) as error:
+            await condition_review._founder(object())
+        assert error.value.status_code == 403
 
 
 def ready_raw() -> dict:

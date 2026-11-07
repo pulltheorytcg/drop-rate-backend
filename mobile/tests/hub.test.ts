@@ -14,9 +14,9 @@ describe('existing hub navigation', () => {
 describe('shared hub session', () => {
   function fixture() {
     const store = new Map<string,string>();
-    const window = {} as {PullTheoryHubSession: {read:()=> {access_token?:string;refresh_token?:string}|null;save:(session:object)=>void;clear:()=>void}};
+    const window = {dispatchEvent() { return true; }} as {dispatchEvent: () => boolean; PullTheoryHubSession: {read:()=> {access_token?:string;refresh_token?:string}|null;save:(session:object)=>void;clear:()=>void}};
     runInNewContext(readFileSync('../backend/app/static/hub-session.js','utf8'), {
-      window, sessionStorage: {getItem: (key: string) => store.get(key) ?? null, setItem:(key: string,value:string) => store.set(key,value), removeItem:(key:string)=>store.delete(key)},
+      window, Event, sessionStorage: {getItem: (key: string) => store.get(key) ?? null, setItem:(key: string,value:string) => store.set(key,value), removeItem:(key:string)=>store.delete(key)},
     });
     return {store, session:window.PullTheoryHubSession};
   }

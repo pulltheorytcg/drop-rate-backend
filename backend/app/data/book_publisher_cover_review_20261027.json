@@ -1,0 +1,56 @@
+{
+  "observed_on": "2026-10-27",
+  "production_attached": true,
+  "entries": [
+    {
+      "catalogue_id": "3633ec5e-6545-5eb6-b11f-95560f190d8a",
+      "language": "English",
+      "book_identity_digest": "239858bbce438d3afbe0206158a9781044ca95fc0a81f05b45825bfebef494a3",
+      "source_url": "https://www.viz.com/manga-books/manga/boys-over-flowers-volume-22-0/product/897",
+      "source_title": "VIZ: Read a Free Preview of Boys Over Flowers, Vol. 22",
+      "source_isbn13": "9781421509853",
+      "publisher_release_date": "2007-02-13",
+      "catalogue_release_date": "2007-02-13",
+      "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421509857.jpg",
+      "observed_sha256": "82ae73acfe14e2c75117dda71641d2fe088c513546613c26d214980959fcc542",
+      "observed_width": 300,
+      "observed_height": 450,
+      "observed_on": "2026-10-27",
+      "page_sha256": "15c37ece8b72e20267fa3117fa0203953df07dd54b499e2311f1d14927ad63b3",
+      "status": "PUBLISHER_EDITION_REFERENCE_ATTACHED",
+      "identity_verified": false,
+      "market_value_added": false,
+      "production_write": true,
+      "reuse_rights_status": "PENDING_REVIEW",
+      "canonical_r2_media_approved": false
+    }
+  ],
+  "held": [
+    {
+      "catalogue_id": "c2304259-8e1b-5402-b7d3-ef096f1e0928",
+      "series": "The Law of Ueki",
+      "volume": "11",
+      "physical_isbn13": "9781421516912",
+      "source_url": "https://www.viz.com/manga-books/manga/law-of-ueki-volume-11/product/1258",
+      "source_edition": "Digital only",
+      "source_eisbn13": "9781421569864",
+      "reason": "DIGITAL_EDITION_IS_NOT_PHYSICAL_EDITION_EVIDENCE"
+    }
+  ],
+  "production_receipt": {
+    "id": "0a14df93-ddb0-4120-b5b7-220d4fe9fb34",
+    "completed_at": "2026-10-27T11:34:07.678293Z",
+    "independent_readback_at": "2026-10-27T11:34:31Z",
+    "reader": "book_cover_reference",
+    "accepted_exact_reference": true,
+    "original_open_library_mapping_digest_unchanged": true,
+    "entire_previous_attributes_preserved_in": "source_history",
+    "new_publisher_mapping_status": "REVIEW",
+    "new_publisher_mapping_confidence": 0,
+    "comic_identity_status": "STRUCTURED",
+    "profile_identity_status": "STRUCTURED",
+    "market_values_added": 0,
+    "approved_media_added": 0,
+    "inventory_changes": 0
+  }
+}

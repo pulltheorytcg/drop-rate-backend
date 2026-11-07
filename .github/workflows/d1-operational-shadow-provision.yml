@@ -1,0 +1,114 @@
+name: Cloudflare operational D1 private EMPTY shadow schema
+
+on:
+  pull_request:
+    paths:
+      - 'database/cloudflare_d1/0001_operational_shadow.sql'
+      - 'tools/d1_operational_shadow_provision.py'
+      - 'tests/test_d1_operational_shadow.py'
+      - 'tests/test_d1_operational_shadow_provision.py'
+      - '.github/workflows/d1-operational-shadow-provision.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'database/cloudflare_d1/0001_operational_shadow.sql'
+      - 'tools/d1_operational_shadow_provision.py'
+      - '.github/workflows/d1-operational-shadow-provision.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-operational-d1-private-shadow-once
+  cancel-in-progress: false
+
+jobs:
+  validate-private-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest
+      - name: Validate SQLite owner/financial constraints and fail-closed Cloudflare client
+        env:
+          PYTHONPATH: 'tools:backend'
+        run: |
+          python tools/d1_operational_shadow_provision.py --validate-only
+          python -m pytest -q tests/test_d1_operational_shadow.py tests/test_d1_operational_shadow_provision.py
+
+  provision-isolated-empty-d1:
+    if: >-
+      github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+    needs: validate-private-schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Create or verify ONLY named private operational D1 schema, no customer rows
+        id: provision
+        env:
+          PYTHONPATH: 'tools:backend'
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+        run: python tools/d1_operational_shadow_provision.py
+      - name: Publish schema-only status (NOT a finance/data cutover)
+        if: always()
+        env:
+          PROVISION_OUTCOME: ${{ steps.provision.outcome }}
+          GITHUB_STATUS_TOKEN: ${{ github.token }}
+          STATUS_REPOSITORY: ${{ github.repository }}
+          STATUS_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request
+          from pathlib import Path
+          state='failure'
+          description='Private operational D1 schema not verified; production unchanged'
+          path=Path('d1-operational-shadow-schema-report.json')
+          if path.is_file() and os.environ['PROVISION_OUTCOME']=='success':
+              d=json.loads(path.read_text())
+              if (d.get('status') in {
+                'PRIVATE_OPERATIONAL_D1_SCHEMA_PROVISIONED_NO_DATA',
+                'EXISTING_OPERATIONAL_D1_SCHEMA_OBJECTS_VERIFIED'}
+                and d.get('production_finance_cutover') is False
+                and d.get('customer_data_imported') is False
+                and d.get('production_reads_switched') is False
+                and d.get('market_value_writes')==0
+                and d.get('postgres_writes')==0
+                and d.get('actual_schema_objects')==d.get('expected_schema_objects')):
+                  state='success'
+                  description='Isolated operational D1 schema verified; NO customer data/cutover'
+          req=urllib.request.Request(
+            'https://api.github.com/repos/'+os.environ['STATUS_REPOSITORY']
+            +'/statuses/'+os.environ['STATUS_SHA'],
+            data=json.dumps({
+              'state':state,'description':description,
+              'context':'drop-rate-d1-operational-schema-only'
+            }).encode(),method='POST',headers={
+              'Authorization':'Bearer '+os.environ['GITHUB_STATUS_TOKEN'],
+              'Content-Type':'application/json',
+              'Accept':'application/vnd.github+json'
+            })
+          with urllib.request.urlopen(req,timeout=20) as resp:
+              if resp.status!=201:
+                  raise SystemExit('Missing schema-only status receipt')
+          print('Operational D1 shadow schema-only status: '+state)
+          PY
+      - name: Upload schema-only proof with no private data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-operational-empty-shadow-schema
+          path: d1-operational-shadow-schema-report.json
+          if-no-files-found: ignore
+          retention-days: 14

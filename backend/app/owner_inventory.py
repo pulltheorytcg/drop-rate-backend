@@ -1,0 +1,467 @@
+"""Seller inventory controls. Physical approval and storefront media stay gated."""
+from __future__ import annotations
+
+import hashlib
+import json
+from typing import Annotated, Literal
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict, Field
+
+from .access_control import require_owner_portal_request
+from .auth import AuthenticatedUser, require_user
+from .catalogue_artwork import reference_thumbnail
+from .language import clean_language
+from .recognition_games import SYSTEM_BY_GAME
+from .channel_sync_wakeup import request_shopify_sync
+from .inventory_display_groups import display_key_sql
+from .db import user_connection
+from .inventory_sale_intent import change_inventory_sale_intent
+from .recognition_images import _trusted_reference_url
+from .schemas import InventorySaleIntentChange
+from .settings import get_settings
+from .seller_inventory_policy import sealed_seller_candidate, ebay_preparation
+from .physical_state import CARD_CONDITIONS, validate_physical_state
+from .comic_identity import BOOK_CONDITIONS
+from .manual_collectible_identity import FIGURE_CONDITIONS
+from .inventory_reference_values import add_shared_reference_values
+from .inventory_reference_media import add_shared_inventory_media, is_graded_item
+from .book_research import add_saved_book_artwork
+from .media_resolver import resolve_storefront_media
+from .shopify_completeness import shipping_profile_key
+
+router = APIRouter(prefix="/api/v1/owner/inventory", tags=["owner-inventory"])
+ACTIVE = {"DRAFT", "INSPECTION", "APPROVED"}
+GAME_CASE = "case r.system_code " + " ".join(
+    "when '" + system + "' then '" + game.replace("'", "''") + "'"
+    for game, system in SYSTEM_BY_GAME.items()) + " else r.system_code end"
+
+# A source must identify the exact printing, not merely share a card number or
+# set. These images are private collection references, never publication media.
+REFERENCE_ART_SQL = f"""
+select p.id,p.language as catalogue_language,array_agg(distinct art.url) filter(where nullif(btrim(art.url),'') is not null) as urls
+from tcg.catalogue_products p
+left join lateral (
+ select r.image_url as url from tcg.reference_cards r
+ join tcg.reference_sets s using(provider,system_code,language,set_id)
+ where p.product_type='CARD' and p.game=({GAME_CASE}) and r.language=p.language
+   and p.variant=r.provider_id and p.name=r.name and p.set_name=s.name
+   and p.card_number=r.card_number and p.rarity=coalesce(nullif(r.rarity,''),'Unknown')
+ union
+ select r.image_url from tcg.provider_catalogue_mappings m
+ join tcg.reference_cards r on m.source_provider=r.provider and m.system_code=r.system_code
+   and m.provider_language=r.language and m.provider_id=r.provider_id
+ where m.catalogue_id=p.id and p.product_type='CARD' and p.game=({GAME_CASE}) and r.language=p.language
+   and m.provider_entity_type='CARD_PRINTING' and m.provider_variant_key='' and m.match_status='VERIFIED'
+ union
+ select r.image_url from tcg.reference_sealed_products r
+ join tcg.reference_sets s using(provider,system_code,language,set_id)
+ where p.product_type='SEALED' and p.game=({GAME_CASE}) and p.variant=r.provider_id and p.name=r.name and p.set_name=s.name
+   and (p.language=r.language or r.language='Unknown') and p.rarity=r.product_type
+ union
+ select pr.attributes->>'inventory_reference_image_url' from tcg.catalogue_product_profiles pr
+ where pr.catalogue_id=p.id and pr.identity_status='VERIFIED'
+   and pr.attributes->'inventory_reference_identity'=jsonb_build_object(
+     'name',p.name,'set_name',p.set_name,'variant',p.variant,'language',p.language,'product_type',p.product_type)
+) art on true
+where p.id=any($1::uuid[]) group by p.id
+"""
+
+
+async def add_reference_artwork(connection, items):
+    for item in items:
+        item.pop('reference_image_url', None)
+        item.pop('reference_image_path', None)
+    # Catalogue artwork and book covers never depict a graded physical copy.
+    raw_items = [item for item in items if not is_graded_item(item)]
+    ids = list({item["catalogue_id"] for item in raw_items if item.get("catalogue_id")})
+    if not ids:
+        return items
+    rows = await connection.fetch(REFERENCE_ART_SQL, ids)
+    by_id = {row["id"]: dict(row) for row in rows}
+    for item in raw_items:
+        artwork = by_id.get(item.get("catalogue_id"), {})
+        urls = artwork.get("urls") or []
+        physical_language = clean_language(item.get("language"))
+        catalogue_language = clean_language(artwork.get("catalogue_language"))
+        item.pop("reference_image_url", None)
+        item.pop("reference_image_path", None)
+        if physical_language and catalogue_language and physical_language != catalogue_language:
+            continue
+        # Conflicting references remain unavailable; do not guess the picture.
+        if len(urls) == 1 and _trusted_reference_url(urls[0]):
+            item["reference_image_url"] = urls[0]
+            item["reference_image_path"] = f"/api/v1/owner/inventory/{item['id']}/reference-image"
+    await add_saved_book_artwork(connection, raw_items)
+    return items
+
+
+DETAIL_SQL = """
+select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
+ i.condition,i.seal_status,i.grading_company,i.grade,i.certificate_number,i.condition_review_status,
+ o.owner_type,p.language as catalogue_language,pr.identity_status as catalogue_identity_status,
+ pr.attributes->'sports_card' as sports_card,pr.attributes->'figure_details' as figure_details,
+ pr.attributes->>'identity_source' as identity_source,
+ coalesce(i.language,p.language) as language,i.store_price_minor,i.market_value_minor,
+ case when p.product_type='COMIC' then i.acquisition_cost_minor else null end as comic_acquisition_cost_minor,
+ to_jsonb(i)->'source_record'->'comic_listing_preparation' as comic_listing_preparation,
+ i.recommended_retail_minor,i.pricing_updated_at,p.product_type,p.game,p.name,p.set_name,
+ p.card_number,p.variant,p.rarity,
+ i.identity_confirmed as identity_ready,
+ (i.acquisition_cost_minor is not null) as cost_recorded,
+ (i.storage_location_id is not null) as location_recorded,
+ (i.storage_location_id is not null) as intake_ready,
+ (select count(distinct m.side)=2 from tcg.media_assets m
+   where m.owner_id=i.owner_id and m.inventory_id=i.id and m.scope='INVENTORY_ITEM'
+     and m.media_kind='IMAGE' and m.side in ('FRONT','BACK')
+     and m.rights_tier='FIRST_PARTY_CAPTURE'
+     and m.source_type in ('FOUNDER_UPLOAD','CONSIGNOR_UPLOAD')
+     and ((coalesce(i.grade,'')='' and coalesce(i.grading_company,'')='')
+       or m.capture_context='GRADED_SLAB')
+     and m.rights_status='VERIFIED' and m.approval_status='APPROVED'
+     and m.shopify_file_status='READY' and m.shopify_cdn_url is not null
+     and m.source_status='ACTIVE' and m.revoked_at is null) as ebay_photos_ready,
+ exists(select 1 from tcg.shopify_shipping_profiles sp where sp.owner_id=i.owner_id
+   and sp.active and sp.profile_key=case when coalesce(i.grade,'')<>'' or coalesce(i.grading_company,'')<>''
+     then 'GRADED_CARD' else 'RAW_CARD' end) as ebay_shipping_ready,
+ (select ps.evidence->>'method' from tcg.pricing_snapshots ps
+   where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
+     and ps.inventory_id=i.id and ps.catalogue_id=i.catalogue_id) as pricing_method,
+ (select l.sync_state from tcg.shopify_inventory_links l
+   where l.inventory_id=i.id and l.owner_id=i.owner_id and not l.test_mode
+   order by l.last_synced_at desc limit 1) as shopify_state,
+ (select coalesce(nullif(m.shopify_cdn_url,''),m.public_source_url) from tcg.media_assets m
+   where ((m.scope='INVENTORY_ITEM' and m.inventory_id=i.id and m.owner_id=i.owner_id
+           and m.rights_tier='FIRST_PARTY_CAPTURE')
+       or (m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and m.inventory_id is null
+           and m.catalogue_id=i.catalogue_id and m.rights_tier='STOREFRONT_ALLOWED'
+           and lower(btrim(coalesce(m.media_language,'')))=lower(btrim(coalesce(i.language,p.language,'')))
+           and lower(btrim(coalesce(m.media_variant,'')))=lower(btrim(coalesce(p.variant,'')))))
+     and m.side='FRONT' and m.media_kind='IMAGE' and m.approval_status='APPROVED'
+     and m.rights_status='VERIFIED' and m.source_status='ACTIVE' and m.revoked_at is null
+   order by (m.inventory_id=i.id) desc,m.approved_at desc nulls last,m.id limit 1) as image_url
+from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
+join tcg.owners o on o.id=i.owner_id
+left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+where i.id=$1 and i.owner_id=$2
+"""
+
+COPIES_SQL = f"""
+select c.id,c.inventory_code,c.status,c.version,c.sale_intent
+from tcg.inventory_items i
+join tcg.catalogue_products p on p.id=i.catalogue_id
+join tcg.inventory_items c on c.owner_id=i.owner_id and c.catalogue_id=i.catalogue_id
+  and ({display_key_sql('c')})=({display_key_sql('i')})
+where i.id=$1 and i.owner_id=$2
+order by c.created_at,c.id
+"""
+
+
+def public_collectible_identity(item):
+    """Keep typed edition details, excluding submitter IDs and private metadata."""
+    fields = {
+        "sports_card": ("sport", "league", "release_year", "season", "manufacturer", "set_name",
+                        "subject_name", "team", "card_number", "parallel", "print_run"),
+        "figure_details": ("manufacturer", "franchise", "character", "product_line", "edition",
+                           "scale", "release_year", "manufacturer_sku", "barcode_gtin"),
+    }
+    for name, allowed in fields.items():
+        values = item.pop(name, None)
+        if isinstance(values, str):
+            try:
+                values = json.loads(values)
+            except (TypeError, ValueError):
+                values = None
+        expected_type = "FIGURE" if name == "figure_details" else "CARD"
+        if isinstance(values, dict) and item.get("product_type") == expected_type:
+            item[name] = {key: values[key] for key in allowed if key in values
+                          and isinstance(values[key], (str, int)) and not isinstance(values[key], bool)}
+    if item.get("identity_source") != "SELLER_ENTERED":
+        item.pop("identity_source", None)
+    return item
+
+
+def approval_blockers(item):
+    missing = []
+    if not item.get("identity_ready") and not sealed_seller_candidate(item):
+        missing.append("Drop Rate selling review: confirm the exact printing before publication")
+    if not item.get("location_recorded") and not sealed_seller_candidate(item):
+        missing.append("Storage / dispatch location needs recording by Drop Rate")
+    if not item.get("language"):
+        missing.append("Product language")
+    if not item.get("store_price_minor") or item["store_price_minor"] < 100:
+        missing.append("A selling price of at least £1")
+    if item["product_type"] in {"CARD", "COMIC"}:
+        if not ((item.get("grading_company") and item.get("grade")) or item.get("condition")):
+            missing.append("Book condition or grade" if item["product_type"] == "COMIC" else "Card condition or grade")
+    elif item["product_type"] == "FIGURE":
+        if item.get("condition") not in FIGURE_CONDITIONS:
+            missing.append("Figure condition")
+    elif not item.get("seal_status"):
+        missing.append("Seal status")
+    if item.get("product_type") == "COMIC":
+        for reason in item.get("shopify_media_blockers") or []:
+            missing.append(f"Shopify media: {reason}")
+        if item.get("shopify_shipping_ready") is False:
+            missing.append(f"Drop Rate must configure shipping profile {item['shopify_shipping_profile_key']}")
+    elif not item.get("image_url"):
+        missing.append("Catalogue image is being prepared" if sealed_seller_candidate(item) else "Listing image approval / preparation (separate from collection artwork)")
+    return missing
+
+
+@router.get("/{inventory_id}")
+async def details(inventory_id: UUID, request: Request,
+                  user: Annotated[AuthenticatedUser, Depends(require_user)],
+                  access: Annotated[dict, Depends(require_owner_portal_request)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        row = await connection.fetchrow(DETAIL_SQL, inventory_id, access["owner_id"])
+        if row is None:
+            raise HTTPException(404, "Inventory item not found")
+        item = public_collectible_identity(dict(row))
+        if item["product_type"] == "COMIC":
+            # The seller sees the same physical-copy media and shipping gates
+            # the Shopify publisher enforces, before requesting another sync.
+            # Only this owner's exact copy is queried; catalogue cover art is
+            # not allowed to stand in for a printing-specific physical photo.
+            media = await connection.fetch("""select * from tcg.media_assets
+                where owner_id=$1 and inventory_id=$2 and scope='INVENTORY_ITEM'
+                order by created_at,id limit 50""",access["owner_id"],inventory_id)
+            item["comic_photos"] = [{
+                "id": str(asset["id"]), "side": asset["side"],
+                "approval_status": asset["approval_status"],
+                "shopify_file_status": asset["shopify_file_status"],
+                "photo_url": asset["shopify_cdn_url"] if asset["shopify_file_status"] == "READY" else None,
+                "retake_reason": asset["revocation_reason"] if asset["approval_status"] == "REJECTED" else None,
+                "created_at": asset["created_at"],
+            } for asset in media]
+            item["shopify_media_blockers"] = resolve_storefront_media(
+                item,[dict(asset) for asset in media])["blockers"]
+            profile_key = shipping_profile_key(item)
+            item["shopify_shipping_profile_key"] = profile_key
+            item["shopify_shipping_ready"] = bool(await connection.fetchval("""
+                select exists(select 1 from tcg.shopify_shipping_profiles
+                  where owner_id=$1 and profile_key=$2 and active)
+            """,access["owner_id"],profile_key))
+            book = await connection.fetchrow("""select b.*,i.notes from tcg.comic_printing_details b
+                join tcg.inventory_items i on i.catalogue_id=b.catalogue_id
+                where i.id=$1 and i.owner_id=$2""", inventory_id, access["owner_id"])
+            item["comic_printing"] = dict(book) if book else None
+            if book:
+                attributes = book["attributes"]
+                if isinstance(attributes, str):
+                    attributes = json.loads(attributes)
+                item["comic_printing"]["attributes"] = {key: attributes.get(key) for key in ("publisher", "book_format")}
+        item["approval_blockers"] = approval_blockers(item)
+        item["ebay_preparation"] = ebay_preparation(item)
+        await add_reference_artwork(connection, [item])
+        await add_shared_inventory_media(connection, [item])
+        await add_shared_reference_values(connection, [item])
+        copies = await connection.fetch(COPIES_SQL, inventory_id, access["owner_id"])
+    item["seller_approval_available"] = sealed_seller_candidate(item)
+    item["is_consignment"] = access.get("owner_type", item.get("owner_type")) == "CONSIGNOR"
+    for key in ("owner_type", "catalogue_language", "catalogue_identity_status"):
+        item.pop(key, None)
+    item.pop("identity_ready", None)
+    item.pop("intake_ready", None)
+    settings = get_settings()
+    item["shopify_sync_enabled"] = settings.shopify_seller_sync_enabled and settings.shopify_publish_enabled
+    return jsonable_encoder({"item": item, "copies": [dict(row) for row in copies]})
+
+
+@router.get("/{inventory_id}/reference-image")
+async def reference_image(inventory_id: UUID, request: Request,
+                          user: Annotated[AuthenticatedUser, Depends(require_user)],
+                          access: Annotated[dict, Depends(require_owner_portal_request)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        row = await connection.fetchrow("""select i.id,i.catalogue_id,i.language,p.product_type,
+            i.grading_company,i.grade,i.certificate_number
+            from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
+            where i.id=$1 and i.owner_id=$2""",
+                                        inventory_id, access["owner_id"])
+        if row is None:
+            raise HTTPException(404, "Inventory item not found")
+        item = dict(row)
+        await add_reference_artwork(connection, [item])
+    if not item.get("reference_image_url"):
+        raise HTTPException(404, "No exact reference image is available")
+    payload = await reference_thumbnail(item["reference_image_url"])
+    if payload is None:
+        raise HTTPException(502, "Reference image is temporarily unavailable")
+    return Response(payload.data, media_type=payload.content_type,
+                    headers={"Cache-Control": "private, no-store", "X-Drop-Rate-Image": "REFERENCE_ONLY"})
+
+
+class VersionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: int = Field(ge=1, strict=True)
+
+
+class SellingPrice(VersionRequest):
+    store_price_minor: int = Field(ge=100, le=100_000_000, strict=True)
+
+
+class ListingRequest(SellingPrice):
+    condition: str | None = Field(default=None, max_length=80)
+
+
+class AddCopy(VersionRequest):
+    confirmed: Literal[True]
+
+
+async def locked_item(connection, inventory_id, owner_id):
+    row = await connection.fetchrow("select * from tcg.inventory_items where id=$1 and owner_id=$2 for update",
+                                    inventory_id, owner_id)
+    if row is None:
+        raise HTTPException(404, "Inventory item not found")
+    return dict(row)
+
+
+def require_editable(item, version):
+    if item["version"] != version:
+        raise HTTPException(409, "This copy changed. Refresh its details and try again.")
+    if item["status"] not in ACTIVE:
+        raise HTTPException(409, "Sold, reserved or withdrawn copies cannot be changed here.")
+
+
+async def save_selling_price(inventory_id, payload, request, user, access, *, approval_request):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        item = await locked_item(connection, inventory_id, access["owner_id"])
+        require_editable(item, payload.version)
+        if approval_request:
+            proposed_condition = getattr(payload, "condition", None)
+            if proposed_condition is not None:
+                if item["status"] not in {"DRAFT", "INSPECTION"}:
+                    raise HTTPException(409, "Condition changes on approved stock need Drop Rate review")
+                kind = await connection.fetchval("select product_type from tcg.catalogue_products where id=$1", item["catalogue_id"])
+                allowed = {"COMIC": BOOK_CONDITIONS, "FIGURE": FIGURE_CONDITIONS}.get(kind, CARD_CONDITIONS)
+                if proposed_condition not in allowed:
+                    raise HTTPException(422, {"COMIC": "Choose a valid book condition", "FIGURE": "Choose a valid figure condition"}.get(kind, "Choose a valid raw-card condition"))
+                try:
+                    validate_physical_state(product_type=kind, condition=proposed_condition,
+                        seal_status=item.get("seal_status"), grading_company=item.get("grading_company"),
+                        grade=item.get("grade"), certificate_number=item.get("certificate_number"))
+                except ValueError as exc:
+                    raise HTTPException(422, str(exc)) from exc
+            context = await connection.fetchrow(DETAIL_SQL, inventory_id, access["owner_id"])
+            if (context and context["product_type"] in {"CARD", "COMIC", "FIGURE"} and not context.get("grading_company")
+                    and not (proposed_condition or context.get("condition"))):
+                raise HTTPException(422, "Choose the condition for this listing; your item is already saved")
+            if context and sealed_seller_candidate(dict(context)):
+                if not context["image_url"]:
+                    raise HTTPException(422, "The exact catalogue image is being prepared. Your own photo is not required.")
+                approval = {"owner_id": str(access["owner_id"]), "catalogue_id": str(item["catalogue_id"]),
+                            "actor_user_id": str(user.user_id), "language": context["language"],
+                            "name": context["name"], "set_name": context["set_name"], "variant": context["variant"]}
+                row = await connection.fetchrow("""update tcg.inventory_items set
+                    store_price_minor=$4,status='APPROVED',sale_intent='FOR_SALE',identity_confirmed=true,
+                    source_record=coalesce(source_record,'{}'::jsonb) || jsonb_build_object('seller_held_approval',$5::jsonb),
+                    version=version+1,updated_at=clock_timestamp()
+                    where id=$1 and owner_id=$2 and version=$3
+                    returning id,inventory_code,status,sale_intent,version,store_price_minor
+                    """, inventory_id, access["owner_id"], payload.version,payload.store_price_minor,json.dumps(approval))
+                if row is None:
+                    raise HTTPException(409, "Inventory changed. Refresh and try again.")
+                result = jsonable_encoder({"item": dict(row), "message": "Approved for Shopify using the catalogue image. Your stock stays with you; automatic sync is queued."})
+            else:
+                result = None
+        else:
+            result = None
+        if result is None:
+            result = await _save_review_price(connection, inventory_id, payload, item, access, approval_request)
+    request_shopify_sync(request)
+    return result
+
+
+async def _save_review_price(connection, inventory_id, payload, item, access, approval_request):
+    target = "INSPECTION" if approval_request and item["status"] == "DRAFT" else item["status"]
+    row = await connection.fetchrow("""update tcg.inventory_items
+        set store_price_minor=$4,status=$5,sale_intent=$6,condition=coalesce($7::text,condition),version=version+1,updated_at=clock_timestamp()
+        where id=$1 and owner_id=$2 and version=$3 returning id,inventory_code,status,sale_intent,version,store_price_minor
+        """, inventory_id, access["owner_id"], payload.version, payload.store_price_minor, target,
+        "FOR_SALE" if approval_request else item["sale_intent"], getattr(payload, "condition", None) if approval_request else None)
+    if row is None:
+        raise HTTPException(409, "Inventory changed. Refresh and try again.")
+    return jsonable_encoder({"item": dict(row), "message":
+    "Your listing request is saved. Drop Rate will review this copy before Shopify publication."
+    if approval_request and target != "APPROVED" else "Selling price saved. Approved For Sale stock will sync automatically."})
+
+@router.patch("/{inventory_id}/selling-price")
+async def selling_price(inventory_id: UUID, payload: SellingPrice, request: Request,
+                        user: Annotated[AuthenticatedUser, Depends(require_user)],
+                        access: Annotated[dict, Depends(require_owner_portal_request)]):
+    return await save_selling_price(inventory_id, payload, request, user, access, approval_request=False)
+
+
+@router.post("/{inventory_id}/approval-request")
+async def approval_request(inventory_id: UUID, payload: ListingRequest, request: Request,
+                           user: Annotated[AuthenticatedUser, Depends(require_user)],
+                           access: Annotated[dict, Depends(require_owner_portal_request)]):
+    return await save_selling_price(inventory_id, payload, request, user, access, approval_request=True)
+
+
+@router.post("/{inventory_id}/copies", status_code=201)
+async def add_copy(inventory_id: UUID, payload: AddCopy, request: Request,
+                   user: Annotated[AuthenticatedUser, Depends(require_user)],
+                   access: Annotated[dict, Depends(require_owner_portal_request)],
+                   idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")]):
+    digest = hashlib.sha256(f"seller-copy:{inventory_id}:{payload.version}".encode()).hexdigest()
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        # Serialise retries before checking the shared receipt table.
+        await connection.execute("select pg_advisory_xact_lock(hashtextextended($1,0))",
+                                 f"seller-copy:{access['owner_id']}:{idempotency_key}")
+        receipt = await connection.fetchrow("select payload_hash,response from tcg.request_receipts where owner_id=$1 and request_key=$2",
+                                           access["owner_id"], idempotency_key)
+        if receipt:
+            if receipt["payload_hash"] != digest:
+                raise HTTPException(409, "This addition was already used with different details")
+            response = receipt["response"]
+            return {**(json.loads(response) if isinstance(response, str) else response), "replayed": True}
+        item = await locked_item(connection, inventory_id, access["owner_id"])
+        require_editable(item, payload.version)
+        if item.get("grading_company") or item.get("grade") or item.get("certificate_number"):
+            raise HTTPException(422, "Add each graded slab through Scan with its own certificate.")
+        new_id = uuid4()
+        row = await connection.fetchrow("""insert into tcg.inventory_items(
+             id,inventory_code,owner_id,catalogue_id,language,condition,seal_status,
+             currency,status,sale_intent,identity_confirmed,intake_request_key,source_record)
+             values($1,$2,$3,$4,$5,$6,$7,'GBP','DRAFT','PERSONAL_COLLECTION',false,$8,$9::jsonb)
+             on conflict(intake_request_key) do nothing
+             returning id,inventory_code,status,sale_intent,version
+             """, new_id, f"INV-{new_id.hex.upper()}", access["owner_id"], item["catalogue_id"],
+             item["language"], item["condition"], item["seal_status"], idempotency_key,
+             json.dumps({"source": "SELLER_QUANTITY", "source_inventory_id": str(inventory_id), "seller_confirmed": True}))
+        if row is None:
+            raise HTTPException(409, "This addition key is already in use. Refresh before adding another copy.")
+        result = jsonable_encoder({"item": dict(row), "replayed": False,
+                                   "message": "One copy added. Review and approve it separately before selling."})
+        await connection.execute("insert into tcg.request_receipts(owner_id,request_key,payload_hash,response) values($1,$2,$3,$4::jsonb)",
+                                 access["owner_id"], idempotency_key, digest, json.dumps(result))
+    return result
+
+
+@router.post("/{inventory_id}/withdraw")
+async def withdraw_copy(inventory_id: UUID, payload: VersionRequest, request: Request,
+                        user: Annotated[AuthenticatedUser, Depends(require_user)],
+                        access: Annotated[dict, Depends(require_owner_portal_request)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        item = await locked_item(connection, inventory_id, access["owner_id"])
+        if item["status"] == "WITHDRAWN":
+            return {"message": "This copy is already withdrawn.", "replayed": True}
+        require_editable(item, payload.version)
+    # Existing fail-closed allocation and remote withdrawal rules apply before
+    # lowering active stock. A failed remote withdrawal remains retryable.
+    await change_inventory_sale_intent(inventory_id,
+        InventorySaleIntentChange(version=payload.version, sale_intent="PERSONAL_COLLECTION"), request, user)
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        item = await locked_item(connection, inventory_id, access["owner_id"])
+        if item["status"] == "WITHDRAWN":
+            return {"message": "This copy is already withdrawn.", "replayed": True}
+        if item["status"] not in ACTIVE or item["sale_intent"] != "PERSONAL_COLLECTION":
+            raise HTTPException(409, "This copy changed during withdrawal. Refresh its details.")
+        await connection.execute("""update tcg.inventory_items set status='WITHDRAWN',version=version+1,updated_at=clock_timestamp()
+                                  where id=$1 and owner_id=$2 and version=$3""", inventory_id, access["owner_id"], item["version"])
+    return {"message": "Copy withdrawn. Its history is retained.", "replayed": False}
+

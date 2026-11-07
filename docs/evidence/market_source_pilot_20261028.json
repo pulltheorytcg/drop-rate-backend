@@ -1,0 +1,871 @@
+{
+  "schema_version": 1,
+  "purpose": "Diagnostic pilot of currently unpriced physical references; not a coverage forecast",
+  "source_commit": "cfc964d05d355aa919608b2d19a57338f1e3822d",
+  "snapshot_at": "2026-10-28T19:39:19.17738+00:00",
+  "baseline": {
+    "observed_at": "2026-10-28T19:39:19.17738+00:00",
+    "total": 67065,
+    "priced": 43279,
+    "target": 59688,
+    "needed": 16409
+  },
+  "selection": {
+    "per_game_language": 4,
+    "order": "md5(provider || ':' || provider_id)",
+    "cohorts": 9
+  },
+  "access_status": "PENDING_DECODO_CREDENTIAL",
+  "provider_results": [],
+  "candidates": [
+    {
+      "name": "Energy Marker",
+      "finish": null,
+      "rarity": null,
+      "set_id": "583901",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_variant": "",
+        "set_membership_id": "583901",
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "Bandai Official",
+      "set_name": "Promotion Card",
+      "source_url": "https://www.dbs-cardgame.com/fw/en/cardlist/detail.php?card_no=E-141",
+      "card_number": "E-141",
+      "provider_id": "583901:E-141",
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD"
+    },
+    {
+      "name": "Burning Power of Instinct",
+      "finish": null,
+      "rarity": null,
+      "set_id": "583109",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_variant": "_p1",
+        "set_membership_id": "583109",
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "Bandai Official",
+      "set_name": "STARTER DECK EX SHALLOT [FS09]",
+      "source_url": "https://www.dbs-cardgame.com/fw/en/cardlist/detail.php?card_no=FS09-17&p=_p1",
+      "card_number": "FS09-17",
+      "provider_id": "583109:FS09-17_p1",
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD"
+    },
+    {
+      "name": "Whis",
+      "finish": null,
+      "rarity": null,
+      "set_id": "583902",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_variant": "_p4",
+        "set_membership_id": "583902",
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "Bandai Official",
+      "set_name": "Release Event Pack [FB01 - FB05]",
+      "source_url": "https://www.dbs-cardgame.com/fw/en/cardlist/detail.php?card_no=FB01-004&p=_p4",
+      "card_number": "FB01-004",
+      "provider_id": "583902:FB01-004_p4",
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD"
+    },
+    {
+      "name": "Nail",
+      "finish": null,
+      "rarity": null,
+      "set_id": "583902",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_variant": "_p1",
+        "set_membership_id": "583902",
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "Bandai Official",
+      "set_name": "Release Event Pack [FB01 - FB05]",
+      "source_url": "https://www.dbs-cardgame.com/fw/en/cardlist/detail.php?card_no=FB05-059&p=_p1",
+      "card_number": "FB05-059",
+      "provider_id": "583902:FB05-059_p1",
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD"
+    },
+    {
+      "name": "天空×字拳",
+      "finish": null,
+      "rarity": null,
+      "set_id": "584201",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_variant": "_p1",
+        "set_membership_id": "584201",
+        "physical_finish_unresolved": true
+      },
+      "language": "Japanese",
+      "provider": "Bandai Official",
+      "set_name": "MANGA BOOSTER 01[SB01]",
+      "source_url": "https://www.dbs-cardgame.com/fw/jp/cardlist/detail.php?card_no=FB06-044&p=_p1",
+      "card_number": "FB06-044",
+      "provider_id": "584201:FB06-044_p1",
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD"
+    },
+    {
+      "name": "ベジータ",
+      "finish": null,
+      "rarity": null,
+      "set_id": "584112",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_variant": "",
+        "set_membership_id": "584112",
+        "physical_finish_unresolved": true
+      },
+      "language": "Japanese",
+      "provider": "Bandai Official",
+      "set_name": "スタートデッキEX 気の躍動[FS12]",
+      "source_url": "https://www.dbs-cardgame.com/fw/jp/cardlist/detail.php?card_no=FS12-16",
+      "card_number": "FS12-16",
+      "provider_id": "584112:FS12-16",
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD"
+    },
+    {
+      "name": "エナジーマーカー",
+      "finish": null,
+      "rarity": null,
+      "set_id": "584201",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_variant": "_p1",
+        "set_membership_id": "584201",
+        "physical_finish_unresolved": true
+      },
+      "language": "Japanese",
+      "provider": "Bandai Official",
+      "set_name": "MANGA BOOSTER 01[SB01]",
+      "source_url": "https://www.dbs-cardgame.com/fw/jp/cardlist/detail.php?card_no=E-43&p=_p1",
+      "card_number": "E-43",
+      "provider_id": "584201:E-43_p1",
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD"
+    },
+    {
+      "name": "セル",
+      "finish": null,
+      "rarity": null,
+      "set_id": "584010",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_variant": "",
+        "set_membership_id": "584010",
+        "physical_finish_unresolved": true
+      },
+      "language": "Japanese",
+      "provider": "Bandai Official",
+      "set_name": "ブースターパック CROSS FORCE [FB10]",
+      "source_url": "https://www.dbs-cardgame.com/fw/jp/cardlist/detail.php?card_no=FB10-112",
+      "card_number": "FB10-112",
+      "provider_id": "584010:FB10-112",
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD"
+    },
+    {
+      "name": "Janemba",
+      "finish": null,
+      "rarity": "Common[C]",
+      "set_id": "428012",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "face": "front",
+        "card_type": "BATTLE",
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_series": "Unison Warrior Series Vicious Rejuvenation",
+        "set_membership_id": "428012",
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "Bandai Official",
+      "set_name": "UW03 Booster -VICIOUS REJUVENATION-",
+      "source_url": "https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428012",
+      "card_number": "BT12-046",
+      "provider_id": "428012:BT12-046.png",
+      "system_code": "DRAGON_BALL_SUPER_MASTERS"
+    },
+    {
+      "name": "SSB Vegeta, Spirit Mentor",
+      "finish": null,
+      "rarity": "Promotion[PR]",
+      "set_id": "428901",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "face": "front",
+        "card_type": "BATTLE",
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_series": "Promotion Cards",
+        "set_membership_id": "428901",
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "Bandai Official",
+      "set_name": "Promotion Cards",
+      "source_url": "https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428901",
+      "card_number": "P-314_PR",
+      "provider_id": "428901:P-314_PR.png",
+      "system_code": "DRAGON_BALL_SUPER_MASTERS"
+    },
+    {
+      "name": "Brianne De Chateau",
+      "finish": null,
+      "rarity": "Uncommon[UC]",
+      "set_id": "428030",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "face": "front",
+        "card_type": "LEADER",
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_series": "ULTRA BOUT Series 03 THREE GLORIOUS FIGHTERS",
+        "set_membership_id": "428030",
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "Bandai Official",
+      "set_name": "UB03 Booster -THREE GLORIOUS FIGHTERS-",
+      "source_url": "https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428030",
+      "card_number": "BT30-082",
+      "provider_id": "428030:BT30-082.png",
+      "system_code": "DRAGON_BALL_SUPER_MASTERS"
+    },
+    {
+      "name": "SS4 Son Goku, to Hell and Back",
+      "finish": null,
+      "rarity": "Uncommon[UC]",
+      "set_id": "428020",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "face": "front",
+        "card_type": "BATTLE",
+        "detail_level": "OFFICIAL_CHECKLIST",
+        "provider_series": "ZENKAI Series POWER ABSORBED",
+        "set_membership_id": "428020",
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "Bandai Official",
+      "set_name": "Z03 Booster -POWER ABSORBED-",
+      "source_url": "https://www.dbs-cardgame.com/us-en/cardlist/?search=true&category=428020",
+      "card_number": "BT20-063",
+      "provider_id": "428020:BT20-063.png",
+      "system_code": "DRAGON_BALL_SUPER_MASTERS"
+    },
+    {
+      "name": "The Blank Page",
+      "finish": null,
+      "rarity": null,
+      "set_id": "weapons-of-war",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "tier": null,
+        "wave": null,
+        "box_code": null,
+        "card_type": "Mission",
+        "detail_level": "COMMUNITY_CHECKLIST",
+        "provider_variant": null,
+        "edition_unresolved": true,
+        "language_unverified": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Unknown",
+      "provider": "Naruto Card Game Archive",
+      "set_name": "Weapons Of War",
+      "source_url": "https://narutocardgame.gg/archive/classic-ccg/cards/m812-the-blank-page",
+      "card_number": "m812",
+      "provider_id": "weapons-of-war:m812-the-blank-page",
+      "system_code": "NARUTO_BANDAI_LEGACY"
+    },
+    {
+      "name": "Shura",
+      "finish": null,
+      "rarity": null,
+      "set_id": "will-of-fire",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "tier": null,
+        "wave": null,
+        "box_code": null,
+        "card_type": "Ninja",
+        "detail_level": "COMMUNITY_CHECKLIST",
+        "provider_variant": null,
+        "edition_unresolved": true,
+        "language_unverified": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Unknown",
+      "provider": "Naruto Card Game Archive",
+      "set_name": "Will Of Fire",
+      "source_url": "https://narutocardgame.gg/archive/classic-ccg/cards/n858-shura",
+      "card_number": "n858",
+      "provider_id": "will-of-fire:n858-shura",
+      "system_code": "NARUTO_BANDAI_LEGACY"
+    },
+    {
+      "name": "Healing",
+      "finish": null,
+      "rarity": null,
+      "set_id": "tournament-pack-4",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "tier": null,
+        "wave": null,
+        "box_code": null,
+        "card_type": "Jutsu",
+        "detail_level": "COMMUNITY_CHECKLIST",
+        "provider_variant": null,
+        "edition_unresolved": true,
+        "language_unverified": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Unknown",
+      "provider": "Naruto Card Game Archive",
+      "set_name": "Tournament Pack 4",
+      "source_url": "https://narutocardgame.gg/archive/classic-ccg/cards/j894-healing",
+      "card_number": "j894",
+      "provider_id": "tournament-pack-4:j894-healing",
+      "system_code": "NARUTO_BANDAI_LEGACY"
+    },
+    {
+      "name": "Heated Argument",
+      "finish": null,
+      "rarity": null,
+      "set_id": "invasion",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "tier": null,
+        "wave": null,
+        "box_code": null,
+        "card_type": "Mission",
+        "detail_level": "COMMUNITY_CHECKLIST",
+        "provider_variant": null,
+        "edition_unresolved": true,
+        "language_unverified": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Unknown",
+      "provider": "Naruto Card Game Archive",
+      "set_name": "Invasion",
+      "source_url": "https://narutocardgame.gg/archive/classic-ccg/cards/m828-heated-argument",
+      "card_number": "m828",
+      "provider_id": "invasion:m828-heated-argument",
+      "system_code": "NARUTO_BANDAI_LEGACY"
+    },
+    {
+      "name": "Rin Nohara",
+      "finish": null,
+      "rarity": "SR",
+      "set_id": "kayou-t2-w6",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "tier": "T2",
+        "wave": "W6",
+        "box_code": "T2W6",
+        "card_type": null,
+        "detail_level": "COMMUNITY_CHECKLIST",
+        "provider_variant": null,
+        "edition_unresolved": true,
+        "language_unverified": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Unknown",
+      "provider": "Naruto Card Game Archive",
+      "set_name": "Kayou T2 W6",
+      "source_url": "https://narutocardgame.gg/archive/kayou/cards/sr-107-rin-nohara",
+      "card_number": "SR-107",
+      "provider_id": "kayou-t2-w6:sr-107-rin-nohara",
+      "system_code": "NARUTO_KAYOU"
+    },
+    {
+      "name": "Temari",
+      "finish": null,
+      "rarity": "SSR",
+      "set_id": "kayou-t2-w4",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "tier": "T2",
+        "wave": "W4",
+        "box_code": "T2W4",
+        "card_type": null,
+        "detail_level": "COMMUNITY_CHECKLIST",
+        "provider_variant": null,
+        "edition_unresolved": true,
+        "language_unverified": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Unknown",
+      "provider": "Naruto Card Game Archive",
+      "set_name": "Kayou T2 W4",
+      "source_url": "https://narutocardgame.gg/archive/kayou/cards/ssr-094-temari",
+      "card_number": "SSR-094",
+      "provider_id": "kayou-t2-w4:ssr-094-temari",
+      "system_code": "NARUTO_KAYOU"
+    },
+    {
+      "name": "Tsunade",
+      "finish": null,
+      "rarity": "UR",
+      "set_id": "kayou-t2-w9",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "tier": "T2",
+        "wave": "W9",
+        "box_code": "T2W9",
+        "card_type": null,
+        "detail_level": "COMMUNITY_CHECKLIST",
+        "provider_variant": null,
+        "edition_unresolved": true,
+        "language_unverified": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Unknown",
+      "provider": "Naruto Card Game Archive",
+      "set_name": "Kayou T2 W9",
+      "source_url": "https://narutocardgame.gg/archive/kayou/cards/nrb09-ur-005-tsunade",
+      "card_number": "NRB09-UR-005",
+      "provider_id": "kayou-t2-w9:nrb09-ur-005-tsunade",
+      "system_code": "NARUTO_KAYOU"
+    },
+    {
+      "name": "Sasuke Uchiha",
+      "finish": null,
+      "rarity": "MR",
+      "set_id": "kayou-t3-w4",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "tier": "T3",
+        "wave": "W4",
+        "box_code": "T3W4",
+        "card_type": null,
+        "detail_level": "COMMUNITY_CHECKLIST",
+        "provider_variant": "State 2",
+        "edition_unresolved": true,
+        "language_unverified": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Unknown",
+      "provider": "Naruto Card Game Archive",
+      "set_name": "Kayou T3 W4",
+      "source_url": "https://narutocardgame.gg/archive/kayou/cards/mr-039-sasuke-uchiha",
+      "card_number": "MR-039",
+      "provider_id": "kayou-t3-w4:mr-039-sasuke-uchiha",
+      "system_code": "NARUTO_KAYOU"
+    },
+    {
+      "name": "Kuzan",
+      "finish": null,
+      "rarity": "SuperRare",
+      "set_id": "569102",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "cost": 4,
+        "power": 5000,
+        "colors": [
+          "Black"
+        ],
+        "card_type": "Character",
+        "printing_id": "OP02-096",
+        "detail_level": "PROVIDER_INDEX",
+        "image_reference": {
+          "set_id": "569102",
+          "language": "English",
+          "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/english/data/569102.json",
+          "snapshot_sha256": "8dded7c0cc1e69ede37b212206a6c53a53addffe90fdb26e770a96598f4739b8"
+        }
+      },
+      "language": "English",
+      "provider": "Punk Records",
+      "set_name": "BOOSTER PACK -PARAMOUNT WAR- [OP-02]",
+      "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/english/cards/569102/OP02-096.json",
+      "card_number": "OP02-096",
+      "provider_id": "OP02-096",
+      "system_code": "ONE_PIECE_CARD_GAME"
+    },
+    {
+      "name": "Buggy",
+      "finish": null,
+      "rarity": "Uncommon",
+      "set_id": "569302",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "cost": 1,
+        "power": 3000,
+        "colors": [
+          "Red"
+        ],
+        "card_type": "Character",
+        "printing_id": "OP03-008_p2",
+        "detail_level": "PROVIDER_INDEX",
+        "image_reference": {
+          "set_id": "569302",
+          "language": "English",
+          "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/english/data/569302.json",
+          "snapshot_sha256": "483d78d3a29f0cf489339574b44959ee6e400ace028b449c7edf61f746148a99"
+        }
+      },
+      "language": "English",
+      "provider": "Punk Records",
+      "set_name": "PREMIUM BOOSTER -ONE PIECE CARD THE BEST vol.2- [PRB-02]",
+      "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/english/cards/569302/OP03-008_p2.json",
+      "card_number": "OP03-008",
+      "provider_id": "OP03-008_p2",
+      "system_code": "ONE_PIECE_CARD_GAME"
+    },
+    {
+      "name": "Bartolomeo",
+      "finish": null,
+      "rarity": "Promo",
+      "set_id": "569301",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "cost": 2,
+        "power": 3000,
+        "colors": [
+          "Green"
+        ],
+        "card_type": "Character",
+        "printing_id": "P-029_p3",
+        "detail_level": "PROVIDER_INDEX",
+        "image_reference": {
+          "set_id": "569301",
+          "language": "English",
+          "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/english/data/569301.json",
+          "snapshot_sha256": "09d56e5754fb97ae820348444f1014f56cdbf4e667653e6e4ed06493051e4ccc"
+        }
+      },
+      "language": "English",
+      "provider": "Punk Records",
+      "set_name": "PREMIUM BOOSTER -ONE PIECE CARD THE BEST- [PRB-01]",
+      "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/english/cards/569301/P-029_p3.json",
+      "card_number": "P-029",
+      "provider_id": "P-029_p3",
+      "system_code": "ONE_PIECE_CARD_GAME"
+    },
+    {
+      "name": "Miss Doublefinger(Zala)",
+      "finish": null,
+      "rarity": "Uncommon",
+      "set_id": "569301",
+      "status": "PROVIDER_MAPPING_REQUIRED",
+      "evidence": {
+        "cost": 4,
+        "power": 4000,
+        "colors": [
+          "Purple"
+        ],
+        "card_type": "Character",
+        "printing_id": "OP05-073_p3",
+        "detail_level": "PROVIDER_INDEX",
+        "image_reference": {
+          "set_id": "569301",
+          "language": "English",
+          "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/english/data/569301.json",
+          "snapshot_sha256": "09d56e5754fb97ae820348444f1014f56cdbf4e667653e6e4ed06493051e4ccc"
+        }
+      },
+      "language": "English",
+      "provider": "Punk Records",
+      "set_name": "PREMIUM BOOSTER -ONE PIECE CARD THE BEST- [PRB-01]",
+      "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/english/cards/569301/OP05-073_p3.json",
+      "card_number": "OP05-073",
+      "provider_id": "OP05-073_p3",
+      "system_code": "ONE_PIECE_CARD_GAME"
+    },
+    {
+      "name": "光月日和",
+      "finish": null,
+      "rarity": "Rare",
+      "set_id": "550901",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "cost": 1,
+        "power": null,
+        "colors": [
+          "Green"
+        ],
+        "card_type": "Character",
+        "printing_id": "OP12-028_p1",
+        "detail_level": "PROVIDER_INDEX",
+        "image_reference": {
+          "set_id": "550901",
+          "language": "Japanese",
+          "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/japanese/data/550901.json",
+          "snapshot_sha256": "f2897e2d1004fb0e949c42de627eff9c8993b90820eebc5692dfb362108753c2"
+        }
+      },
+      "language": "Japanese",
+      "provider": "Punk Records",
+      "set_name": "プロモーションカード",
+      "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/japanese/cards/550901/OP12-028_p1.json",
+      "card_number": "OP12-028",
+      "provider_id": "OP12-028_p1",
+      "system_code": "ONE_PIECE_CARD_GAME"
+    },
+    {
+      "name": "バギー",
+      "finish": null,
+      "rarity": "Uncommon",
+      "set_id": "550302",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "cost": 1,
+        "power": 3000,
+        "colors": [
+          "Red"
+        ],
+        "card_type": "Character",
+        "printing_id": "OP03-008_p2",
+        "detail_level": "PROVIDER_INDEX",
+        "image_reference": {
+          "set_id": "550302",
+          "language": "Japanese",
+          "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/japanese/data/550302.json",
+          "snapshot_sha256": "463872bb9d8f6d67f6620728b5cec0f19b08bcbe1ccf9a7c41fd0bfe98b7728a"
+        }
+      },
+      "language": "Japanese",
+      "provider": "Punk Records",
+      "set_name": "プレミアムブースター ONE PIECE CARD THE BEST vol.2【PRB-02】",
+      "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/japanese/cards/550302/OP03-008_p2.json",
+      "card_number": "OP03-008",
+      "provider_id": "OP03-008_p2",
+      "system_code": "ONE_PIECE_CARD_GAME"
+    },
+    {
+      "name": "バルトロメオ",
+      "finish": null,
+      "rarity": "Promo",
+      "set_id": "550301",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "cost": 2,
+        "power": 3000,
+        "colors": [
+          "Green"
+        ],
+        "card_type": "Character",
+        "printing_id": "P-029_p3",
+        "detail_level": "PROVIDER_INDEX",
+        "image_reference": {
+          "set_id": "550301",
+          "language": "Japanese",
+          "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/japanese/data/550301.json",
+          "snapshot_sha256": "19ded185af862be38e30d935c8bc77cfe02be894d5d30fe81bd3c25c33a63b8d"
+        }
+      },
+      "language": "Japanese",
+      "provider": "Punk Records",
+      "set_name": "プレミアムブースター ONE PIECE CARD THE BEST【PRB-01】",
+      "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/japanese/cards/550301/P-029_p3.json",
+      "card_number": "P-029",
+      "provider_id": "P-029_p3",
+      "system_code": "ONE_PIECE_CARD_GAME"
+    },
+    {
+      "name": "ヘルメッポ",
+      "finish": null,
+      "rarity": "Common",
+      "set_id": "550301",
+      "status": "SOURCE_ACCESS_REQUIRED",
+      "evidence": {
+        "cost": 2,
+        "power": 3000,
+        "colors": [
+          "Black"
+        ],
+        "card_type": "Character",
+        "printing_id": "ST06-010_p1",
+        "detail_level": "PROVIDER_INDEX",
+        "image_reference": {
+          "set_id": "550301",
+          "language": "Japanese",
+          "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/japanese/data/550301.json",
+          "snapshot_sha256": "19ded185af862be38e30d935c8bc77cfe02be894d5d30fe81bd3c25c33a63b8d"
+        }
+      },
+      "language": "Japanese",
+      "provider": "Punk Records",
+      "set_name": "プレミアムブースター ONE PIECE CARD THE BEST【PRB-01】",
+      "source_url": "https://raw.githubusercontent.com/Kuroro1990/OPTCG/main/japanese/cards/550301/ST06-010_p1.json",
+      "card_number": "ST06-010",
+      "provider_id": "ST06-010_p1",
+      "system_code": "ONE_PIECE_CARD_GAME"
+    },
+    {
+      "name": "Pidgey",
+      "finish": null,
+      "rarity": null,
+      "set_id": "tk-xy-w",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "evidence": {
+        "detail_level": "SET_CHECKLIST",
+        "provider_local_id": "11",
+        "shared_finish_artwork": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "TCGdex",
+      "set_name": "XY trainer Kit (Wigglytuff)",
+      "source_url": "https://api.tcgdex.net/v2/en/cards/tk-xy-w-11",
+      "card_number": "11/30",
+      "provider_id": "tk-xy-w-11",
+      "system_code": "POKEMON_TCG"
+    },
+    {
+      "name": "Buizel",
+      "finish": null,
+      "rarity": null,
+      "set_id": "dp4",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "evidence": {
+        "detail_level": "SET_CHECKLIST",
+        "provider_local_id": "61",
+        "shared_finish_artwork": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "TCGdex",
+      "set_name": "Great Encounters",
+      "source_url": "https://api.tcgdex.net/v2/en/cards/dp4-61",
+      "card_number": "61/106",
+      "provider_id": "dp4-61",
+      "system_code": "POKEMON_TCG"
+    },
+    {
+      "name": "Unit Energy GrassFireWater",
+      "finish": null,
+      "rarity": null,
+      "set_id": "sm5",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "evidence": {
+        "detail_level": "SET_CHECKLIST",
+        "provider_local_id": "170",
+        "shared_finish_artwork": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "TCGdex",
+      "set_name": "Ultra Prism",
+      "source_url": "https://api.tcgdex.net/v2/en/cards/sm5-170",
+      "card_number": "170/156",
+      "provider_id": "sm5-170",
+      "system_code": "POKEMON_TCG"
+    },
+    {
+      "name": "Bisharp",
+      "finish": null,
+      "rarity": null,
+      "set_id": "svp",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "evidence": {
+        "detail_level": "SET_CHECKLIST",
+        "provider_local_id": "112",
+        "shared_finish_artwork": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "English",
+      "provider": "TCGdex",
+      "set_name": "SVP Black Star Promos",
+      "source_url": "https://api.tcgdex.net/v2/en/cards/svp-112",
+      "card_number": "112/225",
+      "provider_id": "svp-112",
+      "system_code": "POKEMON_TCG"
+    },
+    {
+      "name": "フシデ",
+      "finish": null,
+      "rarity": null,
+      "set_id": "SV11B",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "evidence": {
+        "detail_level": "SET_CHECKLIST",
+        "provider_local_id": "057",
+        "shared_finish_artwork": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Japanese",
+      "provider": "TCGdex",
+      "set_name": "ブラックボルト",
+      "source_url": "https://api.tcgdex.net/v2/ja/cards/SV11B-057",
+      "card_number": "057/174",
+      "provider_id": "SV11B-057",
+      "system_code": "POKEMON_TCG"
+    },
+    {
+      "name": "チンチョウ",
+      "finish": null,
+      "rarity": null,
+      "set_id": "E3",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "evidence": {
+        "detail_level": "SET_CHECKLIST",
+        "provider_local_id": "043",
+        "shared_finish_artwork": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Japanese",
+      "provider": "TCGdex",
+      "set_name": "海からの風",
+      "source_url": "https://api.tcgdex.net/v2/ja/cards/E3-043",
+      "card_number": "043/87",
+      "provider_id": "E3-043",
+      "system_code": "POKEMON_TCG"
+    },
+    {
+      "name": "ポカブ",
+      "finish": null,
+      "rarity": null,
+      "set_id": "SV11W",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "evidence": {
+        "detail_level": "SET_CHECKLIST",
+        "provider_local_id": "011",
+        "shared_finish_artwork": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Japanese",
+      "provider": "TCGdex",
+      "set_name": "ホワイトフレア",
+      "source_url": "https://api.tcgdex.net/v2/ja/cards/SV11W-011",
+      "card_number": "011/86",
+      "provider_id": "SV11W-011",
+      "system_code": "POKEMON_TCG"
+    },
+    {
+      "name": "グレッグル",
+      "finish": null,
+      "rarity": null,
+      "set_id": "SM5p",
+      "status": "EXACT_QUOTE_UNAVAILABLE",
+      "evidence": {
+        "detail_level": "SET_CHECKLIST",
+        "provider_local_id": "031",
+        "shared_finish_artwork": true,
+        "physical_finish_unresolved": true
+      },
+      "language": "Japanese",
+      "provider": "TCGdex",
+      "set_name": "ウルトラフォース",
+      "source_url": "https://api.tcgdex.net/v2/ja/cards/SM5p-031",
+      "card_number": "031/50",
+      "provider_id": "SM5p-031",
+      "system_code": "POKEMON_TCG"
+    }
+  ],
+  "production_import_status": "NOT_ENABLED_PENDING_LIVE_SAMPLE_VALIDATION"
+}

@@ -1,0 +1,164 @@
+name: Shared inventory reference consistency
+on:
+  pull_request:
+    paths:
+      - 'backend/app/inventory_reference*.py'
+      - 'backend/app/inventory_catalogue_reference.py'
+      - 'backend/app/catalogue_display_prices.py'
+      - 'backend/app/catalogue_price_history.py'
+      - 'tests/test_catalogue_price_history.py'
+      - 'backend/app/inventory_market_values.py'
+      - 'backend/app/pricing_engine.py'
+      - 'backend/app/pricing.py'
+      - 'backend/app/inventory_intelligence.py'
+      - 'backend/app/api.py'
+      - 'backend/app/owner*.py'
+      - 'backend/app/founder_accounts.py'
+      - 'backend/app/static/*'
+      - 'tests/*reference*'
+      - 'tests/*recommendation*'
+      - 'tests/ui/shared-reference-display.py'
+      - 'tests/ui/recommendation-summary.py'
+      - 'tests/ui/journey-regressions.py'
+      - 'tests/ui/comic-listing-recovery.py'
+      - 'backend/app/comic_listing_preparation.py'
+      - 'backend/app/seller_inventory_policy.py'
+      - 'backend/app/seller_channel_sync.py'
+      - '.github/workflows/shared-reference-consistency.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/inventory_reference*.py'
+      - 'backend/app/static/reference-value-display.js'
+      - '.github/workflows/shared-reference-consistency.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-references:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-reference-only
+          POSTGRES_DB: shared_reference_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - run: PYTHONPATH=backend pytest -q tests/test_inventory_reference_values.py tests/test_inventory_catalogue_reference.py tests/test_catalogue_display_prices.py tests/test_catalogue_price_history.py tests/test_recommendation_summary.py
+      - name: Real reference/media migrations, restricted role and signed local-JWKS requests
+        run: PYTHONPATH=backend python tests/shared_reference_postgres.py
+        env:
+          SHARED_REFERENCE_TEST_DSN: postgresql://postgres:disposable-reference-only@127.0.0.1:5432/shared_reference_test
+  postgres-recommendations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-recommendations-only
+          POSTGRES_DB: recommendation_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - name: Partial portfolio recommendations through real PostgreSQL and signed test HTTP
+        run: PYTHONPATH=backend python tests/recommendation_summary_postgres.py
+        env:
+          RECOMMENDATION_TEST_DSN: postgresql://postgres:disposable-recommendations-only@127.0.0.1:5432/recommendation_test
+  browser-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.57.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.57.0
+      - name: Actual founder/seller display and recommendation controls, synthetic API responses
+        run: |
+          python tests/ui/shared-reference-display.py
+          python tests/ui/recommendation-summary.py
+          python tests/ui/journey-regressions.py
+          python tests/ui/comic-listing-recovery.py
+        env:
+          RECOMMENDATION_LAYOUT_DIR: /tmp/reference-layout/recommendations
+          JOURNEY_LAYOUT_DIR: /tmp/reference-layout/journeys
+          COMIC_RECOVERY_LAYOUT_DIR: /tmp/reference-layout/comic-recovery
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shared-reference-layout
+          path: /tmp/reference-layout
+  production-readback:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: GET-only exact bundles and authenticated-route denial, no production credentials
+        run: |
+          python - <<'PY'
+          import hashlib,json,re,time,urllib.request,urllib.error
+          from pathlib import Path
+          base='https://drop-rate-api-live-production.up.railway.app'
+          names=('reference-value-display.js','owner-inventory.js','owner-portal.js','market-value-column.js','founder-accounts.js','dashboard-shell.js','owner-portal.css','hub-session.js','app.js','owner-imports.js')
+          source=Path('backend/app/static/owner.html').read_text()+Path('backend/app/main.py').read_text()+Path('backend/app/static/index.html').read_text()
+          assets={}
+          for name in names:
+              versions=set(re.findall(r'/assets/'+re.escape(name)+r'\?v=([A-Za-z0-9._-]+)',source))
+              assert len(versions)==1,('Ambiguous/missing source version',name)
+              assets[name]=versions.pop()
+          result={}
+          for attempt in range(36):
+              try:
+                  for name,version in assets.items():
+                      with urllib.request.urlopen(base+'/assets/'+name+'?v='+version,timeout=10) as response: remote=response.read()
+                      assert remote==Path('backend/app/static',name).read_bytes(),name
+                      result[name]=hashlib.sha256(remote).hexdigest()
+                  break
+              except (OSError,AssertionError):time.sleep(5)
+          else:raise AssertionError('Expected shared-reference bundles did not arrive')
+          for entry in ('/owner','/app'):
+              with urllib.request.urlopen(base+entry,timeout=10) as response:content=response.read()
+              assert ('reference-value-display.js?v='+assets['reference-value-display.js']).encode() in content,entry
+              if entry=='/owner':
+                  assert b'<span>Market value</span>' in content
+                  assert b'<span>Recommended retail</span>' not in content
+          with urllib.request.urlopen(base+'/health/ready',timeout=10) as response:assert response.status==200
+          for path in ('/api/v1/inventory/market-values?inventory_id=00000000-0000-4000-8000-000000000001','/api/v1/owner/overview','/api/v1/owner/channels'):
+              try:urllib.request.urlopen(base+path,timeout=10)
+              except urllib.error.HTTPError as error:assert error.code==401
+              else:raise AssertionError('Unauthenticated values request accepted')
+          result['scope']='Public bundle/entry/readiness and anonymous denial only. Not a production authenticated seller scan or provider-price verification.'
+          Path('/tmp/shared-reference-readback.json').write_text(json.dumps(result,indent=2));print(result)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-reference-production-readback
+          path: /tmp/shared-reference-readback.json

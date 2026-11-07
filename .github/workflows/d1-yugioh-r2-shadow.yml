@@ -1,0 +1,133 @@
+name: D1 real Yu-Gi-Oh R2 shadow migration (quota safe)
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/d1_r2_shadow_export.py'
+      - 'tools/d1_r2_real_shadow.py'
+      - 'tools/d1_yugioh_shadow.py'
+      - 'tests/test_d1_yugioh_shadow.py'
+      - 'tests/test_d1_r2_shadow_export.py'
+      - '.github/workflows/d1-yugioh-r2-shadow.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'backend/app/d1_r2_shadow_export.py'
+      - 'tools/d1_yugioh_shadow.py'
+      - '.github/workflows/d1-yugioh-r2-shadow.yml'
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-real-yugioh-shadow-single-writer
+  cancel-in-progress: false
+
+jobs:
+  offline-exact-id-and-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify exact private R2 scope, GitHub OIDC, YGO D1 resumability and rollback
+        env:
+          PYTHONPATH: 'backend:tools'
+        run: |
+          python -m pytest -q \
+            tests/test_d1_yugioh_shadow.py \
+            tests/test_d1_r2_shadow_export.py \
+            tests/test_d1_r2_real_shadow.py \
+            tests/test_d1_shadow_catalogue.py
+
+  resume-isolated-yugioh:
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'schedule')
+      && github.ref == 'refs/heads/main'
+    needs: offline-exact-id-and-rls
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    permissions:
+      id-token: write
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Import up to 8,000 verified R2 Yu-Gi-Oh rows to isolated D1
+        id: real_import
+        env:
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+          PYTHONPATH: 'backend:tools'
+        run: python tools/d1_yugioh_shadow.py
+      - name: Publish truthful GitHub parity state without source or credential details
+        if: always()
+        env:
+          GITHUB_STATUS_TOKEN: ${{ github.token }}
+          D1_IMPORT_OUTCOME: ${{ steps.real_import.outcome }}
+          D1_IMPORT_COMMIT: ${{ github.sha }}
+          D1_IMPORT_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import urllib.request
+
+          state = "failure"
+          description = "YGO R2-D1 import safely blocked; no production cutover"
+          if os.environ["D1_IMPORT_OUTCOME"] == "success":
+              path = Path("d1-yugioh-real-shadow-report.json")
+              if path.is_file():
+                  data = json.loads(path.read_text())
+                  expected = 45418
+                  count = data.get("d1_verified_rows", data.get("d1_staged_rows"))
+                  if (type(count) is int and 0 <= count <= expected
+                      and data.get("source_rows") == expected
+                      and data.get("no_public_catalogue_cutover") is True
+                      and data.get("market_value_writes") == 0
+                      and data.get("owner_and_settlement_writes") == 0):
+                      if (data.get("status") == "REAL_R2_YUGIOH_TO_ISOLATED_D1_VERIFIED"
+                          and count == expected):
+                          state = "success"
+                          description = "Full 45,418-row R2-D1 SHA256 parity verified"
+                      elif data.get("status") in {
+                           "YUGIOH_D1_SHADOW_PARTIAL_VERIFIED",
+                           "YUGIOH_D1_SHADOW_DAILY_BUDGET_ALREADY_USED"}:
+                          state = "pending"
+                          description = f"Verified staged YGO rows: {count} of {expected}"
+          body = json.dumps({
+              "state":state, "context":"drop-rate-d1-real-yugioh-parity",
+              "description":description,
+          }).encode("utf-8")
+          request = urllib.request.Request(
+              "https://api.github.com/repos/" + os.environ["D1_IMPORT_REPOSITORY"]
+              + "/statuses/" + os.environ["D1_IMPORT_COMMIT"],
+              data=body, method="POST", headers={
+                  "Authorization":"Bearer "+os.environ["GITHUB_STATUS_TOKEN"],
+                  "Content-Type":"application/json",
+                  "Accept":"application/vnd.github+json",
+              },
+          )
+          with urllib.request.urlopen(request, timeout=20) as response:
+              if response.status != 201:
+                  raise SystemExit("D1 verification status not published")
+          print("D1 Yu-Gi-Oh shadow status: " + state)
+          PY
+      - name: Preserve non-private staged count and source hash report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-real-yugioh-shadow-proof
+          path: d1-yugioh-real-shadow-report.json
+          if-no-files-found: ignore
+          retention-days: 30

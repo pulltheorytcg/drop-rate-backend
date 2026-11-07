@@ -21,6 +21,7 @@ print(
 try:
     import asyncpg
 
+    from app.db import retry_database_connection
     from app.payout_scheduler import queue_due_payouts
 except Exception as exc:
     print(
@@ -84,16 +85,19 @@ async def _run() -> int:
         flush=True,
     )
     try:
-        connection = await asyncpg.connect(
-            dsn=database_url,
-            timeout=15,
-            command_timeout=20,
-            server_settings={
-                "application_name": "drop-rate-payout-scheduler",
-                "search_path": "pg_catalog,tcg",
-                "statement_timeout": "20000",
-                "idle_in_transaction_session_timeout": "10000",
-            },
+        connection = await retry_database_connection(
+            lambda: asyncpg.connect(
+                dsn=database_url,
+                timeout=15,
+                command_timeout=20,
+                server_settings={
+                    "application_name": "drop-rate-payout-scheduler",
+                    "search_path": "pg_catalog,tcg",
+                    "statement_timeout": "20000",
+                    "idle_in_transaction_session_timeout": "10000",
+                },
+            ),
+            context="payout_scheduler",
         )
     except Exception as exc:
         print(

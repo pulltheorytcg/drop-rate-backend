@@ -1,0 +1,5816 @@
+[
+  {
+    "id": 200492,
+    "name": "Brilliant Stars Booster Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 67,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/200492/preview_brilliant-stars-booster-box-brilliant-stars.jpg",
+    "card_market_ids": [
+      583512
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 200778,
+    "name": "Brilliant Stars: Build & Battle Kit",
+    "version": null,
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/200778/preview_brilliant-stars-build-battle-kit-brilliant-stars.jpg",
+    "card_market_ids": [
+      583507
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 200779,
+    "name": "Brilliant Stars Booster",
+    "version": null,
+    "game_id": 5,
+    "category_id": 66,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/200779/preview_brilliant-stars-booster-brilliant-stars.jpg",
+    "card_market_ids": [
+      583513
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 200788,
+    "name": "Brilliant Stars: Build & Battle Stadium Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/200788/preview_brilliant-stars-build-battle-stadium-box-brilliant-stars.jpg",
+    "card_market_ids": [
+      583508
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 200794,
+    "name": "Brilliant Stars Elite Trainer Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/200794/preview_brilliant-stars-elite-trainer-box-brilliant-stars.jpg",
+    "card_market_ids": [
+      583510
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 206438,
+    "name": "Arceus VSTAR",
+    "version": "Gold Secret Rare | 184/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206438/preview_arceus-vstar-gold-secret-rare-184-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608730
+    ],
+    "collector_number": "184",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206439,
+    "name": "Magma Basin",
+    "version": "Gold Secret Rare | 185/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206439/preview_magma-basin-gold-secret-rare-185-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608731
+    ],
+    "collector_number": "185",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206440,
+    "name": "Ultra Ball",
+    "version": "Gold Secret Rare | 186/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206440/preview_ultra-ball-gold-secret-rare-186-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608732
+    ],
+    "collector_number": "186",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206441,
+    "name": "Acerola's Premonition",
+    "version": "Ultra Rare | TG24/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206441/preview_acerola-s-premonition-ultra-rare-tg24-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608756
+    ],
+    "collector_number": "TG24",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206442,
+    "name": "Café Master",
+    "version": "Ultra Rare | TG25/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206442/preview_cafe-master-ultra-rare-tg25-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608757
+    ],
+    "collector_number": "TG25",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206444,
+    "name": "Gloria",
+    "version": "Ultra Rare | TG26/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206444/preview_gloria-ultra-rare-tg26-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608758
+    ],
+    "collector_number": "TG26",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206445,
+    "name": "Rapid Strike Style Mustard",
+    "version": "Ultra Rare | TG27/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206445/preview_rapid-strike-style-mustard-ultra-rare-tg27-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608759
+    ],
+    "collector_number": "TG27",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206446,
+    "name": "Single Strike Style Mustard",
+    "version": "Ultra Rare | TG28/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206446/preview_single-strike-style-mustard-ultra-rare-tg28-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608760
+    ],
+    "collector_number": "TG28",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206447,
+    "name": "Single Strike Urshifu VMAX",
+    "version": "Illustration Rare | TG29/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206447/preview_single-strike-urshifu-vmax-illustration-rare-tg29-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608761
+    ],
+    "collector_number": "TG29",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206448,
+    "name": "Rapid Strike Urshifu VMAX",
+    "version": "Illustration Rare | TG30/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206448/preview_rapid-strike-urshifu-vmax-illustration-rare-tg30-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608762
+    ],
+    "collector_number": "TG30",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206449,
+    "name": "Rapid Strike Urshifu VMAX",
+    "version": "Illustration Rare | TG21/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206449/preview_rapid-strike-urshifu-vmax-illustration-rare-tg21-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608753
+    ],
+    "collector_number": "TG21",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206450,
+    "name": "Single Strike Urshifu VMAX",
+    "version": "Illustration Rare | TG19/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206450/preview_single-strike-urshifu-vmax-illustration-rare-tg19-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608751
+    ],
+    "collector_number": "TG19",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206451,
+    "name": "Rapid Strike Urshifu V",
+    "version": "Illustration Rare | TG20/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206451/preview_rapid-strike-urshifu-v-illustration-rare-tg20-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608752
+    ],
+    "collector_number": "TG20",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206452,
+    "name": "Single Strike Urshifu V",
+    "version": "Illustration Rare | TG18/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206452/preview_single-strike-urshifu-v-illustration-rare-tg18-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608750
+    ],
+    "collector_number": "TG18",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206453,
+    "name": "Umbreon V",
+    "version": "Illustration Rare | TG22/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206453/preview_umbreon-v-illustration-rare-tg22-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608754
+    ],
+    "collector_number": "TG22",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206454,
+    "name": "Umbreon VMAX",
+    "version": "Illustration Rare | TG23/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206454/preview_umbreon-vmax-illustration-rare-tg23-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608755
+    ],
+    "collector_number": "TG23",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206456,
+    "name": "Galarian Zapdos V",
+    "version": "Gold Secret Rare | 182/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206456/preview_galarian-zapdos-v-gold-secret-rare-182-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608728
+    ],
+    "collector_number": "182",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206457,
+    "name": "Galarian Moltres V",
+    "version": "Gold Secret Rare | 183/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206457/preview_galarian-moltres-v-gold-secret-rare-183-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608729
+    ],
+    "collector_number": "183",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206459,
+    "name": "Galarian Articuno V",
+    "version": "Gold Secret Rare | 181/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206459/preview_galarian-articuno-v-gold-secret-rare-181-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608727
+    ],
+    "collector_number": "181",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206460,
+    "name": "Roseanne's Backup",
+    "version": "Rainbow Secret Rare | 180/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206460/preview_roseanne-s-backup-rainbow-secret-rare-180-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608726
+    ],
+    "collector_number": "180",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206461,
+    "name": "Kindler",
+    "version": "Rainbow Secret Rare | 179/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206461/preview_kindler-rainbow-secret-rare-179-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608725
+    ],
+    "collector_number": "179",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206462,
+    "name": "Cynthia's Ambition",
+    "version": "Rainbow Secret Rare | 178/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206462/preview_cynthia-s-ambition-rainbow-secret-rare-178-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608724
+    ],
+    "collector_number": "178",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206463,
+    "name": "Cheren's Care",
+    "version": "Rainbow Secret Rare | 177/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206463/preview_cheren-s-care-rainbow-secret-rare-177-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608723
+    ],
+    "collector_number": "177",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206464,
+    "name": "Arceus VSTAR",
+    "version": "Rainbow Secret Rare | 176/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206464/preview_arceus-vstar-rainbow-secret-rare-176-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608722
+    ],
+    "collector_number": "176",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206465,
+    "name": "Whimsicott VSTAR",
+    "version": "Rainbow Secret Rare | 175/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206465/preview_whimsicott-vstar-rainbow-secret-rare-175-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608721
+    ],
+    "collector_number": "175",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206466,
+    "name": "Whimsicott VSTAR",
+    "version": "Ultra Rare | 065/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206466/preview_whimsicott-vstar-ultra-rare-065-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608515
+    ],
+    "collector_number": "065",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206467,
+    "name": "Charizard VSTAR",
+    "version": "Rainbow Secret Rare | 174/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206467/preview_charizard-vstar-rainbow-secret-rare-174-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608720
+    ],
+    "collector_number": "174",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206468,
+    "name": "Shaymin VSTAR",
+    "version": "Rainbow Secret Rare | 173/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206468/preview_shaymin-vstar-rainbow-secret-rare-173-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608719
+    ],
+    "collector_number": "173",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206469,
+    "name": "Roseanne's Backup",
+    "version": "Ultra Rare | 172/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206469/preview_roseanne-s-backup-ultra-rare-172-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608718
+    ],
+    "collector_number": "172",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206470,
+    "name": "Marnie's Pride",
+    "version": "Ultra Rare | 171/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206470/preview_marnie-s-pride-ultra-rare-171-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608717
+    ],
+    "collector_number": "171",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206471,
+    "name": "Kindler",
+    "version": "Ultra Rare | 170/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206471/preview_kindler-ultra-rare-170-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608716
+    ],
+    "collector_number": "170",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206472,
+    "name": "Cynthia's Ambition",
+    "version": "Ultra Rare | 169/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206472/preview_cynthia-s-ambition-ultra-rare-169-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608715
+    ],
+    "collector_number": "169",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206473,
+    "name": "Cheren's Care",
+    "version": "Ultra Rare | 168/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206473/preview_cheren-s-care-ultra-rare-168-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608714
+    ],
+    "collector_number": "168",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206474,
+    "name": "Barry",
+    "version": "Ultra Rare | 167/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206474/preview_barry-ultra-rare-167-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608713
+    ],
+    "collector_number": "167",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206475,
+    "name": "Arceus V",
+    "version": "Ultra Rare | 166/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206475/preview_arceus-v-ultra-rare-166-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608712
+    ],
+    "collector_number": "166",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206476,
+    "name": "Arceus V",
+    "version": "Ultra Rare | 165/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206476/preview_arceus-v-ultra-rare-165-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608711
+    ],
+    "collector_number": "165",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206477,
+    "name": "Flygon V",
+    "version": "Ultra Rare | 164/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206477/preview_flygon-v-ultra-rare-164-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608710
+    ],
+    "collector_number": "164",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206478,
+    "name": "Zamazenta V",
+    "version": "Ultra Rare | 163/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206478/preview_zamazenta-v-ultra-rare-163-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608709
+    ],
+    "collector_number": "163",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206479,
+    "name": "Honchkrow V",
+    "version": "Ultra Rare | 162/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206479/preview_honchkrow-v-ultra-rare-162-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608708
+    ],
+    "collector_number": "162",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206480,
+    "name": "Honchkrow V",
+    "version": "Ultra Rare | 161/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206480/preview_honchkrow-v-ultra-rare-161-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608707
+    ],
+    "collector_number": "161",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206481,
+    "name": "Whimsicott V",
+    "version": "Ultra Rare | 160/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206481/preview_whimsicott-v-ultra-rare-160-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608706
+    ],
+    "collector_number": "160",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206482,
+    "name": "Granbull V",
+    "version": "Ultra Rare | 159/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206482/preview_granbull-v-ultra-rare-159-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608705
+    ],
+    "collector_number": "159",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206483,
+    "name": "Raichu V",
+    "version": "Ultra Rare | 158/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206483/preview_raichu-v-ultra-rare-158-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608704
+    ],
+    "collector_number": "158",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206484,
+    "name": "Pikachu V",
+    "version": "Ultra Rare | 157/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206484/preview_pikachu-v-ultra-rare-157-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608703
+    ],
+    "collector_number": "157",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206485,
+    "name": "Lumineon V",
+    "version": "Ultra Rare | 156/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206485/preview_lumineon-v-ultra-rare-156-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608702
+    ],
+    "collector_number": "156",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206486,
+    "name": "Lumineon V",
+    "version": "Ultra Rare | 155/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206486/preview_lumineon-v-ultra-rare-155-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608701
+    ],
+    "collector_number": "155",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206487,
+    "name": "Charizard V",
+    "version": "Ultra Rare | 154/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206487/preview_charizard-v-ultra-rare-154-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608700
+    ],
+    "collector_number": "154",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206488,
+    "name": "Charizard V",
+    "version": "Ultra Rare | 153/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206488/preview_charizard-v-ultra-rare-153-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608699
+    ],
+    "collector_number": "153",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206489,
+    "name": "Shaymin V",
+    "version": "Ultra Rare | 152/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206489/preview_shaymin-v-ultra-rare-152-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608698
+    ],
+    "collector_number": "152",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206490,
+    "name": "Double Turbo Energy",
+    "version": "151/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206490/preview_double-turbo-energy-151-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608697
+    ],
+    "collector_number": "151",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206491,
+    "name": "Ultra Ball",
+    "version": "150/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206491/preview_ultra-ball-150-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608696
+    ],
+    "collector_number": "150",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206492,
+    "name": "Team Yell's Cheer",
+    "version": "149/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206492/preview_team-yell-s-cheer-149-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608695
+    ],
+    "collector_number": "149",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206493,
+    "name": "Roseanne's Backup",
+    "version": "148/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206493/preview_roseanne-s-backup-148-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608694
+    ],
+    "collector_number": "148",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206494,
+    "name": "Professor's Research - Professor Rowan",
+    "version": "Holo Rare | 147/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206494/preview_professor-s-research-professor-rowan-holo-rare-147-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608693
+    ],
+    "collector_number": "147",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206495,
+    "name": "Pot Helmet",
+    "version": "146/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206495/preview_pot-helmet-146-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608692
+    ],
+    "collector_number": "146",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206496,
+    "name": "Marnie's Pride",
+    "version": "145/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206496/preview_marnie-s-pride-145-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608691
+    ],
+    "collector_number": "145",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206497,
+    "name": "Magma Basin",
+    "version": "144/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206497/preview_magma-basin-144-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608690
+    ],
+    "collector_number": "144",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206498,
+    "name": "Kindler",
+    "version": "143/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206498/preview_kindler-143-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608689
+    ],
+    "collector_number": "143",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206499,
+    "name": "Hunting Gloves",
+    "version": "142/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206499/preview_hunting-gloves-142-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608688
+    ],
+    "collector_number": "142",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206500,
+    "name": "Gloria",
+    "version": "141/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206500/preview_gloria-141-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608687
+    ],
+    "collector_number": "141",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206501,
+    "name": "Friends in Galar",
+    "version": "140/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206501/preview_friends-in-galar-140-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608686
+    ],
+    "collector_number": "140",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206502,
+    "name": "Fresh Water Set",
+    "version": "139/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206502/preview_fresh-water-set-139-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608685
+    ],
+    "collector_number": "139",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206503,
+    "name": "Cynthia's Ambition",
+    "version": "138/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206503/preview_cynthia-s-ambition-138-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608684
+    ],
+    "collector_number": "138",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206504,
+    "name": "Collapsed Stadium",
+    "version": "137/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206504/preview_collapsed-stadium-137-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608683
+    ],
+    "collector_number": "137",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206505,
+    "name": "Cleansing Gloves",
+    "version": "136/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206505/preview_cleansing-gloves-136-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608682
+    ],
+    "collector_number": "136",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206506,
+    "name": "Choice Belt",
+    "version": "135/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206506/preview_choice-belt-135-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608681
+    ],
+    "collector_number": "135",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206507,
+    "name": "Cheren's Care",
+    "version": "134/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206507/preview_cheren-s-care-134-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608680
+    ],
+    "collector_number": "134",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206508,
+    "name": "Café Master",
+    "version": "133/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206508/preview_cafe-master-133-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608679
+    ],
+    "collector_number": "133",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206509,
+    "name": "Boss's Orders - Cyrus",
+    "version": "Holo Rare | 132/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206509/preview_boss-s-orders-holo-rare-132-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608678
+    ],
+    "collector_number": "132",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206510,
+    "name": "Blunder Policy",
+    "version": "131/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206510/preview_blunder-policy-131-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608677
+    ],
+    "collector_number": "131",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206511,
+    "name": "Barry",
+    "version": "130/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206511/preview_barry-130-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608676
+    ],
+    "collector_number": "130",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206512,
+    "name": "Acerola's Premonition",
+    "version": "129/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206512/preview_acerola-s-premonition-129-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608675
+    ],
+    "collector_number": "129",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206513,
+    "name": "Drampa V",
+    "version": "Ultra Rare | 128/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206513/preview_drampa-v-ultra-rare-128-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608674
+    ],
+    "collector_number": "128",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206514,
+    "name": "Hawlucha",
+    "version": "127/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206514/preview_hawlucha-127-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608673
+    ],
+    "collector_number": "127",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206515,
+    "name": "Tornadus",
+    "version": "126/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206515/preview_tornadus-126-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608672
+    ],
+    "collector_number": "126",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206516,
+    "name": "Cinccino",
+    "version": "125/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206516/preview_cinccino-125-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608671
+    ],
+    "collector_number": "125",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206517,
+    "name": "Minccino",
+    "version": "124/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206517/preview_minccino-124-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608670
+    ],
+    "collector_number": "124",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206518,
+    "name": "Arceus VSTAR",
+    "version": "Ultra Rare | 123/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206518/preview_arceus-vstar-ultra-rare-123-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608669
+    ],
+    "collector_number": "123",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206519,
+    "name": "Arceus V",
+    "version": "Ultra Rare | 122/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206519/preview_arceus-v-ultra-rare-122-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608668
+    ],
+    "collector_number": "122",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206520,
+    "name": "Bibarel",
+    "version": "Holo Rare | 121/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206520/preview_bibarel-holo-rare-121-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608667
+    ],
+    "collector_number": "121",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206521,
+    "name": "Bidoof",
+    "version": "120/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206521/preview_bidoof-120-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608666
+    ],
+    "collector_number": "120",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206522,
+    "name": "Staraptor",
+    "version": "119/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206522/preview_staraptor-119-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608665
+    ],
+    "collector_number": "119",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206523,
+    "name": "Staravia",
+    "version": "118/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206523/preview_staravia-118-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608664
+    ],
+    "collector_number": "118",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206524,
+    "name": "Starly",
+    "version": "117/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206524/preview_starly-117-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608663
+    ],
+    "collector_number": "117",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206525,
+    "name": "Castform",
+    "version": "116/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206525/preview_castform-116-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608662
+    ],
+    "collector_number": "116",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206526,
+    "name": "Farfetch'd",
+    "version": "115/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206526/preview_farfetch-d-115-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608661
+    ],
+    "collector_number": "115",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206527,
+    "name": "Dracovish V",
+    "version": "Ultra Rare | 114/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206527/preview_dracovish-v-ultra-rare-114-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608660
+    ],
+    "collector_number": "114",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206528,
+    "name": "Druddigon",
+    "version": "113/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206528/preview_druddigon-113-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608659
+    ],
+    "collector_number": "113",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206529,
+    "name": "Haxorus",
+    "version": "112/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206529/preview_haxorus-112-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608658
+    ],
+    "collector_number": "112",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206530,
+    "name": "Fraxure",
+    "version": "111/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206530/preview_fraxure-111-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608657
+    ],
+    "collector_number": "111",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206531,
+    "name": "Axew",
+    "version": "110/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206531/preview_axew-110-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608656
+    ],
+    "collector_number": "110",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206532,
+    "name": "Garchomp",
+    "version": "Holo Rare | 109/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206532/preview_garchomp-holo-rare-109-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608655
+    ],
+    "collector_number": "109",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206533,
+    "name": "Gabite",
+    "version": "108/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206533/preview_gabite-108-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608654
+    ],
+    "collector_number": "108",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206534,
+    "name": "Gible",
+    "version": "107/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206534/preview_gible-107-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608653
+    ],
+    "collector_number": "107",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206535,
+    "name": "Flygon V",
+    "version": "Ultra Rare | 106/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206535/preview_flygon-v-ultra-rare-106-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608652
+    ],
+    "collector_number": "106",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206536,
+    "name": "Zamazenta V",
+    "version": "Ultra Rare | 105/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206536/preview_zamazenta-v-ultra-rare-105-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608651
+    ],
+    "collector_number": "105",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206537,
+    "name": "Klinklang",
+    "version": "104/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206537/preview_klinklang-104-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608650
+    ],
+    "collector_number": "104",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206538,
+    "name": "Klang",
+    "version": "103/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206538/preview_klang-103-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608649
+    ],
+    "collector_number": "103",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206539,
+    "name": "Klink",
+    "version": "102/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206539/preview_klink-102-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608648
+    ],
+    "collector_number": "102",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206540,
+    "name": "Escavalier",
+    "version": "101/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206540/preview_escavalier-101-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608647
+    ],
+    "collector_number": "101",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206541,
+    "name": "Heatran",
+    "version": "100/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206541/preview_heatran-100-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608646
+    ],
+    "collector_number": "100",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206542,
+    "name": "Probopass",
+    "version": "099/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206542/preview_probopass-099-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608645
+    ],
+    "collector_number": "099",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206543,
+    "name": "Wormadam",
+    "version": "098/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206543/preview_wormadam-098-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608644
+    ],
+    "collector_number": "098",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206544,
+    "name": "Aggron VMAX",
+    "version": "Ultra Rare | 097/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206544/preview_aggron-vmax-ultra-rare-097-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608643
+    ],
+    "collector_number": "097",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206545,
+    "name": "Aggron V",
+    "version": "Ultra Rare | 096/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206545/preview_aggron-v-ultra-rare-096-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608642
+    ],
+    "collector_number": "096",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206546,
+    "name": "Morpeko V",
+    "version": "Ultra Rare | 095/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206546/preview_morpeko-v-ultra-rare-095-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608641
+    ],
+    "collector_number": "095",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206547,
+    "name": "Grimmsnarl",
+    "version": "094/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206547/preview_grimmsnarl-094-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608640
+    ],
+    "collector_number": "094",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206548,
+    "name": "Morgrem",
+    "version": "093/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206548/preview_morgrem-093-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608639
+    ],
+    "collector_number": "093",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206549,
+    "name": "Impidimp",
+    "version": "092/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206549/preview_impidimp-092-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608638
+    ],
+    "collector_number": "092",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206550,
+    "name": "Liepard",
+    "version": "091/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206550/preview_liepard-091-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608637
+    ],
+    "collector_number": "091",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206551,
+    "name": "Purrloin",
+    "version": "090/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206551/preview_purrloin-090-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608540
+    ],
+    "collector_number": "090",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206552,
+    "name": "Spiritomb",
+    "version": "089/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206552/preview_spiritomb-089-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608539
+    ],
+    "collector_number": "089",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206553,
+    "name": "Honchkrow V",
+    "version": "Ultra Rare | 088/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206553/preview_honchkrow-v-ultra-rare-088-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608538
+    ],
+    "collector_number": "088",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206554,
+    "name": "Weavile",
+    "version": "087/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206554/preview_weavile-087-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608537
+    ],
+    "collector_number": "087",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206555,
+    "name": "Sneasel",
+    "version": "086/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206555/preview_sneasel-086-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608536
+    ],
+    "collector_number": "086",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206556,
+    "name": "Muk",
+    "version": "085/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206556/preview_muk-085-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608535
+    ],
+    "collector_number": "085",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206557,
+    "name": "Grimer",
+    "version": "084/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206557/preview_grimer-084-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608534
+    ],
+    "collector_number": "084",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206558,
+    "name": "Golurk",
+    "version": "083/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206558/preview_golurk-083-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608533
+    ],
+    "collector_number": "083",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206559,
+    "name": "Golett",
+    "version": "082/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206559/preview_golett-082-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608532
+    ],
+    "collector_number": "082",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206560,
+    "name": "Sawk",
+    "version": "081/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206560/preview_sawk-081-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608531
+    ],
+    "collector_number": "081",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206561,
+    "name": "Throh",
+    "version": "080/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206561/preview_throh-080-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608530
+    ],
+    "collector_number": "080",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206562,
+    "name": "Lucario",
+    "version": "Holo Rare | 079/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206562/preview_lucario-holo-rare-079-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608529
+    ],
+    "collector_number": "079",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206563,
+    "name": "Riolu",
+    "version": "078/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206563/preview_riolu-078-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608528
+    ],
+    "collector_number": "078",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206564,
+    "name": "Wormadam",
+    "version": "077/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206564/preview_wormadam-077-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608527
+    ],
+    "collector_number": "077",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206565,
+    "name": "Flygon",
+    "version": "076/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206565/preview_flygon-076-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608526
+    ],
+    "collector_number": "076",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206566,
+    "name": "Vibrava",
+    "version": "075/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206566/preview_vibrava-075-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608525
+    ],
+    "collector_number": "075",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206567,
+    "name": "Trapinch",
+    "version": "074/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206567/preview_trapinch-074-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608524
+    ],
+    "collector_number": "074",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206568,
+    "name": "Nosepass",
+    "version": "073/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206568/preview_nosepass-073-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608523
+    ],
+    "collector_number": "073",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206569,
+    "name": "Hitmontop",
+    "version": "072/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206569/preview_hitmontop-072-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608522
+    ],
+    "collector_number": "072",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206570,
+    "name": "Alcremie",
+    "version": "071/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206570/preview_alcremie-071-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608521
+    ],
+    "collector_number": "071",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206571,
+    "name": "Milcery",
+    "version": "070/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206571/preview_milcery-070-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608520
+    ],
+    "collector_number": "070",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206572,
+    "name": "Mimikyu VMAX",
+    "version": "Ultra Rare | 069/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206572/preview_mimikyu-vmax-ultra-rare-069-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608519
+    ],
+    "collector_number": "069",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206573,
+    "name": "Mimikyu V",
+    "version": "Ultra Rare | 068/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206573/preview_mimikyu-v-ultra-rare-068-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608518
+    ],
+    "collector_number": "068",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206574,
+    "name": "Dedenne",
+    "version": "067/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206574/preview_dedenne-067-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608517
+    ],
+    "collector_number": "067",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206575,
+    "name": "Dedenne",
+    "version": "Illustration Rare | TG07/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206575/preview_dedenne-illustration-rare-tg07-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608739
+    ],
+    "collector_number": "TG07",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206576,
+    "name": "Dusknoir",
+    "version": "Illustration Rare | TG06/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206576/preview_dusknoir-illustration-rare-tg06-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608738
+    ],
+    "collector_number": "TG06",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206577,
+    "name": "Eevee",
+    "version": "Illustration Rare | TG11/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206577/preview_eevee-illustration-rare-tg11-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608743
+    ],
+    "collector_number": "TG11",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206578,
+    "name": "Oranguru",
+    "version": "Illustration Rare | TG12/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206578/preview_oranguru-illustration-rare-tg12-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608744
+    ],
+    "collector_number": "TG12",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206579,
+    "name": "Mimikyu VMAX",
+    "version": "Illustration Rare | TG17/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206579/preview_mimikyu-vmax-illustration-rare-tg17-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608749
+    ],
+    "collector_number": "TG17",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206580,
+    "name": "Mimikyu V",
+    "version": "Illustration Rare | TG16/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206580/preview_mimikyu-v-illustration-rare-tg16-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608748
+    ],
+    "collector_number": "TG16",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206581,
+    "name": "Jolteon",
+    "version": "Illustration Rare | TG04/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206581/preview_jolteon-illustration-rare-tg04-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608736
+    ],
+    "collector_number": "TG04",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206583,
+    "name": "Charizard VSTAR",
+    "version": "Jumbo Oversized | 018",
+    "game_id": 5,
+    "category_id": 78,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206583/preview_charizard-vstar-jumbo-oversized-018-brilliant-stars.jpg",
+    "card_market_ids": [
+      610907
+    ],
+    "collector_number": "018",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 206585,
+    "name": "Prinplup",
+    "version": "036/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206585/preview_prinplup-036-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608486
+    ],
+    "collector_number": "036",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206586,
+    "name": "Empoleon",
+    "version": "Holo Rare | 037/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206586/preview_empoleon-holo-rare-037-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608487
+    ],
+    "collector_number": "037",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206587,
+    "name": "Metal Energy",
+    "version": null,
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206587/preview_metal-energy-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      609095
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206588,
+    "name": "Darkness Energy",
+    "version": null,
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206588/preview_darkness-energy-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      609094
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206589,
+    "name": "Staryu",
+    "version": "030/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206589/preview_staryu-030-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608480
+    ],
+    "collector_number": "030",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206590,
+    "name": "Lapras",
+    "version": "031/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206590/preview_lapras-031-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608481
+    ],
+    "collector_number": "031",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206591,
+    "name": "Corphish",
+    "version": "032/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206591/preview_corphish-032-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608482
+    ],
+    "collector_number": "032",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206592,
+    "name": "Crawdaunt",
+    "version": "033/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206592/preview_crawdaunt-033-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608483
+    ],
+    "collector_number": "033",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206593,
+    "name": "Snorunt",
+    "version": "034/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206593/preview_snorunt-034-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608484
+    ],
+    "collector_number": "034",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206594,
+    "name": "Piplup",
+    "version": "035/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206594/preview_piplup-035-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608485
+    ],
+    "collector_number": "035",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206595,
+    "name": "Buizel",
+    "version": "038/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206595/preview_buizel-038-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608488
+    ],
+    "collector_number": "038",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206596,
+    "name": "Floatzel",
+    "version": "039/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206596/preview_floatzel-039-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608489
+    ],
+    "collector_number": "039",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206597,
+    "name": "Lumineon V",
+    "version": "Ultra Rare | 040/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206597/preview_lumineon-v-ultra-rare-040-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608490
+    ],
+    "collector_number": "040",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206598,
+    "name": "Manaphy",
+    "version": "041/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206598/preview_manaphy-041-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608491
+    ],
+    "collector_number": "041",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206599,
+    "name": "Cubchoo",
+    "version": "042/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206599/preview_cubchoo-042-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608492
+    ],
+    "collector_number": "042",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206600,
+    "name": "Beartic",
+    "version": "043/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206600/preview_beartic-043-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608493
+    ],
+    "collector_number": "043",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206601,
+    "name": "Eiscue",
+    "version": "044/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206601/preview_eiscue-044-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608494
+    ],
+    "collector_number": "044",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206602,
+    "name": "Raichu V",
+    "version": "Ultra Rare | 045/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206602/preview_raichu-v-ultra-rare-045-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608495
+    ],
+    "collector_number": "045",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206603,
+    "name": "Electabuzz",
+    "version": "046/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206603/preview_electabuzz-046-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608496
+    ],
+    "collector_number": "046",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206604,
+    "name": "Electivire",
+    "version": "047/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206604/preview_electivire-047-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608497
+    ],
+    "collector_number": "047",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206605,
+    "name": "Raikou V",
+    "version": "Ultra Rare | 048/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206605/preview_raikou-v-ultra-rare-048-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608498
+    ],
+    "collector_number": "048",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206606,
+    "name": "Shinx",
+    "version": "049/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206606/preview_shinx-049-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608499
+    ],
+    "collector_number": "049",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206607,
+    "name": "Luxio",
+    "version": "050/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206607/preview_luxio-050-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608500
+    ],
+    "collector_number": "050",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206608,
+    "name": "Luxray",
+    "version": "051/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206608/preview_luxray-051-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608501
+    ],
+    "collector_number": "051",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206609,
+    "name": "Pachirisu",
+    "version": "052/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206609/preview_pachirisu-052-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608502
+    ],
+    "collector_number": "052",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206610,
+    "name": "Clefairy",
+    "version": "053/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206610/preview_clefairy-053-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608503
+    ],
+    "collector_number": "053",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206611,
+    "name": "Clefable",
+    "version": "054/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206611/preview_clefable-054-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608504
+    ],
+    "collector_number": "054",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206612,
+    "name": "Starmie",
+    "version": "055/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206612/preview_starmie-055-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608505
+    ],
+    "collector_number": "055",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206613,
+    "name": "Mewtwo",
+    "version": "056/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206613/preview_mewtwo-056-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608506
+    ],
+    "collector_number": "056",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206614,
+    "name": "Granbull V",
+    "version": "Ultra Rare | 057/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206614/preview_granbull-v-ultra-rare-057-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608507
+    ],
+    "collector_number": "057",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206615,
+    "name": "Baltoy",
+    "version": "058/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206615/preview_baltoy-058-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608508
+    ],
+    "collector_number": "058",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206616,
+    "name": "Claydol",
+    "version": "059/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206616/preview_claydol-059-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608509
+    ],
+    "collector_number": "059",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206617,
+    "name": "Duskull",
+    "version": "060/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206617/preview_duskull-060-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608510
+    ],
+    "collector_number": "060",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206618,
+    "name": "Dusclops",
+    "version": "061/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206618/preview_dusclops-061-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608511
+    ],
+    "collector_number": "061",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206619,
+    "name": "Dusknoir",
+    "version": "062/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206619/preview_dusknoir-062-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608512
+    ],
+    "collector_number": "062",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206620,
+    "name": "Psychic Energy",
+    "version": null,
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206620/preview_psychic-energy-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      609093
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206621,
+    "name": "Fighting Energy",
+    "version": null,
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206621/preview_fighting-energy-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      609092
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206622,
+    "name": "Lightning Energy",
+    "version": null,
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206622/preview_lightning-energy-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      609091
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206623,
+    "name": "Water Energy",
+    "version": null,
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206623/preview_water-energy-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      609090
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206624,
+    "name": "Fire Energy",
+    "version": null,
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206624/preview_fire-energy-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      609089
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206625,
+    "name": "Grass Energy",
+    "version": null,
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206625/preview_grass-energy-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      609088
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206626,
+    "name": "Sylveon VMAX",
+    "version": "Illustration Rare | TG15/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206626/preview_sylveon-vmax-illustration-rare-tg15-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608747
+    ],
+    "collector_number": "TG15",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206627,
+    "name": "Sylveon V",
+    "version": "Illustration Rare | TG14/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206627/preview_sylveon-v-illustration-rare-tg14-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608746
+    ],
+    "collector_number": "TG14",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206628,
+    "name": "Boltund V",
+    "version": "Illustration Rare | TG13/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206628/preview_boltund-v-illustration-rare-tg13-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608745
+    ],
+    "collector_number": "TG13",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206629,
+    "name": "Houndoom",
+    "version": "Illustration Rare | TG10/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206629/preview_houndoom-illustration-rare-tg10-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608742
+    ],
+    "collector_number": "TG10",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206630,
+    "name": "Ariados",
+    "version": "Illustration Rare | TG09/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206630/preview_ariados-illustration-rare-tg09-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608741
+    ],
+    "collector_number": "TG09",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206631,
+    "name": "Alcremie",
+    "version": "Illustration Rare | TG08/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206631/preview_alcremie-illustration-rare-tg08-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608740
+    ],
+    "collector_number": "TG08",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206632,
+    "name": "Zekrom",
+    "version": "Illustration Rare | TG05/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206632/preview_zekrom-illustration-rare-tg05-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608737
+    ],
+    "collector_number": "TG05",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206633,
+    "name": "Octillery",
+    "version": "Illustration Rare | TG03/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206633/preview_octillery-illustration-rare-tg03-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608735
+    ],
+    "collector_number": "TG03",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206634,
+    "name": "Vaporeon",
+    "version": "Illustration Rare | TG02/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206634/preview_vaporeon-illustration-rare-tg02-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608734
+    ],
+    "collector_number": "TG02",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206635,
+    "name": "Flareon",
+    "version": "Illustration Rare | TG01/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206635/preview_flareon-illustration-rare-tg01-tg30-brilliant-stars.jpg",
+    "card_market_ids": [
+      608733
+    ],
+    "collector_number": "TG01",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206636,
+    "name": "Sigilyph",
+    "version": "066/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206636/preview_sigilyph-066-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608516
+    ],
+    "collector_number": "066",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206637,
+    "name": "Whimsicott V",
+    "version": "Ultra Rare | 064/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206637/preview_whimsicott-v-ultra-rare-064-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608514
+    ],
+    "collector_number": "064",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206638,
+    "name": "Chimecho",
+    "version": "063/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206638/preview_chimecho-063-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608513
+    ],
+    "collector_number": "063",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206639,
+    "name": "Kingler VMAX",
+    "version": "Ultra Rare | 029/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206639/preview_kingler-vmax-ultra-rare-029-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608479
+    ],
+    "collector_number": "029",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206640,
+    "name": "Kingler V",
+    "version": "Ultra Rare | 028/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206640/preview_kingler-v-ultra-rare-028-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608478
+    ],
+    "collector_number": "028",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206641,
+    "name": "Simisear V",
+    "version": "Ultra Rare | 027/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206641/preview_simisear-v-ultra-rare-027-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608477
+    ],
+    "collector_number": "027",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206642,
+    "name": "Infernape",
+    "version": "Holo Rare | 026/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206642/preview_infernape-holo-rare-026-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608476
+    ],
+    "collector_number": "026",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206643,
+    "name": "Monferno",
+    "version": "025/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206643/preview_monferno-025-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608475
+    ],
+    "collector_number": "025",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206644,
+    "name": "Chimchar",
+    "version": "024/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206644/preview_chimchar-024-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608474
+    ],
+    "collector_number": "024",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206645,
+    "name": "Torkoal",
+    "version": "023/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206645/preview_torkoal-023-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608473
+    ],
+    "collector_number": "023",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206646,
+    "name": "Entei V",
+    "version": "Ultra Rare | 022/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206646/preview_entei-v-ultra-rare-022-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608472
+    ],
+    "collector_number": "022",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206647,
+    "name": "Moltres",
+    "version": "Holo Rare | 021/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206647/preview_moltres-holo-rare-021-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608471
+    ],
+    "collector_number": "021",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206648,
+    "name": "Magmortar",
+    "version": "020/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206648/preview_magmortar-020-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608470
+    ],
+    "collector_number": "020",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206649,
+    "name": "Magmar",
+    "version": "019/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206649/preview_magmar-019-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608469
+    ],
+    "collector_number": "019",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206650,
+    "name": "Charizard VSTAR",
+    "version": "Ultra Rare | 018/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206650/preview_charizard-vstar-ultra-rare-018-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608462
+    ],
+    "collector_number": "018",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206651,
+    "name": "Charizard V",
+    "version": "Ultra Rare | 017/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206651/preview_charizard-v-ultra-rare-017-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608460
+    ],
+    "collector_number": "017",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206652,
+    "name": "Zarude V",
+    "version": "Ultra Rare | 016/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206652/preview_zarude-v-ultra-rare-016-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608455
+    ],
+    "collector_number": "016",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206653,
+    "name": "Karrablast",
+    "version": "015/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206653/preview_karrablast-015-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608452
+    ],
+    "collector_number": "015",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206654,
+    "name": "Shaymin VSTAR",
+    "version": "Ultra Rare | 014/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206654/preview_shaymin-vstar-ultra-rare-014-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608448
+    ],
+    "collector_number": "014",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206655,
+    "name": "Shaymin V",
+    "version": "Ultra Rare | 013/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206655/preview_shaymin-v-ultra-rare-013-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      608437
+    ],
+    "collector_number": "013",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206656,
+    "name": "Cherubi",
+    "version": "012/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206656/preview_cherubi-012-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608436
+    ],
+    "collector_number": "012",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206657,
+    "name": "Mothim",
+    "version": "011/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206657/preview_mothim-011-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608435
+    ],
+    "collector_number": "011",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206658,
+    "name": "Wormadam",
+    "version": "010/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206658/preview_wormadam-010-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608434
+    ],
+    "collector_number": "010",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206659,
+    "name": "Burmy",
+    "version": "009/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206659/preview_burmy-009-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608433
+    ],
+    "collector_number": "009",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206660,
+    "name": "Torterra",
+    "version": "008/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206660/preview_torterra-008-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608432
+    ],
+    "collector_number": "008",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206661,
+    "name": "Grotle",
+    "version": "007/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206661/preview_grotle-007-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608431
+    ],
+    "collector_number": "007",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206662,
+    "name": "Turtwig",
+    "version": "006/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206662/preview_turtwig-006-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608430
+    ],
+    "collector_number": "006",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206663,
+    "name": "Tropius",
+    "version": "005/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206663/preview_tropius-005-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608429
+    ],
+    "collector_number": "005",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206664,
+    "name": "Breloom",
+    "version": "004/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206664/preview_breloom-004-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608428
+    ],
+    "collector_number": "004",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206665,
+    "name": "Shroomish",
+    "version": "003/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206665/preview_shroomish-003-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608427
+    ],
+    "collector_number": "003",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206666,
+    "name": "Exeggutor",
+    "version": "002/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206666/preview_exeggutor-002-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608426
+    ],
+    "collector_number": "002",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206667,
+    "name": "Exeggcute",
+    "version": "001/172",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206667/preview_exeggcute-001-172-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      608425
+    ],
+    "collector_number": "001",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 206668,
+    "name": "VSTAR Marker",
+    "version": "",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/206668/preview_206668-vstar-marker-brilliant-stars.png",
+    "card_market_ids": [
+      608424
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 228432,
+    "name": "Arceus VSTAR",
+    "version": "Jumbo Oversized | 123",
+    "game_id": 5,
+    "category_id": 78,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/228432/preview_arceus-vstar-jumbo-oversized-123-brilliant-stars.jpg",
+    "card_market_ids": [
+      671808
+    ],
+    "collector_number": "123",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 273481,
+    "name": "Brilliant Stars Pokémon Center Elite Trainer Box",
+    "version": "Pokémon Center",
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/273481/preview_brilliant-stars-pokemon-center-elite-trainer-box-pokemon-center-brilliant-stars.jpg",
+    "card_market_ids": [
+      583511
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 286060,
+    "name": "Brilliant Stars Dice Set",
+    "version": "",
+    "game_id": 5,
+    "category_id": 86,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/286060/preview_brilliant-stars-dice-set-brilliant-stars.jpg",
+    "card_market_ids": [
+      606753
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 289595,
+    "name": "Brilliant Stars: Arceus Gold Sleeves",
+    "version": "Pokémon Center",
+    "game_id": 5,
+    "category_id": 62,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/289595/preview_brilliant-stars-arceus-gold-sleeves-pokemon-center-brilliant-stars.jpg",
+    "card_market_ids": [
+      606755
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 289596,
+    "name": "Brilliant Stars: Arceus White Sleeves",
+    "version": "",
+    "game_id": 5,
+    "category_id": 62,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/289596/preview_brilliant-stars-arceus-white-sleeves-brilliant-stars.jpg",
+    "card_market_ids": [
+      606754
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 321333,
+    "name": "Brilliant Stars: Venusaur Coin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 61,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/321333/preview_brilliant-stars-venusaur-coin-brilliant-stars.jpg",
+    "card_market_ids": [
+      606751
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 349619,
+    "name": "Arceus VSTAR",
+    "version": "Metal Card | Oversized Thick Card 123/172",
+    "game_id": 5,
+    "category_id": 78,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/349619/preview_arceus-vstar-metal-card-oversized-thick-card-123-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      683036
+    ],
+    "collector_number": "123",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 349620,
+    "name": "Arceus V",
+    "version": "Metal Card | Oversized Thick Card 122/172",
+    "game_id": 5,
+    "category_id": 78,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/349620/preview_arceus-v-metal-card-oversized-thick-card-122-172-brilliant-stars.jpg",
+    "card_market_ids": [
+      683035
+    ],
+    "collector_number": "122",
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 350652,
+    "name": "Brilliant Stars: Salamence Premium Checklane Blister",
+    "version": "Salamence",
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/350652/preview_brilliant-stars-salamence-premium-checklane-blister-salamence-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      606763
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 350653,
+    "name": "Brilliant Stars: Eevee 1-Pack Blister",
+    "version": "Eevee",
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/350653/preview_brilliant-stars-eevee-1-pack-blister-eevee-brilliant-stars.jpg",
+    "card_market_ids": [
+      606761
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 350654,
+    "name": "Brilliant Stars: Flapple 1-Pack Blister",
+    "version": "Flapple ",
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/350654/preview_brilliant-stars-flapple-1-pack-blister-flapple-brilliant-stars.jpg",
+    "card_market_ids": [
+      606762
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 350655,
+    "name": "Brilliant Stars: Hydreigon Premium Checklane Blister",
+    "version": "Hydreigon",
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 2911,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/350655/preview_brilliant-stars-hydreigon-premium-checklane-blister-hydreigon-brilliant-stars(2).jpg",
+    "card_market_ids": [
+      606764
+    ],
+    "collector_number": null,
+    "expansion_name": "Brilliant Stars",
+    "expansion_code": "brs",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  }
+]

@@ -1,0 +1,896 @@
+"""Conservative free-tier PokéWallet/One Piece catalogue guides.
+
+PokéWallet's *free* ``/op/sets`` routes contain per-printing Cardmarket
+guides. Its paid ``/op/prices`` route is deliberately never called. These
+are indicative EUR marketplace guides, not UK sold comparables or a licence
+to reprice physical inventory. The separate catalogue-guide table is used.
+
+Ordinary matching accepts only a release-unique **base** printing. A separate,
+opt-in artwork check may link official alternate printings to independently
+labelled provider variants, using a reciprocal one-to-one image match. The
+first, cheapest or sole *priced* item is never used as a tie-breaker.
+"""
+from __future__ import annotations
+
+import html
+import json
+import logging
+import re
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, ROUND_HALF_UP
+from math import ceil
+from urllib.parse import urlsplit
+from uuid import UUID, uuid4
+
+import httpx
+
+from .db import user_connection
+from .one_piece_artwork_match import (
+    ALTERNATE_SUBTYPES, image_proven_source_candidates,
+    official_groups, source_products_for_group, match_image_fingerprints,
+)
+from .one_piece_market import normalized, release_identity
+from .recognition_images import (
+    RecognitionImageError, _fingerprints, _open_image, reference_image_hashes,
+)
+from .reference_market import _minor
+
+log = logging.getLogger(__name__)
+SOURCE = "POKEWALLET_CARDMARKET_CATALOGUE"
+SYSTEM = "ONE_PIECE_CARD_GAME"
+BASE_URL = "https://api.pokewallet.io"
+MAX_FREE_REQUESTS_PER_RUN = 60  # 100/hour, 1,000/day across all PokéWallet games
+PAGE_SIZE = 200
+MAX_ARTWORK_GROUPS_PER_RUN = 2
+MAX_SOURCE_ARTWORK_BYTES = 2_000_000
+BASE_NUMBER = re.compile(r"(?:OP|EB|PRB|ST)\d{2}-\d{3}")
+JP_CARDMARKET_NAME = re.compile(
+    r"^.+\(((?:OP|EB|PRB|ST)\d{2}-\d{3})\)(?:\s*\(V\.\s*([1-9]\d*)\))?$",
+    re.I,
+)
+SET_MARKER = re.compile(r"\[((?:OP|EB|PRB|ST)-?\d{2})(?:-?EB\d{2})?\]$")
+JP_MARKER = re.compile(r"【((?:OP|EB|PRB|ST)-?\d{2})】$")
+# Exact locally imported official checklist whose title omits the product prefix.
+# https://en.onepiece-cardgame.com/products/op16.html
+# https://en.onepiece-cardgame.com/cardlist/?series=569116
+PREFIXLESS_ENGLISH_RELEASES = {
+    ("Bandai Official", "569116", "The Time of Battle [OP-16]"): "OP16",
+}
+JP_SET_PREFIXES = ("ブースターパック ", "エクストラブースター ",
+                   "プレミアムブースター ", "スタートデッキ ", "アルティメットデッキ ")
+RARITIES = {
+    "c": "common", "uc": "uncommon", "r": "rare", "sr": "superrare",
+    "sec": "secretrare", "l": "leader", "sp": "special",
+}
+ALTERNATE_PRINT_LABELS = {
+    "alternate art", "alt art", "parallel", "special", "sp", "manga",
+    "super parallel", "foil", "holofoil", "textured",
+}
+
+READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,r.set_id,
+ r.card_number,r.rarity,r.finish,r.image_url,r.evidence,s.name as set_name,
+ (coalesce(p.market_value_minor,0)>0 and
+  p.pricing_updated_at>=now()-interval '7 days') as has_detail_value,
+ (coalesce(p.market_value_minor,0)>0) as has_any_detail_value,
+ coalesce(b.market_value_minor,0) as existing_catalogue_value,
+ b.quotes->0->>'source' as existing_source,
+ b.pricing_updated_at as existing_pricing_updated_at
+ from tcg.reference_cards r
+ join tcg.reference_sets s using(provider,system_code,language,set_id)
+ left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
+ left join tcg.reference_catalogue_prices b using(provider,system_code,language,provider_id)
+ where r.system_code='ONE_PIECE_CARD_GAME' and r.language in ('English','Japanese')
+ and r.provider in ('Bandai Official','Punk Records')
+ and (s.release_date is null or s.release_date<=current_date)"""
+
+# A stored positive guide from another provider cannot be replaced, even if
+# stale. Our own older guide can be refreshed. Reference identity, including
+# the literal publisher's Japanese name, must still match at write time.
+WRITE_SQL = """insert into tcg.reference_catalogue_prices
+ (provider,system_code,language,provider_id,quotes,market_value_minor,
+ market_value_high_minor,pricing_updated_at,checked_at,expires_at)
+ select $1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10
+ from tcg.reference_cards r
+ join tcg.reference_sets s using(provider,system_code,language,set_id)
+ where r.provider=$1 and r.system_code=$2 and r.language=$3 and r.provider_id=$4
+ and r.name=$11 and r.set_id=$12 and r.card_number=$13 and s.name=$14
+ and r.rarity is not distinct from $15
+ and ($17::text is null or r.image_url=$17)
+ and ($18::text is null or r.evidence->>'printing_id'=$18)
+ on conflict(provider,system_code,language,provider_id) do update set
+ quotes=excluded.quotes,market_value_minor=excluded.market_value_minor,
+ market_value_high_minor=excluded.market_value_high_minor,
+ pricing_updated_at=excluded.pricing_updated_at,
+ checked_at=excluded.checked_at,expires_at=excluded.expires_at
+ where (coalesce(tcg.reference_catalogue_prices.market_value_minor,0)<=0
+   or (tcg.reference_catalogue_prices.quotes->0->>'source'=$16
+       and tcg.reference_catalogue_prices.checked_at<excluded.checked_at))"""
+
+
+class ProviderResponseError(ValueError):
+    """A source response is invalid or over quota; existing prices survive."""
+
+
+def code_from_reference(ref: dict) -> str | None:
+    if (ref.get("system_code") != SYSTEM or
+            ref.get("provider") not in {"Punk Records", "Bandai Official"} or
+            ref.get("language") not in {"English", "Japanese"}):
+        return None
+    number = str(ref.get("card_number") or "")
+    if (ref.get("provider_id") != number or not BASE_NUMBER.fullmatch(number)):
+        return None  # no extrapolation to parallel art suffixes
+    name = str(ref.get("set_name") or "")
+    if ref["language"] == "Japanese":
+        if ref["provider"] != "Punk Records" or not name.startswith(JP_SET_PREFIXES):
+            return None
+        marker = JP_MARKER.search(name)
+    else:
+        # The full Bandai/Punk release identity must be recognised; the
+        # bracketed OP/ST code alone is not proof for an arbitrary promo.
+        reviewed = PREFIXLESS_ENGLISH_RELEASES.get((ref.get("provider"),ref.get("set_id"),name))
+        prefixed = re.match(r"^(?:BOOSTER PACK|EXTRA BOOSTER|PREMIUM BOOSTER|STARTER DECK|ULTRA DECK)\b",name,re.I)
+        if ((not prefixed and not reviewed) or release_identity(name) is None):
+            return None
+        marker = SET_MARKER.search(name)
+    if marker is None:
+        return None
+    code = marker[1].replace("-", "").upper()
+    return code if number.startswith(code + "-") else None
+
+
+def rarity(value: object) -> str:
+    label = normalized(str(value or ""))
+    return RARITIES.get(label, label)
+
+
+def quote_eligible(ref: dict, now: datetime, *, coverage_first: bool=False) -> bool:
+    # The coverage denominator already counts stale positive detail values.
+    # Backfill mode must not spend free API requests refreshing them.
+    if coverage_first and ref.get("has_any_detail_value"):
+        return False
+    if ref.get("has_detail_value"):
+        return False
+    existing = int(ref.get("existing_catalogue_value") or 0)
+    if existing <= 0:
+        return True
+    # During an explicit coverage push, never spend scarce free API calls
+    # refreshing a reference that already has a positive catalogue guide.
+    # Stale-guide refresh resumes when the operator turns this mode off.
+    if coverage_first:
+        return False
+    if ref.get("existing_source") != SOURCE:
+        return False
+    updated = ref.get("existing_pricing_updated_at")
+    return isinstance(updated, datetime) and updated < now - timedelta(days=1)
+
+
+def collect_reference_groups(refs: list[dict], now: datetime, *, coverage_first: bool=False):
+    """Return every base reference, including priced rows for collision checks."""
+    by_number = defaultdict(list)
+    wanted = defaultdict(list)
+    for ref in refs:
+        code = code_from_reference(ref)
+        if code:
+            key = (ref["language"], code, ref["card_number"])
+            by_number[key].append(ref)
+            if quote_eligible(ref, now, coverage_first=coverage_first):
+                wanted[key].append(ref)
+    # Multiple reference sets with one release code, or conflicting reference
+    # rarities, must never create an apparent unique market product.
+    valid = {}
+    for key, rows in by_number.items():
+        if (len({(r["provider"],r["provider_id"],r["set_id"]) for r in rows}) != len(rows)
+                or len({rarity(r.get("rarity")) for r in rows}) != 1
+                or (key[0] == "English" and
+                    (len({normalized(html.unescape(r["name"])) for r in rows}) != 1
+                     or len({normalized(r["set_name"]) for r in rows}) != 1))):
+            continue
+        if key in wanted and rarity(rows[0].get("rarity")):
+            valid[key] = wanted[key]
+    return valid
+
+
+def source_release_code(value: object, language: str) -> str | None:
+    """Treat the provider's `-JP` locale suffix as metadata, not a card set.
+
+    A Japanese entry must *also* be returned by the explicit JP-language API
+    filter and carry JP language metadata; an English entry cannot claim it.
+    """
+    literal=str(value or "").strip().upper()
+    match=re.fullmatch(r"((?:OP|EB|PRB|ST)-?\d{2})(-JP)?",literal)
+    if match is None or (language=="English" and match[2]):
+        return None
+    return match[1].replace("-","")
+
+
+def unique_source_sets(payloads: dict[str, dict]) -> dict[tuple[str, str], dict]:
+    groups = defaultdict(list)
+    for lang, body in payloads.items():
+        if body.get("success") is not True or not isinstance(body.get("data"), list):
+            raise ProviderResponseError("SETS_SCHEMA")
+        for record in body["data"]:
+            if not isinstance(record, dict) or record.get("language") not in ({"en"} if lang=="English" else {"jp"}):
+                continue
+            code = source_release_code(record.get("set_code"),lang)
+            group_id = str(record.get("group_id") or "")
+            if code and re.fullmatch(r"-?\d+",group_id):
+                groups[(lang,code)].append(record)
+    return {key:rows[0] for key,rows in groups.items() if len(rows)==1}
+
+
+def source_list_diagnostics(payloads: dict[str,dict], refs_by_number: dict) -> dict:
+    """Count release-identity conflicts without guessing which entry is right."""
+    summary={}
+    for lang, body in payloads.items():
+        names=defaultdict(set)
+        rows=body.get("data",[])
+        for row in rows:
+            if not isinstance(row,dict) or row.get("language") != ("jp" if lang=="Japanese" else "en"):
+                continue
+            code=source_release_code(row.get("set_code"),lang)
+            if code:
+                names[code].add(str(row.get("group_id")))
+        wanted={key[1] for key in refs_by_number if key[0]==lang}
+        ambiguous={code for code in wanted if len(names.get(code,()))>1}
+        summary[lang]={"raw_records":len(rows),"valid_release_codes":len(names),
+            "wanted_release_codes":len(wanted),"unmatched_release_codes":sum(code not in names for code in wanted),
+            "multiple_group_ids":len(ambiguous),"ambiguous_code_sample":sorted(ambiguous)[:10]}
+    return summary
+
+
+def prioritize_missing_artwork_sets(
+    targets: list[tuple[str, str, str]], eligible_art_codes: set[str],
+    previous_cursor: str | None,
+) -> list[tuple[str, str, str]]:
+    """Reach verified parallel-art releases before spending free calls on starters.
+
+    Both tiers retain a round-robin cursor. Ordinary/legacy jobs continue to
+    use the original ordering and cursor outside coverage-first art mode.
+    """
+    special=[row for row in targets if row[0]=="English" and row[1] in eligible_art_codes]
+    remaining=[row for row in targets if row not in special]
+
+    def rotate(rows):
+        if not previous_cursor:
+            return rows
+        index=next((i+1 for i,row in enumerate(rows)
+                    if f"{row[0]}:{row[2]}"==previous_cursor),0)
+        return rows[index:]+rows[:index]
+
+    return rotate(special)+rotate(remaining)
+
+
+def unique_market_products(body: dict, lang: str, group_id: str, code: str):
+    """Reject incomplete sets; variants may be on a later page."""
+    meta = body.get("set")
+    if (body.get("success") is not True or not isinstance(meta, dict)
+            or str(meta.get("group_id")) != group_id
+            or source_release_code(meta.get("set_code"),lang) != code
+            or meta.get("language") != ("jp" if lang=="Japanese" else "en")):
+        raise ProviderResponseError("SET_IDENTITY_SCHEMA")
+    total = body.get("total")
+    page = body.get("page")
+    items = body.get("data")
+    if (type(total) is not int or total < 0 or total > 10000
+            or type(page) is not int or page < 1 or not isinstance(items,list)):
+        raise ProviderResponseError("SET_PAGINATION_SCHEMA")
+    return total,items
+
+
+def japanese_cardmarket_printing(product: dict, release: str) -> tuple[str, int | None] | None:
+    """Recover a *printed* ID independently from Cardmarket's name and URL.
+
+    PokéWallet's Japanese CM-only rows sometimes contain ordinal values such
+    as ``1.0`` in ``card_number``. An ordinal is never an identity. Both the
+    Cardmarket listing title and canonical product URL must explicitly print
+    the same Bandai card number, in a Japanese release, with the same variant.
+    """
+    market = product.get("cardmarket")
+    if not isinstance(market, dict):
+        return None
+    title = html.unescape(str(market.get("product_name") or "")).strip()
+    name = JP_CARDMARKET_NAME.fullmatch(title)
+    if name is None:
+        return None
+    number, title_version = name[1].upper(), name[2]
+    if not number.startswith(release + "-"):
+        return None
+    parsed = urlsplit(str(market.get("product_url") or ""))
+    parts = parsed.path.split("/")
+    if (parsed.scheme != "https" or parsed.hostname not in {"cardmarket.com", "www.cardmarket.com"}
+            or parsed.query or parsed.fragment or len(parts) != 7
+            or parts[1].casefold() not in {"en", "it", "fr", "de", "es", "pt"}
+            or [p.casefold() for p in parts[2:5]] != ["onepiece", "products", "singles"]
+            # Cardmarket has begun grouping some otherwise explicitly indexed
+            # Japanese cards under a mixed "Non-English" release. Accept that
+            # *catalogue* identity only when the provider's JP locale and the
+            # independently printed title + URL card numbers agree. The quote
+            # remains a mixed-language guide, never a Japanese physical sale.
+            or not parts[5].casefold().endswith(("-japanese", "-non-english"))):
+        return None
+    slug = parts[6]
+    path_match = re.fullmatch(r".+-" + re.escape(number) + r"(?:-V([1-9]\d*))?", slug, re.I)
+    if path_match is None:
+        return None
+    path_version = path_match[1]
+    if (title_version is None) != (path_version is None):
+        return None
+    if title_version is not None and int(title_version) != int(path_version):
+        return None
+    return number, int(title_version) if title_version is not None else None
+
+
+def english_base_name_matches(ref: dict, product: dict) -> bool:
+    """Accept a printed-number title only with independent base-product proof.
+
+    Provider titles may append ``(001)`` to the card name. Do not use a
+    generic suffix stripper: alternate-art labels and conflicting numbers
+    must remain meaningful. This helper does not resolve product collisions.
+    """
+    expected = normalized(html.unescape(ref["name"]))
+    source_name = html.unescape(str(product.get("name") or ""))
+    if normalized(source_name) == expected:
+        return True
+    number = str(ref.get("card_number") or "")
+    if (ref.get("language") != "English" or ref.get("provider_id") != number
+            or not BASE_NUMBER.fullmatch(number)
+            or product.get("card_number") != number
+            or str(product.get("sub_type_name") or "").casefold() != "normal"):
+        return False
+    named_number = re.fullmatch(r"(.+) \(([0-9]{3})\)", source_name)
+    if (named_number is None or named_number[2] != number.rsplit("-", 1)[1]
+            or normalized(named_number[1]) != expected):
+        return False
+    market = product.get("cardmarket")
+    if not isinstance(market, dict):
+        return False
+    title = JP_CARDMARKET_NAME.fullmatch(html.unescape(str(market.get("product_name") or "")))
+    if title is None or title[1] != number or title[2] not in (None, "1"):
+        return False
+    title_name = str(market.get("product_name") or "").split(" (" + number + ")", 1)[0]
+    if normalized(html.unescape(title_name)) != expected:
+        return False
+    try:
+        url = urlsplit(str(market.get("product_url") or ""))
+    except ValueError:
+        return False
+    parts = url.path.split("/")
+    return bool(
+        url.scheme == "https" and url.netloc in {"cardmarket.com", "www.cardmarket.com"}
+        and not url.query and not url.fragment and len(parts) == 7
+        and parts[1] in {"en", "it", "de", "fr", "es", "pt"}
+        and parts[2:5] == ["OnePiece", "Products", "Singles"]
+        and not parts[5].casefold().endswith(("-japanese", "-non-english"))
+        and re.fullmatch(r".+-" + re.escape(number) + (r"-V1" if title[2] else ""), parts[6])
+    )
+
+
+def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, products: list[dict], diagnostics=None):
+    by_number = defaultdict(list)
+    jp_printings = {}
+    for item in products:
+        if not isinstance(item,dict):
+            continue
+        number = str(item.get("card_number") or "")
+        if number.startswith(code + "-") and BASE_NUMBER.fullmatch(number):
+            by_number[number].append(item)
+        elif lang == "Japanese":
+            identity = japanese_cardmarket_printing(item, code)
+            if identity is not None:
+                jp_printings[id(item)] = identity
+                by_number[identity[0]].append(item)
+    matches=[]
+    counts={key:0 for key in ("wanted_reference_numbers","source_number_overlap",
+        "parallel_number_collisions","unique_number_candidates","valid_product_ids",
+        "matching_rarities","matching_subtypes","matching_english_names")}
+    for (ref_lang, ref_code, number), refs in refs_by_number.items():
+        if (ref_lang, ref_code) != (lang,code):
+            continue
+        counts["wanted_reference_numbers"]+=1
+        candidates = by_number.get(number,())
+        if candidates:counts["source_number_overlap"]+=1
+        if len(candidates)>1:counts["parallel_number_collisions"]+=1
+        if len(candidates)>1:
+            # A publisher base printing may coexist with clearly labelled
+            # alternate artworks under the same printed card number. It is
+            # safe ONLY when a single source item is explicitly Normal, and
+            # every competitor has an explicit non-base printing label.
+            normals=[p for p in candidates if str(p.get("sub_type_name") or "").strip().casefold()=="normal"]
+            competitors=[p for p in candidates if p not in normals]
+            if (len(normals)==1 and len(competitors)==len(candidates)-1 and
+                    all(str(p.get("sub_type_name") or "").strip().casefold() in ALTERNATE_PRINT_LABELS
+                        for p in competitors)):
+                candidates=normals
+                counts["base_art_disambiguated"]=counts.get("base_art_disambiguated",0)+1
+            elif lang=="Japanese":
+                # V.1 is the only labelled base. Never choose V.2+, a sole
+                # quoted product, or an unversioned product among variants.
+                versions=[jp_printings.get(id(p),(None,None))[1] for p in candidates]
+                if versions.count(1)==1 and all(v is not None for v in versions):
+                    candidates=[candidates[versions.index(1)]]
+                    counts["japanese_v1_disambiguated"]=counts.get("japanese_v1_disambiguated",0)+1
+        if len(candidates) != 1:
+            continue
+        counts["unique_number_candidates"]+=1
+        product=candidates[0]
+        if lang=="Japanese" and jp_printings.get(id(product),(None,None))[1] not in (None,1):
+            continue
+        if not str(product.get("id") or "").startswith("op_"):
+            continue
+        counts["valid_product_ids"]+=1
+        source_rarity=rarity(product.get("rarity"))
+        reference_rarity=rarity(refs[0].get("rarity"))
+        if source_rarity != reference_rarity and not (
+                lang=="Japanese" and not source_rarity and id(product) in jp_printings):
+            continue
+        counts["matching_rarities"]+=1
+        if str(product.get("sub_type_name") or "Normal").casefold() not in {"normal", "foil", "holofoil"}:
+            continue
+        counts["matching_subtypes"]+=1
+        if lang == "English" and not english_base_name_matches(refs[0], product):
+            continue
+        counts["matching_english_names"]+=1
+        matches.extend((ref,product) for ref in refs)
+    if diagnostics is not None:
+        if lang=="Japanese":
+            counts["japanese_cardmarket_ids_recovered"]=len(jp_printings)
+        diagnostics.update(counts)
+    return matches
+
+
+def catalogue_guide(ref: dict, product: dict, group_id: str, fx, observed: datetime):
+    market=product.get("cardmarket")
+    if not isinstance(market,dict) or not isinstance(market.get("prices"),dict):
+        return None
+    uri=str(market.get("product_url") or "")
+    parsed=urlsplit(uri)
+    if (parsed.scheme!="https" or parsed.hostname not in {"www.cardmarket.com","cardmarket.com"}
+            or "/onepiece/" not in parsed.path.casefold()):
+        return None
+    try:
+        original=_minor(market["prices"].get("trend"))
+        gbp=int((Decimal(original)*fx.rate).quantize(Decimal("1"),rounding=ROUND_HALF_UP))
+    except (TypeError,ValueError,ArithmeticError,KeyError):
+        return None
+    if gbp<=0:
+        return None
+    quote={
+        "source":SOURCE,"market":"CARDMARKET","aggregator":"POKEWALLET",
+        "source_card_id":product["id"],"source_set_group_id":group_id,
+        "source_product_url":uri,"source_field":"trend",
+        "original_currency":"EUR","original_minor":original,"price_gbp_minor":gbp,
+        "observed_at":observed.isoformat(),"finish":"Indicative marketplace guide",
+        "valuation_role":"MIXED_NON_ENGLISH_REFERENCE" if ref["language"]=="Japanese" else "MIXED_LANGUAGE_REFERENCE",
+        "physical_valuation_eligible":False,"physical_language_confirmed":False,
+        "condition_specific":False,"sold_comparable":False,
+        "match_basis":("EXACT_JP_CARDMARKET_TITLE_URL_RELEASE_BASE_VARIANT"
+                       if ref["language"]=="Japanese" else
+                       "EXACT_RELEASE_NUMBER_RARITY_UNIQUE_POKEWALLET_BASE_PRINTING"),
+        "source_rarity_confirmed":bool(rarity(product.get("rarity"))) and
+            rarity(product.get("rarity"))==rarity(ref.get("rarity")),
+        "reference_printing_id":ref["provider_id"],"reference_rarity":ref.get("rarity"),
+        "reference_language":ref["language"],
+        "reference_identity":{field:ref[field] for field in ("name","set_id","card_number","set_name")},
+        "fx_rate_to_gbp":str(fx.rate),"fx_source":fx.source,
+        "fx_effective_at":fx.effective_at.isoformat(),
+        "fx_retrieved_at":fx.retrieved_at.isoformat(),
+    }
+    return quote
+
+
+class FreePokewalletOnePieceClient:
+    def __init__(self, api_key: str, *, request_limit: int, client=None):
+        if not api_key or not api_key.startswith("pk_live_"):
+            raise ProviderResponseError("API_KEY_NOT_LIVE")
+        self.api_key=api_key
+        self.limit=request_limit
+        self.requests=0
+        self._client=client
+
+    async def get(self, path: str, params: dict | None=None) -> dict:
+        if self.requests>=self.limit:
+            raise ProviderResponseError("REQUEST_BUDGET_EXHAUSTED")
+        if not (path=="/op/sets" or re.fullmatch(r"/op/sets/-?\d+",path)):
+            raise ProviderResponseError("PAID_OR_UNRECOGNISED_ENDPOINT")
+        self.requests+=1
+        response=await self._client.get(BASE_URL+path,params=params,
+            headers={"X-API-Key":self.api_key,"Accept":"application/json"})
+        if response.status_code==429:
+            raise ProviderResponseError("RATE_LIMITED")
+        if response.status_code>=400:
+            raise ProviderResponseError("UPSTREAM_HTTP_"+str(response.status_code))
+        # Stop while a safety margin remains for other legitimate API users.
+        for name in ("X-RateLimit-Remaining-Hour","X-RateLimit-Remaining-Day"):
+            remainder=response.headers.get(name)
+            if remainder is not None and remainder.isdigit() and int(remainder)<5:
+                raise ProviderResponseError("PROVIDER_BUDGET_LOW")
+        if len(response.content)>4_000_000:
+            raise ProviderResponseError("RESPONSE_TOO_LARGE")
+        try:
+            data=response.json()
+        except ValueError as exc:
+            raise ProviderResponseError("INVALID_JSON") from exc
+        if not isinstance(data,dict):
+            raise ProviderResponseError("INVALID_SCHEMA")
+        return data
+
+    async def get_image(self, source_id: str) -> bytes:
+        """Use the vendor's documented authenticated free image endpoint.
+
+        Does not follow redirects, crawl web pages, or persist image bytes.
+        Each request consumes the *same* quota as catalogue requests.
+        """
+        if not re.fullmatch(r"op_[a-zA-Z0-9]{6,128}", source_id):
+            raise ProviderResponseError("ARTWORK_INVALID_SOURCE_ID")
+        if self.requests >= self.limit:
+            raise ProviderResponseError("REQUEST_BUDGET_EXHAUSTED")
+        self.requests += 1
+        response = await self._client.get(
+            BASE_URL + "/images/" + source_id,
+            headers={"X-API-Key": self.api_key, "Accept": "image/png,image/jpeg,image/webp"},
+        )
+        if response.status_code == 429:
+            raise ProviderResponseError("RATE_LIMITED")
+        if response.status_code >= 400:
+            raise ProviderResponseError("ARTWORK_HTTP_" + str(response.status_code))
+        for header in ("X-RateLimit-Remaining-Hour", "X-RateLimit-Remaining-Day"):
+            remainder = response.headers.get(header)
+            if remainder is not None and remainder.isdigit() and int(remainder) < 5:
+                raise ProviderResponseError("PROVIDER_BUDGET_LOW")
+        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().casefold()
+        if (content_type not in {"image/jpeg", "image/png", "image/webp"}
+                or not 0 < len(response.content) <= MAX_SOURCE_ARTWORK_BYTES):
+            raise ProviderResponseError("ARTWORK_INVALID_IMAGE")
+        return response.content
+
+
+async def artwork_matches_for_complete_set(
+    groups: dict, language: str, code: str, products: list[dict],
+    client: FreePokewalletOnePieceClient, diagnostics: dict,
+    *, coverage_first: bool=False, previous_artwork_cursor: str | None=None,
+) -> list[tuple[dict, dict, dict]]:
+    """Resolve a bounded number of *official* printings using actual art.
+
+    All candidate images must be available and distinct. A missing image or
+    ambiguous comparison leaves the whole group unpriced. The returned quote
+    evidence is never eligible to reprice a physical inventory item.
+    """
+    if language != "English":
+        return []
+    by_number = defaultdict(list)
+    for item in products:
+        if isinstance(item, dict):
+            by_number[str(item.get("card_number") or "")].append(item)
+    verified = []
+    artwork_candidates = sorted((key, refs) for key, refs in groups.items() if key[0] == code)
+    # A repeatedly ambiguous group must never starve later official printings.
+    prior = previous_artwork_cursor.removeprefix(code + ":") if (
+        isinstance(previous_artwork_cursor, str) and
+        previous_artwork_cursor.startswith(code + ":")) else None
+    if prior:
+        start = next((i+1 for i, (key, _) in enumerate(artwork_candidates)
+                      if key[1] == prior), 0)
+        artwork_candidates = artwork_candidates[start:] + artwork_candidates[:start]
+    for (group_code, number), refs in artwork_candidates:
+        if diagnostics.get("artwork_groups_tested", 0) >= MAX_ARTWORK_GROUPS_PER_RUN:
+            break
+        if not any(quote_eligible(ref, datetime.now(timezone.utc), coverage_first=coverage_first)
+                   for ref in refs):
+            continue
+        candidates = source_products_for_group(by_number.get(number, []), refs)
+        label_confirmed = bool(candidates)
+        if not candidates:
+            # An upstream V1/V2 label is not compulsory when the publisher's
+            # exact artwork can prove a reciprocal match for *all* printings.
+            # The fallback still verifies release, title, number, rarity,
+            # product URLs, complete source rows and every competing image.
+            candidates = image_proven_source_candidates(
+                by_number.get(number, []), refs, diagnostics)
+        if not candidates:
+            diagnostics["artwork_groups_unlabelled"] = diagnostics.get("artwork_groups_unlabelled", 0) + 1
+            continue
+        if not label_confirmed:
+            diagnostics["artwork_groups_image_only_candidates"] = (
+                diagnostics.get("artwork_groups_image_only_candidates", 0) + 1)
+        # Reserve the exact number of image calls; never start a partially
+        # fetched group when the free request budget cannot finish it.
+        if client.requests + len(candidates) > client.limit:
+            diagnostics["artwork_groups_deferred_budget"] = diagnostics.get("artwork_groups_deferred_budget", 0) + 1
+            break
+        diagnostics["artwork_groups_tested"] = diagnostics.get("artwork_groups_tested", 0) + 1
+        diagnostics["artwork_cursor"] = f"{code}:{number}"
+        try:
+            official = {ref["provider_id"]: await reference_image_hashes(ref["image_url"])
+                        for ref in refs}
+            if any(value is None for value in official.values()):
+                raise RecognitionImageError("Publisher artwork could not be read")
+            source = {}
+            for product in candidates:
+                data = await client.get_image(product["id"])
+                image, _, _ = _open_image(data)
+                source[product["id"]] = _fingerprints(image)
+            links = match_image_fingerprints(refs, candidates, official, source)
+        except ProviderResponseError as exc:
+            if str(exc) in {"RATE_LIMITED", "PROVIDER_BUDGET_LOW", "REQUEST_BUDGET_EXHAUSTED"}:
+                raise
+            diagnostics["artwork_groups_source_image_failure"] = diagnostics.get("artwork_groups_source_image_failure", 0) + 1
+            continue
+        except (httpx.HTTPError, RecognitionImageError, ValueError, TypeError):
+            diagnostics["artwork_groups_image_failure"] = diagnostics.get("artwork_groups_image_failure", 0) + 1
+            continue
+        if len(links) != len(refs):
+            diagnostics["artwork_groups_ambiguous"] = diagnostics.get("artwork_groups_ambiguous", 0) + 1
+            continue
+        source_by_id = {item["id"]: item for item in candidates}
+        ref_by_id = {ref["provider_id"]: ref for ref in refs}
+        # The artwork must also agree with *independent* printing metadata.
+        # Never allow an image service to swap the normal/base and an alt-art
+        # price if its own subtype contradicts the official printing suffix.
+        if any(
+            (label == "normal" and ref_by_id[link.reference_id]["provider_id"] != number)
+            or (label in ALTERNATE_SUBTYPES and ref_by_id[link.reference_id]["provider_id"] == number)
+            for link in links
+            for label in (normalized(source_by_id[link.source_id].get("sub_type_name")),)
+        ):
+            diagnostics["artwork_groups_metadata_conflict"] = diagnostics.get("artwork_groups_metadata_conflict", 0) + 1
+            continue
+        for link in links:
+            ref = ref_by_id[link.reference_id]
+            verified.append((ref, source_by_id[link.source_id], {
+                "match_basis": "OFFICIAL_PUBLISHER_ARTWORK_RECIPROCAL_IMAGE_MATCH",
+                "reference_artwork_url": ref["image_url"],
+                "image_similarity": link.similarity,
+                "image_margin": link.margin,
+                "image_provider": "POKEWALLET_AUTHENTICATED_CARD_IMAGE",
+                "printing_label_confirmed": label_confirmed,
+            }))
+        diagnostics["artwork_groups_verified"] = diagnostics.get("artwork_groups_verified", 0) + 1
+    return verified
+
+
+async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
+                                       dry_run: bool=True, request_limit: int=MAX_FREE_REQUESTS_PER_RUN,
+                                       previous_cursor: str | None=None,
+                                       previous_artwork_cursor: str | None=None,
+                                       previous_artwork_cursors: dict[str,str] | None=None,
+                                       http_client=None,
+                                       reference_set_id: str | None=None,
+                                       operator_run_id: str | None=None,
+                                       artwork_matching_enabled: bool=False,
+                                       coverage_first: bool=False) -> dict:
+    """One bounded free API pass, with dry-run by default and a round-robin cursor.
+
+    The caller holds the existing global catalogue advisory lock and records
+    the daily receipt. Nothing touches inventory, Store Price or Shopify.
+    """
+    if reference_set_id not in (None,"569116"):
+        raise ValueError("UNREVIEWED_REFERENCE_SET")
+    if operator_run_id is not None:
+        if reference_set_id != "569116" or str(UUID(operator_run_id)) != operator_run_id:
+            raise ValueError("INVALID_OPERATOR_RUN_ID")
+    now=datetime.now(timezone.utc)
+    budget=min(request_limit,12 if dry_run else MAX_FREE_REQUESTS_PER_RUN)
+    result={"source":SOURCE,"dry_run":dry_run,"requests":0,"set_pages":0,
+            "checked_references":0,"wanted_base_printings":0,"source_groups":0,
+            "target_groups":0,"targets_by_language":{},"source_list_diagnostics":{},
+            "input_cursor":previous_cursor,"japanese_number_examples":[],
+            "japanese_product_examples":[],
+            "sampled_sets":[],"collapsed_identical_duplicate_rows":0,
+            "skipped_invalid_sets":0,"invalid_set_samples":[],
+            "matching_printings":0,"eligible_quotes":0,
+            "writes_attempted":0,"provider_failures":0,"cursor":previous_cursor}
+    result["artwork_matching_enabled"] = artwork_matching_enabled
+    result["coverage_first"] = coverage_first
+    result["artwork_groups_tested"] = 0
+    result["artwork_groups_verified"] = 0
+    result["artwork_printings_quoted"] = 0
+    result["artwork_cursor"] = previous_artwork_cursor
+    result["artwork_cursors"] = {code:value for code,value in
+        (previous_artwork_cursors or {}).items()
+        if re.fullmatch(r"(?:OP|EB|PRB)\d{2}",str(code)) and
+        isinstance(value,str) and re.fullmatch(re.escape(code)+r":(?:OP|EB|PRB)\d{2}-\d{3}",value)}
+    if reference_set_id is not None:
+        budget=min(budget,10)
+        result.update(reference_set_id=reference_set_id,preview=[])
+    client=FreePokewalletOnePieceClient(api_key,request_limit=budget)
+    try:
+        async with user_connection(pool,actor,str(uuid4())) as connection:
+            refs=[dict(r) for r in await connection.fetch(READ_SQL)]
+        result["checked_references"]=len(refs)
+        groups=collect_reference_groups(refs,now,coverage_first=coverage_first)
+        art_groups = official_groups(refs, code_from_reference) if artwork_matching_enabled else {}
+        if reference_set_id is not None:
+            # First retain complete-catalogue identity collision checks, then
+            # restrict writes to the reviewed English OP-16 base references.
+            groups={key:rows for key,rows in groups.items()
+                    if key[:2]==("English","OP16") and
+                    all(r["provider"]=="Bandai Official" and r["set_id"]==reference_set_id
+                        and r["set_name"]=="The Time of Battle [OP-16]" for r in rows)}
+            art_groups={key:rows for key,rows in art_groups.items()
+                        if key[0]=="OP16" and all(r["set_id"]==reference_set_id for r in rows)}
+        eligible_art_codes={key[0] for key,rows in art_groups.items()
+                            if any(quote_eligible(ref,now,coverage_first=coverage_first)
+                                   for ref in rows)}
+        result["wanted_base_printings"]=sum(map(len,groups.values()))
+        if not groups and not art_groups:
+            return result
+        if http_client is None:
+            http_client=httpx.AsyncClient(timeout=18,follow_redirects=False)
+            owns_client=True
+        else:
+            owns_client=False
+        try:
+            client._client=http_client
+            lists={}
+            for lang in ("Japanese","English"):
+                lists[lang]=await client.get("/op/sets",{"language":"jp" if lang=="Japanese" else "en"})
+            sources=unique_source_sets(lists)
+            result["source_groups"]=len(sources)
+            result["source_list_diagnostics"]=source_list_diagnostics(lists,groups)
+            targets=sorted(((lang,code,str(item["group_id"])) for (lang,code),item in sources.items()
+                            if (any(key[:2]==(lang,code) for key in groups)
+                                or (lang=="English" and code in eligible_art_codes))),
+                           key=lambda row:(row[0]!="Japanese",row[1],row[2]))
+            if coverage_first and artwork_matching_enabled and eligible_art_codes:
+                # Artwork-backed missing printings first. Keep a round-robin
+                # cursor inside this tier; do not burn the hourly limit on
+                # starter decks before reaching alternate-art releases.
+                targets=prioritize_missing_artwork_sets(
+                    targets,eligible_art_codes,previous_cursor)
+                result["artwork_priority_releases"]=sorted(eligible_art_codes)
+                cursor_rotated=True
+            else:
+                cursor_rotated=False
+            result["target_groups"]=len(targets)
+            result["targets_by_language"]={lang:sum(t[0]==lang for t in targets)
+                                            for lang in ("Japanese","English")}
+            if previous_cursor and not cursor_rotated:
+                index=next((i+1 for i,x in enumerate(targets) if f"{x[0]}:{x[2]}"==previous_cursor),0)
+                targets=targets[index:]+targets[:index]
+            converted=None
+            for lang,code,group_id in targets:
+                if client.requests>=budget:
+                    break
+                total=0
+                complete=[]
+                bad_set=None
+                try:
+                    first=await client.get(f"/op/sets/{group_id}",{"page":1,"limit":PAGE_SIZE})
+                    total,items=unique_market_products(first,lang,group_id,code)
+                    pages=ceil(total/PAGE_SIZE)
+                    if pages>budget-client.requests+1:
+                        # A partial set cannot prove that a base printing is
+                        # unique; resume after it rather than getting stuck.
+                        result["deferred_large_sets"]=result.get("deferred_large_sets",0)+1
+                        result["cursor"]=f"{lang}:{group_id}"
+                        continue
+                    result["set_pages"]+=1
+                    complete=list(items)
+                    for page in range(2,pages+1):
+                        body=await client.get(f"/op/sets/{group_id}",{"page":page,"limit":PAGE_SIZE})
+                        expected,new_items=unique_market_products(body,lang,group_id,code)
+                        if expected!=total or body.get("page")!=page:
+                            raise ProviderResponseError("PAGE_IDENTITY_CHANGED")
+                        complete.extend(new_items)
+                        result["set_pages"]+=1
+                    if len(complete)!=total or not all(isinstance(p,dict) for p in complete):
+                        raise ProviderResponseError("INCOMPLETE_OR_DUPLICATE_SET")
+                    by_id={}
+                    for item in complete:
+                        source_id=str(item.get("id") or "")
+                        if not source_id or (source_id in by_id and by_id[source_id]!=item):
+                            # Repeated IDs with conflicting data might be two
+                            # distinct market variants; never infer a price.
+                            raise ProviderResponseError("INCOMPLETE_OR_DUPLICATE_SET")
+                        by_id[source_id]=item
+                    result["collapsed_identical_duplicate_rows"]+=len(complete)-len(by_id)
+                    complete=list(by_id.values())
+                except ProviderResponseError as exc:
+                    # Invalid set pages are quarantined *in full*, then the
+                    # daily cursor moves on to other legitimate releases.
+                    # Rate limits and upstream outages stop the entire pass.
+                    if str(exc) not in {"SET_IDENTITY_SCHEMA","SET_PAGINATION_SCHEMA",
+                                        "PAGE_IDENTITY_CHANGED","INCOMPLETE_OR_DUPLICATE_SET"}:
+                        raise
+                    bad_set=str(exc)
+                if bad_set is not None:
+                    result["skipped_invalid_sets"]+=1
+                    result["provider_failures"]+=1
+                    if len(result["invalid_set_samples"])<8:
+                        result["invalid_set_samples"].append({
+                            "language":lang,"set_code":code,"group_id":group_id,
+                            "reason":bad_set,"declared":total,"received":len(complete),
+                            "unique_product_ids":len({str(p.get("id")) for p in complete if isinstance(p,dict)})})
+                    result["cursor"]=f"{lang}:{group_id}"
+                    continue
+                if lang=="Japanese" and not result["japanese_number_examples"]:
+                    result["japanese_number_examples"]=sorted({
+                        str(item.get("card_number")) for item in complete
+                        if item.get("card_number") is not None})[:5]
+                    # Bounded public metadata only; never log API keys,
+                    # full provider payloads or customer/inventory records.
+                    examples=[]
+                    for item in complete[:3]:
+                        if not isinstance(item,dict):
+                            continue
+                        market=item.get("cardmarket")
+                        market=market if isinstance(market,dict) else {}
+                        examples.append({
+                            "card_number":str(item.get("card_number"))[:24],
+                            "product_name":str(market.get("product_name"))[:130],
+                            "product_path":urlsplit(str(market.get("product_url") or "")).path[:180],
+                            "rarity":str(item.get("rarity"))[:30],
+                            "subtype":str(item.get("sub_type_name"))[:30],
+                        })
+                    result["japanese_product_examples"]=examples
+                set_diagnostics={}
+                matches=matches_for_complete_set(groups,lang,code,complete,set_diagnostics)
+                artwork_matches=[]
+                if (artwork_matching_enabled and lang=="English"
+                        and result["artwork_groups_tested"]<MAX_ARTWORK_GROUPS_PER_RUN):
+                    artwork_matches=await artwork_matches_for_complete_set(
+                        art_groups,lang,code,complete,client,result,
+                        coverage_first=coverage_first,
+                        previous_artwork_cursor=result["artwork_cursors"].get(code))
+                    if result["artwork_cursor"] and result["artwork_cursor"].startswith(code+":"):
+                        result["artwork_cursors"][code]=result["artwork_cursor"]
+                # Art matches supersede base matches only for the same exact
+                # printing; identities and observed prices are not guessed.
+                verified_ids={ref["provider_id"] for ref,_,_ in artwork_matches}
+                matches=[(ref,product,None) for ref,product in matches
+                         if ref["provider_id"] not in verified_ids]
+                matches.extend(artwork_matches)
+                result["matching_printings"]+=len(matches)
+                if len(result["sampled_sets"])<8:
+                    result["sampled_sets"].append({"language":lang,"set_code":code,
+                        "group_id":group_id,"source_products":len(complete),
+                        "matched_reference_printings":len(matches),**set_diagnostics})
+                if matches:
+                    if converted is None:
+                        converted=await fx.quote(base_currency="EUR",quote_currency="GBP",at=now)
+                    values=[]
+                    for ref,product,art_evidence in matches:
+                        if not quote_eligible(ref,now,coverage_first=coverage_first):
+                            continue
+                        quote=catalogue_guide(ref,product,group_id,converted,now)
+                        if quote is None:
+                            continue
+                        if art_evidence is not None:
+                            quote.update(art_evidence)
+                            result["artwork_printings_quoted"]+=1
+                        result["eligible_quotes"]+=1
+                        if operator_run_id is not None:
+                            quote["operator_run_id"]=operator_run_id
+                        if reference_set_id is not None:
+                            result["preview"].append({"provider_id":ref["provider_id"],
+                                "name":ref["name"],"card_number":ref["card_number"],
+                                "source_card_id":product["id"],"price_gbp_minor":quote["price_gbp_minor"],
+                                "source_product_url":quote["source_product_url"],
+                                "physical_valuation_eligible":False})
+                        values.append((ref["provider"],ref["system_code"],ref["language"],
+                            ref["provider_id"],[quote],quote["price_gbp_minor"],quote["price_gbp_minor"],
+                            now,now,now+timedelta(days=1),ref["name"],ref["set_id"],
+                            ref["card_number"],ref["set_name"],ref.get("rarity"),SOURCE,
+                            ref.get("image_url") if art_evidence is not None else None,
+                            ref["provider_id"] if art_evidence is not None else None))
+                    if values and not dry_run:
+                        for start in range(0,len(values),100):
+                            async with user_connection(pool,actor,str(uuid4())) as connection:
+                                await connection.executemany(WRITE_SQL,values[start:start+100])
+                        result["writes_attempted"]+=len(values)
+                result["cursor"]=f"{lang}:{group_id}"
+        finally:
+            if owns_client:
+                await http_client.aclose()
+    except (httpx.HTTPError,ProviderResponseError,ValueError,TypeError,KeyError,RuntimeError) as exc:
+        result["provider_failures"]+=1
+        result["reason"]=str(exc) if isinstance(exc,ProviderResponseError) else type(exc).__name__
+        # Already committed pages survive safely; no replacement of other
+        # providers, and the next UK-day pass resumes after the last set.
+    finally:
+        result["requests"]=client.requests
+    log.warning("Pokewallet One Piece free catalogue dry_run=%s requests=%s candidates=%s writes=%s failures=%s reason=%s",
+                dry_run,result["requests"],result["eligible_quotes"],result["writes_attempted"],
+                result["provider_failures"],result.get("reason","none"))
+    return result

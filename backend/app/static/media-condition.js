@@ -29,6 +29,15 @@ function installMediaConditionWorkspace() {
 
     <div id="shopify-media-message" class="message panel-message" role="status"></div>
 
+    <section class="inventory-panel recent-media-card" id="comic-photo-review-panel">
+      <div class="section-pad media-card-heading"><div>
+        <p class="eyebrow">Consignment listings</p>
+        <h2>Seller photo review</h2>
+        <p class="muted">Review the seller's photograph against this exact item and edition. Request a retake if the image is unclear or the item differs. Photo approval leaves stock, condition and listing checks separate.</p>
+      </div></div>
+      <div id="comic-photo-review-queue" class="allocation-list section-pad" aria-live="polite"><p class="muted">Loading seller photo reviews…</p></div>
+    </section>
+
     <section class="inventory-panel recent-media-card" id="free-media-panel">
       <div class="section-pad media-card-heading">
         <div>
@@ -226,6 +235,97 @@ function conditionStatusLabel(status) {
     REJECTED_BELOW_NEAR_MINT: "Below Near Mint",
   };
   return labels[status] || status || "Not reviewed";
+}
+
+async function decideComicPhoto(asset, decision, reason, trigger) {
+  trigger.disabled = true;
+  showMessage("shopify-media-message", decision === "APPROVE" ? "Approving exact-copy photo…" : "Sending the seller a retake request…");
+  try {
+    const result = await apiRequest(`/api/v1/shopify/photo-review/${asset.id}/decision`, {
+      method: "POST", body: JSON.stringify({version:asset.version,decision,reason})
+    });
+    showMessage("shopify-media-message", result.message, "success");
+    await loadMediaConditionWorkspace();
+  } catch (error) {
+    showMessage("shopify-media-message", error.message, "error");
+  } finally {trigger.disabled = false;}
+}
+
+function renderComicReviewQueue(data) {
+  const container = byId("comic-photo-review-queue");
+  if (!container) return;
+  container.replaceChildren();
+  const items = data?.items || [];
+  if (!items.length) {
+    const note = document.createElement("p"); note.className = "muted";
+    note.textContent = "No seller photographs are awaiting review.";
+    container.append(note); return;
+  }
+  items.forEach(asset => {
+    const card = document.createElement("article"); card.className = "comic-review-card";
+    const heading = document.createElement("h3");
+    heading.textContent = `${asset.name} · ${asset.side === "FRONT" ? "Front photo" : "Back photo"}`;
+    const meta = document.createElement("p"); meta.className = "muted";
+    const productType = {CARD:"Card",COMIC:"Comic / manga",SEALED:"Sealed product",FIGURE:"Figure",COLLECTION:"Collection"}[asset.product_type] || asset.product_type;
+    meta.textContent = [productType,asset.seller_name,asset.inventory_code,asset.condition || asset.grade,asset.shopify_file_status].filter(Boolean).join(" · ");
+    card.append(heading,meta);
+    if (asset.identity_matches !== true) {
+      const note = document.createElement("p"); note.className = "muted";
+      note.textContent = "The item details changed after capture, or its capture identity is unavailable. Request a new photo of the confirmed item.";
+      card.append(note);
+    }
+    let previewReady = false, previewImage = null;
+    if (asset.shopify_file_status === "READY" && asset.shopify_cdn_url) {
+      try {
+        const url = new URL(asset.shopify_cdn_url);
+        if (url.protocol === "https:" && url.hostname === "cdn.shopify.com" && !url.username && !url.password && (!url.port || url.port === "443") && !url.hash) {
+          const preview = document.createElement("img"); preview.className = "comic-review-preview";
+          preview.src = url.href; preview.alt = `${asset.name} ${asset.side.toLowerCase()} submitted physical photo`;
+          preview.loading = "lazy"; preview.referrerPolicy = "no-referrer";
+          card.append(preview); previewReady = true; previewImage = preview;
+        }
+      } catch (_) { /* Untrusted image URLs never load into the review UI. */ }
+    }
+    if (!previewReady) {
+      const note = document.createElement("p"); note.className = "muted";
+      note.textContent = "Photo preview is not ready. Refresh file status; never approve an unseen photograph.";
+      card.append(note);
+    }
+    const noteLabel = document.createElement("label");
+    noteLabel.textContent = "Review note / reason for retake";
+    const reason = document.createElement("textarea"); reason.rows = 2; reason.maxLength = 1000;
+    reason.placeholder = "e.g. Edition unclear, glare across the item number";
+    noteLabel.append(reason); card.append(noteLabel);
+    const controls = document.createElement("div"); controls.className = "comic-review-actions";
+    const actionButton = (label, action, className) => {
+      const button = document.createElement("button"); button.type = "button";
+      button.className = className; button.textContent = label;
+      button.addEventListener("click", () => action(button)); controls.append(button); return button;
+    };
+    if (!previewReady) actionButton("Refresh photo status", async button => {
+      button.disabled = true;
+      try {
+        const result = await apiRequest(`/api/v1/shopify/photo-review/${asset.id}/refresh-file`,
+          {method:"POST",body:JSON.stringify({version:asset.version})});
+        showMessage("shopify-media-message",result.message,"success"); await loadMediaConditionWorkspace();
+      } catch (error) {showMessage("shopify-media-message",error.message,"error");}
+      finally {button.disabled = false;}
+    },"ghost-button compact");
+    if (previewReady && asset.identity_matches === true) {
+      const approve = actionButton("Approve exact photo", button => decideComicPhoto(asset,"APPROVE",reason.value.trim(),button),"primary-button compact");
+      // A READY file is not enough: the reviewer must actually be able to see
+      // the image. A CDN error or blocked image leaves approval unavailable.
+      approve.disabled = true;
+      previewImage.addEventListener("load", () => {if (previewImage.naturalWidth > 0) approve.disabled = false;});
+      previewImage.addEventListener("error", () => {approve.disabled = true;});
+      if (previewImage.complete && previewImage.naturalWidth > 0) approve.disabled = false;
+    }
+    actionButton("Request retake", button => {
+      if (!reason.value.trim()) {showMessage("shopify-media-message","Enter a specific reason for the seller to retake this photo.","error");reason.focus();return;}
+      decideComicPhoto(asset,"RETAKE",reason.value.trim(),button);
+    },"ghost-button compact danger-button");
+    card.append(controls);container.append(card);
+  });
 }
 
 function conditionItemLabel(item) {
@@ -922,6 +1022,10 @@ async function loadMediaConditionWorkspace() {
   if (!state.session?.access_token || !byId("media-condition-workspace")) return;
 
   showMessage("shopify-media-message", "Loading physical media and condition queue…");
+  // Seller review has a scoped permission/migration rollout. Its availability
+  // must not prevent the founder's existing media/condition tools from loading.
+  const comicReviewRequest = apiRequest("/api/v1/shopify/photo-review/queue")
+    .then(data => ({data}), error => ({error}));
   try {
     const [capability, mediaData, mediaQueue, conditionData, freeMediaStatus, freeMediaReview] = await Promise.all([
       apiRequest("/api/v1/shopify/media-assets/upload-capability"),
@@ -938,6 +1042,16 @@ async function loadMediaConditionWorkspace() {
     showMessage("shopify-media-message");
   } catch (error) {
     showMessage("shopify-media-message", error.message, "error");
+  }
+  const comicReview = await comicReviewRequest;
+  if (comicReview.data) renderComicReviewQueue(comicReview.data);
+  else {
+    const queue = byId("comic-photo-review-queue");
+    if (queue) {
+      const note = document.createElement("p"); note.className = "muted";
+      note.textContent = `Seller photo queue is temporarily unavailable: ${comicReview.error?.message || "Please retry later."}`;
+      queue.replaceChildren(note);
+    }
   }
 }
 

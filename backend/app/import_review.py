@@ -26,6 +26,9 @@ IDENTITY_REVIEW_ISSUES = {
     "missing_card_number",
     "ambiguous_catalogue_match",
     "catalogue_not_found",
+    # A seller may clear this restriction only by selecting an existing
+    # canonical match. It cannot create a new shared catalogue identity.
+    "catalogue_admin_review_required",
 }
 
 
@@ -126,6 +129,7 @@ async def _batch_summary(
     row = await connection.fetchrow(
         """
         select
+            count(*)::int as candidate_count,
             coalesce(sum(quantity) filter (where status = 'READY'), 0)::int as ready_units,
             count(*) filter (where status = 'REVIEW')::int as review_rows,
             count(*) filter (where status = 'SKIPPED')::int as skipped_rows

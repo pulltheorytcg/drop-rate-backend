@@ -1,0 +1,134 @@
+name: Typed five-relation legacy R2 to D1 private shadow migration
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/d1_r2_shadow_export.py'
+      - 'tools/d1_r2_real_shadow.py'
+      - 'tools/d1_legacy_r2_shadow.py'
+      - 'tests/test_d1_legacy_r2_shadow.py'
+      - 'tests/test_d1_r2_shadow_export.py'
+      - '.github/workflows/d1-legacy-r2-shadow.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'backend/app/d1_r2_shadow_export.py'
+      - 'tools/d1_legacy_r2_shadow.py'
+      - '.github/workflows/d1-legacy-r2-shadow.yml'
+  # The follow-on R2-first catalogue imports at 03:49 UTC. Legacy only runs
+  # after all those active SHA-proven partitions and NOT their completion day.
+  schedule:
+    - cron: '13 6 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-five-relation-d1-shadow-one-writer
+  cancel-in-progress: false
+
+jobs:
+  offline-typed-source-and-rbac:
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify every legacy data type, five relations, RLS and immutable proof
+        env:
+          PYTHONPATH: 'backend:tools'
+        run: |
+          python -m pytest -q \
+            tests/test_d1_legacy_r2_shadow.py \
+            tests/test_d1_legacy_r2_preflight.py \
+            tests/test_d1_followon_r2_shadow.py \
+            tests/test_d1_r2_shadow_export.py
+
+  sequential-real-legacy-shadow:
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'schedule')
+      && github.ref == 'refs/heads/main'
+    needs: offline-typed-source-and-rbac
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    permissions:
+      id-token: write
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Stage at most 5,000 legacy source rows only after prior D1 full parity
+        id: legacy_import
+        env:
+          PYTHONPATH: 'backend:tools'
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+        run: python tools/d1_legacy_r2_shadow.py
+      - name: Report verified progress and full legacy SHA only when actually complete
+        if: always()
+        env:
+          GITHUB_STATUS_TOKEN: ${{ github.token }}
+          LEGACY_OUTCOME: ${{ steps.legacy_import.outcome }}
+          STATUS_SHA: ${{ github.sha }}
+          STATUS_REPO: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request
+          from pathlib import Path
+
+          state="failure"
+          description="Legacy R2-D1 typed staging blocked; production unaffected"
+          if os.environ["LEGACY_OUTCOME"]=="success":
+              path=Path("d1-legacy-real-r2-shadow-report.json")
+              if path.is_file():
+                  d=json.loads(path.read_text())
+                  if (d.get("market_value_writes")==0
+                      and d.get("owner_and_settlement_writes")==0
+                      and d.get("production_reads_switched") is False):
+                      if (d.get("status")=="LEGACY_FIVE_RELATIONS_D1_FULL_PARITY_VERIFIED"
+                          and d.get("d1_verified_rows")==79186
+                          and d.get("source_rows")==79186
+                          and d.get("r2_manifest_sha256")==
+                              "2dc9e6bd30d3508388d41513cfeb7a9b6d003dd6223a3f6a2d08c28b5aad7403"
+                          and d.get("relations")=={
+                              "reference_cards":69697,"reference_sets":1472,
+                              "reference_sealed_products":3893,
+                              "catalogue_products":2062,
+                              "catalogue_product_profiles":2062}):
+                          state="success"
+                          description="Legacy 79,186 original typed rows fully verified in D1"
+                      elif d.get("status") in (
+                          "LEGACY_WAITING_FOR_PRECEDING_CATALOGUE",
+                          "LEGACY_D1_PARTIAL_VERIFIED"):
+                          state="pending"
+                          description="Legacy R2-D1 staging waiting or partial; no cutover"
+          payload=json.dumps({
+              "state":state,"context":"drop-rate-d1-real-legacy-five-relation-parity",
+              "description":description,
+          }).encode()
+          req=urllib.request.Request(
+              "https://api.github.com/repos/"+os.environ["STATUS_REPO"]
+              +"/statuses/"+os.environ["STATUS_SHA"],data=payload,method="POST",
+              headers={"Authorization":"Bearer "+os.environ["GITHUB_STATUS_TOKEN"],
+                       "Content-Type":"application/json",
+                       "Accept":"application/vnd.github+json"})
+          with urllib.request.urlopen(req,timeout=20) as response:
+              if response.status!=201:
+                  raise SystemExit("Legacy D1 status not published")
+          print("Legacy D1 full-catalogue parity status: "+state)
+          PY
+      - name: Preserve no-private-data legacy parity artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-typed-r2-to-d1-shadow-proof
+          path: d1-legacy-real-r2-shadow-report.json
+          if-no-files-found: ignore
+          retention-days: 30

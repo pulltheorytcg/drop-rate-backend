@@ -1,0 +1,6181 @@
+[
+  {
+    "id": 151476,
+    "name": "Shining Fates Booster",
+    "version": null,
+    "game_id": 5,
+    "category_id": 66,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151476/preview_shining-fates-booster-shining-fates.jpg",
+    "card_market_ids": [
+      526125
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151477,
+    "name": "Shining Fates Elite Trainer Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151477/preview_shining-fates-elite-trainer-box-shining-fates.jpg",
+    "card_market_ids": [
+      526120
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151478,
+    "name": "Shining Fates: Boltund V Tin",
+    "version": null,
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151478/preview_shining-fates-boltund-v-tin-shining-fates.jpg",
+    "card_market_ids": [
+      526090
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151479,
+    "name": "Shining Fates: Cramorant V Tin",
+    "version": null,
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151479/preview_shining-fates-cramorant-v-tin-shining-fates.jpg",
+    "card_market_ids": [
+      526095
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151480,
+    "name": "Shining Fates: Eldegoss V Tin",
+    "version": null,
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151480/preview_shining-fates-eldegoss-v-tin-shining-fates.jpg",
+    "card_market_ids": [
+      526085
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151481,
+    "name": "Shining Fates Mini Tins: Reshiram Tin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151481/preview_shining-fates-mini-tins-reshiram-tin-shining-fates.jpg",
+    "card_market_ids": [
+      526045
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151482,
+    "name": "Shining Fates Mini Tins: Celebi Tin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151482/preview_shining-fates-mini-tins-celebi-tin-shining-fates.jpg",
+    "card_market_ids": [
+      526050
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151483,
+    "name": "Shining Fates Mini Tins: Kyogre Tin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151483/preview_shining-fates-mini-tins-kyogre-tin-shining-fates.jpg",
+    "card_market_ids": [
+      526055
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151484,
+    "name": "Shining Fates Mini Tins: Manaphy Tin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151484/preview_shining-fates-mini-tins-manaphy-tin-shining-fates.jpg",
+    "card_market_ids": [
+      526060
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151485,
+    "name": "Shining Fates Mini Tins: Zarude Tin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151485/preview_shining-fates-mini-tins-zarude-tin-shining-fates.jpg",
+    "card_market_ids": [
+      526065
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151486,
+    "name": "Shining Fates: Bunnelby Mad Party Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151486/preview_shining-fates-bunnelby-mad-party-collection-shining-fates.jpg",
+    "card_market_ids": [
+      526100
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151487,
+    "name": "Shining Fates: Dedenne Mad Party Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151487/preview_shining-fates-dedenne-mad-party-collection-shining-fates.jpg",
+    "card_market_ids": [
+      526105
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151488,
+    "name": "Shining Fates: Shiny Crobat VMAX Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151488/preview_shining-fates-shiny-crobat-vmax-collection-shining-fates.jpg",
+    "card_market_ids": [
+      526075
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151489,
+    "name": "Shining Fates: Pikachu V Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151489/preview_shining-fates-pikachu-v-collection-shining-fates.jpg",
+    "card_market_ids": [
+      526080
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151490,
+    "name": "Shining Fates: Galarian Mr. Rime Mad Party Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151490/preview_shining-fates-galarian-mr-rime-mad-party-collection-shining-fates.jpg",
+    "card_market_ids": [
+      526110
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151491,
+    "name": "Shining Fates: Polteageist Mad Party Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151491/preview_shining-fates-polteageist-mad-party-collection-shining-fates.jpg",
+    "card_market_ids": [
+      526115
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 151492,
+    "name": "Shining Fates: Shiny Dragapult VMAX Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/151492/preview_shining-fates-shiny-dragapult-vmax-collection-shining-fates.jpg",
+    "card_market_ids": [
+      526070
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152891,
+    "name": "Cinderace VMAX",
+    "version": "Ultra Rare | 019/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152891/preview_cinderace-vmax-019-072-shining-fates.jpg",
+    "card_market_ids": [
+      539118
+    ],
+    "collector_number": "019/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152956,
+    "name": "Yanma",
+    "version": "001/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152956/preview_yanma-001-072-shining-fates.png",
+    "card_market_ids": [
+      539028
+    ],
+    "collector_number": "001/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152957,
+    "name": "Yanmega",
+    "version": "002/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152957/preview_yanmega-002-072-shining-fates.png",
+    "card_market_ids": [
+      539033
+    ],
+    "collector_number": "002/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152958,
+    "name": "Celebi",
+    "version": "003/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152958/preview_celebi-003-072-shining-fates.png",
+    "card_market_ids": [
+      539038
+    ],
+    "collector_number": "003/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152959,
+    "name": "Cacnea",
+    "version": "004/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152959/preview_cacnea-004-072-shining-fates.png",
+    "card_market_ids": [
+      539043
+    ],
+    "collector_number": "004/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152960,
+    "name": "Tropius",
+    "version": "005/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152960/preview_tropius-005-072-shining-fates.png",
+    "card_market_ids": [
+      539048
+    ],
+    "collector_number": "005/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152961,
+    "name": "Rowlet",
+    "version": "006/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152961/preview_rowlet-006-072-shining-fates.png",
+    "card_market_ids": [
+      539053
+    ],
+    "collector_number": "006/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152962,
+    "name": "Dartrix",
+    "version": "007/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152962/preview_dartrix-007-072-shining-fates.png",
+    "card_market_ids": [
+      539058
+    ],
+    "collector_number": "007/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152963,
+    "name": "Decidueye",
+    "version": "008/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152963/preview_decidueye-008-072-shining-fates.png",
+    "card_market_ids": [
+      539063
+    ],
+    "collector_number": "008/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152964,
+    "name": "Dhelmise V",
+    "version": "Ultra Rare | 009/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152964/preview_dhelmise-v-009-072-shining-fates.png",
+    "card_market_ids": [
+      539068
+    ],
+    "collector_number": "009/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152965,
+    "name": "Dhelmise VMAX",
+    "version": "Ultra Rare | 010/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152965/preview_dhelmise-vmax-010-072-shining-fates.png",
+    "card_market_ids": [
+      539073
+    ],
+    "collector_number": "010/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152966,
+    "name": "Grookey",
+    "version": "011/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152966/preview_grookey-011-072-shining-fates.png",
+    "card_market_ids": [
+      539078
+    ],
+    "collector_number": "011/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152967,
+    "name": "Thwackey",
+    "version": "012/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152967/preview_thwackey-012-072-shining-fates.png",
+    "card_market_ids": [
+      539083
+    ],
+    "collector_number": "012/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152968,
+    "name": "Rillaboom",
+    "version": "Holo Rare | 013/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152968/preview_rillaboom-rare-holo-013-072-shining-fates.png",
+    "card_market_ids": [
+      539088
+    ],
+    "collector_number": "013/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152969,
+    "name": "Gossifleur",
+    "version": "014/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152969/preview_gossifleur-014-072-shining-fates.png",
+    "card_market_ids": [
+      539093
+    ],
+    "collector_number": "014/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152970,
+    "name": "Eldegoss",
+    "version": "015/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152970/preview_eldegoss-015-072-shining-fates.png",
+    "card_market_ids": [
+      539098
+    ],
+    "collector_number": "015/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152971,
+    "name": "Zarude",
+    "version": "016/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152971/preview_zarude-016-072-shining-fates.png",
+    "card_market_ids": [
+      539103
+    ],
+    "collector_number": "016/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152972,
+    "name": "Reshiram",
+    "version": "017/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152972/preview_reshiram-017-072-shining-fates.png",
+    "card_market_ids": [
+      539108
+    ],
+    "collector_number": "017/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152973,
+    "name": "Cinderace V",
+    "version": "Ultra Rare | 018/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152973/preview_cinderace-v-018-072-shining-fates.png",
+    "card_market_ids": [
+      539113
+    ],
+    "collector_number": "018/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152974,
+    "name": "Horsea",
+    "version": "020/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152974/preview_horsea-020-072-shining-fates.png",
+    "card_market_ids": [
+      539123
+    ],
+    "collector_number": "020/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152975,
+    "name": "Kyogre",
+    "version": "021/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152975/preview_kyogre-021-072-shining-fates.png",
+    "card_market_ids": [
+      539128
+    ],
+    "collector_number": "021/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152976,
+    "name": "Buizel",
+    "version": "022/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152976/preview_buizel-022-072-shining-fates.png",
+    "card_market_ids": [
+      539133
+    ],
+    "collector_number": "022/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152977,
+    "name": "Floatzel",
+    "version": "023/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152977/preview_floatzel-023-072-shining-fates.png",
+    "card_market_ids": [
+      539138
+    ],
+    "collector_number": "023/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152978,
+    "name": "Manaphy",
+    "version": "024/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152978/preview_manaphy-024-072-shining-fates.png",
+    "card_market_ids": [
+      539143
+    ],
+    "collector_number": "024/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152979,
+    "name": "Volcanion",
+    "version": "025/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152979/preview_volcanion-025-072-shining-fates.png",
+    "card_market_ids": [
+      539148
+    ],
+    "collector_number": "025/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152980,
+    "name": "Chewtle",
+    "version": "026/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152980/preview_chewtle-026-072-shining-fates.png",
+    "card_market_ids": [
+      539153
+    ],
+    "collector_number": "026/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152981,
+    "name": "Drednaw",
+    "version": "027/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152981/preview_drednaw-027-072-shining-fates.png",
+    "card_market_ids": [
+      539158
+    ],
+    "collector_number": "027/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152982,
+    "name": "Cramorant",
+    "version": "028/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152982/preview_cramorant-028-072-shining-fates.png",
+    "card_market_ids": [
+      539163
+    ],
+    "collector_number": "028/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152983,
+    "name": "Snom",
+    "version": "029/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152983/preview_snom-029-072-shining-fates.png",
+    "card_market_ids": [
+      539168
+    ],
+    "collector_number": "029/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152984,
+    "name": "Frosmoth",
+    "version": "Holo Rare | 030/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152984/preview_frosmoth-rare-holo-030-072-shining-fates.png",
+    "card_market_ids": [
+      539173
+    ],
+    "collector_number": "030/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152985,
+    "name": "Shinx",
+    "version": "031/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152985/preview_shinx-031-072-shining-fates.png",
+    "card_market_ids": [
+      539178
+    ],
+    "collector_number": "031/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152986,
+    "name": "Luxio",
+    "version": "032/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152986/preview_luxio-032-072-shining-fates.png",
+    "card_market_ids": [
+      539183
+    ],
+    "collector_number": "032/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152987,
+    "name": "Luxray",
+    "version": "Holo Rare | 033/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152987/preview_luxray-rare-holo-033-072-shining-fates.png",
+    "card_market_ids": [
+      539188
+    ],
+    "collector_number": "033/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152988,
+    "name": "Rotom",
+    "version": "034/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152988/preview_rotom-034-072-shining-fates.png",
+    "card_market_ids": [
+      539193
+    ],
+    "collector_number": "034/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152989,
+    "name": "Morpeko",
+    "version": "035/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152989/preview_morpeko-035-072-shining-fates.png",
+    "card_market_ids": [
+      539198
+    ],
+    "collector_number": "035/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152990,
+    "name": "Morpeko",
+    "version": "036/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152990/preview_morpeko-036-072-shining-fates.png",
+    "card_market_ids": [
+      539203
+    ],
+    "collector_number": "036/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152991,
+    "name": "Morpeko V",
+    "version": "Ultra Rare | 037/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152991/preview_morpeko-v-037-072-shining-fates.png",
+    "card_market_ids": [
+      539208
+    ],
+    "collector_number": "037/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152992,
+    "name": "Morpeko VMAX",
+    "version": "Ultra Rare | 038/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152992/preview_morpeko-vmax-038-072-shining-fates.png",
+    "card_market_ids": [
+      539213
+    ],
+    "collector_number": "038/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152993,
+    "name": "Indeedee V",
+    "version": "Ultra Rare | 039/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152993/preview_indeedee-v-039-072-shining-fates.png",
+    "card_market_ids": [
+      539218
+    ],
+    "collector_number": "039/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152994,
+    "name": "Trapinch",
+    "version": "040/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152994/preview_trapinch-040-072-shining-fates.png",
+    "card_market_ids": [
+      539223
+    ],
+    "collector_number": "040/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152995,
+    "name": "Koffing",
+    "version": "041/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152995/preview_koffing-041-072-shining-fates.png",
+    "card_market_ids": [
+      539228
+    ],
+    "collector_number": "041/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152996,
+    "name": "Galarian Weezing",
+    "version": "Holo Rare | 042/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152996/preview_galarian-weezing-rare-holo-042-072-shining-fates.png",
+    "card_market_ids": [
+      539233
+    ],
+    "collector_number": "042/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152997,
+    "name": "Spinarak",
+    "version": "043/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152997/preview_spinarak-043-072-shining-fates.png",
+    "card_market_ids": [
+      539238
+    ],
+    "collector_number": "043/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152998,
+    "name": "Crobat V",
+    "version": "Ultra Rare | 044/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152998/preview_crobat-v-044-072-shining-fates.png",
+    "card_market_ids": [
+      539243
+    ],
+    "collector_number": "044/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 152999,
+    "name": "Crobat VMAX",
+    "version": "Ultra Rare | 045/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/152999/preview_crobat-vmax-045-072-shining-fates.png",
+    "card_market_ids": [
+      539248
+    ],
+    "collector_number": "045/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153000,
+    "name": "Yveltal",
+    "version": "046/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153000/preview_yveltal-046-072-shining-fates.png",
+    "card_market_ids": [
+      539253
+    ],
+    "collector_number": "046/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153001,
+    "name": "Nickit",
+    "version": "047/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153001/preview_nickit-047-072-shining-fates.png",
+    "card_market_ids": [
+      539258
+    ],
+    "collector_number": "047/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153002,
+    "name": "Thievul",
+    "version": "Holo Rare | 048/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153002/preview_thievul-rare-holo-048-072-shining-fates.png",
+    "card_market_ids": [
+      539263
+    ],
+    "collector_number": "048/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153003,
+    "name": "Cufant",
+    "version": "049/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153003/preview_cufant-049-072-shining-fates.png",
+    "card_market_ids": [
+      539268
+    ],
+    "collector_number": "049/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153004,
+    "name": "Ditto V",
+    "version": "Ultra Rare | 050/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153004/preview_ditto-v-050-072-shining-fates.png",
+    "card_market_ids": [
+      539273
+    ],
+    "collector_number": "050/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153005,
+    "name": "Ditto VMAX",
+    "version": "Ultra Rare | 051/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153005/preview_ditto-vmax-051-072-shining-fates.png",
+    "card_market_ids": [
+      539278
+    ],
+    "collector_number": "051/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153006,
+    "name": "Eevee",
+    "version": "052/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153006/preview_eevee-052-072-shining-fates.png",
+    "card_market_ids": [
+      539283
+    ],
+    "collector_number": "052/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153007,
+    "name": "Greedent V",
+    "version": "Ultra Rare | 053/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153007/preview_greedent-v-053-072-shining-fates.png",
+    "card_market_ids": [
+      539288
+    ],
+    "collector_number": "053/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153008,
+    "name": "Cramorant V",
+    "version": "Ultra Rare | 054/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153008/preview_cramorant-v-054-072-shining-fates.png",
+    "card_market_ids": [
+      539293
+    ],
+    "collector_number": "054/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153009,
+    "name": "Cramorant VMAX",
+    "version": "Ultra Rare | 055/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153009/preview_cramorant-vmax-055-072-shining-fates.png",
+    "card_market_ids": [
+      539298
+    ],
+    "collector_number": "055/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153010,
+    "name": "Indeedee",
+    "version": "Holo Rare | 056/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153010/preview_indeedee-rare-holo-056-072-shining-fates.png",
+    "card_market_ids": [
+      539303
+    ],
+    "collector_number": "056/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153011,
+    "name": "Ball Guy",
+    "version": "057/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153011/preview_ball-guy-057-072-shining-fates.png",
+    "card_market_ids": [
+      539308
+    ],
+    "collector_number": "057/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153012,
+    "name": "Boss's Orders - Lysandre",
+    "version": "Non-Holo | 058/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153012/preview_boss-s-orders-058-072-shining-fates.png",
+    "card_market_ids": [
+      539313
+    ],
+    "collector_number": "058/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153013,
+    "name": "Gym Trainer",
+    "version": "059/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153013/preview_gym-trainer-059-072-shining-fates.png",
+    "card_market_ids": [
+      539318
+    ],
+    "collector_number": "059/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153014,
+    "name": "Professor's Research - Professor Juniper",
+    "version": "060/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153014/preview_professor-s-research-060-072-shining-fates.png",
+    "card_market_ids": [
+      539323
+    ],
+    "collector_number": "060",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153015,
+    "name": "Rusted Shield",
+    "version": "061/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153015/preview_rusted-shield-061-072-shining-fates.png",
+    "card_market_ids": [
+      539328
+    ],
+    "collector_number": "061/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153016,
+    "name": "Rusted Sword",
+    "version": "062/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153016/preview_rusted-sword-062-072-shining-fates.png",
+    "card_market_ids": [
+      539333
+    ],
+    "collector_number": "062/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153017,
+    "name": "Team Yell Towel",
+    "version": "063/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153017/preview_team-yell-towel-063-072-shining-fates.png",
+    "card_market_ids": [
+      539338
+    ],
+    "collector_number": "063/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153018,
+    "name": "Alcremie V",
+    "version": "Ultra Rare | 064/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153018/preview_alcremie-v-064-072-shining-fates.png",
+    "card_market_ids": [
+      539343
+    ],
+    "collector_number": "064/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153019,
+    "name": "Ball Guy",
+    "version": "Ultra Rare | 065/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153019/preview_ball-guy-065-072-shining-fates.png",
+    "card_market_ids": [
+      539348
+    ],
+    "collector_number": "065/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153020,
+    "name": "Bird Keeper",
+    "version": "Ultra Rare | 066/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153020/preview_bird-keeper-066-072-shining-fates.png",
+    "card_market_ids": [
+      539353
+    ],
+    "collector_number": "066/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153021,
+    "name": "Cara Liss",
+    "version": "Ultra Rare | 067/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153021/preview_cara-liss-067-072-shining-fates.png",
+    "card_market_ids": [
+      539358
+    ],
+    "collector_number": "067/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153022,
+    "name": "Gym Trainer",
+    "version": "Ultra Rare | 068/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153022/preview_gym-trainer-068-072-shining-fates.png",
+    "card_market_ids": [
+      539363
+    ],
+    "collector_number": "068/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153023,
+    "name": "Piers",
+    "version": "Ultra Rare | 069/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153023/preview_piers-069-072-shining-fates.png",
+    "card_market_ids": [
+      539368
+    ],
+    "collector_number": "069/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153024,
+    "name": "Poké Kid",
+    "version": "Ultra Rare | 070/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153024/preview_poke-kid-070-072-shining-fates.png",
+    "card_market_ids": [
+      539373
+    ],
+    "collector_number": "070/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153025,
+    "name": "Rose",
+    "version": "Ultra Rare | 071/Ultra Rare | 072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153025/preview_rose-071-072-shining-fates.png",
+    "card_market_ids": [
+      539378
+    ],
+    "collector_number": "071/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153026,
+    "name": "Skyla",
+    "version": "Ultra Rare | 072/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153026/preview_skyla-072-072-shining-fates.png",
+    "card_market_ids": [
+      539383
+    ],
+    "collector_number": "072/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153027,
+    "name": "Alcremie VMAX",
+    "version": "073/072",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153027/preview_alcremie-vmax-073-072-shining-fates.png",
+    "card_market_ids": [
+      539388
+    ],
+    "collector_number": "073/072",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153028,
+    "name": "Rowlet",
+    "version": "Shiny Rare | SV1",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153028/preview_rowlet-shiny-rare-sv1-shining-fates.png",
+    "card_market_ids": [
+      539393
+    ],
+    "collector_number": "SV1",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153029,
+    "name": "Dartrix",
+    "version": "Shiny Rare | SV2",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153029/preview_dartrix-shiny-rare-sv2-shining-fates.png",
+    "card_market_ids": [
+      539398
+    ],
+    "collector_number": "SV2",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153030,
+    "name": "Decidueye",
+    "version": "Shiny Rare | SV3",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153030/preview_decidueye-shiny-rare-sv3-shining-fates.png",
+    "card_market_ids": [
+      539403
+    ],
+    "collector_number": "SV3",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153031,
+    "name": "Grookey",
+    "version": "Shiny Rare | SV4",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153031/preview_grookey-shiny-rare-sv4-shining-fates.png",
+    "card_market_ids": [
+      539408
+    ],
+    "collector_number": "SV4",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153032,
+    "name": "Thwackey",
+    "version": "Shiny Rare | SV5",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153032/preview_thwackey-shiny-rare-sv5-shining-fates.png",
+    "card_market_ids": [
+      539413
+    ],
+    "collector_number": "SV5",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153033,
+    "name": "Rillaboom",
+    "version": "Shiny Rare | SV6",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153033/preview_rillaboom-rare-shiny-sv6-shining-fates.png",
+    "card_market_ids": [
+      539418
+    ],
+    "collector_number": "SV6",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153034,
+    "name": "Blipbug",
+    "version": "Shiny Rare | SV7",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153034/preview_blipbug-rare-shiny-sv7-shining-fates.png",
+    "card_market_ids": [
+      539423
+    ],
+    "collector_number": "SV7",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153035,
+    "name": "Dottler",
+    "version": "Shiny Rare | SV8",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153035/preview_dottler-rare-shiny-sv8-shining-fates.png",
+    "card_market_ids": [
+      539428
+    ],
+    "collector_number": "SV8",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153036,
+    "name": "Orbeetle",
+    "version": "Shiny Rare | SV9",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153036/preview_orbeetle-rare-shiny-sv9-shining-fates.png",
+    "card_market_ids": [
+      539433
+    ],
+    "collector_number": "SV9",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153037,
+    "name": "Gossifleur",
+    "version": "Shiny Rare | SV10",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153037/preview_gossifleur-rare-shiny-sv10-shining-fates.png",
+    "card_market_ids": [
+      539438
+    ],
+    "collector_number": "SV10",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153038,
+    "name": "Eldegoss",
+    "version": "Shiny Rare | SV11",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153038/preview_eldegoss-rare-shiny-sv11-shining-fates.png",
+    "card_market_ids": [
+      539443
+    ],
+    "collector_number": "SV11",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153039,
+    "name": "Applin",
+    "version": "Shiny Rare | SV12",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153039/preview_applin-rare-shiny-sv12-shining-fates.png",
+    "card_market_ids": [
+      539448
+    ],
+    "collector_number": "SV12",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153040,
+    "name": "Flapple",
+    "version": "Shiny Rare | SV13",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153040/preview_flapple-rare-shiny-sv13-shining-fates.png",
+    "card_market_ids": [
+      539453
+    ],
+    "collector_number": "SV13",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153041,
+    "name": "Appletun",
+    "version": "Shiny Rare | SV14",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153041/preview_appletun-rare-shiny-sv14-shining-fates.png",
+    "card_market_ids": [
+      539458
+    ],
+    "collector_number": "SV14",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153042,
+    "name": "Scorbunny",
+    "version": "Shiny Rare | SV15",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153042/preview_scorbunny-rare-shiny-sv15-shining-fates.png",
+    "card_market_ids": [
+      539463
+    ],
+    "collector_number": "SV15",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153043,
+    "name": "Raboot",
+    "version": "Shiny Rare | SV16",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153043/preview_raboot-rare-shiny-sv16-shining-fates.png",
+    "card_market_ids": [
+      539468
+    ],
+    "collector_number": "SV16",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153044,
+    "name": "Cinderace",
+    "version": "Shiny Rare | SV17",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153044/preview_cinderace-rare-shiny-sv17-shining-fates.png",
+    "card_market_ids": [
+      539473
+    ],
+    "collector_number": "SV17",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153045,
+    "name": "Sizzlipede",
+    "version": "Shiny Rare | SV18",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153045/preview_sizzlipede-rare-shiny-sv18-shining-fates.png",
+    "card_market_ids": [
+      539478
+    ],
+    "collector_number": "SV18",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153046,
+    "name": "Centiskorch",
+    "version": "Shiny Rare | SV19",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153046/preview_centiskorch-rare-shiny-sv19-shining-fates.png",
+    "card_market_ids": [
+      539483
+    ],
+    "collector_number": "SV19",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153047,
+    "name": "Galarian Mr. Mime",
+    "version": "Shiny Rare | SV20",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153047/preview_galarian-mr-mime-rare-shiny-sv20-shining-fates.png",
+    "card_market_ids": [
+      539488
+    ],
+    "collector_number": "SV20",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153048,
+    "name": "Galarian Mr. Rime",
+    "version": "Shiny Rare | SV21",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153048/preview_galarian-mr-rime-rare-shiny-sv21-shining-fates.png",
+    "card_market_ids": [
+      539493
+    ],
+    "collector_number": "SV21",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153049,
+    "name": "Suicune",
+    "version": "Shiny Rare | SV22",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153049/preview_suicune-rare-shiny-sv22-shining-fates.png",
+    "card_market_ids": [
+      539498
+    ],
+    "collector_number": "SV22",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153050,
+    "name": "Galarian Darumaka",
+    "version": "Shiny Rare | SV23",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153050/preview_galarian-darumaka-rare-shiny-sv23-shining-fates.png",
+    "card_market_ids": [
+      539503
+    ],
+    "collector_number": "SV023",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153051,
+    "name": "Galarian Darmanitan",
+    "version": "Shiny Rare | SV24",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153051/preview_galarian-darmanitan-rare-shiny-sv24-shining-fates.png",
+    "card_market_ids": [
+      539508
+    ],
+    "collector_number": "SV24",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153052,
+    "name": "Sobble",
+    "version": "Shiny Rare | SV25",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153052/preview_sobble-rare-shiny-sv25-shining-fates.png",
+    "card_market_ids": [
+      539513
+    ],
+    "collector_number": "SV25",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153053,
+    "name": "Drizzile",
+    "version": "Shiny Rare | SV26",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153053/preview_drizzile-rare-shiny-sv26-shining-fates.png",
+    "card_market_ids": [
+      539518
+    ],
+    "collector_number": "SV26",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153054,
+    "name": "Inteleon",
+    "version": "Shiny Rare | SV27",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153054/preview_inteleon-rare-shiny-sv27-shining-fates.png",
+    "card_market_ids": [
+      539523
+    ],
+    "collector_number": "SV27",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153055,
+    "name": "Chewtle",
+    "version": "Shiny Rare | SV28",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153055/preview_chewtle-rare-shiny-sv28-shining-fates.png",
+    "card_market_ids": [
+      539528
+    ],
+    "collector_number": "SV28",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153056,
+    "name": "Drednaw",
+    "version": "Shiny Rare | SV29",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153056/preview_drednaw-rare-shiny-sv29-shining-fates.png",
+    "card_market_ids": [
+      539533
+    ],
+    "collector_number": "SV29",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153057,
+    "name": "Cramorant",
+    "version": "Shiny Rare | SV30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153057/preview_cramorant-rare-shiny-sv30-shining-fates.png",
+    "card_market_ids": [
+      539538
+    ],
+    "collector_number": "SV30",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153058,
+    "name": "Arrokuda",
+    "version": "Shiny Rare | SV31",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153058/preview_arrokuda-rare-shiny-sv31-shining-fates.png",
+    "card_market_ids": [
+      539543
+    ],
+    "collector_number": "SV31",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153059,
+    "name": "Barraskewda",
+    "version": "Shiny Rare | SV32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153059/preview_barraskewda-rare-shiny-sv32-shining-fates.png",
+    "card_market_ids": [
+      539548
+    ],
+    "collector_number": "SV32",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153060,
+    "name": "Snom",
+    "version": "Shiny Rare | SV33",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153060/preview_snom-rare-shiny-sv33-shining-fates.png",
+    "card_market_ids": [
+      539553
+    ],
+    "collector_number": "SV33",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153061,
+    "name": "Frosmoth",
+    "version": "Shiny Rare | SV34",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153061/preview_frosmoth-rare-shiny-sv34-shining-fates.png",
+    "card_market_ids": [
+      539558
+    ],
+    "collector_number": "SV34",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153062,
+    "name": "Eiscue",
+    "version": "Shiny Rare | SV35",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153062/preview_eiscue-rare-shiny-sv35-shining-fates.png",
+    "card_market_ids": [
+      539563
+    ],
+    "collector_number": "SV35",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153063,
+    "name": "Dracovish",
+    "version": "Shiny Rare | SV36",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153063/preview_dracovish-rare-shiny-sv36-shining-fates.png",
+    "card_market_ids": [
+      539568
+    ],
+    "collector_number": "SV36",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153064,
+    "name": "Arctovish",
+    "version": "Shiny Rare | SV37",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153064/preview_arctovish-rare-shiny-sv37-shining-fates.png",
+    "card_market_ids": [
+      539573
+    ],
+    "collector_number": "SV37",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153065,
+    "name": "Rotom",
+    "version": "Shiny Rare | SV38",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153065/preview_rotom-rare-shiny-sv38-shining-fates.png",
+    "card_market_ids": [
+      539578
+    ],
+    "collector_number": "SV38",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153066,
+    "name": "Yamper",
+    "version": "Shiny Rare | SV39",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153066/preview_yamper-rare-shiny-sv39-shining-fates.png",
+    "card_market_ids": [
+      539583
+    ],
+    "collector_number": "SV39",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153067,
+    "name": "Boltund",
+    "version": "Shiny Rare | SV40",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153067/preview_boltund-rare-shiny-sv40-shining-fates.png",
+    "card_market_ids": [
+      539588
+    ],
+    "collector_number": "SV40",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153068,
+    "name": "Toxel",
+    "version": "Shiny Rare | SV41",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153068/preview_toxel-rare-shiny-sv41-shining-fates.png",
+    "card_market_ids": [
+      539593
+    ],
+    "collector_number": "SV41",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153069,
+    "name": "Toxtricity",
+    "version": "Shiny Rare | SV42",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153069/preview_toxtricity-rare-shiny-sv42-shining-fates.png",
+    "card_market_ids": [
+      539598
+    ],
+    "collector_number": "SV42",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153070,
+    "name": "Pincurchin",
+    "version": "Shiny Rare | SV43",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153070/preview_pincurchin-rare-shiny-sv43-shining-fates.png",
+    "card_market_ids": [
+      539603
+    ],
+    "collector_number": "SV043",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153071,
+    "name": "Morpeko",
+    "version": "Shiny Rare | SV44",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153071/preview_morpeko-rare-shiny-sv44-shining-fates.png",
+    "card_market_ids": [
+      539608
+    ],
+    "collector_number": "SV44",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153072,
+    "name": "Dracozolt",
+    "version": "Shiny Rare | SV45",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153072/preview_dracozolt-rare-shiny-sv45-shining-fates.png",
+    "card_market_ids": [
+      539638
+    ],
+    "collector_number": "SV45",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153073,
+    "name": "Arctozolt",
+    "version": "Shiny Rare | SV46",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153073/preview_arctozolt-rare-shiny-sv46-shining-fates.png",
+    "card_market_ids": [
+      539613
+    ],
+    "collector_number": "SV46",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153074,
+    "name": "Galarian Ponyta",
+    "version": "Shiny Rare | SV47",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153074/preview_galarian-ponyta-rare-shiny-sv47-shining-fates.png",
+    "card_market_ids": [
+      539618
+    ],
+    "collector_number": "SV47",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153075,
+    "name": "Galarian Rapidash",
+    "version": "Shiny Rare | SV48",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153075/preview_galarian-rapidash-rare-shiny-sv48-shining-fates.png",
+    "card_market_ids": [
+      539623
+    ],
+    "collector_number": "SV48",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153076,
+    "name": "Galarian Corsola",
+    "version": "Shiny Rare | SV49",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153076/preview_galarian-corsola-rare-shiny-sv49-shining-fates.png",
+    "card_market_ids": [
+      539628
+    ],
+    "collector_number": "SV49",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153077,
+    "name": "Galarian Cursola",
+    "version": "Shiny Rare | SV50",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153077/preview_galarian-cursola-rare-shiny-sv50-shining-fates.png",
+    "card_market_ids": [
+      539633
+    ],
+    "collector_number": "SV50",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153078,
+    "name": "Dedenne",
+    "version": "Shiny Rare | SV51",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153078/preview_dedenne-rare-shiny-sv51-shining-fates.png",
+    "card_market_ids": [
+      539643
+    ],
+    "collector_number": "SV51",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153079,
+    "name": "Sinistea",
+    "version": "Shiny Rare | SV52",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153079/preview_sinistea-rare-shiny-sv52-shining-fates.png",
+    "card_market_ids": [
+      539648
+    ],
+    "collector_number": "SV52",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153080,
+    "name": "Polteageist",
+    "version": "Shiny Rare | SV53",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153080/preview_polteageist-rare-shiny-sv53-shining-fates.png",
+    "card_market_ids": [
+      539653
+    ],
+    "collector_number": "SV53",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153081,
+    "name": "Hatenna",
+    "version": "Shiny Rare | SV54",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153081/preview_hatenna-rare-shiny-sv54-shining-fates.png",
+    "card_market_ids": [
+      539658
+    ],
+    "collector_number": "SV54",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153082,
+    "name": "Hattrem",
+    "version": "Shiny Rare | SV55",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153082/preview_hattrem-rare-shiny-sv55-shining-fates.png",
+    "card_market_ids": [
+      539663
+    ],
+    "collector_number": "SV55",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153083,
+    "name": "Hatternee",
+    "version": "Shiny Rare | SV56",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153083/preview_hatternee-rare-shiny-sv56-shining-fates.png",
+    "card_market_ids": [
+      539668
+    ],
+    "collector_number": "SV56",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153084,
+    "name": "Milcery",
+    "version": "Shiny Rare | SV57",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153084/preview_milcery-rare-shiny-sv57-shining-fates.png",
+    "card_market_ids": [
+      539673
+    ],
+    "collector_number": "SV57",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153085,
+    "name": "Alcremie",
+    "version": "Shiny Rare | SV58",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153085/preview_alcremie-rare-shiny-sv58-shining-fates.png",
+    "card_market_ids": [
+      539678
+    ],
+    "collector_number": "SV58",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153086,
+    "name": "Indeedee",
+    "version": "Shiny Rare | SV59",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153086/preview_indeedee-rare-shiny-sv59-shining-fates.png",
+    "card_market_ids": [
+      539683
+    ],
+    "collector_number": "SV59",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153087,
+    "name": "Dreepy",
+    "version": "Shiny Rare | SV60",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153087/preview_dreepy-rare-shiny-sv60-shining-fates.png",
+    "card_market_ids": [
+      539688
+    ],
+    "collector_number": "SV60",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153088,
+    "name": "Drakloak",
+    "version": "Shiny Rare | SV61",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153088/preview_drakloak-rare-shiny-sv61-shining-fates.png",
+    "card_market_ids": [
+      539693
+    ],
+    "collector_number": "SV61",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153089,
+    "name": "Dragapult",
+    "version": "Shiny Rare | SV62",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153089/preview_dragapult-rare-shiny-sv62-shining-fates.png",
+    "card_market_ids": [
+      539698
+    ],
+    "collector_number": "SV62",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153090,
+    "name": "Galarian Farfetch'd",
+    "version": "Shiny Rare | SV63",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153090/preview_galarian-farfetch-d-rare-shiny-sv63-shining-fates.png",
+    "card_market_ids": [
+      539703
+    ],
+    "collector_number": "SV63",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153091,
+    "name": "Galarian Sirfetch'd",
+    "version": "Shiny Rare | SV64",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153091/preview_galarian-sirfetch-d-rare-shiny-sv64-shining-fates.png",
+    "card_market_ids": [
+      539708
+    ],
+    "collector_number": "SV64",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153092,
+    "name": "Galarian Yamask",
+    "version": "Shiny Rare | SV65",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153092/preview_galarian-yamask-rare-shiny-sv65-shining-fates.png",
+    "card_market_ids": [
+      539713
+    ],
+    "collector_number": "SV65",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153093,
+    "name": "Galarian Runerigus",
+    "version": "Shiny Rare | SV66",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153093/preview_galarian-runerigus-rare-shiny-sv66-shining-fates.png",
+    "card_market_ids": [
+      539718
+    ],
+    "collector_number": "SV66",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153094,
+    "name": "Rolycoly",
+    "version": "Shiny Rare | SV67",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153094/preview_rolycoly-rare-shiny-sv67-shining-fates.png",
+    "card_market_ids": [
+      539723
+    ],
+    "collector_number": "SV67",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153095,
+    "name": "Carkol",
+    "version": "Shiny Rare | SV68",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153095/preview_carkol-rare-shiny-sv68-shining-fates.png",
+    "card_market_ids": [
+      539728
+    ],
+    "collector_number": "SV68",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153096,
+    "name": "Coalossal",
+    "version": "Shiny Rare | SV69",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153096/preview_coalossal-rare-shiny-sv69-shining-fates.png",
+    "card_market_ids": [
+      539733
+    ],
+    "collector_number": "SV69",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153097,
+    "name": "Silicobra",
+    "version": "Shiny Rare | SV70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153097/preview_silicobra-rare-shiny-sv70-shining-fates.png",
+    "card_market_ids": [
+      539738
+    ],
+    "collector_number": "SV70",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153098,
+    "name": "Sandaconda",
+    "version": "Shiny Rare | SV71",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153098/preview_sandaconda-rare-shiny-sv71-shining-fates.png",
+    "card_market_ids": [
+      539743
+    ],
+    "collector_number": "SV71",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153099,
+    "name": "Clobbopus",
+    "version": "Shiny Rare | SV72",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153099/preview_clobbopus-rare-shiny-sv72-shining-fates.png",
+    "card_market_ids": [
+      539748
+    ],
+    "collector_number": "SV72",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153100,
+    "name": "Grapploct",
+    "version": "Shiny Rare | SV73",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153100/preview_grapploct-rare-shiny-sv73-shining-fates.png",
+    "card_market_ids": [
+      539753
+    ],
+    "collector_number": "SV73",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153101,
+    "name": "Falinks",
+    "version": "Shiny Rare | SV74",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153101/preview_falinks-rare-shiny-sv74-shining-fates.png",
+    "card_market_ids": [
+      539758
+    ],
+    "collector_number": "SV74",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153102,
+    "name": "Stonjourner",
+    "version": "Shiny Rare | SV75",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153102/preview_stonjourner-rare-shiny-sv75-shining-fates.png",
+    "card_market_ids": [
+      539763
+    ],
+    "collector_number": "SV75",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153103,
+    "name": "Koffing",
+    "version": "Shiny Rare | SV76",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153103/preview_koffing-rare-shiny-sv76-shining-fates.png",
+    "card_market_ids": [
+      539768
+    ],
+    "collector_number": "SV76",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153104,
+    "name": "Galarian Weezing",
+    "version": "Shiny Rare | SV77",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153104/preview_galarian-weezing-rare-shiny-sv77-shining-fates.png",
+    "card_market_ids": [
+      539773
+    ],
+    "collector_number": "SV77",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153105,
+    "name": "Galarian Zigzagoon",
+    "version": "Shiny Rare | SV78",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153105/preview_galarian-zigzagoon-rare-shiny-sv78-shining-fates.png",
+    "card_market_ids": [
+      539778
+    ],
+    "collector_number": "SV78",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153106,
+    "name": "Galarian Linoone",
+    "version": "Shiny Rare | SV79",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153106/preview_galarian-linoone-rare-shiny-sv79-shining-fates.png",
+    "card_market_ids": [
+      539783
+    ],
+    "collector_number": "SV79",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153107,
+    "name": "Galarian Obstagoon",
+    "version": "Shiny Rare | SV80",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153107/preview_galarian-obstagoon-rare-shiny-sv80-shining-fates.png",
+    "card_market_ids": [
+      539788
+    ],
+    "collector_number": "SV80",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153108,
+    "name": "Nickit",
+    "version": "Shiny Rare | SV81",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153108/preview_nickit-rare-shiny-sv81-shining-fates.png",
+    "card_market_ids": [
+      539793
+    ],
+    "collector_number": "SV81",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153109,
+    "name": "Thievul",
+    "version": "Shiny Rare | SV82",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153109/preview_thievul-rare-shiny-sv82-shining-fates.png",
+    "card_market_ids": [
+      539798
+    ],
+    "collector_number": "SV82",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153110,
+    "name": "Impidimp",
+    "version": "Shiny Rare | SV83",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153110/preview_impidimp-rare-shiny-sv83-shining-fates.png",
+    "card_market_ids": [
+      539803
+    ],
+    "collector_number": "SV83",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153111,
+    "name": "Morgrem",
+    "version": "Shiny Rare | SV84",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153111/preview_morgrem-rare-shiny-sv84-shining-fates.png",
+    "card_market_ids": [
+      539808
+    ],
+    "collector_number": "SV84",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153112,
+    "name": "Grimmsnarl",
+    "version": "Shiny Rare | SV85",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153112/preview_grimmsnarl-rare-shiny-sv85-shining-fates.png",
+    "card_market_ids": [
+      539813
+    ],
+    "collector_number": "SV85",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153113,
+    "name": "Galarian Meowth",
+    "version": "Shiny Rare | SV86",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153113/preview_galarian-meowth-rare-shiny-sv86-shining-fates.png",
+    "card_market_ids": [
+      539818
+    ],
+    "collector_number": "SV86",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153114,
+    "name": "Galarian Perrserker",
+    "version": "Shiny Rare | SV87",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153114/preview_galarian-perrserker-rare-shiny-sv87-shining-fates.png",
+    "card_market_ids": [
+      539823
+    ],
+    "collector_number": "SV87",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153115,
+    "name": "Galarian Stunfisk",
+    "version": "Shiny Rare | SV88",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153115/preview_galarian-stunfisk-rare-shiny-sv88-shining-fates.png",
+    "card_market_ids": [
+      539828
+    ],
+    "collector_number": "SV88",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153116,
+    "name": "Corviknight",
+    "version": "Shiny Rare | SV89",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153116/preview_corviknight-rare-shiny-sv89-shining-fates.png",
+    "card_market_ids": [
+      539833
+    ],
+    "collector_number": "SV89",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153117,
+    "name": "Cufant",
+    "version": "Shiny Rare | SV90",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153117/preview_cufant-rare-shiny-sv90-shining-fates.png",
+    "card_market_ids": [
+      539838
+    ],
+    "collector_number": "SV90",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153118,
+    "name": "Copperajah",
+    "version": "Shiny Rare | SV91",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153118/preview_copperajah-rare-shiny-sv91-shining-fates.png",
+    "card_market_ids": [
+      539843
+    ],
+    "collector_number": "SV91",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153119,
+    "name": "Duraludon",
+    "version": "Shiny Rare | SV92",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153119/preview_duraludon-rare-shiny-sv92-shining-fates.png",
+    "card_market_ids": [
+      539848
+    ],
+    "collector_number": "SV92",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153120,
+    "name": "Minccino",
+    "version": "Shiny Rare | SV93",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153120/preview_minccino-rare-shiny-sv93-shining-fates.png",
+    "card_market_ids": [
+      539853
+    ],
+    "collector_number": "SV93",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153121,
+    "name": "Cinccino",
+    "version": "Shiny Rare | SV94",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153121/preview_cinccino-rare-shiny-sv94-shining-fates.png",
+    "card_market_ids": [
+      539858
+    ],
+    "collector_number": "SV94",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153122,
+    "name": "Ducklett",
+    "version": "Shiny Rare | SV95",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153122/preview_ducklett-rare-shiny-sv95-shining-fates.png",
+    "card_market_ids": [
+      539863
+    ],
+    "collector_number": "SV95",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153123,
+    "name": "Swanna",
+    "version": "Shiny Rare | SV96",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153123/preview_swanna-rare-shiny-sv96-shining-fates.png",
+    "card_market_ids": [
+      539868
+    ],
+    "collector_number": "SV96",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153124,
+    "name": "Bunnelby",
+    "version": "Shiny Rare | SV97",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153124/preview_bunnelby-rare-shiny-sv97-shining-fates.png",
+    "card_market_ids": [
+      539873
+    ],
+    "collector_number": "SV97",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153125,
+    "name": "Oranguru",
+    "version": "Shiny Rare | SV98",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153125/preview_oranguru-rare-shiny-sv98-shining-fates.png",
+    "card_market_ids": [
+      539878
+    ],
+    "collector_number": "SV98",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153126,
+    "name": "Skwovet",
+    "version": "Shiny Rare | SV99",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153126/preview_skwovet-rare-shiny-sv99-shining-fates.png",
+    "card_market_ids": [
+      539883
+    ],
+    "collector_number": "SV99",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153127,
+    "name": "Greedent",
+    "version": "Shiny Rare | SV100",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153127/preview_greedent-rare-shiny-sv100-shining-fates.png",
+    "card_market_ids": [
+      539888
+    ],
+    "collector_number": "SV100",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153128,
+    "name": "Rookidee",
+    "version": "Shiny Rare | SV101",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153128/preview_rookidee-rare-shiny-sv101-shining-fates.png",
+    "card_market_ids": [
+      539893
+    ],
+    "collector_number": "SV101",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153129,
+    "name": "Corvisquire",
+    "version": "Shiny Rare | SV102",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153129/preview_corvisquire-rare-shiny-sv102-shining-fates.png",
+    "card_market_ids": [
+      539898
+    ],
+    "collector_number": "SV102",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153130,
+    "name": "Wooloo",
+    "version": "Shiny Rare | SV103",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153130/preview_wooloo-rare-shiny-sv103-shining-fates.png",
+    "card_market_ids": [
+      539903
+    ],
+    "collector_number": "SV103",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153131,
+    "name": "Dubwool",
+    "version": "Shiny Rare | SV104",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153131/preview_dubwool-rare-shiny-sv104-shining-fates.png",
+    "card_market_ids": [
+      539908
+    ],
+    "collector_number": "SV104",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153132,
+    "name": "Rillaboom V",
+    "version": "Shiny Rare | SV105",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153132/preview_rillaboom-v-rare-shiny-sv105-shining-fates.png",
+    "card_market_ids": [
+      539913
+    ],
+    "collector_number": "SV105",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153133,
+    "name": "Rillaboom VMAX",
+    "version": "Shiny Rare | SV106",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153133/preview_rillaboom-vmax-rare-shiny-sv106-shining-fates.png",
+    "card_market_ids": [
+      539918
+    ],
+    "collector_number": "SV106",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153134,
+    "name": "Charizard VMAX",
+    "version": "Shiny Rare | SV107",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153134/preview_charizard-vmax-rare-shiny-sv107-shining-fates.png",
+    "card_market_ids": [
+      539923
+    ],
+    "collector_number": "SV107",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153135,
+    "name": "Centiskorch V",
+    "version": "Shiny Rare | SV108",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153135/preview_centiskorch-v-rare-shiny-sv108-shining-fates.png",
+    "card_market_ids": [
+      539928
+    ],
+    "collector_number": "SV108",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153136,
+    "name": "Centiskorch VMAX",
+    "version": "Shiny Rare | SV109",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153136/preview_centiskorch-vmax-rare-shiny-sv109-shining-fates.png",
+    "card_market_ids": [
+      539933
+    ],
+    "collector_number": "SV109",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153137,
+    "name": "Lapras V",
+    "version": "Shiny Rare | SV110",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153137/preview_lapras-v-rare-shiny-sv110-shining-fates.png",
+    "card_market_ids": [
+      539938
+    ],
+    "collector_number": "SV110",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153138,
+    "name": "Lapras VMAX",
+    "version": "Shiny Rare | SV111",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153138/preview_lapras-vmax-rare-shiny-sv111-shining-fates.png",
+    "card_market_ids": [
+      539943
+    ],
+    "collector_number": "SV111",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153139,
+    "name": "Toxtricity V",
+    "version": "Shiny Rare | SV112",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153139/preview_toxtricity-v-rare-shiny-sv112-shining-fates.png",
+    "card_market_ids": [
+      539948
+    ],
+    "collector_number": "SV112",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153140,
+    "name": "Toxtricity VMAX",
+    "version": "Shiny Rare | SV113",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153140/preview_toxtricity-vmax-rare-shiny-sv113-shining-fates.png",
+    "card_market_ids": [
+      539953
+    ],
+    "collector_number": "SV113",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153141,
+    "name": "Indeedee V",
+    "version": "Shiny Rare | SV114",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153141/preview_indeedee-v-rare-shiny-sv114-shining-fates.png",
+    "card_market_ids": [
+      539958
+    ],
+    "collector_number": "SV114",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153142,
+    "name": "Falinks V",
+    "version": "Shiny Rare | SV115",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153142/preview_falinks-v-rare-shiny-sv115-shining-fates.png",
+    "card_market_ids": [
+      539963
+    ],
+    "collector_number": "SV115",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153143,
+    "name": "Grimmsnarl V",
+    "version": "Shiny Rare | SV116",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153143/preview_grimmsnarl-v-rare-shiny-sv116-shining-fates.png",
+    "card_market_ids": [
+      539968
+    ],
+    "collector_number": "SV116",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153144,
+    "name": "Grimmsnarl VMAX",
+    "version": "Shiny Rare | SV117",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153144/preview_grimmsnarl-vmax-rare-shiny-sv117-shining-fates.png",
+    "card_market_ids": [
+      539973
+    ],
+    "collector_number": "SV117",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153145,
+    "name": "Ditto V",
+    "version": "Shiny Rare | SV118",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153145/preview_ditto-v-rare-shiny-sv118-shining-fates.png",
+    "card_market_ids": [
+      539978
+    ],
+    "collector_number": "SV118",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153146,
+    "name": "Ditto VMAX",
+    "version": "Shiny Rare | SV119",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153146/preview_ditto-vmax-rare-shiny-sv119-shining-fates.png",
+    "card_market_ids": [
+      539983
+    ],
+    "collector_number": "SV119",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153147,
+    "name": "Dubwool V",
+    "version": "Shiny Rare | SV120",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153147/preview_dubwool-v-rare-shiny-sv120-shining-fates.png",
+    "card_market_ids": [
+      539988
+    ],
+    "collector_number": "SV120",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153148,
+    "name": "Eternatus V",
+    "version": "Gold Secret Rare | SV121",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153148/preview_eternatus-v-gold-secret-rare-sv121-shining-fates.png",
+    "card_market_ids": [
+      539993
+    ],
+    "collector_number": "SV121",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 153149,
+    "name": "Eternatus VMAX",
+    "version": "Gold Secret Rare | SV122",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/153149/preview_eternatus-vmax-rare-shiny-sv122-shining-fates.png",
+    "card_market_ids": [
+      539998
+    ],
+    "collector_number": "SV122",
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 200816,
+    "name": "Shining Fates Pin Collection Display",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/200816/preview_shining-fates-pin-collection-display-shining-fates.jpg",
+    "card_market_ids": [
+      580607
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 237724,
+    "name": "Shining Fates: Gigantamax Eevee Sleeves",
+    "version": null,
+    "game_id": 5,
+    "category_id": 62,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/237724/preview_shining-fates-gigantamax-eevee-sleeves-shining-fates.jpg",
+    "card_market_ids": [
+      549341
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 258218,
+    "name": "Shining Fates: Gigantamax Eevee Divider",
+    "version": null,
+    "game_id": 5,
+    "category_id": 74,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/258218/preview_shining-fates-gigantamax-eevee-divider-shining-fates.jpg",
+    "card_market_ids": [
+      655783
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 273175,
+    "name": "Shining Fates: Elite Trainer Box Dice Set",
+    "version": null,
+    "game_id": 5,
+    "category_id": 86,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/273175/preview_shining-fates-elite-trainer-box-dice-set-shining-fates.jpg",
+    "card_market_ids": [
+      574301
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 274817,
+    "name": "Shining Fates: Empty Elite Trainer Box",
+    "version": "Empty Box",
+    "game_id": 5,
+    "category_id": 118,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/274817/preview_shining-fates-empty-elite-trainer-box-empty-box-shining-fates.jpg",
+    "card_market_ids": [
+      549366
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 274818,
+    "name": "Shining Fates: Eldegoss V Empty Tin",
+    "version": "Empty Tin",
+    "game_id": 5,
+    "category_id": 118,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/274818/preview_shining-fates-eldegoss-v-empty-tin-empty-tin-shining-fates.jpg",
+    "card_market_ids": [
+      584824
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 274819,
+    "name": "Shining Fates: Boltund V Empty Tin",
+    "version": "Empty Tin",
+    "game_id": 5,
+    "category_id": 118,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/274819/preview_shining-fates-boltund-v-empty-tin-empty-tin-shining-fates.jpg",
+    "card_market_ids": [
+      580930
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 274820,
+    "name": "Shining Fates: Cramorant V Empty Tin",
+    "version": "Empty Tin",
+    "game_id": 5,
+    "category_id": 118,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/274820/preview_shining-fates-cramorant-v-empty-tin-empty-tin-shining-fates.jpg",
+    "card_market_ids": [
+      580929
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 297684,
+    "name": "Shining Fates: Mini Tin Display",
+    "version": "10 Mini Tins",
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/297684/preview_shining-fates-mini-tin-display-10-mini-tins-shining-fates.jpg",
+    "card_market_ids": [
+      765076
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 297685,
+    "name": "Galar Power Mini Tin Display",
+    "version": "10 Mini Tins",
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 2126,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/297685/preview_galar-power-mini-tin-display-10-mini-tins-shining-fates.jpg",
+    "card_market_ids": [
+      761359
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Fates",
+    "expansion_code": "shf",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  }
+]

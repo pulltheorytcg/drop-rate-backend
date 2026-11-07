@@ -65,3 +65,37 @@ This improves the shared endpoint used by both browser portals and mobile. It do
 The mobile capture path separately caps the longest edge at 1,500 pixels, matching the browser batch scanner, preserves aspect ratio and never enlarges smaller photos. A 3,000 × 4,000 portrait becomes 1,125 × 1,500 rather than 1,500 × 2,000 (43.75% fewer pixels). JPEG byte savings vary. Physical-device OCR acceptance remains required.
 
 Validation: full backend tests, mobile typecheck/lint/tests, and Android/iOS/web bundle export. Deterministic concurrency tests prove catalogue enrichment starts before provider completion and that both branches finish before returning; tests also cover lookup/enrichment/provider failure and caller cancellation. Live latency improvement must be measured after deployment on representative scans.
+
+
+## 2 October: overlapping capture presentation
+
+The shared scanner now permits two in-flight photos, with independent pending
+thumbnails, result association and errors. Auto-scan still observes physical
+removal between captures. This is a batch-throughput/UI improvement, not a
+per-photo vision optimisation. No model, vision prompt, image detail/resolution,
+scoring threshold or evidence branch was weakened. Search corrections now use
+both roles' full released catalogue; a read-only Japanese OP12-106 database probe
+returned two printings in 671 ms (not an end-to-end phone timing benchmark).
+The historical vision timings above remain the latest measured scan baseline.
+
+## 31 October: preserve terminal vision-stage timing (deployed)
+
+A read-only review of production scan runs showed that early exits (`NO_MATCH`
+for an empty frame, `NEEDS_REVIEW` for unknown object/game) and provider errors
+often had empty `provider_evidence`, despite spending up to tens of seconds
+waiting for vision. The apparent time samples were therefore biased toward
+scans that reached catalogue resolution. A recent burst of 19 fast provider
+rejections also lacked their sanitized HTTP status in durable scan records.
+
+The small server-only change persists the existing timing and usage telemetry
+on all three early exits, counts visual-reference hints without exposing their
+IDs, and records only the status code and retryability of a failed provider
+request (never the upstream response body, image or credentials). No change is
+made to model, photo quality, vision prompt/schema, card candidates or review
+thresholds. This change improves *diagnosis*, not latency by itself.
+
+Release verification: PR #844 and the unrelated test-stability fix #845 merged\nafter CI. Railway deployment `c05d1c47d` passed 8,638 backend tests,\nwith 25 optional PGlite tests skipped, and public readiness returned HTTP 200.\nNo human-labelled post-release recognition benchmark has been run.\n\nNext, measure the 50th/95th percentile of the provider
+HTTP and overall vision stage for each terminal outcome, including empty/
+unknown scans. Establish a labelled test set of cards, manga and sealed items
+before pursuing any faster-model or lower-resolution change. Do not use fewer
+human-review results as a proxy for improved recognition accuracy.

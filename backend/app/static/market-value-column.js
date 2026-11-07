@@ -2,7 +2,7 @@
 
 (function attachMarketValueColumn() {
   function formatGBP(value) {
-    if (value === null || value === undefined) return "—";
+    if (value === null || value === undefined) return "Value unavailable";
     return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value / 100);
   }
 
@@ -16,12 +16,12 @@
 
     const marketValueHeader = document.createElement("th");
     marketValueHeader.dataset.marketValueColumn = "true";
-    marketValueHeader.textContent = "Market value";
-    marketValueHeader.title = "Current backend market estimate based on available pricing observations";
+    marketValueHeader.textContent = "Value";
+    marketValueHeader.title = "Drop Rate valuation; source and evidence details are available in each item";
     headerRow.insertBefore(marketValueHeader, storePriceHeader);
   }
 
-  function insertPlaceholderCells(data) {
+  function renderMarketValues(data) {
     ensureHeader();
     const rows = [...document.querySelectorAll("#inventory-body tr")];
     rows.forEach((row, index) => {
@@ -31,47 +31,23 @@
       if (!cell) {
         cell = document.createElement("td");
         cell.dataset.marketValueCell = "true";
-        cell.dataset.label = "Market value";
+        cell.dataset.label = "Value";
         row.insertBefore(cell, storePriceCell);
       }
-      cell.textContent = "—";
-      const item = data.items[index];
-      if (item) cell.dataset.inventoryId = item.id;
+      const item = (data.display_items || data.items)[index];
+      if (!item) return;
+      cell.dataset.inventoryId = item.id;
+      // The authorized inventory response already contains the shared price.
+      // Render it synchronously; another request used to replace it with a dash.
+      cell.textContent = window.DropRateReferenceValue.text(item, formatGBP);
+      cell.title = window.DropRateReferenceValue.description(item);
     });
-  }
-
-  async function hydrateMarketValues(data) {
-    insertPlaceholderCells(data);
-    const ids = data.items.map((item) => item.id).filter(Boolean);
-    if (!ids.length) return;
-
-    const params = new URLSearchParams();
-    ids.forEach((id) => params.append("inventory_id", id));
-
-    try {
-      const result = await apiRequest(`/api/v1/inventory/market-values?${params.toString()}`);
-      const values = new Map(result.items.map((item) => [item.id, item]));
-
-      document.querySelectorAll("#inventory-body td[data-market-value-cell]").forEach((cell) => {
-        const value = values.get(cell.dataset.inventoryId);
-        if (!value) return;
-        cell.textContent = formatGBP(value.market_value_minor);
-        if (value.pricing_updated_at) {
-          const updated = new Date(value.pricing_updated_at);
-          if (!Number.isNaN(updated.getTime())) {
-            cell.title = `Market value updated ${updated.toLocaleString("en-GB")}`;
-          }
-        }
-      });
-    } catch (error) {
-      console.warn("Unable to load inventory market values", error);
-    }
   }
 
   const originalRenderInventory = renderInventory;
   renderInventory = function renderInventoryWithMarketValues(data) {
     originalRenderInventory(data);
-    void hydrateMarketValues(data);
+    renderMarketValues(data);
   };
 
   ensureHeader();

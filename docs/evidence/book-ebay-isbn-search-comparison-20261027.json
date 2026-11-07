@@ -1,0 +1,636 @@
+{
+  "scope": "Bounded official Browse discovery comparison using existing credentials; all normal predeploy gates retained; no database or media writes",
+  "gtin": {
+    "deployment_id": "9c6b13a6-711d-4b41-b665-606ecba6d9e8",
+    "probe": {
+      "timestamp": "2026-10-27T21:43:31.688476782Z",
+      "report": {
+        "browse_calls": 1,
+        "event": "DROP_RATE_BOOK_EBAY_DISCOVERY_PROBE",
+        "isbn": "9781569319000",
+        "persisted": false,
+        "provider": "OFFICIAL_EBAY_BROWSE",
+        "returned_count": 15,
+        "status": "COMPLETE",
+        "summaries": [
+          {
+            "condition": "Very Good",
+            "currency": "GBP",
+            "item_id": "v1|227153102453|0",
+            "price": "5.45",
+            "title": "naruto 1-masashi kishimoto paperback graphic novel"
+          },
+          {
+            "condition": "Like New",
+            "currency": "GBP",
+            "item_id": "v1|256862247304|0",
+            "price": "5.44",
+            "title": "Naruto Volume 1 Masashi Kishimoto Manga Shonen Jump/Viz Media Mint Condition "
+          },
+          {
+            "condition": "Good",
+            "currency": "GBP",
+            "item_id": "v1|226818461968|0",
+            "price": "6.51",
+            "title": "Naruto 1  - Masashi Kishimoto - Shonen Jump - Viz Media"
+          },
+          {
+            "condition": "Good",
+            "currency": "GBP",
+            "item_id": "v1|266967255463|0",
+            "price": "26.69",
+            "title": "Manga Graphic Novel Bundle Job Lot English Dragon Ball Naruto Rosario + Vampire"
+          },
+          {
+            "condition": "Very Good",
+            "currency": "GBP",
+            "item_id": "v1|286784715572|0",
+            "price": "3.63",
+            "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book jb"
+          },
+          {
+            "condition": "Like New",
+            "currency": "GBP",
+            "item_id": "v1|298514421962|0",
+            "price": "5.45",
+            "title": "Naruto, Volume 1: The Tests of the Ninja by Kishimoto Masashi, Masashi Kishimoto"
+          },
+          {
+            "condition": "Very Good",
+            "currency": "GBP",
+            "item_id": "v1|128091007659|0",
+            "price": "11.86",
+            "title": "Naruto, Vol. 1 & 2: Uzumaki Naruto/The Worst Client by  Masashi Kishimoto Manga"
+          },
+          {
+            "condition": "Good",
+            "currency": "GBP",
+            "item_id": "v1|227548123894|0",
+            "price": "20.00",
+            "title": "Naruto by Masashi Kishimoto Paperbacks Volumes 1,2. Shonen Jump Manga"
+          },
+          {
+            "condition": "New",
+            "currency": "GBP",
+            "item_id": "v1|375449406765|0",
+            "price": "9.11",
+            "title": "Masashi Kishimoto - Naruto Vol. 1   1 - New Paperback - X555z"
+          },
+          {
+            "condition": "Very Good",
+            "currency": "GBP",
+            "item_id": "v1|236839075576|0",
+            "price": "5.45",
+            "title": "Naruto, Volume 1: The Tests of the Ninja by Kishimoto Masashi, Masashi Kishimoto"
+          },
+          {
+            "condition": "Like New",
+            "currency": "GBP",
+            "item_id": "v1|296942606291|0",
+            "price": "5.45",
+            "title": "Naruto, V01 by Kishimoto Masashi "
+          },
+          {
+            "condition": "Like New",
+            "currency": "GBP",
+            "item_id": "v1|226626523142|0",
+            "price": "6.51",
+            "title": "Naruto Manga Volume 1 by Kishimoto Masashi English Edition"
+          },
+          {
+            "condition": "Like New",
+            "currency": "GBP",
+            "item_id": "v1|365514042602|0",
+            "price": "6.51",
+            "title": "Naruto Volume 1 Masashi Kishimoto Manga Shonen Jump/Viz Media Mint Condition"
+          },
+          {
+            "condition": "Like New",
+            "currency": "GBP",
+            "item_id": "v1|389406579802|0",
+            "price": "5.45",
+            "title": "manga books, Volume 1, Naruto"
+          },
+          {
+            "condition": "Good",
+            "currency": "GBP",
+            "item_id": "v1|385646826437|0",
+            "price": "6.51",
+            "title": "NARUTO Vol. 1  The Tests of the Ninja Manga Shonen Jump Graphic Novel "
+          }
+        ],
+        "total": 15
+      }
+    }
+  },
+  "keywords": {
+    "deployment_id": "11f09c28-5281-4bbc-a230-b19378ec9641",
+    "probe": {
+      "timestamp": "2026-10-27T21:47:10.788930351Z",
+      "report": {
+        "browse_calls": 2,
+        "event": "DROP_RATE_BOOK_EBAY_KEYWORD_PROBE",
+        "isbn": "9781569319000",
+        "lookups": [
+          {
+            "query": "9781569319000",
+            "returned_count": 35,
+            "summaries": [
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|301885819244|0",
+                "price": "5.62",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|168440882792|0",
+                "price": "10.80",
+                "title": "Naruto, Vol. 1 & Vol. 2 by Masashi Kishimoto -  Shonen Jump Manga"
+              },
+              {
+                "condition": "Acceptable",
+                "currency": "GBP",
+                "item_id": "v1|168644631267|0",
+                "price": "4.11",
+                "title": "Naruto, Vol. 1: Uzumaki Naruto: Volume 1 - Kishimoto, 9781569319000, paperback"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|165630069854|0",
+                "price": "8.31",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|920041781087|0",
+                "price": "5.17",
+                "title": "Naruto  Vol. 1 By Masashi Kishimoto - Used Copy - 9781569319000"
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|227191690599|0",
+                "price": "7.59",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|116764306695|0",
+                "price": "5.45",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|358779282953|0",
+                "price": "8.99",
+                "title": "Naurto Manga Volume 1 Paperback Masashi Kishimoto Graphic Novel Softcover"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|318494659213|616883994316",
+                "price": "5.00",
+                "title": "Naruto, by Kishimoto Masashi, Masashi Kishimoto"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|187633439542|0",
+                "price": "10.85",
+                "title": "Naruto  Vol. 1 By Masashi Kishimoto - New Copy - 9781569319000"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|397759988797|0",
+                "price": "7.95",
+                "title": "Naruto 1"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|128123017104|0",
+                "price": "9.15",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|286784715572|0",
+                "price": "3.63",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book jb"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|117377975184|0",
+                "price": "5.03",
+                "title": "Naruto, Vol. 1 Paperback Masashi Kishimoto"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|298583744784|0",
+                "price": "5.03",
+                "title": "Naruto, Vol. 1 Paperback Masashi Kishimoto"
+              },
+              {
+                "condition": "Very good",
+                "currency": "GBP",
+                "item_id": "v1|394481664307|0",
+                "price": "9.45",
+                "title": "Naruto Volume 1: Uzumaki Naruto, Masashi Kishimoto"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|227548123894|0",
+                "price": "20.00",
+                "title": "Naruto by Masashi Kishimoto Paperbacks Volumes 1,2. Shonen Jump Manga"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|287664798752|0",
+                "price": "9.81",
+                "title": "Masashi Kishimoto Naruto, Vol. 1 (Paperback) Naruto"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|128091007659|0",
+                "price": "11.86",
+                "title": "Naruto, Vol. 1 & 2: Uzumaki Naruto/The Worst Client by  Masashi Kishimoto Manga"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|306288956595|0",
+                "price": "5.62",
+                "title": "Naruto, Vol. 1 (Volume 1): Uzumaki ..., Kishimoto, Masa"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|800801991903|0",
+                "price": "10.56",
+                "title": "Naruto, Vol. 1, Masashi Kishimoto,  Paperback"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|196074281512|0",
+                "price": "9.19",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback FREE UK POSTAGE "
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|375449406765|0",
+                "price": "9.11",
+                "title": "Masashi Kishimoto - Naruto Vol. 1   1 - New Paperback - X555z"
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|276639563904|0",
+                "price": "5.18",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|800761400014|0",
+                "price": "13.20",
+                "title": "Naruto, Vol. 1: Uzumaki Naruto by Masashi Kishimoto (English) Paperback Book"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|326262527636|0",
+                "price": "10.13",
+                "title": "Naruto, Vol.�1"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|375480021065|0",
+                "price": "7.49",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|354985463659|0",
+                "price": "9.45",
+                "title": "Naruto Volume 1: Uzumaki Naruto, Kishimoto, Masashi"
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|296942606291|0",
+                "price": "5.45",
+                "title": "Naruto, V01 by Kishimoto Masashi "
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|267005722723|0",
+                "price": "4.22",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|135530419510|0",
+                "price": "125.50",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto "
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|820193117690|0",
+                "price": "9.58",
+                "title": "Naruto, Vol. 1: Uzumaki Naruto by Masashi Kishimoto 9781569319000 NEW"
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|285997935292|0",
+                "price": "5.45",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|176564450831|0",
+                "price": "14.00",
+                "title": "Naruto, Vol. 1 And Vol. 21 Masashi Kishimoto (Paperback, 2007) Shonen Jump Manga"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|284913951690|0",
+                "price": "7.59",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+              }
+            ],
+            "total": 35
+          },
+          {
+            "query": "1569319006",
+            "returned_count": 33,
+            "summaries": [
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|301885819244|0",
+                "price": "5.62",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|168440882792|0",
+                "price": "10.80",
+                "title": "Naruto, Vol. 1 & Vol. 2 by Masashi Kishimoto -  Shonen Jump Manga"
+              },
+              {
+                "condition": "Acceptable",
+                "currency": "GBP",
+                "item_id": "v1|168644631267|0",
+                "price": "4.11",
+                "title": "Naruto, Vol. 1: Uzumaki Naruto: Volume 1 - Kishimoto, 9781569319000, paperback"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|800761400014|0",
+                "price": "13.20",
+                "title": "Naruto, Vol. 1: Uzumaki Naruto by Masashi Kishimoto (English) Paperback Book"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|165630069854|0",
+                "price": "8.31",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|227191690599|0",
+                "price": "7.59",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|116764306695|0",
+                "price": "5.45",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|397759988797|0",
+                "price": "7.95",
+                "title": "Naruto 1"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|128123017104|0",
+                "price": "9.15",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|286784715572|0",
+                "price": "3.63",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book jb"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|920041781087|0",
+                "price": "5.17",
+                "title": "Naruto  Vol. 1 By Masashi Kishimoto - Used Copy - 9781569319000"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|358779282953|0",
+                "price": "8.99",
+                "title": "Naurto Manga Volume 1 Paperback Masashi Kishimoto Graphic Novel Softcover"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|117377975184|0",
+                "price": "5.03",
+                "title": "Naruto, Vol. 1 Paperback Masashi Kishimoto"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|187633439542|0",
+                "price": "10.85",
+                "title": "Naruto  Vol. 1 By Masashi Kishimoto - New Copy - 9781569319000"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|287664798752|0",
+                "price": "9.81",
+                "title": "Masashi Kishimoto Naruto, Vol. 1 (Paperback) Naruto"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|306288956595|0",
+                "price": "5.62",
+                "title": "Naruto, Vol. 1 (Volume 1): Uzumaki ..., Kishimoto, Masa"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|298583744784|0",
+                "price": "5.03",
+                "title": "Naruto, Vol. 1 Paperback Masashi Kishimoto"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|800801991903|0",
+                "price": "10.56",
+                "title": "Naruto, Vol. 1, Masashi Kishimoto,  Paperback"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|196074281512|0",
+                "price": "9.19",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback FREE UK POSTAGE "
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|375449406765|0",
+                "price": "9.11",
+                "title": "Masashi Kishimoto - Naruto Vol. 1   1 - New Paperback - X555z"
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|276639563904|0",
+                "price": "5.18",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|318494659213|616883994316",
+                "price": "5.00",
+                "title": "Naruto, by Kishimoto Masashi, Masashi Kishimoto"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|326262527636|0",
+                "price": "10.13",
+                "title": "Naruto, Vol.�1"
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|375480021065|0",
+                "price": "7.49",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|354985463659|0",
+                "price": "9.45",
+                "title": "Naruto Volume 1: Uzumaki Naruto, Kishimoto, Masashi"
+              },
+              {
+                "condition": "Very good",
+                "currency": "GBP",
+                "item_id": "v1|394481664307|0",
+                "price": "9.45",
+                "title": "Naruto Volume 1: Uzumaki Naruto, Masashi Kishimoto"
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|296942606291|0",
+                "price": "5.45",
+                "title": "Naruto, V01 by Kishimoto Masashi "
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|267005722723|0",
+                "price": "4.22",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|135530419510|0",
+                "price": "125.50",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto "
+              },
+              {
+                "condition": "New",
+                "currency": "GBP",
+                "item_id": "v1|820193117690|0",
+                "price": "9.58",
+                "title": "Naruto, Vol. 1: Uzumaki Naruto by Masashi Kishimoto 9781569319000 NEW"
+              },
+              {
+                "condition": "Like New",
+                "currency": "GBP",
+                "item_id": "v1|285997935292|0",
+                "price": "5.45",
+                "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+              },
+              {
+                "condition": "Good",
+                "currency": "GBP",
+                "item_id": "v1|176564450831|0",
+                "price": "14.00",
+                "title": "Naruto, Vol. 1 And Vol. 21 Masashi Kishimoto (Paperback, 2007) Shonen Jump Manga"
+              },
+              {
+                "condition": "Very Good",
+                "currency": "GBP",
+                "item_id": "v1|284913951690|0",
+                "price": "7.59",
+                "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+              }
+            ],
+            "total": 33
+          }
+        ],
+        "persisted": false,
+        "provider": "OFFICIAL_EBAY_BROWSE",
+        "status": "COMPLETE"
+      }
+    }
+  },
+  "interpretation": "GTIN returned 15 summaries, omitting both separately reviewed offers. ISBN13 keyword returned 35 and ISBN10 keyword returned 33, including both. Search summaries are discovery evidence only; their prices never establish accepted asking context.",
+  "display_enabled": false,
+  "daily_call_limit": 500,
+  "original_predeploy_restored": true
+}

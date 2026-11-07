@@ -1,0 +1,339 @@
+"""Real SQL parity and generation/privilege contracts for whole-catalogue R2.
+
+Native mode follows catalogue_r2_cache_postgres.py in the same disposable DB;
+local PGlite starts its own empty database. No production DSN is accepted.
+"""
+import argparse
+import asyncio
+from contextlib import asynccontextmanager
+import hashlib
+import json
+import os
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+from urllib.parse import urlsplit
+from uuid import UUID
+
+import asyncpg
+
+from app import catalogue_r2_live as live
+from app import reference_library as ref_library
+from app import reference_library_r2 as ref_library_r2
+from app.catalogue_r2_navigation import build_navigation, owned_navigation
+from app.catalogue_browser import GAMES_SQL, SETS_SQL, product_query
+from app.db import _init_connection
+from catalogue_r2_cache_postgres import (PGliteConnection, seed, authorized,
+    ACTOR_A, ACTOR_B, OWNER_A, OWNER_B, CANONICAL, PRIVATE)
+
+ROOT=Path(__file__).resolve().parents[1]
+
+
+class Storage:
+    config=SimpleNamespace(prefix='drop-rate')
+    def __init__(self):
+        self.objects={}
+        self.fail=False
+    def put_verified_reference_snapshot(self,raw):
+        if self.fail:
+            raise RuntimeError('synthetic upload failure')
+        digest=hashlib.sha256(raw).hexdigest()
+        self.objects[digest]=raw
+        return dict(verified=True,sha256=digest,
+            key=f'drop-rate/catalogue-reference-inputs/{digest}.json.gz')
+    def read_verified_reference_snapshot(self,digest):
+        return self.objects[digest]
+
+
+async def check(db):
+    print('PostgreSQL engine:',await db.fetchval('select version()'),flush=True)
+    if not await db.fetchval("select to_regclass('tcg.reference_cards') is not null"):
+        await seed(db)
+    # A released but empty Pokemon set must not replace the friendly Pokemon
+    # game-directory label with the uppercase POKEMON_TCG fallback.
+    await db.execute("""insert into tcg.reference_sets
+      (provider,system_code,language,set_id,name,release_date)
+      values('TCGdex','POKEMON_TCG','English','r2-empty-pokemon-set',
+             'Unpopulated Pokemon Set',current_date-800)""")
+    await db.execute("""insert into tcg.reference_sets
+      (provider,system_code,language,set_id,name,release_date)
+      values('TCGdex','POKEMON_TCG','English','30th',
+             '30th Celebration',current_date-1),
+            ('TCGdex','POKEMON_TCG','Japanese','M6a',
+             '30th CELEBRATION',current_date-1)""")
+    await db.execute('''create or replace function tcg.current_access_role() returns text language sql stable as
+      $$select role from tcg.owner_memberships where user_id=tcg.current_user_id() and active limit 1$$''')
+    await db.execute("update tcg.owner_memberships set role='PLATFORM_ADMIN' where user_id=$1",ACTOR_A)
+    # Books and an unreleased identity ensure that full catalogue scope and
+    # runtime date predicates survive the storage change.
+    await db.execute("""insert into tcg.catalogue_products
+      (id,product_type,game,name,set_name,card_number,variant,rarity,language)
+      values('30000000-0000-0000-0000-000000000020','COMIC','Manga','Fixture Volume','Fixture Series','1','First','Standard','English'),
+      ('30000000-0000-0000-0000-000000000021','COMIC','DC Comics','Future Issue','Future Series','2','First','Standard','English');
+      insert into tcg.catalogue_product_profiles(catalogue_id,system_code,collectible_type,set_code,release_date)
+      values('30000000-0000-0000-0000-000000000020','MANGA','COMIC','Fixture Series',current_date-1),
+      ('30000000-0000-0000-0000-000000000021','DC_COMICS','COMIC','Future Series',current_date+1)""")
+    await db.execute((ROOT/'database/migrations/20261030002930_live_catalogue_r2_publication.sql').read_text())
+    await db.execute((ROOT/'database/migrations/20261030085900_r2_relevant_change_invalidation.sql').read_text())
+    await db.execute((ROOT/'database/migrations/20261103150140_catalogue_review_visibility_r2.sql').read_text())
+    # No-op upserts and refresh timestamps must not make a previously
+    # published immutable source generation disappear from the app.
+    gen_sql = "select generation from tcg_private.live_catalogue_r2_publication where singleton"
+    before = await db.fetchval(gen_sql)
+    await db.execute("""update tcg.reference_cards set refreshed_at=now()
+        where provider='TCGdex' and system_code='POKEMON_TCG'
+          and language='English' and provider_id='fixture-001'""")
+    assert await db.fetchval(gen_sql) == before
+    await db.execute("""update tcg.reference_cards set name=name
+        where provider='TCGdex' and system_code='POKEMON_TCG'
+          and language='English' and provider_id='fixture-001'""")
+    assert await db.fetchval(gen_sql) == before
+    await db.execute("""insert into tcg.reference_cards
+        (provider,system_code,language,provider_id,set_id,name,card_number,
+         rarity,image_url,source_url,number_key)
+        select provider,system_code,language,provider_id,set_id,name,card_number,
+               rarity,image_url,source_url,number_key
+        from tcg.reference_cards where provider='TCGdex'
+          and system_code='POKEMON_TCG' and language='English'
+          and provider_id='fixture-001'
+        on conflict(provider,system_code,language,provider_id)
+        do update set refreshed_at=now()""")
+    assert await db.fetchval(gen_sql) == before, 'No-op ON CONFLICT UPDATE invalidated R2'
+    # Real identity/public artwork changes must invalidate the snapshot.
+    await db.execute("""update tcg.reference_cards set name=name||' changed'
+        where provider='TCGdex' and system_code='POKEMON_TCG'
+          and language='English' and provider_id='fixture-001'""")
+    assert await db.fetchval(gen_sql) == before+1
+    await db.execute("""update tcg.reference_cards
+        set name=left(name,length(name)-length(' changed'))
+        where provider='TCGdex' and system_code='POKEMON_TCG'
+          and language='English' and provider_id='fixture-001'""")
+    assert await db.fetchval(gen_sql) == before+2
+    try:
+        async with db.transaction():
+            await db.execute("""update tcg.reference_cards set image_url=image_url||'?new-art=1'
+               where provider='TCGdex' and system_code='POKEMON_TCG'
+                 and language='English' and provider_id='fixture-001'""")
+            assert await db.fetchval(gen_sql) == before+3
+            raise RuntimeError('synthetic rollback')
+    except RuntimeError as exc:
+        assert str(exc)=='synthetic rollback'
+    assert await db.fetchval(gen_sql) == before+2, 'Rolled-back art change invalidated R2'
+    inventory=await db.fetchval('select jsonb_agg(to_jsonb(i) order by id)::text from tcg.inventory_items i')
+
+    class Pool:
+        @asynccontextmanager
+        async def acquire(self):
+            yield db
+    @asynccontextmanager
+    async def user_connection(pool,actor,request_id,readonly_snapshot=False):
+        async with db.transaction(isolation='repeatable_read' if readonly_snapshot else None,readonly=readonly_snapshot):
+            await db.execute('set local role tcg_api')
+            await db.execute("select set_config('tcg.user_id',$1,true)",str(actor))
+            yield db
+    async def admin(connection):
+        assert await connection.fetchval('select tcg.is_platform_admin()'), 'admin required'
+        return {'owner_id':OWNER_A}
+
+    storage=Storage()
+    with patch.object(live,'user_connection',user_connection),patch.object(live,'require_platform_admin',admin),patch.dict(os.environ,TCG_R2_LIVE_CATALOGUE_DELIVERY_ENABLED='true'):
+        report=await live.publish(Pool(),ACTOR_A,storage=storage)
+        assert report['status']=='PUBLISHED'
+        snapshot=live._current
+        # Opt-in reference library reads must exactly match native PostgreSQL
+        # (including empty sets, future releases, language cohorts and RLS).
+        for actor in (ACTOR_A, ACTOR_B):
+            async with authorized(db, actor):
+                expected=[dict(r) for r in await db.fetch(ref_library.COVERAGE_SQL)]
+                actual=await ref_library_r2.indexed_coverage(db,snapshot)
+                assert actual==expected,(actor,'library coverage',expected,actual)
+                for system,query,limit,offset in (
+                    ('POKEMON_TCG','',80,0),
+                    ('POKEMON_TCG','30th',80,0),
+                    ('POKEMON_TCG','not present',80,0),
+                    ('POKEMON_TCG','',1,1),
+                    ('ONE_PIECE_CARD_GAME','',80,0),
+                ):
+                    args=(system,query,limit,offset)
+                    expected=[dict(r) for r in await db.fetch(ref_library.SETS_SQL,*args)]
+                    rows=await db.fetch(ref_library.SETS_R2_SQL,*args)
+                    actual=ref_library_r2.indexed_set_page(rows,snapshot)
+                    assert actual==expected,(actor,'library sets',args,expected,actual)
+        # Global navigation is precomputed from R2 shared facts in Railway;
+        # only current owner-visible inventory aggregations come from SQL.
+        # Compare exact native PostgreSQL results, not mocked navigation data.
+        verified=[dict(row) for row in await db.fetch("""
+          select catalogue_id::text as catalogue_id,source_provider,system_code,
+                 provider_language,provider_id,provider_entity_type,
+                 provider_variant_key,match_status
+          from tcg.provider_catalogue_mappings
+          where provider_entity_type='CARD_PRINTING'
+            and provider_variant_key='' and match_status='VERIFIED'""")]
+        navigation=build_navigation(snapshot.rows,verified_mappings=verified)
+        async with authorized(db,ACTOR_A):
+            owner=await owned_navigation(db,OWNER_A)
+            real_games=[dict(r) for r in await db.fetch(GAMES_SQL,OWNER_A)]
+            fast_games=navigation.games()
+            assert fast_games==real_games,(fast_games,real_games)
+            real_sets=[dict(r) for r in await db.fetch(
+                SETS_SQL,OWNER_A,['POKEMON_TCG'],'','',11,0)]
+            fast_sets=navigation.sets(systems=['POKEMON_TCG'],limit=11,owner=owner)
+            assert fast_sets==real_sets,(fast_sets,real_sets)
+        for raw in storage.objects.values():
+            assert PRIVATE.encode() not in raw
+            for field in ('created_by_user_id','acquisition_cost_minor','store_price_minor','owned_quantity','private_notes','attributes','evidence'):
+                assert ('"'+field+'"').encode() not in raw
+        assert (await live.publish(Pool(),ACTOR_A,storage=storage))['status']=='CURRENT'
+        cases=[{},dict(q='Alpha'),dict(q="' % _"),dict(q='BT1-001'),dict(q='001/100'),
+            dict(owned='owned'),dict(owned='not_owned'),dict(product_type='SEALED'),dict(product_type='COMIC'),
+            dict(system_code='COMICS'),dict(system_code='MANGA'),dict(language='Japanese'),
+            dict(keys=[]),dict(keys=['c:30000000-0000-0000-0000-000000000020']),
+            dict(provider='TCGdex',system_code='POKEMON_TCG',language='English',set_id='cache-fixture')]
+        for actor,owner in ((ACTOR_A,OWNER_A),(ACTOR_B,OWNER_B)):
+            for options in cases:
+                for sort in ('name','number','newest','value_desc','value_asc'):
+                    query,args=product_query(owner_id=owner,sort=sort,limit=3,offset=0,**options)
+                    async with authorized(db,actor):
+                        assert await live.read(db) is snapshot
+                        original=[dict(r) for r in await db.fetch(query,*args)]
+                        sql,params=snapshot.sql(query,args)
+                        assert 'from tcg.reference_cards ' not in sql
+                        assert 'from tcg.catalogue_products ' not in sql
+                        cached=[dict(r) for r in await db.fetch(sql,*params)]
+                        assert original==cached,(actor,options,sort,original,cached)
+                        # Exercise the actual reader, including the indexed
+                        # whole-population value sort and live canonical values.
+                        from app.catalogue_browser import SOURCE_CTE
+                        if sort in ('value_desc','value_asc') and query.startswith(SOURCE_CTE):
+                            actual=[dict(r) for r in await live.fetch_snapshot(db,query,args,snapshot)]
+                            assert original==actual,(actor,options,sort,original,actual)
+                        if options.get('provider'):
+                            sql,params=snapshot.sql(query,args,systems=[options['system_code']],language=options['language'],provider=options['provider'],set_id=options['set_id'])
+                            assert original==[dict(r) for r in await db.fetch(sql,*params)]
+            for query,args in ((GAMES_SQL,[owner]),(SETS_SQL,[owner,['POKEMON_TCG'],'','',80,0]),(SETS_SQL,[owner,['MANGA'],'','',80,0])):
+                async with authorized(db,actor):
+                    original=[dict(r) for r in await db.fetch(query,*args)]
+                    sql,params=snapshot.sql(query,args)
+                    assert original==[dict(r) for r in await db.fetch(sql,*params)]
+        # Prices and ownership are intentionally live; neither needs a rebuild.
+        await db.execute("update tcg.reference_market_prices set market_value_minor=321 where provider_id='fixture-001'")
+        assert (await db.fetchrow(live.STATE_SQL))['generation']==snapshot.generation
+        query,args=product_query(owner_id=OWNER_A,sort='name')
+        async with authorized(db):
+            sql,params=snapshot.sql(query,args)
+            assert [dict(r) for r in await db.fetch(query,*args)]==[dict(r) for r in await db.fetch(sql,*params)]
+        # Every shared source write invalidates atomically, even unchanged timestamps.
+        for table,statement in (
+            ('reference_cards',"update tcg.reference_cards set name=name||' changed' where provider_id='fixture-001'"),
+            ('reference_sets',"update tcg.reference_sets set declared_card_count=111"),
+            ('reference_sealed_products',"update tcg.reference_sealed_products set name=name||' changed'"),
+            ('catalogue_products',"update tcg.catalogue_products set name=name||' changed'"),
+            ('catalogue_product_profiles',"update tcg.catalogue_product_profiles set release_date=current_date-1")):
+            await db.execute('begin')
+            await db.execute(statement)
+            assert (await db.fetchrow(live.STATE_SQL))['generation']>snapshot.generation,table
+            await db.execute('rollback')
+            assert (await db.fetchrow(live.STATE_SQL))['generation']==snapshot.generation
+        # A nonmember sees no publication, and ordinary members cannot publish.
+        async with authorized(db,UUID('20000000-0000-0000-0000-000000000099')):
+            assert await db.fetchrow(live.STATE_SQL) is None
+            assert await live.read(db) is None
+        async with authorized(db,ACTOR_B):
+            assert await db.fetchval("select has_table_privilege('tcg_api','tcg_private.live_catalogue_r2_publication','DELETE')") is False
+            assert not await db.fetchval("select has_function_privilege('tcg_api','tcg_private.invalidate_live_catalogue_r2()','EXECUTE')")
+        async with user_connection(Pool(),ACTOR_B,'test'):
+            assert await db.fetchval('update tcg_private.live_catalogue_r2_publication set manifest=null,published_generation=null returning generation') is None
+        # Changed source cannot use old snapshots; failed uploads cannot publish.
+        await db.execute("update tcg.reference_cards set name=name||' new' where provider_id='fixture-001'")
+        async with authorized(db):
+            assert await live.read(db) is None
+        before=dict(await db.fetchrow(live.STATE_SQL))
+        storage.fail=True
+        try:
+            await live.publish(Pool(),ACTOR_A,storage=storage)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError('Failed upload published')
+        assert dict(await db.fetchrow(live.STATE_SQL))==before
+        storage.fail=False
+        assert (await live.publish(Pool(),ACTOR_A,storage=storage))['status']=='PUBLISHED'
+        # Simulate an update after R2 verification but before the publication CAS.
+        original_download=live.download
+        async def change_during_download(manifest,store):
+            result=await original_download(manifest,store)
+            await db.execute('update tcg.reference_sets set declared_card_count=112')
+            return result
+        await db.execute('update tcg.reference_sets set declared_card_count=113')
+        with patch.object(live,'download',change_during_download):
+            assert (await live.publish(Pool(),ACTOR_A,storage=storage))['status']=='SOURCE_CHANGED'
+        async with authorized(db):
+            assert await live.read(db) is None
+        assert inventory==await db.fetchval('select jsonb_agg(to_jsonb(i) order by id)::text from tcg.inventory_items i')
+    print('PASS: complete catalogue SQL parity for two owners, search/filter/sort, books/sealed, live prices, RLS, atomic invalidation, partial failure, concurrent source change and unchanged inventory')
+    # Production-sized joins expose the 100-row JSON cardinality estimate that
+    # tiny fixtures cannot. Synthetic records only, in the disposable database.
+    await db.execute("""insert into tcg.reference_sets(provider,system_code,language,set_id,name)
+      select 'Scale','POKEMON_TCG','English','set-'||n,'Set '||n from generate_series(1,1400) n;
+      insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,rarity,image_url,source_url)
+      select 'Scale','POKEMON_TCG','English','card-'||n,'set-'||((n-1)/50+1),
+        'Card '||n,(n%50)::text,'Common','https://assets.fixture.invalid/cards/card-'||n||'.webp',
+        'https://fixture.invalid/cards/printings/card-'||n||'?language=en' from generate_series(1,70000) n;
+      insert into tcg.reference_sealed_products(provider,system_code,language,provider_id,set_id,name,product_type)
+      select 'Scale','POKEMON_TCG','English','sealed-'||n,'set-'||(n%1400+1),'Box '||n,'Booster Box'
+      from generate_series(1,4000) n;
+      insert into tcg.catalogue_products(id,product_type,game,name,set_name,card_number,variant,rarity,language)
+      select md5(n::text)::uuid,'CARD','Pokemon','Card '||n,'Set '||((n-1)/50+1),
+        (n%50)::text,'card-'||n,'Common','English' from generate_series(1,2000) n;
+      insert into tcg.catalogue_product_profiles(catalogue_id,system_code,collectible_type)
+      select md5(n::text)::uuid,'POKEMON_TCG','CARD' from generate_series(1,2000) n;
+      insert into tcg.reference_market_prices(provider,system_code,language,provider_id,
+        market_value_minor,market_value_high_minor,pricing_updated_at,quotes)
+      select 'Scale','POKEMON_TCG','English','card-'||n,n,n,now(),
+        '[{"source":"SYNTHETIC_ONLY"}]'::jsonb from generate_series(1,50000) n;
+      analyze;""")
+    with patch.object(live,'user_connection',user_connection),patch.object(live,'require_platform_admin',admin):
+        report=await live.publish(Pool(),ACTOR_A,storage=Storage())
+        assert report['status']=='PUBLISHED',report
+        assert report['counts']['reference_cards']>=70000
+        assert len(report['query_parity']['cases'])==8
+        assert all(case['computed_ms']<15000 and case['equal'] for case in report['query_parity']['cases'])
+        assert report['query_parity']['identity_entries']>=70000
+        assert report['query_parity']['cases'][-1]['delivery']=='POSTGRES_DYNAMIC_VALUE'
+        assert report['query_parity']['cases'][-1]['r2_ms'] is None
+        settings_sql="select current_setting('enable_nestloop') as nestloop,current_setting('enable_mergejoin') as mergejoin,current_setting('jit') as jit"
+        before=await db.fetchrow(settings_sql)
+        async with authorized(db):
+            await live.fetch_snapshot(db,GAMES_SQL,[OWNER_A],live._current)
+            after=await db.fetchrow(settings_sql)
+            assert before==after,'planner settings escaped R2 statement'
+            try:
+                await live.fetch_snapshot(db,GAMES_SQL+' invalid syntax',[OWNER_A],live._current)
+            except Exception:
+                pass
+            else:
+                raise AssertionError('synthetic invalid SQL unexpectedly succeeded')
+            after=await db.fetchrow(settings_sql)
+            assert before==after,'failed R2 statement leaked settings or aborted transaction'
+    print('PASS: 70k cards, 4k sealed, 2k canonical and 50k live prices; eight query shapes, bounded runtime and planner restoration')
+
+
+async def main(pglite):
+    if pglite:
+        db=await PGliteConnection.open()
+    else:
+        dsn=os.environ['CATALOGUE_R2_CACHE_TEST_DSN']
+        parsed=urlsplit(dsn)
+        assert parsed.hostname in ('localhost','127.0.0.1') and parsed.path=='/catalogue_r2_cache_test'
+        db=await asyncpg.connect(dsn,server_settings={'statement_timeout':'15000','TimeZone':'UTC'})
+        await _init_connection(db)
+    try:
+        await check(db)
+    finally:
+        await db.close()
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--pglite',action='store_true')
+    asyncio.run(main(parser.parse_args().pglite))

@@ -2,6 +2,26 @@
 
 Private FastAPI backend and founder dashboard for Drop Rate's inventory system.
 
+## Seller Hub prelaunch registrations
+
+The upcoming seller experience has a branded public landing page at
+`https://app.droprate.co.uk` (or `/seller-hub` on the existing Railway origin).
+`POST /api/v1/public/seller-hub/waitlist` stores explicit launch-notification
+opt-ins in a separate private Supabase/PostgreSQL table. The existing
+`/owner/join` early seller registration, invitation tokens and `/owner` login
+remain available. This **does not** indicate the complete Seller Hub is live,
+nor does it enable automated launch emails; see the
+[Seller Hub launch deployment and consent guide](docs/SELLER_HUB_LAUNCH.md).
+
+The opt-in form now explicitly discloses an optional Shopify customer contact
+mirror for the launch list. New consent-backed emails can be upserted by email
+and tagged `Drop Rate Seller Hub - Launch List` without altering Shopify's
+general marketing subscription. Supabase remains the consent ledger. This
+outbox requires the additive Shopify contact-sync migration and
+`TCG_SHOPIFY_WAITLIST_SYNC_ENABLED=true`, which must remain **false** until the
+installed Shopify app has `write_customers` access and protected customer data
+approval. Older signups are not automatically exported.
+
 ## Inventory workflow
 
 - Search and filter owner-scoped inventory.
@@ -29,6 +49,12 @@ Protected routes require a valid Supabase bearer token. The verified user ID is 
 
 
 ## Market data
+
+Current Cardmarket extension: [Cardmarket valuations](docs/CARDMARKET_VALUATIONS.md)
+documents the explicitly requested, labelled guide fallback alongside exact eBay
+UK sold valuations. See BUILD_STATUS.md for measured deployment/coverage evidence.
+
+Current inventory refresh: [Live eBay UK market refresh](docs/LIVE_EBAY_MARKET_REFRESH.md) documents the explicitly approved October 2026 sold-price repair. It uses the existing Trawl UK sold-data access and v4 algorithm; the historical integration notes below describe the earlier foundation.
 
 Market integrations are modular. Production pricing remains disabled until provider evidence has been validated.
 

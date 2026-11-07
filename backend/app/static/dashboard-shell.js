@@ -2,15 +2,20 @@
 
 const SELLER_VIEWS = [
   ["dashboard", "Today", "◈"],
-  ["intake", "Add cards", "+"],
+  ["search", "Search", "⌕"],
+  ["intake", "Scan", "◎"],
   ["inventory", "Inventory", "▣"],
   ["verification", "Review", "✓"],
   ["media", "Photos & condition", "◉"],
   ["sales", "Sales", "↗"],
   ["reports", "Reports", "≋"],
   ["balance", "Payouts", "£"],
-  ["settings", "Settings", "⚙"],
+  ["settings", "Settings & channels", "⚙"],
+  ["accounts", "Accounts", "◎"],
+  ["more", "More", "•••"],
 ];
+
+const PRIMARY_VIEWS = ["dashboard", "search", "intake", "inventory", "more"];
 
 function sellerView(name) {
   return document.querySelector(`[data-seller-view="${name}"]`);
@@ -108,7 +113,7 @@ function buildSellerViews(content) {
     section.dataset.sellerView = key;
     section.setAttribute("role", "tabpanel");
     section.tabIndex = 0;
-    section.setAttribute("aria-labelledby", `seller-tab-${key}`);
+    section.setAttribute("aria-label", SELLER_VIEWS.find(([view]) => view === key)[1]);
     views.append(section);
   });
   content.append(views);
@@ -182,7 +187,7 @@ function buildSellerNav() {
   const setOrientation = () => nav.setAttribute("aria-orientation", window.innerWidth > 1000 ? "vertical" : "horizontal");
   setOrientation();
   window.addEventListener("resize", setOrientation);
-  SELLER_VIEWS.forEach(([key, label, icon]) => {
+  SELLER_VIEWS.filter(([key]) => PRIMARY_VIEWS.includes(key)).forEach(([key, label, icon]) => {
     const button = document.createElement("button");
     button.id = `seller-tab-${key}`;
     button.type = "button";
@@ -209,6 +214,20 @@ function buildSellerNav() {
     tabs[next].click();
   });
   topbar.insertAdjacentElement("afterend", nav);
+  const more = sellerView("more");
+  more.append(makeSellerHeading("Founder workspace", "More", "Finance, account oversight and tools for running Drop Rate."));
+  const grid = document.createElement("div");
+  grid.className = "app-more-grid";
+  SELLER_VIEWS.filter(([key]) => !PRIMARY_VIEWS.includes(key)).forEach(([key, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "app-more-link";
+    button.dataset.moreView = key;
+    button.textContent = label + " →";
+    button.addEventListener("click", () => activateSellerView(key, true));
+    grid.append(button);
+  });
+  more.append(grid);
 }
 
 function activateSellerView(name, updateHash = false) {
@@ -219,12 +238,12 @@ function activateSellerView(name, updateHash = false) {
     section.setAttribute("aria-hidden", active ? "false" : "true");
   });
   document.querySelectorAll(".seller-nav-tab").forEach((button) => {
-    const active = button.dataset.targetView === valid;
+    const active = button.dataset.targetView === (PRIMARY_VIEWS.includes(valid) ? valid : "more");
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", active ? "true" : "false");
     button.tabIndex = active ? 0 : -1;
   });
-  if (updateHash) history.replaceState(null, "", `#${valid}`);
+  if (updateHash && location.hash !== `#${valid}`) history.pushState(null, "", `#${valid}`);
   document.dispatchEvent(new CustomEvent("seller-view-changed", {detail: {view: valid}}));
   if (valid === "settings") {
     loadPricingAdapterStatus();
@@ -244,7 +263,7 @@ function buildPortfolioIntelligencePanel() {
       <div>
         <p class="eyebrow">Inventory intelligence</p>
         <h2>Portfolio value</h2>
-        <p class="muted">Current market position, highest-value stock and genuine 7-day market movement.</p>
+        <p class="muted">Current values, your highest-value items and comparable weekly changes.</p>
       </div>
     </div>
     <div class="stats-grid portfolio-value-grid">
@@ -273,7 +292,7 @@ function buildPortfolioIntelligencePanel() {
           <div><p class="eyebrow">7-day change</p><h3>Weekly top movers</h3></div>
         </div>
         <div id="weekly-movers-list" class="allocation-list">
-          <p class="muted portfolio-empty">Building price history…</p>
+          <p class="muted portfolio-empty">Loading weekly comparisons…</p>
         </div>
       </section>
     </div>
@@ -547,6 +566,52 @@ function renderTopValuable(items) {
   });
 }
 
+function portfolioMoverNumber(value) {
+  if (!["number", "string"].includes(typeof value) || String(value).trim() === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function portfolioMoverDate(value) {
+  if (typeof value !== "string" || !value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  });
+}
+
+function portfolioWeeklyContext(summary, hasRows) {
+  const messages = {
+    EMPTY_COLLECTION: ["Your collection is empty", "Add an item to your collection to see any available weekly comparisons."],
+    NO_CURRENT_VALUES: ["No current values to compare", "Weekly changes need a current value and matching earlier evidence for an item in your collection."],
+    WAITING_FOR_HISTORY: ["Not enough weekly history", "Your valued items do not yet have matching evidence from about a week earlier."],
+    NO_CHANGE: ["No change in comparable values", "The available weekly comparisons are unchanged. This covers only items with matching history."],
+    READY: ["Weekly comparison coverage", "Changes are shown only for comparable items in your collection."],
+  };
+  const [title, note] = messages[summary?.status] || (hasRows ? messages.READY :
+    ["Weekly comparisons unavailable", "Only your items with a current value and matching weekly history can be compared."]);
+  const lines = [note];
+  const count = (key) => Number.isSafeInteger(summary?.[key]) && summary[key] >= 0 ? summary[key] : null;
+  const owned = count("owned_item_count"), current = count("current_value_item_count");
+  const profiles = count("current_value_product_count"), compared = count("comparable_item_count");
+  if (owned > 0 && current !== null) {
+    lines.push(`${current} of ${owned} ${owned === 1 ? "copy has" : "copies have"} current values` +
+      (profiles > 0 ? ` across ${profiles} distinct ${profiles === 1 ? "item" : "items"}.` : "."));
+  }
+  if (owned > 0 && compared !== null) {
+    lines.push(`Comparable weekly history covers ${compared} of ${owned} ${owned === 1 ? "copy" : "copies"}.`);
+  }
+  const guides = count("guide_comparison_count"), stale = count("stale_item_count"), details = count("needs_details_item_count");
+  if (guides > 0) lines.push(`${guides} ${guides === 1 ? "comparison uses a guide estimate" : "comparisons use guide estimates"}.`);
+  if (stale > 0) lines.push(`${stale} ${stale === 1 ? "copy has" : "copies have"} stale evidence.`);
+  if (details > 0) lines.push(`Details need confirming for ${details} ${details === 1 ? "copy" : "copies"}.`);
+  if (!hasRows && summary?.history_ready) {
+    const first = portfolioMoverDate(summary.earliest_baseline_at), last = portfolioMoverDate(summary.latest_current_at);
+    if (first && last) lines.push(`Compared evidence: ${first} to ${last}.`);
+  }
+  return {title, lines};
+}
+
 function moverRow(item, direction) {
   const row = document.createElement("div");
   row.className = "allocation-row portfolio-mover-row";
@@ -556,17 +621,33 @@ function moverRow(item, direction) {
   name.textContent = item.name;
   const meta = document.createElement("small");
   meta.textContent = portfolioIdentityMeta(item);
-  details.append(name, meta);
+  const source = {CATALOGUE_CARDMARKET_V1: "Cardmarket", CATALOGUE_EBAY_V4: "eBay sold evidence"}[item.method] || "Source unavailable";
+  const basis = document.createElement("small");
+  basis.textContent = `${item.comparison_label || (item.comparison_kind === "GUIDE_ESTIMATE" ? "Guide estimate change" : "Value change")} · ${source}`;
+  const dates = document.createElement("small");
+  const first = portfolioMoverDate(item.baseline_at), last = portfolioMoverDate(item.current_at);
+  const days = portfolioMoverNumber(item.comparison_days);
+  dates.textContent = first && last ? `${first} → ${last}` +
+    (days !== null && days > 0 ? ` · ${days.toLocaleString("en-GB", {maximumFractionDigits: 2})} days` : "") : "Evidence dates unavailable";
+  details.append(name, meta, basis, dates);
 
   const value = document.createElement("div");
   value.className = "portfolio-value-stack";
   const change = document.createElement("strong");
-  change.className = direction === "up" ? "mover-up" : "mover-down";
-  const pct = Math.abs(Number(item.change_pct || 0)).toFixed(1);
-  change.textContent = `${direction === "up" ? "▲" : "▼"} ${pct}%`;
+  const percentage = portfolioMoverNumber(item.change_pct);
+  const difference = portfolioMoverNumber(item.change_minor);
+  const rising = difference !== null && difference !== 0 ? difference > 0 : direction === "up";
+  const smallChange = percentage !== null && Math.abs(percentage) < 0.01 && difference !== null && difference !== 0;
+  change.className = percentage === null ? "" : rising ? "mover-up" : "mover-down";
+  change.textContent = percentage === null ? "Change unavailable" :
+    `${rising ? "▲" : "▼"} ${smallChange ? "<0.01" : Math.abs(percentage).toFixed(2).replace(/\.00$/, "")}%`;
   const prices = document.createElement("small");
-  prices.textContent = `${money(item.prior_market_value_minor)} → ${money(item.current_market_value_minor)}`;
-  value.append(change, prices);
+  const previous = portfolioMoverNumber(item.prior_market_value_minor), current = portfolioMoverNumber(item.current_market_value_minor);
+  prices.textContent = previous === null || current === null ? "Comparison amounts unavailable" : `${money(previous)} → ${money(current)}`;
+  const delta = document.createElement("small");
+  delta.textContent = difference === null ? "Amount unavailable" :
+    (difference >= 0 ? "+" : "") + money(difference) + (item.quantity > 1 ? " per copy" : "");
+  value.append(change, prices, delta);
 
   row.append(details, value);
   return row;
@@ -577,27 +658,22 @@ function renderWeeklyMovers(data, windowDays) {
   if (!container) return;
   container.replaceChildren();
 
-  if (!data?.history_ready) {
-    const empty = document.createElement("div");
-    empty.className = "portfolio-history-empty";
-    const title = document.createElement("strong");
-    title.textContent = "Building genuine price history";
-    const note = document.createElement("small");
-    note.textContent = `Weekly movers will appear once a real ${windowDays}-day Market Value baseline exists. We do not manufacture movement from today's backfill.`;
-    empty.append(title, note);
-    container.append(empty);
-    return;
+  const gainers = data?.gainers || [];
+  const decliners = data?.decliners || [];
+  const hasRows = gainers.length + decliners.length > 0;
+  const context = portfolioWeeklyContext(data, hasRows);
+  const panel = document.createElement("div");
+  panel.className = "portfolio-history-empty";
+  const title = document.createElement("strong");
+  title.textContent = context.title;
+  panel.append(title);
+  for (const text of context.lines) {
+    const line = document.createElement("small");
+    line.textContent = text;
+    panel.append(line);
   }
-
-  const gainers = data.gainers || [];
-  const decliners = data.decliners || [];
-  if (!gainers.length && !decliners.length) {
-    const empty = document.createElement("p");
-    empty.className = "muted portfolio-empty";
-    empty.textContent = "No Market Value changes were recorded across the comparison window.";
-    container.append(empty);
-    return;
-  }
+  container.append(panel);
+  if (!hasRows) return;
 
   if (gainers.length) {
     const label = document.createElement("div");
@@ -620,10 +696,11 @@ async function loadPortfolioIntelligence() {
   try {
     const data = await apiRequest("/api/v1/inventory/intelligence?top_limit=5&window_days=7");
     const totals = data.totals || {};
-    byId("portfolio-market-value").textContent = money(totals.inventory_market_value_minor || 0);
+    byId("portfolio-market-value").textContent = totals.inventory_market_value_minor == null ? "Value unavailable" : money(totals.inventory_market_value_minor);
     byId("portfolio-store-value").textContent = money(totals.inventory_store_value_minor || 0);
     byId("portfolio-market-coverage").textContent =
-      `${Number(totals.market_valued_item_count || 0).toLocaleString("en-GB")} of ${Number(totals.active_inventory_count || 0).toLocaleString("en-GB")} active items valued`;
+      `${Number(totals.market_valued_item_count || 0).toLocaleString("en-GB")} of ${Number(totals.active_inventory_count || 0).toLocaleString("en-GB")} active items valued`+
+      (totals.guide_estimate_count?` · ${totals.guide_estimate_count} Cardmarket estimates`:"");
     byId("portfolio-store-coverage").textContent =
       `${Number(totals.store_priced_item_count || 0).toLocaleString("en-GB")} active items priced`;
     renderTopValuable(data.top_valuable || []);
@@ -1215,8 +1292,8 @@ async function loadPricingAdapterStatus() {
 
 function ensureSellerDashboardShell() {
   if (!byId("dashboard-view") || byId("seller-nav")) return;
-  buildSellerNav();
   populateSellerViews();
+  buildSellerNav();
   const requested = location.hash.replace(/^#/, "");
   activateSellerView(requested || "dashboard");
 }

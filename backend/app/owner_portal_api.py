@@ -10,12 +10,19 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
+from .inventory_display_groups import inventory_group_page
+from .inventory_value_sort import inventory_value_page
+from .inventory_collection_filters import (
+    ACTIVE_COLLECTION_SQL, CollectionCategory, CollectionFormat, CollectionGrading, CollectionSort, ListingState, PUBLISHED_SQL,
+    append_collection_filters, collection_facets, collection_order_sql, collection_state_counts,
+)
 from .db import user_connection
+from .ebay_sealed_pricing import refresh_verified_sealed_ebay_market
 from .grading_certificates import (
     CertificateProviderConfigurationError,
     CertificateProviderUpstreamError,
@@ -25,8 +32,15 @@ from .grading_certificates import (
 )
 from .physical_state import validate_physical_state
 from .pricing import _recalculate_one
+from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .settings import get_settings
+from .seller_inventory_policy import ebay_listing_scope_blocker
+from .owner_inventory import add_reference_artwork
+from .inventory_reference_values import add_shared_reference_values, reference_portfolio, reference_totals, recommended_totals
+from .inventory_market_movers import shared_weekly_movers
+from .inventory_reference_media import add_shared_inventory_media
+from .inventory_photo_readiness import photo_action_queue
 
 
 router = APIRouter(prefix="/api/v1/owner", tags=["owner-portal"])
@@ -59,6 +73,7 @@ class OwnerProfileUpdate(BaseModel):
 
 
 class OwnerRecognitionIntakeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     recognition_run_id: UUID
     selected_catalogue_id: UUID
     condition: str | None = Field(default=None, max_length=80)
@@ -90,12 +105,13 @@ class OwnerRecognitionIntakeRequest(BaseModel):
             or self.certificate_number is not None
         ):
             raise ValueError("Sealed-product intake must not include card condition or grading fields")
-        if self.condition is None and self.grading_company is None and self.seal_status is None:
-            raise ValueError("Choose a raw-card condition, provide grading details, or provide seal status")
+        # Unknown raw condition is allowed in a collection, never guessed as Near Mint.
+        # Type/grade conflicts are checked against the selected catalogue product.
         return self
 
 
 class OwnerGradedCertificateIntakeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     selected_catalogue_id: UUID
     grading_company: str = Field(min_length=2, max_length=40)
     grade: str = Field(min_length=1, max_length=40)
@@ -115,6 +131,14 @@ class OwnerGradedCertificateIntakeRequest(BaseModel):
             self.certificate_number,
         )
         return self
+
+
+def _collection_language(supplied: str | None, catalogue_language: str | None) -> str | None:
+    supplied_clean = clean_language(supplied)
+    catalogue_clean = clean_language(catalogue_language)
+    if supplied_clean and catalogue_clean and supplied_clean != catalogue_clean:
+        raise HTTPException(422, "Language conflicts with the selected printing. Choose the correct language/version.")
+    return supplied_clean or catalogue_clean
 
 
 def _owner_graded_payload_hash(payload: OwnerGradedCertificateIntakeRequest) -> str:
@@ -152,6 +176,7 @@ def _owner_scan_inventory_payload(row: object, catalogue: object, *, replayed: b
             "inventory_code": inventory.get("inventory_code"),
             "catalogue_id": inventory.get("catalogue_id"),
             "status": inventory.get("status"),
+            "sale_intent": inventory.get("sale_intent"),
             "condition": inventory.get("condition"),
             "seal_status": inventory.get("seal_status"),
             "grading_company": inventory.get("grading_company"),
@@ -219,7 +244,7 @@ async def owner_profile(
               on m.owner_id=o.id
              and m.user_id=tcg.current_user_id()
              and m.active
-             and m.role='OWNER'
+             and (m.role='OWNER' or (m.role='PLATFORM_ADMIN' and tcg.is_platform_admin()))
             where o.id=$1
               and o.active
             """,
@@ -242,7 +267,7 @@ async def update_owner_profile(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     access: Annotated[dict, Depends(require_owner_portal_request)],
 ) -> dict:
-    del access  # Database function independently enforces current OWNER membership.
+    del access  # Database function independently enforces the current membership.
     try:
         async with user_connection(
             request.app.state.db_pool,
@@ -284,13 +309,27 @@ async def owner_overview(
         summary = await connection.fetchrow(
             """
             select
-                count(*)::int as total_inventory_count,
+                count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED'))::int as total_inventory_count,
+                count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED') and p.product_type='CARD')::int as total_card_count,
+                count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED') and p.product_type in ('SEALED','COLLECTION'))::int as total_sealed_count,
+                count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+                    and market_value_minor is not null and exists(select 1 from tcg.pricing_snapshots ps
+                    where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id and ps.inventory_id=i.id
+                    and ps.evidence->>'method'='CARDMARKET_GUIDE_V1'))::int as guide_estimate_count,
                 count(*) filter (where status='DRAFT')::int as draft_count,
                 count(*) filter (where status='INSPECTION')::int as inspection_count,
                 count(*) filter (where status='APPROVED')::int as approved_count,
                 count(*) filter (where status='RESERVED')::int as reserved_count,
                 count(*) filter (where status='SOLD')::int as sold_count,
                 count(*) filter (where status='WITHDRAWN')::int as withdrawn_count,
+                count(*) filter (
+                    where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+                    and market_value_minor is not null
+                )::int as active_valued_count,
+                count(*) filter (
+                    where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+                    and market_value_minor is null
+                )::int as active_unvalued_count,
                 coalesce(sum(market_value_minor) filter (
                     where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
                 ),0)::bigint as active_market_value_minor,
@@ -300,11 +339,21 @@ async def owner_overview(
                 coalesce(sum(coalesce(store_price_minor,recommended_retail_minor)) filter (
                     where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
                 ),0)::bigint as active_store_value_minor
-            from tcg.inventory_items
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
             where owner_id=$1
             """,
             owner_id,
         )
+
+        shared = await reference_portfolio(connection, [owner_id])
+        refs = reference_totals(shared)
+        summary = dict(summary)
+        summary["collection_states"] = await collection_state_counts(connection, owner_id)
+        summary.update(recommended_totals(shared))
+        summary.update(active_market_value_minor=refs["total_minor"], active_valued_count=refs["valued_count"],
+                       active_unvalued_count=refs["unvalued_count"], guide_estimate_count=refs["estimate_count"],
+                       valuation_basis="SHARED_CATALOGUE_V1")
 
     return jsonable_encoder(
         {
@@ -312,7 +361,7 @@ async def owner_overview(
                 "display_name": access["display_name"],
                 "owner_type": access["owner_type"],
             },
-            "summary": dict(summary),
+            "summary": summary,
         }
     )
 
@@ -331,169 +380,25 @@ async def owner_insights(
         user.user_id,
         request.state.request_id,
     ) as connection:
-        top_valued = await connection.fetch(
-            """
-            select
-                i.id as inventory_id,
-                i.inventory_code,
-                i.status,
-                i.condition,
-                i.grading_company,
-                i.grade,
-                coalesce(i.language,p.language) as language,
-                i.market_value_minor,
-                coalesce(i.store_price_minor,i.recommended_retail_minor)
-                    as store_value_minor,
-                i.pricing_updated_at,
-                p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
-                (
-                    select coalesce(m.shopify_cdn_url,m.public_source_url)
-                    from tcg.media_assets m
-                    where (
-                        (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
-                        or (
-                            m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                            and m.inventory_id is null
-                            and m.catalogue_id=i.catalogue_id
-                        )
-                    )
-                      and m.side='FRONT'
-                      and m.media_kind='IMAGE'
-                      and m.approval_status='APPROVED'
-                      and m.rights_status='VERIFIED'
-                      and (
-                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
-                        or (
-                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                          and m.rights_tier='STOREFRONT_ALLOWED'
-                        )
-                      )
-                      and m.source_status='ACTIVE'
-                      and m.revoked_at is null
-                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
-                    order by
-                      (m.inventory_id=i.id) desc,
-                      m.approved_at desc nulls last,
-                      m.created_at desc,
-                      m.id
-                    limit 1
-                ) as image_url
-            from tcg.inventory_items i
-            join tcg.catalogue_products p on p.id=i.catalogue_id
-            where i.owner_id=$1
-              and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
-              and i.market_value_minor is not null
-            order by i.market_value_minor desc,i.pricing_updated_at desc nulls last,i.id
-            limit 6
-            """,
-            owner_id,
-        )
-
-        movers = await connection.fetch(
-            """
-            with latest as (
-                select distinct on (ps.inventory_id)
-                    ps.inventory_id,
-                    ps.market_value_minor as current_value_minor,
-                    ps.calculated_at as current_at
-                from tcg.pricing_snapshots ps
-                join tcg.inventory_items i on i.id=ps.inventory_id
-                where ps.owner_id=$1
-                  and i.owner_id=$1
-                  and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
-                order by ps.inventory_id,ps.calculated_at desc,ps.id desc
-            ),
-            compared as (
-                select
-                    latest.inventory_id,
-                    latest.current_value_minor,
-                    latest.current_at,
-                    baseline.market_value_minor as baseline_value_minor,
-                    baseline.calculated_at as baseline_at
-                from latest
-                join lateral (
-                    select ps.market_value_minor,ps.calculated_at
-                    from tcg.pricing_snapshots ps
-                    where ps.owner_id=$1
-                      and ps.inventory_id=latest.inventory_id
-                      and ps.calculated_at <= latest.current_at - interval '6 days'
-                      and ps.calculated_at >= latest.current_at - interval '14 days'
-                    order by ps.calculated_at desc,ps.id desc
-                    limit 1
-                ) baseline on true
-                where baseline.market_value_minor > 0
-            )
-            select
-                i.id as inventory_id,
-                i.inventory_code,
-                i.status,
-                i.condition,
-                i.grading_company,
-                i.grade,
-                coalesce(i.language,p.language) as language,
-                p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
-                compared.current_value_minor,
-                compared.baseline_value_minor,
-                compared.current_value_minor-compared.baseline_value_minor
-                    as change_minor,
-                round(
-                    ((compared.current_value_minor-compared.baseline_value_minor)::numeric
-                    * 100) / compared.baseline_value_minor,
-                    2
-                ) as change_pct,
-                compared.current_at,
-                compared.baseline_at,
-                (
-                    select coalesce(m.shopify_cdn_url,m.public_source_url)
-                    from tcg.media_assets m
-                    where (
-                        (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
-                        or (
-                            m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                            and m.inventory_id is null
-                            and m.catalogue_id=i.catalogue_id
-                        )
-                    )
-                      and m.side='FRONT'
-                      and m.media_kind='IMAGE'
-                      and m.approval_status='APPROVED'
-                      and m.rights_status='VERIFIED'
-                      and (
-                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
-                        or (
-                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                          and m.rights_tier='STOREFRONT_ALLOWED'
-                        )
-                      )
-                      and m.source_status='ACTIVE'
-                      and m.revoked_at is null
-                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
-                    order by
-                      (m.inventory_id=i.id) desc,
-                      m.approved_at desc nulls last,
-                      m.created_at desc,
-                      m.id
-                    limit 1
-                ) as image_url
-            from compared
-            join tcg.inventory_items i on i.id=compared.inventory_id and i.owner_id=$1
-            join tcg.catalogue_products p on p.id=i.catalogue_id
-            order by abs(
-                ((compared.current_value_minor-compared.baseline_value_minor)::numeric
-                * 100) / compared.baseline_value_minor
-            ) desc,
-            compared.current_value_minor desc,
-            i.id
-            limit 6
-            """,
-            owner_id,
-        )
+        shared = await reference_portfolio(connection, [owner_id])
+        top_valued = sorted((item for item in shared if item["market_value_minor"] is not None),
+                            key=lambda item: (-item["market_value_minor"], str(item["id"])))[:6]
+        for item in top_valued:
+            item["inventory_id"] = item["id"]
+            item["store_value_minor"] = item.get("store_price_minor") or item.get("recommended_retail_minor")
+        await add_reference_artwork(connection, top_valued)
+        await add_shared_inventory_media(connection, top_valued)
+        movement = await shared_weekly_movers(connection, shared)
+        movers = movement["movers"][:6]
+        await add_reference_artwork(connection, movers)
+        await add_shared_inventory_media(connection, movers)
 
     return jsonable_encoder(
         {
             "top_valued": [dict(row) for row in top_valued],
             "weekly_movers": [dict(row) for row in movers],
             "weekly_window_days": 7,
+            "weekly_movers_summary": movement["summary"],
         }
     )
 
@@ -544,21 +449,37 @@ async def owner_channels(
     ) as connection:
         shopify_counts = await connection.fetch(
             """
-            select sync_state as state,count(*)::int as count
-            from tcg.shopify_inventory_links
-            where owner_id=$1
-            group by sync_state
-            order by sync_state
+            with latest as (
+                select distinct on (inventory_id) inventory_id,owner_id,sync_state
+                from tcg.shopify_inventory_links
+                where owner_id=$1 and not test_mode
+                order by inventory_id,linked_at desc,id desc
+            )
+            select case when l.sync_state='PUBLISHED'
+                          and i.sale_intent='PERSONAL_COLLECTION'
+                        then 'REVIEW_REQUIRED' else l.sync_state end as state,
+                   count(*)::int as count
+            from latest l join tcg.inventory_items i
+              on i.id=l.inventory_id and i.owner_id=l.owner_id
+            group by 1 order by 1
             """,
             owner_id,
         )
         ebay_counts = await connection.fetch(
             """
-            select state,count(*)::int as count
-            from tcg.ebay_inventory_links
-            where owner_id=$1
-            group by state
-            order by state
+            with latest as (
+                select distinct on (inventory_id) inventory_id,owner_id,state
+                from tcg.ebay_inventory_links
+                where owner_id=$1
+                order by inventory_id,created_at desc,id desc
+            )
+            select case when l.state='LIVE'
+                          and i.sale_intent='PERSONAL_COLLECTION'
+                        then 'REVIEW_REQUIRED' else l.state end as state,
+                   count(*)::int as count
+            from latest l join tcg.inventory_items i
+              on i.id=l.inventory_id and i.owner_id=l.owner_id
+            group by 1 order by 1
             """,
             owner_id,
         )
@@ -570,7 +491,7 @@ async def owner_channels(
             order by connected_at desc,id desc
             limit 1
             """,
-            owner_id,
+            UUID(settings.ebay_shared_store_owner_id) if settings.ebay_shared_store_owner_id else owner_id,
         )
         total = await connection.fetchval(
             f"""
@@ -592,7 +513,6 @@ async def owner_channels(
                 limit 1
             ) ebay on true
             where {where}
-              and (shopify.sync_state is not null or ebay.state is not null)
             """,
             *params,
         )
@@ -600,12 +520,11 @@ async def owner_channels(
         rows = await connection.fetch(
             f"""
             select
-                i.id as inventory_id,
+                i.id, i.id as inventory_id, i.catalogue_id,
+                i.condition, i.grading_company, i.grade, i.seal_status,
+                i.store_price_minor, p.product_type, p.language as catalogue_language,
                 i.inventory_code,
-                i.status as inventory_status,
-                i.market_value_minor,
-                coalesce(i.store_price_minor,i.recommended_retail_minor)
-                    as store_value_minor,
+                i.status as inventory_status,i.sale_intent,i.version,
                 p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
                 coalesce(i.language,p.language) as language,
                 shopify.sync_state as shopify_state,
@@ -616,39 +535,7 @@ async def owner_channels(
                 ebay.listed_price_minor as ebay_price_minor,
                 ebay.last_verified_at as ebay_last_verified_at,
                 ebay.last_error_code as ebay_last_error_code,
-                ebay.listing_id as ebay_listing_id,
-                (
-                    select coalesce(m.shopify_cdn_url,m.public_source_url)
-                    from tcg.media_assets m
-                    where (
-                        (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
-                        or (
-                            m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                            and m.inventory_id is null
-                            and m.catalogue_id=i.catalogue_id
-                        )
-                    )
-                      and m.side='FRONT'
-                      and m.media_kind='IMAGE'
-                      and m.approval_status='APPROVED'
-                      and m.rights_status='VERIFIED'
-                      and (
-                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
-                        or (
-                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                          and m.rights_tier='STOREFRONT_ALLOWED'
-                        )
-                      )
-                      and m.source_status='ACTIVE'
-                      and m.revoked_at is null
-                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
-                    order by
-                      (m.inventory_id=i.id) desc,
-                      m.approved_at desc nulls last,
-                      m.created_at desc,
-                      m.id
-                    limit 1
-                ) as image_url
+                ebay.listing_id as ebay_listing_id
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
             left join lateral (
@@ -669,7 +556,6 @@ async def owner_channels(
                 limit 1
             ) ebay on true
             where {where}
-              and (shopify.sync_state is not null or ebay.state is not null)
             order by greatest(
                 coalesce(shopify.last_synced_at,'epoch'::timestamptz),
                 coalesce(ebay.last_verified_at,'epoch'::timestamptz)
@@ -679,6 +565,15 @@ async def owner_channels(
             """,
             *page_params,
         )
+
+        items = [dict(row) for row in rows]
+        await add_reference_artwork(connection, items)
+        await add_shared_inventory_media(connection, items)
+        await add_shared_reference_values(connection, items)
+        for item in items:
+            # Actual remote asking prices remain in the channel-specific fields.
+            item["store_value_minor"] = item.get("store_price_minor")
+            item["channel_sync_blockers"] = {"EBAY": ebay_listing_scope_blocker(access["owner_type"], item["product_type"])}
 
     shopify_configured = bool(
         settings.shopify_shop_domain
@@ -691,7 +586,8 @@ async def owner_channels(
             "channels": [
                 {
                     "code": "SHOPIFY",
-                    "label": "Shopify",
+                    "label": "Drop Rate Shopify",
+                    "sync_enabled": settings.shopify_seller_sync_enabled and settings.shopify_publish_enabled,
                     "available": True,
                     "connected": shopify_configured,
                     "connection_status": (
@@ -701,7 +597,10 @@ async def owner_channels(
                 },
                 {
                     "code": "EBAY",
-                    "label": "eBay",
+                    "label": "Drop Rate eBay",
+                    "sync_enabled": bool(settings.ebay_seller_sync_enabled and settings.ebay_publish_enabled and settings.ebay_shared_store_owner_id
+                                         and not ebay_listing_scope_blocker(access["owner_type"], "CARD")),
+                    "sync_unavailable_reason": ebay_listing_scope_blocker(access["owner_type"], "CARD"),
                     "available": True,
                     "connected": bool(
                         ebay_data
@@ -726,14 +625,17 @@ async def owner_channels(
                     "label": "Whatnot",
                     "available": False,
                     "connected": False,
-                    "connection_status": "PLANNED",
+                    "connection_status": "DEVELOPER_ACCESS_REQUIRED",
+                    "connection_mode": "SELLER_OAUTH",
+                    "developer_access_required": True,
+                    "sync_enabled": False,
                     "states": [],
                 },
             ],
             "total": int(total or 0),
             "limit": limit,
             "offset": offset,
-            "items": [dict(row) for row in rows],
+            "items": items,
             "source_of_truth": "DROP_RATE",
         }
     )
@@ -773,6 +675,7 @@ async def owner_catalogue_search(
                 value.pricing_updated_at,
                 value.basis_condition,
                 value.basis_language,
+                value.valuation_source as market_value_source,
                 (
                     select coalesce(m.shopify_cdn_url,m.public_source_url)
                     from tcg.media_assets m
@@ -797,7 +700,7 @@ async def owner_catalogue_search(
                 ) as image_url
             from tcg.catalogue_products p
             join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
-            left join lateral tcg.recognition_catalogue_reference_value(
+            left join lateral tcg.catalogue_reference_value_v2(
                 p.id,
                 nullif(p.language,'')
             ) value on true
@@ -878,7 +781,15 @@ async def owner_catalogue_search(
                     c.provider,c.system_code,c.language,c.provider_id,c.name,
                     s.name as set_name,c.card_number,
                     c.provider_id as variant,c.rarity,c.finish,c.image_url,
-                    mapped.catalogue_id as mapped_catalogue_id
+                    mapped.catalogue_id as mapped_catalogue_id,
+                    coalesce(exact_snapshot.market_value_minor,ref_market.market_value_minor,
+                             ref_catalogue.market_value_minor) as reference_market_value_minor,
+                    coalesce(exact_snapshot.pricing_updated_at,ref_market.pricing_updated_at,
+                             ref_catalogue.pricing_updated_at) as reference_pricing_updated_at,
+                    case when exact_snapshot.market_value_minor>0 then exact_snapshot.valuation_source
+                         when ref_market.market_value_minor>0 then ref_market.quotes->0->>'source'
+                         when ref_catalogue.market_value_minor>0 then 'CARDMARKET_CATALOGUE'
+                         else null end as reference_value_source
                 from matching_cards c
                 join tcg.reference_sets s
                   using(provider,system_code,language,set_id)
@@ -894,6 +805,33 @@ async def owner_catalogue_search(
                       and m.match_status='VERIFIED'
                     limit 1
                 ) mapped on true
+                -- Owner-independent reference evidence. Ambiguous mappings are
+                -- never treated as approval to inherit somebody else's price.
+                left join lateral tcg.catalogue_reference_value_v2(
+                    mapped.catalogue_id, nullif(c.language,'')
+                ) exact_snapshot on mapped.catalogue_id is not null
+                left join tcg.reference_market_prices ref_market
+                  on (ref_market.provider,ref_market.system_code,ref_market.language,ref_market.provider_id)=
+                     (c.provider,c.system_code,c.language,c.provider_id)
+                 and ref_market.market_value_minor>0
+                 and (coalesce(ref_market.quotes->0->>'match_basis','')<>'CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID'
+                      or c.rarity is not distinct from ref_market.quotes->0->>'reference_rarity')
+                 and ref_market.pricing_updated_at between now()-interval '7 days' and now()
+                 and (
+                    (ref_market.quotes->0->>'source' in ('TCGDEX_CARDMARKET','TCGDEX_CARDMARKET_VARIANT')
+                      and ref_market.quotes->0->>'reference_language'=c.language)
+                    or (ref_market.quotes->0->>'source'='CARDMARKET_BULK_SINGLES'
+                      and ref_market.quotes->0->'reference_identity'=jsonb_build_object(
+                          'name',c.name,'set_id',c.set_id,'card_number',c.card_number,'set_name',s.name))
+                 )
+                left join tcg.reference_catalogue_prices ref_catalogue
+                  on (ref_catalogue.provider,ref_catalogue.system_code,ref_catalogue.language,ref_catalogue.provider_id)=
+                     (c.provider,c.system_code,c.language,c.provider_id)
+                 and ref_catalogue.market_value_minor>0
+                 and ref_catalogue.pricing_updated_at between now()-interval '7 days' and now()
+                 and ref_catalogue.quotes->0->>'source'='CARDMARKET_CATALOGUE'
+                 and ref_catalogue.quotes->0->'reference_identity'=jsonb_build_object(
+                     'name',c.name,'set_id',c.set_id,'card_number',c.card_number,'set_name',s.name)
                 where (s.release_date is null or s.release_date<=current_date)
                 order by
                   case
@@ -934,9 +872,17 @@ async def owner_catalogue_search(
                 item = dict(row)
                 item["id"] = mapped_id
                 item["game"] = GAME_BY_SYSTEM.get(item["system_code"], item["system_code"])
-                item["market_value_minor"] = None
+                item["market_value_minor"] = item.pop("reference_market_value_minor", None)
                 item["recommended_retail_minor"] = None
-                item["pricing_updated_at"] = None
+                item["pricing_updated_at"] = item.pop("reference_pricing_updated_at", None)
+                item["market_value_source"] = item.pop("reference_value_source", None)
+                item["pricing_status"] = (
+                    "NO_VERIFIED_VALUATION" if item["market_value_minor"] is None
+                    else "REFERENCE_ESTIMATE" if item["market_value_source"] in {
+                        "CARDMARKET_ESTIMATE", "CARDMARKET_BULK_SINGLES",
+                        "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "CARDMARKET_CATALOGUE"
+                    } else "AVAILABLE"
+                )
                 item["basis_condition"] = None
                 item["basis_language"] = item["language"]
                 item["source_kind"] = "REFERENCE"
@@ -963,6 +909,25 @@ async def owner_catalogue_search(
     return jsonable_encoder({"items": items[:limit], "query": query})
 
 
+@router.get("/inventory/photo-actions")
+async def owner_inventory_photo_actions(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+    limit: int = Query(default=50,ge=1,le=100),
+    offset: int = Query(default=0,ge=0),
+) -> dict:
+    """Private owner Action Required queue; never proof of image-byte delivery."""
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+        readonly_snapshot=True,
+    ) as connection:
+        return await photo_action_queue(
+            connection,access["owner_id"],limit=limit,offset=offset)
+
+
 @router.get("/inventory")
 async def owner_inventory(
     request: Request,
@@ -972,6 +937,16 @@ async def owner_inventory(
     status: str | None = Query(default=None, max_length=30),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    group_copies: bool = False,
+    category: CollectionCategory = "",
+    game: str = Query(default="", max_length=80),
+    language: str = Query(default="", max_length=80),
+    grading: CollectionGrading = "",
+    format: CollectionFormat = "",
+    listing_state: ListingState = "",
+    prepare_selling: bool = False,
+    sort: CollectionSort = "updated",
+    include_facets: bool = False,
 ) -> dict:
     owner_id = access["owner_id"]
     search_value = (search or "").strip()
@@ -999,48 +974,108 @@ async def owner_inventory(
         else:
             params.append(status_value)
             filters.append(f"i.status=${len(params)}")
+    else:
+        # Collection is the stock still held by this owner. Removed and sold
+        # records remain available to explicit history reads and transactions.
+        # Apply this before counts, copy grouping, value sorting and pagination.
+        filters.append(ACTIVE_COLLECTION_SQL)
 
+    append_collection_filters(filters, params, category=category, game=game,
+        language=language, grading=grading, format=format, listing_state=listing_state,
+        prepare_selling=prepare_selling)
     where = " and ".join(filters)
 
     async with user_connection(
         request.app.state.db_pool,
         user.user_id,
         request.state.request_id,
+        readonly_snapshot=sort in {"value_desc", "value_asc"},
     ) as connection:
-        total = await connection.fetchval(
-            f"""
-            select count(*)::int
-            from tcg.inventory_items i
-            join tcg.catalogue_products p on p.id=i.catalogue_id
-            where {where}
-            """,
-            *params,
-        )
+        copy_total = None
+        facets = await collection_facets(connection, owner_id) if include_facets else None
+        value_page = None
+        if sort in {"value_desc", "value_asc"}:
+            value_page = await inventory_value_page(connection, where, params, limit, offset,
+                grouped=group_copies, descending=sort == "value_desc")
+            total, copy_total, group_ids = value_page.total, value_page.copy_total, value_page.ids
+            params.append(group_ids)
+            where += f" and i.id=any(${len(params)}::uuid[])"
+        elif group_copies:
+            total, copy_total, group_ids = await inventory_group_page(
+                connection, where, params, limit, offset, sort=sort
+            )
+            params.append(group_ids)
+            where += f" and i.id=any(${len(params)}::uuid[])"
+        else:
+            total = await connection.fetchval(
+                f"""
+                select count(*)::int
+                from tcg.inventory_items i
+                join tcg.catalogue_products p on p.id=i.catalogue_id
+                left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
+                left join lateral (
+                    select a.value_code
+                    from tcg.catalogue_taxonomy_assignments a
+                    where a.catalogue_id=p.id
+                      and a.scope_kind='SEALED'
+                      and a.dimension_code='SEALED_TYPE'
+                    order by
+                      case when a.verification_status='VERIFIED' then 0 else 1 end,
+                      a.created_at desc
+                    limit 1
+                ) sealed_type on true
+                where {where}
+                """,
+                *params,
+            )
 
-        page_params = [*params, limit, offset]
+        pagination = "" if group_copies or value_page is not None else f"limit ${len(params)+1} offset ${len(params)+2}"
+        page_params = params if group_copies or value_page is not None else [*params, limit, offset]
         rows = await connection.fetch(
             f"""
             select
                 i.inventory_code,
+                i.id,i.catalogue_id,i.version,i.sale_intent,
+                case when {PUBLISHED_SQL} then 'PUBLISHED' end as shopify_state,
+                (nullif(btrim(i.certificate_number),'') is not null) as has_certificate,
                 p.product_type,
                 p.game,
                 {BRAND_SQL} as brand,
-                p.name,
-                p.set_name,
+                case
+                  when p.product_type in ('SEALED','COLLECTION')
+                  then coalesce(nullif(sd.attributes->>'display_name_en',''),p.name)
+                  else p.name
+                end as name,
+                case
+                  when p.product_type in ('SEALED','COLLECTION')
+                  then coalesce(nullif(sd.attributes->>'set_name_en',''),p.set_name)
+                  else p.set_name
+                end as set_name,
                 p.card_number,
                 p.variant,
                 p.rarity,
                 coalesce(i.language,p.language) as language,
+                p.language as catalogue_language,
                 i.condition,
+                i.seal_status,
+                sealed_type.value_code as sealed_product_type,
                 i.grading_company,
                 i.grade,
                 i.status,
                 i.market_value_minor,
+                (select ps.evidence->>'method' from tcg.pricing_snapshots ps
+                 where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
+                   and ps.inventory_id=i.id and ps.catalogue_id=i.catalogue_id) as pricing_method,
                 i.store_price_minor,
                 i.recommended_retail_minor,
                 i.pricing_updated_at,
                 i.created_at,
                 i.updated_at,
+                (
+                  p.product_type in ('SEALED','COLLECTION')
+                  and coalesce((i.source_record->>'canonical_identity_verified')::boolean,false)
+                  and i.market_value_minor is null
+                ) as can_refresh_market,
                 (
                     select coalesce(m.shopify_cdn_url,m.public_source_url)
                     from tcg.media_assets m
@@ -1073,12 +1108,38 @@ async def owner_inventory(
                 ) as image_url
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
+            left join lateral (
+                select a.value_code
+                from tcg.catalogue_taxonomy_assignments a
+                where a.catalogue_id=p.id
+                  and a.scope_kind='SEALED'
+                  and a.dimension_code='SEALED_TYPE'
+                order by
+                  case when a.verification_status='VERIFIED' then 0 else 1 end,
+                  a.created_at desc
+                limit 1
+            ) sealed_type on true
             where {where}
-            order by i.updated_at desc,i.inventory_code
-            limit ${len(page_params)-1} offset ${len(page_params)}
+            order by {collection_order_sql(sort)}
+            {pagination}
             """,
             *page_params,
         )
+
+        items = [dict(row) for row in rows]
+        if value_page is not None:
+            value_page.apply(items)
+        else:
+            await add_shared_reference_values(connection, items)
+        await add_reference_artwork(connection, items)
+        await add_shared_inventory_media(connection, items)
+
+        # Preserve the selected group order after fetching all exact copies.
+        # Otherwise a name-sorted page would be silently reordered by updates.
+        if group_copies or value_page is not None:
+            positions = {str(identifier): position for position, identifier in enumerate(group_ids)}
+            items.sort(key=lambda item: positions.get(str(item["id"]), len(positions)))
 
     return jsonable_encoder(
         {
@@ -1089,11 +1150,41 @@ async def owner_inventory(
             "total": int(total or 0),
             "limit": limit,
             "offset": offset,
-            "items": [dict(row) for row in rows],
+            "items": items,
+            "grouped": group_copies,
+            "copy_total": copy_total if group_copies else int(total or 0),
+            "facets": facets,
+            "sort": sort,
         }
     )
 
 
+
+
+@router.post("/inventory/{inventory_code}/refresh-market")
+async def owner_refresh_inventory_market(
+    inventory_code: str,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+) -> dict:
+    code = inventory_code.strip().upper()
+    if not code.startswith("INV-") or len(code) > 80:
+        raise HTTPException(status_code=422, detail="Invalid inventory code")
+
+    result = await refresh_verified_sealed_ebay_market(
+        request.app.state.db_pool,
+        user_id=user.user_id,
+        request_id=request.state.request_id,
+        owner_id=UUID(str(access["owner_id"])),
+        inventory_code=code,
+    )
+    if result.get("status") == "BLOCKED":
+        raise HTTPException(
+            status_code=422,
+            detail=str(result.get("detail") or "Insufficient exact UK sold evidence"),
+        )
+    return jsonable_encoder(result)
 
 
 @router.post("/graded-certificate-intake", status_code=201)
@@ -1140,6 +1231,10 @@ async def owner_graded_certificate_intake(
         user.user_id,
         request.state.request_id,
     ) as connection:
+        await connection.execute(
+            "select pg_advisory_xact_lock(hashtextextended($1,0))",
+            f"collection-intake:{owner_id}:{request_key}",
+        )
         existing = await connection.fetchrow(
             """
             select i.*
@@ -1211,7 +1306,7 @@ async def owner_graded_certificate_intake(
 
         inventory_id = uuid4()
         inventory_code = f"INV-{inventory_id.hex.upper()}"
-        physical_language = payload.language or catalogue["language"]
+        physical_language = _collection_language(payload.language, catalogue["language"])
         provider_snapshot = (
             provider_result.model_dump(mode="json") if provider_result is not None else None
         )
@@ -1239,7 +1334,7 @@ async def owner_graded_certificate_intake(
                 ) values(
                     $1,$2,$3,$4,
                     null,$5,$6,$7,$8,
-                    false,'DRAFT',$9,$10::jsonb,'FOR_SALE'
+                    false,'DRAFT',$9,$10::jsonb,'PERSONAL_COLLECTION'
                 )
                 on conflict (intake_request_key) do nothing
                 returning *
@@ -1269,12 +1364,8 @@ async def owner_graded_certificate_intake(
 
         valuation: dict | None = None
         valuation_error: str | None = None
-        try:
-            valuation = await _recalculate_one(connection, owner_id, inventory_id)
-        except HTTPException as exc:
-            if exc.status_code != 422:
-                raise
-            valuation_error = str(exc.detail)
+        # Pricing uses the existing separate refresh operation. Missing evidence
+        # or a provider failure must not delay or roll back collection admission.
 
         inventory = await connection.fetchrow(
             "select * from tcg.inventory_items where id=$1 and owner_id=$2",
@@ -1324,6 +1415,10 @@ async def owner_recognition_intake(
         user.user_id,
         request.state.request_id,
     ) as connection:
+        await connection.execute(
+            "select pg_advisory_xact_lock(hashtextextended($1,0))",
+            f"collection-intake:{owner_id}:{request_key}",
+        )
         existing = await connection.fetchrow(
             """
             select i.*
@@ -1460,7 +1555,7 @@ async def owner_recognition_intake(
 
         inventory_id = uuid4()
         inventory_code = f"INV-{inventory_id.hex.upper()}"
-        physical_language = payload.language or catalogue["language"]
+        physical_language = _collection_language(payload.language, catalogue["language"])
         source_record = {
             "source": OWNER_SCAN_SOURCE,
             "recognition_run_id": str(payload.recognition_run_id),
@@ -1485,7 +1580,7 @@ async def owner_recognition_intake(
             ) values(
                 $1,$2,$3,$4,
                 $5,$6,$7,$8,$9,$10,
-                $11,'DRAFT',$12,$13::jsonb,'FOR_SALE'
+                $11,'DRAFT',$12,$13::jsonb,'PERSONAL_COLLECTION'
             )
             on conflict (intake_request_key) do nothing
             returning *
@@ -1512,12 +1607,8 @@ async def owner_recognition_intake(
 
         valuation: dict | None = None
         valuation_error: str | None = None
-        try:
-            valuation = await _recalculate_one(connection, owner_id, inventory_id)
-        except HTTPException as exc:
-            if exc.status_code != 422:
-                raise
-            valuation_error = str(exc.detail)
+        # Pricing uses the existing separate refresh operation. Missing evidence
+        # or a provider failure must not delay or roll back collection admission.
 
         inventory = await connection.fetchrow(
             "select * from tcg.inventory_items where id=$1 and owner_id=$2",
@@ -1527,12 +1618,11 @@ async def owner_recognition_intake(
         if inventory is None:
             raise HTTPException(status_code=409, detail="Seller inventory creation could not be verified")
 
-        return jsonable_encoder(
-            _owner_scan_inventory_payload(
-                inventory,
-                catalogue,
-                replayed=False,
-                valuation=valuation,
-                valuation_error=valuation_error,
-            )
+        response = _owner_scan_inventory_payload(
+            inventory,
+            catalogue,
+            replayed=False,
+            valuation=valuation,
+            valuation_error=valuation_error,
         )
+        return jsonable_encoder(response)

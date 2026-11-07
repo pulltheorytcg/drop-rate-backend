@@ -1,0 +1,36 @@
+{
+  "commit": "b38198574abbf7ea904c34ee6c47b37993bcc113",
+  "assets": {
+    "scanner-flow.js": {
+      "url": "/assets/scanner-flow.js?v=book-ready-v3",
+      "matches": true,
+      "sha256": "6358bd6cc9027a5ec2183c11c53df81088c93fc828a16ed66d1406ebb7e441de"
+    },
+    "scanner-flow.css": {
+      "url": "/assets/scanner-flow.css?v=book-ready-v3",
+      "matches": true,
+      "sha256": "0fcb82514728d3062658c3dd03fb0fcb18e5b56fce255e1ddfb828074c493e31"
+    },
+    "owner-books.js": {
+      "url": "/assets/owner-books.js?v=book-ready-v3",
+      "matches": true,
+      "sha256": "91abd3a0391e3ab9582f02e4dcbb3ac9f448a52523c180276fc0110b3ea0e569"
+    },
+    "owner-books.css": {
+      "url": "/assets/owner-books.css?v=book-ready-v3",
+      "matches": true,
+      "sha256": "e777d909ea1175238ac0178de7ed6d64dc3ac23d29411096825ff26c89c60919"
+    }
+  },
+  "ready": {
+    "status": "ready",
+    "database": "connected"
+  },
+  "owner_entrypoint": true,
+  "founder_entrypoint": true,
+  "anonymous_book_cover_status": 401,
+  "verified": true,
+  "checked_at": "2026-10-18T13:42:15.334481+00:00",
+  "deployment_id": "c4c41407-aee4-49c9-9751-96fd9d9e5c99",
+  "note": "Public GET checks only. No production login, scan, intake, inventory, listing or financial writes."
+}

@@ -1,6 +1,6 @@
 # Drop Rate — Phase 2 Efficiency & Simplicity Audit
 
-_Last measured: 30 September 2026_
+_Original audit: 30 September 2026. Catalogue follow-up: 2–3 October 2026._
 
 ## Executive result
 
@@ -239,3 +239,7 @@ Before theme publication:
 - measure the customer find-to-checkout path and count clicks.
 
 Those are the only efficiency/publish-gate checks in this audit that cannot be honestly completed from backend/store data alone.
+
+## 2–3 October 2026 — Catalogue search follow-up
+
+The user's reopened hub usability work exposed avoidable browse-query work: full reference-library materialization, catalogue-wide pricing before ordinary pagination, and waiting for game metadata before product retrieval. A bounded application query/client change reduces measured warm database medians by 61–83% across six browse journeys. Nineteen read-only comparisons retain full results, order, prices and ownership quantities. See `docs/CATALOGUE_BROWSER_PERFORMANCE.md` for samples, method and limits. This supplements the machine-side audit; it does not substitute for the two manual end-to-end timing tests.

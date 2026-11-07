@@ -1,0 +1,477 @@
+{
+  "kind": "read_only_railway_audit",
+  "audit_date": "2026-10-27",
+  "project_id": "9329767b-b092-495c-bf18-75cf69c28536",
+  "environment_id": "6f00816c-b630-4d0b-bcc1-26ac71fa712d",
+  "source_tools": [
+    "railway_describe_environment",
+    "railway_describe_service",
+    "railway_list_deployments",
+    "railway_get_logs"
+  ],
+  "api_active_deployment": {
+    "id": "a91487a5-7e2b-42d8-809b-0439fdb01562",
+    "commit": "fb19e7e8477779577736d90e745ddc171374627a",
+    "status": "SUCCESS",
+    "created_at": "2026-10-27T17:03:43.276Z"
+  },
+  "n8n_active_deployment": {
+    "id": "8cbe4d6c-67d0-4d5b-bdc8-44a6e57b20c7",
+    "commit": "44b1a9325a38ac9edc639588ebf4958c01e5e164",
+    "status": "SUCCESS",
+    "created_at": "2026-10-27T18:30:07.318Z"
+  },
+  "caveats": [
+    "Service logs metadata may show SKIPPED for a newer docs-only commit; active deployment is SUCCESS.",
+    "HTTP 200 verifies command acceptance/completion only, not image counts.",
+    "Importer writes are operation counts, not unique newly priced cards."
+  ],
+  "api_runtime_evidence": [
+    {
+      "timestamp": "2026-10-27T18:35:34.440213366Z",
+      "message": "INFO:     100.64.0.19:29626 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T18:40:41.160176848Z",
+      "message": "INFO:     100.64.0.10:32808 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T18:45:41.423348100Z",
+      "message": "INFO:     100.64.0.5:55378 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T18:50:34.246956972Z",
+      "message": "INFO:     100.64.0.5:13280 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T18:55:43.057906169Z",
+      "message": "INFO:     100.64.0.21:12910 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T19:00:04.503631225Z",
+      "message": "INFO:     100.64.0.12:29346 - \"POST /api/v1/automation/commands/storage/mirror-approved-media HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T19:00:24.483137893Z",
+      "message": "INFO:     100.64.0.3:45292 - \"POST /api/v1/automation/commands/storage/health HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T19:00:34.195339840Z",
+      "message": "INFO:     100.64.0.14:17714 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T19:04:37.874539110Z",
+      "message": "Pokewallet One Piece free catalogue dry_run=False requests=10 candidates=2 writes=2 failures=0 reason=none",
+      "severity": "error"
+    },
+    {
+      "timestamp": "2026-10-27T19:05:07.583737173Z",
+      "message": "Pokewallet free DBS request=18 quote=4 writes=4 failures=0",
+      "severity": "error"
+    },
+    {
+      "timestamp": "2026-10-27T19:05:17.144124383Z",
+      "message": "Pokewallet Pokemon JP free guide dry_run=False requests=7 quotes=0 writes=0 reason=none",
+      "severity": "error"
+    },
+    {
+      "timestamp": "2026-10-27T19:05:34.365007803Z",
+      "message": "INFO:     100.64.0.12:61024 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T19:10:34.628016828Z",
+      "message": "INFO:     100.64.0.13:24714 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    },
+    {
+      "timestamp": "2026-10-27T19:10:36.010481114Z",
+      "message": "CATALOGUE_R2_HISTORY_ARCHIVE {\"archive_id\": \"r2-reference-history-2cdb7c71b48b976e7905bd4ac2e3c06d53f354897d9a211852ac12a4e2d6553b\", \"bytes_reclaimed\": 65536, \"content_root_sha256\": \"2cdb7c71b48b976e7905bd4ac2e3c06d53f354897d9a211852ac12a4e2d6553b\", \"restoration_verified\": true, \"restore_verified_at\": \"2026-10-27T19:10:35.348606+00:00\", \"rows_archived\": 6, \"status\": \"ARCHIVED\", \"verified_rows\": 6}",
+      "severity": "error"
+    },
+    {
+      "timestamp": "2026-10-27T19:15:34.330860048Z",
+      "message": "INFO:     100.64.0.15:46276 - \"POST /api/v1/automation/control/heartbeat HTTP/1.1\" 200 OK",
+      "severity": "info"
+    }
+  ],
+  "n8n_metadata": {
+    "timestamp": "2026-10-27T18:32:09.888504921Z",
+    "severity": "info",
+    "message": "",
+    "attributes": [
+      {
+        "key": "level",
+        "value": "\"info\""
+      },
+      {
+        "key": "event",
+        "value": "\"DROP_RATE_N8N_METADATA_INSPECTION\""
+      },
+      {
+        "key": "schema_version",
+        "value": "1"
+      },
+      {
+        "key": "status",
+        "value": "\"COMPLETE\""
+      },
+      {
+        "key": "normalization",
+        "value": "\"drop-rate-workflow-definition-v1\""
+      },
+      {
+        "key": "workflows",
+        "value": "[{\"id\":\"DR90GlobalErrorV1\",\"status\":\"COMPLETE\",\"source_sha256\":\"84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011\",\"stored_sha256\":\"84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011\",\"published_sha256\":\"84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011\",\"source_matches_stored\":true,\"source_matches_published\":true,\"source_errorWorkflow\":null,\"errorWorkflow\":null,\"active\":true,\"published\":true},{\"id\":\"DR91SuccessReceiptV1\",\"status\":\"COMPLETE\",\"source_sha256\":\"1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568\",\"stored_sha256\":\"1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568\",\"published_sha256\":\"1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568\",\"source_matches_stored\":true,\"source_matches_published\":true,\"source_errorWorkflow\":null,\"errorWorkflow\":null,\"active\":true,\"published\":true},{\"id\":\"DR92RuntimeHeartbeatV1\",\"status\":\"COMPLETE\",\"source_sha256\":\"08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e\",\"stored_sha256\":\"08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e\",\"published_sha256\":\"08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e\",\"source_matches_stored\":true,\"source_matches_published\":true,\"source_errorWorkflow\":\"DR90GlobalErrorV1\",\"errorWorkflow\":\"DR90GlobalErrorV1\",\"active\":true,\"published\":true},{\"id\":\"DR93ObjectStorageHealthV1\",\"status\":\"COMPLETE\",\"source_sha256\":\"d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919\",\"stored_sha256\":\"d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919\",\"published_sha256\":\"d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919\",\"source_matches_stored\":true,\"source_matches_published\":true,\"source_errorWorkflow\":\"DR90GlobalErrorV1\",\"errorWorkflow\":\"DR90GlobalErrorV1\",\"active\":true,\"published\":true},{\"id\":\"DR94R2ApprovedMediaMirrorV1\",\"status\":\"COMPLETE\",\"source_sha256\":\"3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba\",\"stored_sha256\":\"3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba\",\"published_sha256\":\"3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba\",\"source_matches_stored\":true,\"source_matches_published\":true,\"source_errorWorkflow\":\"DR90GlobalErrorV1\",\"errorWorkflow\":\"DR90GlobalErrorV1\",\"active\":true,\"published\":true}]"
+      },
+      {
+        "key": "drive_credentials",
+        "value": "{\"status\":\"COMPLETE\",\"credentials\":[],\"truncated\":false}"
+      }
+    ]
+  },
+  "n8n_activated_workflows": [
+    {
+      "timestamp": "2026-10-27T18:32:18.079323992Z",
+      "message": "Activated workflow \"DR-90 Global Error / Action Required\" (ID: DR90GlobalErrorV1)"
+    },
+    {
+      "timestamp": "2026-10-27T18:32:18.079327382Z",
+      "message": "Activated workflow \"DR-91 Durable Success Receipt\" (ID: DR91SuccessReceiptV1)"
+    },
+    {
+      "timestamp": "2026-10-27T18:32:18.079330332Z",
+      "message": "Activated workflow \"DR-92 n8n Runtime Heartbeat\" (ID: DR92RuntimeHeartbeatV1)"
+    },
+    {
+      "timestamp": "2026-10-27T18:32:18.079333072Z",
+      "message": "Activated workflow \"DR-93 Private Object Storage Health\" (ID: DR93ObjectStorageHealthV1)"
+    },
+    {
+      "timestamp": "2026-10-27T18:32:18.079372211Z",
+      "message": "Activated workflow \"DR-94 Verified Catalogue Artwork to Private R2\" (ID: DR94R2ApprovedMediaMirrorV1)"
+    }
+  ],
+  "database_readback": [
+    {
+      "receipt_inspection": {
+        "mirrors": {
+          "bytes": 47085306,
+          "total": 401,
+          "verified": 401,
+          "last_verified": "2026-10-26T23:18:13.065153+00:00"
+        },
+        "heartbeat": [
+          {
+            "key": "n8n-runtime",
+            "beat_count": 21,
+            "received_at": "2026-10-27T19:25:34.307313+00:00",
+            "execution_id": "64"
+          }
+        ],
+        "checked_at": "2026-10-27T19:26:57.023973+00:00",
+        "catalogue_jobs": [
+          {
+            "job": "CATALOGUE_COVERAGE",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T19:10:53.763854+00:00",
+            "finished_at": "2026-10-27T19:10:53.763854+00:00",
+            "report_keys": [
+              "items",
+              "scope",
+              "total",
+              "summary",
+              "canonical_products",
+              "store_price_updates"
+            ]
+          },
+          {
+            "job": "POKEWALLET_POKEMON_PRICES",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T19:05:17.014589+00:00",
+            "finished_at": "2026-10-27T19:05:17.014589+00:00",
+            "report_keys": [
+              "cursor",
+              "source",
+              "dry_run",
+              "requests",
+              "set_pages",
+              "source_sets",
+              "target_sets",
+              "input_cursor",
+              "sampled_sets",
+              "eligible_quotes",
+              "writes_attempted",
+              "importer_revision",
+              "matched_printings",
+              "provider_failures",
+              "checked_references",
+              "eligible_references",
+              "skipped_invalid_sets"
+            ]
+          },
+          {
+            "job": "CATALOGUE_COVERAGE",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T19:05:06.119226+00:00",
+            "finished_at": "2026-10-27T19:05:06.119226+00:00",
+            "report_keys": [
+              "items",
+              "scope",
+              "total",
+              "summary",
+              "canonical_products",
+              "store_price_updates"
+            ]
+          },
+          {
+            "job": "POKEWALLET_DBS_PRICES",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T19:05:04.661371+00:00",
+            "finished_at": "2026-10-27T19:05:04.661371+00:00",
+            "report_keys": [
+              "cursor",
+              "source",
+              "dry_run",
+              "matches",
+              "requests",
+              "input_cursor",
+              "exact_matches",
+              "exact_queries",
+              "eligible_quotes",
+              "invalid_samples",
+              "sampled_queries",
+              "target_prefixes",
+              "writes_attempted",
+              "expanded_prefixes",
+              "importer_revision",
+              "provider_failures",
+              "checked_references",
+              "unattempted_queries",
+              "exact_eligible_quotes",
+              "pending_exact_queries"
+            ]
+          },
+          {
+            "job": "CATALOGUE_COVERAGE",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T19:04:50.689156+00:00",
+            "finished_at": "2026-10-27T19:04:50.689156+00:00",
+            "report_keys": [
+              "items",
+              "scope",
+              "total",
+              "summary",
+              "canonical_products",
+              "store_price_updates"
+            ]
+          },
+          {
+            "job": "POKEWALLET_PRICES",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T19:04:37.778334+00:00",
+            "finished_at": "2026-10-27T19:04:37.778334+00:00",
+            "report_keys": [
+              "cursor",
+              "source",
+              "dry_run",
+              "requests",
+              "set_pages",
+              "input_cursor",
+              "sampled_sets",
+              "source_groups",
+              "target_groups",
+              "eligible_quotes",
+              "writes_attempted",
+              "importer_revision",
+              "provider_failures",
+              "checked_references",
+              "matching_printings",
+              "invalid_set_samples",
+              "targets_by_language",
+              "skipped_invalid_sets",
+              "wanted_base_printings",
+              "source_list_diagnostics",
+              "japanese_number_examples",
+              "japanese_product_examples",
+              "collapsed_identical_duplicate_rows"
+            ]
+          },
+          {
+            "job": "SHOPIFY_SYNC",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T18:36:32.859373+00:00",
+            "finished_at": "2026-10-27T18:36:32.859373+00:00",
+            "report_keys": [
+              "heartbeat",
+              "prices_synced",
+              "price_failures",
+              "price_candidates",
+              "publication_failures",
+              "publication_candidates",
+              "publication_incomplete"
+            ]
+          },
+          {
+            "job": "CATALOGUE_COVERAGE",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T18:07:56.585328+00:00",
+            "finished_at": "2026-10-27T18:07:56.585328+00:00",
+            "report_keys": [
+              "items",
+              "scope",
+              "total",
+              "summary",
+              "canonical_products",
+              "store_price_updates"
+            ]
+          },
+          {
+            "job": "POKEWALLET_POKEMON_PRICES",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T18:02:33.614929+00:00",
+            "finished_at": "2026-10-27T18:02:33.614929+00:00",
+            "report_keys": [
+              "cursor",
+              "source",
+              "dry_run",
+              "requests",
+              "set_pages",
+              "source_sets",
+              "target_sets",
+              "input_cursor",
+              "sampled_sets",
+              "eligible_quotes",
+              "writes_attempted",
+              "importer_revision",
+              "matched_printings",
+              "provider_failures",
+              "checked_references",
+              "eligible_references",
+              "skipped_invalid_sets"
+            ]
+          },
+          {
+            "job": "CATALOGUE_COVERAGE",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T18:02:24.345639+00:00",
+            "finished_at": "2026-10-27T18:02:24.345639+00:00",
+            "report_keys": [
+              "items",
+              "scope",
+              "total",
+              "summary",
+              "canonical_products",
+              "store_price_updates"
+            ]
+          },
+          {
+            "job": "POKEWALLET_DBS_PRICES",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T18:02:16.765251+00:00",
+            "finished_at": "2026-10-27T18:02:16.765251+00:00",
+            "report_keys": [
+              "cursor",
+              "source",
+              "dry_run",
+              "matches",
+              "requests",
+              "input_cursor",
+              "exact_matches",
+              "exact_queries",
+              "eligible_quotes",
+              "invalid_queries",
+              "invalid_samples",
+              "sampled_queries",
+              "target_prefixes",
+              "writes_attempted",
+              "expanded_prefixes",
+              "importer_revision",
+              "provider_failures",
+              "checked_references",
+              "unattempted_queries",
+              "exact_eligible_quotes",
+              "pending_exact_queries"
+            ]
+          },
+          {
+            "job": "POKEWALLET_PRICES",
+            "status": "COMPLETE",
+            "started_at": "2026-10-27T18:02:01.0173+00:00",
+            "finished_at": "2026-10-27T18:02:01.0173+00:00",
+            "report_keys": [
+              "cursor",
+              "source",
+              "dry_run",
+              "requests",
+              "set_pages",
+              "input_cursor",
+              "sampled_sets",
+              "source_groups",
+              "target_groups",
+              "eligible_quotes",
+              "writes_attempted",
+              "importer_revision",
+              "provider_failures",
+              "checked_references",
+              "matching_printings",
+              "invalid_set_samples",
+              "targets_by_language",
+              "skipped_invalid_sets",
+              "wanted_base_printings",
+              "source_list_diagnostics",
+              "japanese_number_examples",
+              "japanese_product_examples",
+              "collapsed_identical_duplicate_rows"
+            ]
+          }
+        ],
+        "automation_runs": null
+      }
+    }
+  ],
+  "approved_media_backlog": [
+    {
+      "checked_at": "2026-10-27 19:30:30.513927+00",
+      "eligible_unmirrored": 0
+    }
+  ],
+  "automation_run_history": [
+    {
+      "job_type": "N8N:approved-social-pilot-observation",
+      "runs": 2,
+      "latest_at": "2026-10-04 18:41:43.555457+00"
+    },
+    {
+      "job_type": "N8N:approved-social-pilot-submission",
+      "runs": 2,
+      "latest_at": "2026-10-04 18:38:34.215007+00"
+    },
+    {
+      "job_type": "N8N:approved-social-pilot-claim",
+      "runs": 2,
+      "latest_at": "2026-10-04 18:38:23.444719+00"
+    },
+    {
+      "job_type": "N8N:approved-social-pilot-intent",
+      "runs": 2,
+      "latest_at": "2026-10-04 18:38:23.444719+00"
+    }
+  ],
+  "workflow_receipt_note": "Current DR93 and DR94 definitions validate successful command responses but do not invoke DR91's success-receipt route. No new durable automation_runs row is expected solely from those success paths; production DR90/DR91 fanout remains unverified.",
+  "approved_media_backlog_query_source": {
+    "url": "https://github.com/pulltheorytcg/drop-rate-backend/blob/fb19e7e8477779577736d90e745ddc171374627a/backend/app/r2_media.py",
+    "commit": "fb19e7e8477779577736d90e745ddc171374627a",
+    "blob_sha": "b27bbcd72bfbeb8c6cebcb6084204a5ad8e444df",
+    "constant": "PENDING_MIRRORS_SQL",
+    "interpretation": "Count of unmirrored assets satisfying the existing production scope, image/front, approval, rights, active source, provider and host eligibility predicate. It does not count every approved image."
+  }
+}

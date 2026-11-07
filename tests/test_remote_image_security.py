@@ -168,3 +168,27 @@ def test_remote_image_clients_disable_automatic_redirect_following() -> None:
     assert "follow_redirects=True" not in fetch_block
     assert "follow_redirects=False" in fetch_block
     assert "_trusted_reference_redirect(" in fetch_block
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('publisher,body_kind,declared_mime,accepted', [
+    (True,'JPEG',None,True),(True,'HTML',None,False),(True,'SVG',None,False),
+    (True,'GIF',None,False),(True,'JPEG','text/html',False),(False,'JPEG',None,False)])
+async def test_missing_publisher_mime_requires_valid_bounded_raster(monkeypatch,publisher,body_kind,declared_mime,accepted):
+    import io
+    import httpx
+    from PIL import Image
+    from app import recognition_images as images
+    output = io.BytesIO()
+    if body_kind in {'JPEG','GIF'}:
+        Image.new('RGB',(220,300),'navy').save(output,format=body_kind)
+        data=output.getvalue()
+    else:
+        data=b'<html>not an image</html>' if body_kind=='HTML' else b'<svg xmlns="http://www.w3.org/2000/svg"/>'
+    headers={'content-type':declared_mime} if declared_mime else {}
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda request:httpx.Response(200,content=data,headers=headers))) as client:
+        monkeypatch.setattr(images,'_reference_http_client',lambda:client)
+        url='https://dw9to29mmj727.cloudfront.net/products/1974710025.jpg' if publisher else 'https://assets.tcgdex.net/card.jpg'
+        result=await images._fetch_reference_image_uncached(url,max_bytes=200_000,timeout_seconds=2)
+    assert (result is not None)==accepted
+    if accepted:assert result.content_type=='image/jpeg' and result.data==data

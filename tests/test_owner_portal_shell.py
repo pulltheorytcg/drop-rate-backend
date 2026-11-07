@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,8 +17,8 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=owner-v10" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=owner-v8" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=market-values-20261104" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=market-values-20261104" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -29,14 +30,52 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
         assert founder_script not in html
 
 
-def test_owner_portal_requires_owner_role_and_redirects_platform_admin() -> None:
+def test_compact_inventory_grid_moves_metadata_into_details() -> None:
+    portal = (STATIC / "owner-portal.js").read_text()
+    details = (STATIC / "owner-inventory.js").read_text()
+    css = (STATIC / "owner-inventory.css").read_text()
+    html = HTML.read_text()
+    card_block = portal.split("function renderInventoryCards(items) {", 1)[1].split(
+        "function renderOverviewLatestInventory(items) {", 1
+    )[0]
+    assert "owner-card-meta" not in card_block
+    assert "body.append(heading, identity, prices);" in card_block
+    assert '"owner-card-identity"' in card_block
+    assert "owner-card-image-wrap" in card_block
+    assert "owner-card-prices" in card_block
+    assert "owner-card-open-overlay" in card_block
+    assert "owner-inventory-details" not in card_block
+    assert "View details for" in card_block
+    assert "owner-market-refresh" in card_block
+    list_block = portal.split("function renderInventoryRows(items) {", 1)[1].split(
+        "function renderInventoryCards(items) {", 1
+    )[0]
+    assert "row.append(cardCell, statusCell, marketCell, storeCell)" in list_block
+    assert "gameCell" not in list_block
+    assert "conditionCell" not in list_block
+    inventory_markup = html.split('id="owner-inventory-table-wrap"', 1)[1].split("</table>", 1)[0]
+    assert "<th>Game / set</th>" not in inventory_markup
+    assert "<th>Condition</th>" not in inventory_markup
+    assert 'colspan="4"' in inventory_markup
+    assert "owner-item-facts-grid" in details
+    for value in ("Game", "Set", "Card number", "Language", "Seal", "Condition",
+                  "Type", "Grading company", "Grade", "Certificate", "Inventory ID"):
+        assert f'"{value}"' in details
+    assert ".owner-item-facts" in css
+    assert ".owner-item-fact dd" in css
+    assert 'href="/assets/owner-inventory.css?v=review-20261103"' in html
+    assert 'src="/assets/owner-inventory.js?v=graded-evidence-20261104"' in html
+
+
+def test_shared_portal_requires_owner_or_verified_founder() -> None:
     js = JS.read_text()
 
     assert 'apiRequest("/api/v1/access/me")' in js
-    assert 'access.access_role === "PLATFORM_ADMIN"' in js
-    assert 'window.location.replace("/")' in js
-    assert 'access.access_role !== "OWNER"' in js
-    assert 'access.portal !== "OWNER_PORTAL"' in js
+    assert 'access.business_allowed !== true' in js
+    assert 'access.access_role === "PLATFORM_ADMIN" ||' not in js
+    assert 'state.access = access' in js
+    assert 'access.access_role === "OWNER"' in js
+    assert 'access.portal === "OWNER_PORTAL"' in js
     assert "OWNER_PORTAL_ACCESS_DENIED" in js
 
 
@@ -78,11 +117,18 @@ def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
     assert "Inventory" in html
     assert "/api/v1/owner/overview" in js
     assert "/api/v1/owner/inventory" in js
-    assert "/api/v1/inventory" not in js
+    # The one write exception retries an owner-scoped, version-checked personal
+    # collection withdrawal. Inventory reads still use the owner contracts.
+    inventory_calls = re.findall(r'apiRequest\(`(/api/v1/inventory/[^`]+)`', js)
+    assert inventory_calls == [
+        "/api/v1/inventory/${encodeURIComponent(item.inventory_id || item.id)}/sale-intent"
+    ]
+    assert 'apiRequest("/api/v1/inventory' not in js
     assert "/api/v1/finance/" not in js
 
     assert 'apiRequest("/api/v1/owner/overview")' in js
-    assert 'apiRequest(`/api/v1/owner/inventory?${params.toString()}`)' in js
+    assert 'apiRequest(`/api/v1/owner/inventory?${params.toString()}`,{signal:controller.signal})' in js
+    assert "state.inventory.controller?.abort()" in js
     assert '/api/v1/owner/overview", {' not in js
     assert '/api/v1/owner/inventory?", {' not in js
 
@@ -106,12 +152,12 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
         assert label not in inventory
 
     for required in (
-        "Total inventory",
-        "Active market value",
-        "Store / recommended value",
+        "Items collected",
+        "Known market value",
+        "Only your saved asking prices are counted",
         "Sold",
         "Market value",
-        "Recommended retail",
+        "Saved Store Prices",
     ):
         assert required in html
 
@@ -122,10 +168,10 @@ def test_new_owner_onboarding_redirect_has_a_guided_welcome_checklist() -> None:
 
     assert 'params.get("welcome") !== "1"' in js
     assert 'id="owner-onboarding-welcome"' in html
-    assert "Your Seller Hub is ready." in html
+    assert "Your collection is ready." in html
     assert "Set up payouts" in html
-    assert 'activateOwnerView("balance")' in js
-    assert 'byId("owner-stripe-connect-panel")' in js
+    assert 'activateOwnerView("search")' in js
+    assert 'byId("owner-welcome-search")' in js
     assert 'history.replaceState({}, document.title, "/owner")' in js
 
 
@@ -134,8 +180,8 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v12"' in html
-    assert 'class="owner-portal-page"' in html
+    assert 'href="/assets/owner-portal.css?v=recommendation-v15"' in html
+    assert 'class="owner-portal-page hub-restoring premium-hub"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
     assert 'id="owner-inventory-grid"' in html
@@ -159,7 +205,7 @@ def test_owner_portal_scan_workspace_uses_shared_recognition_safely() -> None:
     assert 'id="owner-scan-file"' in html
     assert 'capture="environment"' in html
     assert 'id="owner-scan-video"' in html
-    assert "Scan & add a card" in html
+    assert "Scan an item" in html
 
     for path in (
         "/api/v1/recognition/status",
@@ -189,6 +235,34 @@ def test_owner_scan_requires_confirmation_before_intake() -> None:
     assert js.index(feedback_call) < js.index(intake_call)
     assert '"CONFIRMED_TOP"' in js
     assert '"CORRECTED_TO_CANDIDATE"' in js
+
+
+
+def test_mobile_scan_has_one_camera_entry_and_no_legacy_upload_screen() -> None:
+    html = HTML.read_text()
+    shared = (ROOT / "backend/app/static/scanner-flow.js").read_text()
+    shared_css = (ROOT / "backend/app/static/scanner-flow.css").read_text()
+    founder = (ROOT / "backend/app/static/recognition-scanner.js").read_text()
+    seller = RECOGNITION_JS.read_text()
+
+    # Legacy upload remains available on desktop; do not delete the controls
+    # relied on by founder/seller desktop handlers.
+    assert 'id="owner-scan-file"' in html
+    assert 'id="owner-mobile-open-scanner"' in html
+    assert 'id="recognition-mobile-open-scanner"' in founder
+    assert 'recognition-file' in founder
+    assert '@media (max-width: 900px)' in shared_css
+    assert '#owner-view-scan > :not(.dr-mobile-scan-entry)' in shared_css
+    assert '#recognition-scanner-panel > :not(.dr-mobile-scan-entry)' in shared_css
+    assert '.dr-scanner .dr-scan-gallery { display: none !important; }' in shared_css
+
+    # Closing the shared modal cannot reveal another mobile uploader. The
+    # callback must be guarded by the currently visible tab.
+    assert 'this.options.onClose?.();' in shared
+    assert 'activateOwnerView("overview", true)' in seller
+    assert 'activateSellerView("dashboard", true)' in founder
+    assert 'mobileScannerOnly() || this.atCapacity()' in shared
+    assert 'if (mobileScannerOnly()) { this.status(' in shared
 
 
 def test_mobile_batch_scanner_is_camera_first_and_locally_gated() -> None:
@@ -224,6 +298,30 @@ def test_mobile_batch_scanner_is_camera_first_and_locally_gated() -> None:
     assert ".owner-portal-page.owner-batch-camera-open" in css
     assert "position:fixed;inset:0;z-index:1000" in css
     assert "height:100dvh" in css
+
+
+def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
+    shared = (ROOT / "backend/app/static/scanner-flow.js").read_text()
+    legacy = RECOGNITION_JS.read_text()
+    html = HTML.read_text()
+
+    assert "const analyzeCardPresence = (pixels, width, height, mode = \"RAW\") =>" in shared
+    assert "centered && rectangular && fourEdges" in shared
+    assert "this.autoArmed = false;" in shared
+    assert "this.absenceFrames >= 3" in shared
+    assert "this.presenceFrames < 3 || this.stableFrames < 3" in shared
+    assert "Item detected · hold steady inside the guide" in shared
+    assert '"Clear the guide briefly, then place your item inside"' in shared
+    assert "|| deviation >= 0.18" not in shared
+
+    # The existing mobile fallback must never retain the old 'busy
+    # background means card' heuristic when the shared module is missing.
+    assert "window.DropRateScanner?.analyzeCardPresence?.(pixels, width, height, ownerScanMode().toUpperCase())" in legacy
+    assert "present: detected?.present === true" in legacy
+    assert "batch.absenceFrames >= 3" in legacy
+    assert "|| deviation >= 0.18" not in legacy
+    assert 'src="/assets/scanner-flow.js?v=market-values-20261104"' in html
+    assert 'src="/assets/owner-recognition.js?v=market-values-20261104"' in html
 
 
 def test_mobile_batch_scanner_keeps_unresolved_cards_and_supports_search_correction() -> None:
@@ -297,7 +395,7 @@ def test_mobile_scanner_v2_requires_item_removal_before_rearming() -> None:
     js = RECOGNITION_JS.read_text()
 
     assert "batch.awaitingRemoval = true" in js
-    assert "batch.absenceFrames >= 2" in js
+    assert "batch.absenceFrames >= 3" in js
     assert "batch.awaitingRemoval = false" in js
     assert "batch.armed = true" in js
     assert 'ownerBatchSetCameraState("Item scanned · remove it before showing the next one")' in js
@@ -335,16 +433,16 @@ def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
     html = HTML.read_text()
     css = CSS.read_text()
 
-    assert "<title>Drop Rate — Seller Hub</title>" in html
-    assert "Drop Rate Seller Hub" in html
+    assert "<title>Drop Rate</title>" in html
+    assert 'alt="Drop Rate"' in html
     assert "Private workspace" not in html
-    assert "Seller account" in html
-    assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
+    assert "Sign in to Drop Rate" in html
+    assert '/assets/brand-assets/storefront-logo.png' in html
     assert 'drop-rate-logo.png?v=seller-hub-1' not in css
     assert 'drop-rate-founder-hq.png' not in css
     assert 'content:"SELLER HUB"' in css
 
-    assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
+    assert 'drop-rate-seller-hub-approved.png' not in html
     assert '/assets/brand-assets/drop-rate-seller-hub.png' not in html
 
 
@@ -369,8 +467,8 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
     css = CSS.read_text()
 
     assert 'class="dr-logo-image owner-topbar-logo"' in html
-    assert 'src="https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031"' in html
-    assert 'alt="Drop Rate Seller Hub"' in html
+    assert 'src="/assets/brand-assets/storefront-logo.png"' in html
+    assert 'alt="Drop Rate"' in html
     assert 'class="owner-topbar-divider"' not in html
     assert 'class="owner-topbar-product"' not in html
     assert "<small>DROP RATE</small>" not in html
@@ -387,10 +485,29 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
 def test_owner_portal_uses_integrated_seller_hub_brand_lockup() -> None:
     html = HTML.read_text()
     css = CSS.read_text()
-    assert 'src="https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031"' in html
-    assert 'alt="Drop Rate Seller Hub"' in html
+    assert 'src="/assets/brand-assets/storefront-logo.png"' in html
+    assert 'alt="Drop Rate"' in html
     assert 'class="dr-logo-image owner-topbar-logo"' in html
     assert "object-fit:contain" in css
     assert "background:none!important" in css
     assert "width:220px!important" in css
-    assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
+    assert 'drop-rate-seller-hub-approved.png' not in html
+
+
+def test_recommendation_tile_does_not_mislabel_manual_asking_totals():
+    html = HTML.read_text()
+    assert "Store / recommended value" not in html
+    assert 'id="owner-recommendation-note"' not in html
+    assert 'id="owner-asking-price-note"' in html
+
+
+def test_valuation_ui_shows_market_values_without_retail_metrics():
+    html = HTML.read_text()
+    assert "Recommended retail" not in html
+    assert 'id="owner-scan-store-value"' not in html
+    assert 'id="owner-scan-market-value"' in html
+    for name in ("owner-inventory.js", "owner-portal.js", "scanner-flow.js"):
+        source = (STATIC / name).read_text()
+        assert "Recommended retail:" not in source
+        assert "recommended retail:" not in source
+        assert "Suggested retail:" not in source

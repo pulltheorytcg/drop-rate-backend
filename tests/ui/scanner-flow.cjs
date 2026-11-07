@@ -1,0 +1,1088 @@
+const {JSDOM} = require('jsdom');
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const source = fs.readFileSync(path.join(__dirname, '../../backend/app/static/scanner-flow.js'), 'utf8');
+const priceSource = fs.readFileSync(path.join(__dirname, '../../backend/app/static/reference-value-display.js'), 'utf8');
+const deferred = () => {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return {promise, resolve, reject};
+};
+const tick = () => new Promise(resolve => setImmediate(resolve));
+let checks = 0;
+
+function fixture(role = 'seller', request = async () => ({}), options = {}) {
+  const dom = new JSDOM('<button id="launch">Scan</button>', {url:'https://example.test', runScripts:'outside-only', pretendToBeVisual:true});
+  const w = dom.window;
+  if(options.mobile)w.matchMedia=query=>({matches:query.includes('max-width: 900px'),media:query});
+  w.HTMLDialogElement.prototype.showModal = function(){ this.open = true; };
+  w.HTMLDialogElement.prototype.close = function(){ this.open = false; };
+  w.HTMLMediaElement.prototype.play = async () => {};
+  w.URL.createObjectURL = () => 'blob:preview';
+  w.URL.revokeObjectURL = () => {};
+  w.fetch = async () => ({ok:false});
+  w.eval(priceSource); w.eval(source);
+  const session = {value:{access_token:'test-token',user:{id:'account-a'}}};
+  const calls = [];
+  const scanner = new w.DropRateScanner.Scanner({role, session: () => session.value,
+    request: async (url, options) => { calls.push({url,...options}); return request(url, options); },
+    afterSave: async () => {}, viewInventory: () => { scanner.inventoryOpened = true; }, ...options});
+  return {dom, w, scanner, calls, session, finish: () => { scanner.destroy(); dom.window.close(); }};
+}
+
+function result(overrides = {}) {
+  return {run:{id:'run-1',decision:'EXACT_CANDIDATE',top_catalogue_id:'card-1'}, candidates:[{
+    id:'candidate-1',catalogue_id:'card-1',rank:1,source_kind:'CATALOGUE',market_value_minor:1500,
+    image_url:'https://example.test/card.png',candidate_snapshot:{name:'Card one',game:'One Piece',
+      card_number:'OP11-118',language:'English',variant:'Standard art',product_type:'CARD'},
+  }], ...overrides};
+}
+
+async function matched(scanner, quantity = 1) {
+  await scanner.recognise('data:image/jpeg;base64,AA==');
+  const item = scanner.items[0]; item.condition = 'Near Mint'; item.quantity = quantity; return item;
+}
+
+(async () => {
+  // A retail recommendation never replaces or adds a second price to the scan value.
+  {
+    const payload=result();payload.candidates[0].recommended_retail_minor=9900;
+    const f=fixture('seller',async()=>payload),item=await matched(f.scanner);
+    f.scanner.openDetails(item);
+    assert.match(f.scanner.details.textContent,/£15.00/);
+    assert.doesNotMatch(f.scanner.details.textContent,/Suggested retail|Recommended retail|£99.00/i);
+    assert.equal(f.calls.filter(call=>call.method&&call.method!=='GET'&&!call.url.endsWith('/resolve')).length,0);
+    f.finish();checks++;
+  }
+  // The exact failing entry point: leave the default tab selected, then scan
+  // books and a card. A book result must never open the ungraded-card sheet.
+  {
+    let number=0,review;
+    const f=fixture('seller',async url=>{
+      assert.equal(url,'/api/v1/recognition/resolve');
+      number++;
+      if(number===4)return result();
+      const run='11111111-1111-4111-8111-'+String(number).padStart(12,'0'),id='a'.repeat(24);
+      return {run:{id:run,decision:'NEEDS_REVIEW'},candidates:[],book_result:{run_id:run,status:'NEEDS_REVIEW',
+        fields:{system_code:'MARVEL_COMICS',series_title:'Recognised comic',issue_number:String(number)},
+        research:{status:'CANDIDATES',selected_candidate_id:id,candidates:[{id,image_path:`/api/v1/owner/books/research/${run}/cover/${id}`} ]}}};
+    },{openBooks:options=>{review=options;return true;}});
+    const s=f.scanner;s.dialog.showModal();
+    await Promise.all(Array.from({length:8},(_,i)=>s.recognise('photo-'+i)));
+    assert.equal(s.mode,'RAW');assert.equal(s.items.length,8);assert.equal(s.inFlight,0);
+    assert.equal(s.items.filter(item=>item.mode==='COMIC').length,7);
+    assert.equal(s.items[3].mode,'RAW');assert.equal(s.items[3].status,'matched');
+    assert.ok(s.items.filter(item=>item.mode==='COMIC').every(item=>!item.error && !item.selected));
+    s.showReview();assert.match(s.find('.dr-scan-review-count').textContent,/8 identified scans/);s.openDetails(s.items[0]);
+    assert.equal(review.recognition.fields.issue_number,'1');assert.equal(review.photos[0],'photo-0');
+    assert.equal(f.calls.length,8,'No duplicate book OCR or card intake');
+    assert.equal(s.items[0].bookResult.research.selected_candidate_id,'a'.repeat(24));
+    f.finish();checks++;
+  }
+  // An unmatched Korean card keeps its physical language, while its safely
+  // translated character name is presented in English. No English price/art.
+  {
+    const f=fixture('seller',async()=>({run:{id:'korean-run',decision:'NO_MATCH',
+      ai_observation:{object_type:'CARD',object_type_confidence:0.99,game:'Pokemon',
+        language:'Korean',name_guess:'제르네아스',name_english_guess:'Xerneas',
+        name_english_confidence:0.98,card_number:'042/063'}},candidates:[]}));
+    const s=f.scanner;await s.recognise('photo');const item=s.items[0];
+    assert.equal(item.mode,'RAW');assert.equal(item.guess,'Xerneas');
+    assert.equal(item.selected,null);assert.equal(s.ready(item),false);
+    s.openDetails(item);
+    assert.match(s.details.textContent,/Xerneas/);
+    assert.match(s.details.textContent,/Korean printing/);
+    assert.match(s.details.textContent,/No verified GBP value/);
+    assert.doesNotMatch(s.details.textContent,/English · Holofoil/);
+    f.finish();checks++;
+  }
+  // A Japanese catalogue identity keeps its Japanese printing and evidence,
+  // but the customer-facing title uses the explicitly labelled translation.
+  {
+    const candidate={id:'jp-candidate',rank:1,source_kind:'CATALOGUE',
+      catalogue_id:'jp-card',market_value_minor:null,
+      candidate_snapshot:{name:'ピカチュウ',language:'Japanese',game:'Pokemon',card_number:'025/100',product_type:'CARD'}};
+    const f=fixture('seller',async()=>({run:{id:'jp-run',decision:'NEEDS_REVIEW',
+      ai_observation:{object_type:'CARD',object_type_confidence:0.99,language:'Japanese',
+        name_guess:'ピカチュウ',name_english_guess:'Pikachu',name_english_confidence:0.99}},
+      candidates:[candidate]}));
+    const s=f.scanner;await s.recognise('photo');const item=s.items[0];
+    assert.equal(item.suggested.catalogue_id,'jp-card');
+    assert.match(s.find('.dr-scan-strip').textContent,/Pikachu/);
+    s.openDetails(item);
+    assert.match(s.details.textContent,/Japanese printing/);
+    assert.match(s.details.textContent,/Pikachu/);
+    assert.equal(s.totals().value,null);
+    f.finish();checks++;
+  }
+  // An exact R2 mirror uses the existing signed URL for fast artwork delivery;
+  // failed/expired signatures fall back to the run-scoped authenticated proxy.
+  {
+    const signed='https://r2.example.test/private-object?signed=short-lived';
+    const candidate={...result().candidates[0],r2_image_url:signed};
+    const f=fixture('seller',async()=>result({candidates:[candidate]}));
+    const s=f.scanner;await s.recognise('photo');
+    const wrap=f.w.document.createElement('div');
+    const image=f.w.document.createElement('img');wrap.append(image);
+    await s.artwork(image,s.items[0],candidate);
+    assert.equal(image.src,signed);
+    const proxyCalls=[];
+    f.w.fetch=async url=>{proxyCalls.push(url);return {ok:false};};
+    image.dispatchEvent(new f.w.Event('error'));await tick();await tick();
+    assert.equal(proxyCalls.length,1);
+    assert.match(proxyCalls[0],/\/api\/v1\/recognition\/runs\/run-1\/candidates\/candidate-1\/image/);
+    f.finish();checks++;
+  }
+  // Missing exact art shows the user's clearly marked scan, without implying
+  // catalogue verification or approval to use it for selling.
+  {
+    const f=fixture('seller',async()=>result());
+    const s=f.scanner;await s.recognise('data:image/jpeg;base64,AA==');
+    const item=s.items[0];
+    const wrap=s.thumb(item,'dr-scan-thumb',{source_kind:'CATALOGUE',candidate_snapshot:{name:'No art'}});
+    const image=wrap.querySelector('img'),label=wrap.querySelector('.dr-scan-capture-label');
+    assert.equal(image.src,'data:image/jpeg;base64,AA==');
+    assert.equal(label.hidden,false);
+    assert.equal(label.textContent,'Scan photo');
+    assert.match(image.title,/not verified catalogue artwork/);
+    assert.equal(item.selected?.r2_image_url,undefined);
+    f.finish();checks++;
+  }
+  // A saved copy receipt remains a labelled preview after temporary scan bytes
+  // are released. It is never copied into the selected catalogue identity.
+  {
+    const f=fixture(),s=f.scanner,url='https://cdn.shopify.com/s/files/1/1/files/own-scan.jpg?v=1';
+    const item={status:'added',photo:null,selected:{candidate_snapshot:{name:'Saved card'}},photoDraft:{asset:{
+      id:'own-photo',side:'FRONT',shopify_file_status:'READY',approval_status:'PENDING',photo_url:url}}};
+    const wrap=s.thumb(item),image=wrap.querySelector('img');
+    assert.equal(image.src,url);assert.equal(image.hidden,false);
+    assert.equal(image.referrerPolicy,'no-referrer');assert.equal(image.crossOrigin,'anonymous');
+    assert.equal(wrap.querySelector('.dr-scan-capture-label').hidden,false);
+    assert.equal(wrap.querySelector('.dr-scan-capture-label').textContent,'Scan photo');
+    assert.match(image.title,/not verified catalogue artwork/);
+    assert.equal(item.selected.image_url,undefined);assert.equal(item.photoDraft.asset.approval_status,'PENDING');
+    image.dispatchEvent(new f.w.Event('error'));
+    assert.equal(image.hidden,true);assert.equal(wrap.querySelector('.dr-scan-capture-label').hidden,true);
+    f.finish();checks++;
+  }
+  // Receipt previews accept only HTTPS Shopify CDN images, without credentials
+  // or a nonstandard port. Unready assets and another owner stay hidden.
+  {
+    const f=fixture(),s=f.scanner;
+    for(const url of ['http://cdn.shopify.com/scan.jpg','https://foreign.test/scan.jpg',
+      'https://cdn.shopify.com.evil.test/scan.jpg','https://user:password@cdn.shopify.com/scan.jpg',
+      'https://cdn.shopify.com:444/scan.jpg','//cdn.shopify.com/scan.jpg','javascript:alert(1)']){
+      const item={status:'added',photo:null,photoDraft:{asset:{id:'photo',shopify_file_status:'READY',photo_url:url}}};
+      const wrap=s.thumb(item);assert.equal(wrap.querySelector('img').getAttribute('src'),null,url);
+      assert.equal(wrap.querySelector('img').hidden,true,url);
+    }
+    const item={status:'added',photo:null,photoDraft:{asset:{id:'photo',shopify_file_status:'NOT_UPLOADED',
+      photo_url:'https://cdn.shopify.com/scan.jpg'}}};
+    assert.equal(s.thumb(item).querySelector('img').getAttribute('src'),null);
+    item.photoDraft.asset.shopify_file_status='READY';f.session.value={user:{id:'different-owner'}};
+    assert.equal(s.thumb(item).querySelector('img').getAttribute('src'),null);
+    item.mode='COMIC';item.savedPhotoPreview='https://cdn.shopify.com/book.jpg';
+    assert.equal(s.thumb(item).querySelector('img').getAttribute('src'),null);
+    f.finish();checks++;
+  }
+  // A PSA slab photographed under Auto must never display a raw-card price or
+  // become ready to save without checking its grader, certificate and grade.
+  {
+    const gradedRun={id:'graded-run',decision:'NEEDS_REVIEW',ai_observation:{
+      object_type:'GRADED_CARD',object_type_confidence:0.99,name_guess:'Charizard V',
+      language:'English',card_number:'019/189',set_name_guess:'Darkness Ablaze',
+      visible_markers:['PSA logo on grading label','Grading label: MINT 9',
+        'Grading label certificate number: 62398872']}};
+    const f=fixture('seller',async()=>result({run:gradedRun}));
+    const s=f.scanner;await s.recognise('photo');const item=s.items[0];
+    assert.equal(item.mode,'GRADED');assert.equal(item.grading_company,'PSA');
+    assert.equal(item.grade,'9');assert.equal(item.certificate_number,'62398872');
+    assert.equal(item.selected,null);assert.equal(s.totals().value,null);
+    assert.equal(f.calls.length,1,'Auto does not silently buy a second vision call');
+    s.openDetails(item);
+    assert.match(s.details.textContent,/No verified value is available here for this grader/);
+    assert.doesNotMatch(s.details.textContent,/£15\.00/);
+    assert.match(s.details.textContent,/Graded slab detected/);
+    f.finish();checks++;
+  }
+  // The default Auto tab must retain a verified sealed candidate for review,
+  // while the missing product code prevents silent sealed intake.
+  {
+    const candidate={id:'sealed-candidate',rank:1,source_kind:'CATALOGUE',
+      catalogue_id:'sealed-id',candidate_snapshot:{name:'Premium Card Collection -6 assort vol.1-',
+        language:'Japanese',product_type:'COLLECTION',collectible_type:'SEALED',
+        sealed_product_type:'PREMIUM_CARD_COLLECTION'}};
+    const f=fixture('seller',async()=>({run:{id:'sealed-run',decision:'NEEDS_REVIEW',
+      ai_observation:{object_type:'SEALED_PRODUCT',object_type_confidence:0.97,
+        name_guess:'Premium Card Collection',language:'Japanese'}},candidates:[candidate]}));
+    const s=f.scanner;await s.recognise('photo');const item=s.items[0];
+    assert.equal(item.mode,'SEALED');assert.equal(item.suggested.catalogue_id,'sealed-id');
+    assert.equal(item.selected,null);assert.equal(s.ready(item),false);
+    s.openDetails(item);
+    assert.match(s.details.textContent,/Japanese printing/);
+    assert.match(s.details.textContent,/sealed product needs identity review/i);
+    f.finish();checks++;
+  }
+  // A publisher comic cover that was not photo-matched remains a review cue,
+  // never an implied verified artwork match.
+  {
+    const id='a'.repeat(24),run='11111111-1111-4111-8111-111111111111';
+    const f=fixture('seller',async()=>({run:{id:run,decision:'NEEDS_REVIEW'},candidates:[],
+      book_result:{run_id:run,status:'NEEDS_REVIEW',fields:{series_title:'Deadpool / Batman',issue_number:'1'},
+        research:{status:'CANDIDATES',selected_candidate_id:id,candidates:[{
+          id,image_path:`/api/v1/owner/books/research/${run}/cover/${id}`,cover_matches_photo:false}]}}}),
+      {openBooks:()=>true});
+    const s=f.scanner;await s.recognise('photo');
+    assert.match(s.find('.dr-scan-strip').textContent,/Review publisher cover/);
+    assert.doesNotMatch(s.find('.dr-scan-strip').textContent,/Ready to add/);
+    f.finish();checks++;
+  }
+  // Slow publisher research never occupies a photo-reading slot. Removed,
+  // saved, or owner-switched items cannot accept its late response.
+  for (const outcome of ['complete','remove','saved','owner-change']) {
+    const jobs=[],updates=[];let nextRun=0;
+    const f=fixture('seller',async url=>{
+      if(url.endsWith('/recognize'))return {status:'NEEDS_REVIEW',run_id:'11111111-1111-4111-8111-'+String(++nextRun).padStart(12,'0'),
+        fields:{series_title:'Read book',issue_number:String(nextRun)},research:{status:'PENDING',candidates:[]}};
+      const job=deferred();jobs.push(job);return job.promise;
+    },{openBooks:()=>true});
+    f.w.DropRateBooks={updateScan:(id,result)=>updates.push({id,result})};
+    const s=f.scanner;s.setMode('COMIC');
+    await Promise.all(Array.from({length:5},(_,i)=>s.recognise('photo-'+i)));await tick();
+    assert.equal(nextRun,5);assert.equal(s.inFlight,0);assert.equal(jobs.length,2);assert.equal(s.bookResearchQueue.length,3);
+    assert.equal(s.items.length,5);assert.equal(s.editable(s.items[0]),true);assert.equal(s.atCapacity(),false);
+    const item=s.items[0],before=item.bookResult,controller=item.researchController;
+    if(outcome==='remove'){s.remove(item);assert.equal(controller.signal.aborted,true);}
+    if(outcome==='saved')item.bookSavePending=true;
+    if(outcome==='owner-change')f.session.value={access_token:'other',user:{id:'other'}};
+    const completed={...before,fields:{series_title:'Researched book',issue_number:'1'},research:{status:'CANDIDATES',candidates:[]}};
+    jobs[0].resolve(completed);await tick();await tick();
+    if(outcome==='complete'){assert.equal(item.bookResult,completed);assert.equal(updates.length,1);assert.equal(jobs.length,3);}
+    else{assert.equal(updates.length,0);assert.equal(item.bookResult,before);}
+    if(outcome==='remove')assert.ok(!s.items.includes(item));
+    f.finish();jobs.forEach(job=>job.resolve(completed));await tick();checks++;
+  }
+  {
+    const f=fixture(),controller=new f.w.AbortController();const calls=[];
+    const run='11111111-1111-4111-8111-111111111111',initial={run_id:run,research:{status:'PENDING',candidates:[]}};
+    const completed={...initial,research:{status:'UNAVAILABLE',candidates:[]}};
+    const result=await f.w.DropRateScanner.researchBook(async(url,options)=>{
+      calls.push({url,options});if(options.method==='POST')throw new Error('Connection interrupted');return completed;
+    },initial,['photo'],controller.signal);
+    assert.equal(result,completed);assert.equal(calls.length,2);assert.equal(calls[1].url,'/api/v1/owner/books/recognize/'+run);
+    assert.equal(calls.filter(x=>x.options.method==='POST').length,1);f.finish();checks++;
+  }
+  // Book mode stays in the live scanner; OCR suggestions never use card intake.
+  {
+    const pending=deferred();let review;
+    const f=fixture('seller',()=>pending.promise,{openBooks:options=>{review=options;return true;}});
+    const s=f.scanner;s.dialog.showModal();s.view='camera';const stream={getTracks:()=>[]};s.stream=stream;
+    s.find('[data-mode="COMIC"]').click();assert.equal(s.mode,'COMIC');assert.ok(s.dialog.open);
+    assert.equal(s.stream,stream);assert.equal(review,undefined);assert.match(s.find('.dr-scan-status').textContent,/book cover/);
+    const recognition=s.recognise('data:image/jpeg;base64,AA==');await tick();
+    assert.equal(f.calls[0].url,'/api/v1/owner/books/recognize');assert.deepEqual(JSON.parse(f.calls[0].body),{images:['data:image/jpeg;base64,AA=='],defer_research:true});
+    s.setMode('RAW');assert.equal(s.mode,'COMIC','Mode stays locked during book recognition');
+    pending.resolve({status:'NEEDS_REVIEW',fields:{system_code:'MANGA',series_title:'Fixture Manga',issue_number:'2'},uncertain_fields:['printing_number']});await recognition;
+    const item=s.items[0];assert.equal(item.status,'unresolved');assert.equal(s.ready(item),false);
+    assert.match(s.find('.dr-scan-strip').textContent,/Fixture Manga Vol. 2/);
+    assert.equal(s.find('.dr-scan-thumb img').src,item.photo);assert.equal(f.calls.length,1);
+    s.showReview();assert.doesNotMatch(s.review.textContent,/Raw card/);await s.saveAll();
+    assert.ok(!s.dialog.open);assert.equal(review.recognition,item.bookResult);assert.equal(review.photos[0],item.photo);
+    assert.equal(f.calls.length,1,'Review is not a write or a second OCR request');
+    assert.throws(()=>s.freeze(item),/book intake/);
+    review.onSaved({catalogue:{name:'Confirmed manga'}});review.onClose();
+    assert.equal(item.status,'added');assert.equal(item.photo,null);assert.ok(s.dialog.open);assert.equal(s.view,'review');
+    assert.equal(s.find('[data-action="save"]').textContent,'View collection');
+    s.openDetails(item);assert.equal(item.status,'added');await s.saveAll();assert.equal(s.inventoryOpened,true);
+    f.finish();checks++;
+  }
+  // Removing any queued scan works before/after recognition; late replies cannot resurrect it.
+  for (const mode of ['RAW','GRADED','SEALED','COMIC']) {
+    const pending=deferred();const f=fixture('seller',()=>pending.promise,{openBooks:()=>true});
+    const s=f.scanner;s.setMode(mode);const reading=s.recognise('photo');await tick();
+    const item=s.items[0],controller=item.recognitionController;
+    assert.equal(s.inFlight,1);assert.equal(s.removable(item),true);
+    const remove=s.find('.dr-scan-remove-queued');assert.equal(remove.disabled,false);remove.click();
+    assert.equal(s.items.length,0);assert.equal(s.inFlight,0);assert.equal(controller.signal.aborted,true);
+    pending.resolve(mode==='COMIC'?{status:'NEEDS_REVIEW',fields:{series_title:'Late book'}}:result());await reading;
+    assert.equal(s.items.length,0);assert.equal(s.inFlight,0);assert.equal(item.photo,null);f.finish();checks++;
+  }
+  {
+    const f=fixture('seller',async()=>result()),s=f.scanner;
+    const item=await matched(s);s.showReview();
+    assert.ok(s.review.querySelector('button[aria-label^="Remove scan:"]'));
+    item.requests=[{key:'pending'}];s.render();assert.equal(s.removable(item),false);s.remove(item);assert.equal(s.items.length,1);
+    item.status='added';s.render();s.review.querySelector('button[aria-label^="Dismiss saved scan:"]').click();
+    assert.equal(s.items.length,0);assert.equal(f.calls.length,1,'Dismissing a saved scan never deletes inventory');f.finish();checks++;
+  }
+  // Book artwork uses only the chosen owner-bound publisher path and survives its save receipt.
+  {
+    const run='11111111-1111-4111-8111-111111111111',id='aaaaaaaaaaaaaaaaaaaaaaaa';
+    const path='/api/v1/owner/books/research/'+run+'/cover/'+id;let review;const imageCalls=[];
+    const data={status:'NEEDS_REVIEW',run_id:run,fields:{series_title:'Book',issue_number:'1'},
+      research:{selected_candidate_id:id,candidates:[{id,image_path:path,cover_matches_photo:true}]}};
+    const f=fixture('seller',async()=>data,{openBooks:opts=>{review=opts;return true;}}),s=f.scanner;
+    f.w.fetch=async url=>{imageCalls.push(url);return {ok:true,blob:async()=>new f.w.Blob(['cover'],{type:'image/png'})};};
+    s.setMode('COMIC');await s.recognise('photo');await tick();await tick();
+    assert.equal(s.find('.dr-scan-thumb img').src,'blob:preview');assert.deepEqual(imageCalls,[path]);
+    assert.ok(s.find('.dr-scan-strip').textContent.includes('Review and add'));
+    const item=s.items[0];s.openDetails(item);review.onSaveState(true);assert.equal(s.removable(item),false);
+    const newRun='22222222-2222-4222-8222-222222222222',newId='bbbbbbbbbbbbbbbbbbbbbbbb';
+    const newPath='/api/v1/owner/books/research/'+newRun+'/cover/'+newId;
+    review.onSaved({catalogue:{name:'Saved book'}},{new_catalogue:{comic_printing:{series_title:'Book'}},research_candidate_id:newId,language:'English'},
+      {run_id:newRun,research:{candidates:[{id:newId,image_path:newPath}]},photoResult:{items:[{
+        id:'own-front',side:'FRONT',shopify_file_status:'READY',photo_url:'https://cdn.shopify.com/s/files/own-book.jpg'}]}});
+    review.onSaveState(false);assert.equal(s.removable(item),true);review.onClose();await tick();
+    assert.equal(s.find('.dr-scan-review-thumb img').src,'blob:preview');
+    assert.equal(item.bookResult.run_id,newRun);assert.ok(imageCalls.includes(newPath),'A rescan must keep its new cover receipt');f.finish();checks++;
+  }
+  // A book with no publisher cover uses only its FRONT upload receipt after
+  // onSaved, preserving the one existing callback and its catalogue metadata.
+  {
+    let review;const front='https://cdn.shopify.com/s/files/front-book.jpg';
+    const f=fixture('seller',async()=>({status:'NEEDS_REVIEW',fields:{series_title:'Book',issue_number:'1'}}),
+      {openBooks:options=>{review=options;return true;}}),s=f.scanner;
+    s.setMode('COMIC');await s.recognise('data:image/jpeg;base64,AA==');const item=s.items[0];
+    s.openDetails(item);
+    review.onSaved({catalogue:{name:'Saved book'}},{new_catalogue:{comic_printing:{series_title:'Book',issue_number:'1'}},language:'English'},
+      {photoResult:{items:[{id:'back',side:'BACK',shopify_file_status:'READY',photo_url:'https://cdn.shopify.com/s/files/back-book.jpg'},
+        {id:'front',side:'FRONT',shopify_file_status:'READY',approval_status:'PENDING',photo_url:front}]}});
+    assert.equal(item.status,'added');assert.equal(item.photo,null);assert.equal(item.savedPhotoPreview,front);
+    const wrap=s.thumb(item),image=wrap.querySelector('img');
+    assert.equal(image.src,front);assert.equal(wrap.querySelector('.dr-scan-capture-label').hidden,false);
+    assert.match(image.title,/not verified catalogue artwork/);assert.equal(item.bookResult.fields.series_title,'Book');
+    assert.equal(f.calls.length,1,'Previewing a saved book cannot repeat intake or recognition');
+    f.finish();checks++;
+  }
+  // Failed reads retain the cover for review/retry, with no guessed identity or price.
+  for(const response of ['NO_MATCH','error']) {
+    let review;const f=fixture('seller',async()=>{if(response==='error')throw new Error('Provider unavailable');return {status:'NO_MATCH',warnings:['No book visible']};},
+      {openBooks:options=>{review=options;return true;}});
+    f.scanner.setMode('COMIC');await f.scanner.recognise('photo');const item=f.scanner.items[0];
+    assert.equal(item.status,'unresolved');assert.equal(f.scanner.ready(item),false);assert.equal(f.scanner.totals().value,null);
+    f.scanner.openDetails(item);assert.equal(review.photos[0],'photo');assert.equal(review.recognition.status,'NO_MATCH');
+    assert.equal(f.calls.length,1);f.finish();checks++;
+  }
+  // Late book reads/review callbacks cannot populate a different account or a destroyed scanner.
+  for(const action of ['switch','destroy']) {
+    const pending=deferred();const f=fixture('seller',()=>pending.promise,{openBooks:()=>true});
+    f.scanner.setMode('COMIC');const reading=f.scanner.recognise('private-photo');await tick();
+    if(action==='switch')f.session.value={access_token:'b',user:{id:'account-b'}};else f.scanner.destroy();
+    pending.resolve({status:'NEEDS_REVIEW',fields:{series_title:'Private book'}});await reading;
+    assert.ok(!f.scanner.items.some(item=>item.bookResult));f.finish();checks++;
+  }
+  // An uncertain book save belongs to its original scan, even if the seller
+  // tries to review a different queued book before retrying that same request.
+  {
+    let fail=true;
+    const f=fixture('seller',async url=>{
+      if(url.endsWith('/recognize'))return {status:'NEEDS_REVIEW',fields:{system_code:'MANGA',series_title:'Fixture Manga',issue_number:'1',language:'English',publisher:'Fixture publisher',book_format:'MANGA'}};
+      if(url.endsWith('/intake')&&fail){fail=false;throw new Error('Response lost');}
+      if(url.includes('/photo/upload?'))return {asset:{id:'book-front',side:'FRONT',shopify_file_status:'READY',
+        approval_status:'PENDING',photo_url:'https://cdn.shopify.com/s/files/synthetic-book-front.jpg'},inventory_version:1};
+      return {catalogue:{name:'Saved manga'},inventory:{id:'book-copy',version:1}};
+    },{openBooks:options=>f.w.DropRateBooks.open(options)});
+    f.w.state={session:f.session.value};f.w.apiRequest=f.scanner.options.request;
+    f.w.loadOwnerInventory=async()=>{};f.w.loadOwnerOverview=async()=>{};
+    f.w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/scan-photos.js'),'utf8'));
+    f.w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner-books.js'),'utf8'));
+    const s=f.scanner;s.setMode('COMIC');await s.recognise('data:image/jpeg;base64,AA==');await s.recognise('data:image/jpeg;base64,AQ==');
+    const [first,second]=s.items;s.openDetails(first);
+    const doc=f.w.document,form=doc.getElementById('owner-book-form');
+    form.dispatchEvent(new f.w.Event('submit',{cancelable:true}));await tick();await tick();
+    assert.equal(doc.getElementById('owner-book-save').textContent,'Retry this book');
+    doc.getElementById('owner-book-close').click();s.openDetails(second);
+    assert.match(doc.getElementById('owner-book-message').textContent,/previous book save/);
+    assert.ok(doc.getElementById('owner-book-fields').disabled);
+    form.dispatchEvent(new f.w.Event('submit',{cancelable:true}));await tick();await tick();
+    assert.equal(first.status,'added');assert.equal(second.status,'unresolved');
+    const saves=f.calls.filter(call=>call.url.endsWith('/intake'));
+    assert.equal(saves.length,2);assert.equal(saves[0].body,saves[1].body);
+    assert.equal(saves[0].headers['Idempotency-Key'],saves[1].headers['Idempotency-Key']);
+    assert.equal(f.calls.filter(call=>call.url.includes('/photo/upload?')).length,1);
+    assert.equal(first.savedPhotoPreview,'https://cdn.shopify.com/s/files/synthetic-book-front.jpg');
+    assert.ok(!f.calls.some(call=>call.url.includes('recognition-intake')||call.url.includes('/feedback')));
+    f.w.DropRateBooks.reset();f.finish();checks++;
+  }
+  {
+    const f=fixture();const imagePath='/api/v1/catalogue-browser/reference-image?provider_id=OP16-077';
+    const blob=new f.w.Blob(['image'],{type:'image/png'});const calls=[];
+    f.w.fetch=async(path,options)=>{calls.push({path,...options});return {ok:true,blob:async()=>blob};};
+    assert.equal(await f.scanner.requestImage(imagePath),blob);
+    assert.equal(calls[0].headers.Authorization,'Bearer test-token');
+    await assert.rejects(f.scanner.requestImage('https://evil.test/image'),/Invalid artwork/);assert.equal(calls.length,1);
+    f.w.fetch=async()=>({ok:true,blob:async()=>new f.w.Blob(['html'],{type:'text/html'})});
+    await assert.rejects(f.scanner.requestImage(imagePath),/Invalid artwork/);f.finish();checks++;
+  }
+  {
+    const f=fixture(),pending=deferred();f.w.fetch=()=>pending.promise;
+    const result=f.scanner.requestImage('/api/v1/catalogue-browser/reference-image?provider_id=OP16-077');await tick();
+    f.session.value={access_token:'other-token',user:{id:'account-b'}};
+    pending.resolve({ok:true,blob:async()=>new f.w.Blob(['image'],{type:'image/png'})});
+    await assert.rejects(result,/account changed/);f.finish();checks++;
+  }
+  // A real pending state is visible immediately; unresolved responses cannot enter inventory.
+  {
+    const pending = deferred(); const f = fixture('seller', () => pending.promise);
+    const promise = f.scanner.recognise('data:image/jpeg;base64,AA==');
+    assert.equal(f.scanner.items.length, 1);
+    assert.match(f.scanner.find('.dr-scan-strip').textContent, /Photo captured · identifying/);
+    assert.ok(f.scanner.find('.dr-scan-tile').disabled);
+    f.scanner.showReview();
+    assert.ok(f.scanner.find('[data-action="save"]').disabled);
+    pending.resolve(result({run:{id:'run-1',decision:'NEEDS_REVIEW'}})); await promise;
+    assert.equal(f.scanner.items[0].selected, null);
+    assert.ok(f.scanner.find('[data-action="save"]').disabled);
+    await f.scanner.saveAll(); assert.equal(f.calls.length, 1);
+    assert.equal(f.scanner.find('.dr-scan-review-total').textContent, 'Market value unavailable');
+    f.finish(); checks += 1;
+  }
+  // Both roles use their existing intake endpoint, never an owner supplied by the browser.
+  for (const role of ['seller', 'founder']) {
+    const f = fixture(role, async url => url.endsWith('/resolve') ? result() : url.endsWith('/intake') || url.endsWith('/recognition-intake')
+      ? {inventory:{inventory_code:'INV-1',identity_confirmed:false}} : {});
+    const item = await matched(f.scanner);
+    f.scanner.showReview(); await f.scanner.saveAll();
+    const save = f.calls.find(call => call.headers?.['Idempotency-Key']);
+    assert.equal(save.url, role === 'seller' ? '/api/v1/owner/recognition-intake' : '/api/v1/inventory/intake');
+    const body = JSON.parse(save.body);
+    assert.equal(body.condition, 'Near Mint'); assert.equal(body.owner_id, undefined);
+    assert.equal(body.identity_confirmed, role === 'seller' ? undefined : false);
+    assert.equal(item.status, 'added'); assert.equal(item.photo, null);
+    assert.ok(f.calls.findIndex(call => call.url.endsWith('/feedback')) < f.calls.indexOf(save));
+    assert.match(f.scanner.find('.dr-scan-save-message').textContent, /Listing for sale is a separate action/);
+    await f.scanner.saveAll(); assert.equal(f.scanner.inventoryOpened, true);
+    f.finish(); checks += 1;
+  }
+  // Partial multi-copy save, lost response and double click: identical keys and payload on retry.
+  {
+    const firstFeedback = deferred(); let fail = true, saves = 0;
+    const f = fixture('seller', async url => {
+      if (url.endsWith('/resolve')) return result();
+      if (url.endsWith('/feedback')) return firstFeedback.promise;
+      if (url.endsWith('/recognition-intake')) {
+        saves += 1;
+        if (saves === 2 && fail) throw new Error('Connection lost after send');
+        return {inventory:{inventory_code:'INV-' + saves}};
+      }
+      return {};
+    });
+    const item = await matched(f.scanner, 3); f.scanner.showReview();
+    const saving = f.scanner.saveAll(); await f.scanner.saveAll();
+    await tick();
+    assert.equal(f.calls.filter(call => call.url.endsWith('/feedback')).length, 1);
+    f.scanner.remove(item); f.scanner.openDetails(item);
+    assert.equal(f.scanner.items.length, 1); assert.equal(f.scanner.edit, null);
+    firstFeedback.resolve({}); await saving;
+    assert.equal(item.status, 'save-error'); assert.equal(item.requests[0].result.inventory.inventory_code, 'INV-1');
+    assert.ok(!f.scanner.find('[data-action="save"]').disabled);
+    assert.equal(f.scanner.find('[data-action="save"]').textContent, 'Retry remaining saves');
+    const lost = f.calls.filter(call => call.url.endsWith('/recognition-intake'))[1];
+    // Even accidental in-memory edits cannot alter the immutable request after an uncertain save.
+    item.condition = 'Damaged'; item.quantity = 12; fail = false;
+    await f.scanner.saveAll();
+    const attempts = f.calls.filter(call => call.url.endsWith('/recognition-intake'));
+    assert.equal(attempts.length, 4); assert.equal(attempts[2].body, lost.body);
+    assert.equal(attempts[2].headers['Idempotency-Key'], lost.headers['Idempotency-Key']);
+    assert.equal(new Set(attempts.map(call => call.headers['Idempotency-Key'])).size, 3);
+    assert.equal(item.status, 'added');
+    f.finish(); checks += 1;
+  }
+  // Condition is optional for collection entry; confirmation saves selected copies.
+  {
+    const f = fixture('seller', async url => url.endsWith('/resolve') ? result() : url.endsWith('/recognition-intake') ? {inventory:{inventory_code:'INV-CONFIRMED'}} : {});
+    await f.scanner.recognise('photo'); const item = f.scanner.items[0]; f.scanner.showReview();
+    assert.ok(!f.scanner.find('[data-action="save"]').disabled);
+    f.scanner.openDetails(item);
+    const condition = f.scanner.details.querySelector('select'); condition.value = 'Lightly Played';
+    condition.dispatchEvent(new f.w.Event('change'));
+    const quantity = f.scanner.details.querySelector('[aria-label="Quantity"]'); quantity.value = '1.5'; quantity.dispatchEvent(new f.w.Event('input'));
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    quantity.value = '2'; quantity.dispatchEvent(new f.w.Event('input'));
+    await f.scanner.confirmDetails();
+    assert.equal(item.condition, 'Lightly Played'); assert.equal(item.quantity, 2);
+    assert.equal(item.status, 'added');
+    assert.equal(f.calls.filter(call => call.url.endsWith('/recognition-intake')).length, 2, 'One confirmation saves the two selected copies');
+    assert.match(f.scanner.find('.dr-scan-review-total').textContent, /£30.00/);
+    f.finish(); checks += 1;
+  }
+  // Search corrections are explicit; stale search results cannot overwrite the newer query.
+  {
+    const old = deferred(), latest = deferred();
+    const f = fixture('seller', async (url, options) => {
+      if (url.endsWith('/resolve')) return result();
+      if (url.includes('q=old')) return old.promise;
+      if (url.includes('q=new')) return latest.promise;
+      if (url.endsWith('/references/select')) return {catalogue_id:'new-canonical'};
+      if (url.endsWith('/recognition-intake')) return {inventory:{inventory_code:'INV-CORRECTED'}};
+      return {};
+    });
+    const item = await matched(f.scanner); f.scanner.openDetails(item); f.scanner.openSearch();
+    const oldPromise = f.scanner.search('old', f.scanner.searchRevision);
+    f.scanner.searchRevision += 1;
+    const latestPromise = f.scanner.search('new', f.scanner.searchRevision);
+    const row = {name:'Correct printing',requires_materialization:true,provider:'reference-provider',system_code:'ONE_PIECE_CARD_GAME',
+      language:'English',provider_id:'provider-1',card_number:'OP11-118',variant:'Alternate art'};
+    latest.resolve({items:[row]}); await latestPromise;
+    old.resolve({items:[{id:'wrong',name:'Stale choice'}]}); await oldPromise;
+    assert.match(f.scanner.details.textContent, /Correct printing/); assert.doesNotMatch(f.scanner.details.textContent, /Stale choice/);
+    assert.ok(f.calls.find(call => call.url.includes('q=new')).url.startsWith('/api/v1/catalogue-browser/products?'));
+    assert.ok(f.calls.find(call => call.url.includes('q=new')).url.includes('owned=all'));
+    await f.scanner.chooseSearch(row); await f.scanner.confirmDetails(); f.scanner.showReview(); await f.scanner.saveAll();
+    const feedback = f.calls.find(call => call.url.endsWith('/feedback'));
+    assert.equal(JSON.parse(feedback.body).outcome, 'CORRECTED_BY_SEARCH');
+    assert.equal(JSON.parse(feedback.body).selected_catalogue_id, 'new-canonical');
+    f.finish(); checks += 1;
+  }
+  // Unverified sealed candidates cannot be confirmed through the raw-card chooser.
+  {
+    const data = result(); data.run.decision = 'NEEDS_REVIEW'; data.candidates[0].candidate_snapshot.product_type = 'SEALED';
+    const f = fixture('seller', async () => data); await f.scanner.recognise('photo');
+    f.scanner.openDetails(f.scanner.items[0]);
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    assert.equal(f.scanner.ready(f.scanner.items[0]), false);
+    f.finish(); checks += 1;
+  }
+  // Failed runs need a successful rescan before inventory; retry replaces the pending scan.
+  {
+    let failed = true;
+    const f = fixture('seller', async () => failed ? result({run:{id:'run-failed',decision:'FAILED'}}) : result());
+    await f.scanner.recognise('photo'); const item = f.scanner.items[0];
+    f.scanner.openDetails(item); f.scanner.edit.condition = 'Near Mint'; f.scanner.updateDetailsSave();
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    assert.match(f.scanner.details.textContent, /Retry this photo/);
+    failed = false; f.scanner.closeDetails(); await f.scanner.recognise(item.photo, item);
+    assert.equal(f.scanner.items.length, 1); assert.equal(item.run.id, 'run-1');
+    f.finish(); checks += 1;
+  }
+  // Cards and books use the same stable-object/removal gate for auto captures.
+  for (const mode of ['RAW', 'COMIC']) {
+    const f = fixture('seller', async()=>({}), {openBooks:()=>true}); const s = f.scanner; s.setMode(mode);
+    s.stream = {getTracks: () => []}; s.view = 'camera';
+    Object.defineProperty(s.video, 'videoWidth', {value: 1920});
+    let present = false, captured = 0;
+    s.frame = () => ({present, fingerprint: new Uint8Array(560).fill(100)});
+    s.capture = () => { captured += 1; s.awaitingRemoval = true; s.stableFrames = 0; };
+    s.stableFrames = 0; s.presenceFrames = 0; s.absenceFrames = 0;
+    for (let i = 0; i < 10; i++) s.tick(); assert.equal(captured, 0);
+    present = true; for (let i = 0; i < 6; i++) s.tick(); assert.equal(captured, 1);
+    for (let i = 0; i < 10; i++) s.tick(); assert.equal(captured, 1);
+    present = false; s.tick(); s.tick(); s.tick(); present = true;
+    for (let i = 0; i < 6; i++) s.tick(); assert.equal(captured, 2);
+    f.finish(); checks += 1;
+  }
+  // Session changes and logout discard pending recognition, release camera and stop further writes.
+  {
+    const pending = deferred(); const f = fixture('seller', () => pending.promise);
+    const recognition = f.scanner.recognise('private-photo');
+    f.scanner.destroy(); pending.resolve(result()); await recognition;
+    assert.equal(f.scanner.items.length, 0); assert.equal(f.w.document.querySelector('dialog'), null);
+    f.finish(); checks += 1;
+  }
+  {
+    const pending = deferred(); const f = fixture('seller', async url => url.endsWith('/resolve') ? result() : pending.promise);
+    await matched(f.scanner, 3); f.scanner.showReview(); const save = f.scanner.saveAll();
+    f.session.value = {access_token:'other-token',user:{id:'account-b'}};
+    pending.resolve({}); await save;
+    assert.equal(f.calls.filter(call => call.url.endsWith('/recognition-intake')).length, 0);
+    f.finish(); checks += 1;
+  }
+  // A refresh response cannot replace a different login or send the old batch under its token.
+  {
+    const pending = deferred(); const f = fixture();
+    const expiredToken = 'header.' + Buffer.from(JSON.stringify({sub:'account-a',exp:1})).toString('base64url') + '.signature';
+    f.session.value = {access_token:expiredToken,refresh_token:'old-refresh',user:{id:'account-a'}};
+    f.scanner.options.refreshSession = () => pending.promise;
+    let saved = 0; f.scanner.options.saveSession = value => { saved += 1; f.session.value = value; };
+    const work = f.scanner.request('/api/v1/inventory/intake', {method:'POST'});
+    f.session.value = {access_token:'new-account-token',user:{id:'account-b'}};
+    pending.resolve({access_token:'refreshed-a',user:{id:'account-a'}});
+    await assert.rejects(work, /account changed/);
+    assert.equal(saved, 0); assert.equal(f.calls.length, 0);
+    f.finish(); checks += 1;
+  }
+  // A direct Scan tap prefers the live camera, even when previous recognised
+  // cards are still queued for review; a later Next keeps that queue intact.
+  {
+    const f=fixture('seller',async()=>result());
+    await f.scanner.recognise('data:image/jpeg;base64,AA==');
+    const queued=f.scanner.items[0];queued.requests=[{key:'unsaved-copy',result:null}];
+    let count=0,stops=0;
+    Object.defineProperty(f.w.navigator,'mediaDevices',{configurable:true,value:{
+      getUserMedia:async()=>{count++;return {getTracks:()=>[{stop(){stops++;}}],getVideoTracks:()=>[]};}
+    }});
+    await f.scanner.open('RAW',{preferCamera:true});
+    assert.equal(f.scanner.view,'camera');
+    assert.equal(f.scanner.items.length,1);
+    assert.equal(f.scanner.items[0].requests[0].key,'unsaved-copy');
+    assert.equal(count,1);
+    await f.scanner.open('RAW',{preferCamera:true});
+    assert.equal(count,1,'Repeated open should not restart an already-running camera');
+    f.scanner.showReview();
+    assert.equal(f.scanner.items.length,1);
+    f.scanner.close();assert.ok(stops>=1);
+    f.finish();checks++;
+  }
+  // A late camera permission grant after closing never leaves hardware streaming.
+  {
+    const pending = deferred(); const f = fixture(); let stopped = 0;
+    Object.defineProperty(f.w.navigator, 'mediaDevices', {value:{getUserMedia: () => pending.promise}});
+    const opening = f.scanner.open(); f.scanner.close();
+    pending.resolve({getTracks: () => [{stop: () => {stopped += 1;}}]}); await opening;
+    assert.equal(stopped, 1); assert.equal(f.scanner.stream, null);
+    f.finish(); checks += 1;
+  }
+  // Permission denial leaves gallery usable, and surfaces the actual blocked state.
+  {
+    const f = fixture(); Object.defineProperty(f.w.navigator, 'mediaDevices', {value:{getUserMedia: async () => {
+      throw Object.assign(new Error('Permission denied'), {name:'NotAllowedError'});
+    }}});
+    await f.scanner.open();
+    assert.match(f.scanner.find('.dr-scan-status').textContent, /Allow camera access/);
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled, false);
+    f.finish(); checks += 1;
+  }
+  // Torch is offered only when the active track supports it, and is stopped with the camera.
+  for (const [name, message] of [['NotFoundError', /No camera was found/], ['NotReadableError', /camera is busy/], ['Error', /Camera unavailable/]]) {
+    const f=fixture();Object.defineProperty(f.w.navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+      throw Object.assign(new Error('Requested device not found'),{name});
+    }}});
+    await f.scanner.open();assert.match(f.scanner.find('.dr-scan-status').textContent,message);
+    assert.match(f.scanner.find('.dr-scan-status').textContent,/photo below/);
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);f.finish();checks++;
+  }
+  {
+    const f = fixture(); const constraints = []; let stopped = 0;
+    const track = {getCapabilities: () => ({torch:true}), applyConstraints: async value => constraints.push(value), stop: () => {stopped += 1;}};
+    Object.defineProperty(f.w.navigator, 'mediaDevices', {value:{getUserMedia: async () => ({getTracks: () => [track],getVideoTracks: () => [track]})}});
+    await f.scanner.open();
+    assert.equal(f.scanner.find('[data-action="torch"]').hidden, false);
+    await f.scanner.toggleTorch(); assert.equal(constraints[0].advanced[0].torch, true);
+    assert.equal(f.scanner.find('[data-action="torch"]').textContent, 'Torch on');
+    f.scanner.close(); assert.equal(stopped, 1); assert.equal(f.scanner.torchOn, false);
+    f.finish(); checks += 1;
+  }
+  // Modes are visible, and a completed capture keeps its original type.
+  {
+    const f = fixture('seller', async () => result({candidates:[{...result().candidates[0],
+      candidate_snapshot:{...result().candidates[0].candidate_snapshot, product_type:'SEALED'}}]}));
+    assert.deepEqual([...f.scanner.dialog.querySelectorAll('[data-mode]')].map(n => n.textContent), ['Auto','Graded','Sealed']);
+    await f.scanner.recognise('photo'); assert.equal(f.scanner.items[0].selected, null);
+    f.scanner.setMode('SEALED'); await f.scanner.recognise('photo');
+    assert.equal(f.scanner.ready(f.scanner.items[1]), true);
+    f.scanner.setMode('RAW'); assert.equal(f.scanner.items[1].mode, 'SEALED');
+    f.finish(); checks += 1;
+  }
+  for (const role of ['seller','founder']) {
+    const f = fixture(role, async url => url.endsWith('/scan') ? {
+      observation:{grader:'BGS',certificate_number:'123456789',grade:'9.5',card_name:'Card one',card_number:'OP11-118'},
+      conflicts:[],catalogue_search_seed:'OP11-118',provider_error:'PROVIDER_NOT_CONFIGURED',
+    } : url.includes('catalogue') ? {items:[{id:'card-1',name:'Card one',product_type:'CARD',market_value_minor:1500}]}
+      : {inventory:{inventory_code:'INV-SLAB',identity_confirmed:false}});
+    f.scanner.setMode('GRADED'); await f.scanner.recognise('photo');
+    const item = f.scanner.items[0]; assert.equal(item.selected, null);
+    f.scanner.openDetails(item); assert.equal(f.scanner.edit.grade, '9.5');
+    assert.doesNotMatch(f.scanner.details.querySelector('.dr-scan-detail-identity').textContent, /£15/);
+    await f.scanner.confirmDetails(); assert.equal(f.scanner.ready(item), true);
+    f.scanner.showReview(); await f.scanner.saveAll();
+    const save = f.calls.find(call => call.headers?.['Idempotency-Key']);
+    assert.equal(save.url, role === 'seller' ? '/api/v1/owner/graded-certificate-intake' : '/api/v1/inventory/graded-intake');
+    assert.deepEqual(JSON.parse(save.body), {selected_catalogue_id:'card-1',grading_company:'BGS',grade:'9.5',certificate_number:'123456789',language:null});
+    assert.equal(f.calls.some(call => call.url.endsWith('/feedback')), false);
+    f.finish(); checks += 1;
+  }
+  {
+    const f = fixture('seller', async () => ({provider:'PSA',certificate_number:'12345678',grade:'10',verified:true}));
+    f.scanner.manualSlab(); const item=f.scanner.items[0];
+    item.slab={conflicts:['grade']}; f.scanner.edit.selected={catalogue_id:'card-1'};
+    f.scanner.edit.grade='10'; f.scanner.edit.certificate_number='12345678';
+    await f.scanner.lookupSlab();
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    assert.deepEqual(item.slab.conflicts,['grade']);
+    f.finish(); checks += 1;
+  }
+  {
+    const pending=deferred(); const f=fixture('seller', () => pending.promise);
+    const resolving=f.scanner.recognise('photo'); f.scanner.setMode('GRADED');
+    assert.equal(f.scanner.mode,'RAW'); pending.resolve(result()); await resolving;
+    assert.equal(f.scanner.items[0].mode,'RAW');
+    f.finish(); checks += 1;
+  }
+  // An unreadable number can be human-confirmed against the governed reference.
+  // Missing prices do not block this path; condition remains an explicit choice.
+  for (const role of ['seller', 'founder']) {
+    const reference = {provider:'Punk Records', system_code:'ONE_PIECE_CARD_GAME', language:'Japanese', provider_id:'OP12-106_p2'};
+    const data = result({run:{id:'run-law', decision:'NEEDS_REVIEW', top_catalogue_id:null}, candidates:[{
+      id:'law-candidate', rank:1, score:.98125, source_kind:'PROVIDER', catalogue_id:null,
+      market_value_minor:null, reference_selection:reference,
+      candidate_snapshot:{name:'Trafalgar Law',base_card_id:'OP12-106',language:'Japanese',art_treatment:'Parallel'}
+    }]});
+    const f = fixture(role, async (url, options) => {
+      if (url.endsWith('/resolve')) return data;
+      if (url.endsWith('/references/select')) return {catalogue_id:'law-printing',selected:{card_number:'OP12-106'}};
+      if (url.endsWith('/recognition-intake') || url.endsWith('/inventory/intake')) return {inventory:{inventory_code:'INV-LAW'}};
+      if (url.endsWith('/materialize')) throw new Error('Must not use exact-OCR materialization');
+      return {};
+    });
+    await f.scanner.recognise('law-photo'); const item=f.scanner.items[0]; f.scanner.openDetails(item);
+    const confirm=f.scanner.details.querySelector('[data-details-save]');
+    assert.equal(confirm.textContent,'Add to collection');
+    assert.equal(f.calls.length,1,'No write before explicit confirmation');
+    assert.match(f.scanner.details.textContent,/Value unavailable/);
+    await f.scanner.confirmDetails(); f.scanner.showReview();
+    const saveRequest=f.calls.find(call=>call.headers?.['Idempotency-Key']);
+    assert.equal(JSON.parse(saveRequest.body).condition,null,'Unknown condition is not guessed as Near Mint');
+    assert.equal(f.scanner.find('[data-action="save"]').disabled,false);
+    await f.scanner.saveAll();
+    assert.equal(item.status,'added');
+    const selected=f.calls.find(call=>call.url.endsWith('/references/select'));
+    assert.deepEqual(JSON.parse(selected.body),reference);
+    const feedback=f.calls.find(call=>call.url.endsWith('/feedback'));
+    assert.equal(JSON.parse(feedback.body).outcome,'CORRECTED_BY_SEARCH');
+    assert.equal(item.selected.market_value_minor,null);
+    f.finish(); checks+=1;
+  }
+  // Closest printings are shown first; low-scoring alternatives remain reachable.
+  {
+    const data=result(); data.candidates=[.86421,.85971,.74595,.62,.55,.2].map((score,index)=>({
+      ...data.candidates[0],id:'candidate-'+index,rank:index+1,score,candidate_snapshot:{name:'Choice '+index}}));
+    const f=fixture('seller',async()=>data); await f.scanner.recognise('photo'); f.scanner.openDetails(f.scanner.items[0]);
+    assert.equal(f.scanner.details.querySelectorAll('.dr-scan-alternative').length,2);
+    [...f.scanner.details.querySelectorAll('button')].find(b=>b.textContent==='Show other suggestions').click();
+    assert.equal(f.scanner.details.querySelectorAll('.dr-scan-alternative').length,6);
+    f.finish(); checks+=1;
+  }
+  // Each thumbnail can switch raw/graded without saving until explicit confirmation.
+  for (const role of ['seller', 'founder']) {
+    const f=fixture(role,async url => url.endsWith('/resolve') ? result() : {inventory:{inventory_code:'INV-GRADED'}});
+    const item=await matched(f.scanner,2); f.scanner.openDetails(item);
+    const press=company=>f.scanner.details.querySelector('[data-grader="'+company+'"]').click();
+    press('PSA');
+    assert.equal(item.mode,'RAW','The unfinished grading choice is local');
+    assert.equal(f.scanner.edit.quantity,1);
+    assert.doesNotMatch(f.scanner.details.querySelector('.dr-scan-detail-identity').textContent,/£15/);
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    const grade=f.scanner.details.querySelector('[aria-label="Grade"]');
+    assert.ok(![...grade.options].some(option=>option.value==='9.5'));
+    grade.value='10';grade.dispatchEvent(new f.w.Event('change'));
+    const certificate=f.scanner.details.querySelector('[aria-label="Certificate number"]');
+    certificate.value='12345678';certificate.dispatchEvent(new f.w.Event('input'));
+    press('BGS');
+    assert.equal(f.scanner.edit.certificate_number,'','Never transfer a certificate to another grader');
+    assert.equal(f.scanner.edit.grade,'');
+    assert.ok([...f.scanner.details.querySelector('[aria-label="Grade"]').options].some(option=>option.value==='10 BLACK LABEL'));
+    press(''); assert.equal(f.scanner.edit.quantity,2); assert.equal(f.scanner.edit.condition,'Near Mint');
+    press('TAG');
+    const tagGrade=f.scanner.details.querySelector('[aria-label="Grade"]');tagGrade.value='Pristine 10';tagGrade.dispatchEvent(new f.w.Event('change'));
+    const tagCert=f.scanner.details.querySelector('[aria-label="Certificate number"]');tagCert.value='A1234567';tagCert.dispatchEvent(new f.w.Event('input'));
+    await f.scanner.confirmDetails();
+    assert.equal(item.mode,'GRADED');assert.equal(item.condition,null);assert.equal(item.quantity,1);
+    assert.equal(f.scanner.totals().value,null,'Raw market value must not inflate slab total');
+    f.scanner.showReview();await f.scanner.saveAll();
+    const saved=f.calls.find(call=>call.headers?.['Idempotency-Key']);
+    assert.deepEqual(JSON.parse(saved.body),{selected_catalogue_id:'card-1',grading_company:'TAG',grade:'Pristine 10',certificate_number:'A1234567',language:'English'});
+    assert.equal(f.calls.some(call=>call.url.endsWith('/feedback')),false);
+    assert.equal(saved.url,role==='seller'?'/api/v1/owner/graded-certificate-intake':'/api/v1/inventory/graded-intake');
+    f.finish();checks+=1;
+  }
+  // Capture continues beyond two active reads; queued photos keep their own results.
+  {
+    const first=deferred(),second=deferred();let count=0;
+    const f=fixture('seller',()=>++count===1?first.promise:second.promise);
+    const p1=f.scanner.recognise('photo-one');await tick();
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);
+    const p2=f.scanner.recognise('photo-two');await tick();
+    const p3=f.scanner.recognise('photo-three');
+    assert.equal(f.scanner.items.length,3);assert.equal(count,2);
+    assert.equal(f.scanner.items[2].status,'queued');
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);
+    second.resolve(result({run:{id:'run-two',decision:'EXACT_CANDIDATE',top_catalogue_id:'card-1'}}));await p2;
+    assert.equal(f.scanner.items[1].run.id,'run-two');assert.equal(f.scanner.items[0].status,'processing');
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);
+    f.scanner.openDetails(f.scanner.items[1]);assert.ok(f.scanner.edit);
+    first.reject(new Error('First photo failed'));await p1;
+    assert.equal(f.scanner.items[0].status,'unresolved');assert.equal(f.scanner.items[1].run.id,'run-two');
+    await p3;assert.equal(f.scanner.items[2].run.id,'run-two');
+    assert.equal(f.scanner.inFlight,0);f.finish();checks+=1;
+  }
+  // Seven quick captures stay queued; removed photos never reach the API.
+  for (const mode of ['RAW','COMIC']) {
+    const waiting=[];const f=fixture('seller',()=>{const d=deferred();waiting.push(d);return d.promise;},{openBooks:()=>true});
+    const s=f.scanner;s.setMode(mode);
+    const reads=Array.from({length:7},(_,i)=>s.recognise('photo-'+i));await tick();
+    assert.equal(s.items.length,7);assert.equal(waiting.length,2);assert.equal(s.inFlight,2);
+    assert.equal(s.find('[data-action="gallery"]').disabled,false);
+    const removed=s.items[3];s.remove(removed);assert.equal(removed.photo,null);
+    assert.equal(s.recognitionQueue.length,4);
+    for(let i=0;i<6;i++) {waiting[i].resolve(mode==='COMIC'?{status:'NEEDS_REVIEW',fields:{series_title:'Book '+i}}:result());await tick();}
+    await Promise.all(reads);assert.equal(f.calls.length,6);assert.equal(s.inFlight,0);
+    assert.equal(s.items.length,6);assert.equal(s.recognitionQueue.length,0);f.finish();checks++;
+  }
+  // Failed retries discard old evidence; a previous successful run cannot be confirmed again.
+  {
+    let fail=false;const f=fixture('seller',async()=>{if(fail)throw new Error('Offline');return result();});
+    const item=await matched(f.scanner);fail=true;await f.scanner.recognise('photo',item);
+    f.scanner.openDetails(item);assert.equal(item.run,null);assert.equal(item.selected,null);
+    assert.equal(f.scanner.details.querySelector('[data-details-save]').disabled,true);
+    f.finish();checks+=1;
+  }
+  // Both roles search the complete released catalogue, with independent language/game filters.
+  for(const role of ['seller','founder']) {
+    const rows=[{key:'r:first',source_kind:'REFERENCE',provider:'Bandai Official',provider_id:'OP16-041_p1',
+      name:'Buggy',card_number:'OP16-041',language:'English',system_code:'ONE_PIECE_CARD_GAME',product_type:'CARD',image_url:'https://example.test/buggy.png'}];
+    const f=fixture(role,async url=>url.endsWith('/resolve')?result():url.endsWith('/games')?{items:[
+      {system_code:'POKEMON_TCG',game:'Pokémon',languages:['English','Japanese']},
+      {system_code:'ONE_PIECE_CARD_GAME',game:'One Piece',languages:['English','Japanese']}]}:
+      url.includes('/products?')?{items:rows,has_more:!url.includes('offset=1')}:
+      url.endsWith('/references/select')?{catalogue_id:'buggy'}:{});
+    const item=await matched(f.scanner);f.scanner.openDetails(item);f.scanner.openSearch();await tick();
+    assert.equal(f.scanner.details.querySelectorAll('.dr-scan-game').length,2);
+    const game=f.scanner.details.querySelector('[aria-label="Game"]');game.value='ONE_PIECE_CARD_GAME';game.dispatchEvent(new f.w.Event('change'));await tick();
+    const language=f.scanner.details.querySelector('[aria-label="Language"]');language.value='Japanese';language.dispatchEvent(new f.w.Event('change'));await tick();
+    const search=f.calls.filter(call=>call.url.includes('/products?')).at(-1);
+    assert.ok(search.url.includes('owned=all'));assert.ok(search.url.includes('language=Japanese'));assert.ok(search.url.includes('system_code=ONE_PIECE_CARD_GAME'));
+    assert.equal(f.scanner.details.querySelectorAll('.dr-scan-search-result').length,1);
+    f.scanner.details.querySelector('.dr-scan-search-more').click();await tick();
+    assert.ok(f.calls.some(call=>call.url.includes('offset=1')));
+    f.scanner.details.querySelector('.dr-scan-search-result').click();await tick();
+    assert.equal(f.scanner.edit.selected.reference_selection.provider_id,'OP16-041_p1');
+    assert.equal(f.calls.some(call=>call.method==='POST'&&!call.url.endsWith('/resolve')),false,'Choosing a result does not yet write');
+    await f.scanner.confirmDetails();assert.equal(item.selected.catalogue_id,'buggy');
+    assert.ok(f.calls.some(call=>call.url.endsWith('/references/select')));
+    f.finish();checks+=1;
+  }
+  // A catalogue correction retains dated reference evidence throughout scanner
+  // review. Historical raw prices never count toward totals or value a slab.
+  for (const role of ['seller', 'founder']) {
+    const historical = {status:'STALE',market_value_minor:null,last_known_minor:1250,
+      checked_at:'2026-10-10T12:00:00Z',label:'Historical catalogue guide',
+      reason:'Last recorded guide; not a current value.',basis:'English · Raw catalogue reference',
+      physical_valuation_eligible:false,recommended_retail_minor:null};
+    const row = {key:'c:historical-card',catalogue_id:'historical-card',source_kind:'CATALOGUE',
+      name:'Historical card',card_number:'OP01-001',language:'English',product_type:'CARD',
+      market_value_minor:null,shared_price:historical};
+    const f = fixture(role, async url => url.endsWith('/resolve') ? result()
+      : url.endsWith('/games') ? {items:[]}
+      : url.includes('/products?') ? {items:[row],has_more:false}
+      : url.endsWith('/feedback') ? {} : {inventory:{inventory_code:'INV-HISTORY'}});
+    const s=f.scanner,item=await matched(s);s.openDetails(item);s.openSearch();
+    const input=s.details.querySelector('.dr-scan-search-input');input.value='Historical';
+    s.refreshSearch(true);await tick();
+    assert.match(s.details.querySelector('.dr-scan-search-result').textContent,/Value: £12\.50/);
+    s.details.querySelector('.dr-scan-search-result').click();
+    assert.match(s.details.querySelector('.dr-scan-detail-identity').textContent,/Value: £12\.50/);
+    assert.match(s.details.textContent,/not a current value/);
+    s.chooseGrader('PSA');
+    assert.doesNotMatch(s.details.textContent,/£12\.50|Last known/,'A raw historical guide is not a slab value');
+    s.chooseGrader('');await s.confirmDetails();s.showReview();
+    assert.equal(item.status,'added');
+    assert.match(s.review.querySelector('.dr-scan-card-value').textContent,/Value: £12\.50/);
+    assert.match(s.find('.dr-scan-strip').textContent,/Value: £12\.50/);
+    assert.equal(s.totals().value,null);assert.equal(s.totals().unknown,1);
+    const intake=f.calls.find(call=>call.headers?.['Idempotency-Key']);
+    assert.ok(intake);assert.doesNotMatch(intake.body,/last_known|shared_price|market_value/);
+    f.finish();checks++;
+  }
+  // Slabs without a raw recognition run can select a released reference before certificate intake.
+  for (const role of ['seller','founder']) {
+    const f=fixture(role,async url=>url.endsWith('/select')?{catalogue_id:'new-slab-card'}:{inventory:{inventory_code:'INV-NEW-SLAB'}});
+    f.scanner.manualSlab();f.scanner.edit.grade='9';f.scanner.edit.certificate_number='12345678';
+    await f.scanner.chooseSearch({key:'r:slab',name:'Slab card',source_kind:'REFERENCE',provider:'Bandai Official',
+      provider_id:'OP16-041_p1',system_code:'ONE_PIECE_CARD_GAME',language:'English'});
+    await f.scanner.confirmDetails();f.scanner.showReview();await f.scanner.saveAll();
+    const link=f.calls.find(call=>call.url==='/api/v1/catalogue-browser/select');assert.deepEqual(JSON.parse(link.body),{key:'r:slab',confirmed:true});
+    const save=f.calls.find(call=>call.headers?.['Idempotency-Key']);assert.equal(JSON.parse(save.body).selected_catalogue_id,'new-slab-card');
+    f.finish();checks+=1;
+  }
+  // Closing grading details cancels the local change; sealed products never expose graders.
+  {
+    const f=fixture('seller',async()=>result());const item=await matched(f.scanner,3);
+    f.scanner.openDetails(item);f.scanner.chooseGrader('CGC');f.scanner.closeDetails();
+    assert.equal(item.mode,'RAW');assert.equal(item.quantity,3);assert.equal(item.grading_company,undefined);
+    f.scanner.openDetails(item);assert.equal(f.scanner.edit.mode,'RAW');
+    item.selected.candidate_snapshot.product_type='SEALED';f.scanner.renderDetails();
+    assert.equal(f.scanner.details.querySelector('.dr-scan-graders'),null);
+    f.finish();checks+=1;
+  }
+  // Manual provider lookup preserves the grade entered and leaves the draft uncommitted.
+  {
+    const f=fixture('seller',async()=>({provider:'TAG',certificate_number:'A1234567',verified:false,status:'MANUAL_VERIFICATION_REQUIRED'}));
+    f.scanner.manualSlab();f.scanner.chooseGrader('TAG');
+    Object.assign(f.scanner.edit,{grade:'Pristine 10',certificate_number:'A1234567',selected:{catalogue_id:'card'}});
+    await f.scanner.lookupSlab();
+    assert.equal(f.scanner.edit.grade,'Pristine 10');assert.equal(f.scanner.edit.slab.verified,false);
+    assert.equal(f.scanner.edit.item.grading_company,'PSA','Lookup must not commit the draft choice');
+    f.finish();checks+=1;
+  }
+  // Video regression: backend grade normalization, structured label search,
+  // explicit manual PSA fallback, no write or guessed certificate correction.
+  for (const role of ['seller','founder']) {
+    const f=fixture(role,async url=>url.endsWith('/scan') ? {
+      observation:{grader:'PSA',grade:'GEM MT 10',certificate_number:'130649012',card_name:'Mega Charizard X ex',card_number:'223'},
+      normalized_provider:'PSA',normalized_certificate:'130649012',normalized_grade:'10',
+      catalogue_search_seed:'223',catalogue_label:{card_name:'Mega Charizard X ex',card_number:'223',set_name:'MEGA DREAM EX',language:'Japanese'},
+      provider_error:'PROVIDER_NOT_CONFIGURED',verification_url:'https://www.psacard.com/cert/130649012/psa',conflicts:[]
+    } : {items:[]});
+    f.scanner.setMode('GRADED');await f.scanner.recognise('photo');const item=f.scanner.items[0];
+    assert.equal(item.grade,'10');assert.equal(item.certificate_number,'130649012');assert.equal(item.suggested,null);
+    const lookup=f.calls.find(c=>c.url.includes('/slab-suggestions?'));assert.ok(lookup);
+    assert.ok(!f.calls.some(c=>c.url.includes('/products?')),'Slab labels must not load the priced catalogue browser');
+    const params=new URL(lookup.url,'https://test').searchParams;
+    assert.equal(params.get('slab_name'),'Mega Charizard X ex');assert.equal(params.get('language'),'Japanese');
+    assert.equal(lookup.signal,f.calls.find(c=>c.url.endsWith('/scan')).signal,'The deadline covers catalogue read too');
+    f.scanner.openDetails(item);assert.equal(f.scanner.details.querySelector('[aria-label="Grade"]').value,'10');
+    assert.equal(f.scanner.details.querySelector('a').href,'https://www.psacard.com/cert/130649012/psa');
+    assert.ok(![...f.scanner.details.querySelectorAll('button')].some(b=>b.textContent==='Lookup certificate'));
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    assert.match(f.scanner.details.textContent,/not configured/);assert.equal(f.calls.length,2);
+    f.finish();checks++;
+  }
+  // An unknown company/ambiguous grade is not silently relabelled PSA/10.
+  {
+    const f=fixture('seller',async()=>({observation:{grader:'Unknown',grade:'10 or 9',card_name:'Unknown'},normalized_grade:null,conflicts:[]}));
+    f.scanner.setMode('GRADED');await f.scanner.recognise('photo');f.scanner.openDetails(f.scanner.items[0]);
+    assert.equal(f.scanner.edit.grading_company,'');assert.equal(f.scanner.edit.grade,'');
+    assert.match(f.scanner.details.querySelector('.dr-scan-detail-message').textContent,/Choose the grading company/);
+    assert.equal(f.calls.length,1);f.finish();checks++;
+  }
+  // A failed slab retry clears the old match/label and never adds a second scan.
+  {
+    const f=fixture('seller',async()=>{throw new Error('synthetic provider failure');});
+    const item={id:'slab',mode:'GRADED',photo:'old',quantity:1,status:'unresolved',selected:{catalogue_id:'wrong'},
+      suggested:{catalogue_id:'wrong'},grade:'10',grading_company:'PSA',certificate_number:'12345678',slab:{conflicts:[]}};
+    f.scanner.items.push(item);await f.scanner.recognise('replacement',item);
+    assert.equal(f.scanner.items.length,1);assert.equal(item.selected,null);assert.equal(item.suggested,null);
+    assert.equal(item.grade,'');assert.equal(item.certificate_number,'');
+    item.requests=[{key:'already-sent'}];await f.scanner.recognise('replacement',item);assert.equal(f.calls.length,1);
+    f.finish();checks++;
+  }
+  // Manual shutter shares the same physical-presentation latch as auto capture.
+  {
+    const f=fixture();const s=f.scanner;s.stream={getTracks:()=>[]};s.view='camera';s.auto=false;
+    Object.defineProperty(s.video,'videoWidth',{value:1920});s.crop=()=>({sx:0,sy:0,sw:100,sh:140});
+    f.w.HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});f.w.HTMLCanvasElement.prototype.toDataURL=()=> 'photo';
+    let captures=0;s.recognise=()=>{captures++;};s.capture();s.capture();assert.equal(captures,1);
+    s.frame=()=>({present:false,fingerprint:new Uint8Array(560)});s.absenceFrames=0;s.tick();s.tick();s.tick();
+    s.capture();assert.equal(captures,2,'Intentional second physical copy still works');f.finish();checks++;
+  }
+  // Existing authenticated artwork route, exact reference keys, MIME checks and
+  // in-flight deduplication; never forward bearer credentials to provider hosts.
+  {
+    const f=fixture();const calls=[];const blob=new f.w.Blob(['png'],{type:'image/png'});
+    f.w.fetch=async(path,options)=>{calls.push({path,...options});return {ok:true,blob:async()=>blob};};
+    const candidate={reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP01-017_p2',image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP01-017_p2.png'};
+    const item={selected:candidate,status:'unresolved'};const a=f.scanner.thumb(item),b=f.scanner.thumb(item);await tick();
+    assert.equal(calls.length,1);assert.ok(calls[0].path.startsWith('/api/v1/catalogue-browser/reference-image?'));
+    assert.equal(calls[0].headers.Authorization,'Bearer test-token');assert.equal(a.querySelector('img').src,'blob:preview');
+    assert.equal(b.querySelector('img').src,'blob:preview');f.finish();checks++;
+  }
+  // Bad MIME from the reference route is never shown as an image or trusted data.
+  {
+    const f=fixture();f.w.fetch=async()=>({ok:true,blob:async()=>new f.w.Blob(['html'],{type:'text/html'})});
+    const item={selected:{reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=bad'},status:'unresolved'};
+    const thumb=f.scanner.thumb(item);await tick();assert.ok(thumb.querySelector('img').hidden);
+    assert.match(thumb.textContent,/Image could not load/);f.finish();checks++;
+  }
+  // Mobile Scan is camera-only. File controls remain available on desktop but
+  // cannot trigger a separate photo picker or upload while on mobile.
+  {
+    let closed=0, fileChooser=0;
+    const f=fixture('seller',async()=>({}),{mobile:true,onClose:()=>closed++});
+    f.scanner.find('.dr-scan-file').click=()=>fileChooser++;
+    Object.defineProperty(f.w.navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+      throw Object.assign(new Error('Denied'),{name:'NotAllowedError'});
+    }}});
+    await f.scanner.open();
+    assert.equal(f.scanner.dialog.open,true);
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,true);
+    assert.match(f.scanner.find('.dr-scan-status').textContent,/camera access/i);
+    assert.doesNotMatch(f.scanner.find('.dr-scan-status').textContent,/choose a photo/i);
+    f.scanner.find('[data-action="gallery"]').click();
+    assert.equal(fileChooser,0);
+    await f.scanner.upload({target:{files:[new f.w.File(['abc'],'card.png',{type:'image/png'})],value:'card.png'}});
+    assert.equal(f.scanner.items.length,0,'Mobile file uploads must not start recognition');
+    assert.equal(f.scanner.find('.dr-scan-file').disabled,false);
+    f.scanner.find('.dr-scan-topbar [data-action="close"]').click();
+    assert.equal(closed,1);
+    f.finish();assert.equal(closed,1,'Destroy must not double-fire the close callback');
+    checks++;
+  }
+  // Internal comic/manga hand-off must not trigger the user's Close-to-Home
+  // callback; the full-screen review can return to its queued scan safely.
+  {
+    let exits=0, review=null;
+    const f=fixture('seller',async()=>({}),{
+      onClose:()=>exits++,
+      openBooks:options=>{review=options;return true;},
+    });
+    const s=f.scanner;
+    await s.open('COMIC',{preferCamera:true});
+    const book={id:'book-pending',mode:'COMIC',status:'unresolved',quantity:1,
+      photo:'private-book',bookResult:{status:'NEEDS_REVIEW',
+        fields:{system_code:'MANGA',series_title:'Book',issue_number:'1'}}};
+    s.items.push(book);
+    s.openDetails(book);
+    assert.ok(review,'Book review opens');
+    assert.equal(exits,0,'Internal review transition must not leave mobile Scan');
+    assert.equal(s.dialog.open,false);
+    review.onClose();
+    assert.equal(s.dialog.open,true,'Review close returns to scanner queue');
+    assert.equal(exits,0,'Resume remains internal');
+    assert.equal(s.items[0],book,'Unsaved book remains queued');
+    s.dialog.dispatchEvent(new f.w.Event('cancel',{cancelable:true}));
+    assert.equal(exits,1,'Native explicit cancel leaves mobile Scan');
+    s.close({userExit:true});
+    assert.equal(exits,1,'Repeated close does not navigate twice');
+    f.finish();checks++;
+  }
+  // Founder mobile Scan navigation opens the shared scanner immediately;
+  // closing it returns Dashboard, not the older inline uploader.
+  {
+    const markup='<main data-seller-view="dashboard"></main>' +
+      '<section data-seller-view="intake" class="hidden"></section>';
+    const dom=new JSDOM(markup,{url:'https://example.test/app',
+      runScripts:'outside-only',pretendToBeVisual:true});
+    const w=dom.window;let cameraCalls=0,stopped=0;
+    w.matchMedia=query=>({matches:query.includes('max-width: 900px'),media:query});
+    w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+    w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+    w.HTMLMediaElement.prototype.play=async()=>{};
+    w.state={session:{access_token:'founder-token',user:{id:'founder-a'}}};
+    w.byId=id=>w.document.getElementById(id);
+    w.sellerView=view=>w.document.querySelector('[data-seller-view="'+view+'"]');
+    w.apiRequest=async path=>path.endsWith('/status')?{configured:true,vision_model:'fixture'}:{items:[]};
+    w.showMessage=()=>{};
+    w.activateSellerView=(name)=>{
+      w.document.querySelectorAll('[data-seller-view]').forEach(panel=>{
+        panel.classList.toggle('hidden',panel.dataset.sellerView!==name);
+      });
+    };
+    Object.defineProperty(w.navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+      cameraCalls++;return {getTracks:()=>[{stop:()=>stopped++}],
+        getVideoTracks:()=>[{getCapabilities:()=>({torch:false})}]};
+    }}});
+    w.eval(priceSource);w.eval(source);
+    w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/recognition-scanner.js'),'utf8'));
+    assert.ok(w.document.getElementById('recognition-mobile-open-scanner'));
+    w.activateSellerView('intake',true);
+    assert.equal(cameraCalls,1,'Mobile Scan press should request camera immediately');
+    assert.equal(w.dropRateScanner.dialog.open,true);
+    w.dropRateScanner.setMode('GRADED');
+    await tick();
+    w.dropRateScanner.find('.dr-scan-topbar [data-action="close"]').click();
+    assert.equal(w.sellerView('intake').classList.contains('hidden'),true);
+    assert.equal(w.sellerView('dashboard').classList.contains('hidden'),false);
+    assert.ok(stopped>=1);
+    w.activateSellerView('intake',false);
+    assert.equal(cameraCalls,1,'A restored intake deep link needs an explicit user gesture');
+    w.document.getElementById('recognition-mobile-open-scanner').click();
+    assert.equal(cameraCalls,2);
+    assert.equal(w.dropRateScanner.dialog.open,true);
+    assert.equal(w.dropRateScanner.mode,'GRADED','Founder scanner mode must survive reopen');
+    w.dropRateScanner.destroy();dom.window.close();checks++;
+  }
+  await tick();
+  console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
+

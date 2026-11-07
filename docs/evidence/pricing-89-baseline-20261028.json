@@ -1,0 +1,92 @@
+{
+  "scope": "GLOBAL_PHYSICAL_REFERENCE_CARDS",
+  "source": "Latest production CATALOGUE_COVERAGE COMPLETE receipt read through Supabase",
+  "read_at": "2026-10-28 10:13:16.477049+00",
+  "coverage_started_at": "2026-10-28 10:07:18.781321+00",
+  "physical_cards": {
+    "total": 67065,
+    "priced": 43269,
+    "missing": 23796
+  },
+  "current_target_percent": 89,
+  "minimum_priced": 59688,
+  "additional_needed": 16419,
+  "coverage_percent": 64.52,
+  "by_game_language": [
+    {
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "language": "English",
+      "eligible": 4365,
+      "priced": 1407,
+      "missing": 2958,
+      "coverage_percent": 32.23
+    },
+    {
+      "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+      "language": "Japanese",
+      "eligible": 3229,
+      "priced": 399,
+      "missing": 2830,
+      "coverage_percent": 12.36
+    },
+    {
+      "system_code": "DRAGON_BALL_SUPER_MASTERS",
+      "language": "English",
+      "eligible": 9002,
+      "priced": 5717,
+      "missing": 3285,
+      "coverage_percent": 63.51
+    },
+    {
+      "system_code": "NARUTO_BANDAI_LEGACY",
+      "language": "Unknown",
+      "eligible": 4487,
+      "priced": 0,
+      "missing": 4487,
+      "coverage_percent": 0
+    },
+    {
+      "system_code": "NARUTO_KAYOU",
+      "language": "Unknown",
+      "eligible": 2679,
+      "priced": 0,
+      "missing": 2679,
+      "coverage_percent": 0
+    },
+    {
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "language": "English",
+      "eligible": 4527,
+      "priced": 2334,
+      "missing": 2193,
+      "coverage_percent": 51.56
+    },
+    {
+      "system_code": "ONE_PIECE_CARD_GAME",
+      "language": "Japanese",
+      "eligible": 4480,
+      "priced": 2156,
+      "missing": 2324,
+      "coverage_percent": 48.12
+    },
+    {
+      "system_code": "POKEMON_TCG",
+      "language": "English",
+      "eligible": 21290,
+      "priced": 20765,
+      "missing": 525,
+      "coverage_percent": 97.53
+    },
+    {
+      "system_code": "POKEMON_TCG",
+      "language": "Japanese",
+      "eligible": 13006,
+      "priced": 10491,
+      "missing": 2515,
+      "coverage_percent": 80.66
+    }
+  ],
+  "basis": "This counts supported dated GBP reference values or explicitly labelled guides. A guide is not an exact UK sold valuation; digital Pocket records are excluded.",
+  "prior_goal_in_receipt": 95,
+  "release_attribution": "Existing scheduled jobs; no new price recovery from the 28 October code change is claimed by this baseline."
+}

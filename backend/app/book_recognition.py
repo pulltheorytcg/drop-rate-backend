@@ -1,0 +1,342 @@
+"""Book photograph evidence using the existing vision transport and owner journal.
+
+The model transcribes visible fields. It cannot approve identity, authenticate a
+certificate, set condition, create stock or calculate money. A human confirms the
+prefilled existing book form. Source photographs are never persisted here.
+"""
+from __future__ import annotations
+
+import hashlib
+import asyncio
+import json
+import logging
+import re
+import time
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict, Field
+
+from .access_control import require_owner_portal, require_owner_portal_request
+from .auth import AuthenticatedUser, require_user
+from .db import user_connection
+from .inventory_intake import _find_exact_catalogue
+from .inventory_reference_values import add_shared_reference_values
+from .recognition_images import RecognitionImageError, decode_image_data_url
+from .recognition_vision import OpenAIRecognitionVisionClient, RecognitionVisionError
+from .schemas import ManualInventoryCreate
+from .settings import get_settings
+from .book_research import research_book, prepare_research_result, public_result, reviewed_candidates, catalogue_candidates
+from .book_observation import BookFields, BookObservation, VisibleText, BOOK_VISION_INSTRUCTIONS
+from .catalogue_artwork import reference_thumbnail
+from .book_artwork import publisher_cover_url
+
+router = APIRouter(prefix="/api/v1/owner/books", tags=["owner-books"])
+logger = logging.getLogger(__name__)
+
+
+class BookVisionClient(OpenAIRecognitionVisionClient):
+    schema_name = "book_visible_evidence"
+    observation_schema = BookObservation.model_json_schema()
+    max_output_tokens = 3000
+    instructions = BOOK_VISION_INSTRUCTIONS
+
+    def parse_observation(self, parsed):
+        return BookObservation.model_validate(parsed)
+
+
+def valid_book_barcode(value: str) -> bool:
+    """Check an ISBN-10, ISBN/EAN-13, UPC-A, or UPC-A with its 5-digit add-on."""
+    value = re.sub(r"[\s-]", "", value).upper()
+    if re.fullmatch(r"\d{9}[\dX]", value):
+        return sum((10-i) * (10 if n == "X" else int(n)) for i, n in enumerate(value)) % 11 == 0
+    base = value[:12] if len(value) == 17 else value
+    if not base.isdigit() or len(base) not in {12, 13} or not value.isdigit():
+        return False
+    return sum(int(n) * (1 if i % 2 else 3) for i, n in enumerate(base[-2::-1])) % 10 == (10-int(base[-1])) % 10
+
+
+def suggestion(observation: BookObservation) -> dict:
+    values, uncertain = {}, []
+    if observation.object_type != "BOOK" or observation.confidence < .8:
+        return {"status": "NO_MATCH", "fields": {}, "uncertain_fields": [],
+                "warnings": ["Photograph one comic or manga book clearly, including its cover."],
+                "auto_save": False, "market_value_minor": None}
+    limits = {"series_title":140, "issue_number":40, "volume_identifier":40, "publisher":100,
+              "language":80, "cover_code":100, "cover_artist":100, "certificate_number":120}
+    for key, evidence in observation.fields:
+        value = evidence.value.strip()
+        if not value or not evidence.visible_text or evidence.confidence < .85 or len(value) > limits.get(key, 300):
+            uncertain.append(key)
+            continue
+        if key in {"release_year", "printing_number"}:
+            low, high = (1930, 2200) if key == "release_year" else (1, 999)
+            if not value.isdigit() or not low <= int(value) <= high:
+                uncertain.append(key); continue
+            value = int(value)
+        if key == "barcode_gtin":
+            value = re.sub(r"[\s-]", "", value).upper()
+            if not valid_book_barcode(value):
+                uncertain.append(key); continue
+        if key == "grading_company" and value.upper() not in {"CGC", "BGS"}:
+            uncertain.append(key); continue
+        if key == "grade" and (not re.fullmatch(r"(?:10(?:\.0)?|[0-9](?:\.[0-9])?)", value) or float(value) < .5):
+            uncertain.append(key); continue
+        values[key] = value
+    if observation.category != "UNKNOWN":
+        values["system_code"] = observation.category
+    if observation.book_format != "UNKNOWN":
+        values["book_format"] = observation.book_format
+    # Do not turn an unclassified book into an English Marvel comic by defaults.
+    for key in ("system_code", "series_title", "issue_number", "language", "publisher", "printing_number"):
+        if key not in values and key not in uncertain:
+            uncertain.append(key)
+    if values.get("grading_company", "").upper() == "BGS" and observation.category != "MANGA":
+        for key in ("grading_company", "grade", "certificate_number"):
+            values.pop(key, None)
+            if key not in uncertain: uncertain.append(key)
+    return {"status":"NEEDS_REVIEW", "fields":values, "uncertain_fields":uncertain,
+            "warnings":[s[:300] for s in observation.warnings] + [
+                "Check the issue/volume, language, printing and cover before adding your copy."],
+            "auto_save":False, "market_value_minor":None}
+
+
+class BookScanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    images: list[Annotated[str, Field(min_length=100, max_length=4_000_000)]] = Field(min_length=1, max_length=3)
+    defer_research: bool = False
+
+
+def scan_digest(payload, settings):
+    images = [decode_image_data_url(url, max_bytes=min(settings.recognition_max_image_bytes, 3_000_000)) for url in payload.images]
+    return images, hashlib.sha256("|".join(image.sha256 for image in images).encode()).hexdigest()
+
+
+def immediate_book_result(observation, run_id):
+    """Known publisher references return with OCR, with no extra network call."""
+    result = suggestion(observation)
+    if result["status"] == "NEEDS_REVIEW":
+        candidates = reviewed_candidates(result["fields"])
+        result = prepare_research_result(result, {
+            "status": "CANDIDATES" if candidates else "PENDING", "candidates": candidates,
+            "message": "Publisher cover found." if candidates else "Book details read. Finding the publisher cover…",
+        }, run_id)
+    return result
+
+
+async def finish_automatic_book_scan(request, user, owner_id, run_id, observation, image, photo, telemetry):
+    """Route a generic camera receipt through the same private book workflow."""
+    settings = get_settings()
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        access = await require_owner_portal(db)
+        if access["owner_id"] != owner_id:
+            raise HTTPException(403, "Your access changed during this scan.")
+        await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))", f"book-scan:{owner_id}")
+        count = await db.fetchval("""select count(*) from tcg.recognition_runs where owner_id=$1
+            and (idempotency_key like 'book-scan:%' or provider_evidence->>'book_route'='true')
+            and created_at>now()-interval '1 hour' and id<>$2""", owner_id, run_id)
+        if count >= 20:
+            await db.execute("""update tcg.recognition_runs set status='FAILED',decision='FAILED',
+                error_code='BOOK_SCAN_LIMIT',error_detail='Book scanning limit reached',
+                completed_at=now(),updated_at=now(),version=version+1
+                where id=$1 and owner_id=$2""", run_id, owner_id)
+        else:
+            await db.execute("""update tcg.recognition_runs set provider_evidence='{"book_route":true}'::jsonb,
+                updated_at=now(),version=version+1 where id=$1 and owner_id=$2""", run_id, owner_id)
+    if count >= 20:
+        raise HTTPException(429, "Book scanning limit reached. Try later or enter your book manually.")
+    book_observation = observation.book
+    try:
+        if book_observation is None:
+            # Compatibility recovery for the exact NONE/UNKNOWN failures seen
+            # on the phone. Fresh BOOK results already contain all evidence.
+            response = await BookVisionClient(api_key=settings.openai_api_key, model=settings.recognition_model,
+                                            timeout_seconds=20).observe_with_telemetry(photo)
+            book_observation = response.observation
+            telemetry = {**telemetry, "book_fallback": response.telemetry.to_dict()}
+        result = immediate_book_result(book_observation, run_id)
+    except RecognitionVisionError as exc:
+        async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+            await db.execute("""update tcg.recognition_runs set status='FAILED',decision='FAILED',
+                error_code='BOOK_VISION_ERROR',error_detail=$1,completed_at=now(),updated_at=now(),version=version+1
+                where id=$2 and owner_id=$3""", exc.detail, run_id, owner_id)
+        raise HTTPException(503, "Book scan could not finish. Retry this photo.") from exc
+    evidence = {"book_route": True, "book_result": result, "vision_telemetry": telemetry,
+                "book_image_digest": hashlib.sha256(image.sha256.encode()).hexdigest()}
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        await require_owner_portal(db)
+        updated = await db.execute("""update tcg.recognition_runs set status=$1,decision=$1,
+            ai_observation=$2::jsonb,provider_evidence=$3::jsonb,decision_reasons=$4::jsonb,
+            completed_at=now(),updated_at=now(),version=version+1 where id=$5 and owner_id=$6""",
+            result["status"], json.dumps(book_observation.model_dump()), json.dumps(evidence),
+            json.dumps(result["warnings"]), run_id, owner_id)
+        if updated != "UPDATE 1":
+            raise HTTPException(403, "Your access changed during this scan.")
+    return {**public_result(result), "run_id": str(run_id)}
+
+
+@router.post("/recognize")
+async def recognize_book(payload: BookScanRequest, request: Request,
+                         user: Annotated[AuthenticatedUser, Depends(require_user)],
+                         access: Annotated[dict, Depends(require_owner_portal_request)]):
+    settings = get_settings()
+    if not settings.openai_api_key:
+        raise HTTPException(409, "Book scanning is not configured. You can enter the details manually.")
+    try:
+        images, digest = scan_digest(payload, settings)
+    except RecognitionImageError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    # Five-minute receipt slots permit provider-failure retries, not unbounded
+    # force_refresh calls. An owner-wide lock makes limits safe across replicas.
+    key = f"book-scan:v4:{settings.recognition_model}:{digest}:{int(payload.defer_research)}:{int(time.time())//300}"
+    owner_id = access["owner_id"]
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))", f"book-scan:{owner_id}")
+        previous = await db.fetchrow("select id,status,provider_evidence from tcg.recognition_runs where owner_id=$1 and idempotency_key=$2", owner_id, key)
+        if previous:
+            evidence = previous["provider_evidence"]
+            if isinstance(evidence, str): evidence = json.loads(evidence)
+            if previous["status"] in {"NEEDS_REVIEW", "NO_MATCH"}:
+                return jsonable_encoder({**public_result(evidence["book_result"]), "run_id":previous["id"], "replayed":True})
+            raise HTTPException(409, "This scan is processing or recently failed. Wait a few minutes or use manual entry.")
+        count = await db.fetchval("""select count(*) from tcg.recognition_runs where owner_id=$1
+            and (idempotency_key like 'book-scan:%' or provider_evidence->>'book_route'='true')
+            and created_at>now()-interval '1 hour'""", owner_id)
+        if count >= 20:
+            raise HTTPException(429, "Book scanning limit reached. Try later or enter your book manually.")
+        run_id = await db.fetchval("""insert into tcg.recognition_runs
+            (owner_id,idempotency_key,source_image_sha256,source_mime_type,source_size_bytes,status,ai_provider,ai_model,created_by_user_id)
+            values($1,$2,$3,$4,$5,'OBSERVING','OpenAI',$6,$7) returning id""",
+            owner_id,key,digest,images[0].mime_type,sum(i.size_bytes for i in images),settings.recognition_model,user.user_id)
+    try:
+        response = await BookVisionClient(api_key=settings.openai_api_key, model=settings.recognition_model).observe_with_telemetry(payload.images)
+        result = immediate_book_result(response.observation, run_id)
+        if result["status"] == "NEEDS_REVIEW" and result["research"]["status"] == "PENDING":
+            tentative = {key: field.value for key, field in response.observation.fields
+                         if key == "issue_number" and key not in result["fields"]
+                         and field.visible_text and .5 <= field.confidence < .85}
+            research = ({"status":"PENDING", "candidates":[], "message":"Book details read. Finding the publisher cover…"}
+                        if payload.defer_research else await research_book(result["fields"], payload.images,
+                            api_key=settings.openai_api_key, model=settings.recognition_model, tentative_fields=tentative))
+            result = prepare_research_result(result, research, run_id)
+    except RecognitionVisionError as exc:
+        async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+            await db.execute("""update tcg.recognition_runs set status='FAILED',decision='FAILED',error_code='BOOK_VISION_ERROR',
+                error_detail=$1,completed_at=now(),updated_at=now(),version=version+1 where id=$2 and owner_id=$3""", exc.detail,run_id,owner_id)
+        raise HTTPException(503, "Book scan could not finish. Try again later or enter the details manually.") from exc
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        updated = await db.execute("""update tcg.recognition_runs set status=$1,decision=$1,ai_observation=$2::jsonb,
+            provider_evidence=$3::jsonb,decision_reasons=$4::jsonb,completed_at=now(),updated_at=now(),version=version+1
+            where id=$5 and owner_id=$6""",result["status"],json.dumps(response.observation.model_dump()),
+            json.dumps({"book_result":result,"vision_telemetry":response.telemetry.to_dict()}),json.dumps(result["warnings"]),run_id,owner_id)
+        if updated != "UPDATE 1":
+            raise HTTPException(403, "Your access changed during this scan. Sign in again before continuing.")
+    return jsonable_encoder({**public_result(result),"run_id":run_id,"replayed":False})
+
+
+@router.get("/recognize/{run_id}")
+async def book_scan_result(run_id: UUID, request: Request,
+                           user: Annotated[AuthenticatedUser, Depends(require_user)],
+                           access: Annotated[dict, Depends(require_owner_portal_request)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        evidence = await db.fetchval("select provider_evidence from tcg.recognition_runs where id=$1 and owner_id=$2 and provider_evidence ? 'book_result'", run_id, access["owner_id"])
+    if isinstance(evidence, str): evidence = json.loads(evidence)
+    if not evidence or not evidence.get("book_result"):
+        raise HTTPException(404, "Scan not available")
+    return jsonable_encoder({**public_result(evidence["book_result"]), "run_id":run_id})
+
+
+@router.post("/research/{run_id}")
+async def complete_book_research(run_id: UUID, payload: BookScanRequest, request: Request,
+                                 user: Annotated[AuthenticatedUser, Depends(require_user)],
+                                 access: Annotated[dict, Depends(require_owner_portal_request)]):
+    """Finish one scan in a second request; OCR is already available for review."""
+    settings = get_settings(); owner_id = access["owner_id"]
+    try:
+        _, digest = scan_digest(payload, settings)
+    except RecognitionImageError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        row = await db.fetchrow("""select provider_evidence,ai_observation,source_image_sha256
+            from tcg.recognition_runs where id=$1 and owner_id=$2 and status='NEEDS_REVIEW'
+            and provider_evidence ? 'book_result' for update""", run_id, owner_id)
+        if not row: raise HTTPException(404, "Scan not available")
+        evidence = row["provider_evidence"]
+        if isinstance(evidence, str): evidence = json.loads(evidence)
+        if evidence.get("book_image_digest", row["source_image_sha256"]) != digest:
+            raise HTTPException(422, "Research must use this scan's original photos")
+        result = evidence["book_result"]
+        # Exactly one request can claim research. Replays never launch paid work.
+        if result.get("research", {}).get("status") != "PENDING":
+            return jsonable_encoder({**public_result(result), "run_id":run_id})
+        observation = row["ai_observation"]
+        if isinstance(observation, str): observation = json.loads(observation)
+        catalogue_matches = await catalogue_candidates(db, result["fields"])
+        result["research"] = {"status":"RUNNING", "candidates":[], "message":"Finding the publisher cover…"}
+        await db.execute("update tcg.recognition_runs set provider_evidence=$1::jsonb,updated_at=now(),version=version+1 where id=$2 and owner_id=$3", json.dumps(evidence), run_id, owner_id)
+    started = time.perf_counter()
+    tentative = {key: field.get("value") for key, field in observation.get("fields", {}).items()
+                 if key == "issue_number" and key not in result["fields"] and field.get("visible_text")
+                 and .5 <= field.get("confidence", 0) < .85}
+    cancelled = False
+    try:
+        research = ({"status": "CANDIDATES", "candidates": catalogue_matches,
+                     "message": "Publisher cover found. Check it against your copy before adding."}
+                    if catalogue_matches else await research_book(result["fields"], payload.images,
+            api_key=settings.openai_api_key or "", model=settings.recognition_model, tentative_fields=tentative))
+    except (Exception, asyncio.CancelledError) as exc:
+        cancelled = isinstance(exc, asyncio.CancelledError)
+        logger.warning("Book research stopped error_type=%s", type(exc).__name__)
+        research = {"status":"UNAVAILABLE", "candidates":[],
+                    "message":"Publisher lookup did not finish. Your book details are ready to review."}
+    result = prepare_research_result(result, research, run_id)
+    evidence["book_result"] = result
+    evidence["research_ms"] = round((time.perf_counter() - started) * 1000, 2)
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        updated = await db.execute("""update tcg.recognition_runs set provider_evidence=$1::jsonb,
+            completed_at=now(),updated_at=now(),version=version+1 where id=$2 and owner_id=$3""", json.dumps(evidence), run_id, owner_id)
+        if updated != "UPDATE 1": raise HTTPException(403, "Your access changed during this scan")
+    if cancelled: raise asyncio.CancelledError
+    return jsonable_encoder({**public_result(result), "run_id":run_id})
+
+
+@router.get("/research/{run_id}/cover/{candidate_id}")
+async def research_cover(run_id: UUID, candidate_id: str, request: Request,
+                         user: Annotated[AuthenticatedUser, Depends(require_user)],
+                         access: Annotated[dict, Depends(require_owner_portal_request)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        evidence = await db.fetchval("""select provider_evidence from tcg.recognition_runs
+            where id=$1 and owner_id=$2 and status='NEEDS_REVIEW'""", run_id, access["owner_id"])
+    if isinstance(evidence, str):
+        evidence = json.loads(evidence)
+    candidates = (evidence or {}).get("book_result", {}).get("research", {}).get("candidates", [])
+    candidate = next((c for c in candidates if c["id"] == candidate_id), None)
+    if not candidate or not publisher_cover_url(candidate.get("image_url")):
+        raise HTTPException(404, "Publisher cover not available")
+    image = await reference_thumbnail(candidate["image_url"])
+    if image is None:
+        raise HTTPException(502, "Publisher cover could not load")
+    return Response(image.data, media_type=image.content_type,
+                    headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+
+
+@router.post("/market-value")
+async def book_market_value(payload: ManualInventoryCreate, request: Request,
+                            user: Annotated[AuthenticatedUser, Depends(require_user)],
+                            access: Annotated[dict, Depends(require_owner_portal_request)]):
+    product = payload.new_catalogue
+    if product is None or product.product_type != "COMIC" or product.comic_printing is None:
+        raise HTTPException(422, "Complete the comic or manga printing details first.")
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        catalogue = await _find_exact_catalogue(db, product)
+        if catalogue is None:
+            return {"status":"UNAVAILABLE","market_value_minor":None,"currency":"GBP",
+                    "reason":"No verified sales are stored for this exact book printing yet."}
+        item = dict(catalogue_id=catalogue["id"],product_type="COMIC",catalogue_language=product.language,
+                    language=product.language,condition=payload.condition,grading_company=payload.grading_company,
+                    grade=payload.grade,seal_status=None,notes=payload.notes)
+        await add_shared_reference_values(db,[item])
+        return jsonable_encoder(item["reference_value"])

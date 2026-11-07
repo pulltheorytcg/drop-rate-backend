@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -20,6 +21,14 @@ class ShopifyApiError(RuntimeError):
         self.detail = detail
         self.status_code = status_code
         self.retryable = retryable
+
+
+class ShopifyMediaScopeRequired(ShopifyApiError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Shopify app requires write_files to attach new approved media",
+            status_code=403,
+        )
 
 
 class ShopifyAdminClient:
@@ -499,7 +508,7 @@ class ShopifyAdminClient:
                 query="""
                 query DropRateCollections($first: Int!, $after: String) {
                   collections(first: $first, after: $after) {
-                    nodes { id title handle }
+                    nodes { id title handle ruleSet { appliedDisjunctively } }
                     pageInfo { hasNextPage endCursor }
                   }
                 }
@@ -526,6 +535,7 @@ class ShopifyAdminClient:
                         "id": collection_id,
                         "title": title,
                         "handle": node.get("handle"),
+                        "automated": isinstance(node.get("ruleSet"), dict),
                     }
             page_info = connection.get("pageInfo")
             if not isinstance(page_info, dict) or not page_info.get("hasNextPage"):
@@ -588,7 +598,7 @@ class ShopifyAdminClient:
             query="""
             mutation DropRateFileCreate($files: [FileCreateInput!]!) {
               fileCreate(files: $files) {
-                files { id fileStatus alt image { url } }
+                files { id fileStatus alt ... on MediaImage { image { url } } }
                 userErrors { field message }
               }
             }
@@ -616,6 +626,11 @@ class ShopifyAdminClient:
             raise ShopifyApiError(
                 "Shopify did not return exactly one created file"
             )
+        if (not isinstance(files[0].get("id"), str)
+                or not re.fullmatch(r"gid://shopify/MediaImage/[0-9]+", files[0]["id"])
+                or not isinstance(files[0].get("fileStatus"), str)
+                or files[0].get("fileStatus") not in {"UPLOADED", "PROCESSING", "READY", "FAILED"}):
+            raise ShopifyApiError("Shopify file creation returned an invalid image receipt")
         return files[0]
 
     async def get_file(self, file_id: str) -> dict[str, Any]:
@@ -645,6 +660,47 @@ class ShopifyAdminClient:
         file_id: str,
         product_id: str,
     ) -> None:
+        # A previous attempt or authorized merchant may already have attached
+        # the exact approved file. Read through the product permission first;
+        # do not require a new file write for an association that already exists.
+        cursor = None
+        seen_cursors: set[str] = set()
+        while True:
+            data = await self.graphql(
+                query="""
+                query DropRateProductMedia($id: ID!, $after: String) {
+                  product(id: $id) {
+                    id
+                    media(first: 50, after: $after) {
+                      nodes { id }
+                      pageInfo { hasNextPage endCursor }
+                    }
+                  }
+                }
+                """,
+                variables={"id": product_id, "after": cursor},
+            )
+            product = data.get("product")
+            media = product.get("media") if isinstance(product, dict) else None
+            if (
+                not isinstance(product, dict)
+                or product.get("id") != product_id
+                or not isinstance(media, dict)
+                or not isinstance(media.get("nodes"), list)
+                or not isinstance(media.get("pageInfo"), dict)
+            ):
+                raise ShopifyApiError("Shopify product media readback is invalid")
+            if any(isinstance(node, dict) and node.get("id") == file_id
+                   for node in media["nodes"]):
+                return
+            if not media["pageInfo"].get("hasNextPage"):
+                break
+            cursor = media["pageInfo"].get("endCursor")
+            if not isinstance(cursor, str) or not cursor or cursor in seen_cursors:
+                raise ShopifyApiError("Shopify product media pagination is invalid")
+            seen_cursors.add(cursor)
+        if "write_files" not in await self.access_scopes():
+            raise ShopifyMediaScopeRequired()
         data = await self.graphql(
             query="""
             mutation DropRateFileAttach($files: [FileUpdateInput!]!) {

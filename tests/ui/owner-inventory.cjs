@@ -1,0 +1,878 @@
+const {JSDOM}=require('jsdom'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const base=path.join(__dirname,'../../backend/app/static'),tick=()=>new Promise(r=>setImmediate(r));
+const id='d715b0e9-b3c4-451b-a909-5fa233f8a0e5';
+const item={id,catalogue_id:'catalogue',inventory_code:'INV-EXACT-COPY',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:'OP-17',market_value_minor:866,store_price_minor:null,reference_image_url:'https://www.onepiece-cardgame.com/products/pack.webp',reference_image_path:`/api/v1/owner/inventory/${id}/reference-image`,approval_blockers:['Drop Rate intake review','An approved listing photo'],shopify_sync_enabled:true};
+function fixture(override={}) {
+ const dom=new JSDOM(fs.readFileSync(path.join(base,'owner.html'),'utf8').replace(/<script[^>]*><\/script>/g,''),{url:'https://example.test/owner',runScripts:'outside-only',pretendToBeVisual:true});
+ const w=dom.window,run=s=>vm.runInContext(s,dom.getInternalVMContext()),calls=[];
+ w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+ w.scrollTo=()=>{};w.URL.createObjectURL=()=> 'blob:fixture';w.URL.revokeObjectURL=()=>{};w.fetch=async()=>({ok:true,json:async()=>({}),blob:async()=>new w.Blob(['image'],{type:'image/webp'})});
+ run(fs.readFileSync(path.join(base,'hub-session.js'),'utf8'));
+ run(fs.readFileSync(path.join(base,'reference-value-display.js'),'utf8'));
+ run(fs.readFileSync(path.join(base,'inventory-groups.js'),'utf8'));
+ run(fs.readFileSync(path.join(base,'owner-inventory.js'),'utf8'));
+ run(fs.readFileSync(path.join(base,'owner-portal.js'),'utf8').replace(/\ninitialise\(\);\s*$/,''));
+ run(`window.testLoadInventory=loadOwnerInventory;window.testLoadChannels=loadOwnerChannels;window.testLoadOverview=loadOwnerOverview;state.session={access_token:'secret-session',user:{id:'seller-a'}};loadOwnerOverview=loadOwnerChannels=loadOwnerInsights=loadOwnerInventory=async()=>{};`);
+ let current={...item,...override},handler;
+ w.testRequest=async(url,options={})=>{calls.push({url,...options});if(handler)return handler(url,options);return {item:current,copies:[current]};};run('apiRequest=window.testRequest');
+ return {w,run,calls,setHandler:f=>{handler=f;},setItem:x=>{current={...current,...x};},open:()=>w.DropRateInventory.open(current),finish:()=>w.close()};
+}
+function btn(w,text){return [...w.document.querySelectorAll('button')].find(b=>b.textContent===text);}
+async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);assert.equal(b.disabled,false);b.click();await tick();await tick();}
+(async()=>{
+ let checks=0;
+ // Slabs never inherit a raw catalogue fallback, even from a stale API payload.
+ for(const physical of [{grading_company:'PSA',grade:'10'},{grade:'10'},{certificate_number:'113437109'}]){
+  const f=fixture(),calls=[];
+  f.w.fetch=async url=>{calls.push(url);return {ok:false,status:404};};
+  f.w.DropRateBookArtwork={reference:()=>{throw new Error('Graded book cannot borrow a raw cover');}};
+  const picture=f.w.DropRateInventory.image({...item,...physical,image_url:'https://cdn.shopify.com/raw.png',
+   reference_image_url:'https://assets.tcgdex.net/raw.webp'},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();await tick();
+  assert.deepEqual(calls,[`/api/v1/inventory/${id}/image`]);
+  assert.equal(picture.querySelector('img'),null);assert.match(picture.textContent,/Slab photo required/);
+  f.finish();checks++;
+ }
+ for(const failure of [false,true]){
+  const f=fixture(),calls=[];
+  f.w.fetch=async url=>{calls.push(url);return {ok:false,status:404};};
+  const picture=f.w.DropRateInventory.image({...item,grading_company:'PSA',grade:'10',
+   card_image_scope:'INVENTORY_ITEM',card_image_capture_context:'GRADED_SLAB',
+   image_url:'https://cdn.shopify.com/my-slab.png'},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();const img=picture.querySelector('img');
+  assert.equal(img.src,'https://cdn.shopify.com/my-slab.png');assert.match(img.alt,/slab photo/);
+  if(failure){img.dispatchEvent(new f.w.Event('error'));await tick();await tick();
+   assert.deepEqual(calls,[`/api/v1/inventory/${id}/image`]);
+   assert.equal(picture.querySelector('img'),null);assert.match(picture.textContent,/Slab photo unavailable/);
+  }else assert.equal(calls.length,0);
+  f.finish();checks++;
+ }
+ // The selected market value is the only valuation; retail multipliers cannot prefill the selling form.
+ for(const saved of [null,2000]){
+  const current={...item,product_type:'CARD',condition:'Near Mint',market_value_minor:1200,store_price_minor:saved,recommended_retail_minor:9900,
+   reference_value:{status:'REFERENCE_ESTIMATE',market_value_minor:1200,recommended_retail_minor:9900,label:'Cardmarket guide',reason:'Cardmarket market evidence',basis:'English · Near Mint'}};
+  const f=fixture(current);await f.open();
+  const values=f.w.document.querySelector('.owner-item-values');
+  assert.equal(values.firstElementChild.textContent,'Market value');
+  assert.equal(values.querySelector('strong').textContent,'£12.00');
+  assert.match(values.querySelector('details').textContent,/Cardmarket market evidence/);
+  assert.equal(values.querySelector('details').open,false);
+  assert.doesNotMatch(f.w.document.querySelector('.owner-item-dialog').textContent,/Recommended retail|Suggested retail|Guide estimate|£99.00/i);
+  assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,saved==null?'12.00':'20.00');
+  assert.equal(f.w.document.querySelectorAll('[data-listing-step]').length,4);
+  assert.equal(f.w.document.querySelector('[data-recommended-retail]'),null);
+  assert.equal(f.calls.filter(call=>call.method&&call.method!=='GET').length,0);
+  f.finish();checks++;
+ }
+
+ // Real dispatched events lose currentTarget before the debounce fires.
+ for (const channel of [false,true]) {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;loadOwnerChannels=window.testLoadChannels;');
+  f.setHandler(async()=>({total:1,items:[{...item,name:'Borgos'}],channels:[]}));
+  const input=f.w.document.querySelector(channel?'#owner-channels-search':'#owner-inventory-search');
+  input.value='Old search';input.dispatchEvent(new f.w.Event('input',{bubbles:true}));
+  input.value='  Borgos  ';const event=new f.w.Event('input',{bubbles:true});input.dispatchEvent(event);
+  assert.equal(event.currentTarget,null);assert.equal(f.calls.length,0);
+  await new Promise(resolve=>setTimeout(resolve,380));
+  assert.equal(f.calls.length,1);assert.equal(new URL(f.calls[0].url,'https://example.test').searchParams.get('search'),'Borgos');
+  assert.match(f.w.document.querySelector(channel?'#owner-channels-body':'#owner-inventory-grid').textContent,/Borgos/);
+  f.finish();checks++;
+ }
+ // Condition is part of the group; sale intent is per physical copy.
+ {
+  const raw={...item,product_type:'CARD',seal_status:null,status:'APPROVED',condition:'Near Mint',store_price_minor:1000};
+  const personal={...raw,id:'personal',sale_intent:'PERSONAL_COLLECTION',store_price_minor:9900};
+  const played={...raw,id:'played',condition:'Lightly Played',store_price_minor:800};
+  const f=fixture();const originals=JSON.stringify([personal,raw,played]);
+  f.run(`const groups=ownerInventoryDisplayGroups(${originals});renderInventoryCards(groups);renderInventoryRows(groups);`);
+  const cards=[...f.w.document.querySelectorAll('.owner-inventory-card')];
+  assert.equal(cards.length,2);assert.match(cards[0].textContent,/Near Mint/);assert.match(cards[1].textContent,/Lightly Played/);
+  assert.equal(cards[0].querySelector('.owner-card-quantity').textContent,'×2');
+  assert.equal(cards[0].querySelector('.owner-status-pill').textContent,'Mixed availability');
+  assert.match(cards[0].querySelector('.owner-status-pill').title,/1 in collection.*1 ready to sell/);
+  assert.match(cards[0].textContent,/£10.00/);assert.doesNotMatch(cards[0].textContent,/£99.00/);
+  assert.equal(f.w.document.querySelector('#owner-inventory-body tr td:last-child').textContent,'£10.00');
+  assert.equal(JSON.stringify([personal,raw,played]),originals);f.finish();checks++;
+ }
+ // Managed consignor cards can publish only after their real checklist passes.
+ for (const mode of ['ready','photos-missing','unknown-seller','no-checklist']) {
+  const preparation={scope_blocker:mode==='unknown-seller'?'An active seller account is required for eBay':null,
+   checks:[{code:'photos',label:'Front and back photos approved',complete:mode!=='photos-missing'}]};
+  const card={...item,product_type:'CARD',is_consignment:true,status:'APPROVED',condition:'Near Mint',
+   store_price_minor:1000,ebay_preparation:mode==='no-checklist'?null:preparation};
+  const f=fixture(card);
+  f.run("state.ownerChannelAccount='seller-a';state.ownerChannelSummaries=[{code:'EBAY',connected:true,sync_enabled:true}];");
+  f.setHandler(async()=>({item:card,copies:[card],status:'LIVE'}));
+  await f.open();
+  const block=f.w.document.querySelector('.owner-item-channel-ebay');
+  assert.doesNotMatch(block.textContent,/Consignor sync isn't supported/);
+  if(mode==='ready'){
+   assert.match(block.textContent,/Ready for final checks/);
+   await click(f.w,'Sync to eBay');
+   const writes=f.calls.filter(call=>call.method==='POST');
+   assert.equal(writes.length,1);assert.equal(writes[0].url,`/api/v1/owner/inventory/${id}/channels/ebay/sync`);
+   assert.deepEqual(JSON.parse(writes[0].body),{version:3});
+  }else{
+   assert.equal(btn(f.w,'Sync to eBay'),undefined);
+   assert.match(block.textContent,mode==='unknown-seller'?/active seller account/:/Complete the eBay checklist/);
+   assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+  }
+  f.finish();checks++;
+ }
+ {
+  const f=fixture();f.run(`renderOwnerChannelSummary({channels:[{code:'EBAY',connected:true,connection_status:'READY',sync_enabled:false,sync_unavailable_reason:'Consignor eBay publishing is not enabled yet'}]});
+   renderOwnerChannelsRows([${JSON.stringify({...item,product_type:'CARD',inventory_id:id,store_value_minor:100,recommended_retail_minor:100})}],[]);`);
+  assert.equal(f.w.document.querySelector('#owner-channel-ebay-status').textContent,'Connected · publishing unavailable');
+  assert.match(f.w.document.querySelector('#owner-channel-ebay-note').textContent,/Consignor/);
+  assert.equal(f.w.document.querySelector('#owner-channels-body tr td:nth-child(5)').textContent,'Not set');
+  assert.ok(btn(f.w,'Prepare for eBay'));assert.equal(f.calls.length,0);f.finish();checks++;
+ }
+ {
+  const personal={...item,inventory_status:'APPROVED',sale_intent:'PERSONAL_COLLECTION',shopify_state:'PUBLISHED',shopify_test_mode:false,ebay_state:'LIVE'};
+  const f=fixture();f.run(`renderOwnerChannelSummary({channels:[{code:'SHOPIFY',states:[{state:'PUBLISHED',count:1},{state:'REVIEW_REQUIRED',count:1}]},{code:'EBAY',states:[{state:'ERROR',count:2},{state:'REVIEW_REQUIRED',count:1}]}]});
+    renderOwnerChannelsRows(${JSON.stringify([personal,{...personal,id:'test',shopify_test_mode:true},{...personal,id:'sale',sale_intent:'FOR_SALE'}])},[]);`);
+  const rows=f.w.document.querySelectorAll('#owner-channels-body tr');
+  assert.equal(rows[0].querySelector('td:nth-child(2) .owner-status-pill').textContent,'Listing needs review');
+  assert.equal(rows[0].querySelector('td:nth-child(3) .owner-status-pill').textContent,'Listing needs review');
+  assert.equal(rows[1].querySelector('td:nth-child(2) .owner-status-pill').textContent,'Test listing');
+  assert.equal(rows[2].querySelector('td:nth-child(2) .owner-status-pill').textContent,'PUBLISHED');
+  assert.equal(f.w.document.querySelector('#owner-channel-shopify-live').textContent,'1');
+  assert.equal(f.w.document.querySelector('#owner-channel-shopify-errors').textContent,'1');
+  assert.equal(f.w.document.querySelector('#owner-channel-ebay-errors').textContent,'3');
+  assert.equal(f.calls.length,0);f.finish();checks++;
+ }
+ {
+  for (const fails of [false,true]) {
+   const f=fixture();const personal={...item,inventory_id:id,inventory_status:'APPROVED',sale_intent:'PERSONAL_COLLECTION',shopify_state:'PUBLISHED',shopify_test_mode:false};
+   f.run(`renderOwnerChannelsRows([${JSON.stringify(personal)}],[]);`);
+   f.setHandler(async()=>{if(fails)throw new Error('Channel withdrawal needs retry');return {action_required:false};});
+   await click(f.w,'Retry removal');
+   assert.equal(f.calls.length,1);assert.equal(f.calls[0].url,`/api/v1/inventory/${id}/sale-intent`);
+   assert.deepEqual(JSON.parse(f.calls[0].body),{version:3,sale_intent:'PERSONAL_COLLECTION'});
+   if(fails){assert.equal(btn(f.w,'Retry removal').disabled,false);assert.match(f.w.document.querySelector('#owner-channels-message').textContent,/needs retry/);}
+   else assert.match(f.w.document.querySelector('#owner-channels-message').textContent,/Other sellable copies remain available/);
+   f.finish();checks++;
+  }
+ }
+ {
+  const preparation={completed:1,scope_blocker:'Consignor eBay publishing is not enabled yet',checks:[
+   {code:'language',label:'Language recorded',complete:true},
+   {code:'photos',label:'Front and back photos approved',complete:false,next_step:'Drop Rate needs photos of this physical copy'}]};
+  const f=fixture({product_type:'CARD',ebay_preparation:preparation});
+  await f.w.DropRateInventory.open(item,{prepareEbay:true});
+  assert.equal(f.w.document.querySelector('.owner-item-selling').open,true);
+  const checklist=f.w.document.querySelector('.owner-ebay-preparation');
+  assert.equal(f.w.document.querySelector('[data-listing-step="preparation"]').hidden,false);
+  assert.equal(f.w.document.activeElement,checklist);assert.match(checklist.textContent,/1 of 2 preparation steps complete/);
+  assert.equal(checklist.querySelectorAll('.complete').length,1);assert.match(checklist.textContent,/physical copy/);
+  assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
+ }
+ {
+  const f=fixture({seller_approval_available:true,approval_blockers:[],image_url:'https://cdn.shopify.com/op17.webp'});await f.open();
+  assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/Your stock stays with you/);
+  assert.doesNotMatch(f.w.document.querySelector('.owner-item-dialog').textContent,/requests Drop Rate review/);
+  f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='10.00';await click(f.w,'List on Shopify');
+  assert.deepEqual(JSON.parse(f.calls.find(c=>c.method).body),{version:3,store_price_minor:1000});f.finish();checks++;
+ }
+ {
+  const f=fixture({product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',
+    condition:'Mint',seal_status:null,store_price_minor:1000,
+    approval_blockers:['Drop Rate selling review: confirm the exact printing before publication',
+      'Shopify media: approved first-party physical front image',
+      'Drop Rate must configure shipping profile COMIC_BOOK']});
+  await f.open();
+  const details=f.w.document.querySelector('.owner-item-selling').textContent;
+  assert.match(details,/exact printing before publication/);
+  assert.match(details,/approved first-party physical front image/);
+  assert.match(details,/shipping profile COMIC_BOOK/);
+  f.run(`window.testShopifyError=errorMessage({detail:{message:'Inventory is not eligible for Shopify publication',
+    missing:['APPROVED status','identity confirmation']}})`);
+  assert.match(f.w.testShopifyError,/APPROVED status; identity confirmation/);
+  const section=f.w.document.querySelector('[data-comic-preparation="true"]');
+  assert.ok(section,'The comic seller must have an in-app preparation form');
+  assert.match(section.textContent,/where this exact copy is held/);
+  assert.match(section.textContent,/Photographs of your exact copy/);
+  assert.match(section.textContent,/not an approved shipping rate/);
+  assert.equal(f.w.document.querySelector('.owner-item-selling').open,true);
+  await click(f.w,'Save preparation details');
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/where this physical comic is held/);
+  assert.equal(f.calls.filter(c=>c.method==='PATCH').length,0);
+  f.finish();checks++;
+ }
+ for (const cost of ['', '0', '7.25']) {
+  const comic={...item,product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',
+   condition:'Mint',seal_status:null,store_price_minor:1500,comic_acquisition_cost_minor:null,comic_photos:[]};
+  const f=fixture(comic); await f.open();
+  const input=key=>f.w.document.querySelector(`[data-comic-field="${key}"]`);
+  assert.match(input('cost').closest('label').textContent,/optional/);
+  assert.equal(input('cost').required,false);
+  assert.doesNotMatch(f.w.document.querySelector('.owner-item-selling').textContent,/Save what you paid for this copy/);
+  input('holding').value='SELLER_HELD';input('dispatch_note').value='London, dispatch on request';
+  input('cost').value=cost;input('weight').value='190';input('length').value='320';
+  input('width').value='240';input('height').value='18';
+  await click(f.w,'Save preparation details');
+  const sent=f.calls.find(c=>c.url.endsWith('/comic-preparation')&&c.method==='PATCH');
+  assert.ok(sent);assert.deepEqual(JSON.parse(sent.body),{version:3,holding:'SELLER_HELD',
+   dispatch_note:'London, dispatch on request',acquisition_cost_minor:cost===''?null:Math.round(Number(cost)*100),
+   parcel_weight_grams:190,parcel_length_mm:320,parcel_width_mm:240,parcel_height_mm:18});
+  assert.equal(f.calls.filter(c=>c.url.includes('/channels/shopify/sync')).length,0);
+  f.finish();checks++;
+ }
+ {
+  const comic={...item,product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',condition:'Mint',
+   seal_status:null,store_price_minor:1500,comic_photos:[{id:'rejected',side:'FRONT',
+    approval_status:'REJECTED',retake_reason:'Glare hides the printing'}]};
+  const f=fixture(comic); await f.open();
+  const front=f.w.document.querySelector('.owner-comic-photo-row');
+  assert.match(front.textContent,/Retake requested: Glare hides the printing/);
+  assert.ok(btn(f.w,'Resubmit photo'));assert.equal(f.calls.filter(c=>c.method).length,0);
+  const file=new f.w.File(['photo bytes'],'cover.jpg',{type:'image/jpeg'});
+  Object.defineProperty(front.querySelector('input[type="file"]'),'files',{configurable:true,value:[file]});
+  front.querySelector('input[type="checkbox"]').checked=true;
+  f.setHandler(async(url,options={})=>{
+   if(url.includes('/comic-photo/upload?'))return {asset:{approval_status:'PENDING'},message:'Photo received for staff review'};
+   return {item:comic,copies:[comic]};
+  });
+  await click(f.w,'Resubmit photo');
+  const upload=f.calls.find(c=>c.url.includes('/comic-photo/upload?'));
+  assert.ok(upload);assert.equal(upload.body,file);
+  const params=new URL(upload.url,'https://example.test').searchParams;
+  assert.equal(params.get('side'),'FRONT');assert.equal(params.get('version'),'3');
+  assert.equal(params.get('rights_confirmed'),'true');assert.equal(params.get('filename'),'cover.jpg');
+  assert.match(params.get('request_key'),/^[0-9a-f-]{36}$/);
+  assert.equal(upload.headers['Content-Type'],'image/jpeg');
+  assert.equal(f.calls.filter(c=>/comic-photo\/(upload-target|complete)/.test(c.url)).length,0);
+  assert.equal(f.calls.filter(c=>c.url.includes('/channels/shopify/sync')).length,0);
+  f.finish();checks++;
+ }
+ for(const fileStatus of ['FAILED','NOT_UPLOADED']){
+  const f=fixture({product_type:'COMIC',condition:'Mint',seal_status:null,status:'INSPECTION',
+   comic_photos:[{id:'pending-front',side:'FRONT',approval_status:'PENDING',shopify_file_status:fileStatus}]});
+  await f.open();
+  const front=f.w.document.querySelector('.owner-comic-photo-row');
+  if(fileStatus==='FAILED'){
+   assert.match(front.textContent,/could not be processed/);assert.ok(btn(f.w,'Resubmit photo'));
+   assert.ok(front.querySelector('input[type="file"]'),'A failed provider image must offer a new submission');
+  }else{
+   assert.match(front.textContent,/Image processing needs to finish/);
+   assert.equal(front.querySelector('input[type="file"]'),null,'An existing receipt must not invite duplicate uploads');
+   assert.ok(btn(f.w,'Check photo processing'),'Received files can finish without a new photo');
+  }
+  assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
+ }
+ // A delayed background photo read must never undo a removal which committed
+ // after that read began, even while the collection refresh is still pending.
+ {
+  const comic={...item,product_type:'COMIC',game:'Marvel Comics',status:'INSPECTION',condition:'Mint',
+   seal_status:null,store_price_minor:1500,comic_photos:[{id:'pending-front',side:'FRONT',approval_status:'PENDING',shopify_file_status:'NOT_UPLOADED'}]};
+  const f=fixture(comic);f.w.DropRateScanPhotos={};let detailReads=0,finishBackground;
+  f.run('loadOwnerInventory=()=>new Promise(resolve=>{window.finishCollectionReload=resolve;});');
+  f.setHandler(async(url)=>{
+   if(url.endsWith('/photos/refresh'))return {items:[]};
+   if(url.endsWith('/withdraw'))return {message:'Copy removed.'};
+   detailReads++;
+   if(detailReads===2)return new Promise(resolve=>{finishBackground=()=>resolve({item:comic,copies:[comic]});});
+   return {item:detailReads>2?{...comic,status:'WITHDRAWN',version:4}:comic,copies:[comic]};
+  });
+  await f.open();await tick();assert.equal(detailReads,2,'Background photo detail read must be pending');
+  await click(f.w,'Remove this copy');await click(f.w,'Confirm removal');
+  assert.ok(f.w.finishCollectionReload,'Removal should now wait for Collection refresh');
+  finishBackground();await tick();await tick();f.w.finishCollectionReload();await tick();await tick();
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,false,'An older photo response cannot restore an active detail after removal');
+  assert.match(f.w.document.querySelector('#owner-portal-message').textContent,/Copy removed from your collection/);
+  assert.equal(f.calls.filter(call=>call.url.endsWith('/withdraw')).length,1);f.finish();checks++;
+ }
+ for(const change of ['refresh','account','logout']){
+  const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const pending=f.w.testLoadInventory();
+  if(change==='logout')f.run(`clearSession();state.session={access_token:'new',user:{id:'seller-a'}};`);
+  else f.run(`state.session={access_token:'new',user:{id:'${change==='refresh'?'seller-a':'seller-b'}'}};`);
+  resolve({total:1,items:[item]});await pending;
+  assert.equal(f.w.document.querySelectorAll('.owner-card-image-wrap').length,change==='refresh'?1:0);f.finish();checks++;
+ }
+ {
+  const f=fixture();f.run(`renderInventoryCards([${JSON.stringify(item)}]);renderInventoryRows([${JSON.stringify(item)}]);`);
+  await tick();assert.equal(f.w.document.querySelector('.owner-card-thumb img').src,'blob:fixture');
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.equal(tile.querySelector('.owner-card-meta'),null,'Quick inventory tiles must not expose detailed metadata');
+  assert.equal(tile.querySelector('.owner-card-title strong').textContent,item.name);
+  assert.match(tile.querySelector('.owner-status-pill').textContent,/Not listed/);
+  assert.match(tile.querySelector('.owner-card-prices').textContent,/£8.66/);
+  assert.match(tile.querySelector('.owner-card-prices').textContent,/Selling price/);
+  assert.match(tile.querySelector('.owner-card-prices').textContent,/Not set/);
+  assert.match(f.w.document.querySelector('#owner-inventory-body tr td:last-child').textContent,/Not set/);
+  assert.doesNotMatch(tile.textContent,/INV-EXACT-COPY|Inventory ID/);
+  assert.match(tile.querySelector('.owner-card-identity').textContent,/Japanese.*Sealed product/);
+  assert.equal(tile.querySelector('.owner-inventory-details'),null,'No redundant Manage button');
+  const openTile=tile.querySelector('.owner-card-open-overlay');
+  assert.ok(openTile,'Whole card needs an accessible details button');
+  assert.match(openTile.getAttribute('aria-label'),/View details for/);
+  assert.equal(tile.querySelectorAll('button').length,1,'No duplicate image/Manage controls on a static tile');
+  const inventoryRow=f.w.document.querySelector('#owner-inventory-body tr');
+  assert.equal(inventoryRow.children.length,4,'List view should have only essential columns');
+  assert.doesNotMatch(inventoryRow.textContent,/INV-EXACT-COPY|Inventory ID/);
+  assert.match(inventoryRow.textContent,/Japanese/);
+  assert.match(inventoryRow.textContent,/£8.66/);
+  f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/INV-EXACT-COPY/);
+  const facts=f.w.document.querySelector('.owner-item-facts');
+  assert.ok(facts,'Full inventory identity must be visible only inside details');
+  const entries=[...facts.querySelectorAll('.owner-item-fact')].map(n=>[
+    n.querySelector('dt').textContent,n.querySelector('dd').textContent]);
+  for(const [label,value] of [['Game','One Piece'],['Language','Japanese'],['Seal','Sealed'],
+    ['Type','Sealed product'],['Inventory ID','INV-EXACT-COPY']])
+    assert.ok(entries.some(entry=>entry[0]===label&&entry[1]===value),label+' missing from item details');
+  assert.equal(tile.querySelector('.owner-item-facts'),null);
+  f.w.DropRateInventory.close();f.w.document.querySelector('.owner-inventory-open').click();await tick();assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);
+  assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/We need to check this item/);assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
+  assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
+ }
+ // The screenshot showed a giant "Last known 08/10/2026" block. A
+ // two-column card should show the GBP figure, never that dated caption.
+ {
+  const old={...item,reference_value:{status:'STALE',last_known_minor:866,
+    checked_at:'2026-10-08T12:00:00Z'},store_price_minor:1000};
+  const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  const prices=tile.querySelector('.owner-card-prices');
+  assert.match(prices.textContent,/£8.66/);
+  assert.ok(!prices.textContent.includes("Last known")&&!prices.textContent.includes("08/10/2026"));
+  assert.match(prices.querySelector('.owner-card-historical-label').textContent,/Historical value/);
+  const tableMarket=f.w.document.querySelector('#owner-inventory-body tr td:nth-child(3)');
+  assert.ok(tableMarket,'List view must retain a separate market value column');
+  assert.match(tableMarket.textContent,/£8.66/);
+  assert.ok(!tableMarket.textContent.includes("Last known")&&!tableMarket.textContent.includes("08/10/2026"));
+  assert.match(tableMarket.querySelector('.owner-table-historical-label').textContent,/Historical value/);
+  assert.equal(tile.querySelector('.owner-inventory-details'),null);
+  tile.querySelector('.owner-card-open-overlay').click();await tick();
+  assert.ok(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent.includes("Last known 08/10/2026"));
+   const history=f.w.document.querySelector('.owner-item-historical-label');
+   assert.match(history.textContent,/Historical value.*Last known 08\/10\/2026/);
+   assert.equal(history.closest('details'),null);
+   assert.equal(f.w.document.querySelector('.owner-market-source').open,false);
+  f.finish();checks++;
+ }
+ // A stale near-mint comparison for an unfinished copy keeps its history badge.
+ {
+  const old={...item,market_value_minor:null,condition:null,product_type:'CARD',seal_status:null,
+    reference_value:{status:'NEEDS_DETAILS',market_value_minor:null},
+    catalogue_reference:{status:'STALE',last_known_minor:800,last_known_high_minor:1200,
+      checked_at:'2026-10-14T12:00:00Z',physical_valuation_eligible:false}};
+  const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
+  assert.equal(f.w.DropRateReferenceValue.isHistorical(old),true);
+  assert.match(f.w.document.querySelector('.owner-card-prices').textContent,/£8.00/);
+  assert.match(f.w.document.querySelector('.owner-card-historical-label').textContent,/Historical value/);
+  assert.match(f.w.document.querySelector('.owner-table-historical-label').textContent,/Historical value/);
+  f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
+  assert.match(f.w.document.querySelector('.owner-item-values').textContent,/£8.00/);
+  assert.match(f.w.document.querySelector('.owner-item-values').textContent,/Last known 14\/10\/2026/);
+  assert.equal(old.market_value_minor,null);f.finish();checks++;
+ }
+ // Clicking a refresh button must never open the detail sheet, even when it
+ // is laid above the stretched tile button.
+ {
+  const f=fixture({...item,can_refresh_market:true});
+  let resolveRefresh;
+  f.setHandler((url,options)=>new Promise((resolve,reject)=>{resolveRefresh=reject;}));
+  f.run(`renderInventoryCards([${JSON.stringify({...item,can_refresh_market:true})}]);`);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.ok(tile.querySelector('.owner-market-refresh'));
+  tile.querySelector('.owner-market-refresh').click();await tick();
+  assert.equal(f.w.document.querySelector('.owner-item-dialog'),null);
+  assert.equal(f.calls.length,1);
+  resolveRefresh(new Error("Provider unavailable"));await tick();await tick();
+  f.finish();checks++;
+ }
+ // Two approved identical sealed physical copies become ONE quantity-2 card,
+ // without mutating or losing distinct inventory IDs or inventing prices.
+ {
+  const first={...item,status:'APPROVED',store_price_minor:1000,market_value_minor:866,
+    can_refresh_market:false,is_consignment:true};
+  const second={...first,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+    inventory_code:'INV-55FE97FC7BFA4A73A269664EC56D3004',market_value_minor:null,
+    can_refresh_market:true};
+  const f=fixture(first);
+  f.setHandler(async(url,options)=>{
+    if(url.startsWith('/api/v1/owner/inventory?'))return {total:2,items:[first,second]};
+    if(url.startsWith('/api/v1/owner/channels?'))return {channels:[
+      {code:'EBAY',connected:true,sync_enabled:true,connection_status:'READY'}]};
+    return {item:first,copies:[first,second]};
+  });
+  await f.w.testLoadInventory();
+  const cards=[...f.w.document.querySelectorAll('.owner-inventory-card')];
+  assert.equal(cards.length,1);
+  assert.equal(f.w.document.querySelectorAll('#owner-inventory-body tr').length,1);
+  assert.equal(cards[0].querySelector('.owner-card-quantity').textContent,'×2');
+  assert.match(cards[0].querySelector('.owner-card-prices').textContent,/£8.66/);
+  assert.match(cards[0].querySelector('.owner-card-prices').textContent,/1\/2 copies valued/);
+  assert.match(cards[0].querySelector('.owner-card-prices').textContent,/£10.00/);
+  assert.equal(f.w.document.querySelector('#owner-inventory-total-label').textContent,'1');
+  assert.match(f.w.document.querySelector('.owner-inventory-total').textContent,/1product · 2 copies/);
+  assert.equal(first.market_value_minor,866);
+  assert.equal(second.market_value_minor,null);
+  f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
+  assert.match(f.w.document.querySelector('.owner-item-quantity').textContent,/2/);
+  assert.equal(f.w.document.querySelector('[aria-label="Choose inventory copy"]').options.length,2);
+  assert.equal(btn(f.w,'Sync to eBay'),undefined,'Unsupported eBay sealed publishing must not show a misleading action');
+  assert.equal(f.w.document.querySelector('.owner-item-channel-ebay .owner-item-channel-availability').textContent,'Not available yet');
+  assert.match(f.w.document.querySelector('.owner-item-channel-ebay').textContent,/Sealed packs aren't supported yet/);
+  let opened=null;f.w.open=(url,target,options)=>{opened={url,target,options};};
+  assert.equal(btn(f.w,'Set up'),undefined,'Seller must not be sent to Drop Rate Shopify');
+  assert.equal(f.w.document.querySelector('.owner-item-channel-whatnot button'),null);
+  assert.match(f.w.document.querySelector('.owner-item-channel-whatnot').textContent,/Not connected in Drop Rate — publishing unavailable/);
+  assert.equal(f.w.document.querySelector('.owner-item-channel-whatnot .owner-item-channel-availability').textContent,'Not available yet');
+  assert.equal(opened,null,'No unapproved Whatnot OAuth or Shopify install should open');
+  assert.equal(f.w.document.querySelector('.owner-item-channel-shopify img').src,'https://upload.wikimedia.org/wikipedia/commons/0/0e/Shopify_logo_2018.svg');
+  assert.equal(f.w.document.querySelector('.owner-item-channel-ebay img').src,'https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg');
+  assert.equal(f.w.document.querySelector('.owner-item-channel-whatnot img').src,'https://upload.wikimedia.org/wikipedia/commons/9/91/Whatnot_Logo_2025.svg');
+  assert.equal(f.calls.filter(x=>x.method==='POST').length,0,'Channel setup must never claim a listing published');
+  f.finish();checks++;
+ }
+ // Strict grouping invariants: cross-condition, language, type, ownership
+ // and graded identities must never turn into an interchangeable pack pool.
+ {
+  const f=fixture();
+  const base={...item,status:'APPROVED',store_price_minor:1000,market_value_minor:866,
+    sale_intent:'FOR_SALE'};
+  for(const variant of [
+    {...base,id:'other',language:'English'},
+    {...base,id:'other',seal_status:'UNSEALED'},
+    {...base,id:'other',product_type:'CARD'},
+    {...base,id:'other',grade:'10',grading_company:'PSA'},
+    {...base,id:'other',variant:'Other packaging'},
+  ]){
+    const items=[base,variant];
+    f.run(`renderInventoryCards(ownerInventoryDisplayGroups(${JSON.stringify(items)}));`);
+    assert.equal(f.w.document.querySelectorAll('.owner-inventory-card').length,2,
+      'Different physical variants must remain separate');
+  }
+  f.finish();checks++;
+ }
+ // Raw duplicates include unknown-condition, personal, pending and approved copies.
+ // Different exact physical states and all slabs remain individually visible.
+ {
+  const f=fixture();
+  const raw={...item,product_type:'CARD',seal_status:null,condition:null,language:'English',
+    market_value_minor:null,reference_value:{status:'NEEDS_DETAILS'},
+    catalogue_reference:{status:'CONDITION_REFERENCE',market_value_minor:132,label:'Near-mint reference'}};
+  const copies=[raw,{...raw,id:'copy-2',status:'APPROVED',sale_intent:'PERSONAL_COLLECTION',store_price_minor:200}];
+  const extras=[{...raw,id:'nm',condition:'Near Mint'},
+    {...raw,id:'jp',language:'Japanese'}, {...raw,id:'parallel',catalogue_id:'other-printing'},
+    {...raw,id:'slab-1',grading_company:'PSA',grade:'10'}, {...raw,id:'slab-2',grading_company:'PSA',grade:'10'},
+    {...raw,id:'certificate-1',certificate_number:'one'}, {...raw,id:'certificate-2',certificate_number:'two'},
+    {...raw,id:'sold',status:'SOLD'}, {...raw,id:'foreign',owner_id:'other-owner'}];
+  f.run(`renderInventoryCards(ownerInventoryDisplayGroups(${JSON.stringify([...copies,...extras])}));renderInventoryRows(ownerInventoryDisplayGroups(${JSON.stringify([...copies,...extras])}));`);
+  assert.equal(f.w.document.querySelectorAll('.owner-inventory-card').length,10);
+  assert.equal(f.w.document.querySelectorAll('#owner-inventory-body tr').length,10);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.equal(tile.querySelector('.owner-card-quantity').textContent,'×2');
+  assert.match(tile.textContent,/Mixed availability/);assert.match(tile.textContent,/£1.32/);
+  assert.match(tile.textContent,/Market value · each/);assert.match(tile.textContent,/Selling priceNot set/);
+  assert.doesNotMatch(tile.textContent,/Condition not specified/);
+  assert.equal(raw.market_value_minor,null,'Grouping never writes a value into the physical copy');
+  assert.equal(f.calls.filter(call=>call.method).length,0);
+  f.finish();checks++;
+ }
+ for(const value of ['', '0', '0.99', '1.001']){
+  const f=fixture();await f.open();f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value=value;
+  await click(f.w,'Save selling price');assert.equal(f.calls.filter(c=>c.method).length,0);assert.match(f.w.document.querySelector('.owner-item-message').textContent,/at least £1/);f.finish();checks++;
+ }
+ for(const action of ['Save selling price','Request listing review']){
+  const f=fixture();await f.open();f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='12.34';
+  await click(f.w,action);const sent=f.calls.find(c=>c.method);assert.deepEqual(JSON.parse(sent.body),{version:3,store_price_minor:1234});
+  assert.ok(sent.url.endsWith(action.startsWith('Save')?'/selling-price':'/approval-request'));assert.equal(sent.body.includes('identity'),false);f.finish();checks++;
+ }
+ {
+  const f=fixture({status:'APPROVED',store_price_minor:1000});await f.open();await click(f.w,'Check & sync to Shopify');
+  assert.ok(f.calls.some(c=>c.url.endsWith('/channels/shopify/sync')&&JSON.parse(c.body).version===3));f.finish();checks++;
+ }
+ // Already-published physical stock has a save-price control but must never
+ // show a second approval or Shopify sync action.
+ {
+  const f=fixture({status:'APPROVED',sale_intent:'FOR_SALE',
+    shopify_state:'PUBLISHED',seller_approval_available:true,
+    is_consignment:true,store_price_minor:1000,shopify_sync_enabled:true});
+  await f.open();
+  const modal=f.w.document.querySelector('.owner-item-dialog');
+  assert.equal(modal.querySelector('.owner-item-selling summary').textContent,'Manage listing');
+  assert.equal(modal.querySelector('.owner-item-selling').open,false);
+  assert.equal(btn(f.w,'List on Shopify'),undefined);
+  assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
+  assert.ok(btn(f.w,'Save selling price'));
+  assert.match(modal.querySelector('.owner-item-channel-shopify').textContent,/Published/);
+  assert.equal(modal.querySelector('.owner-item-channel-shopify .owner-item-channel-availability').textContent,'Already live');
+  assert.equal(modal.querySelector('.owner-item-channel-ebay button'),null);
+  assert.match(modal.querySelector('.owner-item-channel-ebay').textContent,/Sealed packs aren't supported yet/);
+  assert.match(modal.querySelector('.owner-item-channel-ebay .owner-item-channel-availability').textContent,/Not available yet/);
+  assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+  const allImages=[...modal.querySelectorAll('.owner-item-channel-logo')];
+  assert.equal(allImages.length,3);
+  assert.ok(allImages.every(img=>img.src.startsWith('https://upload.wikimedia.org/wikipedia/commons/')));
+  f.finish();checks++;
+ }
+ for(const override of [{status:'SOLD'},{status:'RESERVED'},{status:'WITHDRAWN'},{sale_intent:'PERSONAL_COLLECTION',status:'APPROVED'},{shopify_sync_enabled:false,status:'APPROVED'}]){
+  const f=fixture(override);await f.open();assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
+  if(override.status!=='APPROVED'){assert.equal(btn(f.w,'Save selling price').disabled,true);assert.equal(btn(f.w,'Remove this copy').disabled,true);assert.equal(btn(f.w,'Add another copy').disabled,true);}
+  f.finish();checks++;
+ }
+ {
+  const f=fixture({product_type:'CARD',grading_company:'PSA',grade:'10',certificate_number:'123'});await f.open();assert.equal(btn(f.w,'Add another copy').disabled,true);assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/own certificate/);f.finish();checks++;
+ }
+ {
+  const f=fixture({product_type:'CARD',seal_status:null,condition:'Near Mint',
+    grading_company:'PSA',grade:'10',certificate_number:'PSA-1234567'});await f.open();
+  const specs=f.w.document.querySelector('.owner-item-facts');
+  const entries=[...specs.querySelectorAll('.owner-item-fact')].map(n=>[
+    n.querySelector('dt').textContent,n.querySelector('dd').textContent]);
+  for(const [label,value] of [['Condition','PSA 10'],['Grading company','PSA'],['Grade','10'],
+    ['Certificate','PSA-1234567'],['Inventory ID','INV-EXACT-COPY']])
+    assert.ok(entries.some(row=>row[0]===label&&row[1]===value),label+' is not available in details');
+  assert.equal(btn(f.w,'Add another copy').disabled,true);f.finish();checks++;
+ }
+ {
+  const f=fixture({status:'APPROVED',store_price_minor:1000,can_refresh_market:true});
+  f.run(`renderInventoryCards([${JSON.stringify({...item,status:'APPROVED',store_price_minor:1000,can_refresh_market:true})}]);`);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.match(tile.querySelector('.owner-card-prices').textContent,/£10.00/);
+  assert.match(tile.querySelector('.owner-status-pill').textContent,/Ready to sell/);
+  assert.ok(tile.querySelector('.owner-market-refresh'));
+  tile.querySelector('.owner-card-open-overlay').click();await tick();
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);
+  f.finish();checks++;
+ }
+ // Explicit copy actions preview a change; cancellation
+ // restores the saved count, and the owner-scoped POST happens only on confirm.
+ for (const responseLost of [false,true]) {
+  const first={...item,status:'APPROVED',sale_intent:'FOR_SALE',store_price_minor:1000,
+    shopify_state:'PUBLISHED',seller_approval_available:true};
+  const second={...first,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+    inventory_code:'INV-SECOND-COPY'};
+  const draft={...first,id:'22222222-3333-4444-8555-666666666666',
+    inventory_code:'INV-NEW-DRAFT',status:'DRAFT',sale_intent:'PERSONAL_COLLECTION'};
+  const f=fixture(first);
+  let copies=[first,second],posted=0;
+  f.setHandler(async(url,options)=>{
+    if(url.endsWith('/copies')){
+      posted++;copies=[...copies,draft];
+      return {message:'One copy added. Review and approve it separately before selling.'};
+    }
+    return {item:first,copies};
+  });
+  await f.open();
+  const counter=()=>f.w.document.querySelector('.owner-item-quantity-value');
+  assert.equal(counter().textContent,'2');
+  assert.equal(counter().getAttribute('aria-label'),'Saved quantity 2');
+  await click(f.w,'Add another copy');
+  assert.equal(counter().textContent,'3','+ must immediately show proposed quantity');
+  assert.equal(counter().getAttribute('aria-label'),'Proposed quantity 3, not saved');
+  assert.match(f.w.document.querySelector('.owner-item-quantity-feedback').textContent,/Not saved: 2 → 3/);
+  assert.equal(btn(f.w,'Add another copy').disabled,true,'A second unsaved request must not silently create another copy');
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,0,'Preview must never mutate stock');
+  await click(f.w,'Remove this copy');
+  assert.equal(counter().textContent,'1','Remove this copy previews removal of the selected saved copy');
+  await click(f.w,'Cancel change');
+  assert.equal(f.w.document.querySelector('.owner-item-confirmation').textContent,'');
+  await click(f.w,'Remove this copy');
+  assert.equal(counter().textContent,'1','− must immediately show proposed quantity');
+  assert.match(f.w.document.querySelector('.owner-item-confirmation').textContent,/INV-EXACT-COPY/);
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+  await click(f.w,'Cancel change');
+  assert.equal(counter().textContent,'2');
+  assert.equal(counter().getAttribute('aria-label'),'Saved quantity 2');
+  await click(f.w,'Add another copy');
+  assert.equal(counter().textContent,'3');
+  await click(f.w,'Confirm additional copy');
+  assert.equal(posted,1,'Exactly one extra physical record should be requested');
+  assert.equal(counter().textContent,'3','Successful save must reflect server re-read, not optimistic state');
+  assert.equal(counter().getAttribute('aria-label'),'Saved quantity 3');
+  assert.match(f.w.document.querySelector('.owner-item-quantity-breakdown').textContent,/2 approved for sale · 1 awaiting approval/);
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/One copy added to your collection/);
+  assert.equal(f.w.document.querySelector('.owner-item-confirmation').textContent,'');
+  f.finish();checks++;
+ }
+ // Withdraw the selected physical item, not the entire grouped Shopify offer.
+ {
+  const first={...item,status:'APPROVED',sale_intent:'FOR_SALE',store_price_minor:1000,
+    shopify_state:'PUBLISHED'};
+  const second={...first,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+    inventory_code:'INV-SECOND-COPY'};
+  const f=fixture(first);let withdrawn=false;
+  f.run('loadOwnerInventory=window.testLoadInventory;');
+  f.setHandler(async(url,options)=>{
+    if(url.startsWith('/api/v1/owner/inventory?'))return {items:withdrawn?[second]:[first,second],total:1,copy_total:withdrawn?1:2};
+    if(url.endsWith('/withdraw')){
+      withdrawn=true;
+      assert.deepEqual(JSON.parse(options.body),{version:3});
+      if(responseLost)throw new Error('Connection lost after removal');
+      return {message:'Copy withdrawn. Its history is retained.'};
+    }
+    return {item:withdrawn?{...first,status:'WITHDRAWN'}:first,
+      copies:withdrawn?[second]:[first,second]};
+  });
+  await f.open();await click(f.w,'Remove this copy');
+  assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1');
+  assert.equal(withdrawn,false,'Preview must not withdraw stock');
+  await click(f.w,'Confirm removal');
+  assert.equal(withdrawn,true);
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,false,'Successful removal returns to the active collection');
+  assert.match(f.w.document.querySelector('#owner-portal-message').textContent,/Copy removed from your collection/);
+  assert.equal(f.w.document.querySelectorAll('.owner-inventory-card').length,1,'The remaining exact sibling is still in Collection');
+  assert.equal(f.w.document.querySelector('.owner-card-quantity'),null,'The withdrawn copy must no longer inflate grouped quantity');
+  assert.doesNotMatch(f.w.document.querySelector('#owner-inventory-grid').textContent,/Removed/);
+  assert.equal(f.run('state.inventory.facets'),null,'Removed-only filter choices must refresh with the collection');
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+  f.finish();checks++;
+ }
+ {
+  const f=fixture();f.setHandler(async(url)=>{if(url.endsWith('/withdraw'))throw new Error('Selling channel could not remove this copy');return {item,copies:[item]};});
+  await f.open();await click(f.w,'Remove this copy');await click(f.w,'Confirm removal');
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true,'An unsuccessful withdrawal stays reviewable');
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/could not remove/);
+  assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1','A failed removal never fabricates a reduced quantity');
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,1);f.finish();checks++;
+ }
+ {
+  const f=fixture();let attempts=0;
+  f.setHandler(async(url,options)=>{if(url.endsWith('/copies')){attempts++;if(attempts===1)throw new Error('Connection lost');return {message:'Copy added'};}return {item:{...item,version:attempts?4:3},copies:[item]};});
+  await f.open();await click(f.w,'Add another copy');assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'2');await click(f.w,'Confirm additional copy');assert.match(f.w.document.querySelector('.owner-item-message').textContent,/Connection lost/);assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1','Failed mutation must revert to saved stock');
+  await click(f.w,'Add another copy');await click(f.w,'Confirm additional copy');const posts=f.calls.filter(c=>c.url.endsWith('/copies'));
+  assert.equal(posts.length,2);assert.equal(posts[0].headers['Idempotency-Key'],posts[1].headers['Idempotency-Key']);assert.equal(posts[0].body,posts[1].body);
+  assert.deepEqual(JSON.parse(posts[0].body),{version:3,confirmed:true});f.finish();checks++;
+ }
+ {
+  const f=fixture();await f.open();await click(f.w,'Remove this copy');assert.equal(f.calls.filter(c=>c.method).length,0);
+  assert.match(f.w.document.querySelector('.owner-item-confirmation').textContent,/INV-EXACT-COPY/);await click(f.w,'Confirm removal');
+  const sent=f.calls.find(c=>c.method);assert.equal(sent.url,`/api/v1/owner/inventory/${id}/withdraw`);assert.deepEqual(JSON.parse(sent.body),{version:3});f.finish();checks++;
+ }
+ {
+  const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const waiting=f.open();f.run('clearSession()');resolve({item,copies:[item]});await waiting;
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,false);assert.equal(f.w.document.querySelector('.owner-item-content').textContent,'');f.finish();checks++;
+ }
+ {
+  const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const waiting=f.open();f.w.DropRateInventory.close();resolve({item,copies:[item]});await waiting;
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,false);assert.equal(f.w.document.querySelector('.owner-item-content').textContent,'');f.finish();checks++;
+ }
+ {
+  const f=fixture(),calls=[],revoked=[];f.w.URL.createObjectURL=()=> 'blob:safe';f.w.URL.revokeObjectURL=x=>revoked.push(x);
+  f.w.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,blob:async()=>new f.w.Blob(['image'],{type:'image/webp'})};};
+  const picture=f.w.DropRateInventory.image({...item,image_url:'https://cdn.shopify.com/missing.png'},'owner-card-thumb');f.w.document.body.append(picture);const img=picture.querySelector('img');
+  await tick();img.dispatchEvent(new f.w.Event('error'));await tick();assert.equal(img.src,'blob:safe');assert.equal(calls[0].url,`/api/v1/inventory/${id}/image`);
+  assert.equal(calls.length,1);assert.equal(calls[0].options.headers.Authorization,'Bearer secret-session');img.dispatchEvent(new f.w.Event('load'));assert.deepEqual(revoked,['blob:safe']);assert.equal(picture.querySelector('span').hidden,true);f.finish();checks++;
+ }
+ {
+  // A reference-only copy has no assigned media; fetch its exact reference
+  // directly, never probe the shared media route which would repeat work.
+  const f=fixture(),calls=[];f.w.URL.createObjectURL=()=> 'blob:reference';
+  f.w.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,blob:async()=>new f.w.Blob(['image'],{type:'image/webp'})};};
+  const picture=f.w.DropRateInventory.image({...item,image_url:null},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,`/api/v1/owner/inventory/${id}/reference-image`);
+  assert.equal(calls[0].options.headers.Authorization,'Bearer secret-session');
+  f.finish();checks++;
+ }
+ {
+  // When the database confirms no exact artwork, don't send a doomed image
+  // fetch for every visible card. Absence is explicit, never a generic image.
+  const f=fixture(),calls=[];f.w.fetch=async url=>{calls.push(url);throw new Error('unexpected image fetch');};
+  const picture=f.w.DropRateInventory.image({...item,image_url:null,
+    reference_image_url:null,reference_image_path:null},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();
+  assert.equal(calls.length,0);
+  assert.match(picture.textContent,/Image unavailable/);
+  f.finish();checks++;
+ }
+ {
+  const f=fixture({name:'<img src=x onerror=alert(1)>',market_value_minor:null});await f.open();assert.match(f.w.document.querySelector('.owner-item-dialog').textContent,/Value unavailable/);assert.equal(f.w.document.querySelector('.owner-item-dialog img[src="x"]'),null);f.finish();checks++;
+ }
+ // Rich collection filters are submitted together before server pagination.
+ {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;');
+  f.setHandler(async()=>({total:0,items:[],facets:{categories:['TCG','MANGA'],games:['One Piece','Pokemon','Manga'],languages:['English','Japanese'],combinations:[{category:'TCG',game:'One Piece',language:'Japanese'},{category:'TCG',game:'Pokemon',language:'English'},{category:'MANGA',game:'Manga',language:'English'}]}}));
+  await f.w.DropRateCollection.setFilters({category:'TCG',game:'One Piece',language:'Japanese',grading:'GRADED',format:'CARD',sort:'name'});
+  const query=new URL(f.calls[0].url,'https://example.test').searchParams;
+  for(const [key,value]of Object.entries({category:'TCG',game:'One Piece',language:'Japanese',grading:'GRADED',format:'CARD',sort:'name',offset:'0',group_copies:'true',include_facets:'true'}))assert.equal(query.get(key),value);
+  assert.deepEqual([...f.w.document.querySelector('#owner-collection-game').options].map(option=>option.value),['','One Piece','Pokemon']);
+  assert.match(f.w.document.querySelector('.owner-inventory-empty').textContent,/Clear filters/);
+  await f.w.DropRateCollection.setFilters({category:'MANGA'});
+  const latest=new URL(f.calls.at(-1).url,'https://example.test').searchParams;
+  assert.equal(latest.get('game'),null);assert.equal(latest.get('format'),null);
+  assert.equal(f.w.document.querySelector('#owner-collection-format').disabled,true);
+  await f.w.DropRateCollection.setFilters({category:'FIGURES'});
+  assert.equal(f.w.document.querySelector('#owner-collection-grading').disabled,true);
+  assert.equal(new URL(f.calls.at(-1).url,'https://example.test').searchParams.get('grading'),null);
+  assert.equal(f.calls.filter(call=>call.method).length,0);f.finish();checks++;
+ }
+ // Selling carries intent into the chosen exact copy and never publishes by opening it.
+ {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;state.inventory.search="Pikachu";state.inventory.status="SOLD";state.inventory.offset=50;');
+  f.setHandler(async url=>url.includes('/inventory?')?{total:1,items:[item],grouped:true,copy_total:1}:{item,copies:[item]});
+  await f.w.DropRateCollection.startSelling();
+  const query=new URL(f.calls[0].url,'https://example.test').searchParams;
+  assert.equal(query.get('prepare_selling'),'true');assert.equal(query.get('search'),null);assert.equal(query.get('status'),null);
+  assert.equal(f.w.location.hash,'#inventory');assert.equal(f.w.document.querySelector('#owner-selling-picker-status').hidden,false);
+  f.w.document.querySelector('.owner-card-open-overlay').click();await tick();await tick();
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').classList.contains('is-listing'),true);
+  assert.equal(f.w.document.querySelector('[data-listing-step="condition"]').hidden,false);
+  assert.equal(f.calls.filter(call=>call.method).length,0);
+  f.w.DropRateInventory.close();await f.w.DropRateCollection.cancelSelling();
+  const restored=new URL(f.calls.at(-1).url,'https://example.test').searchParams;
+  assert.equal(restored.get('search'),'Pikachu');assert.equal(restored.get('status'),'SOLD');assert.equal(restored.get('offset'),'50');
+  f.finish();checks++;
+ }
+ // Draft values resume within the same account/session; account changes cannot read them.
+ {
+  const card={...item,product_type:'CARD',seal_status:null,condition:'Near Mint'};
+  const f=fixture(card);await f.w.DropRateInventory.open(card,{selling:true});
+  await click(f.w,'3. Price');const price=f.w.document.querySelector('[aria-label="Your selling price in pounds"]');
+  price.value='12.50';price.dispatchEvent(new f.w.Event('input',{bubbles:true}));await click(f.w,'Review listing');
+  assert.equal(f.w.document.querySelector('[data-listing-step="review"]').hidden,false);
+  assert.match(f.w.document.querySelector('.owner-listing-review-facts').textContent,/INV-EXACT-COPY.*Japanese.*Near Mint.*£12.50/);
+  f.w.DropRateInventory.close();await f.w.DropRateInventory.open(card,{selling:true});
+  assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'12.50');
+  assert.equal(f.w.document.querySelector('[data-listing-step="review"]').hidden,false);
+  assert.equal(f.calls.filter(call=>call.method).length,0);
+  const stored=JSON.parse(f.w.sessionStorage.getItem(`drop_rate_listing_draft:seller-a:${id}`));
+  assert.deepEqual(Object.keys(stored).sort(),['condition','price','step','version']);
+  f.w.DropRateInventory.close();f.run('state.session={access_token:"other-token",user:{id:"seller-b"}}');
+  await f.w.DropRateInventory.open(card,{selling:true});
+   // A fresh account starts from current market evidence, never another account's saved draft.
+   assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'8.66');
+   assert.equal(f.w.sessionStorage.getItem(`drop_rate_listing_draft:seller-b:${id}`),null);
+  assert.equal(f.w.document.querySelector('[data-listing-step="condition"]').hidden,false);
+  f.finish();checks++;
+ }
+ // Leaving the selling picker reloads the restored collection, not just its filter labels.
+ {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;state.inventory.search="Saved search";state.inventory.status="SOLD";state.inventory.offset=50;');
+  f.setHandler(async url=>{const query=new URL(url,'https://example.test').searchParams;return {total:100,grouped:true,copy_total:100,items:[{...item,name:query.has('prepare_selling')?'Picker result':'Restored collection'}]};});
+  await f.w.DropRateCollection.startSelling();assert.match(f.w.document.querySelector('#owner-inventory-grid').textContent,/Picker result/);
+  f.run('activateOwnerView("overview")');await tick();await tick();
+  const restored=new URL(f.calls.at(-1).url,'https://example.test').searchParams;
+  assert.equal(restored.get('search'),'Saved search');assert.equal(restored.get('status'),'SOLD');assert.equal(restored.get('offset'),'50');assert.equal(restored.get('prepare_selling'),null);
+  f.run('activateOwnerView("inventory")');assert.match(f.w.document.querySelector('#owner-inventory-grid').textContent,/Restored collection/);f.finish();checks++;
+ }
+ // Dashboard filter navigation explicitly leaves picker mode, including the Reserved destination.
+ {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;');f.setHandler(async()=>({total:0,items:[]}));
+  await f.w.DropRateCollection.startSelling();await f.w.DropRateCollection.setFilters({status:'RESERVED'},{reset:true,navigate:true});
+  const query=new URL(f.calls.at(-1).url,'https://example.test').searchParams;
+  assert.equal(query.get('status'),'RESERVED');assert.equal(query.get('prepare_selling'),null);
+  assert.equal(f.w.document.querySelector('#owner-selling-picker-status').hidden,true);f.finish();checks++;
+ }
+ // Post-add and route changes restore focus to a visible collection control, not a hidden source view.
+ {
+  const f=fixture();f.run('byId("owner-portal-view").classList.remove("hidden");activateOwnerView("search")');
+  const origin=f.w.document.createElement('button');origin.textContent='View newly added item';f.w.document.querySelector('#owner-view-search').append(origin);origin.focus();
+  await f.open();f.run('activateOwnerView("inventory")');f.w.DropRateInventory.close();
+  assert.equal(f.w.document.activeElement,f.w.document.querySelector('#owner-inventory-search'));f.finish();checks++;
+ }
+ // A missing condition is brought into view, and exact-copy changes keep the listing context.
+ {
+  const card={...item,product_type:'CARD',seal_status:null,condition:null};
+  const other={...card,id:'11111111-2222-4333-8444-555555555555',inventory_code:'INV-OTHER-COPY'};
+  const f=fixture(card);f.setHandler(async url=>({item:url.endsWith(other.id)?other:card,copies:[card,other]}));
+  await f.w.DropRateInventory.open(card,{selling:true});await click(f.w,'Continue');
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/Choose the condition/);
+  assert.equal(f.calls.filter(call=>call.method).length,0);
+  const picker=f.w.document.querySelector('[aria-label="Choose inventory copy"]');picker.value=other.id;picker.dispatchEvent(new f.w.Event('change',{bubbles:true}));await tick();await tick();
+  assert.ok(f.calls.at(-1).url.endsWith(other.id));assert.match(f.w.document.querySelector('.owner-listing-review-facts').textContent,/INV-OTHER-COPY/);
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').classList.contains('is-listing'),true);
+  f.finish();checks++;
+ }
+ // Saving the asking price preserves an unsubmitted condition choice in the session draft.
+ {
+  const card={...item,product_type:'CARD',seal_status:null,condition:null};const f=fixture(card);let saved=false;
+  f.setHandler(async(url,options)=>{if(options.method==='PATCH'){saved=true;return {message:'Selling price saved.'};}return {item:{...card,version:saved?4:3,store_price_minor:saved?1250:null},copies:[card]};});
+  await f.w.DropRateInventory.open(card,{selling:true});
+  const condition=f.w.document.querySelector('[aria-label="Condition when selling"]');condition.value='Lightly Played';condition.dispatchEvent(new f.w.Event('change',{bubbles:true}));
+  await click(f.w,'3. Price');const price=f.w.document.querySelector('[aria-label="Your selling price in pounds"]');price.value='12.50';price.dispatchEvent(new f.w.Event('input',{bubbles:true}));
+  await click(f.w,'Save selling price');
+  assert.equal(f.w.document.querySelector('[aria-label="Condition when selling"]').value,'Lightly Played');
+  assert.equal(JSON.parse(f.w.sessionStorage.getItem(`drop_rate_listing_draft:seller-a:${id}`)).version,4);
+  assert.deepEqual(JSON.parse(f.calls.find(c=>c.method==='PATCH').body),{version:3,store_price_minor:1250});f.finish();checks++;
+ }
+ // Enter does not interrupt IME composition; normal Enter searches immediately.
+ {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;');f.setHandler(async()=>({items:[],total:0}));
+  const input=f.w.document.querySelector('#owner-inventory-search');input.value='  Luffy  ';
+  input.dispatchEvent(new f.w.KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true}));await tick();assert.equal(f.calls.length,0);
+  input.dispatchEvent(new f.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await tick();await tick();
+  assert.equal(f.calls.length,1);assert.equal(new URL(f.calls[0].url,'https://example.test').searchParams.get('search'),'Luffy');f.finish();checks++;
+ }
+ // Collection emptiness leads to the unified Add chooser without creating records.
+ {
+  const f=fixture();let requested=0;f.w.document.addEventListener('hub:add-requested',()=>requested++);
+  f.run('renderInventoryCards([])');await click(f.w,'Add an item');assert.equal(requested,1);assert.equal(f.calls.length,0);f.finish();checks++;
+ }
+ // Typed figure identity remains visible, uses figure condition, and submits only exact-copy choices.
+ {
+  const figure={...item,product_type:'FIGURE',game:'Figures',name:'Luffy · First release',version:4,
+    condition:null,seal_status:null,identity_source:'SELLER_ENTERED',figure_details:{manufacturer:'Bandai',franchise:'One Piece',character:'Luffy',product_line:'Grandista',edition:'First release',scale:'1:8',manufacturer_sku:'MODEL-123'}};
+  const f=fixture(figure);await f.w.DropRateInventory.open(figure,{selling:true});
+  const stage=f.w.document.querySelector('[data-listing-step="condition"]');
+  assert.match(stage.textContent,/Bandai.*One Piece.*Luffy.*Grandista.*First release.*1:8.*MODEL-123/);
+  const condition=stage.querySelector('select');assert.deepEqual([...condition.options].map(o=>o.value),['','New','Like New','Very Good','Good','Fair','Damaged']);
+  condition.value='Like New';condition.dispatchEvent(new f.w.Event('change',{bubbles:true}));
+  f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='45.00';
+  await click(f.w,'Request listing review');
+  assert.deepEqual(JSON.parse(f.calls.find(c=>c.method==='POST').body),{version:4,store_price_minor:4500,condition:'Like New'});
+  assert.equal(f.calls.some(c=>c.url.includes('shopify-sync')),false);f.finish();checks++;
+ }
+ // Changing filters aborts the previous read and prevents its late data/error replacing the new page.
+ {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;');const pending=[];
+  f.setHandler((url,options)=>new Promise((resolve,reject)=>pending.push({url,options,resolve,reject})));
+  const first=f.w.DropRateCollection.setFilters({category:'TCG'});const second=f.w.DropRateCollection.setFilters({category:'MANGA'});
+  assert.equal(pending[0].options.signal.aborted,true);
+  pending[1].resolve({total:1,items:[{...item,name:'Current manga'}]});await second;
+  pending[0].reject(new Error('Obsolete request failed'));await first;
+  assert.match(f.w.document.querySelector('#owner-inventory-grid').textContent,/Current manga/);
+  assert.doesNotMatch(f.w.document.querySelector('#owner-portal-message').textContent,/Obsolete/);
+  assert.equal(f.w.document.querySelector('#owner-collection-category').value,'MANGA');f.finish();checks++;
+ }
+ // A bounded value-sort failure leaves the last successful ordering accurately labelled.
+ {
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;state.inventory.offset=50;');
+  f.setHandler(async()=>{throw new Error('Value sorting supports up to 10,000 matching copies. Choose a filter.');});
+  await f.w.DropRateCollection.setFilters({sort:'value_desc'});
+  assert.equal(new URL(f.calls[0].url,'https://example.test').searchParams.get('sort'),'value_desc');
+  assert.equal(f.w.document.querySelector('#owner-collection-sort').value,'updated');
+  assert.equal(f.run('state.inventory.offset'),50);
+  assert.match(f.w.document.querySelector('#owner-portal-message').textContent,/Choose a filter/);
+  f.finish();checks++;
+ }
+ // Draft persistence strictly allowlists fields and never carries older arbitrary metadata forward.
+ {
+  const f=fixture();f.w.sessionStorage.setItem(`drop_rate_listing_draft:seller-a:${id}`,JSON.stringify({version:3,price:'12.50',condition:'',step:'price',notes:'private note',photo:'data:private-image',token:'must-not-persist'}));
+  await f.w.DropRateInventory.open(item,{selling:true});await click(f.w,'4. Review');
+  const stored=JSON.parse(f.w.sessionStorage.getItem(`drop_rate_listing_draft:seller-a:${id}`));
+  assert.deepEqual(Object.keys(stored).sort(),['condition','price','step','version']);
+  assert.doesNotMatch(f.w.document.querySelector('.owner-item-dialog').textContent,/private note|private-image|must-not-persist/);
+  f.w.DropRateInventory.close();f.setItem({version:4});await f.w.DropRateInventory.open({...item,version:4},{selling:true});
+  // An outdated draft is discarded; fresh market evidence supplies the new default.
+  assert.equal(f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value,'8.66');
+  assert.equal(f.w.document.querySelector('[data-listing-step="condition"]').hidden,false);
+  assert.equal(f.calls.filter(call=>call.method&&call.method!=='GET').length,0);
+  f.finish();checks++;
+ }
+ // Late-loading Home integration can replay only the current account's cached overview.
+ {
+  const f=fixture();f.setHandler(async()=>({summary:{total_inventory_count:3,collection_states:{preparing:1,review:1,ready:0,listed:1,for_sale:3,personal:0}}}));
+  await f.w.testLoadOverview();
+  assert.equal(f.run('state.hubOverview.userId'),'seller-a');
+  assert.equal(f.run('state.hubOverview.summary.collection_states.listed'),1);
+  let finish;f.setHandler(()=>new Promise(resolve=>{finish=resolve;}));const pending=f.w.testLoadOverview();
+  f.run('clearSession()');finish({summary:{total_inventory_count:999}});await pending;
+  assert.equal(f.run('state.hubOverview'),null);f.finish();checks++;
+ }
+ // The first-item Add chooser owns navigation; onboarding does not also move to Collection.
+ {
+  const f=fixture();f.run('history.replaceState({},"","/owner?welcome=1");activateOwnerView("overview");history.replaceState({},"","/owner?welcome=1");showOwnerOnboardingWelcome();');
+  const add=f.w.document.querySelector('#owner-welcome-inventory');let opened=0;add.addEventListener('click',()=>opened++);add.click();
+  assert.equal(opened,1);assert.equal(f.w.document.querySelector('#owner-view-inventory').classList.contains('hidden'),true);
+  assert.equal(f.w.document.querySelector('#owner-view-overview').classList.contains('hidden'),false);f.finish();checks++;
+ }
+ console.log(`Seller inventory: ${checks} detail, image, approval, sync, copy, guided selling, filter and isolation scenarios passed.`);
+})().catch(e=>{console.error(e);process.exitCode=1;});
+
+

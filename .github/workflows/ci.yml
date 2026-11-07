@@ -14,6 +14,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.3"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -23,6 +26,42 @@ jobs:
       - name: Check dashboard JavaScript syntax
         run: find backend/app/static -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - run: PYTHONPATH=backend pytest
+      - name: Install disposable PostgreSQL runtime
+        run: npm ci --prefix tools/history-archive-verify --ignore-scripts
+      - name: Verify eBay publication audit contract and owner isolation
+        env:
+          BOOK_TEST_PGLITE_MODULE: ${{ github.workspace }}/tools/history-archive-verify/node_modules/@electric-sql/pglite/dist/index.js
+        run: PYTHONPATH=backend pytest -q tests/test_ebay_audit_contract.py tests/test_ebay_photo_eligibility.py
+      - name: Verify saved items and collectible security in PostgreSQL
+        run: |
+          node tests/shared_founder_profile_pglite.mjs
+          node tests/catalogue_saved_pglite.mjs
+          node tests/r2_first_registry_pglite.mjs
+          node tests/collectibles_intake_pglite.mjs
+          node tests/collectible_catalogue_seed_pglite.mjs
+          node tests/inventory_physical_readiness_pglite.mjs
+          PYTHONPATH=backend python tests/catalogue_categories_postgres.py
+          PYTHONPATH=backend:tests:. python tests/catalogue_browse_groups_postgres.py --pglite
+          PYTHONPATH=backend python tests/optional_seller_cost_postgres.py
+          PYTHONPATH=backend:tests python tests/inventory_photo_postgres.py --pglite
+          PYTHONPATH=backend:tests python tests/seller_photo_review_postgres.py --pglite
+          PYTHONPATH=backend:tests python tests/inventory_market_movers_postgres.py
+
+  dashboard-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: tests/ui
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tests/ui/package-lock.json
+      - run: npm ci
+      - run: npm test
 
   n8n-image:
     runs-on: ubuntu-latest
@@ -33,3 +72,47 @@ jobs:
         run: docker build --file Dockerfile.n8n --tag drop-rate-n8n:ci .
       - name: Verify pinned n8n version
         run: docker run --rm --entrypoint n8n drop-rate-n8n:ci --version | grep -Fx "2.32.6"
+      - name: Verify six release scouts and guarded publisher in pinned offline n8n
+        run: |
+          docker run --rm --network none --entrypoint node drop-rate-n8n:ci \
+            --no-warnings /opt/drop-rate/ops/guarded-release-scout-publish.cjs --verify-sources \
+            | grep -F '"status":"SOURCE_VERIFIED","count":6'
+      - name: Import six DR96 workflows inactive through the actual pinned n8n CLI
+        run: |
+          docker run --rm --network none --entrypoint sh -e N8N_USER_FOLDER=/tmp/dr96-source-test -e N8N_ENCRYPTION_KEY=ci-only-never-production-key-123456 drop-rate-n8n:ci -c '
+            set -eu
+            for file in /opt/drop-rate/workflows/dr-96-*-release-scout.json; do
+              n8n import:workflow --input="$file" --activeState=false >/dev/null
+            done
+            actual="$(n8n list:workflow --onlyId)"
+            for id in DR96YugiohReleaseScoutV1 DR96LorcanaReleaseScoutV1 DR96MagicReleaseScoutV1 DR96SportsBowmanReleaseScoutV1 DR96SportsHeritageReleaseScoutV1 DR96FiguresReleaseScoutV1; do
+              printf "%s\n" "$actual" | grep -Fxq "$id"
+            done
+            echo "Six source-scoped DR96 workflows imported with inactive state"
+          '
+      - name: Prove guarded DR96 publication and SQLite rollback in a disconnected pinned runtime
+        run: |
+          docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_release_scout_publish_smoke.cjs:/test/release-scout-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/release-scout-smoke.cjs
+      - name: Verify DR97 source hash identities in pinned offline n8n
+        run: |
+          docker run --rm --network none --entrypoint node drop-rate-n8n:ci --no-warnings /opt/drop-rate/ops/guarded-legacy-release-publish.cjs --verify-sources | grep -F '"status":"SOURCE_VERIFIED","count":8'
+      - name: Prove DR97 guarded publication with fake persisted SQLite and backups
+        run: |
+          docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_legacy_release_publish_smoke.cjs:/test/dr97-activation-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/dr97-activation-smoke.cjs
+      - name: Verify DR98 source-to-private-evidence bridge in the pinned n8n runtime
+        run: |
+          docker run --rm --network none --entrypoint node drop-rate-n8n:ci --no-warnings /opt/drop-rate/ops/guarded-enrichment-publish.cjs --verify-sources | grep -F '"status":"SOURCE_VERIFIED","count":6'
+      - name: Prove DR98 n8n activation backup, idempotency and exact-source rollback
+        run: |
+          docker run --rm --network none --entrypoint node -v "$PWD/tests/n8n_enrichment_publish_smoke.cjs:/test/dr98-activation-smoke.cjs:ro" drop-rate-n8n:ci --no-warnings /test/dr98-activation-smoke.cjs
+      - name: Verify guarded inactive upgrade and exact publication in isolated pinned runtime
+        run: |
+          docker run --rm --network none --entrypoint node \
+            -e DROP_RATE_UPGRADE_CI_ISOLATED=true \
+            -v "$PWD/tests/n8n_control_plane_upgrade_smoke.cjs:/test/upgrade-smoke.cjs:ro" \
+            drop-rate-n8n:ci --no-warnings /test/upgrade-smoke.cjs
+      - name: Verify automatic error routing with exact DR90 in a disposable runtime
+        run: |
+          docker run --rm --network none --entrypoint node \
+            -e DROP_RATE_N8N_ERROR_CANARY_ON_BOOT=true \
+            drop-rate-n8n:ci --no-warnings /opt/drop-rate/ops/run-isolated-error-canary.cjs --smoke

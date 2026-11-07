@@ -1,0 +1,76 @@
+{
+  "captured_at_utc": "2026-10-31",
+  "purpose": "Actual photography and independently sourced editorial images for the Seller Hub prelaunch page at app.droprate.co.uk only",
+  "usage": "All photographed PSA slabs below are real individually photographed Shopify product media, never fabricated graded labels. Editorial Unsplash photos illustrate supported collection categories, not stock available for sale. The OP17 pack image is the official manufacturer product image used on a current Shopify listing, not a photograph of the precise physical pack.",
+  "images": [
+    {
+      "file": "charizard-psa10-front.webp",
+      "subject": "Mega Charizard X ex Japanese 223/193 PSA 10 front; certification 160349012",
+      "kind": "real_merchant_inventory_photo",
+      "shopify_product_id": "10769189732699",
+      "source": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/psa-160349012-mega-charizard-x-ex-front_800x800.jpg?v=1790696017",
+      "transform": "WebP quality 88 from merchant original JPEG; exact product photo and label preserved",
+      "sha256": "12157f947f03f0af5a19239aed52741c8f98f8bfd93d09e394fa08bb28d80803"
+    },
+    {
+      "file": "luffy-psa10-front.webp",
+      "subject": "Monkey D. Luffy Japanese P-001 25th Anniversary PSA 10 front; certification 165543324",
+      "kind": "real_merchant_inventory_photo",
+      "shopify_product_id": "10771447546203",
+      "source": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/psa-165543324-luffy-p001-25th-japanese-front_800x800.jpg?v=1790701862",
+      "transform": "WebP quality 88 from merchant original JPEG; exact product photo and label preserved",
+      "sha256": "38308444d2400a8ed4c6ccff58ef2ba6e59ac491c137a739f5fad67c4898d1fc"
+    },
+    {
+      "file": "eevee-psa10-front.webp",
+      "subject": "Eevee Japanese 078/066 Crimson Haze PSA 10 front; certification 113437109",
+      "kind": "real_merchant_inventory_photo",
+      "shopify_product_id": "10769167221083",
+      "source": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/psa-113437109-eevee-front_800x800.jpg?v=1790696720",
+      "transform": "WebP quality 88 from merchant original JPEG; exact product photo and label preserved",
+      "sha256": "aa3b7dd0c53638553f4099bffe7a0fd11b18f01e1612b3a21eb3424ed98c0a5b"
+    },
+    {
+      "file": "one-piece-op17-sealed.webp",
+      "subject": "One Piece Japanese OP17 booster pack official packaging image",
+      "kind": "merchant_used_manufacturer_product_image_not_physical_photo",
+      "shopify_product_id": "10788230791515",
+      "source": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-op17-japanese-booster-pack_800x800.webp?v=1791643353",
+      "transform": "Converted original PNG-compressed response to native lossy WebP with ImageMagick at quality 86; transparent pixels retained",
+      "sha256": "aca2e9fb1c7e48c4436b41b2d5ad1ee309e0abb784fb552171979019ae2cc9a9"
+    },
+    {
+      "file": "pokemon-collection.webp",
+      "subject": "Colourful collection of Pokémon trading cards",
+      "kind": "editorial_photo_not_inventory",
+      "photographer": "Erik Mclean",
+      "source_page": "https://unsplash.com/photos/pokemon-trading-card-collection-in-pack-7wC7DPAFlM0",
+      "source": "https://images.unsplash.com/photo-1623617010282-524b5d86480a?auto=format&fit=crop&w=1100&q=85",
+      "license": "https://unsplash.com/license",
+      "transform": "Resized to 720 x 1080 and encoded at WebP quality 81",
+      "sha256": "d3b7ca4dc03514aa3ecc23ddf7bbae2969d9f64aca595ed1e454c09783088fde"
+    },
+    {
+      "file": "comics-collection.webp",
+      "subject": "Comics and graphic-novel bookshelves",
+      "kind": "editorial_photo_not_inventory",
+      "photographer": "Artur Ament",
+      "source_page": "https://unsplash.com/photos/shelves-are-filled-with-various-comic-books-_73jS6mVc_s",
+      "source": "https://images.unsplash.com/photo-1749999589464-4810447142bb?auto=format&fit=crop&w=1100&q=85",
+      "license": "https://unsplash.com/license",
+      "transform": "Resized to 720 x 1080 and encoded at WebP quality 81",
+      "sha256": "3fa8418dd13f33b29b1cd488e253d8db864d779716a21da56e0af6d9ad5dab32"
+    },
+    {
+      "file": "manga-collection.webp",
+      "subject": "Stacked manga volumes, black-and-white film photograph",
+      "kind": "editorial_photo_not_inventory",
+      "photographer": "Hưng Phạm",
+      "source_page": "https://unsplash.com/photos/stacks-of-manga-books-on-a-shelf-ruaURmhrTl8",
+      "source": "https://images.unsplash.com/photo-1768224946465-9ba1dfabd3d3?auto=format&fit=crop&w=1100&q=85",
+      "license": "https://unsplash.com/license",
+      "transform": "WebP quality 88 from Unsplash JPEG",
+      "sha256": "8635a00349aeab95b43ae1cf1f4692c83f786465264f6574da25f82928177fcc"
+    }
+  ]
+}

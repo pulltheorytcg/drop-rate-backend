@@ -1,0 +1,194 @@
+{
+  "checked_original_manifest": "drop-rate-book-final-file-hashes-20261027.json",
+  "expected_file_count": 21,
+  "matched_file_count": 20,
+  "mismatch_explanation": "Monthly catalogue documentation gained final production and staging-reconciliation receipts after original hash manifest; recovered code, workflow, tests and data match exactly.",
+  "files": [
+    {
+      "path": ".github/workflows/openlibrary-pilot.yml",
+      "expected_sha256": "d4229a6e914606c4ea9e6b9a9241af2997392184720f6ec3b5111d85636893a8",
+      "recovered_sha256": "d4229a6e914606c4ea9e6b9a9241af2997392184720f6ec3b5111d85636893a8",
+      "expected_bytes": 5116,
+      "recovered_bytes": 5116,
+      "matched": true
+    },
+    {
+      "path": "backend/app/book_openlibrary_bulk.py",
+      "expected_sha256": "ba7b5e13e590607bff4b23d29138e6a7761127e2bda2a3ce6b9dffc009fd3009",
+      "recovered_sha256": "ba7b5e13e590607bff4b23d29138e6a7761127e2bda2a3ce6b9dffc009fd3009",
+      "expected_bytes": 26208,
+      "recovered_bytes": 26208,
+      "matched": true
+    },
+    {
+      "path": "backend/app/book_connector_import.py",
+      "expected_sha256": "9ae06d22775eb4327e1ff736f9ef8ce95116e11734d65d186a8ab3585aa7715f",
+      "recovered_sha256": "9ae06d22775eb4327e1ff736f9ef8ce95116e11734d65d186a8ab3585aa7715f",
+      "expected_bytes": 15554,
+      "recovered_bytes": 15554,
+      "matched": true
+    },
+    {
+      "path": "backend/scripts/import_openlibrary_monthly.py",
+      "expected_sha256": "a141821a9b22aa4a0cb3da44f938a63c1c950e1bd56a76e8b773967c483c8989",
+      "recovered_sha256": "a141821a9b22aa4a0cb3da44f938a63c1c950e1bd56a76e8b773967c483c8989",
+      "expected_bytes": 3417,
+      "recovered_bytes": 3417,
+      "matched": true
+    },
+    {
+      "path": "backend/scripts/export_book_connector_batches.py",
+      "expected_sha256": "3fe337614943029a7de7f4dd2ea80fac2463e90848f3621ec9cdfa9df761f73d",
+      "recovered_sha256": "3fe337614943029a7de7f4dd2ea80fac2463e90848f3621ec9cdfa9df761f73d",
+      "expected_bytes": 1566,
+      "recovered_bytes": 1566,
+      "matched": true
+    },
+    {
+      "path": "tests/test_book_openlibrary_bulk.py",
+      "expected_sha256": "0aa696b46e8433e42f56c02d0795517f55561a18dd1016c70d55ac5f5c53b3dd",
+      "recovered_sha256": "0aa696b46e8433e42f56c02d0795517f55561a18dd1016c70d55ac5f5c53b3dd",
+      "expected_bytes": 16248,
+      "recovered_bytes": 16248,
+      "matched": true
+    },
+    {
+      "path": "tests/test_book_connector_import.py",
+      "expected_sha256": "4325fc44e53bf4d2f49f60a33518b4db6ee131af5442c00553d11fdcd532ed1c",
+      "recovered_sha256": "4325fc44e53bf4d2f49f60a33518b4db6ee131af5442c00553d11fdcd532ed1c",
+      "expected_bytes": 12099,
+      "recovered_bytes": 12099,
+      "matched": true
+    },
+    {
+      "path": "tests/book_connector_pgcheck.mjs",
+      "expected_sha256": "53c65a2575e24d2bb5698bbd7feff80dfd9199a683cdf9f902e4f6acbf1caeb8",
+      "recovered_sha256": "53c65a2575e24d2bb5698bbd7feff80dfd9199a683cdf9f902e4f6acbf1caeb8",
+      "expected_bytes": 2206,
+      "recovered_bytes": 2206,
+      "matched": true
+    },
+    {
+      "path": "docs/BOOK_MONTHLY_CATALOGUE_20261027.md",
+      "expected_sha256": "ad2adcc89ee9530b57d67cb44816740e099949897572faf7f84fe763e0525865",
+      "recovered_sha256": "bda69ed062820e58dec3781066a9135d6bc8ccd240c71e94591dc6239129ff90",
+      "expected_bytes": 12948,
+      "recovered_bytes": 15069,
+      "matched": false
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_dump_20260930_manifest.json",
+      "expected_sha256": "ee43bd914c9dfa928152556d366fdaf73d61bf75d577f5a7ff4b2485ad5fb234",
+      "recovered_sha256": "ee43bd914c9dfa928152556d366fdaf73d61bf75d577f5a7ff4b2485ad5fb234",
+      "expected_bytes": 348,
+      "recovered_bytes": 348,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_review_holds.json",
+      "expected_sha256": "72f742bd619b4586e15328f72fa30ff9628c0dfdc2b84a8d31b3590136ccacd0",
+      "recovered_sha256": "72f742bd619b4586e15328f72fa30ff9628c0dfdc2b84a8d31b3590136ccacd0",
+      "expected_bytes": 70068,
+      "recovered_bytes": 70068,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_publisher_cover_review_20261027.json",
+      "expected_sha256": "7c50fe4b3f020552ce5e5ed4528cf38133da2164e7d3a22266651ed332a247bb",
+      "recovered_sha256": "7c50fe4b3f020552ce5e5ed4528cf38133da2164e7d3a22266651ed332a247bb",
+      "expected_bytes": 2294,
+      "recovered_bytes": 2294,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_full_20261027.jsonl",
+      "expected_sha256": "94391f9c867678e1773031d58d09c549d6e1555d2dcf903419021d51fc077a23",
+      "recovered_sha256": "94391f9c867678e1773031d58d09c549d6e1555d2dcf903419021d51fc077a23",
+      "expected_bytes": 1444649,
+      "recovered_bytes": 1444649,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_full_20261027.review.json",
+      "expected_sha256": "64089d9b62f9b078d7ee8d88180889645d0dee28a08cbd29b675349ef910344f",
+      "recovered_sha256": "64089d9b62f9b078d7ee8d88180889645d0dee28a08cbd29b675349ef910344f",
+      "expected_bytes": 153364,
+      "recovered_bytes": 153364,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_full_20261027.selection.json",
+      "expected_sha256": "1448b072ce33234685df9c65ccf20a73bf31ae869aa2bfbd4c5e433ec366f87b",
+      "recovered_sha256": "1448b072ce33234685df9c65ccf20a73bf31ae869aa2bfbd4c5e433ec366f87b",
+      "expected_bytes": 4847,
+      "recovered_bytes": 4847,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_initial_reviewed_20261027.jsonl",
+      "expected_sha256": "dc10814daac57325fa766b730c92567b4da5454487e67ef8fe5cdf9802d5def3",
+      "recovered_sha256": "dc10814daac57325fa766b730c92567b4da5454487e67ef8fe5cdf9802d5def3",
+      "expected_bytes": 896846,
+      "recovered_bytes": 896846,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_initial_reviewed_20261027.selection.json",
+      "expected_sha256": "9c2c5d4d536753aee73b9e38d0c771fb7825e7fabb9c683cb642f3dadc81458c",
+      "recovered_sha256": "9c2c5d4d536753aee73b9e38d0c771fb7825e7fabb9c683cb642f3dadc81458c",
+      "expected_bytes": 255672,
+      "recovered_bytes": 255672,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_original_subject_review_20261027.json",
+      "expected_sha256": "fc99c7f72222a2568dc50f95b9afcd6d7f52783e87a65c23f436cc47dcbe4849",
+      "recovered_sha256": "fc99c7f72222a2568dc50f95b9afcd6d7f52783e87a65c23f436cc47dcbe4849",
+      "expected_bytes": 1378537,
+      "recovered_bytes": 1378537,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_recovery_20261027.import-plan.json",
+      "expected_sha256": "278b43782df2712fe7cb1b50b7f247427a68f3be8fc2b1e5a9b3f3ce053f95b5",
+      "recovered_sha256": "278b43782df2712fe7cb1b50b7f247427a68f3be8fc2b1e5a9b3f3ce053f95b5",
+      "expected_bytes": 52588,
+      "recovered_bytes": 52588,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_recovery_20261027.jsonl",
+      "expected_sha256": "84d28339c7cab469715d02dc16c351a0347ec5b406f29fea4fc1abca7a1ff65e",
+      "recovered_sha256": "84d28339c7cab469715d02dc16c351a0347ec5b406f29fea4fc1abca7a1ff65e",
+      "expected_bytes": 1434897,
+      "recovered_bytes": 1434897,
+      "matched": true
+    },
+    {
+      "path": "backend/app/data/book_openlibrary_recovery_20261027.selection.json",
+      "expected_sha256": "28cbfc6cc28a55b5bf02177d5b50b67ba53c0fb3d85751231784bf4a6314d8ac",
+      "recovered_sha256": "28cbfc6cc28a55b5bf02177d5b50b67ba53c0fb3d85751231784bf4a6314d8ac",
+      "expected_bytes": 4891,
+      "recovered_bytes": 4891,
+      "matched": true
+    }
+  ],
+  "continuation_changes": [
+    {
+      "path": "backend/app/book_openlibrary_bulk.py",
+      "change": "Preserve an exact review hold by either its ISBN or its source edition ID; re-audit older cached quality receipts."
+    },
+    {
+      "path": "backend/app/book_connector_import.py",
+      "change": "Check the current exact review registry again before generating connector SQL, including changed ISBNs on held sources."
+    },
+    {
+      "path": "tests/test_book_recovery_snapshot_integrity.py",
+      "change": "Offline historical snapshot, original subject taxonomy, no-refill cohort and committed receipt integrity gate."
+    },
+    {
+      "path": ".github/workflows/openlibrary-pilot.yml",
+      "change": "Include the recovered snapshot and production receipt integrity suite in the mandatory isolated PostgreSQL workflow."
+    }
+  ]
+}

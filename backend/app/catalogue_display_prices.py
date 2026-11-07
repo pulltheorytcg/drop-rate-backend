@@ -1,0 +1,205 @@
+"""Read-only shared prices for catalogue aliases, before cards are rendered.
+
+Legacy imports and provider checklists can describe the same base printing with
+different IDs. Reuse the inventory resolver's exact identity rules and evidence;
+never choose an identity because it has a price, or turn this into an ownership
+or intake mapping. No provider calls or price writes happen on this path.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from collections import defaultdict
+from datetime import datetime, timezone
+
+from .inventory_catalogue_reference import PRODUCTS_SQL, CACHE_SQL, catalogue_guide, reference_candidates, catalogue_number_key, catalogue_system
+from .inventory_reference_values import REFERENCE_VALUES_SQL, resolve_reference_value
+from .language import clean_language
+from .recognition_games import SYSTEM_BY_GAME, collector_key
+
+PRODUCTS = PRODUCTS_SQL.replace('where p.id=any($1::uuid[])', "where p.product_type='CARD'")
+# The indexed catalogue-number expression avoids evaluating the expensive
+# provider-mapping / rejection predicates for every canonical card whenever a
+# user opens a normal (non-value-sorted) catalogue page or slab suggestion.
+# Include all padded spellings before checking collector_key in Python: an
+# unpriced sibling must never be omitted to make a price match appear unique.
+PAGE_IDS_SQL = """select p.id,p.card_number from tcg.catalogue_products p
+    where p.product_type='CARD'
+      and upper(regexp_replace(coalesce(p.card_number,''),'[^A-Za-z0-9]','','g'))
+          = any($1::text[])"""
+
+
+def _number_forms(number: object) -> set[str]:
+    """Index probes for all practical collector-number zero-padding variants.
+
+    SQL's index removes separators only to find a small candidate superset.
+    The authoritative collector_key comparison below keeps /, +, ◇ and
+    trailing - significant, exactly as before.
+    """
+    parts = re.findall(r"[A-Z]+|[0-9]+", str(number or "").upper())
+    if not parts:
+        return set()
+    forms = [""]
+    for token in parts:
+        if token.isdecimal():
+            value = str(int(token))
+            spellings = {value.zfill(width) for width in range(len(value), max(4, len(token)) + 1)}
+        else:
+            spellings = {token}
+        forms = [prefix + part for prefix in forms for part in spellings]
+    return set(forms)
+
+
+async def _page_products(connection, rows):
+    keys = {collector_key(row.get('card_number')) for row in rows if row.get('card_number')}
+    if not keys:
+        return []
+    probes = set().union(*(_number_forms(row.get('card_number')) for row in rows))
+    # One known verified legacy printing is stored as '58' but mapped to
+    # '58/102'; keep it in the candidate pool without relaxing identity.
+    if collector_key('58/102') in keys:
+        probes.update(_number_forms('58'))
+    candidates = await connection.fetch(PAGE_IDS_SQL, sorted(probes))
+    ids = [row['id'] for row in candidates
+           if collector_key(row['card_number']) in keys or
+           (collector_key('58/102') in keys and collector_key(row['card_number']) == collector_key('58'))]
+    products = []
+    for start in range(0, len(ids), 100):
+        products.extend(dict(p) for p in await connection.fetch(PRODUCTS_SQL, ids[start:start+100]))
+    return [p for p in products if collector_key(p.get('card_number')) in keys
+            or catalogue_number_key(p) in keys]
+
+
+def reference_key(row):
+    identity = '\x1f'.join(row[k] for k in ('provider', 'system_code', 'language', 'provider_id'))
+    return 'r:' + hashlib.md5(identity.encode()).hexdigest()
+
+
+def shared_prices(products, references, snapshots, *, now):
+    """Price-independent singleton matches; unchanged global source timestamps."""
+    by_product, by_snapshot = defaultdict(list), defaultdict(list)
+    for row in references:
+        by_product[str(row['catalogue_id'])].append(row)
+    for row in snapshots:
+        by_snapshot[str(row['catalogue_id'])].append(row)
+    candidates = defaultdict(list)
+    for product in products:
+        product_id = str(product['id'])
+        refs = by_product[product_id]
+        language = clean_language(product.get('language'))
+        languages = {language} if language else {r['language'] for r in refs}
+        for language in sorted(languages):
+            matches = reference_candidates(product, refs, language)
+            if len({reference_key(r) for r in matches}) != 1:
+                continue
+            basis = dict(catalogue_id=product_id, product_type='CARD', condition='Near Mint',
+                         language=language, catalogue_language=product.get('language'))
+            value = resolve_reference_value(basis, by_snapshot[product_id], now=now)
+            if value['status'] not in {'AVAILABLE', 'REFERENCE_ESTIMATE'}:
+                value = catalogue_guide(product, refs, language, now=now) or value
+            if value['status'] == 'AVAILABLE':
+                value = dict(value, status='CONDITION_REFERENCE', label='Near-mint reference',
+                             reason='Shared near-mint market reference for this exact printing.')
+            # Include unpriced candidates too. Duplicate identities must not be
+            # resolved by selecting whichever catalogue record happens to sell.
+            value = dict(value, physical_valuation_eligible=False, recommended_retail_minor=None)
+            candidates[reference_key(matches[0])].append((product_id, value))
+            candidates['c:' + product_id].append((product_id, value))
+    result = {}
+    for key, choices in candidates.items():
+        if len(choices) != 1:
+            continue
+        _, value = choices[0]
+        if value.get('market_value_minor') is None and value.get('last_known_minor') is None:
+            continue
+        result[key] = {
+            'key': key, 'market_value_minor': value.get('market_value_minor'),
+            'market_value_high_minor': value.get('market_value_high_minor'),
+            'pricing_updated_at': value.get('checked_at'), 'basis_condition': value.get('basis'),
+            'market_value_source': 'SHARED_CATALOGUE_REFERENCE', 'shared_price': value,
+        }
+    return result
+
+
+async def read_shared_prices(connection, rows=None, *, now=None, system_code='', product_type='', language=''):
+    """Page-bounded for normal browsing; all canonical aliases for value sorts.
+
+The canonical directory is small compared with the provider catalogue. Reference
+lookups use its number-key index in batches, retaining every parallel candidate.
+"""
+    if rows is not None and not any(row.get('card_number') or row.get('product_type') == 'COMIC' for row in rows):
+        return {}
+    now = now or datetime.now(timezone.utc)
+    if product_type == 'COMIC':
+        products = []
+    elif rows is not None:
+        products = await _page_products(connection, rows)
+    else:
+        products = [dict(p) for p in await connection.fetch(PRODUCTS)]
+        # Rankings still consider every exact alias in the requested scope,
+        # never borrow an identity or price from another game/language.
+        if system_code:
+            from .catalogue_browser import browse_systems
+            systems = set(browse_systems(system_code))
+            products = [p for p in products if catalogue_system(p) in systems]
+        if language:
+            products = [p for p in products if not clean_language(p.get('language'))
+                        or clean_language(p.get('language')) == language]
+    products = [p for p in products if not p.get('blocked') and catalogue_system(p)
+                and collector_key(p.get('card_number'))]
+    references, snapshots = [], []
+    for start in range(0, len(products), 100):
+        batch = products[start:start+100]
+        lookups = [dict(catalogue_id=str(p['id']), system_code=catalogue_system(p),
+                        number_key=catalogue_number_key(p)) for p in batch]
+        references.extend(dict(r) for r in await connection.fetch(CACHE_SQL, json.dumps(lookups)))
+        snapshots.extend(dict(r) for r in await connection.fetch(REFERENCE_VALUES_SQL, [p['id'] for p in batch], now))
+    result=shared_prices(products, references, snapshots, now=now)
+    book_systems = {'COMICS', 'MANGA', 'MARVEL_COMICS', 'DC_COMICS', 'OTHER_COMICS'}
+    if (product_type not in {'CARD', 'SEALED'}
+            and (not system_code or system_code in book_systems)
+            and (rows is None or any(row.get('product_type') == 'COMIC' for row in rows))):
+        result.update(await read_book_prices(connection,rows,now=now))
+    return result
+
+
+async def read_book_prices(connection, rows=None, *, now):
+    """Shared raw book reference with its exact condition, never a graded quote."""
+    from .book_market import attach_book_printings
+    ids=None if rows is None else [r['catalogue_id'] for r in rows if r.get('product_type')=='COMIC' and r.get('catalogue_id')]
+    if ids == []: return {}
+    products=[dict(r) for r in await connection.fetch("""select p.id as catalogue_id,p.product_type,p.language
+        from tcg.catalogue_products p where p.product_type='COMIC'
+        and ($1::uuid[] is null or p.id=any($1::uuid[]))""",ids)]
+    await attach_book_printings(connection,products)
+    if not products: return {}
+    snapshots=[dict(r) for r in await connection.fetch(REFERENCE_VALUES_SQL,[p['catalogue_id'] for p in products],now)]
+    result={}
+    for product in products:
+        choices=[]
+        for row in snapshots:
+            if str(row['catalogue_id'])!=str(product['catalogue_id']) or row.get('grading_company') or row.get('grade'): continue
+            value=resolve_reference_value(dict(product,condition=row.get('basis_condition')), [row],now=now)
+            if value['status']=='AVAILABLE':
+                choices.append((row.get('basis_condition')=='Near Mint',value['checked_at'],value))
+        if not choices: continue
+        value=max(choices,key=lambda c:c[:2])[2]
+        value=dict(value,status='CONDITION_REFERENCE',label='Book sold reference',physical_valuation_eligible=False,
+                   recommended_retail_minor=None)
+        key='c:'+str(product['catalogue_id'])
+        result[key]=dict(key=key,market_value_minor=value['market_value_minor'],market_value_high_minor=None,
+            pricing_updated_at=value['checked_at'],basis_condition=value['basis'],market_value_source='SHARED_BOOK_SOLD',shared_price=value)
+    return result
+
+
+def with_shared_price(row, prices):
+    result = dict(row)
+    fallback = prices.get(result.get('key'))
+    if result.get('market_value_minor') is None and fallback:
+        result.update(fallback)
+        # Background catalogue jobs maintain the source. A second browser call
+        # cannot replace this shared fallback with an empty provider response.
+        if fallback['market_value_minor'] is not None:
+            result['market_refresh_needed'] = False
+    return result

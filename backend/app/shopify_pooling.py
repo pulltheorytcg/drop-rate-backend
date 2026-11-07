@@ -142,8 +142,6 @@ def _evaluate_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
         blockers.append("missing language")
     if any(not _clean(row.get("condition")) for row in rows):
         blockers.append("missing condition")
-    if any(row.get("acquisition_cost_minor") is None for row in rows):
-        blockers.append("missing acquisition cost")
     if any(row.get("storage_location_id") is None for row in rows):
         blockers.append("missing storage location")
     if any(row.get("test_mode") is True for row in rows):

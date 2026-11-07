@@ -1,4 +1,8 @@
 from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +25,8 @@ def test_founder_login_exposes_enabled_social_providers_only() -> None:
     assert "external.apple" in js
     assert '/auth/v1/authorize' in js
     assert 'authorizeUrl.searchParams.set("provider", provider)' in js
-    assert 'authorizeUrl.searchParams.set("redirect_to", `${window.location.origin}/`)' in js
+    assert 'authorizeUrl.searchParams.set("redirect_to", `${window.location.origin}/app`)' in js
+    assert 'redirect_to: `${window.location.origin}/app`' in js
 
 
 def test_social_login_does_not_bypass_founder_hq_role_check() -> None:
@@ -59,6 +64,41 @@ def test_invite_onboarding_supports_google_and_apple_without_dropping_invite() -
     assert '/auth/v1/authorize' in js
     assert "/join?invite=" in js
     assert "finishAuthenticatedOnboarding(session)" in js
+
+
+def test_missing_apple_name_can_be_completed_without_creating_an_unverified_owner() -> None:
+    html = (ROOT / "backend" / "app" / "static" / "owner-join.html").read_text()
+    js = (ROOT / "backend" / "app" / "static" / "owner-join.js").read_text()
+
+    assert 'id="owner-oauth-name-form"' in html
+    assert 'id="owner-oauth-name"' in html
+    assert "requestSocialDisplayName(session)" in js
+    assert "state.pendingSocialSession = session" in js
+    assert "await finishAuthenticatedOnboarding(state.pendingSocialSession, name)" in js
+    assert "pendingAck !== Number(state.acknowledgementVersion || 1)" in js
+
+
+def test_founder_invitation_redirects_to_actual_dashboard_after_oauth() -> None:
+    join_js = (ROOT / "backend" / "app" / "static" / "join.js").read_text()
+    join_html = (ROOT / "backend" / "app" / "static" / "join.html").read_text()
+
+    assert 'window.location.replace("/app")' in join_js
+    assert '/assets/join.js?v=oauth-redirect-v1' in join_html
+
+
+def test_social_oauth_behaviour_in_browser_js() -> None:
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js is not installed")
+    result = subprocess.run(
+        [node, "tests/js/social_oauth_onboarding.test.mjs"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + "\n" + result.stderr
 
 
 def test_new_password_ui_matches_current_security_policy() -> None:

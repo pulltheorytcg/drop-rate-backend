@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Annotated
 from uuid import UUID
 
@@ -249,6 +250,20 @@ async def collectible_identity(
         )
 
     product_row = dict(product)
+    attributes = product_row.get("profile_attributes") or {}
+    if isinstance(attributes, str):
+        attributes = json.loads(attributes)
+    if not isinstance(attributes, dict):
+        attributes = {}
+    private_manual = (product_row.get("system_code") in {"SPORTS_CARDS", "FIGURES"}
+                      and product_row.get("identity_status") == "NEEDS_REVIEW"
+                      and attributes.get("identity_source") == "SELLER_ENTERED")
+    # Inventory is already owner-scoped by RLS. An unreviewed manual reference
+    # is visible in a collector's collection, not as another user's discovery.
+    if private_manual and not inventory:
+        raise HTTPException(status_code=404, detail="Catalogue product not found")
+    product_row["profile_attributes"] = {key: value for key, value in attributes.items()
+                                         if key != "submitted_by_user_id"}
     profile = None
     if product_row.get("system_code"):
         profile = {
@@ -277,6 +292,8 @@ async def collectible_identity(
             "card_printing": dict(card_printing) if card_printing else None,
             "sealed_product": dict(sealed) if sealed else None,
             "comic_printing": dict(comic) if comic else None,
+            "sports_card": attributes.get("sports_card"),
+            "figure_details": attributes.get("figure_details"),
             "taxonomy": [dict(row) for row in assignments],
             "provider_mappings": [dict(row) for row in provider_mappings],
             "physical_inventory": [dict(row) for row in inventory],

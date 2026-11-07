@@ -23,6 +23,12 @@ function ensureRecognitionScannerUI() {
   panel.id = "recognition-scanner-panel";
   panel.className = "inventory-panel recognition-scanner-panel";
   panel.innerHTML = `
+    <section class="dr-mobile-scan-entry" aria-labelledby="recognition-mobile-scan-heading">
+      <span class="dr-mobile-scan-symbol" aria-hidden="true">◎</span>
+      <h2 id="recognition-mobile-scan-heading">Scan your collection</h2>
+      <p>Use your camera to scan cards, graded slabs, sealed products, comics or manga. Check the exact match before saving.</p>
+      <button id="recognition-mobile-open-scanner" type="button">Open scanner</button>
+    </section>
     <div class="page-heading">
       <div>
         <p class="eyebrow">Start with a photo</p>
@@ -34,6 +40,11 @@ function ensureRecognitionScannerUI() {
     <div class="recognition-scan-grid">
       <div class="recognition-upload-card">
         <div class="recognition-camera-launch">
+          <div class="dr-scan-entry-modes" role="radiogroup" aria-label="Scan type">
+            <label><input type="radio" name="recognition-scan-mode" value="RAW" checked>RAW</label>
+            <label><input type="radio" name="recognition-scan-mode" value="GRADED">GRADED</label>
+            <label><input type="radio" name="recognition-scan-mode" value="SEALED">SEALED</label>
+          </div>
           <button id="recognition-open-camera" class="primary-button recognition-camera-primary" type="button">
             <span aria-hidden="true">◉</span>
             <span><strong>Open live camera</strong><small>Recommended on mobile</small></span>
@@ -98,6 +109,7 @@ function ensureRecognitionScannerUI() {
 
   byId("recognition-file").addEventListener("change", handleRecognitionFile);
   byId("recognition-open-camera").addEventListener("click", openRecognitionCamera);
+  byId("recognition-mobile-open-scanner").addEventListener("click", openRecognitionCamera);
   byId("recognition-switch-camera").addEventListener("click", switchRecognitionCamera);
   byId("recognition-torch").addEventListener("click", toggleRecognitionTorch);
   byId("recognition-capture-scan").addEventListener("click", captureAndRecogniseCard);
@@ -156,7 +168,7 @@ async function loadRecognitionStatus() {
     const data = await apiRequest("/api/v1/recognition/status");
     state.recognition.status = data;
     badge.className = data.configured ? "pill approved" : "pill inspection";
-    badge.textContent = data.configured ? `${data.vision_model} · READY` : "VISION KEY REQUIRED";
+    badge.textContent = data.configured ? "READY TO SCAN" : "SCANNER UNAVAILABLE";
     byId("recognition-scan").disabled = !data.configured || !state.recognition.imageDataUrl;
     const cameraSupported = Boolean(
       navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function"
@@ -267,7 +279,46 @@ async function startRecognitionCamera(facingMode = "environment") {
   );
 }
 
+function founderSharedScanner() {
+  if (!window.dropRateScanner || !window.dropRateScanner.active()) {
+      window.dropRateScanner?.destroy();
+      window.dropRateScanner = new window.DropRateScanner.Scanner({
+        role: "founder", session: () => state.session,
+        request: (path, options) => apiRequest(path, options, false),
+        refreshSession: token => authRequest("/token?grant_type=refresh_token", {
+          method: "POST", body: JSON.stringify({refresh_token: token}),
+        }),
+        saveSession: session => saveSession(session),
+        afterSave: () => reloadDashboard(),
+        viewInventory: () => activateSellerView("inventory", true),
+        onClose: () => {
+          // On phones, the legacy photo-upload panel must not be the exit screen.
+          // Leave the current tab alone when Scan was opened from Search.
+          if (window.matchMedia?.("(max-width: 900px)")?.matches
+              && !recognitionView()?.classList.contains("hidden")) {
+            activateSellerView("dashboard", true);
+          }
+        },
+      });
+    }
+  return window.dropRateScanner;
+}
+
 async function openRecognitionCamera() {
+  if (window.DropRateScanner) {
+    stopRecognitionCamera();
+    founderSharedScanner();
+    const mode = window.matchMedia?.("(max-width: 900px)")?.matches
+      ? window.dropRateScanner.mode
+      : document.querySelector('input[name="recognition-scan-mode"]:checked')?.value || "RAW";
+    try { await window.dropRateScanner.open(mode); }
+    catch (error) { showMessage("recognition-message", error.message, "error"); }
+    return;
+  }
+  if (window.matchMedia?.("(max-width: 900px)")?.matches) {
+    showMessage("recognition-message", "Live scanner unavailable. Reload the page and try again.", "error");
+    return;
+  }
   const button = byId("recognition-open-camera");
   button.disabled = true;
   showMessage("recognition-message", "Opening camera…");
@@ -594,7 +645,7 @@ function recognitionCandidateCard(candidate, label, runId) {
   marketValue.className = "recognition-score recognition-market-value";
   const marketLabel = document.createElement("span");
   const marketAmount = document.createElement("strong");
-  marketLabel.textContent = "Market value";
+  marketLabel.textContent = candidate.pricing_status === "REFERENCE_ESTIMATE" ? "Market guide (GBP)" : "Market value (GBP)";
   marketAmount.textContent = recognitionMoney(candidate.market_value_minor);
   marketValue.append(marketLabel, marketAmount);
 
@@ -609,7 +660,7 @@ function recognitionCandidateCard(candidate, label, runId) {
       ? recognitionPercent(candidate.pricing_confidence)
       : null;
     const algorithm = String(candidate.pricing_algorithm_version || "").toLowerCase();
-    const provisional = algorithm.includes("provisional") ? "Provisional" : "Stored pricing";
+    const provisional = candidate.pricing_status === "REFERENCE_ESTIMATE" ? "Shared reference · not an exact physical-copy valuation" : algorithm.includes("provisional") ? "Provisional" : "Shared stored pricing";
     pricingMeta.textContent = [
       provisional,
       confidence ? `${confidence} pricing confidence` : null,
@@ -1051,6 +1102,11 @@ activateSellerView = function activateSellerViewWithRecognition(name, updateHash
   if (name === "intake") {
     loadRecognitionStatus();
     loadRecognitionHistory();
+    // A mobile Scan-tab press opens the shared camera within its user gesture.
+    // A restored #intake deep link (updateHash=false) shows the single launch CTA.
+    if (updateHash && window.matchMedia?.("(max-width: 900px)")?.matches) {
+      void openRecognitionCamera();
+    }
   }
   return result;
 };

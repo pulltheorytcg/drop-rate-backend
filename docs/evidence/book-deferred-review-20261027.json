@@ -1,0 +1,257 @@
+{
+  "schema_version": "book-deferred-review-v1",
+  "observed_on": "2026-10-27",
+  "scope": "Offline conservative form-review findings in the 909 deferred source records. This is a spot-check of the listed records, not approval or exhaustive content review of the full deferred cohort.",
+  "status": "DEFERRED_COHORT_HELD_PENDING_REVIEW",
+  "input_files": {
+    "novel_snapshot": {
+      "path": "backend/app/data/book_openlibrary_recovery_20261027.jsonl",
+      "sha256": "84d28339c7cab469715d02dc16c351a0347ec5b406f29fea4fc1abca7a1ff65e",
+      "bytes": 1434897
+    },
+    "initial_imported_snapshot": {
+      "path": "backend/app/data/book_openlibrary_initial_reviewed_20261027.jsonl",
+      "sha256": "dc10814daac57325fa766b730c92567b4da5454487e67ef8fe5cdf9802d5def3",
+      "bytes": 896846
+    },
+    "original_subject_audit": {
+      "path": "backend/app/data/book_openlibrary_original_subject_review_20261027.json",
+      "sha256": "fc99c7f72222a2568dc50f95b9afcd6d7f52783e87a65c23f436cc47dcbe4849",
+      "bytes": 1378537
+    },
+    "historical_review_hold_registry": {
+      "path": "backend/app/data/book_openlibrary_review_holds.json",
+      "sha256": "72f742bd619b4586e15328f72fa30ff9628c0dfdc2b84a8d31b3590136ccacd0",
+      "bytes": 70068
+    }
+  },
+  "partition": {
+    "method": "Preserve the novel snapshot order and exclude exact Open Library source IDs present in the immutable 1495-row initial imported snapshot. Require unique source IDs in each input and initial IDs to be a subset of novel IDs.",
+    "novel_records": 2404,
+    "already_imported_records": 1495,
+    "deferred_records": 909,
+    "source_derived_systems": {
+      "OTHER_COMICS": 251,
+      "MANGA": 657,
+      "MARVEL_COMICS": 1
+    },
+    "languages": {
+      "English": 803,
+      "Spanish": 106
+    },
+    "unique_deferred_source_ids": 909,
+    "unique_deferred_isbns": 909
+  },
+  "review": {
+    "new_form_review_findings": 6,
+    "all_deferred_records_still_held": 909,
+    "records_approved_for_import": 0,
+    "limitations": "The six findings are conservative review holds from local source titles/subjects, not claims that the works cannot contain comics. Other deferred records have not been individually cleared. Current parser acceptance is not sufficient content approval.",
+    "next_action": "Keep the 909-row cohort unapplied. A later bounded cohort needs a new immutable review receipt, fresh live duplicate/capacity preflight and guarded committed readback. Preserve the already imported 1495 rows and all original snapshots/57-hold registry."
+  },
+  "records": [
+    {
+      "deferred_position": 35,
+      "source_id": "OL12183958M",
+      "source_url": "https://openlibrary.org/books/OL12183958M",
+      "isbn": "9781888429145",
+      "original_source_title": "Best of Sketch Magazine Volume 1",
+      "normalized_catalogue_title": "Best of Sketch Magazine #1",
+      "publisher": "Blue Line Pro",
+      "language": "English",
+      "publication_year": 2002,
+      "source_derived_system": "OTHER_COMICS",
+      "relevant_subjects": [
+        "Techniques - Drawing",
+        "Art"
+      ],
+      "retained_source_subjects": [
+        "General",
+        "Comics & Graphic Novels / General",
+        "Popular Culture - General",
+        "Techniques - Drawing",
+        "Art",
+        "Fiction - General"
+      ],
+      "source_json_sha256": "2b99032958685cdd2806d1ef82a6e0897a2aa94ca0e30913c92adaf82f24acf2",
+      "projected_source_row_sha256": "fe856122b8dd4e58b217aff9db7bd1ff51b716d8c4cf06aeb9f95346168cf2bb",
+      "normalized_record_digest": "b30fef57654f3be71fcb5c45e9a73f982482694367d5ac65c9f322dc21f17725",
+      "review_status": "HOLD_PENDING_FORM_REVIEW",
+      "reason": "ART_OR_INSTRUCTION_FORM_REVIEW_REQUIRED",
+      "evidence_basis": "Recovered complete-dump edition facts and hash-bound original-subject audit; no external fetch or inferred artwork, price or physical printing.",
+      "review_note": "The source title names a sketch magazine and its retained subjects include drawing techniques and art. Confirm that the edition contains narrative comics before treating it as a comic catalogue edition.",
+      "conclusive_reclassification": false
+    },
+    {
+      "deferred_position": 39,
+      "source_id": "OL12183962M",
+      "source_url": "https://openlibrary.org/books/OL12183962M",
+      "isbn": "9781888429206",
+      "original_source_title": "Best of Sketch Magazine Volume 2",
+      "normalized_catalogue_title": "Best of Sketch Magazine #2",
+      "publisher": "Blue Line Pro",
+      "language": "English",
+      "publication_year": 2003,
+      "source_derived_system": "OTHER_COMICS",
+      "relevant_subjects": [
+        "Techniques - Cartooning",
+        "Techniques - Drawing",
+        "Art",
+        "Art & Art Instruction"
+      ],
+      "retained_source_subjects": [
+        "General",
+        "Techniques - Cartooning",
+        "Comics & Graphic Novels / General",
+        "Popular Culture - General",
+        "Techniques - Drawing",
+        "Art",
+        "Art & Art Instruction"
+      ],
+      "source_json_sha256": "23ea6985b812aaabf0c394d38fca974d5fbf629dfba58e85640c77d6fdd12666",
+      "projected_source_row_sha256": "f3e3079883a883d15a540566e36f90542b80efc2ad703e877cc20dfd7e715ce4",
+      "normalized_record_digest": "e4e5ae087cd34dd1432874ecf9507eb372478686de71cae9f451b3b436b4d53f",
+      "review_status": "HOLD_PENDING_FORM_REVIEW",
+      "reason": "ART_OR_INSTRUCTION_FORM_REVIEW_REQUIRED",
+      "evidence_basis": "Recovered complete-dump edition facts and hash-bound original-subject audit; no external fetch or inferred artwork, price or physical printing.",
+      "review_note": "The source title names a sketch magazine and its retained subjects explicitly include art instruction and drawing/cartooning techniques. The generic comics subject does not resolve the edition form.",
+      "conclusive_reclassification": false
+    },
+    {
+      "deferred_position": 77,
+      "source_id": "OL8722368M",
+      "source_url": "https://openlibrary.org/books/OL8722368M",
+      "isbn": "9781893905580",
+      "original_source_title": "Best of Draw! Vol. 2",
+      "normalized_catalogue_title": "Best of Draw! #2",
+      "publisher": "TwoMorrows Publishing",
+      "language": "English",
+      "publication_year": 2006,
+      "source_derived_system": "OTHER_COMICS",
+      "relevant_subjects": [
+        "Techniques - Cartooning",
+        "Art / Cartooning"
+      ],
+      "retained_source_subjects": [
+        "Graphic Novels",
+        "Comics & Graphic Novels",
+        "Humor",
+        "General",
+        "Techniques - Cartooning",
+        "Art / Cartooning"
+      ],
+      "source_json_sha256": "86d2080c060c9dd726219d4b1b6f69639e3cb364d455bc66df06e485220e3198",
+      "projected_source_row_sha256": "fefeabf9086f1ca08447d21c21466972f5137e3c29258649ca0ab567df323b4b",
+      "normalized_record_digest": "93e440c8c8e884c20c171b92b7049cb2c62a234f9a5f50247b9043ca024a0933",
+      "review_status": "HOLD_PENDING_FORM_REVIEW",
+      "reason": "ART_OR_INSTRUCTION_FORM_REVIEW_REQUIRED",
+      "evidence_basis": "Recovered complete-dump edition facts and hash-bound original-subject audit; no external fetch or inferred artwork, price or physical printing.",
+      "review_note": "The source title and retained cartooning-technique subjects leave an art or instruction collection unresolved. A generic graphic-novel subject alone is insufficient to settle that form.",
+      "conclusive_reclassification": false
+    },
+    {
+      "deferred_position": 81,
+      "source_id": "OL12219203M",
+      "source_url": "https://openlibrary.org/books/OL12219203M",
+      "isbn": "9781893905979",
+      "original_source_title": "BrickJournal Compendium Volume 1",
+      "normalized_catalogue_title": "BrickJournal Compendium #1",
+      "publisher": "TwoMorrows Publishing",
+      "language": "English",
+      "publication_year": 2008,
+      "source_derived_system": "OTHER_COMICS",
+      "relevant_subjects": [
+        "Entertainment / Games"
+      ],
+      "retained_source_subjects": [
+        "General",
+        "Entertainment / Games",
+        "Comics & Graphic Novels / General",
+        "Comics & Graphic Novels",
+        "Graphic Novels",
+        "Humor"
+      ],
+      "source_json_sha256": "c86271488c0a7892456744fb362f8d27186205fee8a518fca4f9970c6c317e22",
+      "projected_source_row_sha256": "618658673b281bce9028fa42a5be21d277eec272b1d1386e500b35768c886014",
+      "normalized_record_digest": "e7ffccba78a503468974079f6dbc1266ea3d17e527a0df24a3ac20bf4894ff7e",
+      "review_status": "HOLD_PENDING_FORM_REVIEW",
+      "reason": "HOBBY_MAGAZINE_FORM_REVIEW_REQUIRED",
+      "evidence_basis": "Recovered complete-dump edition facts and hash-bound original-subject audit; no external fetch or inferred artwork, price or physical printing.",
+      "review_note": "The source title names a journal compendium while retained subjects include entertainment/games as well as generic comics. Confirm narrative-comic form before import; the source facts are not conclusive reclassification evidence.",
+      "conclusive_reclassification": false
+    },
+    {
+      "deferred_position": 83,
+      "source_id": "OL8723354M",
+      "source_url": "https://openlibrary.org/books/OL8723354M",
+      "isbn": "9781894525602",
+      "original_source_title": "Silver Age Sentinels Emergency Response Volume 1",
+      "normalized_catalogue_title": "Silver Age Sentinels Emergency Response #1",
+      "publisher": "Guardians of Order",
+      "language": "English",
+      "publication_year": 2002,
+      "source_derived_system": "OTHER_COMICS",
+      "relevant_subjects": [
+        "Role Playing & Fantasy - General",
+        "Games / Gamebooks / Crosswords"
+      ],
+      "retained_source_subjects": [
+        "General",
+        "Role Playing & Fantasy - General",
+        "Comics & Graphic Novels / General",
+        "Medical / Nursing",
+        "Games / Gamebooks / Crosswords"
+      ],
+      "source_json_sha256": "27fdc0a2c29ce2f9620214e1d427f75da502a374f644da0e18705e2785aecbba",
+      "projected_source_row_sha256": "39389633a80de5522bdd0df0cc1f139d8ff817bf2a75333f3cb6ee332584af54",
+      "normalized_record_digest": "c8635b2184c218b8fc7dbdca026e0a482d4c3cb584ccb89af565c41e46459122",
+      "review_status": "HOLD_PENDING_FORM_REVIEW",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "evidence_basis": "Recovered complete-dump edition facts and hash-bound original-subject audit; no external fetch or inferred artwork, price or physical printing.",
+      "review_note": "Retained source subjects explicitly identify role-playing and games/gamebooks alongside generic comics. This conflict requires form review before a comic import.",
+      "conclusive_reclassification": false
+    },
+    {
+      "deferred_position": 96,
+      "source_id": "OL8769882M",
+      "source_url": "https://openlibrary.org/books/OL8769882M",
+      "isbn": "9781903980811",
+      "original_source_title": "Ultimate Equipment Guide Volume 1",
+      "normalized_catalogue_title": "Ultimate Equipment Guide #1",
+      "publisher": "Mongoose Publishing",
+      "language": "English",
+      "publication_year": 2003,
+      "source_derived_system": "OTHER_COMICS",
+      "relevant_subjects": [
+        "Games",
+        "Games/Puzzles",
+        "Role Playing & Fantasy - General"
+      ],
+      "retained_source_subjects": [
+        "General",
+        "Games",
+        "Graphic Novels",
+        "Games/Puzzles",
+        "Comics & Graphic Novels / General",
+        "Role Playing & Fantasy - General"
+      ],
+      "source_json_sha256": "49dc360d87882f263279629549c7f6ca5253fb251696da972f1418e80cae9206",
+      "projected_source_row_sha256": "9f9c786a25fe84d3c3b6df2e9ddcb9609fa9810b0a0f35853952fd1bdccfa62a",
+      "normalized_record_digest": "9b477253498ef1f0fe3beacf8ab0f8efc79880a95b360a53c853722cc6afc377",
+      "review_status": "HOLD_PENDING_FORM_REVIEW",
+      "reason": "RPG_SOURCEBOOK_FORM_REVIEW_REQUIRED",
+      "evidence_basis": "Recovered complete-dump edition facts and hash-bound original-subject audit; no external fetch or inferred artwork, price or physical printing.",
+      "review_note": "The source title describes an equipment guide and retained subjects identify games and role-playing. Confirm narrative-comic form before import rather than relying on the generic graphic-novel subject.",
+      "conclusive_reclassification": false
+    }
+  ],
+  "effects": {
+    "production_writes": 0,
+    "source_downloads": 0,
+    "scraping_requests": 0,
+    "historical_registry_changes": 0,
+    "imported_snapshot_changes": 0,
+    "artwork_added": 0,
+    "market_values_added": 0
+  }
+}

@@ -13,7 +13,7 @@ from app.reference_feeds import ReferenceFeeds
 from app.reference_library import save_reference_set
 from app.settings import get_settings
 
-SOURCES=('tcgdex','punk','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
+SOURCES=('tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 
 async def sync(pool, actor, sources):
     async with user_connection(pool,actor,str(uuid4())) as conn:

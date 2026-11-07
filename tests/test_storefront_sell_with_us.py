@@ -76,9 +76,10 @@ def test_join_page_supports_public_and_invite_modes() -> None:
     html = JOIN_HTML.read_text()
     source = JOIN_JS.read_text()
 
-    assert "<title>Drop Rate — Sell With Us</title>" in html
-    assert "Verified accounts" in html
-    assert "Create Seller Hub account" in html
+    assert "<title>Create your account — Drop Rate Seller Hub</title>" in html
+    assert "Verify email" in html
+    assert "Create your account" in html
+    assert 'id="owner-join-ack"' in html
 
     assert '"/api/v1/owner-self-register"' in source
     assert '"/api/v1/owner-invites/redeem"' in source
@@ -93,7 +94,7 @@ def test_clean_public_join_ignores_stale_invite_storage() -> None:
     html = JOIN_HTML.read_text()
     source = JOIN_JS.read_text()
 
-    assert 'src="/assets/owner-join.js?v=public-join-2"' in html
+    assert 'src="/assets/owner-join.js?v=ux-20261103"' in html
     assert 'const explicitToken = params.get("invite");' in source
     assert "if (explicitToken) return explicitToken;" in source
     assert 'const callback = new URLSearchParams(window.location.hash.slice(1));' in source

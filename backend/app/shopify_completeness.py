@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+from html.parser import HTMLParser
 from typing import Any, Mapping
 
 from .brands import brand_for_game
@@ -15,9 +16,13 @@ from .media_resolver import (
 
 CARD_CATEGORY_GID = "gid://shopify/TaxonomyCategory/ae-2-2-3-3"
 CARD_CATEGORY_NAME = "Non-Sports Trading Cards"
+COMIC_CATEGORY_GID = "gid://shopify/TaxonomyCategory/ae-2-2-12"
+COMIC_CATEGORY_NAME = "Comic Books"
 DEFAULT_THEME_TEMPLATE = "default"
 BASE_COLLECTION = "Trading Cards"
 SEALED_COLLECTION = "Sealed"
+COMIC_COLLECTION = "Comics"
+MANGA_COLLECTION = "Manga"
 SEALED_PRODUCT_TYPE = "Sealed TCG Product"
 SEO_TITLE_MAX = 70
 SEO_DESCRIPTION_MAX = 320
@@ -26,6 +31,41 @@ PRODUCT_TITLE_MAX = 255
 
 def _text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
+
+
+class _DescriptionParser(HTMLParser):
+    """Compare HTML content without Shopify's entity/indentation rewrites."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.tokens: list[tuple[Any, ...]] = []
+
+    def handle_starttag(self, tag, attrs):
+        self.tokens.append(("start", tag, tuple(sorted(attrs))))
+
+    def handle_endtag(self, tag):
+        self.tokens.append(("end", tag))
+
+    def handle_data(self, data):
+        value = _text(data)
+        if value:
+            self.tokens.append(("text", value))
+
+    def handle_comment(self, data):
+        self.tokens.append(("comment", data))
+
+    def handle_decl(self, decl):
+        self.tokens.append(("declaration", decl))
+
+    def handle_pi(self, data):
+        self.tokens.append(("instruction", data))
+
+
+def _description_tokens(value: object) -> list[tuple[Any, ...]]:
+    parser = _DescriptionParser()
+    parser.feed(str(value or ""))
+    parser.close()
+    return parser.tokens
 
 
 def _trim(value: str, limit: int) -> str:
@@ -59,10 +99,28 @@ def _is_sealed_product(item: Mapping[str, Any]) -> bool:
     return _text(item.get("product_type")) in {"SEALED", "COLLECTION"}
 
 
+def _is_comic(item: Mapping[str, Any]) -> bool:
+    return _text(item.get("product_type")) == "COMIC"
+
+
+def _is_manga(item: Mapping[str, Any]) -> bool:
+    return _is_comic(item) and _text(item.get("game")).casefold() == "manga"
+
+
+def _book_label(item: Mapping[str, Any]) -> str:
+    return "manga volume" if _is_manga(item) else "comic book"
+
+
 def product_title(item: Mapping[str, Any]) -> str:
     language = _language(item)
     if _is_sealed_product(item):
         return _trim(display_title(item.get("name"), language), PRODUCT_TITLE_MAX)
+    if _is_comic(item):
+        return _trim(" · ".join(part for part in (
+            display_title(item.get("name"), language),
+            _text(item.get("variant")),
+            _condition_label(item),
+        ) if part), PRODUCT_TITLE_MAX)
     parts = [
         display_title(item.get("name"), language),
         _text(item.get("card_number")),
@@ -75,6 +133,7 @@ def product_title(item: Mapping[str, Any]) -> str:
 
 def product_description_html(item: Mapping[str, Any]) -> str:
     sealed = _is_sealed_product(item)
+    comic = _is_comic(item)
     fields = (
         [
             ("Game", _text(item.get("game"))),
@@ -84,6 +143,15 @@ def product_description_html(item: Mapping[str, Any]) -> str:
             ("Inventory ID", _text(item.get("inventory_code"))),
         ]
         if sealed
+        else [
+            ("Publisher / category", _text(item.get("game"))),
+            ("Series", _text(item.get("set_name"))),
+            ("Issue / volume", _text(item.get("card_number"))),
+            ("Printing / cover variant", _text(item.get("variant"))),
+            ("Language", _language(item)),
+            ("Condition", _condition_label(item)),
+            ("Inventory ID", _text(item.get("inventory_code"))),
+        ] if comic
         else [
             ("Game", _text(item.get("game"))),
             ("Set", _text(item.get("set_name"))),
@@ -109,6 +177,15 @@ def product_description_html(item: Mapping[str, Any]) -> str:
             "<p>Product identity, language/region, seal status and price are controlled by "
             "the Drop Rate inventory system. Storefront media is governed by Drop Rate's "
             "item-specific media policy and must clear its publication checks.</p>"
+        )
+    if comic:
+        return (
+            f"<p><strong>{name}</strong> is an individually tracked physical "
+            f"{escape(_book_label(item))} from Drop Rate inventory.</p>"
+            f"<ul>{rows}</ul>"
+            "<p>Issue/volume, printing, cover, language and condition must match "
+            "the approved physical copy. Storefront media must be approved "
+            "photography of that specific copy.</p>"
         )
     reference_image_note = ""
     set_name = _text(item.get("set_name")).casefold()
@@ -148,6 +225,10 @@ def product_description_html(item: Mapping[str, Any]) -> str:
 def seo_title(item: Mapping[str, Any]) -> str:
     language = _language(item)
     lang = language_code(language) or language
+    if _is_comic(item):
+        return _trim(" | ".join(part for part in (
+            _text(item.get("name")), _text(item.get("variant")), lang, "Drop Rate",
+        ) if part), SEO_TITLE_MAX)
     parts = [
         _text(item.get("name")),
         _text(item.get("card_number")),
@@ -161,6 +242,12 @@ def seo_title(item: Mapping[str, Any]) -> str:
 def seo_description(item: Mapping[str, Any]) -> str:
     condition = _condition_label(item)
     language = _language(item)
+    if _is_comic(item):
+        details = ", ".join(part for part in (
+            _text(item.get("name")), _text(item.get("variant")),
+            condition, language,
+        ) if part)
+        return _trim(f"{details}. Individually tracked {_book_label(item)} from Drop Rate.", SEO_DESCRIPTION_MAX)
     bits = [
         _text(item.get("name")),
         _text(item.get("card_number")),
@@ -186,6 +273,17 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
     condition = _condition_label(item)
     grading_company = _text(item.get("grading_company"))
     grade = _text(item.get("grade"))
+    if _is_comic(item):
+        values = [
+            "Drop Rate", "Manga" if _is_manga(item) else "Comic Books",
+            _text(item.get("game")), _text(item.get("set_name")),
+            f"Language:{language}" if language else "",
+            f"Condition:{condition}" if condition else "",
+            f"Edition:{_text(item.get('variant'))}" if _text(item.get("variant")) else "",
+            f"Grader:{grading_company}" if grading_company else "",
+            f"Grade:{grade}" if grade else "",
+        ]
+        return list(dict.fromkeys(value for value in values if value))
     sealed = _is_sealed_product(item)
     card_kind = (
         "Sealed Product"
@@ -234,6 +332,22 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
 
 def product_metafields(item: Mapping[str, Any]) -> list[dict[str, str]]:
     sealed = _is_sealed_product(item)
+    if _is_comic(item):
+        values = {
+            "inventory_id": _text(item.get("inventory_code")),
+            "catalogue_id": _text(item.get("catalogue_id")),
+            "product_type": "COMIC",
+            "publisher": _text(item.get("game")),
+            "series": _text(item.get("set_name")),
+            "issue_number": _text(item.get("card_number")),
+            "edition": _text(item.get("variant")),
+            "language": _language(item),
+            "condition": _text(item.get("condition")),
+            "grading_company": _text(item.get("grading_company")),
+            "grade": _text(item.get("grade")),
+        }
+        return [dict(namespace="drop_rate", key=key, type="single_line_text_field", value=value)
+                for key, value in values.items() if value]
     values = {
         "inventory_id": _text(item.get("inventory_code")),
         "catalogue_id": _text(item.get("catalogue_id")),
@@ -263,6 +377,11 @@ def product_metafields(item: Mapping[str, Any]) -> list[dict[str, str]]:
 
 def required_collection_titles(item: Mapping[str, Any]) -> list[str]:
     brand = _storefront_brand(item.get("game"))
+    if _is_comic(item):
+        result = [MANGA_COLLECTION if _is_manga(item) else COMIC_COLLECTION]
+        if brand and brand != result[0]:
+            result.append(brand)
+        return result
     result = [SEALED_COLLECTION] if _is_sealed_product(item) else [BASE_COLLECTION]
     if brand:
         result.append(brand)
@@ -275,6 +394,8 @@ def shipping_profile_key(item: Mapping[str, Any]) -> str:
         if _text(item.get("grading_company")) and _text(item.get("grade")):
             return "GRADED_CARD"
         return "RAW_CARD"
+    if product_type == "COMIC":
+        return "MANGA_BOOK" if _is_manga(item) else "COMIC_BOOK"
     if product_type in {"SEALED", "COLLECTION"}:
         catalogue_key = _text(item.get("catalogue_id")).replace("-", "").upper()
         if (
@@ -430,8 +551,8 @@ def verify_remote_product(
     checks = {
         "title": (_text(snapshot.get("title")), _text(plan.get("title"))),
         "description": (
-            _text(snapshot.get("descriptionHtml")),
-            _text(plan.get("descriptionHtml")),
+            _description_tokens(snapshot.get("descriptionHtml")),
+            _description_tokens(plan.get("descriptionHtml")),
         ),
         "vendor": (_text(snapshot.get("vendor")), _text(plan.get("vendor"))),
         "product type": (
@@ -557,7 +678,9 @@ def verify_remote_product(
         for node in media_nodes or []
         if isinstance(node, Mapping) and _text(node.get("id"))
     }
-    if not expected_media_file_ids.issubset(actual_media_ids):
+    # The approved selection is the entire storefront gallery. An extra file
+    # may be stale, unrelated or off-brand even when the correct image is there.
+    if actual_media_ids != expected_media_file_ids:
         blockers.append("remote media")
 
     if _text(snapshot.get("status")) != expected_status:
@@ -574,19 +697,23 @@ def build_shopify_product_plan(
 ) -> dict[str, Any]:
     product_type = _text(item.get("product_type"))
     sealed = _is_sealed_product(item)
-    category_id = CARD_CATEGORY_GID if product_type == "CARD" or sealed else None
+    category_id = (COMIC_CATEGORY_GID if _is_comic(item) else
+                   CARD_CATEGORY_GID if product_type == "CARD" or sealed else None)
     vendor = _storefront_brand(item.get("game"))
     return {
         "title": product_title(item),
         "descriptionHtml": product_description_html(item),
         "category": category_id,
-        "categoryName": CARD_CATEGORY_NAME if category_id else None,
+        "categoryName": (COMIC_CATEGORY_NAME if _is_comic(item) else
+                         CARD_CATEGORY_NAME if category_id else None),
         "vendor": vendor,
         "productType": (
             "Trading Card"
             if product_type == "CARD"
             else SEALED_PRODUCT_TYPE
             if sealed
+            else "Manga" if _is_manga(item)
+            else "Comic Book" if _is_comic(item)
             else product_type
         ),
         "tags": product_tags(item),

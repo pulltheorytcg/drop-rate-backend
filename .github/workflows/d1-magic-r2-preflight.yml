@@ -1,0 +1,122 @@
+name: Magic MTGJSON R2 source integrity preflight (NO D1 writes)
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/d1_r2_shadow_export.py'
+      - 'tools/d1_magic_r2_preflight.py'
+      - 'tools/d1_r2_real_shadow.py'
+      - 'tests/test_d1_magic_r2_preflight.py'
+      - 'tests/test_d1_r2_shadow_export.py'
+      - '.github/workflows/d1-magic-r2-preflight.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'backend/app/d1_r2_shadow_export.py'
+      - 'tools/d1_magic_r2_preflight.py'
+      - 'tools/d1_r2_real_shadow.py'
+      - '.github/workflows/d1-magic-r2-preflight.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: magic-r2-source-preflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  offline-source-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Check Magic source, per-game OIDC, no D1 writes and regression
+        env:
+          PYTHONPATH: 'backend:tools'
+        run: |
+          python -m pytest -q \
+            tests/test_d1_magic_r2_preflight.py \
+            tests/test_d1_r2_shadow_export.py \
+            tests/test_d1_r2_real_shadow.py
+
+  verify-real-magic-r2-only:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: offline-source-provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    permissions:
+      id-token: write
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Check signed immutable R2 Magic source, all 153,662 identities, no D1
+        id: r2_source
+        env:
+          PYTHONPATH: 'backend:tools'
+        run: python tools/d1_magic_r2_preflight.py
+      - name: Report whether full source checks passed; not a migration claim
+        if: always()
+        env:
+          GITHUB_STATUS_TOKEN: ${{ github.token }}
+          MAGIC_PREFLIGHT_OUTCOME: ${{ steps.r2_source.outcome }}
+          MAGIC_PREFLIGHT_COMMIT: ${{ github.sha }}
+          MAGIC_PREFLIGHT_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib import request
+
+          state="failure"
+          description="Magic R2 proof blocked; zero D1 writes or cutover"
+          if os.environ["MAGIC_PREFLIGHT_OUTCOME"]=="success":
+              f=Path("d1-magic-r2-preflight-report.json")
+              if f.is_file():
+                  doc=json.loads(f.read_text())
+                  if (doc.get("status")=="MAGIC_R2_SOURCE_PREPARED_FOR_D1"
+                      and doc.get("source_rows_verified")==153662
+                      and type(doc.get("source_parts_verified")) is int
+                      and doc["source_parts_verified"] >= 100
+                      and doc.get("verified_d1_rows")==0
+                      and doc.get("d1_writes")==0
+                      and doc.get("market_value_writes")==0
+                      and doc.get("owner_and_settlement_writes")==0
+                      and doc.get("production_reads_switched") is False):
+                      state="success"
+                      description="153,662 Magic R2 references SHA256 checked; NO D1 import"
+          payload=json.dumps({
+              "state":state,"context":"drop-rate-magic-r2-preflight",
+              "description":description,
+          }).encode()
+          req=request.Request(
+              "https://api.github.com/repos/" + os.environ["MAGIC_PREFLIGHT_REPOSITORY"]
+              + "/statuses/" + os.environ["MAGIC_PREFLIGHT_COMMIT"],
+              data=payload,method="POST",headers={
+                  "Authorization":"Bearer "+os.environ["GITHUB_STATUS_TOKEN"],
+                  "Content-Type":"application/json",
+                  "Accept":"application/vnd.github+json",
+              },
+          )
+          with request.urlopen(req,timeout=20) as response:
+              if response.status != 201:
+                  raise SystemExit("Magic R2 status was not published")
+          print("Magic verified source preflight: "+state)
+          PY
+      - name: Preserve read-only source proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: magic-r2-source-preflight
+          path: d1-magic-r2-preflight-report.json
+          if-no-files-found: ignore
+          retention-days: 30

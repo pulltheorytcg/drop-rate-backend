@@ -78,6 +78,7 @@ def _pricing_observation(item: NormalizedMarketObservation) -> MarketObservation
         language=item.language,
         seal_status=item.seal_status,
         source_country=item.source_country,
+        source_record_key=item.source_record_key,
     )
 
 
@@ -313,6 +314,8 @@ async def preview_inventory_price(
                 "volatility_pct": result.volatility_pct,
                 "newest_observation_at": result.newest_observation_at,
                 "algorithm_version": result.algorithm_version,
+                "ruleset_revision": result.ruleset_revision,
+                "excluded_observation_count": result.excluded_observation_count,
                 "engine_auto_publish_eligible": result.auto_publish_eligible,
                 "engine_block_reasons": list(result.block_reasons),
                 "source_estimates": [

@@ -1,0 +1,817 @@
+"""Daily catalogue imports, weekly market pricing, and bounded Shopify reconciliation.
+
+Provider calls never approve identities/media or change an owner's selling price.
+Durable receipts and advisory locks survive restarts and overlapping deployments.
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
+from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
+
+from fastapi import HTTPException
+
+from .access_control import require_platform_admin
+from .cardtrader_client import CardTraderClient
+from .cardtrader_bulk_guides import (
+    JOB as CARDTRADER_BULK_JOB,
+    REVISION as CARDTRADER_BULK_REVISION,
+    refresh_cardtrader_expansion_guides,
+)
+from .drop_rate_daily_model import (
+    JOB as DROP_RATE_DAILY_JOB,
+    REVISION as DROP_RATE_DAILY_REVISION,
+    daily_model_due,
+    run_daily_reference_model,
+)
+from .db import user_connection
+from .fx import EcbHistoricalFxProvider
+from .database_capacity import check_database_capacity
+from .archive_backlog import archive_check_window, check_archive_backlog
+from .reference_history_archive import archive_reference_history
+from .catalogue_source_archives import archive_reviewed_openlibrary_sources
+from .catalogue_r2_cache import warm_reference_snapshots
+from . import catalogue_r2_live
+from . import catalogue_r2_market
+from .reference_feeds import ReferenceFeeds
+from .reference_library import save_reference_set
+from .reference_market import REVISION, refresh_reference_prices
+from .one_piece_market import refresh_one_piece_prices
+from .pokewallet_one_piece_market import refresh_pokewallet_one_piece
+from .pokewallet_dragon_ball_market import refresh_pokewallet_dragon_ball
+from .pokewallet_pokemon_market import refresh_pokewallet_pokemon
+from .tcgcsv_market import refresh_exports, JOB as TCGCSV_JOB
+from .dragon_ball_market import refresh_dragon_ball_prices
+from .pokemon_catalogue_market import refresh_pokemon_catalogue_prices
+from .reference_sealed import save_sealed_set, sealed_feed
+from .sealed_market import REVISION as SEALED_MARKET_REVISION, refresh_sealed_prices
+from .catalogue_coverage import record_coverage
+from .cardmarket_valuations import refresh_cardmarket_values, REVISION as CARDMARKET_VALUE_REVISION
+from .catalogue_valuations import REVISION as CATALOGUE_VALUE_REVISION, refresh_catalogue_values
+from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
+from .shopify_client import ShopifyMediaScopeRequired
+from .shopify_graded_photo_audit import audit_published_graded_media
+
+log=logging.getLogger(__name__)
+SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
+SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
+REFERENCE_JOB_REVISION=25
+ONE_PIECE_BASE_RECOVERY_JOB='ONE_PIECE_OFFICIAL_BASE_GUIDES'
+POKEWALLET_JOB_REVISION=11  # Run verified Cardmarket release-code matcher once on deploy.
+POKEWALLET_DBS_JOB_REVISION=3
+# At most 18 DBS + 10 One Piece + 7 Japanese Pokémon free requests/hour.
+# service consumes <=840/day of the provider's shared 1,000/day allowance,
+# leaving >=160/day for other legitimate application activity. All clients
+# independently honour upstream remaining-hour/day headers.
+DBS_HOURLY_REQUEST_BUDGET=18
+ONE_PIECE_HOURLY_REQUEST_BUDGET=10
+POKEMON_HOURLY_REQUEST_BUDGET=7
+R2_PUBLICATION_TIMEOUT_SECONDS=180
+R2_PUBLICATION_RETRY_SECONDS=3600
+POKEWALLET_POKEMON_JOB_REVISION=3
+
+
+def unapplied_trial_cursor(rows):
+    """Return the *input* cursor of a positive dry-run never yet written.
+
+    A dry-run's output cursor is the last visited release. Passing it to the
+    next apply run silently skips every verified quote. Read the preceding
+    immutable job receipt to replay the exact trial window one time only.
+    """
+    if not rows:
+        return None
+    current=rows[0]['report'] or {}
+    # The normal transition is directly from a positive trial to its first
+    # apply run (different job revision). Both source adapters persist their
+    # input_cursor, so no older receipt or guessed predecessor is needed.
+    if current.get('dry_run') is True:
+        if (int(current.get('eligible_quotes') or 0)>0 and
+                not current.get('writes_attempted') and
+                'input_cursor' in current):
+            return {'cursor':current['input_cursor'],
+                    'replayed_trial_started_at':rows[0]['started_at'].isoformat()}
+        return None
+    if (current.get('dry_run') is not False
+            or current.get('writes_attempted')
+            or current.get('replayed_trial_started_at')):
+        return None
+    for i in range(1,len(rows)):
+        trial=rows[i]['report'] or {}
+        if trial.get('dry_run') is True and int(trial.get('eligible_quotes') or 0)>0:
+            previous=rows[i+1]['report'] if i+1<len(rows) else {}
+            return {'cursor':(previous or {}).get('cursor'),
+                    'replayed_trial_started_at':rows[i]['started_at'].isoformat()}
+    return None
+
+
+def cardtrader_resume_cursor(prior_report, revision, *, apply_enabled):
+    """Replay a previously failed window once after improving matching rules.
+
+    Otherwise advancing the cursor on a revision change strands the known
+    rejected offers until a complete cycle of all eligible expansions.
+    """
+    if prior_report.get('importer_revision') != revision:
+        return prior_report.get('input_cursor')
+    if (apply_enabled and prior_report.get('dry_run') is True
+            and not prior_report.get('writes_attempted')):
+        return prior_report.get('input_cursor')
+    return prior_report.get('cursor')
+SHOPIFY_CANDIDATES="""
+select i.id,i.owner_id,i.version from tcg.inventory_items i
+join tcg.owners o on o.id=i.owner_id and o.active
+left join tcg.shopify_inventory_links l on l.inventory_id=i.id
+where i.status='APPROVED' and i.sale_intent='FOR_SALE'
+ and (l.id is null or (l.test_mode=false and l.sync_state in ('DRAFT','ERROR')))
+ and not exists(select 1 from tcg.catalogue_job_runs r
+   where r.job='SHOPIFY_SYNC' and r.report->>'inventory_id'=i.id::text
+     and r.report->>'version'=i.version::text
+     and r.started_at>now()-case when r.status in ('RUNNING','FAILED') then interval '15 minutes' else interval '6 hours' end)
+order by i.updated_at,i.id limit 10
+"""
+
+
+def daily_slot(now):
+    local=now.astimezone(ZoneInfo('Europe/London'))
+    slot=local.replace(hour=3,minute=0,second=0,microsecond=0)
+    if local<slot:slot-=timedelta(days=1)
+    return slot.astimezone(timezone.utc)
+
+
+def hourly_slot(now):
+    """UTC hour boundary: unambiguous during UK daylight-saving changes."""
+    return now.astimezone(timezone.utc).replace(minute=0,second=0,microsecond=0)
+
+
+def weekly_price_slot(now):
+    """Most recent Monday 03:00 Europe/London, including DST transitions.
+
+    The existing daily archive task runs at 04:00 UK time. Pricing on Monday
+    at 03:00 leaves that day's archive window available for the new history.
+    """
+    local=now.astimezone(ZoneInfo('Europe/London'))
+    slot=(local-timedelta(days=local.weekday())).replace(
+        hour=3,minute=0,second=0,microsecond=0)
+    if local<slot:slot-=timedelta(days=7)
+    return slot.astimezone(timezone.utc)
+
+
+def weekly_price_due(run,now,*,revision=None):
+    """At most one completed bulk pricing pass per UK Monday week.
+
+    A missing first receipt is eligible for an initial fill. Completed jobs,
+    including an old importer revision, wait for the next Monday slot.
+    Incomplete or failed work continues using the existing retry/backoff logic.
+    This applies to BULK catalogue market jobs only, not user-triggered pricing.
+    """
+    if run is None:return True
+    if run['status']=='COMPLETE':
+        return run['started_at']<weekly_price_slot(now)
+    return due(run,now,revision=revision)
+
+
+def one_piece_recovery_due(run, now):
+    """An explicitly enabled, idempotent one-time recovery, not a new daily feed."""
+    if run is None:
+        return True
+    if run['status']=='COMPLETE':
+        return False
+    return run['started_at']<now-timedelta(hours=1)
+
+
+def due(run,now,*,revision=None):
+    if run is None:return True
+    if revision is not None and (run.get('report') or {}).get('importer_revision',1)!=revision:return True
+    if run['status']=='COMPLETE':return run['started_at']<daily_slot(now)
+    report=run.get('report') or {}
+    # A full page is normal progress, not a provider failure. Continue at the
+    # next worker tick; preserve the one-hour backoff for failures/interruption.
+    if (run['status']=='INCOMPLETE' and report.get('more_due_at_start') is True
+            and report.get('provider_failures')==0 and not report.get('reason')
+            and all(report.get(source,{}).get('provider_failures')==0
+                    for source in ('pokemon_catalogue','one_piece','dragon_ball'))):
+        return True
+    return run['started_at']<now-timedelta(hours=1)
+
+
+@asynccontextmanager
+async def actor_connection(pool,actor):
+    # Publication already performs short atomic SQL transitions around remote I/O.
+    # A surrounding long transaction would time out or hold row locks over HTTP.
+    async with pool.acquire() as connection:
+        try:
+            await connection.execute("select set_config('tcg.user_id',$1,false),set_config('tcg.request_id',$2,false)",str(actor),str(uuid4()))
+            await require_platform_admin(connection)
+            yield connection
+        finally:
+            if not connection.is_closed():
+                await connection.execute("select set_config('tcg.user_id','',false),set_config('tcg.request_id','',false)")
+
+
+async def receipt(pool,actor,job,status,report,run_id=None):
+    async with user_connection(pool,actor,str(uuid4())) as connection:
+        await require_platform_admin(connection)
+        if run_id:
+            await connection.execute('''update tcg.catalogue_job_runs set status=$2,report=$3::jsonb,
+              finished_at=clock_timestamp() where id=$1 and actor_user_id=$4''',run_id,status,json.dumps(report),actor)
+            return run_id
+        return await connection.fetchval('''insert into tcg.catalogue_job_runs(job,actor_user_id,status,report,finished_at)
+          values($1,$2,$3,$4::jsonb,case when $3='RUNNING' then null else now() end) returning id''',job,actor,status,json.dumps(report))
+
+
+async def sync_source(pool,actor,source,settings):
+    feed=ReferenceFeeds();sets=cards=0;status='INCOMPLETE'
+    discoveries=[];new_sets=0
+    async with user_connection(pool,actor,str(uuid4())) as connection:
+        await require_platform_admin(connection)
+        known={tuple(r[k] for k in ('provider','system_code','language','set_id'))
+               for r in await connection.fetch('select provider,system_code,language,set_id from tcg.reference_sets')}
+        run_id=await connection.fetchval("insert into tcg.reference_sync_runs(source,status) values($1,'RUNNING') returning id",source)
+    try:
+        if source=='cardtrader_sealed':
+            if not settings.cardtrader_api_token:raise ValueError('CardTrader is not configured')
+            records=sealed_feed(CardTraderClient(api_token=settings.cardtrader_api_token))
+            save=save_sealed_set
+        else:
+            records=getattr(feed,source)();save=save_reference_set
+        async for record,items in records:
+            if sets>=2000 or cards+len(items)>200000:raise ValueError('Reference import exceeds limit')
+            async with user_connection(pool,actor,str(uuid4())) as connection:
+                await require_platform_admin(connection)
+                await save(connection,record,items)
+                await connection.execute('''update tcg.reference_sync_runs set sets_loaded=$2,cards_loaded=$3
+                  where id=$1''',run_id,sets+1,cards+len({i['provider_id'] for i in items}))
+            sets+=1;cards+=len({i['provider_id'] for i in items})
+            identity=tuple(record[k] for k in ('provider','system_code','language','set_id'))
+            if identity not in known:
+                known.add(identity);new_sets+=1
+                if len(discoveries)<30:
+                    discoveries.append({k:record.get(k) for k in
+                        ('provider','system_code','language','set_id','name','release_date','source_url')})
+        if not sets:feed.failures.append({'reason':'NO_REFERENCE_RECORDS'})
+        status='INCOMPLETE' if feed.failures else 'COMPLETE'
+    except asyncio.CancelledError:
+        feed.failures.append({'reason':'INTERRUPTED'});raise
+    except Exception as exc:
+        feed.failures.append({'reason':type(exc).__name__})
+    finally:
+        await feed.close()
+        async with user_connection(pool,actor,str(uuid4())) as connection:
+            await connection.execute('''update tcg.reference_sync_runs set status=$2,finished_at=now(),
+              sets_loaded=$3,cards_loaded=$4,report=$5::jsonb where id=$1''',run_id,status,sets,cards,
+              json.dumps({'scheduled':True,'importer_revision':SOURCE_REVISIONS.get(source,1),
+                'new_sets':new_sets,'new_set_samples':discoveries,'failures':feed.failures[:30]}))
+        log.warning('Daily catalogue source=%s status=%s sets=%s records=%s',source,status,sets,cards)
+    return {'status':status,'sets':sets,'records':cards}
+
+
+async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
+    run_id=await receipt(pool,actor,'REFERENCE_PRICES','RUNNING',{})
+    checked=priced=failed=us_only=0;status='INCOMPLETE';report={'importer_revision':REFERENCE_JOB_REVISION}
+    fx=EcbHistoricalFxProvider(timeout_seconds=6)
+    try:
+        if cardtrader_api_token:
+            from .cardtrader_client import CardTraderClient
+            report['pokemon_catalogue']=await refresh_pokemon_catalogue_prices(
+                pool,actor,fx,cardtrader_client=CardTraderClient(
+                    api_token=cardtrader_api_token,timeout_seconds=8))
+        else:
+            report['pokemon_catalogue']=await refresh_pokemon_catalogue_prices(pool,actor,fx)
+        report['one_piece']=await refresh_one_piece_prices(pool,actor,fx)
+        if cardtrader_api_token:
+            report['dragon_ball']=await refresh_dragon_ball_prices(
+                pool,actor,fx,cardtrader_client=CardTraderClient(
+                    api_token=cardtrader_api_token,timeout_seconds=8))
+        else:
+            report['dragon_ball']=await refresh_dragon_ball_prices(pool,actor,fx)
+        async with user_connection(pool,actor,str(uuid4())) as connection:
+            rows=await connection.fetch('''select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key
+              from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
+              left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
+              where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('English','Japanese')
+                and (s.release_date is null or s.release_date<=current_date)
+                and (p.checked_at is null or p.checked_at<$2 or p.refresh_revision<$3
+                     or (p.expires_at<=now() and p.expires_at<=p.checked_at+interval '5 minutes'))
+              order by p.checked_at nulls first,s.release_date desc nulls last,r.provider_id limit $1''',
+              limit+1,weekly_price_slot(datetime.now(timezone.utc)),REVISION)
+        for start in range(0,min(len(rows),limit),40):
+            keys=[r['key'] for r in rows[start:min(start+40,limit)]]
+            views=await refresh_reference_prices(pool,actor,str(uuid4()),keys,fx_provider=fx,force=True)
+            checked+=len(views);priced+=sum(v['market_value_minor'] is not None for v in views)
+            failed+=sum(v.get('provider_refresh_failed',False) for v in views)
+            us_only+=sum(v['market_value_minor'] is None and bool(v.get('market_quotes')) for v in views)
+            if views and all(v.get('provider_refresh_failed') for v in views):
+                report['reason']='PROVIDER_UNAVAILABLE';break
+            await asyncio.sleep(.5)
+        status='COMPLETE' if (len(rows)<=limit and not failed and not report['one_piece']['provider_failures']
+                              and not report['dragon_ball']['provider_failures']
+                              and not report['pokemon_catalogue']['provider_failures']) else 'INCOMPLETE'
+        report['more_due_at_start']=len(rows)>limit
+    except asyncio.CancelledError:
+        report['reason']='INTERRUPTED';raise
+    except Exception as exc:
+        report['reason']=type(exc).__name__
+    finally:
+        report.update(checked=checked,priced=priced,us_context_only=us_only,provider_failures=failed,
+                      scope='All English/Japanese Pokemon and One Piece, English Dragon Ball and batched Japanese Fusion World FB01-FB11 regional references; independent of inventory')
+        await receipt(pool,actor,'REFERENCE_PRICES',status,report,run_id)
+        log.warning('Weekly bulk reference prices status=%s checked=%s priced=%s',status,checked,priced)
+
+
+async def run_one_piece_base_recovery(pool, actor):
+    """One-time reuse of the existing free Cardmarket reference-only importer.
+
+    Called only with the opt-in flag under the catalogue maintenance lock and
+    database capacity guard. No physical inventory/Shopify or eBay operations.
+    """
+    report={'importer_revision':1,'source':'CARDMARKET_BULK_SINGLES',
+            'scope':'REFERENCE_ONLY','inventory_writes':0,'store_price_writes':0}
+    run_id=await receipt(pool,actor,ONE_PIECE_BASE_RECOVERY_JOB,'RUNNING',report)
+    status='INCOMPLETE'
+    try:
+        result=await refresh_one_piece_prices(
+            pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),official_base_only=True)
+        report['one_piece']=result
+        if result.get('checked',0)>0 and result.get('provider_failures',0)==0:
+            status='COMPLETE'
+        else:
+            report['reason']='SOURCE_UNAVAILABLE_OR_EMPTY'
+    except asyncio.CancelledError:
+        report['reason']='INTERRUPTED'
+        raise
+    except Exception as exc:
+        report['reason']=type(exc).__name__
+        status='FAILED'
+    finally:
+        await receipt(pool,actor,ONE_PIECE_BASE_RECOVERY_JOB,status,report,run_id)
+    log.warning('One Piece official-base reference recovery status=%s priced=%s',
+                status,report.get('one_piece',{}).get('official_base_priced',0))
+    return status
+
+
+def coverage_lags_pricing(latest):
+    """Retry a dropped coverage receipt after a completed source-price pass.
+
+    A large batch can commit all source quotes successfully, then time out on
+    the final global aggregation. It must *not* leave yesterday's coverage
+    figures until the next daily slot, nor rerun all paid provider calls.
+    """
+    coverage=latest.get('CATALOGUE_COVERAGE')
+    if coverage is None:
+        return True
+    checkpoint=coverage['started_at']
+    return any(
+        run is not None and run['status']=='COMPLETE' and run['started_at']>checkpoint
+        for name in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES',
+                     'CARDMARKET_VALUES','CATALOGUE_VALUES','POKEWALLET_PRICES',
+                     'POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES',
+                     CARDTRADER_BULK_JOB,DROP_RATE_DAILY_JOB,TCGCSV_JOB)
+        for run in (latest.get(name),)
+    )
+
+
+async def daily_pass(pool,settings):
+    actor=UUID(settings.catalogue_maintenance_actor_user_id)
+    async with pool.acquire() as lock:
+        if not await lock.fetchval('select pg_try_advisory_lock($1)',847220092):return
+        try:
+            async with user_connection(pool,actor,str(uuid4())) as connection:
+                await require_platform_admin(connection)
+                capacity = await check_database_capacity(connection)
+                if not capacity.refresh_allowed:
+                    # Preserve all cached prices and history. An unattended
+                    # full catalogue refresh could cross the Free quota before
+                    # verified cold archival. Exit under the existing lock.
+                    log.error('CATALOGUE_BULK_REFRESH_DEFERRED %s', json.dumps(capacity.report(), sort_keys=True))
+                    return
+                runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
+                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES','ONE_PIECE_OFFICIAL_BASE_GUIDES','CARDTRADER_EXPANSION_GUIDES','DROP_RATE_DAILY_MODEL') order by job,started_at desc")
+            last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
+            latest={r['job']:r for r in jobs}
+            latest[TCGCSV_JOB]=last.get(TCGCSV_JOB)
+            sealed_refreshed=False
+            coverage_recorded=False
+            # Bounded hourly feeds must run before the long bulk backfill.
+            # The same lock, capacity guard, hour receipts and quotas still apply.
+            pokewallet_key=getattr(settings,'pokewallet_api_key',None)
+            if pokewallet_key:
+                prior=latest.get('POKEWALLET_PRICES')
+                importer_revision=(POKEWALLET_JOB_REVISION*10 +
+                    int(getattr(settings,'pokewallet_pricing_apply_enabled',False)) +
+                    100*int(getattr(settings,'pokewallet_one_piece_artwork_matching_enabled',False)) +
+                    200*int(getattr(settings,'pokewallet_pricing_coverage_first_enabled',False)))
+                # The quota is shared across games and must never be spent in
+                # the five-minute loop. A failed or partial pass waits until
+                # the next UTC hour; switching from trial to apply runs once.
+                if (prior is None or prior['started_at']<hourly_slot(now)
+                        or (prior.get('report') or {}).get('importer_revision')!=importer_revision):
+                    last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
+                    replay=None
+                    if (getattr(settings,'pokewallet_pricing_apply_enabled',False)
+                            and prior and not (prior.get('report') or {}).get('writes_attempted')):
+                        async with user_connection(pool,actor,str(uuid4())) as connection:
+                            history=await connection.fetch('''select started_at,report
+                              from tcg.catalogue_job_runs where job='POKEWALLET_PRICES'
+                              and status='COMPLETE' order by started_at desc limit 8''')
+                        replay=unapplied_trial_cursor(history)
+                        if replay is not None:
+                            last_cursor=replay['cursor']
+                    result=await refresh_pokewallet_one_piece(
+                        pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
+                        pokewallet_key,
+                        dry_run=not getattr(settings,'pokewallet_pricing_apply_enabled',False),
+                        request_limit=min(ONE_PIECE_HOURLY_REQUEST_BUDGET,
+                            getattr(settings,'pokewallet_pricing_request_limit',60)),
+                        previous_cursor=last_cursor,
+                        previous_artwork_cursor=(prior.get('report') or {}).get('artwork_cursor') if prior else None,
+                        previous_artwork_cursors=(prior.get('report') or {}).get('artwork_cursors') if prior else None,
+                        artwork_matching_enabled=getattr(
+                            settings,'pokewallet_one_piece_artwork_matching_enabled',False),
+                        coverage_first=getattr(settings,'pokewallet_pricing_coverage_first_enabled',False))
+                    await receipt(pool,actor,'POKEWALLET_PRICES',
+                                  'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
+                                  {'importer_revision':importer_revision,**result,
+                                   **({'replayed_trial_started_at':replay['replayed_trial_started_at']}
+                                      if replay is not None else {})})
+                    if result['writes_attempted']:
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            if (pokewallet_key and
+                    getattr(settings,'pokewallet_dragon_ball_enabled',False)):
+                prior=latest.get('POKEWALLET_DBS_PRICES')
+                importer_revision=(POKEWALLET_DBS_JOB_REVISION*10 +
+                    int(getattr(settings,'pokewallet_dragon_ball_apply_enabled',False)) +
+                    100*int(getattr(settings,'pokewallet_pricing_coverage_first_enabled',False)))
+                if (prior is None or prior['started_at']<hourly_slot(now)
+                        or (prior.get('report') or {}).get('importer_revision')!=importer_revision):
+                    last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
+                    replay=None
+                    if (getattr(settings,'pokewallet_dragon_ball_apply_enabled',False)
+                            and prior and not (prior.get('report') or {}).get('writes_attempted')):
+                        async with user_connection(pool,actor,str(uuid4())) as connection:
+                            history=await connection.fetch("""select started_at,report
+                              from tcg.catalogue_job_runs where job='POKEWALLET_DBS_PRICES'
+                              and status='COMPLETE' order by started_at desc limit 8""")
+                        replay=unapplied_trial_cursor(history)
+                        if replay is not None:
+                            last_cursor=replay['cursor']
+                    result=await refresh_pokewallet_dragon_ball(
+                        pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
+                        pokewallet_key,
+                        dry_run=not getattr(settings,'pokewallet_dragon_ball_apply_enabled',False),
+                        request_limit=min(DBS_HOURLY_REQUEST_BUDGET,
+                            getattr(settings,'pokewallet_dragon_ball_request_limit',35)),
+                        previous_cursor=last_cursor,
+                        coverage_first=getattr(settings,'pokewallet_pricing_coverage_first_enabled',False))
+                    await receipt(pool,actor,'POKEWALLET_DBS_PRICES',
+                                  'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
+                                  {'importer_revision':importer_revision,**result,
+                                   **({'replayed_trial_started_at':replay['replayed_trial_started_at']}
+                                      if replay is not None else {})})
+                    if result['writes_attempted']:
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            if (pokewallet_key and getattr(settings,'pokewallet_pokemon_enabled',False)):
+                prior=latest.get('POKEWALLET_POKEMON_PRICES')
+                revision=(POKEWALLET_POKEMON_JOB_REVISION*10 +
+                          int(getattr(settings,'pokewallet_pokemon_apply_enabled',False)) +
+                          100*int(getattr(settings,'pokewallet_pricing_coverage_first_enabled',False)))
+                if (prior is None or prior['started_at']<hourly_slot(now)
+                        or (prior.get('report') or {}).get('importer_revision')!=revision):
+                    last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
+                    if (getattr(settings,'pokewallet_pokemon_apply_enabled',False)
+                            and prior and (prior.get('report') or {}).get('dry_run') is True
+                            and not (prior.get('report') or {}).get('writes_attempted')):
+                        # Replay the trial's input cursor once on enabling writes.
+                        last_cursor=(prior.get('report') or {}).get('input_cursor')
+                    result=await refresh_pokewallet_pokemon(
+                        pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),pokewallet_key,
+                        dry_run=not getattr(settings,'pokewallet_pokemon_apply_enabled',False),
+                        request_limit=POKEMON_HOURLY_REQUEST_BUDGET,
+                        previous_cursor=last_cursor,
+                        coverage_first=getattr(settings,'pokewallet_pricing_coverage_first_enabled',False))
+                    await receipt(pool,actor,'POKEWALLET_POKEMON_PRICES',
+                                  'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
+                                  {'importer_revision':revision,**result})
+                    if result['writes_attempted']:
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            # Official expansion-level marketplace API: one read for all
+            # blueprints in a set, without the 2,000-call eBay Browse bottleneck.
+            # This is opt-in and starts as a dry run. It never writes inventory,
+            # Shopify prices, ownership, or fabricated sold observations.
+            if (getattr(settings,'cardtrader_bulk_guides_enabled',False)
+                    and getattr(settings,'cardtrader_api_token',None)):
+                prior=latest.get(CARDTRADER_BULK_JOB)
+                revision=(CARDTRADER_BULK_REVISION*10 +
+                          int(getattr(settings,'cardtrader_bulk_guides_apply_enabled',False)))
+                if (prior is None or prior['started_at']<hourly_slot(now) or
+                        (prior.get('report') or {}).get('importer_revision')!=revision):
+                    prior_report=(prior.get('report') or {}) if prior else {}
+                    cursor=cardtrader_resume_cursor(
+                        prior_report,revision,
+                        apply_enabled=getattr(settings,'cardtrader_bulk_guides_apply_enabled',False))
+                    result=await refresh_cardtrader_expansion_guides(
+                        pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
+                        CardTraderClient(api_token=settings.cardtrader_api_token,
+                                         timeout_seconds=20),
+                        dry_run=not getattr(settings,'cardtrader_bulk_guides_apply_enabled',False),
+                        expansion_limit=getattr(settings,
+                                                'cardtrader_bulk_guides_expansion_limit',15),
+                        previous_cursor=cursor,
+                        previous_artwork_cursors=prior_report.get('artwork_cursors'))
+                    await receipt(pool,actor,CARDTRADER_BULK_JOB,
+                                  'INCOMPLETE' if result.get('provider_failures') else 'COMPLETE',
+                                  {'importer_revision':revision,**result})
+                    if result.get('writes_applied'):
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            # Drop Rate's own rules-verified 04:00 UK catalogue values.
+            # This runs inside the existing worker lock/capacity guard and
+            # never mutates founder/consignor inventory or Shopify directly.
+            if getattr(settings,'drop_rate_daily_model_enabled',False):
+                prior=latest.get(DROP_RATE_DAILY_JOB)
+                revision=(DROP_RATE_DAILY_REVISION*10+
+                          int(getattr(settings,'drop_rate_daily_model_apply_enabled',False)))
+                if daily_model_due(prior,now,revision=revision):
+                    prior_report=(prior.get('report') or {}) if prior else {}
+                    cursor=prior_report.get('cursor')
+                    # Dry-run => apply and algorithm revisions replay the
+                    # assessed window, never silently skip eligible cards.
+                    if prior_report.get('importer_revision')!=revision:
+                        cursor=prior_report.get('input_cursor')
+                    run_id=await receipt(pool,actor,DROP_RATE_DAILY_JOB,'RUNNING',{
+                        'importer_revision':revision,'input_cursor':cursor,
+                        'scope':'CARD_CATALOGUE_ONLY'})
+                    status='FAILED'
+                    result={'importer_revision':revision,'reason':'NOT_STARTED'}
+                    try:
+                        result=await run_daily_reference_model(
+                            pool,actor,
+                            dry_run=not getattr(settings,'drop_rate_daily_model_apply_enabled',False),
+                            limit=getattr(settings,'drop_rate_daily_model_batch_limit',1000),
+                            previous_cursor=cursor,
+                            now=datetime.now(timezone.utc))
+                        result={'importer_revision':revision,**result}
+                        status='COMPLETE'
+                    except asyncio.CancelledError:
+                        result={'importer_revision':revision,'reason':'INTERRUPTED',
+                                'input_cursor':cursor}
+                        raise
+                    except Exception as exc:
+                        result={'importer_revision':revision,
+                                'reason':type(exc).__name__,
+                                'input_cursor':cursor}
+                    finally:
+                        await receipt(pool,actor,DROP_RATE_DAILY_JOB,status,result,run_id)
+                    if result.get('writes_applied'):
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            # The hourly quota feeds run before *all* bulk work, including
+            # daily metadata. A slow metadata source cannot spend their slot.
+            if getattr(settings,'tcgcsv_free_enabled',False):
+                try:
+                    result=await asyncio.wait_for(
+                        refresh_exports(pool,actor,previous=last.get(TCGCSV_JOB)),timeout=600)
+                    if result and result.get('writes_attempted'):
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+                except asyncio.TimeoutError:
+                    log.error('TCGCSV_DAILY_IMPORT_TIMEOUT')
+            if weekly_price_due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
+                await refresh_catalogue_values(pool,actor)
+            if weekly_price_due(latest.get('CARDMARKET_VALUES'),now,revision=CARDMARKET_VALUE_REVISION):
+                await refresh_cardmarket_values(pool,actor)
+            for source in SOURCES:
+                if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
+                    await sync_source(pool,actor,source,settings)
+            if weekly_price_due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
+                await refresh_sealed_prices(pool,actor)
+                sealed_refreshed=True
+            weekly_due=weekly_price_due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION)
+            if weekly_due:
+                # Record the complete database scope before a potentially long
+                # first fill; the final receipt then reflects its progress.
+                await record_coverage(pool,actor)
+                await warm_prices(pool,actor,settings.catalogue_price_refresh_limit,
+                                  getattr(settings,'cardtrader_api_token',''))
+                await refresh_cardmarket_values(pool,actor)
+                await record_coverage(pool,actor)
+                coverage_recorded=True
+            elif (getattr(settings,'one_piece_base_recovery_enabled',False)
+                  and one_piece_recovery_due(latest.get(ONE_PIECE_BASE_RECOVERY_JOB),now)):
+                if await run_one_piece_base_recovery(pool,actor)=='COMPLETE':
+                    await record_coverage(pool,actor)
+                    coverage_recorded=True
+            if (not coverage_recorded and
+                (sealed_refreshed or due(latest.get('CATALOGUE_COVERAGE'),now)
+                  or coverage_lags_pricing(latest))):
+                # Retry only the cheap, read-only coverage receipt when the
+                # source refresh succeeded but the final summary timed out.
+                await record_coverage(pool,actor)
+        finally:await lock.execute('select pg_advisory_unlock($1)',847220092)
+
+
+async def shopify_pass(pool,settings):
+    if not settings.shopify_publish_enabled or not settings.shopify_seller_sync_enabled:
+        log.warning('Automatic Shopify sync paused: publication or seller sync is disabled');return
+    actor=UUID(settings.catalogue_maintenance_actor_user_id)
+    async with pool.acquire() as lock:
+        if not await lock.fetchval('select pg_try_advisory_lock($1)',847220093):return
+        try:
+            async with user_connection(pool,actor,str(uuid4())) as connection:
+                await require_platform_admin(connection)
+                candidates=await connection.fetch(SHOPIFY_CANDIDATES)
+                previous=await connection.fetchval("select max(started_at) from tcg.catalogue_job_runs where job='SHOPIFY_SYNC'")
+            publication_failures=0
+            publication_incomplete=0
+            for item in candidates:
+                report={'inventory_id':str(item['id']),'version':item['version']}
+                run=await receipt(pool,actor,'SHOPIFY_SYNC','RUNNING',report)
+                try:
+                    async with actor_connection(pool,actor) as connection:
+                        result=await publish_inventory_to_shopify(connection,inventory_id=item['id'],owner_id=item['owner_id'],
+                            expected_version=item['version'],actor_user_id=actor,automation_event_id=None,
+                            request_id=str(run),test_mode=False)
+                    report['result']=result['status'];status='COMPLETE'
+                except asyncio.CancelledError:raise
+                except ShopifyMediaScopeRequired:
+                    report.update(result='PERMISSION_REQUIRED',reason='MISSING_WRITE_FILES_SCOPE',required_scope='write_files')
+                    status='INCOMPLETE'
+                except HTTPException as exc:
+                    report.update(result='REVIEW_OR_RETRY_REQUIRED',http_status=exc.status_code)
+                    status='FAILED' if exc.status_code>=500 or exc.status_code==429 else 'INCOMPLETE'
+                except Exception as exc:
+                    report.update(result='RETRY_REQUIRED',reason=type(exc).__name__);status='FAILED'
+                publication_failures += status == 'FAILED'
+                publication_incomplete += status == 'INCOMPLETE'
+                await receipt(pool,actor,'SHOPIFY_SYNC',status,report,run)
+            # Exact physical slab-front/back photo proof remains independent
+            # of a Shopify publication link. Add owner-visible exceptions, but
+            # never auto-unpublish a founder's item or override prior review.
+            graded_audit={'graded_published_checked':0,'missing':0,
+                          'new_or_reopened':0,'existing_open':0,'resolved':0,
+                          'shopify_publications_changed':0,'ownership_changed':0}
+            graded_audit_failed=False
+            try:
+                async with actor_connection(pool,actor) as connection:
+                    graded_audit=await audit_published_graded_media(
+                        connection,actor_user_id=actor)
+            except Exception as exc:
+                # A media integrity audit must not interrupt order, inventory
+                # or financial workflows. Preserve failure in the durable
+                # Shopify job receipt so operators know the audit is not clean.
+                graded_audit_failed=True
+                graded_audit['failure_type']=type(exc).__name__
+                log.error('SHOPIFY_GRADED_MEDIA_AUDIT_FAILED type=%s',type(exc).__name__)
+            prices=await reconcile_shopify_product_prices(pool,limit=25,request_id=str(uuid4()))
+            if candidates or prices['candidate_count'] or previous is None or previous<datetime.now(timezone.utc)-timedelta(hours=1):
+                status='INCOMPLETE' if publication_failures or publication_incomplete or graded_audit_failed or prices.get('failed_count') or prices.get('retry_required_count') else 'COMPLETE'
+                await receipt(pool,actor,'SHOPIFY_SYNC',status,{'publication_candidates':len(candidates),
+                    'publication_failures':publication_failures,'publication_incomplete':publication_incomplete,
+                    'price_candidates':prices['candidate_count'],'prices_synced':prices['synced_count'],
+                    'price_failures':prices.get('failed_count',0),'graded_media_audit':graded_audit,'heartbeat':True})
+                log.warning('Automatic Shopify sync candidates=%s prices=%s status=%s',len(candidates),prices['synced_count'],status)
+        finally:await lock.execute('select pg_advisory_unlock($1)',847220093)
+
+
+async def run_loop(pool,settings,*,shopify=False,wakeup=None):
+    last_archive_window_checked = None
+    next_r2_archive_check = 0.0
+    next_source_archive_check = 0.0
+    next_reference_cache_check = 0.0
+    reference_cache_cursor = None
+    next_live_publication_check = 0.0
+    next_market_publication_check = 0.0
+    while True:
+        # Clear BEFORE scanning: an approval during a pass must cause another
+        # pass, not disappear into a subsequent clear/sleep race.
+        if wakeup is not None:wakeup.clear()
+        if not shopify:
+            # This executes before the capacity guard, including on startup.
+            # Bound retries to once/hour per process; DB advisory locking and
+            # content receipts protect overlapping deployments and retries.
+            loop_time = asyncio.get_running_loop().time()
+            if (getattr(settings, "history_r2_archive_enabled", False)
+                    and loop_time >= next_r2_archive_check):
+                next_r2_archive_check = loop_time + 3600
+                try:
+                    result = await archive_reference_history(
+                        pool, UUID(settings.catalogue_maintenance_actor_user_id),
+                        cleanup=getattr(settings, "history_r2_archive_cleanup_enabled", False))
+                    log.warning("CATALOGUE_R2_HISTORY_ARCHIVE %s", json.dumps(result, sort_keys=True))
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    log.error("CATALOGUE_R2_HISTORY_ARCHIVE_FAILED type=%s", type(exc).__name__)
+            # Observe once per eligible UK day without making *any* history
+            # changes. Works even when the 400 MB price guard defers imports.
+            window = archive_check_window(datetime.now(timezone.utc))
+            if window is not None and window != last_archive_window_checked:
+                try:
+                    report = await check_archive_backlog(
+                        pool, UUID(settings.catalogue_maintenance_actor_user_id), window)
+                except asyncio.CancelledError:raise
+                except Exception as exc:
+                    log.error('CATALOGUE_ARCHIVE_BACKLOG_CHECK_FAILED type=%s', type(exc).__name__)
+                else:
+                    last_archive_window_checked = window
+                    if report['status'] == 'OVERDUE':
+                        log.error('CATALOGUE_ARCHIVE_BACKLOG_OVERDUE %s',
+                                  json.dumps(report, sort_keys=True))
+                    else:
+                        log.info('CATALOGUE_ARCHIVE_BACKLOG_CURRENT %s',
+                                 json.dumps(report, sort_keys=True))
+        try:await (shopify_pass if shopify else daily_pass)(pool,settings)
+        except asyncio.CancelledError:raise
+        except Exception as exc:
+            # Never log query parameters, provider responses or credentials.
+            # The terminal Python frame identifies a broken workflow stage
+            # without exposing any SQL data or secrets in production logs.
+            trace = exc.__traceback__
+            while trace is not None and trace.tb_next is not None:
+                trace = trace.tb_next
+            location = (f"{trace.tb_frame.f_code.co_filename.rsplit('/', 1)[-1]}:"
+                        f"{trace.tb_frame.f_code.co_name}:{trace.tb_lineno}") if trace else "unknown"
+            log.error('Catalogue maintenance job=%s failed type=%s location=%s',
+                      'SHOPIFY' if shopify else 'DAILY',type(exc).__name__,location)
+        # Private, immutable source evidence follows the existing pricing jobs.
+        # No new provider requests, database job labels or import writes. Content
+        # addresses make overlapping deployments/retries safe to reuse.
+        loop_time = asyncio.get_running_loop().time()
+        if (not shopify and getattr(settings, 'catalogue_source_archive_enabled', False)
+                and loop_time >= next_source_archive_check):
+            next_source_archive_check = loop_time + 3600
+            try:
+                source_report = await archive_reviewed_openlibrary_sources(apply=True)
+                summary = {key: source_report[key] for key in (
+                    'archive_id', 'status', 'uploaded', 'file_count', 'source_bytes', 'manifest_object')}
+                log.warning('CATALOGUE_R2_SOURCE_ARCHIVE %s', json.dumps(summary, sort_keys=True))
+                next_source_archive_check = asyncio.get_running_loop().time() + 86400
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.error('CATALOGUE_R2_SOURCE_ARCHIVE_FAILED type=%s', type(exc).__name__)
+        if (not shopify and catalogue_r2_market.enabled('BUILD')
+                and asyncio.get_running_loop().time() >= next_market_publication_check):
+            try:
+                market_report = await asyncio.wait_for(
+                    catalogue_r2_market.publish(pool, UUID(settings.catalogue_maintenance_actor_user_id)),
+                    timeout=R2_PUBLICATION_TIMEOUT_SECONDS)
+                log.warning('CATALOGUE_R2_MARKET_PUBLICATION %s',json.dumps(market_report,sort_keys=True))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                next_market_publication_check = asyncio.get_running_loop().time() + R2_PUBLICATION_RETRY_SECONDS
+                log.error('CATALOGUE_R2_MARKET_PUBLICATION_FAILED type=%s',type(exc).__name__)
+        if (not shopify and catalogue_r2_live.enabled('BUILD')
+                and asyncio.get_running_loop().time() >= next_live_publication_check):
+            try:
+                # Await cancellation/lock cleanup before returning to pricing:
+                # never detach a publisher or start a competing attempt.
+                live_report = await asyncio.wait_for(
+                    catalogue_r2_live.publish(pool,
+                        UUID(settings.catalogue_maintenance_actor_user_id)),
+                    timeout=R2_PUBLICATION_TIMEOUT_SECONDS)
+                log.warning('CATALOGUE_R2_LIVE_PUBLICATION %s',json.dumps(live_report,sort_keys=True))
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                next_live_publication_check = (asyncio.get_running_loop().time()
+                                               + R2_PUBLICATION_RETRY_SECONDS)
+                log.error('CATALOGUE_R2_LIVE_PUBLICATION_TIMEOUT timeout_seconds=%s',
+                          R2_PUBLICATION_TIMEOUT_SECONDS)
+            except Exception as exc:
+                next_live_publication_check = (asyncio.get_running_loop().time()
+                                               + R2_PUBLICATION_RETRY_SECONDS)
+                log.error('CATALOGUE_R2_LIVE_PUBLICATION_FAILED type=%s',type(exc).__name__)
+        if (not shopify and getattr(settings, 'catalogue_r2_cache_build_enabled', False)
+                and asyncio.get_running_loop().time() >= next_reference_cache_check):
+            next_reference_cache_check = asyncio.get_running_loop().time() + 300
+            # Four batches of five exact sets, after normal pricing. The cursor
+            # advances past oversized sets; misses always retain live DB delivery.
+            # No provider quota or database mutation is involved in warming.
+            for _ in range(4):
+                try:
+                    cache_report = await warm_reference_snapshots(pool,
+                        UUID(settings.catalogue_maintenance_actor_user_id),
+                        cursor=reference_cache_cursor, limit=5,
+                        verify_query_parity=(_ == 0))
+                    reference_cache_cursor = cache_report['next_cursor']
+                    log.warning('CATALOGUE_R2_REFERENCE_CACHE_BUILD %s',
+                        json.dumps(cache_report, sort_keys=True))
+                    if not cache_report['has_more']:
+                        break
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    log.error('CATALOGUE_R2_REFERENCE_CACHE_BUILD_FAILED type=%s', type(exc).__name__)
+                    break
+        if wakeup is None:
+            await asyncio.sleep(60 if shopify else 300)
+        else:
+            try:await asyncio.wait_for(wakeup.wait(),timeout=60 if shopify else 300)
+            except asyncio.TimeoutError:pass

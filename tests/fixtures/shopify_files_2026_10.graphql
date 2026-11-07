@@ -1,0 +1,16 @@
+# Bounded schema contract copied from the official Admin API 2026-10 types.
+# https://shopify.dev/docs/api/admin-graphql/2026-10/interfaces/File
+# https://shopify.dev/docs/api/admin-graphql/2026-10/objects/MediaImage
+# https://shopify.dev/docs/api/admin-graphql/2026-10/mutations/fileCreate
+# Only the fields used by fileCreate are represented. Crucially, image belongs
+# to MediaImage, not File; GraphQL validation must enforce the interface.
+enum FileStatus { UPLOADED PROCESSING READY FAILED }
+enum FileContentType { IMAGE VIDEO FILE }
+input FileCreateInput { originalSource: String! alt: String contentType: FileContentType }
+interface File { id: ID! fileStatus: FileStatus! alt: String }
+type Image { url: String! }
+type MediaImage implements File { id: ID! fileStatus: FileStatus! alt: String image: Image }
+type FilesUserError { field: [String!] message: String! }
+type FileCreatePayload { files: [File!] userErrors: [FilesUserError!]! }
+type Mutation { fileCreate(files: [FileCreateInput!]!): FileCreatePayload }
+type Query { file(id: ID!): File }

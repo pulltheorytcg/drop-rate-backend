@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import nullcontext
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
@@ -14,9 +15,23 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 from .physical_state import validate_physical_state
+from .access_control import require_platform_admin_request
+from .owner_portal_api import OwnerGradedCertificateIntakeRequest, owner_graded_certificate_intake
 
 
 router = APIRouter(prefix="/api/v1")
+
+
+@router.post("/inventory/graded-intake", status_code=201)
+async def founder_graded_intake(
+    payload: OwnerGradedCertificateIntakeRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_platform_admin_request)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=96)],
+) -> dict:
+    """Use the same certificate checks and owner-bound Draft intake for founders."""
+    return await owner_graded_certificate_intake(payload, request, user, access, idempotency_key)
 
 
 def _catalogue_search_terms(query: str) -> list[str]:
@@ -42,6 +57,12 @@ def _manual_identity_key(product: ManualCatalogueCreate) -> str:
         "rarity": product.rarity.casefold(),
         "language": (product.language or "").casefold(),
     }
+    if product.comic_printing is not None:
+        payload["comic_printing"] = product.comic_printing.identity()
+    if product.sports_card is not None:
+        payload["sports_card"] = product.sports_card.identity()
+    if product.figure_details is not None:
+        payload["figure_details"] = product.figure_details.identity()
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -50,6 +71,11 @@ def _manual_identity_key(product: ManualCatalogueCreate) -> str:
 
 def _manual_intake_payload_hash(payload: ManualInventoryCreate) -> str:
     canonical = payload.model_dump(mode="json")
+    # Preserve earlier receipt hashes when new optional identity models are added.
+    if canonical.get("new_catalogue"):
+        for field in ("comic_printing", "sports_card", "figure_details"):
+            if canonical["new_catalogue"].get(field) is None:
+                canonical["new_catalogue"].pop(field, None)
     return hashlib.sha256(
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -96,6 +122,18 @@ async def _find_exact_catalogue(
     connection: asyncpg.Connection,
     product: ManualCatalogueCreate,
 ) -> asyncpg.Record | None:
+    if product.comic_printing is not None:
+        return await connection.fetchrow(
+            "select * from tcg.catalogue_products where identity_key=$1 and product_type='COMIC'",
+            _manual_identity_key(product),
+        )
+    if product.sports_card is not None or product.figure_details is not None:
+        # Display fields alone cannot distinguish a parallel, team, figure
+        # franchise, scale or edition. Match the entire structured identity.
+        return await connection.fetchrow(
+            "select * from tcg.catalogue_products where identity_key=$1 and product_type=$2",
+            _manual_identity_key(product), product.product_type,
+        )
     rows = await connection.fetch(
         """
         select *
@@ -241,7 +279,13 @@ async def search_catalogue(
                 id, product_type, game, name, set_name, card_number,
                 variant, rarity, language
             from tcg.catalogue_products p
-            where not exists (
+            where (
+                not exists(select 1 from tcg.catalogue_product_profiles cp
+                    where cp.catalogue_id=p.id and cp.system_code in ('SPORTS_CARDS','FIGURES')
+                      and cp.identity_status='NEEDS_REVIEW'
+                      and cp.attributes->>'identity_source'='SELLER_ENTERED')
+                or exists(select 1 from tcg.inventory_items own where own.catalogue_id=p.id)
+            ) and not exists (
                 select 1
                 from unnest($1::text[]) as search(term)
                 where not (
@@ -278,6 +322,23 @@ async def create_inventory_intake(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=96)],
 ) -> dict:
+    return await _create_inventory_intake(payload, request, user, idempotency_key)
+
+
+async def _create_inventory_intake(
+    payload: ManualInventoryCreate,
+    request: Request,
+    user: AuthenticatedUser,
+    idempotency_key: str,
+    *,
+    connection: asyncpg.Connection | None = None,
+) -> dict:
+    """Use the same receipt engine inside a caller's authenticated transaction.
+
+    Book intake also records an owner-bound reference choice. Both writes must
+    commit together so a rejected reference cannot hide an already-saved copy.
+    Public callers continue to acquire their own authenticated connection.
+    """
     try:
         request_key = UUID(idempotency_key.strip())
     except ValueError as exc:
@@ -285,11 +346,12 @@ async def create_inventory_intake(
 
     payload_hash = _manual_intake_payload_hash(payload)
 
-    async with user_connection(
+    connection_scope = nullcontext(connection) if connection is not None else user_connection(
         request.app.state.db_pool,
         user.user_id,
         request.state.request_id,
-    ) as connection:
+    )
+    async with connection_scope as connection:
         owner = await _owner(connection)
 
         receipt = await _existing_receipt(connection, owner["id"], request_key)
@@ -301,6 +363,12 @@ async def create_inventory_intake(
         # cannot prove that a reused key represents the same original request.
         existing = await _existing_intake(connection, owner["id"], request_key)
         if existing is not None:
+            # READ COMMITTED can observe the other request's atomic commit
+            # between the receipt lookup and this inventory lookup. Re-read
+            # its receipt before treating the row as an unverifiable legacy key.
+            receipt = await _existing_receipt(connection, owner["id"], request_key)
+            if receipt is not None:
+                return jsonable_encoder(_receipt_response(receipt, payload_hash))
             raise HTTPException(
                 status_code=409,
                 detail="Idempotency-Key already exists without a verifiable intake receipt",
@@ -318,6 +386,8 @@ async def create_inventory_intake(
                 raise HTTPException(status_code=404, detail="Catalogue product not found")
         else:
             assert payload.new_catalogue is not None
+            if payload.new_catalogue.product_type == "COMIC" and payload.new_catalogue.comic_printing is None:
+                raise HTTPException(422, "Comic printing details are required when adding a book")
             catalogue = await _find_exact_catalogue(connection, payload.new_catalogue)
             if catalogue is not None:
                 catalogue_reused = True
@@ -352,6 +422,38 @@ async def create_inventory_intake(
                 else:
                     catalogue_created = True
 
+            if catalogue_created and (payload.new_catalogue.sports_card is not None or payload.new_catalogue.figure_details is not None):
+                product = payload.new_catalogue
+                identity = product.sports_card or product.figure_details
+                field = "sports_card" if product.sports_card is not None else "figure_details"
+                attributes = json.dumps({field: identity.model_dump(mode="json"),
+                                         "identity_source": "SELLER_ENTERED",
+                                         "submitted_by_user_id": str(user.user_id)})
+                await connection.execute("""
+                    insert into tcg.catalogue_product_profiles
+                      (catalogue_id,system_code,collectible_type,identity_status,attributes)
+                    values ($1,$2,$3,'NEEDS_REVIEW',$4::jsonb)
+                    """, catalogue["id"], identity.system_code, product.product_type, attributes)
+
+            if catalogue_created and payload.new_catalogue.comic_printing is not None:
+                book = payload.new_catalogue.comic_printing
+                attributes = json.dumps({"publisher": book.publisher, "book_format": book.book_format,
+                                         "identity_source": "SELLER_ENTERED",
+                                         "submitted_by_user_id": str(user.user_id)})
+                await connection.execute("""
+                    insert into tcg.catalogue_product_profiles
+                      (catalogue_id,system_code,collectible_type,identity_status,attributes)
+                    values ($1,$2,'COMIC','NEEDS_REVIEW',$3::jsonb)
+                    """, catalogue["id"], book.system_code, attributes)
+                await connection.execute("""
+                    insert into tcg.comic_printing_details
+                      (catalogue_id,system_code,series_title,volume_identifier,issue_number,
+                       printing_number,release_year,cover_code,cover_artist,barcode_gtin,identity_status,attributes)
+                    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'NEEDS_REVIEW',$11::jsonb)
+                    """, catalogue["id"], book.system_code, book.series_title, book.volume_identifier,
+                    book.issue_number, book.printing_number, book.release_year, book.cover_code,
+                    book.cover_artist, book.barcode_gtin, attributes)
+
         _validate_physical_state(catalogue["product_type"], payload)
 
         if payload.storage_location_id is not None:
@@ -381,14 +483,14 @@ async def create_inventory_intake(
                 condition, seal_status, grading_company, grade,
                 certificate_number, language, storage_location_id,
                 store_price_minor, identity_confirmed, status, notes,
-                intake_request_key
+                intake_request_key, sale_intent
             ) values (
                 $1, $2, $3, $4,
                 $5, $6, 'GBP',
                 $7, $8, $9, $10,
                 $11, $12, $13,
                 $14, $15, 'DRAFT', $16,
-                $17
+                $17, 'PERSONAL_COLLECTION'
             )
             on conflict (intake_request_key) do nothing
             returning *

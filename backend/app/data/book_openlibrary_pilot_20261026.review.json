@@ -1,0 +1,42 @@
+{
+  "source_snapshot_sha256": "9d92b11cc2f754b0fa00d6073f0b9653549bca8d8abae3a0000ec0e9bfff306d",
+  "source_accepted_records": 39,
+  "reviewed_records": 32,
+  "held_records": {
+    "/books/OL11316003M": "FORMAT_REVIEW_REQUIRED: adventure anthology may be prose rather than sequential comics",
+    "/books/OL11051574M": "FORMAT_REVIEW_REQUIRED: art collection versus sequential comics unresolved",
+    "/books/OL9572823M": "CLASSIFICATION_REVIEW_REQUIRED: Pilgrim Jager lacks explicit manga classification",
+    "/books/OL12437592M": "CLASSIFICATION_CONFLICT: Savage Dragon carries an inconsistent manga subject",
+    "/books/OL12437686M": "CLASSIFICATION_REVIEW_REQUIRED: Ah mi Diosa lacks explicit manga classification",
+    "/books/OL12284969M": "RELEASE_CONFLICT: Open Library 2007 differs from Image Comics 2005 and distributor 2009 for the same ISBN; printing unresolved",
+    "/books/OL9461525M": "EDITION_CONFLICT: Titan same ISBN is Beginnings limited edition, 2003; dump title omits edition wording and reports 2004"
+  },
+  "reviewed_snapshot_sha256": "66fee0a07e5c43b3cf957f36f54e9382be4eaed2a1b8eb6fc3bc239235653b03",
+  "system_counts": {
+    "MANGA": 15,
+    "MARVEL_COMICS": 4,
+    "OTHER_COMICS": 11,
+    "DC_COMICS": 2
+  },
+  "language_counts": {
+    "English": 30,
+    "Spanish": 2
+  },
+  "no_field_values_changed": true,
+  "prices_added": 0,
+  "covers_added": 0,
+  "source": "https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz",
+  "ci_run": "https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40404355523",
+  "scanned_records": 246645,
+  "selector_rejected_records": 246606,
+  "stop_reason": "RAW_BYTE_LIMIT",
+  "compressed_bytes_read": 54403072,
+  "raw_bytes_read": 268435456,
+  "review_status": "STRUCTURED_METADATA_ONLY_NOT_PRINTING_OR_MARKET_VERIFIED",
+  "review_evidence_urls": [
+    "https://imagecomics.com/comics/series/savage-dragon",
+    "https://imagecomics.com/comics/releases/the-walking-dead-vol-3-safety-behind-bars-tp",
+    "https://www.simonandschuster.com/books/Walking-Dead-Volume-3-Safety-Behind-Bars/Charlie-Adlard/9781582408057",
+    "https://titanbooks.com/2266-transformers-beginnings-limited-edition/"
+  ]
+}

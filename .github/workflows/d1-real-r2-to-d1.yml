@@ -1,0 +1,119 @@
+name: D1 real Lorcana R2 shadow import
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/d1_r2_shadow_export.py'
+      - 'backend/app/d1_shadow_catalogue.py'
+      - 'backend/app/main.py'
+      - 'tools/d1_r2_real_shadow.py'
+      - 'tests/test_d1_r2_shadow_export.py'
+      - 'tests/test_d1_r2_real_shadow.py'
+      - 'tests/test_d1_yugioh_shadow.py'
+      - 'tools/d1_yugioh_shadow.py'
+      - '.github/workflows/d1-real-r2-to-d1.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'backend/app/d1_r2_shadow_export.py'
+      - 'tools/d1_r2_real_shadow.py'
+      - '.github/workflows/d1-real-r2-to-d1.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-real-r2-lorcana-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  isolated-security-and-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Exact offline dependency versions
+        run: python -m pip install -r requirements.txt
+      - name: Verify signed workload, full R2 bytes, all D1 rows and rollback
+        env:
+          PYTHONPATH: 'backend:tools'
+        run: |
+          python -m pytest -q \
+            tests/test_d1_r2_shadow_export.py \
+            tests/test_d1_r2_real_shadow.py \
+            tests/test_d1_shadow_catalogue.py \
+            tests/test_d1_shadow_remote_probe.py \
+            tests/test_d1_yugioh_shadow.py
+
+  real-lorcana-shadow:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: isolated-security-and-parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Import verified published R2 Lorcana reference partition to NEW isolated D1
+        id: real_import
+        env:
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+          PYTHONPATH: 'backend:tools'
+        run: python tools/d1_r2_real_shadow.py
+      - name: Report trusted-main isolated import result without secrets
+        if: always()
+        env:
+          GITHUB_STATUS_TOKEN: ${{ github.token }}
+          D1_IMPORT_OUTCOME: ${{ steps.real_import.outcome }}
+          D1_IMPORT_COMMIT: ${{ github.sha }}
+          D1_IMPORT_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          state = "success" if os.environ["D1_IMPORT_OUTCOME"] == "success" else "failure"
+          description = (
+              "Verified full Lorcana R2-D1 shadow parity; no production cutover"
+              if state == "success" else
+              "Isolated R2-D1 shadow blocked; production data unchanged"
+          )
+          body = json.dumps({
+              "state": state,
+              "context": "drop-rate-d1-real-lorcana-parity",
+              "description": description,
+          }).encode("utf-8")
+          url = ("https://api.github.com/repos/"
+                 + os.environ["D1_IMPORT_REPOSITORY"]
+                 + "/statuses/" + os.environ["D1_IMPORT_COMMIT"])
+          request = urllib.request.Request(
+              url, data=body, method="POST", headers={
+                  "Authorization": "Bearer " + os.environ["GITHUB_STATUS_TOKEN"],
+                  "Content-Type": "application/json",
+                  "Accept": "application/vnd.github+json",
+              },
+          )
+          with urllib.request.urlopen(request, timeout=20) as response:
+              if response.status != 201:
+                  raise SystemExit("D1 result status not recorded")
+          print("D1 isolated import result reported: " + state)
+          PY
+      - name: Preserve source parity proof; no credentials or card details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-lorcana-real-shadow-parity
+          path: d1-lorcana-real-shadow-report.json
+          if-no-files-found: ignore
+          retention-days: 30

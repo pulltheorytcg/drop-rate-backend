@@ -90,7 +90,7 @@ def test_shopify_never_allocates_or_syncs_personal_collection_stock() -> None:
     assert "sync_state='ARCHIVED'" in source
     assert 'status="DRAFT"' in source
     assert "quantity=target_quantity" in source
-    assert "pool_link.id <> $2" in source
+    assert "tcg.shopify_personal_withdrawal_target" in source
     assert "pool_item.sale_intent='FOR_SALE'" in source
 
 
@@ -193,4 +193,4 @@ def test_collection_withdrawal_recovers_uncertain_ebay_offer_state() -> None:
     assert "await client.get_offer(offer_id)" in block
     assert "await client.withdraw_offer(offer_id)" in block
     assert "Live eBay link has no recoverable remote offer" in block
-    assert "set state='WITHDRAWN'" in block
+    assert "tcg.record_ebay_channel_result" in block and "'WITHDRAWN'" in block

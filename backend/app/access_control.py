@@ -24,7 +24,8 @@ async def current_access_context(connection: asyncpg.Connection) -> dict:
             o.display_name,
             o.owner_type,
             o.active as owner_active,
-            o.founder_slot
+            o.founder_slot,
+            tcg.is_platform_admin() as founder_authorized
         from tcg.owner_memberships m
         join tcg.owners o on o.id=m.owner_id
         where m.user_id=tcg.current_user_id()
@@ -46,6 +47,8 @@ async def current_access_context(connection: asyncpg.Connection) -> dict:
     role = str(row["role"])
     if role not in {"PLATFORM_ADMIN", "OWNER"}:
         raise HTTPException(status_code=403, detail="Unsupported access role")
+    if role == "PLATFORM_ADMIN" and not row["founder_authorized"]:
+        raise HTTPException(status_code=403, detail="Founder account is not authorized")
 
     return {
         "user_id": row["user_id"],
@@ -55,6 +58,8 @@ async def current_access_context(connection: asyncpg.Connection) -> dict:
         "display_name": row["display_name"],
         "founder_slot": row["founder_slot"],
         "founder_hq_allowed": role == "PLATFORM_ADMIN",
+        "business_allowed": (role == "PLATFORM_ADMIN" and row["owner_type"] == "FOUNDER"
+                             and row["founder_slot"] in (1, 2, 3)),
         "portal": "FOUNDER_HQ" if role == "PLATFORM_ADMIN" else "OWNER_PORTAL",
     }
 
@@ -96,7 +101,10 @@ async def require_platform_admin_request(
 
 async def require_owner_portal(connection: asyncpg.Connection) -> dict:
     context = await current_access_context(connection)
-    if context["access_role"] != "OWNER" or context["portal"] != "OWNER_PORTAL":
+    # Founders use the same personal workspace. The roster check above remains
+    # authoritative; every owner endpoint still scopes data to context.owner_id.
+    owner = context["access_role"] == "OWNER" and context["portal"] == "OWNER_PORTAL"
+    if not owner and not context["business_allowed"]:
         raise HTTPException(status_code=403, detail="Owner portal access required")
     return context
 
@@ -105,7 +113,7 @@ async def require_owner_portal_request(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    """FastAPI dependency for APIs exposed only to restricted owner accounts."""
+    """Personal workspace APIs for owners and verified, rostered founders."""
 
     async with user_connection(
         request.app.state.db_pool,
@@ -113,3 +121,15 @@ async def require_owner_portal_request(
         request.state.request_id,
     ) as connection:
         return await require_owner_portal(connection)
+
+
+async def require_business_founder(connection: asyncpg.Connection) -> dict:
+    """Only the existing three verified founder-roster accounts, never role claims.
+
+    current_access_context calls the database roster predicate on every request.
+    This adds no membership, service-role bypass or cross-owner write authority.
+    """
+    context = await require_platform_admin(connection)
+    if not context["business_allowed"]:
+        raise HTTPException(status_code=403, detail="Verified founder Business access required")
+    return context

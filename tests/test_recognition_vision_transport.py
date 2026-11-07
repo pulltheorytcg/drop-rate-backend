@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from pathlib import Path
 
 import httpx
 
 from app.recognition_vision import (
+    OBSERVATION_SCHEMA,
+    RecognitionObservation,
     OpenAIRecognitionVisionClient,
+    RecognitionVisionError,
     _shared_http_client,
     close_shared_vision_http_client,
 )
+from app.recognition import _vision_terminal_evidence
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,6 +62,17 @@ def observation_payload() -> dict:
         "counterfeit_concerns": [],
         "notes": [],
     }
+
+
+def test_english_display_name_does_not_overwrite_printed_korean_identity() -> None:
+    raw = observation_payload()
+    raw.update(language="Korean", name_guess="제르네아스", name_english_guess="Xerneas",
+               name_english_confidence=0.98, card_number="042/063")
+    observed = RecognitionObservation(**raw)
+    assert observed.name_guess == "제르네아스"
+    assert observed.name_english_guess == "Xerneas"
+    assert observed.language == "Korean"
+    assert {"name_english_guess", "name_english_confidence"} <= set(OBSERVATION_SCHEMA["required"])
 
 
 def test_vision_request_contract_remains_high_detail_and_semantically_unchanged() -> None:
@@ -109,7 +125,7 @@ def test_vision_request_contract_remains_high_detail_and_semantically_unchanged(
     body = captured[0]
     assert body["model"] == "gpt-5.6-sol"
     assert body["store"] is False
-    assert body["max_output_tokens"] == 1800
+    assert body["max_output_tokens"] == 3000
     assert "reasoning" not in body
     image_part = body["input"][0]["content"][1]
     assert image_part["type"] == "input_image"
@@ -140,6 +156,41 @@ def test_recognition_pipeline_persists_transport_and_usage_telemetry() -> None:
     assert '"vision_telemetry": vision_telemetry' in source
 
 
+def test_unknown_or_empty_photo_keeps_vision_timings_and_hint_count() -> None:
+    timings = {"decode_image": 8.0, "vision": 24_100.0, "reference_retrieval": 44.0}
+    telemetry = {"request_ms": 23_900.0, "output_tokens": 210}
+    evidence = _vision_terminal_evidence(
+        timings_ms=timings,
+        pipeline_started=time.perf_counter() - 25,
+        vision_telemetry=telemetry,
+        reference_hints=[{"catalogue_id": "private-test-id"}],
+    )
+    assert evidence["vision_telemetry"] == telemetry
+    assert evidence["reference_index_hint_count"] == 1
+    assert evidence["timings_ms"]["vision"] == 24_100.0
+    assert evidence["timings_ms"]["pipeline_before_persist"] >= 25_000
+    assert "pipeline_before_persist" not in timings
+    assert "private-test-id" not in json.dumps(evidence)
+
+
+def test_failed_vision_records_only_sanitized_provider_status() -> None:
+    error = RecognitionVisionError(
+        "Private upstream response must not be persisted",
+        status_code=429,
+        retryable=True,
+    )
+    evidence = _vision_terminal_evidence(
+        timings_ms={"decode_image": 10.0},
+        pipeline_started=time.perf_counter() - 0.2,
+        vision_error=error,
+    )
+    assert evidence["vision_error"] == {"http_status": 429, "retryable": True}
+    assert "Private upstream" not in json.dumps(evidence)
+    source = RECOGNITION.read_text()
+    assert "provider_evidence=$5::jsonb" in source  # failed vision
+    assert source.count("provider_evidence=$6::jsonb") == 3  # no card, unknown object/game
+
+
 def test_api_shutdown_closes_shared_vision_transport() -> None:
     source = MAIN.read_text()
     assert "close_shared_vision_http_client" in source
@@ -150,9 +201,9 @@ def test_transport_change_does_not_change_recognition_engine_version_or_gates() 
     recognition = RECOGNITION.read_text()
     vision = VISION.read_text()
 
-    assert 'ENGINE_VERSION = "v1.9.0"' in recognition
+    assert 'ENGINE_VERSION = "v1.10.0"' in recognition
     assert '"detail": "high"' in vision
-    assert '"max_output_tokens": 1800' in vision
+    assert OpenAIRecognitionVisionClient.max_output_tokens == 3000
     assert '"reasoning"' not in vision
 
 

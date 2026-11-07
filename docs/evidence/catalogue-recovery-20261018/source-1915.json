@@ -1,0 +1,2503 @@
+[
+  {
+    "id": 105774,
+    "name": "Shining Legends Booster",
+    "version": null,
+    "game_id": 5,
+    "category_id": 66,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105774/preview_shining-legends-booster-shining-legends.jpg",
+    "card_market_ids": [
+      301163
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105775,
+    "name": "Shining Legends Collector Chest",
+    "version": null,
+    "game_id": 5,
+    "category_id": 59,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105775/preview_shining-legends-collector-chest-shining-legends.jpg",
+    "card_market_ids": [
+      371782
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105776,
+    "name": "Shining Legends: Zoroark GX Special Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105776/preview_shining-legends-zoroark-gx-special-collection-shining-legends.jpg",
+    "card_market_ids": [
+      301678
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105777,
+    "name": "Shining Legends: Mewtwo Pin Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105777/preview_shining-legends-mewtwo-pin-collection-shining-legends.jpg",
+    "card_market_ids": [
+      301161
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105778,
+    "name": "Shining Legends: Zoroark Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105778/preview_shining-legends-zoroark-collection-shining-legends.jpg",
+    "card_market_ids": [
+      311203
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105779,
+    "name": "Shining Legends: Pikachu Pin Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105779/preview_shining-legends-pikachu-pin-collection-shining-legends.jpg",
+    "card_market_ids": [
+      301160
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105780,
+    "name": "Shining Legends: Super Premium Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105780/preview_shining-legends-super-premium-collection-shining-legends.jpg",
+    "card_market_ids": [
+      301245
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105781,
+    "name": "Shining Legends: Raichu GX Special Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105781/preview_shining-legends-raichu-gx-special-collection-shining-legends.jpg",
+    "card_market_ids": [
+      311204
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105782,
+    "name": "Shining Legends: Marshadow Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105782/preview_shining-legends-marshadow-collection-shining-legends.jpg",
+    "card_market_ids": [
+      314372
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105783,
+    "name": "Shining Legends: Shiny Darkrai GX Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105783/preview_shining-legends-shiny-darkrai-gx-collection-shining-legends.jpg",
+    "card_market_ids": [
+      315686
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105784,
+    "name": "Shining Legends Elite Trainer Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105784/preview_shining-legends-elite-trainer-box-shining-legends.jpg",
+    "card_market_ids": [
+      301162
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105785,
+    "name": "Shining Legends Playmat",
+    "version": null,
+    "game_id": 5,
+    "category_id": 63,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105785/preview_shining-legends-playmat-shining-legends.jpg",
+    "card_market_ids": [
+      311420
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 127383,
+    "name": "Bulbasaur",
+    "version": "001/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127383/preview_bulbasaur-1-73-shining-legends.jpg",
+    "card_market_ids": [
+      302139
+    ],
+    "collector_number": "001",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127385,
+    "name": "Ivysaur",
+    "version": "002/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127385/preview_ivysaur-2-73-shining-legends.jpg",
+    "card_market_ids": [
+      302140
+    ],
+    "collector_number": "002",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127387,
+    "name": "Venusaur",
+    "version": "003/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127387/preview_venusaur-3-73-shining-legends.jpg",
+    "card_market_ids": [
+      302141
+    ],
+    "collector_number": "003",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127389,
+    "name": "Shroomish",
+    "version": "004/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127389/preview_shroomish-4-73-shining-legends.jpg",
+    "card_market_ids": [
+      302142
+    ],
+    "collector_number": "004",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127391,
+    "name": "Breloom",
+    "version": "005/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127391/preview_breloom-5-73-shining-legends.jpg",
+    "card_market_ids": [
+      302143
+    ],
+    "collector_number": "005",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127393,
+    "name": "Carnivine",
+    "version": "006/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127393/preview_carnivine-6-73-shining-legends.jpg",
+    "card_market_ids": [
+      302144
+    ],
+    "collector_number": "006",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127395,
+    "name": "Shaymin",
+    "version": "Holo Rare | 007/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127395/preview_shaymin-rare-holo-7-73-shining-legends.jpg",
+    "card_market_ids": [
+      302145
+    ],
+    "collector_number": "007",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127397,
+    "name": "Virizion",
+    "version": "Holo Rare | 008/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127397/preview_virizion-rare-holo-8-73-shining-legends.jpg",
+    "card_market_ids": [
+      302146
+    ],
+    "collector_number": "008",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127399,
+    "name": "Shining Genesect",
+    "version": "009/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127399/preview_shining-genesect-9-73-shining-legends.jpg",
+    "card_market_ids": [
+      302147
+    ],
+    "collector_number": "009",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127400,
+    "name": "Entei GX",
+    "version": "Ultra Rare | 010/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127400/preview_entei-gx-rare-holo-10-73-shining-legends.jpg",
+    "card_market_ids": [
+      302148
+    ],
+    "collector_number": "010",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127401,
+    "name": "Torkoal",
+    "version": "011/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127401/preview_torkoal-11-73-shining-legends.jpg",
+    "card_market_ids": [
+      302149
+    ],
+    "collector_number": "011",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127403,
+    "name": "Larvesta",
+    "version": "012/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127403/preview_larvesta-12-73-shining-legends.jpg",
+    "card_market_ids": [
+      302150
+    ],
+    "collector_number": "012",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127405,
+    "name": "Volcarona",
+    "version": "013/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127405/preview_volcarona-13-73-shining-legends.jpg",
+    "card_market_ids": [
+      302151
+    ],
+    "collector_number": "013",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127407,
+    "name": "Reshiram",
+    "version": "014/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127407/preview_reshiram-14-73-shining-legends.jpg",
+    "card_market_ids": [
+      301165
+    ],
+    "collector_number": "014",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127408,
+    "name": "Litten",
+    "version": "015/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127408/preview_litten-15-73-shining-legends.jpg",
+    "card_market_ids": [
+      302153
+    ],
+    "collector_number": "015",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127410,
+    "name": "Torracat",
+    "version": "016/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127410/preview_torracat-16-73-shining-legends.jpg",
+    "card_market_ids": [
+      302154
+    ],
+    "collector_number": "016",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127412,
+    "name": "Incineroar",
+    "version": "017/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127412/preview_incineroar-17-73-shining-legends.jpg",
+    "card_market_ids": [
+      302155
+    ],
+    "collector_number": "017",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127414,
+    "name": "Totodile",
+    "version": "018/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127414/preview_totodile-18-73-shining-legends.jpg",
+    "card_market_ids": [
+      302156
+    ],
+    "collector_number": "018",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127416,
+    "name": "Croconaw",
+    "version": "019/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127416/preview_croconaw-19-73-shining-legends.jpg",
+    "card_market_ids": [
+      302157
+    ],
+    "collector_number": "019",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127418,
+    "name": "Feraligatr",
+    "version": "020/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127418/preview_feraligatr-20-73-shining-legends.jpg",
+    "card_market_ids": [
+      302158
+    ],
+    "collector_number": "020",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127420,
+    "name": "Qwilfish",
+    "version": "021/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127420/preview_qwilfish-21-73-shining-legends.jpg",
+    "card_market_ids": [
+      302159
+    ],
+    "collector_number": "021",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127422,
+    "name": "Buizel",
+    "version": "022/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127422/preview_buizel-22-73-shining-legends.jpg",
+    "card_market_ids": [
+      302160
+    ],
+    "collector_number": "022",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127424,
+    "name": "Floatzel",
+    "version": "023/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127424/preview_floatzel-23-73-shining-legends.jpg",
+    "card_market_ids": [
+      302161
+    ],
+    "collector_number": "023",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127426,
+    "name": "Palkia",
+    "version": "Holo Rare | 024/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127426/preview_palkia-rare-holo-24-73-shining-legends.jpg",
+    "card_market_ids": [
+      302162
+    ],
+    "collector_number": "024",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127428,
+    "name": "Manaphy",
+    "version": "Holo Rare | 025/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127428/preview_manaphy-rare-holo-25-73-shining-legends.jpg",
+    "card_market_ids": [
+      302163
+    ],
+    "collector_number": "025",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127430,
+    "name": "Keldeo",
+    "version": "Holo Rare | 026/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127430/preview_keldeo-rare-holo-26-73-shining-legends.jpg",
+    "card_market_ids": [
+      302164
+    ],
+    "collector_number": "026",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127432,
+    "name": "Shining Volcanion",
+    "version": "Shiny Rare | 027/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127432/preview_shining-volcanion-27-73-shining-legends.jpg",
+    "card_market_ids": [
+      302165
+    ],
+    "collector_number": "027",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127433,
+    "name": "Pikachu",
+    "version": "028/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127433/preview_pikachu-28-73-shining-legends.jpg",
+    "card_market_ids": [
+      302166
+    ],
+    "collector_number": "028",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127435,
+    "name": "Raichu GX",
+    "version": "Ultra Rare | 029/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127435/preview_raichu-gx-rare-holo-29-73-shining-legends.jpg",
+    "card_market_ids": [
+      302167
+    ],
+    "collector_number": "029",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127436,
+    "name": "Voltorb",
+    "version": "030/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127436/preview_voltorb-30-73-shining-legends.jpg",
+    "card_market_ids": [
+      302168
+    ],
+    "collector_number": "030",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127438,
+    "name": "Electrode",
+    "version": "031/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127438/preview_electrode-31-73-shining-legends.jpg",
+    "card_market_ids": [
+      302169
+    ],
+    "collector_number": "031",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127440,
+    "name": "Raikou",
+    "version": "Holo Rare | 032/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127440/preview_raikou-holo-rare-32-73-shining-legends.jpg",
+    "card_market_ids": [
+      302170
+    ],
+    "collector_number": "032",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127442,
+    "name": "Plusle",
+    "version": "033/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127442/preview_plusle-33-73-shining-legends.jpg",
+    "card_market_ids": [
+      302171
+    ],
+    "collector_number": "033",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127444,
+    "name": "Minun",
+    "version": "034/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127444/preview_minun-34-73-shining-legends.jpg",
+    "card_market_ids": [
+      302172
+    ],
+    "collector_number": "034",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127446,
+    "name": "Zekrom",
+    "version": "Holo Rare | 035/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127446/preview_zekrom-rare-holo-35-73-shining-legends.jpg",
+    "card_market_ids": [
+      302173
+    ],
+    "collector_number": "035",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127448,
+    "name": "Ekans",
+    "version": "036/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127448/preview_ekans-36-73-shining-legends.jpg",
+    "card_market_ids": [
+      302174
+    ],
+    "collector_number": "036",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127450,
+    "name": "Arbok",
+    "version": "037/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127450/preview_arbok-37-73-shining-legends.jpg",
+    "card_market_ids": [
+      302175
+    ],
+    "collector_number": "037",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127452,
+    "name": "Jynx",
+    "version": "038/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127452/preview_jynx-38-73-shining-legends.jpg",
+    "card_market_ids": [
+      302176
+    ],
+    "collector_number": "038",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127454,
+    "name": "Mewtwo GX",
+    "version": "Ultra Rare | 039/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127454/preview_mewtwo-gx-rare-holo-39-73-shining-legends.jpg",
+    "card_market_ids": [
+      301167
+    ],
+    "collector_number": "039",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127455,
+    "name": "Shining Mew",
+    "version": "Shiny Rare | 040/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127455/preview_shining-mew-40-73-shining-legends.jpg",
+    "card_market_ids": [
+      302178
+    ],
+    "collector_number": "040",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127456,
+    "name": "Latios",
+    "version": "Holo Rare | 041/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127456/preview_latios-rare-holo-41-73-shining-legends.jpg",
+    "card_market_ids": [
+      302179
+    ],
+    "collector_number": "041",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127458,
+    "name": "Shining Jirachi",
+    "version": "Shiny Rare | 042/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127458/preview_shining-jirachi-42-73-shining-legends.jpg",
+    "card_market_ids": [
+      302180
+    ],
+    "collector_number": "042",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127459,
+    "name": "Golett",
+    "version": "043/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127459/preview_golett-43-73-shining-legends.jpg",
+    "card_market_ids": [
+      302181
+    ],
+    "collector_number": "043",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127461,
+    "name": "Golurk",
+    "version": "044/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127461/preview_golurk-44-73-shining-legends.jpg",
+    "card_market_ids": [
+      302182
+    ],
+    "collector_number": "044",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127463,
+    "name": "Marshadow",
+    "version": "Holo Rare | 045/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127463/preview_marshadow-rare-holo-45-73-shining-legends.jpg",
+    "card_market_ids": [
+      302183
+    ],
+    "collector_number": "045",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127465,
+    "name": "Stunfisk",
+    "version": "046/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127465/preview_stunfisk-46-73-shining-legends.jpg",
+    "card_market_ids": [
+      302184
+    ],
+    "collector_number": "046",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127467,
+    "name": "Spiritomb",
+    "version": "047/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127467/preview_spiritomb-47-73-shining-legends.jpg",
+    "card_market_ids": [
+      302185
+    ],
+    "collector_number": "047",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127469,
+    "name": "Purrloin",
+    "version": "048/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127469/preview_purrloin-48-73-shining-legends.jpg",
+    "card_market_ids": [
+      302186
+    ],
+    "collector_number": "048",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127471,
+    "name": "Liepard",
+    "version": "049/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127471/preview_liepard-49-73-shining-legends.jpg",
+    "card_market_ids": [
+      302187
+    ],
+    "collector_number": "049",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127473,
+    "name": "Scraggy",
+    "version": "050/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127473/preview_scraggy-50-73-shining-legends.jpg",
+    "card_market_ids": [
+      302188
+    ],
+    "collector_number": "050",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127475,
+    "name": "Scrafty",
+    "version": "051/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127475/preview_scrafty-51-73-shining-legends.jpg",
+    "card_market_ids": [
+      302189
+    ],
+    "collector_number": "051",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127477,
+    "name": "Zorua",
+    "version": "052/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127477/preview_zorua-52-73-shining-legends.jpg",
+    "card_market_ids": [
+      302190
+    ],
+    "collector_number": "052",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127479,
+    "name": "Zoroark GX",
+    "version": "Ultra Rare | 053/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127479/preview_zoroark-gx-rare-holo-53-73-shining-legends.jpg",
+    "card_market_ids": [
+      302191
+    ],
+    "collector_number": "053",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127480,
+    "name": "Yveltal",
+    "version": "Holo Rare | 054/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127480/preview_yveltal-rare-holo-54-73-shining-legends.jpg",
+    "card_market_ids": [
+      302192
+    ],
+    "collector_number": "054",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127482,
+    "name": "Hoopa",
+    "version": "Holo Rare | 055/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127482/preview_hoopa-rare-holo-55-73-shining-legends.jpg",
+    "card_market_ids": [
+      301166
+    ],
+    "collector_number": "055",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127484,
+    "name": "Shining Rayquaza",
+    "version": "Shiny Rare | 056/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127484/preview_shining-rayquaza-56-73-shining-legends.jpg",
+    "card_market_ids": [
+      302193
+    ],
+    "collector_number": "056",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127485,
+    "name": "Shining Arceus",
+    "version": "Shiny Rare | 057/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127485/preview_shining-arceus-57-73-shining-legends.jpg",
+    "card_market_ids": [
+      302194
+    ],
+    "collector_number": "057",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127486,
+    "name": "Damage Mover",
+    "version": "058/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127486/preview_damage-mover-58-73-shining-legends.jpg",
+    "card_market_ids": [
+      302195
+    ],
+    "collector_number": "058",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127488,
+    "name": "Energy Retrieval",
+    "version": "059/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127488/preview_energy-retrieval-59-73-shining-legends.jpg",
+    "card_market_ids": [
+      302196
+    ],
+    "collector_number": "059",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127490,
+    "name": "Great Ball",
+    "version": "060/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127490/preview_great-ball-60-73-shining-legends.jpg",
+    "card_market_ids": [
+      302197
+    ],
+    "collector_number": "060",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127492,
+    "name": "Hau",
+    "version": "061/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127492/preview_hau-61-73-shining-legends.jpg",
+    "card_market_ids": [
+      302198
+    ],
+    "collector_number": "061",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127494,
+    "name": "Lillie",
+    "version": "062/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127494/preview_lillie-62-73-shining-legends.jpg",
+    "card_market_ids": [
+      302199
+    ],
+    "collector_number": "062",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127496,
+    "name": "Pokémon Breeder",
+    "version": "063/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127496/preview_pokemon-breeder-63-73-shining-legends.jpg",
+    "card_market_ids": [
+      302200
+    ],
+    "collector_number": "063",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127498,
+    "name": "Pokémon Catcher",
+    "version": "064/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127498/preview_pokemon-catcher-64-73-shining-legends.jpg",
+    "card_market_ids": [
+      302201
+    ],
+    "collector_number": "064",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127500,
+    "name": "Sophocles",
+    "version": "065/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127500/preview_sophocles-65-73-shining-legends.jpg",
+    "card_market_ids": [
+      302202
+    ],
+    "collector_number": "065",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127502,
+    "name": "Super Scoop Up",
+    "version": "066/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127502/preview_super-scoop-up-66-73-shining-legends.jpg",
+    "card_market_ids": [
+      302203
+    ],
+    "collector_number": "066",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127504,
+    "name": "Switch",
+    "version": "067/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127504/preview_switch-67-73-shining-legends.jpg",
+    "card_market_ids": [
+      302204
+    ],
+    "collector_number": "067",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127506,
+    "name": "Ultra Ball",
+    "version": "068/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127506/preview_ultra-ball-68-73-shining-legends.jpg",
+    "card_market_ids": [
+      302205
+    ],
+    "collector_number": "068",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127508,
+    "name": "Double Colorless Energy",
+    "version": "069/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127508/preview_double-colorless-energy-69-73-shining-legends.jpg",
+    "card_market_ids": [
+      302206
+    ],
+    "collector_number": "069",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127510,
+    "name": "Warp Energy",
+    "version": "070/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127510/preview_warp-energy-70-73-shining-legends.jpg",
+    "card_market_ids": [
+      302207
+    ],
+    "collector_number": "070",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127512,
+    "name": "Entei GX",
+    "version": "Ultra Rare | 071/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127512/preview_entei-gx-rare-ultra-71-73-shining-legends.jpg",
+    "card_market_ids": [
+      302208
+    ],
+    "collector_number": "071",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127513,
+    "name": "Mewtwo GX",
+    "version": "Ultra Rare | 072/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127513/preview_mewtwo-gx-rare-ultra-72-73-shining-legends.jpg",
+    "card_market_ids": [
+      302209
+    ],
+    "collector_number": "072",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127514,
+    "name": "Pokémon Breeder",
+    "version": "Ultra Rare | 073/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127514/preview_pokemon-breeder-rare-ultra-73-73-shining-legends.jpg",
+    "card_market_ids": [
+      302210
+    ],
+    "collector_number": "073",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127515,
+    "name": "Entei GX",
+    "version": "Rainbow Secret Rare | 074/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127515/preview_entei-gx-rare-rainbow-74-73-shining-legends.jpg",
+    "card_market_ids": [
+      302211
+    ],
+    "collector_number": "074",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127516,
+    "name": "Raichu GX",
+    "version": "Rainbow Secret Rare | 075/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127516/preview_raichu-gx-rare-rainbow-75-73-shining-legends.jpg",
+    "card_market_ids": [
+      302213
+    ],
+    "collector_number": "075",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127517,
+    "name": "Mewtwo GX",
+    "version": "Rainbow Secret Rare | 076/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127517/preview_mewtwo-gx-rare-rainbow-76-73-shining-legends.jpg",
+    "card_market_ids": [
+      302212
+    ],
+    "collector_number": "076",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127518,
+    "name": "Zoroark GX",
+    "version": "Rainbow Secret Rare | 077/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127518/preview_zoroark-gx-rare-rainbow-77-73-shining-legends.jpg",
+    "card_market_ids": [
+      302214
+    ],
+    "collector_number": "077",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 127519,
+    "name": "Mewtwo GX",
+    "version": "Ultra Rare | 078/073",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127519/preview_mewtwo-gx-secret-rare-78-73-shining-legends.jpg",
+    "card_market_ids": [
+      302215
+    ],
+    "collector_number": "078",
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "ru",
+      "es"
+    ]
+  },
+  {
+    "id": 133453,
+    "name": "Shining Legends: 1 Ho-Oh Divider",
+    "version": null,
+    "game_id": 5,
+    "category_id": 74,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/133453/preview_shining-legends-1-ho-oh-divider-shining-legends.jpg",
+    "card_market_ids": [
+      452873
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 133492,
+    "name": "Shining Legends: 65 Ho-Oh Sleeves",
+    "version": null,
+    "game_id": 5,
+    "category_id": 62,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/133492/preview_shining-legends-65-ho-oh-sleeves-shining-legends.jpg",
+    "card_market_ids": [
+      451418
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 200818,
+    "name": "Shining Legends: Super Premium Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/200818/preview_shining-legends-super-premium-collection-shining-legends-200818.jpg",
+    "card_market_ids": [
+      577548
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 290683,
+    "name": "Marshadow Pin",
+    "version": "Shining Legends Pin Collection",
+    "game_id": 5,
+    "category_id": 61,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/290683/preview_marshadow-pin-shining-legends-pin-collection-shining-legends.jpg",
+    "card_market_ids": [
+      773648
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 290684,
+    "name": "Marshadow Pin",
+    "version": "Shining Legends Pin Collection | English Edition",
+    "game_id": 5,
+    "category_id": 61,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/290684/preview_marshadow-pin-shining-legends-pin-collection-english-edition-shining-legends.jpg",
+    "card_market_ids": [],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 297714,
+    "name": "Empty Shining Legends Collector Chest",
+    "version": "Empty Tin",
+    "game_id": 5,
+    "category_id": 118,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/297714/preview_empty-shining-legends-collector-chest-empty-tin-shining-legends.jpg",
+    "card_market_ids": [
+      651306
+    ],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 359422,
+    "name": "Shining Legends: Mewtwo Pin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 61,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/359422/preview_shining-legends-mewtwo-pin-shining-legends.jpg",
+    "card_market_ids": [],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 397089,
+    "name": "Shining Legends Dice Set",
+    "version": "",
+    "game_id": 5,
+    "category_id": 86,
+    "expansion_id": 1915,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/397089/preview_397089-shining-legends-dice-set-shining-legends.jpg",
+    "card_market_ids": [],
+    "collector_number": null,
+    "expansion_name": "Shining Legends",
+    "expansion_code": "slg",
+    "language_default": null,
+    "language_options": null
+  }
+]

@@ -1,0 +1,3992 @@
+[
+  {
+    "id": 105234,
+    "name": "Skyridge Booster",
+    "version": null,
+    "game_id": 5,
+    "category_id": 66,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105234/preview_skyridge-booster-skyridge.jpg",
+    "card_market_ids": [
+      271860
+    ],
+    "collector_number": null,
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105235,
+    "name": "Skyridge Booster Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 67,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105235/preview_skyridge-booster-box-skyridge.jpg",
+    "card_market_ids": [
+      271940
+    ],
+    "collector_number": null,
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105236,
+    "name": "Skyridge: Eeveelution Theme Deck",
+    "version": null,
+    "game_id": 5,
+    "category_id": 69,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105236/preview_skyridge-eeveelution-theme-deck-skyridge.jpg",
+    "card_market_ids": [
+      286576
+    ],
+    "collector_number": null,
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105237,
+    "name": "Skyridge: Mind Machine Theme Deck",
+    "version": null,
+    "game_id": 5,
+    "category_id": 69,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105237/preview_skyridge-mind-machine-theme-deck-skyridge.jpg",
+    "card_market_ids": [
+      286577
+    ],
+    "collector_number": null,
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 127530,
+    "name": "Alakazam",
+    "version": "Holo Rare | H1/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127530/preview_alakazam-rare-holo-h1-h32-skyridge.jpg",
+    "card_market_ids": [
+      275238
+    ],
+    "collector_number": "0H1/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127531,
+    "name": "Arcanine",
+    "version": "Holo Rare | H2/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127531/preview_arcanine-rare-holo-h2-h32-skyridge.jpg",
+    "card_market_ids": [
+      275227
+    ],
+    "collector_number": "0H2/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127532,
+    "name": "Articuno",
+    "version": "Holo Rare | H3/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127532/preview_articuno-rare-holo-h3-h32-skyridge.jpg",
+    "card_market_ids": [
+      275258
+    ],
+    "collector_number": "0H3/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127533,
+    "name": "Beedrill",
+    "version": "Holo Rare | H4/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127533/preview_beedrill-rare-holo-h4-h32-skyridge.jpg",
+    "card_market_ids": [
+      275246
+    ],
+    "collector_number": "0H4/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127534,
+    "name": "Crobat",
+    "version": "Holo Rare | H5/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127534/preview_crobat-rare-holo-h5-h32-skyridge.jpg",
+    "card_market_ids": [
+      275245
+    ],
+    "collector_number": "0H5/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127535,
+    "name": "Dewgong",
+    "version": "Holo Rare | H6/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127535/preview_dewgong-rare-holo-h6-h32-skyridge.jpg",
+    "card_market_ids": [
+      275248
+    ],
+    "collector_number": "0H6/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127536,
+    "name": "Flareon",
+    "version": "Holo Rare | H7/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127536/preview_flareon-rare-holo-h7-h32-skyridge.jpg",
+    "card_market_ids": [
+      275249
+    ],
+    "collector_number": "0H7/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127537,
+    "name": "Forretress",
+    "version": "Holo Rare | H8/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127537/preview_forretress-rare-holo-h8-h32-skyridge.jpg",
+    "card_market_ids": [
+      275251
+    ],
+    "collector_number": "0H8/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127538,
+    "name": "Gengar",
+    "version": "Holo Rare | H9/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127538/preview_gengar-rare-holo-h9-h32-skyridge.jpg",
+    "card_market_ids": [
+      275250
+    ],
+    "collector_number": "0H9/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127539,
+    "name": "Gyarados",
+    "version": "Holo Rare | H10/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127539/preview_gyarados-rare-holo-h10-h32-skyridge.jpg",
+    "card_market_ids": [
+      275237
+    ],
+    "collector_number": "H10/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127540,
+    "name": "Houndoom",
+    "version": "Holo Rare | H11/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127540/preview_houndoom-rare-holo-h11-h32-skyridge.jpg",
+    "card_market_ids": [
+      275236
+    ],
+    "collector_number": "H11/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127541,
+    "name": "Jolteon",
+    "version": "Holo Rare | H12/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127541/preview_jolteon-rare-holo-h12-h32-skyridge.jpg",
+    "card_market_ids": [
+      275239
+    ],
+    "collector_number": "H12/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127542,
+    "name": "Kabutops",
+    "version": "Holo Rare | H13/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127542/preview_kabutops-rare-holo-h13-h32-skyridge.jpg",
+    "card_market_ids": [
+      275240
+    ],
+    "collector_number": "H13/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127543,
+    "name": "Ledian",
+    "version": "Holo Rare | H14/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127543/preview_ledian-rare-holo-h14-h32-skyridge.jpg",
+    "card_market_ids": [
+      275242
+    ],
+    "collector_number": "H14/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127544,
+    "name": "Machamp",
+    "version": "Holo Rare | H15/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127544/preview_machamp-rare-holo-h15-h32-skyridge.jpg",
+    "card_market_ids": [
+      275241
+    ],
+    "collector_number": "H15/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127545,
+    "name": "Magcargo",
+    "version": "Holo Rare | H16/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127545/preview_magcargo-rare-holo-h16-h32-skyridge.jpg",
+    "card_market_ids": [
+      275235
+    ],
+    "collector_number": "H16/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127546,
+    "name": "Magcargo",
+    "version": "Holo Rare | H17/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127546/preview_magcargo-rare-holo-h17-h32-skyridge.jpg",
+    "card_market_ids": [
+      275234
+    ],
+    "collector_number": "H17/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127547,
+    "name": "Magneton",
+    "version": "Holo Rare | H18/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127547/preview_magneton-rare-holo-h18-h32-skyridge.jpg",
+    "card_market_ids": [
+      275229
+    ],
+    "collector_number": "H18/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127548,
+    "name": "Magneton",
+    "version": "Holo Rare | H19/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127548/preview_magneton-rare-holo-h19-h32-skyridge.jpg",
+    "card_market_ids": [
+      275228
+    ],
+    "collector_number": "H19/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127549,
+    "name": "Moltres",
+    "version": "Holo Rare | H20/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127549/preview_moltres-rare-holo-h20-h32-skyridge.jpg",
+    "card_market_ids": [
+      275230
+    ],
+    "collector_number": "H20/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127550,
+    "name": "Nidoqueen",
+    "version": "Holo Rare | H21/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127550/preview_nidoqueen-rare-holo-h21-h32-skyridge.jpg",
+    "card_market_ids": [
+      275231
+    ],
+    "collector_number": "H21/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127551,
+    "name": "Piloswine",
+    "version": "Holo Rare | H22/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127551/preview_piloswine-rare-holo-h22-h32-skyridge.jpg",
+    "card_market_ids": [
+      275233
+    ],
+    "collector_number": "H22/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127552,
+    "name": "Politoed",
+    "version": "Holo Rare | H23/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127552/preview_politoed-rare-holo-h23-h32-skyridge.jpg",
+    "card_market_ids": [
+      275244
+    ],
+    "collector_number": "H23/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127553,
+    "name": "Poliwrath",
+    "version": "Holo Rare | H24/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127553/preview_poliwrath-rare-holo-h24-h32-skyridge.jpg",
+    "card_market_ids": [
+      275232
+    ],
+    "collector_number": "H24/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127554,
+    "name": "Raichu",
+    "version": "Holo Rare | H25/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127554/preview_raichu-rare-holo-h25-h32-skyridge.jpg",
+    "card_market_ids": [
+      275243
+    ],
+    "collector_number": "H25/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127555,
+    "name": "Raikou",
+    "version": "Holo Rare | H26/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127555/preview_raikou-rare-holo-h26-h32-skyridge.jpg",
+    "card_market_ids": [
+      275247
+    ],
+    "collector_number": "H26/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127556,
+    "name": "Rhydon",
+    "version": "Holo Rare | H27/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127556/preview_rhydon-rare-holo-h27-h32-skyridge.jpg",
+    "card_market_ids": [
+      275257
+    ],
+    "collector_number": "H27/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127557,
+    "name": "Starmie",
+    "version": "Holo Rare | H28/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127557/preview_starmie-rare-holo-h28-h32-skyridge.jpg",
+    "card_market_ids": [
+      275254
+    ],
+    "collector_number": "H28/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127558,
+    "name": "Steelix",
+    "version": "Holo Rare | H29/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127558/preview_steelix-rare-holo-h29-h32-skyridge.jpg",
+    "card_market_ids": [
+      275256
+    ],
+    "collector_number": "H29/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127559,
+    "name": "Umbreon",
+    "version": "Holo Rare | H30/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127559/preview_umbreon-rare-holo-h30-h32-skyridge.jpg",
+    "card_market_ids": [
+      275255
+    ],
+    "collector_number": "H30/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127560,
+    "name": "Vaporeon",
+    "version": "Holo Rare | H31/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127560/preview_vaporeon-rare-holo-h31-h32-skyridge.jpg",
+    "card_market_ids": [
+      275252
+    ],
+    "collector_number": "H31/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127561,
+    "name": "Xatu",
+    "version": "Holo Rare | H32/H32",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127561/preview_xatu-rare-holo-h32-h32-skyridge.jpg",
+    "card_market_ids": [
+      275253
+    ],
+    "collector_number": "H32/H32",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127562,
+    "name": "Aerodactyl",
+    "version": "001/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127562/preview_aerodactyl-1-144-skyridge.jpg",
+    "card_market_ids": [
+      275259
+    ],
+    "collector_number": "001",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127564,
+    "name": "Alakazam",
+    "version": "2/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127564/preview_alakazam-2-144-skyridge.jpg",
+    "card_market_ids": [
+      275260
+    ],
+    "collector_number": "002/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127566,
+    "name": "Arcanine",
+    "version": "3/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127566/preview_arcanine-3-144-skyridge.jpg",
+    "card_market_ids": [
+      275261
+    ],
+    "collector_number": "003/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127568,
+    "name": "Articuno",
+    "version": "4/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127568/preview_articuno-4-144-skyridge.jpg",
+    "card_market_ids": [
+      275262
+    ],
+    "collector_number": "004/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127570,
+    "name": "Beedrill",
+    "version": "5/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127570/preview_beedrill-5-144-skyridge.jpg",
+    "card_market_ids": [
+      275263
+    ],
+    "collector_number": "005/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127572,
+    "name": "Crobat",
+    "version": "6/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127572/preview_crobat-6-144-skyridge.jpg",
+    "card_market_ids": [
+      275264
+    ],
+    "collector_number": "006/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127574,
+    "name": "Dewgong",
+    "version": "7/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127574/preview_dewgong-7-144-skyridge.jpg",
+    "card_market_ids": [
+      275265
+    ],
+    "collector_number": "007/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127576,
+    "name": "Flareon",
+    "version": "8/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127576/preview_flareon-8-144-skyridge.jpg",
+    "card_market_ids": [
+      275266
+    ],
+    "collector_number": "008/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127578,
+    "name": "Forretress",
+    "version": "9/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127578/preview_forretress-9-144-skyridge.jpg",
+    "card_market_ids": [
+      275267
+    ],
+    "collector_number": "009/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127580,
+    "name": "Gengar",
+    "version": "10/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127580/preview_gengar-10-144-skyridge.jpg",
+    "card_market_ids": [
+      275268
+    ],
+    "collector_number": "010/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127582,
+    "name": "Gyarados",
+    "version": "11/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127582/preview_gyarados-11-144-skyridge.jpg",
+    "card_market_ids": [
+      275269
+    ],
+    "collector_number": "011/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127584,
+    "name": "Houndoom",
+    "version": "12/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127584/preview_houndoom-12-144-skyridge.jpg",
+    "card_market_ids": [
+      275270
+    ],
+    "collector_number": "012/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127586,
+    "name": "Jolteon",
+    "version": "13/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127586/preview_jolteon-13-144-skyridge.jpg",
+    "card_market_ids": [
+      275271
+    ],
+    "collector_number": "013/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127588,
+    "name": "Kabutops",
+    "version": "14/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127588/preview_kabutops-14-144-skyridge.jpg",
+    "card_market_ids": [
+      275272
+    ],
+    "collector_number": "014/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127590,
+    "name": "Ledian",
+    "version": "15/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127590/preview_ledian-15-144-skyridge.jpg",
+    "card_market_ids": [
+      275273
+    ],
+    "collector_number": "015/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127592,
+    "name": "Machamp",
+    "version": "16/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127592/preview_machamp-16-144-skyridge.jpg",
+    "card_market_ids": [
+      275274
+    ],
+    "collector_number": "016/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127594,
+    "name": "Magcargo",
+    "version": "17/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127594/preview_magcargo-17-144-skyridge.jpg",
+    "card_market_ids": [
+      275276
+    ],
+    "collector_number": "017/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127596,
+    "name": "Magcargo",
+    "version": "18/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127596/preview_magcargo-18-144-skyridge.jpg",
+    "card_market_ids": [
+      275275
+    ],
+    "collector_number": "018/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127598,
+    "name": "Magneton",
+    "version": "19/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127598/preview_magneton-19-144-skyridge.jpg",
+    "card_market_ids": [
+      275277
+    ],
+    "collector_number": "019/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127600,
+    "name": "Magneton",
+    "version": "20/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127600/preview_magneton-20-144-skyridge.jpg",
+    "card_market_ids": [
+      275278
+    ],
+    "collector_number": "020/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127602,
+    "name": "Moltres",
+    "version": "21/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127602/preview_moltres-21-144-skyridge.jpg",
+    "card_market_ids": [
+      275279
+    ],
+    "collector_number": "021/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127604,
+    "name": "Nidoqueen",
+    "version": "22/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127604/preview_nidoqueen-22-144-skyridge.jpg",
+    "card_market_ids": [
+      275280
+    ],
+    "collector_number": "022/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127606,
+    "name": "Omastar",
+    "version": "23/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127606/preview_omastar-23-144-skyridge.jpg",
+    "card_market_ids": [
+      275281
+    ],
+    "collector_number": "023/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127608,
+    "name": "Piloswine",
+    "version": "24/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127608/preview_piloswine-24-144-skyridge.jpg",
+    "card_market_ids": [
+      275301
+    ],
+    "collector_number": "024/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127610,
+    "name": "Politoed",
+    "version": "25/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127610/preview_politoed-25-144-skyridge.jpg",
+    "card_market_ids": [
+      275283
+    ],
+    "collector_number": "025/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127612,
+    "name": "Poliwrath",
+    "version": "26/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127612/preview_poliwrath-26-144-skyridge.jpg",
+    "card_market_ids": [
+      275284
+    ],
+    "collector_number": "026/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127614,
+    "name": "Raichu",
+    "version": "27/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127614/preview_raichu-27-144-skyridge.jpg",
+    "card_market_ids": [
+      275285
+    ],
+    "collector_number": "027/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127616,
+    "name": "Raikou",
+    "version": "28/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127616/preview_raikou-28-144-skyridge.jpg",
+    "card_market_ids": [
+      275286
+    ],
+    "collector_number": "028/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127618,
+    "name": "Rhydon",
+    "version": "29/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127618/preview_rhydon-29-144-skyridge.jpg",
+    "card_market_ids": [
+      275287
+    ],
+    "collector_number": "029/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127620,
+    "name": "Starmie",
+    "version": "30/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127620/preview_starmie-30-144-skyridge.jpg",
+    "card_market_ids": [
+      275288
+    ],
+    "collector_number": "030/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127622,
+    "name": "Steelix",
+    "version": "31/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127622/preview_steelix-31-144-skyridge.jpg",
+    "card_market_ids": [
+      275289
+    ],
+    "collector_number": "031/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127624,
+    "name": "Umbreon",
+    "version": "32/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127624/preview_umbreon-32-144-skyridge.jpg",
+    "card_market_ids": [
+      275290
+    ],
+    "collector_number": "032/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127626,
+    "name": "Vaporeon",
+    "version": "33/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127626/preview_vaporeon-33-144-skyridge.jpg",
+    "card_market_ids": [
+      275291
+    ],
+    "collector_number": "033/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127628,
+    "name": "Wigglytuff",
+    "version": "34/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127628/preview_wigglytuff-34-144-skyridge.jpg",
+    "card_market_ids": [
+      275292
+    ],
+    "collector_number": "034/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127630,
+    "name": "Xatu",
+    "version": "35/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127630/preview_xatu-35-144-skyridge.jpg",
+    "card_market_ids": [
+      275293
+    ],
+    "collector_number": "035/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127632,
+    "name": "Electrode",
+    "version": "36/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127632/preview_electrode-36-144-skyridge.jpg",
+    "card_market_ids": [
+      275294
+    ],
+    "collector_number": "036/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127634,
+    "name": "Kabuto",
+    "version": "37/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127634/preview_kabuto-37-144-skyridge.jpg",
+    "card_market_ids": [
+      275295
+    ],
+    "collector_number": "037/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127636,
+    "name": "Machoke",
+    "version": "38/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127636/preview_machoke-38-144-skyridge.jpg",
+    "card_market_ids": [
+      275296
+    ],
+    "collector_number": "038/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127638,
+    "name": "Misdreavus",
+    "version": "39/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127638/preview_misdreavus-39-144-skyridge.jpg",
+    "card_market_ids": [
+      275297
+    ],
+    "collector_number": "039/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127640,
+    "name": "Noctowl",
+    "version": "40/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127640/preview_noctowl-40-144-skyridge.jpg",
+    "card_market_ids": [
+      275298
+    ],
+    "collector_number": "040/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127642,
+    "name": "Omanyte",
+    "version": "41/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127642/preview_omanyte-41-144-skyridge.jpg",
+    "card_market_ids": [
+      275299
+    ],
+    "collector_number": "041/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127644,
+    "name": "Persian",
+    "version": "42/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127644/preview_persian-42-144-skyridge.jpg",
+    "card_market_ids": [
+      275300
+    ],
+    "collector_number": "042/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127646,
+    "name": "Piloswine",
+    "version": "43/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127646/preview_piloswine-43-144-skyridge.jpg",
+    "card_market_ids": [
+      275282
+    ],
+    "collector_number": "043/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127648,
+    "name": "Starmie",
+    "version": "44/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127648/preview_starmie-44-144-skyridge.jpg",
+    "card_market_ids": [
+      275302
+    ],
+    "collector_number": "044/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127650,
+    "name": "Wobbuffet",
+    "version": "45/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127650/preview_wobbuffet-45-144-skyridge.jpg",
+    "card_market_ids": [
+      275303
+    ],
+    "collector_number": "045/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127652,
+    "name": "Abra",
+    "version": "46/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127652/preview_abra-46-144-skyridge.jpg",
+    "card_market_ids": [
+      275304
+    ],
+    "collector_number": "046/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127654,
+    "name": "Buried Fossil",
+    "version": "47/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127654/preview_buried-fossil-47-144-skyridge.jpg",
+    "card_market_ids": [
+      275305
+    ],
+    "collector_number": "047/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127656,
+    "name": "Cleffa",
+    "version": "48/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127656/preview_cleffa-48-144-skyridge.jpg",
+    "card_market_ids": [
+      275306
+    ],
+    "collector_number": "048/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127658,
+    "name": "Delibird",
+    "version": "49/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127658/preview_delibird-49-144-skyridge.jpg",
+    "card_market_ids": [
+      275307
+    ],
+    "collector_number": "049/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127660,
+    "name": "Diglett",
+    "version": "50/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127660/preview_diglett-50-144-skyridge.jpg",
+    "card_market_ids": [
+      275308
+    ],
+    "collector_number": "050/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127662,
+    "name": "Ditto",
+    "version": "51/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127662/preview_ditto-51-144-skyridge.jpg",
+    "card_market_ids": [
+      275309
+    ],
+    "collector_number": "051/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127664,
+    "name": "Dugtrio",
+    "version": "52/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127664/preview_dugtrio-52-144-skyridge.jpg",
+    "card_market_ids": [
+      275310
+    ],
+    "collector_number": "052/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127666,
+    "name": "Dunsparce",
+    "version": "53/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127666/preview_dunsparce-53-144-skyridge.jpg",
+    "card_market_ids": [
+      275311
+    ],
+    "collector_number": "053/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127668,
+    "name": "Eevee",
+    "version": "54/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127668/preview_eevee-54-144-skyridge.jpg",
+    "card_market_ids": [
+      275312
+    ],
+    "collector_number": "054/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127670,
+    "name": "Farfetch'd",
+    "version": "55/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127670/preview_farfetch-d-55-144-skyridge.jpg",
+    "card_market_ids": [
+      275313
+    ],
+    "collector_number": "055/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127672,
+    "name": "Forretress",
+    "version": "56/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127672/preview_forretress-56-144-skyridge.jpg",
+    "card_market_ids": [
+      275314
+    ],
+    "collector_number": "056/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127674,
+    "name": "Gastly",
+    "version": "57/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127674/preview_gastly-57-144-skyridge.jpg",
+    "card_market_ids": [
+      275315
+    ],
+    "collector_number": "057/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127676,
+    "name": "Girafarig",
+    "version": "58/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127676/preview_girafarig-58-144-skyridge.jpg",
+    "card_market_ids": [
+      275316
+    ],
+    "collector_number": "058/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127678,
+    "name": "Gligar",
+    "version": "59/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127678/preview_gligar-59-144-skyridge.jpg",
+    "card_market_ids": [
+      275317
+    ],
+    "collector_number": "059/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127680,
+    "name": "Golbat",
+    "version": "60/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127680/preview_golbat-60-144-skyridge.jpg",
+    "card_market_ids": [
+      275318
+    ],
+    "collector_number": "060/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127682,
+    "name": "Granbull",
+    "version": "61/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127682/preview_granbull-61-144-skyridge.jpg",
+    "card_market_ids": [
+      275319
+    ],
+    "collector_number": "061/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127684,
+    "name": "Growlithe",
+    "version": "62/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127684/preview_growlithe-62-144-skyridge.jpg",
+    "card_market_ids": [
+      275320
+    ],
+    "collector_number": "062/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127686,
+    "name": "Haunter",
+    "version": "63/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127686/preview_haunter-63-144-skyridge.jpg",
+    "card_market_ids": [
+      275321
+    ],
+    "collector_number": "063/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127688,
+    "name": "Heracross",
+    "version": "64/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127688/preview_heracross-64-144-skyridge.jpg",
+    "card_market_ids": [
+      275322
+    ],
+    "collector_number": "064/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127690,
+    "name": "Hoothoot",
+    "version": "65/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127690/preview_hoothoot-65-144-skyridge.jpg",
+    "card_market_ids": [
+      275323
+    ],
+    "collector_number": "065/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127692,
+    "name": "Houndour",
+    "version": "66/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127692/preview_houndour-66-144-skyridge.jpg",
+    "card_market_ids": [
+      275324
+    ],
+    "collector_number": "066/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127694,
+    "name": "Igglybuff",
+    "version": "67/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127694/preview_igglybuff-67-144-skyridge.jpg",
+    "card_market_ids": [
+      275325
+    ],
+    "collector_number": "067/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127696,
+    "name": "Jigglypuff",
+    "version": "68/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127696/preview_jigglypuff-68-144-skyridge.jpg",
+    "card_market_ids": [
+      275326
+    ],
+    "collector_number": "068/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127698,
+    "name": "Kadabra",
+    "version": "69/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127698/preview_kadabra-69-144-skyridge.jpg",
+    "card_market_ids": [
+      275327
+    ],
+    "collector_number": "069/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127700,
+    "name": "Kakuna",
+    "version": "70/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127700/preview_kakuna-70-144-skyridge.jpg",
+    "card_market_ids": [
+      275328
+    ],
+    "collector_number": "070/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127702,
+    "name": "Lapras",
+    "version": "71/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127702/preview_lapras-71-144-skyridge.jpg",
+    "card_market_ids": [
+      275329
+    ],
+    "collector_number": "071/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127704,
+    "name": "Ledyba",
+    "version": "72/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127704/preview_ledyba-72-144-skyridge.jpg",
+    "card_market_ids": [
+      275330
+    ],
+    "collector_number": "072/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127706,
+    "name": "Ledyba",
+    "version": "73/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127706/preview_ledyba-73-144-skyridge.jpg",
+    "card_market_ids": [
+      275331
+    ],
+    "collector_number": "073/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127708,
+    "name": "Machop",
+    "version": "74/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127708/preview_machop-74-144-skyridge.jpg",
+    "card_market_ids": [
+      275332
+    ],
+    "collector_number": "074/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127710,
+    "name": "Magikarp",
+    "version": "75/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127710/preview_magikarp-75-144-skyridge.jpg",
+    "card_market_ids": [
+      275333
+    ],
+    "collector_number": "075/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127712,
+    "name": "Magnemite",
+    "version": "76/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127712/preview_magnemite-76-144-skyridge.jpg",
+    "card_market_ids": [
+      275334
+    ],
+    "collector_number": "076/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127714,
+    "name": "Mantine",
+    "version": "77/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127714/preview_mantine-77-144-skyridge.jpg",
+    "card_market_ids": [
+      275335
+    ],
+    "collector_number": "077/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127716,
+    "name": "Meowth",
+    "version": "78/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127716/preview_meowth-78-144-skyridge.jpg",
+    "card_market_ids": [
+      275336
+    ],
+    "collector_number": "078/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127718,
+    "name": "Murkrow",
+    "version": "79/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127718/preview_murkrow-79-144-skyridge.jpg",
+    "card_market_ids": [
+      275337
+    ],
+    "collector_number": "079/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127720,
+    "name": "Natu",
+    "version": "80/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127720/preview_natu-80-144-skyridge.jpg",
+    "card_market_ids": [
+      275338
+    ],
+    "collector_number": "080/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127722,
+    "name": "Nidoran ♀",
+    "version": "81/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127722/preview_nidoran-f-81-144-skyridge.jpg",
+    "card_market_ids": [
+      275339
+    ],
+    "collector_number": "081/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127724,
+    "name": "Nidoran ♀",
+    "version": "82/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127724/preview_nidoran-f-82-144-skyridge.jpg",
+    "card_market_ids": [
+      275340
+    ],
+    "collector_number": "082/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127726,
+    "name": "Nidorina",
+    "version": "83/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127726/preview_nidorina-83-144-skyridge.jpg",
+    "card_market_ids": [
+      275341
+    ],
+    "collector_number": "083/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127728,
+    "name": "Pikachu",
+    "version": "84/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127728/preview_pikachu-84-144-skyridge.jpg",
+    "card_market_ids": [
+      275342
+    ],
+    "collector_number": "084/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127730,
+    "name": "Pineco",
+    "version": "85/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127730/preview_pineco-85-144-skyridge.jpg",
+    "card_market_ids": [
+      275343
+    ],
+    "collector_number": "085/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127732,
+    "name": "Pineco",
+    "version": "86/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127732/preview_pineco-86-144-skyridge.jpg",
+    "card_market_ids": [
+      275344
+    ],
+    "collector_number": "086/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127734,
+    "name": "Poliwag",
+    "version": "87/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127734/preview_poliwag-87-144-skyridge.jpg",
+    "card_market_ids": [
+      275345
+    ],
+    "collector_number": "087/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127736,
+    "name": "Poliwhirl",
+    "version": "88/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127736/preview_poliwhirl-88-144-skyridge.jpg",
+    "card_market_ids": [
+      275346
+    ],
+    "collector_number": "088/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127738,
+    "name": "Raticate",
+    "version": "89/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127738/preview_raticate-89-144-skyridge.jpg",
+    "card_market_ids": [
+      275347
+    ],
+    "collector_number": "089/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127740,
+    "name": "Rattata",
+    "version": "90/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127740/preview_rattata-90-144-skyridge.jpg",
+    "card_market_ids": [
+      275348
+    ],
+    "collector_number": "090/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127742,
+    "name": "Rhyhorn",
+    "version": "91/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127742/preview_rhyhorn-91-144-skyridge.jpg",
+    "card_market_ids": [
+      275349
+    ],
+    "collector_number": "091/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127744,
+    "name": "Sandshrew",
+    "version": "92/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127744/preview_sandshrew-92-144-skyridge.jpg",
+    "card_market_ids": [
+      275350
+    ],
+    "collector_number": "092/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127746,
+    "name": "Sandslash",
+    "version": "93/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127746/preview_sandslash-93-144-skyridge.jpg",
+    "card_market_ids": [
+      275351
+    ],
+    "collector_number": "093/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127748,
+    "name": "Seel",
+    "version": "94/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127748/preview_seel-94-144-skyridge.jpg",
+    "card_market_ids": [
+      275352
+    ],
+    "collector_number": "094/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127750,
+    "name": "Seel",
+    "version": "95/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127750/preview_seel-95-144-skyridge.jpg",
+    "card_market_ids": [
+      275353
+    ],
+    "collector_number": "095/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127752,
+    "name": "Shuckle",
+    "version": "96/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127752/preview_shuckle-96-144-skyridge.jpg",
+    "card_market_ids": [
+      275354
+    ],
+    "collector_number": "096/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127754,
+    "name": "Skarmory",
+    "version": "97/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127754/preview_skarmory-97-144-skyridge.jpg",
+    "card_market_ids": [
+      275355
+    ],
+    "collector_number": "097/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127756,
+    "name": "Slugma",
+    "version": "98/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127756/preview_slugma-98-144-skyridge.jpg",
+    "card_market_ids": [
+      275357
+    ],
+    "collector_number": "098/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127758,
+    "name": "Slugma",
+    "version": "99/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127758/preview_slugma-99-144-skyridge.jpg",
+    "card_market_ids": [
+      275356
+    ],
+    "collector_number": "099/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127760,
+    "name": "Snorlax",
+    "version": "100/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127760/preview_snorlax-100-144-skyridge.jpg",
+    "card_market_ids": [
+      275358
+    ],
+    "collector_number": "100/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127762,
+    "name": "Snubbull",
+    "version": "101/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127762/preview_snubbull-101-144-skyridge.jpg",
+    "card_market_ids": [
+      275359
+    ],
+    "collector_number": "101/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127764,
+    "name": "Stantler",
+    "version": "102/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127764/preview_stantler-102-144-skyridge.jpg",
+    "card_market_ids": [
+      275360
+    ],
+    "collector_number": "102/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127766,
+    "name": "Staryu",
+    "version": "103/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127766/preview_staryu-103-144-skyridge.jpg",
+    "card_market_ids": [
+      275362
+    ],
+    "collector_number": "103/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127768,
+    "name": "Staryu",
+    "version": "104/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127768/preview_staryu-104-144-skyridge.jpg",
+    "card_market_ids": [
+      275361
+    ],
+    "collector_number": "104/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127770,
+    "name": "Sunflora",
+    "version": "105/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127770/preview_sunflora-105-144-skyridge.jpg",
+    "card_market_ids": [
+      275363
+    ],
+    "collector_number": "105/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127772,
+    "name": "Sunkern",
+    "version": "106/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127772/preview_sunkern-106-144-skyridge.jpg",
+    "card_market_ids": [
+      275364
+    ],
+    "collector_number": "106/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127774,
+    "name": "Swinub",
+    "version": "107/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127774/preview_swinub-107-144-skyridge.jpg",
+    "card_market_ids": [
+      275366
+    ],
+    "collector_number": "107/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127776,
+    "name": "Swinub",
+    "version": "108/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127776/preview_swinub-108-144-skyridge.jpg",
+    "card_market_ids": [
+      275365
+    ],
+    "collector_number": "108/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127778,
+    "name": "Teddiursa",
+    "version": "109/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127778/preview_teddiursa-109-144-skyridge.jpg",
+    "card_market_ids": [
+      275367
+    ],
+    "collector_number": "109/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127780,
+    "name": "Ursaring",
+    "version": "110/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127780/preview_ursaring-110-144-skyridge.jpg",
+    "card_market_ids": [
+      275368
+    ],
+    "collector_number": "110/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127782,
+    "name": "Venomoth",
+    "version": "111/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127782/preview_venomoth-111-144-skyridge.jpg",
+    "card_market_ids": [
+      275369
+    ],
+    "collector_number": "111/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127784,
+    "name": "Venonat",
+    "version": "112/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127784/preview_venonat-112-144-skyridge.jpg",
+    "card_market_ids": [
+      275370
+    ],
+    "collector_number": "112/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127786,
+    "name": "Voltorb",
+    "version": "113/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127786/preview_voltorb-113-144-skyridge.jpg",
+    "card_market_ids": [
+      275371
+    ],
+    "collector_number": "113/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127788,
+    "name": "Weedle",
+    "version": "114/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127788/preview_weedle-114-144-skyridge.jpg",
+    "card_market_ids": [
+      275372
+    ],
+    "collector_number": "114/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127790,
+    "name": "Weedle",
+    "version": "115/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127790/preview_weedle-115-144-skyridge.jpg",
+    "card_market_ids": [
+      275373
+    ],
+    "collector_number": "115/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127792,
+    "name": "Yanma",
+    "version": "116/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127792/preview_yanma-116-144-skyridge.jpg",
+    "card_market_ids": [
+      275374
+    ],
+    "collector_number": "116/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127794,
+    "name": "Zubat",
+    "version": "117/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127794/preview_zubat-117-144-skyridge.jpg",
+    "card_market_ids": [
+      275376
+    ],
+    "collector_number": "117/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127796,
+    "name": "Zubat",
+    "version": "118/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127796/preview_zubat-118-144-skyridge.jpg",
+    "card_market_ids": [
+      275375
+    ],
+    "collector_number": "118/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127798,
+    "name": "Ancient Ruins",
+    "version": "119/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127798/preview_ancient-ruins-119-144-skyridge.jpg",
+    "card_market_ids": [
+      275377
+    ],
+    "collector_number": "119/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127800,
+    "name": "Relic Hunter",
+    "version": "120/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127800/preview_relic-hunter-120-144-skyridge.jpg",
+    "card_market_ids": [
+      275378
+    ],
+    "collector_number": "120/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127802,
+    "name": "Apricorn Maker",
+    "version": "121/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127802/preview_apricorn-maker-121-144-skyridge.jpg",
+    "card_market_ids": [
+      275379
+    ],
+    "collector_number": "121/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127804,
+    "name": "Crystal Shard",
+    "version": "122/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127804/preview_crystal-shard-122-144-skyridge.jpg",
+    "card_market_ids": [
+      275380
+    ],
+    "collector_number": "122/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127806,
+    "name": "Desert Shaman",
+    "version": "123/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127806/preview_desert-shaman-123-144-skyridge.jpg",
+    "card_market_ids": [
+      275381
+    ],
+    "collector_number": "123/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127808,
+    "name": "Fast Ball",
+    "version": "124/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127808/preview_fast-ball-124-144-skyridge.jpg",
+    "card_market_ids": [
+      275382
+    ],
+    "collector_number": "124/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127810,
+    "name": "Fisherman",
+    "version": "125/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127810/preview_fisherman-125-144-skyridge.jpg",
+    "card_market_ids": [
+      275383
+    ],
+    "collector_number": "125/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127812,
+    "name": "Friend Ball",
+    "version": "126/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127812/preview_friend-ball-126-144-skyridge.jpg",
+    "card_market_ids": [
+      275384
+    ],
+    "collector_number": "126/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127814,
+    "name": "Hyper Potion",
+    "version": "127/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127814/preview_hyper-potion-127-144-skyridge.jpg",
+    "card_market_ids": [
+      275385
+    ],
+    "collector_number": "127/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127816,
+    "name": "Lure Ball",
+    "version": "128/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127816/preview_lure-ball-128-144-skyridge.jpg",
+    "card_market_ids": [
+      275386
+    ],
+    "collector_number": "128/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127818,
+    "name": "Miracle Sphere α Alpha",
+    "version": "129/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127818/preview_miracle-sphere-alpha-129-144-skyridge.jpg",
+    "card_market_ids": [
+      275387
+    ],
+    "collector_number": "129/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127820,
+    "name": "Miracle Sphere β Beta",
+    "version": "130/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127820/preview_miracle-sphere-beta-130-144-skyridge.jpg",
+    "card_market_ids": [
+      275388
+    ],
+    "collector_number": "130/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127822,
+    "name": "Miracle Sphere γ Gamma",
+    "version": "131/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127822/preview_miracle-sphere-gamma-131-144-skyridge.jpg",
+    "card_market_ids": [
+      275389
+    ],
+    "collector_number": "131/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127824,
+    "name": "Mirage Stadium",
+    "version": "132/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127824/preview_mirage-stadium-132-144-skyridge.jpg",
+    "card_market_ids": [
+      275390
+    ],
+    "collector_number": "132/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127826,
+    "name": "Mystery Plate α Alpha",
+    "version": "133/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127826/preview_mystery-plate-alpha-133-144-skyridge.jpg",
+    "card_market_ids": [
+      275391
+    ],
+    "collector_number": "133/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127828,
+    "name": "Mystery Plate β Beta",
+    "version": "134/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127828/preview_mystery-plate-beta-134-144-skyridge.jpg",
+    "card_market_ids": [
+      275392
+    ],
+    "collector_number": "134/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127830,
+    "name": "Mystery Plate γ Gamma",
+    "version": "135/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127830/preview_mystery-plate-gamma-135-144-skyridge.jpg",
+    "card_market_ids": [
+      275393
+    ],
+    "collector_number": "135/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127832,
+    "name": "Mystery Plate δ Delta",
+    "version": "136/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127832/preview_mystery-plate-delta-136-144-skyridge.jpg",
+    "card_market_ids": [
+      275394
+    ],
+    "collector_number": "136/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127834,
+    "name": "Mystery Zone",
+    "version": "137/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127834/preview_mystery-zone-137-144-skyridge.jpg",
+    "card_market_ids": [
+      275395
+    ],
+    "collector_number": "137/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127836,
+    "name": "Oracle",
+    "version": "138/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127836/preview_oracle-138-144-skyridge.jpg",
+    "card_market_ids": [
+      275396
+    ],
+    "collector_number": "138/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127838,
+    "name": "Star Piece",
+    "version": "139/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127838/preview_star-piece-139-144-skyridge.jpg",
+    "card_market_ids": [
+      275397
+    ],
+    "collector_number": "139/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127840,
+    "name": "Underground expedition",
+    "version": "140/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127840/preview_underground-expedition-140-144-skyridge.jpg",
+    "card_market_ids": [
+      275398
+    ],
+    "collector_number": "140/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127842,
+    "name": "Underground Lake",
+    "version": "141/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127842/preview_underground-lake-141-144-skyridge.jpg",
+    "card_market_ids": [
+      275399
+    ],
+    "collector_number": "141/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127844,
+    "name": "Bounce Energy",
+    "version": "142/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127844/preview_bounce-energy-142-144-skyridge.jpg",
+    "card_market_ids": [
+      275400
+    ],
+    "collector_number": "142/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127846,
+    "name": "Cyclone Energy",
+    "version": "143/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127846/preview_cyclone-energy-143-144-skyridge.jpg",
+    "card_market_ids": [
+      275401
+    ],
+    "collector_number": "143/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127848,
+    "name": "Retro Energy",
+    "version": "144/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127848/preview_retro-energy-144-144-skyridge.jpg",
+    "card_market_ids": [
+      275402
+    ],
+    "collector_number": "144/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127850,
+    "name": "Celebi",
+    "version": "Secret Rare | 145/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127850/preview_celebi-secret-rare-145-144-skyridge.jpg",
+    "card_market_ids": [
+      275403
+    ],
+    "collector_number": "145/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127851,
+    "name": "Charizard",
+    "version": "Secret Rare | 146/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127851/preview_charizard-secret-rare-146-144-skyridge.jpg",
+    "card_market_ids": [
+      275404
+    ],
+    "collector_number": "146/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127852,
+    "name": "Crobat",
+    "version": "Secret Rare | 147/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127852/preview_crobat-secret-rare-147-144-skyridge.jpg",
+    "card_market_ids": [
+      275405
+    ],
+    "collector_number": "147/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127853,
+    "name": "Golem",
+    "version": "Secret Rare | 148/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127853/preview_golem-secret-rare-148-144-skyridge.jpg",
+    "card_market_ids": [
+      275406
+    ],
+    "collector_number": "148/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127854,
+    "name": "Ho-Oh",
+    "version": "Secret Rare | 149/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127854/preview_ho-oh-secret-rare-149-144-skyridge.jpg",
+    "card_market_ids": [
+      275407
+    ],
+    "collector_number": "149/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 127855,
+    "name": "Kabutops",
+    "version": "Secret Rare | 150/144",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/127855/preview_kabutops-secret-rare-150-144-skyridge.jpg",
+    "card_market_ids": [
+      275408
+    ],
+    "collector_number": "150/144",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "de",
+      "it"
+    ]
+  },
+  {
+    "id": 228445,
+    "name": "Charizard",
+    "version": "Jumbo Oversized | 146",
+    "game_id": 5,
+    "category_id": 78,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/228445/preview_charizard-jumbo-oversized-146-skyridge.jpg",
+    "card_market_ids": [
+      362905
+    ],
+    "collector_number": "146",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 228460,
+    "name": "Crobat",
+    "version": "Jumbo Oversized | 147",
+    "game_id": 5,
+    "category_id": 78,
+    "expansion_id": 1492,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/228460/preview_crobat-jumbo-oversized-147-skyridge.jpg",
+    "card_market_ids": [
+      362906
+    ],
+    "collector_number": "147",
+    "expansion_name": "Skyridge",
+    "expansion_code": "skg",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  }
+]

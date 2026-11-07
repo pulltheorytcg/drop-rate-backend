@@ -250,6 +250,8 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
         """
         select
             source,
+            source_record_key,
+            metadata,
             observation_type,
             observed_at,
             price_gbp_minor,
@@ -263,13 +265,28 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
             source_country
         from tcg.market_observations
         where catalogue_id = $1
+          and source='EBAY' and source_country='GB' and observation_type='SOLD'
+          and observed_at between now()-interval '90 days' and now()
         order by observed_at desc
         limit 500
         """,
         item["catalogue_id"],
     )
-    if not rows:
-        raise HTTPException(status_code=422, detail="No market observations available for this catalogue product")
+    # Prefer five exact UK sales. A matched Cardmarket guide is an explicitly
+    # labelled, non-publishable fallback when that evidence is unavailable.
+    from .ebay_sold_normalization import prefer_normalized_uk_rows
+    matching = [dict(row) for row in rows if _same_pricing_identity(dict(row),dict(item))]
+    exact = {}
+    for row in prefer_normalized_uk_rows(matching):
+        exact.setdefault(_sold_identity_key(row),row)
+    rows = list(exact.values())[:5]
+    if len(rows)<5:
+        from .cardmarket_valuations import apply_cached_inventory_guide
+        snapshot=await apply_cached_inventory_guide(connection,item['id'],owner_id,item['catalogue_id'])
+        if snapshot is not None:
+            return {'inventory_id':item['id'],'name':item['name'],'set_name':item['set_name'],
+                'card_number':item['card_number'],'snapshot':dict(snapshot),'auto_reprice_enabled':False}
+        raise HTTPException(status_code=422, detail="Five exact recent eBay UK sold observations or an eligible matched Cardmarket guide are required")
 
     observations = [
         MarketObservation(
@@ -285,6 +302,7 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
             language=row["language"],
             seal_status=row["seal_status"],
             source_country=row["source_country"],
+            source_record_key=row["source_record_key"],
         )
         for row in rows
     ]
@@ -305,6 +323,10 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
     )
 
     evidence = {
+        "method": "LIVE_EBAY_MARKET_V1",
+        "ruleset_revision": result.ruleset_revision,
+        "excluded_observation_count": result.excluded_observation_count,
+        "source_record_keys": [row["source_record_key"] for row in rows],
         "sources": [
             {
                 "source": estimate.source,

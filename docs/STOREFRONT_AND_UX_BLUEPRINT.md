@@ -609,6 +609,8 @@ AI must not invent or change:
 
 Generated copy must pass deterministic validation before Shopify write.
 
+Images and copy must also follow the [Shopify listing brand standard](SHOPIFY_BRAND_STANDARD.md), using the existing catalogue conventions. The complete approved image selection and shared copy plan are checked on draft and final readback; a correct image alongside unexpected media is not sufficient.
+
 ## CRO + adaptive storefront experimentation
 
 The Drop Rate storefront should be designed from the beginning so important UI surfaces can be experimented on safely without manually forking the theme.

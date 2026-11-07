@@ -1,0 +1,66 @@
+/* The same Seller Hub tokens; no permissions or hidden-state overrides. */
+.founder-settings-entry[hidden], .founder-operations #seller-nav[hidden] {display:none!important}
+.founder-settings-entry {display:flex;align-items:center;gap:18px;width:100%;padding:24px;margin:0 0 24px;text-align:left;border:1px solid var(--hub-line);border-radius:var(--hub-radius);background:var(--hub-panel);color:var(--hub-text);cursor:pointer}
+.founder-settings-entry > .workspace-icon:first-child {width:28px;height:28px;color:var(--hub-brand-accent)}
+.founder-entry-copy {display:grid;gap:7px;flex:1}
+.founder-entry-copy strong {font-size:20px;letter-spacing:-.025em}
+.founder-entry-copy > span {font-size:13px;color:var(--hub-muted);line-height:1.5}
+.founder-kicker {color:var(--hub-brand-accent);font-size:10px;letter-spacing:.12em;font-weight:700}
+.premium-hub #owner-view-founders {max-width:1280px;color:var(--hub-text);color-scheme:dark}
+.premium-hub #owner-view-founders .business-heading {padding:22px 0;margin:0 0 8px;align-items:center}
+.premium-hub #owner-view-founders .business-heading h1 {color:var(--hub-text);font-size:clamp(28px,3.1vw,40px);font-weight:650;letter-spacing:-.045em;line-height:1.15}
+.premium-hub #owner-view-founders .business-heading em {font-family:Georgia,serif;font-weight:400}
+.premium-hub #owner-view-founders .business-heading p {color:var(--hub-muted)}
+.premium-hub #owner-view-founders .business-heading .business-kicker {color:var(--hub-brand-accent);font-size:10px;letter-spacing:.12em}
+.premium-hub #owner-view-founders :is(.business-message,.business-caption,.business-notice) {color:var(--hub-muted)}
+.premium-hub #owner-view-founders .business-tabs {border-color:var(--hub-line);gap:6px}
+.premium-hub #owner-view-founders .business-tabs button {color:var(--hub-muted);font-weight:550;font-size:13px}
+.premium-hub #owner-view-founders .business-tabs button[aria-selected=true] {background:var(--hub-action);color:white}
+.premium-hub #owner-view-founders :is(.business-intro,.business-tools,.business-filters,.business-seller-card,.business-table-wrap) {background:var(--hub-panel);border-color:var(--hub-line);color:var(--hub-text)}
+.premium-hub #owner-view-founders :is(h2,.business-seller-title h2) {color:var(--hub-text)}
+.premium-hub #owner-view-founders :is(.business-intro p,.business-seller-card p,.business-filters label) {color:var(--hub-muted)}
+.premium-hub #owner-view-founders .business-kpi {--hub-text:var(--hub-paper-ink);--hub-muted:var(--hub-paper-muted);background:var(--hub-paper)!important;color:var(--hub-paper-ink);border-color:var(--hub-paper)!important;border-radius:var(--hub-radius)}
+.premium-hub #owner-view-founders .business-kpi strong {color:var(--hub-paper-ink)}
+.premium-hub #owner-view-founders .business-kpi small {color:var(--hub-paper-muted)}
+.premium-hub #owner-view-founders .business-button {background:var(--hub-action);border-color:var(--hub-action);color:white}
+.premium-hub #owner-view-founders .business-button.secondary {background:var(--hub-panel);border-color:var(--hub-line);color:var(--hub-text)}
+.premium-hub #owner-view-founders :is(input,select) {background:var(--hub-input);border-color:var(--hub-control-line);color:var(--hub-text)}
+.premium-hub #owner-view-founders .business-table {color:var(--hub-text)}
+.premium-hub #owner-view-founders .business-table th {background:var(--hub-panel-2);color:var(--hub-muted)}
+.premium-hub #owner-view-founders .business-table td {border-color:var(--hub-line)}
+.premium-hub #owner-view-founders :is(.business-owner-link,.business-table small,.business-table code) {color:var(--hub-link)}
+.premium-hub #owner-view-founders .business-message.is-error {color:var(--hub-negative);background:var(--hub-panel)}
+.founder-control-groups {display:grid;gap:24px;margin-top:32px}
+.founder-control-group h2 {font-size:17px;font-weight:600;margin:0 0 14px}
+.founder-control-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.founder-control-card {display:flex;gap:14px;align-items:center;padding:20px;background:var(--hub-panel);color:var(--hub-text);border:1px solid var(--hub-line);border-radius:var(--hub-radius);text-decoration:none;min-width:0}
+.founder-control-card:hover,.founder-settings-entry:hover {border-color:var(--hub-selected-line);background:var(--hub-panel-2)}
+.founder-control-icon {display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--hub-selected);color:var(--hub-link);flex-shrink:0}
+.founder-control-copy {display:grid;gap:6px;flex:1;min-width:0}
+.founder-control-copy strong {font-size:14px;font-weight:600}
+.founder-control-copy small {font-size:12px;line-height:1.5;color:var(--hub-muted)}
+.founder-control-card > .workspace-icon {flex-shrink:0;width:16px;color:var(--hub-muted)}
+.founder-control-card:focus-visible,.founder-settings-entry:focus-visible {outline:3px solid var(--hub-link);outline-offset:3px}
+.founder-shared-nav {position:fixed;top:var(--hub-topbar);left:0;bottom:0;width:var(--hub-sidebar);padding:28px 16px;background:var(--hub-bg);border-right:1px solid var(--hub-line);z-index:50;display:flex;flex-direction:column;gap:6px}
+.founder-shared-nav .owner-nav-item {display:flex;align-items:center;gap:14px;color:var(--hub-muted);padding:14px 16px;text-decoration:none;font-size:13px;font-weight:550;border-radius:8px}
+.founder-shared-nav .owner-nav-item:hover {background:var(--hub-panel);color:var(--hub-text)}
+.founder-operations .founder-dashboard-back {display:inline-flex;margin:0 0 20px}
+.founder-operations #seller-view-dashboard :is(.collector-hero,.collector-games,.collector-explore,.workspace-shortcuts) {display:none}
+@media(max-width:1000px){
+  .founder-shared-nav {top:auto;bottom:0;left:0;right:0;width:auto;flex-direction:row;justify-content:space-around;padding:7px 6px calc(7px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid var(--hub-line)}
+  .founder-shared-nav .owner-nav-item {flex:1;flex-direction:column;gap:5px;padding:8px 4px;font-size:10px;min-width:0}
+}
+@media(max-width:650px){
+  .founder-settings-entry {padding:18px;gap:12px}
+  .founder-control-grid {grid-template-columns:1fr}
+  .founder-control-card {padding:17px}
+  .premium-hub #owner-view-founders .business-heading {gap:12px}
+  .premium-hub #owner-view-founders .business-heading h1 {font-size:28px}
+  .premium-hub #owner-view-founders .business-heading p:last-child {font-size:12px}
+  .premium-hub #owner-view-founders .business-kpis {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .premium-hub #owner-view-founders .business-kpi {padding:16px}
+  .premium-hub #owner-view-founders .business-tabs {flex-wrap:nowrap;overflow-x:auto;padding-bottom:12px}
+  .premium-hub #owner-view-founders .business-tabs button {white-space:nowrap;padding:10px 12px}
+  .premium-hub #owner-view-founders .business-seller-grid {grid-template-columns:1fr}
+  .premium-hub #owner-view-founders .business-table-wrap {overflow-x:auto}
+}

@@ -1,0 +1,53 @@
+.owner-book-dialog [hidden]{display:none!important}
+.owner-book-dialog fieldset{border:0;margin:0;padding:0;min-width:0}
+.owner-book-dialog legend{font-weight:800;margin-bottom:15px;color:#183c67}
+.owner-book-dialog h3{font-size:.95rem;color:#183c67;margin:23px 0 13px}
+.owner-book-dialog label span{font-size:.68rem;font-weight:400}
+.owner-book-dialog .owner-import-fields{margin-bottom:14px}
+.owner-book-notes{display:grid;gap:6px;font-size:.73rem;font-weight:750;color:#445d79}
+.owner-book-notes textarea{box-sizing:border-box;width:100%;resize:vertical;font:inherit;padding:10px;border:1px solid #cbd9e8;border-radius:8px}
+.owner-book-explanation{font-size:.73rem;line-height:1.6;color:#5d7189;margin:18px 0}
+.owner-book-actions{position:sticky;bottom:0;z-index:2;display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px;padding:12px 0;background:#fff;border-top:1px solid #dbe3ed}
+#owner-book-message{font-size:.8rem;line-height:1.5;overflow-wrap:anywhere}
+.owner-book-costs{margin-top:14px}
+.owner-add-book{white-space:nowrap;min-height:41px}
+.owner-book-scanner,.owner-book-market{background:#f2f6fb;border:1px solid #d4e0ef;border-radius:12px;padding:14px;margin-bottom:20px}
+.owner-book-scanner h3{margin:0 0 8px}.owner-book-scanner p,.owner-book-market p{font-size:.78rem;line-height:1.5;color:#445d79}
+.owner-book-photo-actions{display:flex;flex-wrap:wrap;gap:8px}.owner-book-scanner button{min-height:44px}
+.owner-book-photos{display:flex;gap:10px;margin:12px 0}.owner-book-photos figure{margin:0;min-width:0;flex:1;max-width:120px}
+.owner-book-photos img{display:block;width:100%;height:110px;object-fit:contain;background:white;border-radius:8px}
+.owner-book-photos button{width:100%;font:inherit;border:0;background:transparent;color:#9c2536}
+.owner-book-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.owner-book-dialog details{border:1px solid #d4e0ef;border-radius:12px;margin-bottom:20px;padding:14px}
+.owner-book-dialog summary{cursor:pointer;color:#183c67;font-size:.85rem;font-weight:750;min-height:24px}
+.owner-book-dialog details[open] summary{margin-bottom:16px}
+.owner-book-research{margin-bottom:20px}.owner-book-research h3{margin:0 0 8px}
+.owner-book-research>p{font-size:.8rem;color:#445d79;line-height:1.5}
+.owner-book-research-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.owner-book-research-heading h3{margin:0}
+.owner-book-research-heading button{min-height:44px;flex-shrink:0;font-size:.75rem}
+.owner-book-candidate.is-selected{border-color:#2879df;background:#f8fbff}
+.owner-portal-page #owner-book-another-photo{min-height:44px;margin-top:12px;width:100%}
+.owner-book-candidates{display:grid;gap:12px}.owner-book-candidate{display:grid;grid-template-columns:125px minmax(0,1fr);gap:14px;background:white;border:1px solid #cbd9e8;border-radius:12px;padding:14px}
+.owner-book-cover{min-height:180px;display:flex;align-items:center;justify-content:center;background:#f2f6fb;border-radius:8px;overflow:hidden}
+.owner-book-cover img{width:100%;height:190px;object-fit:contain}.owner-book-cover span{font-size:.75rem;color:#5d7189;text-align:center;padding:12px}
+.owner-book-candidate-copy{min-width:0}.owner-book-candidate h4{font-size:1rem;margin:0 0 8px;color:#183c67}
+.owner-book-candidate p{font-size:.78rem;line-height:1.5;margin:7px 0;color:#445d79;overflow-wrap:anywhere}
+.owner-book-candidate a{font-size:.75rem;color:#205db8;display:inline-block;margin:7px 0}
+.owner-book-candidate button{display:block;width:100%;margin-top:10px;min-height:44px;white-space:normal!important}
+.owner-book-candidate button[aria-pressed=true]{background:#edf5ff;border-color:#2879df;color:#174d91}
+.owner-portal-page .owner-book-dialog .owner-primary-action,.owner-portal-page .owner-book-dialog .owner-secondary-action{box-sizing:border-box;margin:0;max-width:100%;min-height:44px;justify-content:center}
+.owner-portal-page .owner-book-candidate button{margin-top:10px}
+.owner-portal-page .owner-book-scanner>.owner-primary-action{width:100%}
+.owner-portal-page .owner-book-actions .owner-primary-action{width:auto}
+@media(max-width:430px){.owner-book-candidate{grid-template-columns:100px minmax(0,1fr);gap:10px;padding:12px}.owner-book-cover img{height:160px}}
+@media(max-width:600px){.owner-book-dialog .owner-import-fields{grid-template-columns:1fr}.owner-book-actions button{flex:1}.owner-book-dialog .owner-import-dialog-body{padding:16px}}
+#owner-book-copy-details{margin-top:12px;border-top:1px solid #dbe3ed;padding-top:8px}
+#owner-book-copy-details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:650}
+#owner-book-copy-details>summary::after{content:'＋';margin-left:auto}
+#owner-book-copy-details[open]>summary::after{content:'−'}
+.owner-book-selected{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px 16px;align-items:center}
+.owner-book-selected .owner-book-cover{grid-row:1/3;min-height:140px}
+.owner-book-selected h3,.owner-book-selected p{margin:0;overflow-wrap:anywhere}
+.owner-book-selected p{font-size:.82rem;color:#5d7186}
+.owner-book-selected[hidden]{display:none}

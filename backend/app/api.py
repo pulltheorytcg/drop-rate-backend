@@ -15,8 +15,15 @@ from .access_control import require_platform_admin_request
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
+from .channel_sync_wakeup import request_shopify_sync
+from .inventory_display_groups import inventory_group_page
 from .db import user_connection
 from .physical_state import validate_physical_state
+from .comic_identity import BOOK_CONDITIONS
+from .manual_collectible_identity import FIGURE_CONDITIONS
+from .inventory_reference_values import add_shared_reference_values
+from .inventory_reference_media import add_shared_inventory_media, shared_media_assets, is_graded_item
+from .r2_media import inventory_media_mirrors, verified_mirror_bytes
 from .schemas import (
     BulkCostAllocation,
     InventoryApproval,
@@ -50,20 +57,34 @@ GRADED_CARD_READY_SQL = """
     and i.seal_status is null
 """
 NON_CARD_READY_SQL = """
-    p.product_type <> 'CARD'
+    p.product_type in ('SEALED', 'COLLECTION')
     and i.seal_status is not null
     and (i.condition is null or btrim(i.condition) = '')
     and i.grading_company is null
     and i.grade is null
 """
+RAW_BOOK_READY_SQL = RAW_CARD_READY_SQL.replace("= 'CARD'", "= 'COMIC'") + (
+    " and (i.certificate_number is null or btrim(i.certificate_number) = '')"
+    " and i.condition in (" + ",".join("'" + value + "'" for value in sorted(BOOK_CONDITIONS)) + ")"
+)
+GRADED_BOOK_READY_SQL = GRADED_CARD_READY_SQL.replace("= 'CARD'", "= 'COMIC'") + """
+    and case when i.grade ~ '^[0-9]+([.][0-9]+)?$'
+        then i.grade::numeric between 0.5 and 10 else false end
+"""
+FIGURE_READY_SQL = """
+    p.product_type = 'FIGURE'
+    and i.grading_company is null and i.grade is null
+    and (i.certificate_number is null or btrim(i.certificate_number) = '')
+    and (i.seal_status is null or i.seal_status in ('SEALED', 'UNSEALED'))
+    and i.condition in (""" + ",".join("'" + value + "'" for value in sorted(FIGURE_CONDITIONS)) + ")"
 PHYSICAL_STATE_READY_SQL = f"""
-    (({RAW_CARD_READY_SQL}) or ({GRADED_CARD_READY_SQL}) or ({NON_CARD_READY_SQL}))
+    (({RAW_CARD_READY_SQL}) or ({GRADED_CARD_READY_SQL}) or ({NON_CARD_READY_SQL})
+     or ({RAW_BOOK_READY_SQL}) or ({GRADED_BOOK_READY_SQL}) or ({FIGURE_READY_SQL}))
 """
 READY_SQL = f"""
-    i.acquisition_cost_minor is not null
-    and ({PHYSICAL_STATE_READY_SQL})
+    ({PHYSICAL_STATE_READY_SQL})
     and i.storage_location_id is not null
-    and (p.product_type <> 'CARD' or (i.language is not null and btrim(i.language) <> ''))
+    and (i.language is not null and btrim(i.language) <> '')
     and i.store_price_minor is not null
     and i.identity_confirmed
     and {ACTIVE_INVENTORY_SQL}
@@ -78,6 +99,10 @@ INVENTORY_IMAGE_EXACT_HOSTS = {
     "optcgapi.com",
     "cdn.shopify.com",
     "cards.tcggraph.io",
+    "cardtrader.com",
+    "www.cardtrader.com",
+    "www.dbs-cardgame.com",
+    "narutocardgame.gg",
 }
 INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
     ".shopifycdn.com",
@@ -106,6 +131,8 @@ INVENTORY_IMAGE_CONTENT_TYPES = {
 def _inventory_image_source_allowed(url: str) -> bool:
     try:
         parsed = urlparse(url)
+        if parsed.port not in (None, 443):
+            return False
     except ValueError:
         return False
     host = (parsed.hostname or "").lower().rstrip(".")
@@ -132,6 +159,8 @@ def _inventory_image_direct_browser_allowed(url: str) -> bool:
 
     try:
         parsed = urlparse(url)
+        if parsed.port not in (None, 443):
+            return False
     except ValueError:
         return False
     host = (parsed.hostname or "").lower().rstrip(".")
@@ -231,15 +260,15 @@ async def _fetch_inventory_image(
 ISSUE_FILTERS = {
     "missing_cost": f"({WORK_INVENTORY_SQL}) and i.acquisition_cost_minor is null",
     "missing_condition": f"""({WORK_INVENTORY_SQL})
-        and p.product_type = 'CARD'
+        and p.product_type in ('CARD', 'COMIC', 'FIGURE')
         and i.grading_company is null
         and i.grade is null
         and (i.condition is null or btrim(i.condition) = '')""",
     "missing_seal_status": f"""({WORK_INVENTORY_SQL})
-        and p.product_type <> 'CARD'
+        and p.product_type in ('SEALED', 'COLLECTION')
         and i.seal_status is null""",
     "missing_location": f"({WORK_INVENTORY_SQL}) and i.storage_location_id is null",
-    "missing_language": f"({WORK_INVENTORY_SQL}) and p.product_type = 'CARD' and (i.language is null or btrim(i.language) = '')",
+    "missing_language": f"({WORK_INVENTORY_SQL}) and (i.language is null or btrim(i.language) = '')",
     "missing_price": f"({WORK_INVENTORY_SQL}) and i.store_price_minor is null",
     "identity_unconfirmed": f"({WORK_INVENTORY_SQL}) and not i.identity_confirmed",
     "approval_ready": f"i.status in ('DRAFT', 'INSPECTION') and i.sale_intent='FOR_SALE' and ({READY_SQL})",
@@ -332,6 +361,7 @@ async def list_inventory(
     unlocated: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    group_copies: bool = False,
 ) -> dict:
     if storage_location_id is not None and unlocated:
         raise HTTPException(
@@ -378,13 +408,23 @@ async def list_inventory(
             filters.append("i.storage_location_id is null")
 
         where = " and ".join(filters)
-        total = await connection.fetchval(
-            f"""select count(*) from tcg.inventory_items i
-            join tcg.catalogue_products p on p.id = i.catalogue_id where {where}""",
-            *params,
-        )
+        copy_total = None
+        if group_copies:
+            total, copy_total, group_ids = await inventory_group_page(
+                connection, where, params, limit, offset
+            )
+            params.append(group_ids)
+            where += f" and i.id=any(${len(params)}::uuid[])"
+        else:
+            total = await connection.fetchval(
+                f"""select count(*) from tcg.inventory_items i
+                join tcg.catalogue_products p on p.id = i.catalogue_id where {where}""",
+                *params,
+            )
 
-        params.extend([limit, offset])
+        pagination = "" if group_copies else f"limit ${len(params)+1} offset ${len(params)+2}"
+        if not group_copies:
+            params.extend([limit, offset])
         rows = await connection.fetch(
             f"""
             select
@@ -439,7 +479,7 @@ async def list_inventory(
             left join tcg.ebay_inventory_links eil on eil.inventory_id = i.id
             where {where}
             order by i.updated_at desc, i.inventory_code
-            limit ${len(params) - 1} offset ${len(params)}
+            {pagination}
             """,
             *params,
         )
@@ -460,9 +500,14 @@ async def list_inventory(
             item["card_image_cdn_url"] = direct_url or None
             items.append(item)
 
+        from .owner_inventory import add_reference_artwork
+        await add_reference_artwork(connection, items)
+        await add_shared_inventory_media(connection, items)
+        await add_shared_reference_values(connection, items)
         return jsonable_encoder(
             {"owner": dict(owner), "total": total, "limit": limit,
-             "offset": offset, "items": items}
+             "offset": offset, "items": items, "grouped": group_copies,
+             "copy_total": copy_total if group_copies else total}
         )
 
 
@@ -475,8 +520,11 @@ async def inventory_card_image(
 ) -> Response:
     """Proxy the best currently-eligible inventory image through Drop Rate.
 
-    Dashboard display eligibility is deliberately separate from exact-print
-    recognition approval. Pending but rights-verified images may display.
+    Shared by Founder HQ and Seller Hub. Authorize the physical item first;
+    canonical artwork follows catalogue identity, never its uploader's account.
+    Only approved canonical artwork is shared across owners. A holder may still
+    preview their own physical-copy media; pending catalogue art stays in review. No publication approval,
+    inventory duplication, or foreign physical-photo access is implied.
     """
 
     async with user_connection(
@@ -485,7 +533,7 @@ async def inventory_card_image(
         owner = await _owner(connection)
         item = await connection.fetchrow(
             """
-            select i.id, i.catalogue_id
+            select i.id, i.catalogue_id, i.language, i.grading_company, i.grade, i.certificate_number
             from tcg.inventory_items i
             where i.id = $1 and i.owner_id = $2
             """,
@@ -494,39 +542,43 @@ async def inventory_card_image(
         if item is None:
             raise HTTPException(status_code=404, detail="Inventory item not found")
 
-        assets = await connection.fetch(
-            """
-            select
-                ma.id, ma.scope, ma.approval_status, ma.source_provider,
-                ma.shopify_cdn_url, ma.public_source_url, ma.created_at
-            from tcg.media_assets ma
-            where ma.owner_id = $1
-              and ma.side = 'FRONT'
-              and ma.source_status = 'ACTIVE'
-              and ma.rights_status = 'VERIFIED'
-              and ma.approval_status in ('PENDING','APPROVED')
-              and ma.revoked_at is null
-              and coalesce(ma.shopify_cdn_url, ma.public_source_url) is not null
-              and (
-                (ma.scope = 'INVENTORY_ITEM' and ma.inventory_id = $2)
-                or
-                (ma.scope = 'CANONICAL_CARD' and ma.catalogue_id = $3)
-              )
-            order by
-                case when ma.scope = 'INVENTORY_ITEM' then 0 else 1 end,
-                case ma.approval_status when 'APPROVED' then 0 else 1 end,
-                case when nullif(btrim(coalesce(ma.shopify_cdn_url,'')), '') is not null then 0 else 1 end,
-                ma.created_at desc,
-                ma.id
-            """,
-            owner["id"], inventory_id, item["catalogue_id"],
-        )
+        assets = await shared_media_assets(connection, [inventory_id])
+        if is_graded_item(dict(item)):
+            assets = [asset for asset in assets if asset['scope'] == 'INVENTORY_ITEM'
+                      and asset.get('capture_context') == 'GRADED_SLAB']
+        mirrors = await inventory_media_mirrors(connection, assets)
+        # Library fallback is resolved by the same exact-reference rules used in
+        # both list/detail responses. No uploader/account rule for catalogue art.
+        reference_item = dict(item)
+
+    async def reference_response():
+        if is_graded_item(reference_item):
+            return None
+        from .owner_inventory import add_reference_artwork
+        async with user_connection(request.app.state.db_pool, user.user_id, _request_id(request)) as connection:
+            current_owner = await _owner(connection)
+            visible = await connection.fetchval("select exists(select 1 from tcg.inventory_items where id=$1 and owner_id=$2)", inventory_id, current_owner["id"])
+            if not visible:
+                raise HTTPException(404, "Inventory item not found")
+            await add_reference_artwork(connection, [reference_item])
+        if reference_item.get("reference_image_url"):
+            from .catalogue_artwork import reference_thumbnail
+            payload = await reference_thumbnail(reference_item["reference_image_url"])
+            if payload:
+                return Response(payload.data, media_type=payload.content_type, headers={
+                    "Cache-Control": "private, no-store", "Vary": "Authorization",
+                    "X-Content-Type-Options": "nosniff", "X-Drop-Rate-Media-Scope": "CATALOGUE_REFERENCE",
+                })
+        return None
 
     if not assets:
-        raise HTTPException(status_code=404, detail="No image is assigned to this card")
+        fallback = await reference_response()
+        if fallback is not None:
+            return fallback
+        raise HTTPException(status_code=404, detail="No verified artwork is available for this exact printing")
 
     timeout = httpx.Timeout(10.0, connect=5.0)
-    headers = {"User-Agent": "DropRateFounderHQ/1.0"}
+    headers = {"User-Agent": "DropRateInventory/1.0"}
     failures: list[str] = []
     async with httpx.AsyncClient(
         timeout=timeout,
@@ -534,6 +586,17 @@ async def inventory_card_image(
         headers=headers,
     ) as client:
         for asset in assets:
+            # Preserve physical-photo priority and the existing approval checks.
+            # A mirror is only a verified byte copy of this exact source asset.
+            mirrored = await verified_mirror_bytes(mirrors.get(str(asset['id'])))
+            if mirrored is not None:
+                return Response(content=mirrored, media_type="image/webp", headers={
+                    "X-Drop-Rate-Media-Id": str(asset["id"]),
+                    "X-Drop-Rate-Media-Provider": str(asset["source_provider"] or ""),
+                    "X-Drop-Rate-Media-Scope": str(asset["scope"]),
+                    "Cache-Control": "private, no-store", "Vary": "Authorization",
+                    "X-Content-Type-Options": "nosniff",
+                })
             urls: list[str] = []
             for candidate in (asset["shopify_cdn_url"], asset["public_source_url"]):
                 clean = str(candidate or "").strip()
@@ -555,9 +618,16 @@ async def inventory_card_image(
                     headers={
                         "X-Drop-Rate-Media-Id": str(asset["id"]),
                         "X-Drop-Rate-Media-Provider": str(asset["source_provider"] or ""),
+                        "X-Drop-Rate-Media-Scope": str(asset["scope"]),
+                        "Cache-Control": "private, no-store",
+                        "Vary": "Authorization",
+                        "X-Content-Type-Options": "nosniff",
                     },
                 )
 
+    fallback = await reference_response()
+    if fallback is not None:
+        return fallback
     raise HTTPException(
         status_code=502,
         detail={
@@ -659,7 +729,9 @@ async def update_inventory(
             raise HTTPException(status_code=409, detail={
                 "message": "Inventory item changed", "current_version": visible,
             })
-        return jsonable_encoder(dict(row))
+        result = jsonable_encoder(dict(row))
+    request_shopify_sync(request)
+    return result
 
 
 @router.post("/inventory/{inventory_id}/approve", dependencies=[Depends(require_platform_admin_request)])
@@ -706,11 +778,13 @@ async def approve_inventory(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
         missing = []
-        if item["acquisition_cost_minor"] is None: missing.append("acquisition cost")
-        if item["product_type"] == "CARD":
+        if item["product_type"] in {"CARD", "COMIC"}:
             is_graded = bool((item["grading_company"] or "").strip() and (item["grade"] or "").strip())
             if not is_graded and not (item["condition"] or "").strip():
-                missing.append("raw card condition")
+                missing.append("book condition" if item["product_type"] == "COMIC" else "raw card condition")
+        elif item["product_type"] == "FIGURE":
+            if not (item["condition"] or "").strip():
+                missing.append("figure condition")
         elif item["seal_status"] is None:
             missing.append("seal status")
         if item["storage_location_id"] is None: missing.append("registered storage location")
@@ -728,7 +802,9 @@ async def approve_inventory(
             where id = $1 and owner_id = $2 and version = $3 returning *""",
             inventory_id, owner["id"], payload.version,
         )
-        return jsonable_encoder(dict(row))
+        result = jsonable_encoder(dict(row))
+    request_shopify_sync(request)
+    return result
 
 
 @router.post("/inventory/bulk-cost", dependencies=[Depends(require_platform_admin_request)])
@@ -992,3 +1068,4 @@ async def inventory_review(
             )
             return jsonable_encoder({"run_id": created["id"], "created_at": created["created_at"], "replayed": True, "result": created["result"]})
         return jsonable_encoder({"run_id": created["id"], "created_at": created["created_at"], "replayed": False, "result": result})
+

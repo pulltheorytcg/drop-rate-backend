@@ -57,6 +57,20 @@ def _candidate_code_keys(row: Mapping[str, Any]) -> set[str]:
     return keys
 
 
+# Vision describes the visible packaging in broad terms; the verified
+# catalogue deliberately has more specific Bandai taxonomy. A broad label
+# may suggest a product for manual review, but can NEVER prove its edition.
+_SEALED_TYPE_FAMILIES = {
+    "COLLECTION": frozenset({"PREMIUM_CARD_COLLECTION", "COLLECTION_BOX", "COLLECTION_SET"}),
+    "TIN": frozenset({"TIN_PACK_SET", "COLLECTOR_TIN"}),
+    "CASE": frozenset({"BOOSTER_CASE"}),
+}
+
+
+def _sealed_type_compatible(observed: str, candidate: str) -> bool:
+    return observed == candidate or candidate in _SEALED_TYPE_FAMILIES.get(observed, ())
+
+
 async def load_sealed_candidates(
     connection,
     observation: RecognitionObservation,
@@ -68,7 +82,10 @@ async def load_sealed_candidates(
     rows = await connection.fetch(
         """
         select
-            p.id as catalogue_id,p.product_type,p.game,p.name,p.set_name,p.language,
+            p.id as catalogue_id,p.product_type,p.game,
+            coalesce(nullif(sd.attributes->>'display_name_en',''),p.name) as name,
+            coalesce(nullif(sd.attributes->>'set_name_en',''),p.set_name) as set_name,
+            p.language,
             pr.system_code,pr.identity_status,pr.set_code,pr.release_region,
             pr.release_date,pr.attributes as profile_attributes,
             sd.manufacturer_sku,sd.identity_status as sealed_identity_status,
@@ -133,15 +150,16 @@ def resolve_sealed_candidates(
         type_match = bool(
             observed_type != "UNKNOWN"
             and candidate_type != "UNKNOWN"
-            and observed_type == candidate_type
+            and _sealed_type_compatible(observed_type, candidate_type)
         )
         language_match = bool(
             observed_language
             and candidate_language
             and observed_language == candidate_language
         )
-        set_name_match = _name_similarity(observation.set_name_guess, row.get("set_name"))
-        product_name_match = _name_similarity(observation.set_name_guess, row.get("name"))
+        observed_name = observation.set_name_guess or observation.name_guess
+        set_name_match = _name_similarity(observed_name, row.get("set_name"))
+        product_name_match = _name_similarity(observed_name, row.get("name"))
 
         rejection_reasons: list[str] = []
         if (
@@ -207,7 +225,7 @@ def resolve_sealed_candidates(
                         "observed": observed_type,
                         "confidence": observation.sealed_product_type_confidence,
                         "candidate": candidate_type,
-                        "match": 1.0 if type_match else 0.0,
+                        "match": 1.0 if observed_type == candidate_type else 0.75 if type_match else 0.0,
                     },
                     "language": {
                         "observed": observed_language,
@@ -271,16 +289,17 @@ def resolve_sealed_candidates(
         type_match = bool(
             observed_type != "UNKNOWN"
             and candidate_type != "UNKNOWN"
-            and observed_type == candidate_type
+            and _sealed_type_compatible(observed_type, candidate_type)
         )
         language_match = bool(
             observed_language
             and candidate_language
             and observed_language == candidate_language
         )
+        observed_name = observation.set_name_guess or observation.name_guess
         name_match = max(
-            _name_similarity(observation.set_name_guess, row.get("set_name")),
-            _name_similarity(observation.set_name_guess, row.get("name")),
+            _name_similarity(observed_name, row.get("set_name")),
+            _name_similarity(observed_name, row.get("name")),
         )
         visual_raw = row.get("visual_similarity")
         visual_match = (
@@ -356,7 +375,7 @@ def resolve_sealed_candidates(
                         "observed": observed_type,
                         "confidence": observation.sealed_product_type_confidence,
                         "candidate": candidate_type,
-                        "match": 1.0 if type_match else 0.0,
+                        "match": 1.0 if observed_type == candidate_type else 0.75 if type_match else 0.0,
                     },
                     "language": {
                         "observed": observed_language,

@@ -59,11 +59,16 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
         "i.pricing_updated_at",
         "i.created_at",
         "i.updated_at",
+        "i.id",
+        "i.catalogue_id",
+        "i.version",
+        "i.sale_intent",
     )
     for field in allowed:
         assert field in query
 
     assert "as image_url" in query
+    assert "case when {PUBLISHED_SQL} then 'PUBLISHED' end as shopify_state" in query
     assert "m.scope='INVENTORY_ITEM'" in query
     assert "m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in query
     assert "m.approval_status='APPROVED'" in query
@@ -75,20 +80,20 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
     forbidden = (
         "acquisition_cost_minor",
         "acquisition_date",
-        "certificate_number",
         "storage_location_id",
         "storage_location_code",
         "storage_location_label",
         "purchase_lot_id",
         "purchase_lot_code",
         "i.notes",
-        "i.version",
         "shopify_product_id",
         "ebay_listing_id",
         "ebay_offer_id",
         "last_error_code",
         "identity_confirmed",
     )
+    assert "(nullif(btrim(i.certificate_number),'') is not null) as has_certificate" in query
+    assert query.count("certificate_number") == 1, "Only a presence flag, never the certificate value"
     for field in forbidden:
         assert field not in query
 
@@ -136,10 +141,14 @@ def test_owner_inventory_and_channels_bind_pagination_parameters() -> None:
     inventory = source[inventory_start:inventory_end]
     channels = source[channels_start:channels_end]
 
-    for block in (inventory, channels):
-        assert "page_params = [*params, limit, offset]" in block
-        assert 'limit ${len(page_params)-1} offset ${len(page_params)}' in block
-        assert 'limit {len(page_params)-1} offset {len(page_params)}' not in block
+    assert "page_params = [*params, limit, offset]" in channels
+    assert 'limit ${len(page_params)-1} offset ${len(page_params)}' in channels
+    assert 'page_params = params if group_copies or value_page is not None else [*params, limit, offset]' in inventory
+    assert 'limit ${len(params)+1} offset ${len(params)+2}' in inventory
+    assert 'inventory_group_page(' in inventory
+    assert 'inventory_value_page(' in inventory
+    assert 'where += f" and i.id=any(${len(params)}::uuid[])"' in inventory
+
 
 
 def test_owner_inventory_can_render_governed_sealed_product_media() -> None:
@@ -168,3 +177,20 @@ def test_owner_inventory_prefers_governed_first_party_inventory_media() -> None:
     assert "m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in query
     assert "and m.rights_tier='STOREFRONT_ALLOWED'" in query
     assert "(m.inventory_id=i.id) desc" in query
+
+
+def test_overview_stock_type_breakdown_is_owner_scoped_and_honest_about_sealed_stock() -> None:
+    source = SOURCE.read_text()
+    block = source[source.index('@router.get("/overview")'):source.index('@router.get("/insights")')]
+    assert "total_inventory_count" in block
+    assert "total_card_count" in block and "total_sealed_count" in block
+    assert "p.product_type='CARD'" in block
+    assert "p.product_type in ('SEALED','COLLECTION')" in block
+    assert "join tcg.catalogue_products p on p.id=i.catalogue_id" in block
+    assert "where owner_id=$1" in block
+    assert "reference_portfolio(connection, [owner_id])" in block
+    assert "summary.update(recommended_totals(shared))" in block
+    assert "active_market_value_minor=refs" in block
+    # Never infer missing prices from another owner, acquisition costs or asking prices.
+    for forbidden in ("acquisition_cost_minor", "owner_id in", "price_override", "truncate", "delete from"):
+        assert forbidden not in block.lower()

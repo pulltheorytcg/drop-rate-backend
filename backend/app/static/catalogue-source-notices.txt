@@ -1,0 +1,92 @@
+DROP RATE — CATALOGUE SOURCE NOTICES
+Reviewed 4 November 2026
+
+These references are metadata, not stock, seller ownership, authentication,
+condition verification, artwork permission or a market-value feed. All source
+names and third-party trademarks remain the property of their owners. Drop
+Rate is not endorsed by the game or figure manufacturers. Catalogue lookup is
+not a sale or sublicensing of a provider's dataset/API.
+
+LORCAST
+Factual English printing metadata is obtained through the documented Lorcast
+API: https://lorcast.com/docs/api
+Source fields are reduced to names, exact source printing/set identifiers,
+collector numbers, language, rarity and release dates. No images, rules,
+flavour text or prices are included in this feed. Locally cached data is
+refreshed no more often than weekly. This is not a Disney/Ravensburger artwork
+licence. Lorcast is not published, endorsed or specifically approved by
+Disney or Ravensburger. Access to these reference facts remains free.
+
+MTGJSON — MIT LICENSE
+Source: https://mtgjson.com/api/v5/AllPrintings.json.xz
+Licence: https://mtgjson.com/license/
+Drop Rate filters the source to English paper printing/finish metadata, omits
+back-face duplicate rows and excludes images, rules, flavour text and prices.
+
+Copyright © 2018 – Present, Zach Halpern
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+CARD COLLECTOR CAPITAL — CC BY 4.0
+Creator and source: Card Collector Capital, https://cardcollectorcapital.com/data
+Licence: https://creativecommons.org/licenses/by/4.0/
+Dataset: https://cardcollectorcapital.com/data/bowman-checklist-lookup-2026-10-27.json
+Reviewed version: 27 October 2026.
+This is a selected 1,722-row compilation from three Bowman checklists, not
+complete coverage of sports cards, all Bowman products or all parallels.
+Drop Rate renames and filters fields into its metadata schema. Original
+record IDs, manufacturer evidence URLs, source pages and review dates remain
+with each record. No prices or artwork are imported. A checklist entry does
+not verify a physical card's exact parallel, language, condition or
+authenticity. CC BY 4.0 covers the compilation and original annotations, not
+the linked third-party documents, trademarks or artwork.
+
+CARD COLLECTOR CAPITAL — 2026 TOPPS HERITAGE — CC BY 4.0
+Creator and permission: Card Collector Capital, https://cardcollectorcapital.com/data
+Licence: https://creativecommons.org/licenses/by/4.0/
+Dataset: https://cardcollectorcapital.com/data/2026-topps-heritage-short-prints.json
+Reviewed dataset version: 30 September 2026; access review: 4 November 2026.
+This separate source contains 100 numbered starred-base checklist references,
+not all 400 base cards, every Topps product, every parallel or a Panini database.
+Drop Rate filters and renames fields, joins subjects on multi-player cards
+without creating extra cards, and preserves checklist categories, source pages,
+manufacturer evidence URLs and the source's #360 Back Variation warning.
+The compilation and original annotations are CC BY 4.0; linked third-party
+documents, trademarks and artwork are not relicensed. Only the reviewed JSON
+is fetched; no manufacturer PDF, images, prices or print-run estimates are
+downloaded or inferred. A source checklist does not confirm physical language,
+parallel, grade, authenticity or ownership. Changes to this pinned export need
+another source review. The existing Bowman source remains separate and intact.
+
+INDIVIDUALLY REVIEWED FIGURE STARTER
+Four Funko product references contain individually checked factual product
+names, item numbers, box numbers and franchise/product-line identifiers.
+Evidence URLs and review dates accompany the records. They are a small
+manually curated starter, not a complete Funko database, an approved Funko API,
+or permission for automated extraction. No Funko website is fetched by this
+importer. No images, descriptive marketing text, prices, release dates or
+unconfirmed chase/exclusive editions are copied or inferred. Existing Good
+Smile references remain available separately; this import does not duplicate
+or delete them. Confirm the edition/variant against the physical item.
+
+NOT ENABLED
+Riftbound requires Drop Rate's app-specific Riot API approval or written
+permission. The unreviewed Riftcodex, Scryfall and LorcanaJSON downloaders are
+not enabled by this expansion. No restricted Funko marketplace feed or old
+HobbyDB-derived dump is used.

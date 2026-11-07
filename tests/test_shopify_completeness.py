@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from app.shopify_completeness import (
     CARD_CATEGORY_GID,
+    COMIC_CATEGORY_GID,
     build_shopify_product_plan,
     media_completeness,
     product_completeness,
@@ -96,6 +99,53 @@ def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
     assert "<strong>Condition:</strong>" not in plan["descriptionHtml"]
     assert "sealed TCG product" in plan["seo"]["description"]
     assert shipping_profile_key(sealed) == "SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
+
+
+def test_exact_second_print_comic_uses_comic_taxonomy_not_trading_card_copy() -> None:
+    comic = _card(
+        inventory_code="INV-COMIC-1", product_type="COMIC", game="Marvel Comics",
+        name="Deadpool / Batman #1", set_name="Deadpool / Batman",
+        card_number="1", variant="Single Issue · Ryan Stegman 2nd Printing Variant · Printing 2",
+        language="English", condition="Mint", rarity=None,
+    )
+    plan = build_shopify_product_plan(comic)
+    assert plan["category"] == COMIC_CATEGORY_GID
+    assert plan["categoryName"] == "Comic Books"
+    assert plan["productType"] == "Comic Book"
+    assert plan["shippingProfileKey"] == "COMIC_BOOK"
+    assert plan["requiredCollections"] == ["Comics", "Marvel Comics"]
+    assert "Printing 2" in plan["title"]
+    assert "Printing 2" in plan["descriptionHtml"]
+    assert "physical comic book" in plan["descriptionHtml"]
+    assert "physical trading card" not in plan["descriptionHtml"]
+    assert "TCG" not in plan["tags"]
+    assert "Raw Card" not in plan["tags"]
+    assert "Comic Books" in plan["tags"]
+    fields = {field["key"]: field["value"] for field in plan["metafields"]}
+    assert fields["edition"].endswith("Printing 2")
+    assert fields["issue_number"] == "1"
+
+    # A supported mapping is not a fabricated package weight. Founder HQ
+    # must configure a real active COMIC_BOOK profile before publication.
+    launch = product_completeness(
+        plan, store_price_minor=1000, inventory_code="INV-COMIC-1",
+        approved_media_count=1, existing_collection_titles={"Comics", "Marvel Comics"},
+        publication_configured=True, location_configured=True, shipping_profile=None,
+    )
+    assert launch["complete"] is False
+    assert "shipping profile: COMIC_BOOK" in launch["blockers"]
+
+
+def test_manga_volume_has_manga_storefront_copy_and_shipping() -> None:
+    plan = build_shopify_product_plan(_card(
+        product_type="COMIC", game="Manga", name="One Piece Volume 1",
+        set_name="One Piece", card_number="1", variant="Paperback · Printing 2",
+    ))
+    assert plan["productType"] == "Manga"
+    assert plan["category"] == COMIC_CATEGORY_GID
+    assert plan["requiredCollections"] == ["Manga"]
+    assert plan["shippingProfileKey"] == "MANGA_BOOK"
+    assert "manga volume" in plan["descriptionHtml"]
 
 
 def test_sealed_shipping_profile_is_canonical_product_specific() -> None:
@@ -359,21 +409,62 @@ def test_launch_completeness_passes_when_every_required_surface_is_ready() -> No
     assert result["blockers"] == []
 
 
-def test_remote_product_verification_checks_every_launch_surface() -> None:
-    plan = build_shopify_product_plan(_card())
+@pytest.mark.parametrize(
+    ("path", "replacement", "blocker"),
+    [
+        (("variants", "nodes", 0, "inventoryQuantity"), 0, "remote inventory quantity"),
+        (("title",), "Amazing card!!!", "remote title"),
+        (("descriptionHtml",), "<p>Guaranteed rare pulls!</p>", "remote description"),
+        (
+            ("descriptionHtml",),
+            lambda html: html.replace("<strong>", "<em>").replace("</strong>", "</em>"),
+            "remote description",
+        ),
+        (
+            ("descriptionHtml",),
+            lambda html: html.replace("<p>", '<p style="color:red">', 1),
+            "remote description",
+        ),
+        (
+            ("descriptionHtml",),
+            lambda html: html.replace("&lt;set&gt;", "<set>"),
+            "remote description",
+        ),
+        (("seo", "title"), "Best investment", "remote SEO title"),
+        (("seo", "description"), "Guaranteed returns", "remote SEO description"),
+        (("media", "nodes"), [], "remote media"),
+        (
+            ("media", "nodes"),
+            [
+                {"id": "gid://shopify/MediaImage/1"},
+                {"id": "gid://shopify/MediaImage/unapproved"},
+            ],
+            "remote media",
+        ),
+    ],
+)
+def test_remote_product_verification_checks_every_launch_surface(
+    path, replacement, blocker
+) -> None:
+    plan = build_shopify_product_plan(_card(name="Collector's <set> & card"))
     expected_metafields = {
         row["key"]: row["value"]
         for row in plan["metafields"]
     }
     snapshot = {
         "title": plan["title"],
-        "descriptionHtml": plan["descriptionHtml"],
+        # Shopify rewrites these entities and inserts block indentation in the
+        # live OP-17 draft; the copy and markup are otherwise unchanged.
+        "descriptionHtml": plan["descriptionHtml"]
+            .replace("&#x27;", "'")
+            .replace("&amp;", "&#38;")
+            .replace("><", ">\n<"),
         "status": "ACTIVE",
         "vendor": plan["vendor"],
         "productType": plan["productType"],
         "tags": plan["tags"],
         "templateSuffix": None,
-        "seo": plan["seo"],
+        "seo": dict(plan["seo"]),
         "category": {"id": plan["category"]},
         "metafields": {
             "nodes": [
@@ -427,7 +518,12 @@ def test_remote_product_verification_checks_every_launch_surface() -> None:
     )
     assert result == {"complete": True, "blockers": []}
 
-    snapshot["variants"]["nodes"][0]["inventoryQuantity"] = 0
+    target = snapshot
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = (
+        replacement(target[path[-1]]) if callable(replacement) else replacement
+    )
     broken = verify_remote_product(
         plan,
         snapshot,
@@ -442,7 +538,7 @@ def test_remote_product_verification_checks_every_launch_surface() -> None:
         },
     )
     assert broken["complete"] is False
-    assert "remote inventory quantity" in broken["blockers"]
+    assert blocker in broken["blockers"]
 
 
 def test_product_create_input_contains_complete_deterministic_shopify_fields() -> None:

@@ -14,11 +14,11 @@ def test_drop_rate_brand_shell_uses_real_visual_identity_not_generic_dr_tile() -
     css = STYLES.read_text()
     logo = STATIC / "brand-assets" / "drop-rate-founder-hq.png"
     assert "brand-lockup-logo" in html
-    assert "dr-logo-image" in html
+    assert 'class="collector-auth-logo"' in html
     assert "dr-founder-label" not in html
-    assert 'role="img" aria-label="Drop Rate FOUNDER HQ"' in html
-    assert "FOUNDER HQ" in html
-    assert "styles.css?v=founder-v5" in html
+    assert 'src="/assets/brand-assets/storefront-logo.png" alt="Drop Rate"' in html
+    assert "Sign in to Seller Hub" in html
+    assert "styles.css?v=comic-photo-review-20261101" in html
     assert logo.is_file()
     assert logo.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
     assert logo.read_bytes()[25] == 6  # PNG RGBA retains the approved transparency.

@@ -4,7 +4,10 @@ from datetime import date
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_serializer, model_validator
+
+from .comic_identity import ComicPrintingCreate
+from .manual_collectible_identity import FigureDetailsCreate, SportsCardCreate
 
 
 InventoryStatus = Literal["DRAFT", "INSPECTION", "APPROVED", "WITHDRAWN"]
@@ -13,7 +16,7 @@ SaleIntent = Literal["FOR_SALE", "PERSONAL_COLLECTION"]
 AllocationMethod = Literal["MANUAL", "EQUAL", "VALUE_WEIGHTED"]
 SealStatus = Literal["SEALED", "UNSEALED"]
 StorageLocationType = Literal["BINDER", "BOX", "SHELF", "DRAWER", "VAULT", "DISPLAY", "OTHER"]
-CatalogueProductType = Literal["CARD", "SEALED", "COLLECTION", "COMIC", "ACCESSORY"]
+CatalogueProductType = Literal["CARD", "SEALED", "COLLECTION", "COMIC", "ACCESSORY", "FIGURE"]
 ReadinessIssue = Literal[
     "missing_cost",
     "missing_condition",
@@ -238,9 +241,43 @@ class ManualCatalogueCreate(BaseModel):
     variant: str = Field(default="", max_length=160)
     rarity: str = Field(default="", max_length=80)
     language: str | None = Field(default=None, max_length=80)
+    comic_printing: ComicPrintingCreate | None = None
+    sports_card: SportsCardCreate | None = None
+    figure_details: FigureDetailsCreate | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_existing_catalogue_payloads(self, handler):
+        # Existing book source manifests compare their canonical catalogue
+        # fields exactly. Absent new subtype fields must not change that wire
+        # format, import digest or a previously issued intake receipt.
+        data = handler(self)
+        for key in ("sports_card", "figure_details"):
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
 
     @model_validator(mode="after")
     def normalise(self) -> "ManualCatalogueCreate":
+        identities = [self.comic_printing, self.sports_card, self.figure_details]
+        if sum(identity is not None for identity in identities) > 1:
+            raise ValueError("Choose one collectible identity")
+        if self.comic_printing is not None:
+            if self.product_type != "COMIC":
+                raise ValueError("Comic printing details require a comic product")
+            for key, value in self.comic_printing.catalogue_fields().items():
+                setattr(self, key, value)
+        if self.sports_card is not None:
+            if self.product_type != "CARD":
+                raise ValueError("Sports card details require a card product")
+            for key, value in self.sports_card.catalogue_fields().items():
+                setattr(self, key, value)
+        if self.figure_details is not None:
+            if self.product_type != "FIGURE":
+                raise ValueError("Figure details require a figure product")
+            for key, value in self.figure_details.catalogue_fields().items():
+                setattr(self, key, value)
+        if self.product_type == "FIGURE" and self.figure_details is None:
+            raise ValueError("Figure details are required when adding a figure")
         self.game = self.game.strip()
         self.name = self.name.strip()
         self.set_name = self.set_name.strip()
@@ -252,6 +289,8 @@ class ManualCatalogueCreate(BaseModel):
             raise ValueError("game, name and set_name cannot be blank")
         if self.product_type == "CARD" and not self.card_number:
             raise ValueError("card_number is required for a manually created card")
+        if self.sports_card is not None and not self.language:
+            raise ValueError("Sports card language is required")
         return self
 
 
@@ -277,14 +316,17 @@ class ManualInventoryCreate(BaseModel):
             raise ValueError("New inventory must be verified through the Verify workflow")
         if (self.catalogue_id is None) == (self.new_catalogue is None):
             raise ValueError("Choose exactly one existing catalogue product or new catalogue product")
-        if (self.grading_company is None) != (self.grade is None):
-            raise ValueError("grading_company and grade must both be set or both cleared")
-        if self.certificate_number and not self.grading_company:
-            raise ValueError("certificate_number requires grading_company and grade")
         self.condition = self.condition.strip() if self.condition else None
         self.grading_company = self.grading_company.strip() if self.grading_company else None
         self.grade = self.grade.strip() if self.grade else None
         self.certificate_number = self.certificate_number.strip() if self.certificate_number else None
         self.language = self.language.strip() if self.language else None
         self.notes = self.notes.strip()
+        self.grading_company = self.grading_company or None
+        self.grade = self.grade or None
+        self.certificate_number = self.certificate_number or None
+        if (self.grading_company is None) != (self.grade is None):
+            raise ValueError("grading_company and grade must both be set or both cleared")
+        if self.certificate_number and not self.grading_company:
+            raise ValueError("certificate_number requires grading_company and grade")
         return self

@@ -1,0 +1,310 @@
+{
+  "schema_version": 1,
+  "scope": "Comic/manga artwork display and precise sold-listing ISBN matching repair",
+  "baseline_commit": "2afa634087b97c0380e64ab0d617af4cda6a1cc6",
+  "before": {
+    "checked_at": "2026-10-27T19:46:48.572401+00:00",
+    "book_sources": [
+      {
+        "n": 4,
+        "system_code": "DC_COMICS",
+        "barcode_count": 0,
+        "profile_status": "STRUCTURED",
+        "identity_source": "OFFICIAL_PUBLISHER_CATALOGUE",
+        "identity_status": "STRUCTURED",
+        "publisher_reference_count": 1
+      },
+      {
+        "n": 96,
+        "system_code": "DC_COMICS",
+        "barcode_count": 96,
+        "profile_status": "STRUCTURED",
+        "identity_source": "OPEN_LIBRARY_CATALOGUE",
+        "identity_status": "STRUCTURED",
+        "publisher_reference_count": 96
+      },
+      {
+        "n": 37,
+        "system_code": "MANGA",
+        "barcode_count": 37,
+        "profile_status": "STRUCTURED",
+        "identity_source": "OFFICIAL_PUBLISHER_CATALOGUE",
+        "identity_status": "STRUCTURED",
+        "publisher_reference_count": 27
+      },
+      {
+        "n": 768,
+        "system_code": "MANGA",
+        "barcode_count": 768,
+        "profile_status": "STRUCTURED",
+        "identity_source": "OPEN_LIBRARY_CATALOGUE",
+        "identity_status": "STRUCTURED",
+        "publisher_reference_count": 768
+      },
+      {
+        "n": 2,
+        "system_code": "MARVEL_COMICS",
+        "barcode_count": 1,
+        "profile_status": "NEEDS_REVIEW",
+        "identity_source": "SELLER_ENTERED",
+        "identity_status": "NEEDS_REVIEW",
+        "publisher_reference_count": 0
+      },
+      {
+        "n": 6,
+        "system_code": "MARVEL_COMICS",
+        "barcode_count": 1,
+        "profile_status": "STRUCTURED",
+        "identity_source": "OFFICIAL_PUBLISHER_CATALOGUE",
+        "identity_status": "STRUCTURED",
+        "publisher_reference_count": 5
+      },
+      {
+        "n": 130,
+        "system_code": "MARVEL_COMICS",
+        "barcode_count": 130,
+        "profile_status": "STRUCTURED",
+        "identity_source": "OPEN_LIBRARY_CATALOGUE",
+        "identity_status": "STRUCTURED",
+        "publisher_reference_count": 130
+      },
+      {
+        "n": 547,
+        "system_code": "OTHER_COMICS",
+        "barcode_count": 547,
+        "profile_status": "STRUCTURED",
+        "identity_source": "OPEN_LIBRARY_CATALOGUE",
+        "identity_status": "STRUCTURED",
+        "publisher_reference_count": 547
+      }
+    ],
+    "canonical_media_rows": 0,
+    "book_provider_mappings": [
+      {
+        "n": 1,
+        "match_status": "REVIEW",
+        "source_provider": "PUBLISHER"
+      },
+      {
+        "n": 1542,
+        "match_status": "REVIEW",
+        "source_provider": "OPEN_LIBRARY"
+      }
+    ],
+    "publisher_reference_count_note": "The baseline publisher_reference_count uses JSON key presence; many values are null. It is not an artwork-availability count.",
+    "positive_shared_market_snapshots": 0,
+    "book_market_observations": 0,
+    "book_inventory_copy_count": 2,
+    "book_inventory_review_statuses": [
+      "NEEDS_REVIEW"
+    ]
+  },
+  "source_contract": {
+    "url": "https://openlibrary.org/dev/docs/api/covers",
+    "general_api": "https://openlibrary.org/developers/api",
+    "licensing": "https://openlibrary.org/developers/licensing",
+    "delivery": "User-visible direct lazy browser images, exact trusted imported OL edition ID; no background cover crawl, R2 mirror, publisher approval or physical-printing claim."
+  },
+  "bounded_source_check": {
+    "checked_at": "2026-10-27T19:57:00Z",
+    "timestamp_precision_note": "Inspection checkpoint; per-image HTTP Date headers below identify the downloaded responses. These six source checks are not an exhaustive catalogue crawl.",
+    "sample_selection": "First alphabetic imported title from each stored comic/manga system, plus two manga cases from the same bounded readback. Six total exact OL edition IDs.",
+    "sample_count": 6,
+    "http_200_jpeg": 5,
+    "decoded_jpeg": 5,
+    "source_404": 1,
+    "visually_consistent_reference_samples": 4,
+    "excluded_incorrect_source_cover": 1,
+    "samples": [
+      {
+        "olid": "OL9440734M",
+        "name": "52 #1",
+        "system": "DC_COMICS",
+        "loaded": true,
+        "bytes": 15265,
+        "sha256": "e1acace9ffe7021d1de8c6022bf07509ffb2af1afff4db5617ca623236c4b192",
+        "format": "JPEG",
+        "width": 180,
+        "height": 276,
+        "image_url": "https://covers.openlibrary.org/b/olid/OL9440734M-M.jpg?default=false",
+        "visual_review": "TITLE_AND_VISIBLE_VOLUME_CONSISTENT_REFERENCE_ONLY",
+        "response_http_date_utc": "2026-10-27T19:51:31+00:00"
+      },
+      {
+        "olid": "OL8857676M",
+        "name": "@Large Volume 1",
+        "system": "MANGA",
+        "loaded": true,
+        "bytes": 14343,
+        "sha256": "3594cb3c4639d2b9589135d225ffffecf87cb1bb1b508cf9d690d5e6e5abed58",
+        "format": "JPEG",
+        "width": 180,
+        "height": 286,
+        "image_url": "https://covers.openlibrary.org/b/olid/OL8857676M-M.jpg?default=false",
+        "visual_review": "TITLE_AND_VISIBLE_VOLUME_CONSISTENT_REFERENCE_ONLY",
+        "response_http_date_utc": "2026-10-27T19:51:32+00:00"
+      },
+      {
+        "olid": "OL8098626M",
+        "name": "Alias #1",
+        "system": "MARVEL_COMICS",
+        "loaded": true,
+        "bytes": 12578,
+        "sha256": "f78fc1dc613f7482edccdde52e62080ed35b6feeb298e3e4c25eb5f17fddef6d",
+        "format": "JPEG",
+        "width": 180,
+        "height": 271,
+        "image_url": "https://covers.openlibrary.org/b/olid/OL8098626M-M.jpg?default=false",
+        "visual_review": "TITLE_AND_VISIBLE_VOLUME_CONSISTENT_REFERENCE_ONLY",
+        "response_http_date_utc": "2026-10-27T19:51:30+00:00"
+      },
+      {
+        "olid": "OL12379957M",
+        "name": "10th Muse: Photo Cover #1",
+        "system": "OTHER_COMICS",
+        "loaded": false,
+        "bytes": 0,
+        "image_url": "https://covers.openlibrary.org/b/olid/OL12379957M-M.jpg?default=false",
+        "visual_review": "SOURCE_404",
+        "response_http_date_utc": "2026-10-27T19:51:32+00:00"
+      },
+      {
+        "olid": "OL8537239M",
+        "name": "+Anima Volume 1",
+        "system": "MANGA",
+        "loaded": true,
+        "bytes": 7311,
+        "sha256": "86968e0a76ca9f059dd63c12c07e9876c785cd3b043d76dd297cee75ac935a41",
+        "format": "JPEG",
+        "width": 128,
+        "height": 191,
+        "image_url": "https://covers.openlibrary.org/b/olid/OL8537239M-M.jpg?default=false",
+        "visual_review": "TITLE_AND_VISIBLE_VOLUME_CONSISTENT_REFERENCE_ONLY",
+        "response_http_date_utc": "2026-10-27T19:51:32+00:00"
+      },
+      {
+        "olid": "OL9465913M",
+        "name": "50 Rules For Teenagers Volume 2",
+        "system": "MANGA",
+        "loaded": true,
+        "bytes": 13223,
+        "sha256": "62a3be11da7aaa6d959e80e1b4ec34b90f52cc0d94ab8c3183afcda1277b39e4",
+        "format": "JPEG",
+        "width": 180,
+        "height": 247,
+        "image_url": "https://covers.openlibrary.org/b/olid/OL9465913M-M.jpg?default=false",
+        "visual_review": "REJECTED_WRONG_LANGUAGE_AND_VOLUME",
+        "response_http_date_utc": "2026-10-27T19:51:31+00:00"
+      }
+    ]
+  },
+  "provider_control": {
+    "checked_at": "2026-10-27T19:49:05.029665+00:00",
+    "latest_pause": {
+      "errors": [
+        {
+          "code": "PROVIDER_UNAVAILABLE",
+          "status": 429
+        }
+      ],
+      "status": "FAILED",
+      "metadata": {
+        "job": "LIVE_EBAY_MARKET_V1",
+        "identity_key": "PROVIDER",
+        "next_check_at": "2026-10-27T20:34:31.246537+00:00"
+      },
+      "started_at": "2026-10-26T20:34:30.815061+00:00",
+      "completed_at": "2026-10-26T20:34:31.266058+00:00"
+    },
+    "last_recorded_usage": {
+      "usage": {
+        "limit": 250,
+        "reset": 1793491200,
+        "charged": 1,
+        "remaining": 0
+      },
+      "errors": [],
+      "status": "SUCCEEDED",
+      "started_at": "2026-10-09T08:01:37.26135+00:00"
+    },
+    "recorded_reset_utc": "2026-11-01T00:00:00.000Z",
+    "interpretation": "Latest stored successful usage is historical, not a fresh account-balance query. Subsequent durable 429 provider pauses corroborate source unavailability; no retry or metering bypass was attempted."
+  },
+  "mapping_access": {
+    "checked_at": "2026-10-27T19:54:19.23429+00:00",
+    "security": {
+      "acl": "{postgres=arwdDxtm/postgres,tcg_api=arw/postgres}",
+      "rls": true,
+      "force_rls": true,
+      "select_grant": true
+    },
+    "policies": [
+      {
+        "roles": [
+          "postgres"
+        ],
+        "using": "true",
+        "policy": "admin_access",
+        "command": "ALL"
+      },
+      {
+        "roles": [
+          "tcg_api"
+        ],
+        "using": null,
+        "policy": "api_insert",
+        "command": "INSERT"
+      },
+      {
+        "roles": [
+          "tcg_api"
+        ],
+        "using": "(tcg.current_access_role() IS NOT NULL)",
+        "policy": "api_read",
+        "command": "SELECT"
+      },
+      {
+        "roles": [
+          "tcg_api"
+        ],
+        "using": "tcg.is_platform_admin()",
+        "policy": "api_update",
+        "command": "UPDATE"
+      }
+    ]
+  },
+  "limitations": [
+    "A constructed source URL is not evidence that the image exists or depicts the correct printing.",
+    "Community edition covers are explicitly reference-only and may vary. The known wrong-language/wrong-volume source association is excluded.",
+    "The ISBN matcher fix does not create observations, verify a physical printing or manufacture market values.",
+    "No schema, permission, ownership, cover-rights status or valuation-policy changes are planned."
+  ],
+  "read_only_application_helper": {
+    "source_rows": 1541,
+    "accepted_reference_paths": 1540,
+    "accepted_by_system": {
+      "OTHER_COMICS": 547,
+      "MANGA": 767,
+      "MARVEL_COMICS": 130,
+      "DC_COMICS": 96
+    },
+    "rejected": [
+      {
+        "catalogue_id": "9f20f0c4-9480-5dd5-bd50-7e373db8eaba",
+        "name": "50 Rules For Teenagers Volume 2",
+        "edition_id": "OL9465913M"
+      }
+    ],
+    "note": "Read-only application-helper validation using actual database rows. Accepted paths are not an assertion that all source images load or are visually correct."
+  },
+  "source_cohort_note": "1,541 editions retain OPEN_LIBRARY_CATALOGUE identity source. There are 1,542 provider mappings because OL8491048M also maps to the existing publisher-sourced Boys Over Flowers Volume22 edition.",
+  "local_validation": {
+    "focused_artwork_and_book_market_tests": {
+      "passed": 85,
+      "duration_seconds": 2.95
+    },
+    "ui_command": "NODE_PATH=/tmp/drop-rate-artwork-ui/node_modules npm test",
+    "ui_result": "PASS; full existing DOM suite including five new cover behavior groups",
+    "integration_review": "Two independent code reviews plus actual-cohort digest readback; root corrected the founder catalogue script cache version."
+  }
+}

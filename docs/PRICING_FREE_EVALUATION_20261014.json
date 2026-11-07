@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "scope": "FREE_EVALUATION_ONLY",
+  "evaluated_at": "2026-10-14T11:48:28.626Z",
+  "identities_checked": 5,
+  "marketplace_checks": 5,
+  "current_price_checks": 3,
+  "positive_current_price_candidates": 2,
+  "positive_uk_standard_raw_marketplace_candidates": 0,
+  "production_price_writes": 0,
+  "account_created": false,
+  "paid_subscription_started": false,
+  "free_api_activation": "AWAITING_USER_SIGNUP",
+  "responses": [
+    {
+      "sample": "Japanese Gogeta FB09-001",
+      "request_id": "a2c4cfef-3937-4262-b92c-28f2689958a0",
+      "card_id": "01a0e928-ba50-7d20-953c-594f3c8480f9",
+      "http_status": 200,
+      "kind": "UK_MARKETPLACE",
+      "filters": {
+        "grade": "RAW",
+        "language": "JA",
+        "marketplace": "ebay_uk",
+        "finish": "standard"
+      },
+      "price_rows": null,
+      "grade_rows": 0,
+      "finish_keys": [],
+      "market_sources": []
+    },
+    {
+      "sample": "Japanese Krieg OP15-001",
+      "request_id": "809f2632-b5e3-4eb9-acd5-63034e32a2a2",
+      "card_id": "019d9b2c-b45e-76b0-a10e-1c75219c6d43",
+      "http_status": 200,
+      "kind": "UK_MARKETPLACE",
+      "filters": {
+        "grade": "RAW",
+        "language": "JA",
+        "marketplace": "ebay_uk",
+        "finish": "standard"
+      },
+      "price_rows": null,
+      "grade_rows": 0,
+      "finish_keys": [],
+      "market_sources": []
+    },
+    {
+      "sample": "English Hex Maniac xy7-75a",
+      "request_id": "b12b398b-0706-45c8-811d-4e24470b169a",
+      "card_id": "b12896a0-89ec-45e4-9f35-6934b9a851d9",
+      "http_status": 200,
+      "kind": "UK_MARKETPLACE",
+      "filters": {
+        "grade": "RAW",
+        "language": "EN",
+        "marketplace": "ebay_uk",
+        "finish": "standard"
+      },
+      "price_rows": null,
+      "grade_rows": 0,
+      "finish_keys": [],
+      "market_sources": []
+    },
+    {
+      "sample": "English Hex Maniac xy7-75a current-price/finishes",
+      "request_id": "1086bd20-9834-4b57-9024-67ae7dbdc147",
+      "card_id": "b12896a0-89ec-45e4-9f35-6934b9a851d9",
+      "http_status": 200,
+      "kind": "CURRENT_PRICE",
+      "filters": null,
+      "price_rows": 1,
+      "grade_rows": null,
+      "finish_keys": [],
+      "market_sources": [
+        "cardmarket"
+      ]
+    },
+    {
+      "sample": "Japanese Lt. Surge Jolteon PMCG5-042 current-price/finishes",
+      "request_id": "4b9508a2-f34a-4497-bbec-2c206e99a373",
+      "card_id": "01a13a22-dd08-7498-9a16-0c26543be2e9",
+      "http_status": 200,
+      "kind": "CURRENT_PRICE",
+      "filters": null,
+      "price_rows": 0,
+      "grade_rows": null,
+      "finish_keys": [],
+      "market_sources": []
+    },
+    {
+      "sample": "Japanese Lt. Surge Jolteon PMCG5-042 UK sold",
+      "request_id": "4bd7bf43-bb5c-498c-bfa8-a2c0948aaacf",
+      "card_id": "01a13a22-dd08-7498-9a16-0c26543be2e9",
+      "http_status": 200,
+      "kind": "UK_MARKETPLACE",
+      "filters": {
+        "grade": "RAW",
+        "language": "JA",
+        "marketplace": "ebay_uk",
+        "finish": "standard"
+      },
+      "price_rows": null,
+      "grade_rows": 0,
+      "finish_keys": [],
+      "market_sources": []
+    },
+    {
+      "sample": "English Team Flare Grunt g1-73a UK sold",
+      "request_id": "00dacef5-75a9-4c75-a005-d11893a3a55d",
+      "card_id": "a03bd624-eb6c-4947-9c9b-7c21a65651d5",
+      "http_status": 200,
+      "kind": "UK_MARKETPLACE",
+      "filters": {
+        "grade": "RAW",
+        "language": "EN",
+        "marketplace": "ebay_uk",
+        "finish": "standard"
+      },
+      "price_rows": null,
+      "grade_rows": 0,
+      "finish_keys": [],
+      "market_sources": []
+    },
+    {
+      "sample": "English Team Flare Grunt g1-73a current-price/finishes",
+      "request_id": "8a51353f-0480-462f-9711-ae58a7a3f55a",
+      "card_id": "a03bd624-eb6c-4947-9c9b-7c21a65651d5",
+      "http_status": 200,
+      "kind": "CURRENT_PRICE",
+      "filters": null,
+      "price_rows": 1,
+      "grade_rows": null,
+      "finish_keys": [
+        "reverse_holo"
+      ],
+      "market_sources": [
+        "cardmarket"
+      ]
+    }
+  ]
+}

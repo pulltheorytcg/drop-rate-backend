@@ -1,0 +1,7475 @@
+[
+  {
+    "id": 224156,
+    "name": "Silver Tempest Elite Trainer Box",
+    "version": "",
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224156/preview_silver-tempest-elite-trainer-box-astral-radiance.jpg",
+    "card_market_ids": [
+      672338
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224159,
+    "name": "Silver Tempest Pokémon Center Elite Trainer Box",
+    "version": "Pokémon Center",
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224159/preview_silver-tempest-pokemon-center-elite-trainer-box-pokemon-center-silver-tempest.jpg",
+    "card_market_ids": [
+      672611
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224160,
+    "name": "Silver Tempest Booster Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 67,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224160/preview_silver-tempest-booster-box-silver-tempest.jpg",
+    "card_market_ids": [
+      672333
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 224162,
+    "name": "Silver Tempest: Alolan Vulpix Divider",
+    "version": null,
+    "game_id": 5,
+    "category_id": 74,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224162/preview_silver-tempest-alolan-vulpix-divider-silver-tempest.jpg",
+    "card_market_ids": [
+      672345
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224164,
+    "name": "Silver Tempest: Empty Elite Trainer Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 118,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224164/preview_silver-tempest-empty-elite-trainer-box-silver-tempest.jpg",
+    "card_market_ids": [
+      672610
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224168,
+    "name": "Silver Tempest: Pokémon Center Alolan Vulpix & Lugia Sleeves",
+    "version": null,
+    "game_id": 5,
+    "category_id": 62,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224168/preview_silver-tempest-pokemon-center-alolan-vulpix-lugia-sleeves-silver-tempest.jpg",
+    "card_market_ids": [
+      672608
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224170,
+    "name": "Silver Tempest: Blue Alolan Vulpix Sleeves",
+    "version": null,
+    "game_id": 5,
+    "category_id": 62,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224170/preview_silver-tempest-blue-alolan-vulpix-sleeves-silver-tempest.jpg",
+    "card_market_ids": [
+      672339
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224172,
+    "name": "Silver Tempest: Silver Alolan Vulpix Coin",
+    "version": null,
+    "game_id": 5,
+    "category_id": 61,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224172/preview_silver-tempest-silver-alolan-vulpix-coin-silver-tempest.jpg",
+    "card_market_ids": [
+      672609
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224175,
+    "name": "Silver Tempest: Gold Sirfetch'd Coin",
+    "version": null,
+    "game_id": 5,
+    "category_id": 61,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224175/preview_silver-tempest-gold-sirfetch-d-coin-silver-tempest.jpg",
+    "card_market_ids": [
+      676962
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224181,
+    "name": "Silver Tempest: Mini Portfolio",
+    "version": null,
+    "game_id": 5,
+    "category_id": 65,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224181/preview_silver-tempest-mini-portfolio-lost-origin.jpg",
+    "card_market_ids": [
+      672340
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224186,
+    "name": "Silver Tempest: 4-Pocket Binder",
+    "version": null,
+    "game_id": 5,
+    "category_id": 65,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224186/preview_silver-tempest-4-pocket-binder-silver-tempest.jpg",
+    "card_market_ids": [
+      673162
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224188,
+    "name": "Silver Tempest: 9-Pocket Binder",
+    "version": null,
+    "game_id": 5,
+    "category_id": 65,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224188/preview_silver-tempest-4-pocket-binder-copy-silver-tempest.jpg",
+    "card_market_ids": [
+      673163
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224189,
+    "name": "Silver Tempest Booster Bundle",
+    "version": "6 Boosters",
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224189/preview_silver-tempest-booster-bundle-6-boosters-silver-tempest.jpg",
+    "card_market_ids": [
+      672334
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 224190,
+    "name": "Silver Tempest: Build & Battle Stadium Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224190/preview_silver-tempest-build-battle-stadium-box-silver-tempest.jpg",
+    "card_market_ids": [
+      672607
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224191,
+    "name": "Silver Tempest: Build & Battle Kit",
+    "version": null,
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224191/preview_silver-tempest-build-battle-kit-silver-tempest.jpg",
+    "card_market_ids": [
+      672606
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224192,
+    "name": "Silver Tempest Dice Set",
+    "version": null,
+    "game_id": 5,
+    "category_id": 86,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224192/preview_silver-tempest-dice-set-silver-tempest.jpg",
+    "card_market_ids": [
+      672341
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 224193,
+    "name": "Silver Tempest | Manaphy 3-Pack Blister",
+    "version": null,
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224193/preview_silver-tempest-3-pack-blister-manaphy-silver-tempest.jpg",
+    "card_market_ids": [
+      672336
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224194,
+    "name": "Silver Tempest | Togetic 3-Pack Blister",
+    "version": null,
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224194/preview_silver-tempest-3-pack-blister-togetic-silver-tempest.jpg",
+    "card_market_ids": [
+      672337
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224195,
+    "name": "Silver Tempest | Hisuian Basculin 1-Pack Blister",
+    "version": null,
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224195/preview_silver-tempest-1-pack-blister-hisuian-basculin-silver-tempest.jpg",
+    "card_market_ids": [
+      672604
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224196,
+    "name": "Silver Tempest | Cranidos 1-Pack Blister",
+    "version": null,
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224196/preview_silver-tempest-1-pack-blister-cranidos-silver-tempest.jpg",
+    "card_market_ids": [
+      672605
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224197,
+    "name": "Silver Tempest | Magnezone Premium Checklane 1-Pack Blister",
+    "version": null,
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224197/preview_silver-tempest-premium-checklane-1-pack-blister-magnezone-silver-tempest.jpg",
+    "card_market_ids": [],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224198,
+    "name": "Silver Tempest | Gallade Premium Checklane 1-Pack Blister",
+    "version": null,
+    "game_id": 5,
+    "category_id": 190,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224198/preview_silver-tempest-premium-checklane-1-pack-blister-gallade-silver-tempest.jpg",
+    "card_market_ids": [],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224199,
+    "name": "Silver Tempest Booster",
+    "version": null,
+    "game_id": 5,
+    "category_id": 66,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224199/preview_silver-tempest-booster-silver-tempest.jpg",
+    "card_market_ids": [
+      672323
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 224200,
+    "name": "Silver Tempest Sleeved Booster",
+    "version": null,
+    "game_id": 5,
+    "category_id": 66,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/224200/preview_silver-tempest-sleeved-booster-silver-tempest.jpg",
+    "card_market_ids": [
+      674699
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 225473,
+    "name": "Archeops",
+    "version": "Holo Rare | 147/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/225473/preview_archeops-holo-rare-147-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682194
+    ],
+    "collector_number": "147",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 225478,
+    "name": "Lugia V",
+    "version": "Ultra Rare | 138/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/225478/preview_lugia-v-ultra-rare-138-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682185
+    ],
+    "collector_number": "138",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 225480,
+    "name": "Mawile V",
+    "version": "Ultra Rare | TG17/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/225480/preview_mawile-v-ultra-rare-tg17-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682281
+    ],
+    "collector_number": "TG17",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 225482,
+    "name": "Radiant Jirachi",
+    "version": "Shiny Rare | 120/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/225482/preview_radiant-jirachi-ultra-rare-120-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682167
+    ],
+    "collector_number": "120",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 225483,
+    "name": "Serperior VSTAR",
+    "version": "Ultra Rare | 008/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/225483/preview_serperior-vstar-ultra-rare-008-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682047
+    ],
+    "collector_number": "008",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 225484,
+    "name": "Regieleki VMAX",
+    "version": "Ultra Rare | 058/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/225484/preview_regieleki-vmax-ultra-rare-058-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682105
+    ],
+    "collector_number": "058",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227661,
+    "name": "Alolan Vulpix V",
+    "version": "Ultra Rare | 033/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227661/preview_alolan-vulpix-v-033-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682075
+    ],
+    "collector_number": "033",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227665,
+    "name": "Alolan Vulpix V",
+    "version": "Ultra Rare | 173/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227665/preview_alolan-vulpix-v-ultra-rare-173-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682220
+    ],
+    "collector_number": "173",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227669,
+    "name": "Alolan Vulpix VSTAR",
+    "version": "Secret Rare | 197/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227669/preview_alolan-vulpix-vstar-secret-rare-197-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682245
+    ],
+    "collector_number": "197",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227677,
+    "name": "Alolan Vulpix VSTAR",
+    "version": "Ultra Rare | 034/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227677/preview_alolan-vulpix-vstar-ultra-rare-034-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682076
+    ],
+    "collector_number": "034",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227679,
+    "name": "Altaria",
+    "version": "Holo Rare | TG11/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227679/preview_altaria-holo-rare-tg11-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682275
+    ],
+    "collector_number": "TG11",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227681,
+    "name": "Altaria",
+    "version": "143/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227681/preview_altaria-143-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682190
+    ],
+    "collector_number": "143",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227682,
+    "name": "Amoonguss",
+    "version": "012/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227682/preview_amoonguss-012-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682053
+    ],
+    "collector_number": "012",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227683,
+    "name": "Anorith",
+    "version": "095/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227683/preview_anorith-095-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682142
+    ],
+    "collector_number": "095",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227684,
+    "name": "Araquanid",
+    "version": "048/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227684/preview_araquanid-048-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682095
+    ],
+    "collector_number": "048",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227686,
+    "name": "Arcanine",
+    "version": "020/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227686/preview_arcanine-020-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682061
+    ],
+    "collector_number": "020",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227688,
+    "name": "Archen",
+    "version": "146/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227688/preview_archen-146-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682193
+    ],
+    "collector_number": "146",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227690,
+    "name": "Ariados",
+    "version": "Holo Rare | 004/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227690/preview_ariados-holo-rare-004-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682043
+    ],
+    "collector_number": "004",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227692,
+    "name": "Armaldo",
+    "version": "096/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227692/preview_armaldo-096-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682143
+    ],
+    "collector_number": "096",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227695,
+    "name": "Articuno",
+    "version": "Holo Rare | 036/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227695/preview_articuno-holo-rare-036-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682078
+    ],
+    "collector_number": "036",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227696,
+    "name": "Baltoy",
+    "version": "093/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227696/preview_baltoy-093-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682140
+    ],
+    "collector_number": "093",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227698,
+    "name": "Beheeyem",
+    "version": "080/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227698/preview_beheeyem-080-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682127
+    ],
+    "collector_number": "080",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227700,
+    "name": "Beldum",
+    "version": "117/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227700/preview_beldum-117-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682164
+    ],
+    "collector_number": "117",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227703,
+    "name": "Blaziken V",
+    "version": "Ultra Rare | TG14/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227703/preview_blaziken-v-ultra-rare-tg14-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682278
+    ],
+    "collector_number": "TG14",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227704,
+    "name": "Blaziken VMAX",
+    "version": "Ultra Rare | TG15/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227704/preview_blaziken-vmax-ultra-rare-tg15-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682279
+    ],
+    "collector_number": "TG15",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227705,
+    "name": "Blissey V",
+    "version": "Ultra Rare | TG22/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227705/preview_blissey-v-ultra-rare-tg22-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682286
+    ],
+    "collector_number": "TG22",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227706,
+    "name": "Braixen",
+    "version": "026/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227706/preview_braixen-026-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682067
+    ],
+    "collector_number": "026",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227708,
+    "name": "Braixen",
+    "version": "Holo Rare | TG01/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227708/preview_braixen-holo-rare-tg01-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682265
+    ],
+    "collector_number": "TG01",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227709,
+    "name": "Brandon",
+    "version": "151/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227709/preview_brandon-151-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682198
+    ],
+    "collector_number": "151",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227710,
+    "name": "Brandon",
+    "version": "Ultra Rare | 188/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227710/preview_brandon-ultra-rare-188-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682236
+    ],
+    "collector_number": "188",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227711,
+    "name": "Brandon",
+    "version": "Secret Rare | 203/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227711/preview_brandon-secret-rare-203-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682251
+    ],
+    "collector_number": "203",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227712,
+    "name": "Buneary",
+    "version": "144/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227712/preview_buneary-144-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682191
+    ],
+    "collector_number": "144",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227713,
+    "name": "Candice",
+    "version": "152/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227713/preview_candice-152-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682199
+    ],
+    "collector_number": "152",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227714,
+    "name": "Candice",
+    "version": "Ultra Rare | 189/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227714/preview_candice-ultra-rare-189-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682237
+    ],
+    "collector_number": "189",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227715,
+    "name": "Candice",
+    "version": "Secret Rare | 204/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227715/preview_candice-secret-rare-204-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682252
+    ],
+    "collector_number": "204",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227716,
+    "name": "Capturing Aroma",
+    "version": "153/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227716/preview_capturing-aroma-153-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682200
+    ],
+    "collector_number": "153",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227717,
+    "name": "Chesnaught V",
+    "version": "Ultra Rare | 015/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227717/preview_chesnaught-v-ultra-rare-015-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682056
+    ],
+    "collector_number": "015",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227718,
+    "name": "Chesnaught V",
+    "version": "Ultra Rare | 171/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227718/preview_chesnaught-v-ultra-rare-171-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682218
+    ],
+    "collector_number": "171",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227719,
+    "name": "Chimecho",
+    "version": "074/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227719/preview_chimecho-074-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682121
+    ],
+    "collector_number": "074",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227720,
+    "name": "Chinchou",
+    "version": "051/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227720/preview_chinchou-051-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682098
+    ],
+    "collector_number": "051",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227721,
+    "name": "Claydol",
+    "version": "094/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227721/preview_claydol-094-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682141
+    ],
+    "collector_number": "094",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227722,
+    "name": "Cobalion",
+    "version": "126/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227722/preview_cobalion-126-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682173
+    ],
+    "collector_number": "126",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227723,
+    "name": "Corviknight V",
+    "version": "Ultra Rare | TG18/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227723/preview_corviknight-v-ultra-rare-tg18-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682282
+    ],
+    "collector_number": "TG18",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227724,
+    "name": "Corviknight VMAX",
+    "version": "Ultra Rare | TG19/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227724/preview_corviknight-vmax-ultra-rare-tg19-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682283
+    ],
+    "collector_number": "TG19",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227725,
+    "name": "Croagunk",
+    "version": "109/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227725/preview_croagunk-109-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682156
+    ],
+    "collector_number": "109",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227726,
+    "name": "Crobat",
+    "version": "Holo Rare | 105/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227726/preview_crobat-holo-rare-105-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682152
+    ],
+    "collector_number": "105",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227727,
+    "name": "Dedenne",
+    "version": "085/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227727/preview_dedenne-085-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682132
+    ],
+    "collector_number": "085",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227728,
+    "name": "Delphox",
+    "version": "027/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227728/preview_delphox-027-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682068
+    ],
+    "collector_number": "027",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227729,
+    "name": "Dewpider",
+    "version": "047/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227729/preview_dewpider-047-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682094
+    ],
+    "collector_number": "047",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227730,
+    "name": "Donphan",
+    "version": "092/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227730/preview_donphan-092-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682139
+    ],
+    "collector_number": "092",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227731,
+    "name": "Dragapult",
+    "version": "Holo Rare | 089/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227731/preview_dragapult-holo-rare-089-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682136
+    ],
+    "collector_number": "089",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227732,
+    "name": "Dragonair",
+    "version": "130/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227732/preview_dragonair-130-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682177
+    ],
+    "collector_number": "130",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227733,
+    "name": "Dragonite",
+    "version": "Holo Rare | 131/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227733/preview_dragonite-holo-rare-131-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682178
+    ],
+    "collector_number": "131",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227734,
+    "name": "Drakloak",
+    "version": "088/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227734/preview_drakloak-088-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682135
+    ],
+    "collector_number": "088",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227735,
+    "name": "Dratini",
+    "version": "129/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227735/preview_dratini-029-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682176
+    ],
+    "collector_number": "129",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227736,
+    "name": "Dreepy",
+    "version": "087/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227736/preview_dreepy-087-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682134
+    ],
+    "collector_number": "087",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227737,
+    "name": "Drowzee",
+    "version": "060/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227737/preview_drowzee-060-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682107
+    ],
+    "collector_number": "060",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227738,
+    "name": "Druddigon",
+    "version": "Holo Rare | TG09/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227738/preview_druddigon-holo-rare-tg09-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682273
+    ],
+    "collector_number": "TG09",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227739,
+    "name": "Duosion",
+    "version": "077/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227739/preview_duosion-077-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682124
+    ],
+    "collector_number": "077",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227740,
+    "name": "Duraludon VMAX",
+    "version": "Ultra Rare | TG21/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227740/preview_duraludon-vmax-ultra-rare-tg21-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682285
+    ],
+    "collector_number": "TG21",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227741,
+    "name": "Duraludon VMAX",
+    "version": "Secret Rare | TG30/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227741/preview_duraludon-vmax-secret-rare-tg30-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682294
+    ],
+    "collector_number": "TG30",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227742,
+    "name": "Earthen Seal Stone",
+    "version": "Holo Rare | 154/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227742/preview_earthen-seal-stone-holo-rare-154-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682201
+    ],
+    "collector_number": "154",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227743,
+    "name": "Durant",
+    "version": "013/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227743/preview_durant-013-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682054
+    ],
+    "collector_number": "013",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227744,
+    "name": "Elgyem",
+    "version": "079/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227744/preview_elgyem-079-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682126
+    ],
+    "collector_number": "079",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227745,
+    "name": "Emergency Jelly",
+    "version": "155/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227745/preview_emergency-jelly-155-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682202
+    ],
+    "collector_number": "155",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227746,
+    "name": "Energy Switch",
+    "version": "Secret Rare | 212/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227746/preview_energy-switch-secret-rare-212-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682261
+    ],
+    "collector_number": "212",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227747,
+    "name": "Emolga",
+    "version": "054/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227747/preview_emolga-054-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682101
+    ],
+    "collector_number": "054",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227748,
+    "name": "Espurr",
+    "version": "081/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227748/preview_espurr-081-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682128
+    ],
+    "collector_number": "081",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227749,
+    "name": "Feebas",
+    "version": "039/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227749/preview_feebas-039-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682081
+    ],
+    "collector_number": "039",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227750,
+    "name": "Fennekin",
+    "version": "025/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227750/preview_fennekin-025-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682066
+    ],
+    "collector_number": "025",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227751,
+    "name": "Ferroseed",
+    "version": "121/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227751/preview_ferroseed-121-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682168
+    ],
+    "collector_number": "121",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227752,
+    "name": "Ferrothorn",
+    "version": "122/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227752/preview_ferrothorn-122-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682169
+    ],
+    "collector_number": "122",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227772,
+    "name": "Flaaffy",
+    "version": "Holo Rare | TG03/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227772/preview_flaaffy-holo-rare-tg03-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682267
+    ],
+    "collector_number": "TG03",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227773,
+    "name": "Fletchinder",
+    "version": "028/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227773/preview_fletchinder-028-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682070
+    ],
+    "collector_number": "028",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227774,
+    "name": "Fletchling",
+    "version": "150/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227774/preview_fletchling-150-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682197
+    ],
+    "collector_number": "150",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227775,
+    "name": "Foongus",
+    "version": "011/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227775/preview_foongus-011-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682052
+    ],
+    "collector_number": "011",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227776,
+    "name": "Forest Seal Stone",
+    "version": "Holo Rare | 156/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227776/preview_forest-seal-stone-holo-rare-159-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682203
+    ],
+    "collector_number": "156",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227777,
+    "name": "Friends in Galar",
+    "version": "Ultra Rare | TG23/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227777/preview_friends-in-galar-ultra-rare-tg23-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682287
+    ],
+    "collector_number": "TG23",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227778,
+    "name": "Froslass",
+    "version": "043/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227778/preview_froslass-043-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682089
+    ],
+    "collector_number": "043",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227779,
+    "name": "Furisode Girl",
+    "version": "157/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227779/preview_furisode-girl-157-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682204
+    ],
+    "collector_number": "157",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227780,
+    "name": "Furisode Girl",
+    "version": "Ultra Rare | 190/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227780/preview_furisode-girl-ultra-rare-190-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682238
+    ],
+    "collector_number": "190",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227781,
+    "name": "Furisode Girl",
+    "version": "Secret Rare | 205/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227781/preview_furisode-girl-secret-rare-205-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682253
+    ],
+    "collector_number": "205",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227782,
+    "name": "Gapejaw Bog",
+    "version": "Secret Rare | 213/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227782/preview_gapejaw-bog-secret-rare-213-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682262
+    ],
+    "collector_number": "213",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227783,
+    "name": "Gardevoir",
+    "version": "Holo Rare | TG05/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227783/preview_gardevoir-holo-rare-tg05-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682269
+    ],
+    "collector_number": "TG05",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227784,
+    "name": "Gardevoir",
+    "version": "069/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227784/preview_gardevoir-069-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682116
+    ],
+    "collector_number": "069",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227785,
+    "name": "Glalie",
+    "version": "042/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227785/preview_glalie-042-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682087
+    ],
+    "collector_number": "042",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227786,
+    "name": "Golbat",
+    "version": "104/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227786/preview_golbat-104-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682151
+    ],
+    "collector_number": "104",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227787,
+    "name": "Gordie",
+    "version": "Ultra Rare | TG24/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227787/preview_gordie-ultra-rare-tg24-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682288
+    ],
+    "collector_number": "TG24",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227788,
+    "name": "Growlithe",
+    "version": "019/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227788/preview_growlithe-019-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682060
+    ],
+    "collector_number": "019",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227789,
+    "name": "Gym Trainer",
+    "version": "158/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227789/preview_gym-trainer-158-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682205
+    ],
+    "collector_number": "158",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227790,
+    "name": "Gym Trainer",
+    "version": "Ultra Rare | 191/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227790/preview_gym-trainer-ultra-rare-191-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682239
+    ],
+    "collector_number": "191",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227791,
+    "name": "Hawlucha",
+    "version": "098/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227791/preview_hawlucha-098-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682145
+    ],
+    "collector_number": "098",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227792,
+    "name": "Hisuian Arcanine V",
+    "version": "Ultra Rare | 090/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227792/preview_hisuian-arcanine-v-ultra-rare-090-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682137
+    ],
+    "collector_number": "090",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227793,
+    "name": "Hisuian Arcanine V",
+    "version": "Ultra Rare | 179/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227793/preview_hisuian-arcanine-v-ultra-rare-179-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682226
+    ],
+    "collector_number": "179",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227794,
+    "name": "Hisuian Braviary",
+    "version": "149/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227794/preview_hisuian-braviary-149-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682196
+    ],
+    "collector_number": "149",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227795,
+    "name": "Hisuian Lilligant",
+    "version": "010/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227795/preview_hisuian-lilligant-010-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682049
+    ],
+    "collector_number": "010",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227796,
+    "name": "Honchkrow",
+    "version": "107/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227796/preview_honchkrow-107-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682154
+    ],
+    "collector_number": "107",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227797,
+    "name": "Ho-Oh V",
+    "version": "Ultra Rare | 187/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227797/preview_ho-oh-v-ultra-rare-187-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682235
+    ],
+    "collector_number": "187",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227798,
+    "name": "Ho-Oh V",
+    "version": "Ultra Rare | 140/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227798/preview_ho-oh-v-ultra-rare-140-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682187
+    ],
+    "collector_number": "140",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227799,
+    "name": "Hypno",
+    "version": "061/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227799/preview_hypno-061-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682108
+    ],
+    "collector_number": "061",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227800,
+    "name": "Incineroar",
+    "version": "032/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227800/preview_incineroar-032-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682074
+    ],
+    "collector_number": "032",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227801,
+    "name": "Indeedee",
+    "version": "086/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227801/preview_indeedee-086-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682133
+    ],
+    "collector_number": "086",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227802,
+    "name": "Judge",
+    "version": "Ultra Rare | TG25/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227802/preview_judge-ultra-rare-tg25-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682289
+    ],
+    "collector_number": "TG25",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227803,
+    "name": "Jynx",
+    "version": "062/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227803/preview_jynx-062-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682109
+    ],
+    "collector_number": "062",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227804,
+    "name": "Jynx",
+    "version": "Holo Rare | TG04/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227804/preview_jynx-holo-rare-tg04-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682268
+    ],
+    "collector_number": "TG04",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227805,
+    "name": "Keldeo",
+    "version": "046/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227805/preview_keldeo-046-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682093
+    ],
+    "collector_number": "046",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227806,
+    "name": "Kirlia",
+    "version": "068/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227806/preview_kirlia-068-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682115
+    ],
+    "collector_number": "068",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227807,
+    "name": "Klang",
+    "version": "124/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227807/preview_klang-124-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682171
+    ],
+    "collector_number": "124",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227808,
+    "name": "Klink",
+    "version": "123/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227808/preview_klink-123-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682170
+    ],
+    "collector_number": "123",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227809,
+    "name": "Klinklang",
+    "version": "125/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227809/preview_klinklang-125-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682172
+    ],
+    "collector_number": "125",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227810,
+    "name": "Kricketune V",
+    "version": "Ultra Rare | TG12/1G30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227810/preview_kricketune-v-ultra-rare-tg12-1g30-silver-tempest.jpg",
+    "card_market_ids": [
+      682276
+    ],
+    "collector_number": "TG12",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227811,
+    "name": "Krokorok",
+    "version": "112/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227811/preview_krokorok-112-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682159
+    ],
+    "collector_number": "112",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227812,
+    "name": "Krookodile",
+    "version": "Holo Rare | 113/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227812/preview_krookodile-holo-rare-113-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682160
+    ],
+    "collector_number": "113",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227813,
+    "name": "Lance",
+    "version": "159/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227813/preview_lance-159-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682206
+    ],
+    "collector_number": "159",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227814,
+    "name": "Lance",
+    "version": "Ultra Rare | 192/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227814/preview_lance-ultra-rare-192-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682240
+    ],
+    "collector_number": "192",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227815,
+    "name": "Lance",
+    "version": "Secret Rare | 206/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227815/preview_lance-copy-secret-rare-206-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682255
+    ],
+    "collector_number": "206",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227816,
+    "name": "Lanturn",
+    "version": "052/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227816/preview_lanturn-052-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682099
+    ],
+    "collector_number": "052",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227817,
+    "name": "Leafy Camo Poncho",
+    "version": "160/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227817/preview_leafy-camo-poncho-160-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682207
+    ],
+    "collector_number": "160",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227818,
+    "name": "Leafy Camo Poncho",
+    "version": "Secret Rare | 214/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227818/preview_leafy-camo-poncho-secret-rare-214-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682263
+    ],
+    "collector_number": "214",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227819,
+    "name": "Litten",
+    "version": "030/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227819/preview_litten-030-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682072
+    ],
+    "collector_number": "030",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227820,
+    "name": "Lopunny",
+    "version": "145/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227820/preview_lopunny-145-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682192
+    ],
+    "collector_number": "145",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227821,
+    "name": "Lugia V",
+    "version": "Ultra Rare | 186/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227821/preview_lugia-v-ultra-rare-186-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682234
+    ],
+    "collector_number": "186",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227822,
+    "name": "Lugia V",
+    "version": "Ultra Rare | 185/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227822/preview_lugia-v-ultra-rare-185-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682232
+    ],
+    "collector_number": "185",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227823,
+    "name": "Lugia VSTAR",
+    "version": "Ultra Rare | 139/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227823/preview_lugia-vstar-ultra-rare-139-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682186
+    ],
+    "collector_number": "139",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227824,
+    "name": "Lugia VSTAR",
+    "version": "Secret Rare | 202/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227824/preview_lugia-vstar-secret-rare-202-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682250
+    ],
+    "collector_number": "202",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227825,
+    "name": "Lugia VSTAR",
+    "version": "Secret Rare | 211/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227825/preview_lugia-vstar-secret-rare-211-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682260
+    ],
+    "collector_number": "211",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227826,
+    "name": "Magearna V",
+    "version": "Ultra Rare | 128/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227826/preview_magearna-v-ultra-rare-128-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682175
+    ],
+    "collector_number": "128",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227827,
+    "name": "Magearna V",
+    "version": "Ultra Rare | 182/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227827/preview_magearna-v-ultra-rare-182-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682229
+    ],
+    "collector_number": "182",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227828,
+    "name": "Malamar",
+    "version": "Holo Rare | TG06/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227828/preview_malamar-holo-rare-tg06-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682270
+    ],
+    "collector_number": "TG06",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227829,
+    "name": "Mareanie",
+    "version": "114/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227829/preview_mareanie-114-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682161
+    ],
+    "collector_number": "114",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227830,
+    "name": "Mawile V",
+    "version": "Ultra Rare | 070/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227830/preview_mawile-v-ultra-rare-070-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682117
+    ],
+    "collector_number": "070",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227831,
+    "name": "Mawile V",
+    "version": "Ultra Rare | 178/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227831/preview_mawile-v-ultra-rare-178-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682225
+    ],
+    "collector_number": "178",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227832,
+    "name": "Mawile VSTAR",
+    "version": "Ultra Rare | 071/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227832/preview_mawile-vstar-ultra-rare-071-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682118
+    ],
+    "collector_number": "071",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227833,
+    "name": "Mawile VSTAR",
+    "version": "Secret Rare | 200/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227833/preview_mawile-vstar-secret-rare-200-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682248
+    ],
+    "collector_number": "200",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227834,
+    "name": "Medicham",
+    "version": "Holo Rare | 073/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227834/preview_medicham-holo-rare-073-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682120
+    ],
+    "collector_number": "073",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227835,
+    "name": "Meditite",
+    "version": "072/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227835/preview_meditite-072-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682119
+    ],
+    "collector_number": "072",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227836,
+    "name": "Meowstic",
+    "version": "082/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227836/preview_meowstic-082-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682129
+    ],
+    "collector_number": "082",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227837,
+    "name": "Metagross",
+    "version": "Holo Rare | 119/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227837/preview_metagross-holo-rare-119-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682166
+    ],
+    "collector_number": "119",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227838,
+    "name": "Metang",
+    "version": "118/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227838/preview_metang-118-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682165
+    ],
+    "collector_number": "118",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227839,
+    "name": "Milotic",
+    "version": "040/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227839/preview_milotic-040-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682082
+    ],
+    "collector_number": "040",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227840,
+    "name": "Milotic",
+    "version": "Holo Rare | TG02",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227840/preview_milotic-holo-rare-tg02-silver-tempest.jpg",
+    "card_market_ids": [
+      682266
+    ],
+    "collector_number": "TG02",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227841,
+    "name": "Misdreavus",
+    "version": "063/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227841/preview_misdreavus-063-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682110
+    ],
+    "collector_number": "063",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227842,
+    "name": "Mismagius",
+    "version": "064/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227842/preview_mismagius-064-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682111
+    ],
+    "collector_number": "064",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227843,
+    "name": "Morpeko",
+    "version": "116/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227843/preview_morpeko-116-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682163
+    ],
+    "collector_number": "116",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227844,
+    "name": "Murkrow",
+    "version": "106/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227844/preview_murkrow-106-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682153
+    ],
+    "collector_number": "106",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227845,
+    "name": "Ninetales",
+    "version": "018/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227845/preview_ninetales-018-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682059
+    ],
+    "collector_number": "018",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227846,
+    "name": "Noibat",
+    "version": "132/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227846/preview_noibat-132-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682179
+    ],
+    "collector_number": "132",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227847,
+    "name": "Noivern",
+    "version": "133/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227847/preview_noivern-133-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682180
+    ],
+    "collector_number": "133",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227848,
+    "name": "Omastar V",
+    "version": "Ultra Rare | 035/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227848/preview_omastar-v-ultra-rare-035-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682077
+    ],
+    "collector_number": "035",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227849,
+    "name": "Omastar V",
+    "version": "Ultra Rare | 174/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227849/preview_omastar-v-ultra-rare-174-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682221
+    ],
+    "collector_number": "174",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227850,
+    "name": "Palossand",
+    "version": "100/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227850/preview_palossand-100-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682147
+    ],
+    "collector_number": "100",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227851,
+    "name": "Passimian",
+    "version": "Holo Rare | TG08/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227851/preview_passimian-holo-rare-tg08-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682272
+    ],
+    "collector_number": "TG08",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227852,
+    "name": "Petilil",
+    "version": "009/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227852/preview_petilil-009-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682048
+    ],
+    "collector_number": "009",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227853,
+    "name": "Phanpy",
+    "version": "091/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227853/preview_phanpy-091-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682138
+    ],
+    "collector_number": "091",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227854,
+    "name": "Phione",
+    "version": "045/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227854/preview_phione-045-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682092
+    ],
+    "collector_number": "045",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227855,
+    "name": "Pikachu",
+    "version": "049/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227855/preview_pikachu-049-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682096
+    ],
+    "collector_number": "049",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227856,
+    "name": "Ponyta",
+    "version": "021/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227856/preview_ponyta-021-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682062
+    ],
+    "collector_number": "021",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227857,
+    "name": "Primordial Altar",
+    "version": "161/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227857/preview_primordial-altar-161-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682208
+    ],
+    "collector_number": "161",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227858,
+    "name": "Professor Burnet",
+    "version": "TG26/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227858/preview_professor-burnet-tg26-silver-tempest.jpg",
+    "card_market_ids": [
+      682290
+    ],
+    "collector_number": "TG26",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227859,
+    "name": "Professor Laventon",
+    "version": "162/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227859/preview_professor-laventon-162-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682209
+    ],
+    "collector_number": "162",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227860,
+    "name": "Quad Stone",
+    "version": "163/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227860/preview_quad-stone-163-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682210
+    ],
+    "collector_number": "163",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227861,
+    "name": "Radiant Alakazam",
+    "version": "Shiny Rare | 059/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227861/preview_radiant-alakazam-ultra-rare-059-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682106
+    ],
+    "collector_number": "059",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227862,
+    "name": "Radiant Tsareena",
+    "version": "Shiny Rare | 016/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227862/preview_radiant-tsareena-ultra-rare-016-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682057
+    ],
+    "collector_number": "016",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227863,
+    "name": "Raichu",
+    "version": "050/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227863/preview_raichu-050-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682097
+    ],
+    "collector_number": "050",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227864,
+    "name": "Raihan",
+    "version": "Ultra Rare | TG27/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227864/preview_raihan-ultra-rare-tg27-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682291
+    ],
+    "collector_number": "TG27",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227865,
+    "name": "Ralts",
+    "version": "067/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227865/preview_ralts-067-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682114
+    ],
+    "collector_number": "067",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227866,
+    "name": "Rapidash",
+    "version": "Holo Rare | 022/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227866/preview_rapidash-holo-rare-022-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682063
+    ],
+    "collector_number": "022",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227867,
+    "name": "Rayquaza VMAX",
+    "version": "Ultra Rare | TG20/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227867/preview_rayquaza-vmax-ultra-rare-tg20-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682284
+    ],
+    "collector_number": "TG20",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227868,
+    "name": "Rayquaza VMAX",
+    "version": "Secret Rare | TG29/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227868/preview_rayquaza-vmax-secret-rare-tg29-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682293
+    ],
+    "collector_number": "TG29",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227869,
+    "name": "Regenerative Energy",
+    "version": "168/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227869/preview_regenerative-energy-168-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682215
+    ],
+    "collector_number": "168",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227870,
+    "name": "Regidrago V",
+    "version": "Ultra Rare | 135/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227870/preview_regidrago-v-ultra-rare-135-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682182
+    ],
+    "collector_number": "135",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227871,
+    "name": "Regidrago V",
+    "version": "Ultra Rare | 184/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227871/preview_regidrago-v-ultra-rare-184-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682231
+    ],
+    "collector_number": "184",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227872,
+    "name": "Regidrago V",
+    "version": "Ultra Rare | 183/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227872/preview_regidrago-v-ultra-rare-183-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682230
+    ],
+    "collector_number": "183",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227873,
+    "name": "Regidrago VSTAR",
+    "version": "Ultra Rare | 136/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227873/preview_regidrago-vstar-ultra-rare-136-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682183
+    ],
+    "collector_number": "136",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227874,
+    "name": "Regidrago VSTAR",
+    "version": "Secret Rare | 201/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227874/preview_regidrago-vstar-secret-rare-201-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682249
+    ],
+    "collector_number": "201",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227875,
+    "name": "Regieleki V",
+    "version": "Ultra Rare | 057/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227875/preview_regieleki-v-ultra-rare-057-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682104
+    ],
+    "collector_number": "057",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227876,
+    "name": "Regieleki V",
+    "version": "Ultra Rare | 175/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227876/preview_regieleki-v-ultra-rare-175-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682222
+    ],
+    "collector_number": "175",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227877,
+    "name": "Regieleki VMAX",
+    "version": "Secret Rare | 198/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227877/preview_regieleki-vmax-secret-rare-198-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682246
+    ],
+    "collector_number": "198",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227878,
+    "name": "Relicanth",
+    "version": "044/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227878/preview_relicanth-044-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682090
+    ],
+    "collector_number": "044",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227879,
+    "name": "Reshiram V",
+    "version": "Ultra Rare | 024/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227879/preview_reshiram-v-ultra-rare-024-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682065
+    ],
+    "collector_number": "024",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227880,
+    "name": "Reshiram V",
+    "version": "Ultra Rare | 172/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227880/preview_reshiram-v-ultra-rare-172-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682219
+    ],
+    "collector_number": "172",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227881,
+    "name": "Reuniclus",
+    "version": "Holo Rare | 078/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227881/preview_reuniclus-holo-rare-178-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682125
+    ],
+    "collector_number": "078",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227882,
+    "name": "Rockruff",
+    "version": "Holo Rare | TG07/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227882/preview_rockruff-holo-rare-tg07-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682271
+    ],
+    "collector_number": "TG07",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227883,
+    "name": "Rotom",
+    "version": "053/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227883/preview_rotom-053-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682100
+    ],
+    "collector_number": "053",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227884,
+    "name": "Rufflet",
+    "version": "148/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227884/preview_rufflet-148-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682195
+    ],
+    "collector_number": "148",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227885,
+    "name": "Sandile",
+    "version": "111/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227885/preview_sandile-111-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682158
+    ],
+    "collector_number": "111",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227886,
+    "name": "Sandygast",
+    "version": "099/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227886/preview_sandygast-099-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682146
+    ],
+    "collector_number": "099",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227887,
+    "name": "Serena",
+    "version": "164/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227887/preview_serena-164-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682211
+    ],
+    "collector_number": "164",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227888,
+    "name": "Serena",
+    "version": "Ultra Rare | 193/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227888/preview_serena-ultra-rare-163-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682241
+    ],
+    "collector_number": "193",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227889,
+    "name": "Serena",
+    "version": "Secret Rare | 207/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227889/preview_serena-secret-rare-207-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682256
+    ],
+    "collector_number": "207",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227890,
+    "name": "Serperior V",
+    "version": "Ultra Rare | 007/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227890/preview_serperior-v-ultra-rare-007-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682046
+    ],
+    "collector_number": "007",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227891,
+    "name": "Serperior V",
+    "version": "Ultra Rare | 170/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227891/preview_serperior-v-ultra-rare-170-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682217
+    ],
+    "collector_number": "170",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227892,
+    "name": "Serperior V",
+    "version": "Ultra Rare | TG13/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227892/preview_serperior-v-ultra-rare-tg13-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682277
+    ],
+    "collector_number": "TG13",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227893,
+    "name": "Serperior VSTAR",
+    "version": "Secret Rare | 196/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227893/preview_serperior-vstar-secret-rare-196-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682244
+    ],
+    "collector_number": "196",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227894,
+    "name": "Sigilyph",
+    "version": "075/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227894/preview_sigilyph-075-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682122
+    ],
+    "collector_number": "075",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227895,
+    "name": "Skuntank V",
+    "version": "Ultra Rare | 108/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227895/preview_skuntank-v-ultra-rare-108-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682155
+    ],
+    "collector_number": "108",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227896,
+    "name": "Skuntank V",
+    "version": "Ultra Rare | 180/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227896/preview_skuntank-v-ultra-rare-180-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682227
+    ],
+    "collector_number": "180",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227897,
+    "name": "Skuntank V",
+    "version": "Ultra Rare | 181/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227897/preview_skuntank-v-ultra-rare-181-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682228
+    ],
+    "collector_number": "181",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227898,
+    "name": "Slurpuff",
+    "version": "084/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227898/preview_slurpuff-084-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682131
+    ],
+    "collector_number": "084",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227899,
+    "name": "Smeargle",
+    "version": "Holo Rare | TG10/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227899/preview_smeargle-holo-rare-tg10-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682274
+    ],
+    "collector_number": "TG10",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227900,
+    "name": "Smeargle",
+    "version": "137/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227900/preview_smeargle-137-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682184
+    ],
+    "collector_number": "137",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227901,
+    "name": "Snorunt",
+    "version": "041/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227901/preview_snorunt-041-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682086
+    ],
+    "collector_number": "041",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227902,
+    "name": "Solosis",
+    "version": "076/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227902/preview_solosis-076-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682123
+    ],
+    "collector_number": "076",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227903,
+    "name": "Sordward & Shielbert",
+    "version": "Ultra Rare | TG28/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227903/preview_sordward-shielbert-ultra-rare-tg28-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682292
+    ],
+    "collector_number": "TG28",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227904,
+    "name": "Spinarak",
+    "version": "003/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227904/preview_spinarak-003-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682042
+    ],
+    "collector_number": "003",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227905,
+    "name": "Spinda",
+    "version": "141/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227905/preview_spinda-141-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682188
+    ],
+    "collector_number": "141",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227906,
+    "name": "Stonjourner",
+    "version": "101/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227906/preview_stonjourner-101-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682148
+    ],
+    "collector_number": "101",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227907,
+    "name": "Stunfisk",
+    "version": "055/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227907/preview_stunfisk-055-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682102
+    ],
+    "collector_number": "055",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227908,
+    "name": "Sunflora",
+    "version": "006/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227908/preview_sunflora-006-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682045
+    ],
+    "collector_number": "006",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227909,
+    "name": "Sunkern",
+    "version": "005/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227909/preview_sunkern-005-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682044
+    ],
+    "collector_number": "005",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227910,
+    "name": "Swablu",
+    "version": "142/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227910/preview_swablu-142-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682189
+    ],
+    "collector_number": "142",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227911,
+    "name": "Swirlix",
+    "version": "083/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227911/preview_swirlix-083-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682130
+    ],
+    "collector_number": "083",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227912,
+    "name": "Talonflame",
+    "version": "029/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227912/preview_talonflame-029-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682071
+    ],
+    "collector_number": "029",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227913,
+    "name": "Terrakion",
+    "version": "Holo Rare | 097/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227913/preview_terrakion-holo-rare-097-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682144
+    ],
+    "collector_number": "097",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227914,
+    "name": "Togedemaru",
+    "version": "127/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227914/preview_togedemaru-127-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682174
+    ],
+    "collector_number": "127",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227915,
+    "name": "Unidentified Fossil",
+    "version": "165/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227915/preview_unidentified-fossil-165-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682212
+    ],
+    "collector_number": "165",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227916,
+    "name": "Toxicroak",
+    "version": "110/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227916/preview_toxicroak-110-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682157
+    ],
+    "collector_number": "110",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227917,
+    "name": "Toxapex",
+    "version": "115/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227917/preview_toxapex-115-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682162
+    ],
+    "collector_number": "115",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227918,
+    "name": "Torracat",
+    "version": "031/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227918/preview_torracat-115-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682073
+    ],
+    "collector_number": "031",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227919,
+    "name": "Unown V",
+    "version": "Ultra Rare | 065/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227919/preview_unown-v-ultra-rare-065-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682112
+    ],
+    "collector_number": "065",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227920,
+    "name": "Unown V",
+    "version": "Ultra Rare | 176/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227920/preview_unown-v-ultra-rare-176-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682223
+    ],
+    "collector_number": "176",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227921,
+    "name": "Unown V",
+    "version": "Ultra Rare | 177/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227921/preview_unown-v-ultra-rare-177-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682224
+    ],
+    "collector_number": "177",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227922,
+    "name": "Unown VSTAR",
+    "version": "Ultra Rare | 066/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227922/preview_unown-vstar-ultra-rare-066-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682113
+    ],
+    "collector_number": "066",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227923,
+    "name": "Unown VSTAR",
+    "version": "Secret Rare | 199/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227923/preview_unown-vstar-secret-rare-199-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682247
+    ],
+    "collector_number": "199",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227924,
+    "name": "Ursaluna V",
+    "version": "Ultra Rare | 102/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227924/preview_ursaluna-v-ultra-rare-102-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682149
+    ],
+    "collector_number": "102",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227925,
+    "name": "Venomoth",
+    "version": "002/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227925/preview_venomoth-002-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682041
+    ],
+    "collector_number": "002",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227926,
+    "name": "V Guard Energy",
+    "version": "Secret Rare | 215/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227926/preview_v-guard-energy-secret-rare-215-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682264
+    ],
+    "collector_number": "215",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227927,
+    "name": "V Guard Energy",
+    "version": "169/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227927/preview_v-guard-energy-169-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682216
+    ],
+    "collector_number": "169",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227928,
+    "name": "Venonat",
+    "version": "001/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227928/preview_venonat-001-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682040
+    ],
+    "collector_number": "001",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227929,
+    "name": "Victini",
+    "version": "023/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227929/preview_victini-023-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682064
+    ],
+    "collector_number": "023",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227930,
+    "name": "Virizion",
+    "version": "014/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227930/preview_virizion-014-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682055
+    ],
+    "collector_number": "014",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227931,
+    "name": "Vulpix",
+    "version": "017/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227931/preview_vulpix-017-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682058
+    ],
+    "collector_number": "017",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227932,
+    "name": "Wailmer",
+    "version": "037/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227932/preview_wailmer-037-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682079
+    ],
+    "collector_number": "037",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227933,
+    "name": "Wailord",
+    "version": "038/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227933/preview_wailord-038-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682080
+    ],
+    "collector_number": "038",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227934,
+    "name": "Wallace",
+    "version": "166/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227934/preview_wallace-166-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682213
+    ],
+    "collector_number": "166",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227935,
+    "name": "Wallace",
+    "version": "Ultra Rare | 194/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227935/preview_wallace-ultra-rare-194-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682242
+    ],
+    "collector_number": "194",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227936,
+    "name": "Wallace",
+    "version": "Secret Rare | 208/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227936/preview_wallace-secret-rare-208-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682257
+    ],
+    "collector_number": "208",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227937,
+    "name": "Worker",
+    "version": "167/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227937/preview_worker-167-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682214
+    ],
+    "collector_number": "167",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227938,
+    "name": "Worker",
+    "version": "Ultra Rare | 195/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227938/preview_worker-ultra-rare-195-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682243
+    ],
+    "collector_number": "195",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227939,
+    "name": "Worker",
+    "version": "Secret Rare | 209/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227939/preview_worker-secret-rare-209-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682258
+    ],
+    "collector_number": "209",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227940,
+    "name": "Zygarde",
+    "version": "134/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227940/preview_zygarde-134-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682181
+    ],
+    "collector_number": "134",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227941,
+    "name": "Zubat",
+    "version": "103/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227941/preview_zubat-103-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682150
+    ],
+    "collector_number": "103",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227942,
+    "name": "Zeraora",
+    "version": "056/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227942/preview_zeraora-056-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682103
+    ],
+    "collector_number": "056",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227943,
+    "name": "Zeraora V",
+    "version": "Ultra Rare | TG16/TG30",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227943/preview_zeraora-v-ultra-rare-tg16-tg30-silver-tempest.jpg",
+    "card_market_ids": [
+      682280
+    ],
+    "collector_number": "TG16",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 227949,
+    "name": "Serperior VSTAR",
+    "version": "Secret Rare | 210/195",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/227949/preview_serperior-vstar-secret-rare-210-195-silver-tempest.jpg",
+    "card_market_ids": [
+      682259
+    ],
+    "collector_number": "210",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 229711,
+    "name": "Lugia VSTAR",
+    "version": "Oversized",
+    "game_id": 5,
+    "category_id": 78,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/229711/preview_lugia-vstar-copy-ultra-rare-139-195-silver-tempest.jpg",
+    "card_market_ids": [
+      686420
+    ],
+    "collector_number": "139",
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 317173,
+    "name": "Silver Tempest Booster Box",
+    "version": "18 Boosters",
+    "game_id": 5,
+    "category_id": 67,
+    "expansion_id": 3142,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/317173/preview_silver-tempest-booster-box-18-boosters-silver-tempest.jpg",
+    "card_market_ids": [
+      672335
+    ],
+    "collector_number": null,
+    "expansion_name": "Silver Tempest",
+    "expansion_code": "sit",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  }
+]

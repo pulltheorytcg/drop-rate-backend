@@ -1,0 +1,2296 @@
+[
+  {
+    "id": 105833,
+    "name": "Dragon Majesty Booster",
+    "version": null,
+    "game_id": 5,
+    "category_id": 66,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105833/preview_dragon-majesty-booster-dragon-majesty.jpg",
+    "card_market_ids": [
+      361541
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105834,
+    "name": "Dragon Majesty: Premium Powers Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105834/preview_dragon-majesty-premium-powers-collection-dragon-majesty.jpg",
+    "card_market_ids": [
+      361536
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105835,
+    "name": "Dragon Majesty: Salamence GX Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105835/preview_dragon-majesty-salamence-gx-collection-dragon-majesty.jpg",
+    "card_market_ids": [
+      362921
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105836,
+    "name": "Dragon Majesty: White Kyurem GX Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105836/preview_dragon-majesty-white-kyurem-gx-collection-dragon-majesty.jpg",
+    "card_market_ids": [
+      362922
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105837,
+    "name": "Dragon MajestyDragon Majesty: Ultra Necrozma GX Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105837/preview_dragon-majestydragon-majesty-ultra-necrozma-gx-box-dragon-majesty.jpg",
+    "card_market_ids": [
+      361535
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105838,
+    "name": "Dragon Majesty: Legends of Unova GX Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105838/preview_dragon-majesty-legends-of-unova-gx-collection-dragon-majesty.jpg",
+    "card_market_ids": [
+      361537
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105839,
+    "name": "Dragon Majesty: Latias Pin Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105839/preview_dragon-majesty-latias-pin-collection-dragon-majesty.jpg",
+    "card_market_ids": [
+      361538
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105840,
+    "name": "Dragon Majesty: Latios Pin Collection",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105840/preview_dragon-majesty-latios-pin-collection-dragon-majesty.jpg",
+    "card_market_ids": [
+      361539
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 105841,
+    "name": "Dragon Majesty Elite Trainer Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 68,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/105841/preview_dragon-majesty-elite-trainer-box-dragon-majesty.jpg",
+    "card_market_ids": [
+      361540
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es",
+      "pt",
+      "nl",
+      "ru",
+      "pl",
+      "sv"
+    ]
+  },
+  {
+    "id": 114260,
+    "name": "Charmander",
+    "version": "25569",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114260/preview_charmander-1-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363474
+    ],
+    "collector_number": "01/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114262,
+    "name": "Charmeleon",
+    "version": "25600",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114262/preview_charmeleon-2-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363475
+    ],
+    "collector_number": "02/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114264,
+    "name": "Charizard",
+    "version": "Holo Rare | 3/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114264/preview_charizard-holo-rare-3-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      361549
+    ],
+    "collector_number": "03/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114266,
+    "name": "Torchic",
+    "version": "25659",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114266/preview_torchic-4-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363476
+    ],
+    "collector_number": "04/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114268,
+    "name": "Combusken",
+    "version": "25689",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114268/preview_combusken-5-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363477
+    ],
+    "collector_number": "05/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114270,
+    "name": "Blaziken",
+    "version": "Holo Rare | 6/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114270/preview_blaziken-holo-rare-6-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363478
+    ],
+    "collector_number": "06/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114272,
+    "name": "Victini ◇ Prism Star",
+    "version": "25750",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114272/preview_victini-prism-star-7-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363479
+    ],
+    "collector_number": "07/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114273,
+    "name": "Darumaka",
+    "version": "25781",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114273/preview_darumaka-8-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363480
+    ],
+    "collector_number": "08/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114275,
+    "name": "Darmanitan",
+    "version": "25812",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114275/preview_darmanitan-9-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363481
+    ],
+    "collector_number": "09/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114277,
+    "name": "Heatmor",
+    "version": "44844",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114277/preview_heatmor-10-10-dragon-majesty.jpg",
+    "card_market_ids": [
+      363482
+    ],
+    "collector_number": "10/10",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114279,
+    "name": "Reshiram GX",
+    "version": "25873",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114279/preview_reshiram-gx-11-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363483
+    ],
+    "collector_number": "11/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114280,
+    "name": "Litten",
+    "version": "25903",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114280/preview_litten-12-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363484
+    ],
+    "collector_number": "12/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114282,
+    "name": "Salandit",
+    "version": "13/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114282/preview_salandit-13-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363485
+    ],
+    "collector_number": "13/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114284,
+    "name": "Salazzle",
+    "version": "14/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114284/preview_salazzle-14-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363486
+    ],
+    "collector_number": "14/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114287,
+    "name": "Horsea",
+    "version": "15/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114287/preview_horsea-15-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363487
+    ],
+    "collector_number": "15/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114289,
+    "name": "Horsea",
+    "version": "16/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114289/preview_horsea-16-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363488
+    ],
+    "collector_number": "16/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114291,
+    "name": "Seadra",
+    "version": "17/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114291/preview_seadra-17-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363489
+    ],
+    "collector_number": "17/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114293,
+    "name": "Kingdra GX",
+    "version": "Ultra Rare | 18/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114293/preview_kingdra-gx-rare-holo-18-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363490
+    ],
+    "collector_number": "18/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114294,
+    "name": "Magikarp",
+    "version": "19/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114294/preview_magikarp-19-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363491
+    ],
+    "collector_number": "19/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114296,
+    "name": "Gyarados",
+    "version": "Holo Rare | 20/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114296/preview_gyarados-rare-holo-20-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363492
+    ],
+    "collector_number": "20/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114298,
+    "name": "Lapras",
+    "version": "21/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114298/preview_lapras-21-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363493
+    ],
+    "collector_number": "21/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114300,
+    "name": "Totodile",
+    "version": "22/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114300/preview_totodile-22-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363494
+    ],
+    "collector_number": "22/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114302,
+    "name": "Croconaw",
+    "version": "23/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114302/preview_croconaw-23-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363495
+    ],
+    "collector_number": "23/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114304,
+    "name": "Feraligatr",
+    "version": "Holo Rare | 24/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114304/preview_feraligatr-rare-holo-24-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363496
+    ],
+    "collector_number": "24/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114306,
+    "name": "Wooper",
+    "version": "25/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114306/preview_wooper-25-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363497
+    ],
+    "collector_number": "25/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114308,
+    "name": "Quagsire",
+    "version": "26/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114308/preview_quagsire-26-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363498
+    ],
+    "collector_number": "26/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114310,
+    "name": "Corsola",
+    "version": "27/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114310/preview_corsola-27-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363499
+    ],
+    "collector_number": "27/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114312,
+    "name": "Feebas",
+    "version": "28/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114312/preview_feebas-28-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363500
+    ],
+    "collector_number": "28/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114314,
+    "name": "Milotic",
+    "version": "29/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114314/preview_milotic-29-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363501
+    ],
+    "collector_number": "29/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114316,
+    "name": "Phione",
+    "version": "30/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114316/preview_phione-30-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363502
+    ],
+    "collector_number": "30/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114318,
+    "name": "Wishiwashi",
+    "version": "31/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114318/preview_wishiwashi-31-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363503
+    ],
+    "collector_number": "31/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114320,
+    "name": "Trapinch",
+    "version": "32/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114320/preview_trapinch-32-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363504
+    ],
+    "collector_number": "32/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114322,
+    "name": "Hydreigon",
+    "version": "Holo Rare | 33/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114322/preview_hydreigon-rare-holo-33-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363505
+    ],
+    "collector_number": "33/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114324,
+    "name": "Dratini",
+    "version": "34/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114324/preview_dratini-34-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363506
+    ],
+    "collector_number": "34/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114326,
+    "name": "Dratini",
+    "version": "35/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114326/preview_dratini-35-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363507
+    ],
+    "collector_number": "35/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114328,
+    "name": "Dragonair",
+    "version": "36/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114328/preview_dragonair-36-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363508
+    ],
+    "collector_number": "36/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114331,
+    "name": "Dragonite GX",
+    "version": "Ultra Rare | 37/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114331/preview_dragonite-gx-rare-holo-37-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      361550
+    ],
+    "collector_number": "37/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114332,
+    "name": "Vibrava",
+    "version": "38/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114332/preview_vibrava-38-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363509
+    ],
+    "collector_number": "38/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114334,
+    "name": "Flygon",
+    "version": "39/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114334/preview_flygon-39-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363510
+    ],
+    "collector_number": "39/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114336,
+    "name": "Altaria",
+    "version": "40/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114336/preview_altaria-40-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363511
+    ],
+    "collector_number": "40/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114338,
+    "name": "Altaria GX",
+    "version": "Ultra Rare | 41/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114338/preview_altaria-gx-rare-holo-41-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363512
+    ],
+    "collector_number": "41/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114339,
+    "name": "Bagon",
+    "version": "42/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114339/preview_bagon-42-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363513
+    ],
+    "collector_number": "42/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114341,
+    "name": "Shelgon",
+    "version": "43/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114341/preview_shelgon-43-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363514
+    ],
+    "collector_number": "43/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114343,
+    "name": "Salamence GX",
+    "version": "Ultra Rare | 44/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114343/preview_salamence-gx-rare-holo-44-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363515
+    ],
+    "collector_number": "44/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114344,
+    "name": "Druddigon",
+    "version": "45/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114344/preview_druddigon-45-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363516
+    ],
+    "collector_number": "45/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114346,
+    "name": "Zekrom",
+    "version": "Holo Rare | 46/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114346/preview_zekrom-rare-holo-46-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363517
+    ],
+    "collector_number": "46/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114348,
+    "name": "Kyurem",
+    "version": "Holo Rare | 47/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114348/preview_kyurem-rare-holo-47-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363518
+    ],
+    "collector_number": "47/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114350,
+    "name": "White Kyurem GX",
+    "version": "Ultra Rare | 48/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114350/preview_white-kyurem-gx-rare-holo-48-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363519
+    ],
+    "collector_number": "48/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114351,
+    "name": "Zygarde",
+    "version": "49/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114351/preview_zygarde-49-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363520
+    ],
+    "collector_number": "49/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114353,
+    "name": "Turtonator",
+    "version": "50/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114353/preview_turtonator-50-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363521
+    ],
+    "collector_number": "50/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114355,
+    "name": "Drampa",
+    "version": "51/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114355/preview_drampa-51-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363522
+    ],
+    "collector_number": "51/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114357,
+    "name": "Jangmo-o",
+    "version": "52/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114357/preview_jangmo-o-52-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363523
+    ],
+    "collector_number": "52/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114359,
+    "name": "Hakamo-o",
+    "version": "53/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114359/preview_hakamo-o-53-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363524
+    ],
+    "collector_number": "53/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114361,
+    "name": "Kommo-o",
+    "version": "Holo Rare | 54/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114361/preview_kommo-o-rare-holo-54-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363525
+    ],
+    "collector_number": "54/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114363,
+    "name": "Kangaskhan",
+    "version": "55/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114363/preview_kangaskhan-55-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363526
+    ],
+    "collector_number": "55/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114365,
+    "name": "Swablu",
+    "version": "56/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114365/preview_swablu-56-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363528
+    ],
+    "collector_number": "56/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114367,
+    "name": "Swablu",
+    "version": "57/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114367/preview_swablu-57-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363527
+    ],
+    "collector_number": "57/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114369,
+    "name": "Blaine's Last Stand",
+    "version": "Holo Rare | 58/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114369/preview_blaine-s-last-stand-rare-holo-58-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363529
+    ],
+    "collector_number": "58/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114371,
+    "name": "Dragon Talon",
+    "version": "59/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114371/preview_dragon-talon-59-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363530
+    ],
+    "collector_number": "59/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114373,
+    "name": "Fiery Flint",
+    "version": "60/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114373/preview_fiery-flint-60-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363531
+    ],
+    "collector_number": "60/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114375,
+    "name": "Lance ◇ Prism Star",
+    "version": "61/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114375/preview_lance-prism-star-61-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363532
+    ],
+    "collector_number": "61/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114376,
+    "name": "Switch Raft",
+    "version": "62/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114376/preview_switch-raft-62-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363533
+    ],
+    "collector_number": "62/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114378,
+    "name": "Wela Volcano Park",
+    "version": "63/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114378/preview_wela-volcano-park-63-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363534
+    ],
+    "collector_number": "63/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114381,
+    "name": "Zinnia",
+    "version": "64/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114381/preview_zinnia-64-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363535
+    ],
+    "collector_number": "64/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114383,
+    "name": "Reshiram GX",
+    "version": "Ultra Rare | 65/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114383/preview_reshiram-gx-rare-ultra-65-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363536
+    ],
+    "collector_number": "65/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114384,
+    "name": "Kingdra GX",
+    "version": "Ultra Rare | 66/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114384/preview_kingdra-gx-rare-ultra-66-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363537
+    ],
+    "collector_number": "66/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114385,
+    "name": "Dragonite GX",
+    "version": "Ultra Rare | 67/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114385/preview_dragonite-gx-rare-ultra-67-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363538
+    ],
+    "collector_number": "67/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114386,
+    "name": "Altaria GX",
+    "version": "Ultra Rare | 68/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114386/preview_altaria-gx-rare-ultra-68-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363539
+    ],
+    "collector_number": "68/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114387,
+    "name": "Blaine's Last Stand",
+    "version": "Ultra Rare | 69/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114387/preview_blaine-s-last-stand-rare-ultra-69-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363540
+    ],
+    "collector_number": "69/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114388,
+    "name": "Zinnia",
+    "version": "Ultra Rare | 70/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114388/preview_zinnia-rare-ultra-70-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363541
+    ],
+    "collector_number": "70/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114389,
+    "name": "Reshiram GX",
+    "version": "Rainbow Secret Rare | 71/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114389/preview_reshiram-gx-rare-rainbow-71-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363542
+    ],
+    "collector_number": "71/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114390,
+    "name": "Altaria GX",
+    "version": "Rainbow Secret Rare | 72/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114390/preview_altaria-gx-rare-rainbow-72-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363543
+    ],
+    "collector_number": "72/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114391,
+    "name": "Salamence GX",
+    "version": "Rainbow Secret Rare | 73/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114391/preview_salamence-gx-rare-rainbow-73-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363544
+    ],
+    "collector_number": "73/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114392,
+    "name": "White Kyurem GX",
+    "version": "Rainbow Secret Rare | 74/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114392/preview_white-kyurem-gx-rare-rainbow-74-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363545
+    ],
+    "collector_number": "74/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114393,
+    "name": "Dragon Talon",
+    "version": "Gold Secret Rare | 75/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114393/preview_dragon-talon-secret-rare-75-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363546
+    ],
+    "collector_number": "75/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114394,
+    "name": "Fiery Flint",
+    "version": "Gold Secret Rare | 76/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114394/preview_fiery-flint-secret-rare-76-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363547
+    ],
+    "collector_number": "76/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114395,
+    "name": "Switch Raft",
+    "version": "Gold Secret Rare | 77/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114395/preview_switch-raft-secret-rare-77-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363548
+    ],
+    "collector_number": "77/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 114396,
+    "name": "Ultra Necrozma GX",
+    "version": "Full-Art | 78/70",
+    "game_id": 5,
+    "category_id": 73,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/114396/preview_ultra-necrozma-gx-secret-rare-78-70-dragon-majesty.jpg",
+    "card_market_ids": [
+      363549
+    ],
+    "collector_number": "78/70",
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "kr",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 132797,
+    "name": "Dragon Majesty: 1 Naganadel Divider",
+    "version": null,
+    "game_id": 5,
+    "category_id": 74,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/132797/preview_dragon-majesty-1-naganadel-divider-dragon-majesty.jpg",
+    "card_market_ids": [
+      452898
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 133503,
+    "name": "Dragon Majesty: 65 Naganadel Sleeves",
+    "version": null,
+    "game_id": 5,
+    "category_id": 62,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/133503/preview_dragon-majesty-65-naganadel-sleeves-dragon-majesty.jpg",
+    "card_market_ids": [
+      451318
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 200872,
+    "name": "Dragon Majesty Super Premium Collection Box",
+    "version": null,
+    "game_id": 5,
+    "category_id": 60,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/200872/preview_dragon-majesty-super-premium-collection-box-dragon-majesty.jpg",
+    "card_market_ids": [
+      552164
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": "en",
+    "language_options": [
+      "en",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "es"
+    ]
+  },
+  {
+    "id": 321282,
+    "name": "Dragon Majesty: Latios Pin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 61,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/321282/preview_sword-shield-latios-collector-s-pin-2-pack-blisters-pin-sword-shield-merchandise.jpg",
+    "card_market_ids": [
+      666824
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": null,
+    "language_options": null
+  },
+  {
+    "id": 321283,
+    "name": "Dragon Majesty: Latias Pin",
+    "version": "",
+    "game_id": 5,
+    "category_id": 61,
+    "expansion_id": 1604,
+    "image_url": "https://cardtrader.com/uploads/blueprints/image/321283/preview_dragon-majesty-latias-pin-sword-shield-merchandise.jpg",
+    "card_market_ids": [
+      666823
+    ],
+    "collector_number": null,
+    "expansion_name": "Dragon Majesty",
+    "expansion_code": "drm",
+    "language_default": null,
+    "language_options": null
+  }
+]

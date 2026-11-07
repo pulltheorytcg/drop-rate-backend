@@ -1,0 +1,43 @@
+/* Share #auth-view with login; only registration-specific form details live here. */
+.owner-join-page .ambient { display: none; }
+.owner-join-page #auth-view .auth-panel { min-width: 0; }
+.owner-join-page #auth-view .auth-card { min-width: 0; }
+.owner-join-page #auth-view .auth-card label { min-width: 0; }
+.owner-join-page #auth-view .auth-card input:not([type="checkbox"]) {
+  width: 100%; box-sizing: border-box; min-width: 0; font-size: 16px;
+}
+.owner-join-page #auth-view .auth-card .owner-onboarding-ack {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 12px; line-height: 1.6; font-weight: 400;
+}
+.owner-join-page #auth-view .auth-card input[type="checkbox"] {
+  width: 18px; height: 18px; min-height: 18px !important; min-width: 18px;
+  margin: 3px 0 0; flex: 0 0 18px; accent-color: #087d8b;
+}
+.owner-join-page #auth-view .owner-entry-summary {
+  padding: 10px 12px; border: 1px solid #dce1de; border-radius: 8px;
+  background: #fff; overflow-wrap: anywhere;
+}
+.owner-join-page #auth-view .owner-entry-summary:empty { display: none; }
+.owner-join-page #auth-view .owner-entry-includes {
+  padding: 0; margin: 0 0 16px; border: 0; background: transparent;
+  color: #325970; font-size: 12px; line-height: 1.65;
+}
+.owner-join-page #auth-view .owner-entry-includes summary {
+  cursor: pointer; padding: 10px 0; font-weight: 650; min-height: 44px;
+}
+.owner-join-page #auth-view .owner-entry-includes ul { margin: 0; padding-left: 20px; }
+.owner-join-page #auth-view .owner-entry-hint { margin-top: -6px; font-size: 12px; }
+.owner-join-page #auth-view .owner-entry-back {
+  display: inline-flex; align-items: center; min-height: 44px; color: #087d8b;
+}
+.owner-join-page #auth-view .text-button { min-height: 44px; }
+.owner-join-page #auth-view :is(a,button,input,summary):focus-visible {
+  outline: 3px solid #087d8b; outline-offset: 3px;
+}
+@media (min-width: 701px) {
+  .owner-join-page #auth-view .brand-panel { position: sticky; top: 0; align-self: start; }
+}
+@media (max-width: 700px) {
+  .owner-join-page #auth-view .auth-panel { padding-bottom: max(40px, env(safe-area-inset-bottom)) !important; }
+}

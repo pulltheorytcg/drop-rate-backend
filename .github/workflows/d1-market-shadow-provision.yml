@@ -1,0 +1,101 @@
+name: Cloudflare D1 private Market Value schema ONLY (no prices)
+on:
+  pull_request:
+    paths:
+      - 'database/cloudflare_d1/0002_market_value_shadow.sql'
+      - 'tools/d1_market_shadow_provision.py'
+      - 'tests/test_d1_market_shadow_provision.py'
+      - 'tests/test_d1_market_value_shadow.py'
+      - '.github/workflows/d1-market-shadow-provision.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'tools/d1_market_shadow_provision.py'
+      - 'database/cloudflare_d1/0002_market_value_shadow.sql'
+      - '.github/workflows/d1-market-shadow-provision.yml'
+permissions:
+  contents: read
+concurrency:
+  group: cloudflare-private-market-value-schema-only
+  cancel-in-progress: false
+jobs:
+  offline-evidence-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest==8.3.5
+      - name: Prove no retail/guide/asking/AI Market Value leaks or source mutation
+        env:
+          PYTHONPATH: tools:backend
+          MARKET_D1_VALIDATE_ONLY: 'true'
+        run: |
+          python tools/d1_market_shadow_provision.py
+          python -m pytest -q tests/test_d1_market_shadow_provision.py tests/test_d1_market_value_shadow.py
+  private-market-schema-only:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: offline-evidence-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: read
+      statuses: write
+    env:
+      CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+      CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+      PYTHONPATH: tools:backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Provision only verified private Market Value schema
+        id: market_schema
+        run: python tools/d1_market_shadow_provision.py
+      - name: Publish explicit schema-only receipt (not a price feed)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          STEP_OUTCOME: ${{ steps.market_schema.outcome }}
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request
+          from pathlib import Path
+          ok=False
+          p=Path('d1-market-value-shadow-schema-report.json')
+          if p.is_file() and os.environ['STEP_OUTCOME']=='success':
+              a=json.loads(p.read_text())
+              ok=(a.get('status') in {'EXISTING_PRIVATE_MARKET_D1_SCHEMA_VERIFIED',
+                                     'PRIVATE_MARKET_D1_SCHEMA_CREATED_NO_DATA'}
+                  and a.get('expected_schema_objects')==a.get('actual_schema_objects')
+                  and a.get('eligible_market_value_published')==0
+                  and a.get('guide_or_asking_prices_promoted')==0
+                  and a.get('postgres_writes')==0
+                  and a.get('production_reads_switched') is False
+                  and a.get('customer_or_market_rows_imported')==0)
+          req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GH_REPO']
+             +'/statuses/'+os.environ['GH_SHA'],method='POST',
+             data=json.dumps({
+               'state':'success' if ok else 'failure',
+               'description':('Private D1 market schema verified; NO live prices'
+                              if ok else 'Market schema not verified; live pricing unchanged'),
+               'context':'drop-rate-d1-market-schema-only'}).encode(),
+             headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],
+                      'Content-Type':'application/json',
+                      'Accept':'application/vnd.github+json'})
+          with urllib.request.urlopen(req,timeout=20) as resp:
+              if resp.status!=201:raise SystemExit('Missing schema-only status receipt')
+          print('Private D1 Market Value SCHEMA ONLY status: '+('success' if ok else 'failure'))
+          PY
+      - name: Publish schema-only SHA, no customer or market data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-private-market-schema-only
+          path: d1-market-value-shadow-schema-report.json
+          retention-days: 7

@@ -80,7 +80,7 @@ def test_dashboard_shell_has_expected_seller_views() -> None:
         assert f'["{view}",' in js
     assert 'apiRequest("/api/v1/market/status")' in js
     assert 'apiRequest("/api/v1/pricing/inventory?limit=8&offset=0")' in js
-    assert "history.replaceState" in js
+    assert "history.pushState" in js
 
 
 def test_dashboard_shell_preserves_working_component_ids() -> None:
@@ -159,6 +159,8 @@ def test_csp_allows_only_trusted_canonical_card_image_hosts() -> None:
     assert "https://cdn.shopify.com" in main
     assert "https://*.shopifycdn.com" in main
     assert "https://*.shopifycdn.net" in main
+    for host in ("www.dbs-cardgame.com", "narutocardgame.gg", "cardtrader.com", "www.cardtrader.com"):
+        assert f"https://{host}" in main
     assert "img-src 'self' data: blob:" in main
     assert "img-src *" not in main
 
@@ -192,7 +194,7 @@ def test_inventory_defaults_to_visual_collectr_style_cards() -> None:
     assert 'rootMargin: "320px 0px"' in js
     assert "observer.observe(figure)" in js
     assert "loadProxyNearViewport();" in js
-    assert "item.market_value_minor" in js
+    assert "DropRateReferenceValue.text(item" in js
     assert "item.store_price_minor" in js
     assert "item.acquisition_cost_minor" in js
     assert "item.inventory_code" in js
@@ -232,6 +234,6 @@ def test_workspace_search_and_clear_filters_include_personal_collection() -> Non
         in workspace
     )
     assert (
-        "state.search = state.brand = state.status = state.saleIntent = state.issue ="
+        "state.search = state.brand = state.status = state.saleIntent = state.storageLocationFilter = state.issue ="
         in workspace
     )

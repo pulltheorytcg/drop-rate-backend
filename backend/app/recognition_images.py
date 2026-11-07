@@ -4,6 +4,7 @@ import asyncio
 import base64
 import hashlib
 import io
+import re
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -15,6 +16,9 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 TRUSTED_REFERENCE_HOSTS = {
     "assets.tcgdex.net",
+    # Canonical sealed-product artwork is only selected from approved,
+    # storefront-licensed media_assets; some of those assets live on Shopify.
+    "cdn.shopify.com",
     "onepiece-cardgame.com",
     "www.onepiece-cardgame.com",
     "cards.tcggraph.io",
@@ -31,6 +35,30 @@ REFERENCE_IMAGE_BYTES_CACHE_MAX_ITEM_BYTES = 2_000_000
 _REFERENCE_HASH_CACHE: OrderedDict[str, tuple[float, tuple[int, ...]]] = OrderedDict()
 _REFERENCE_HASH_INFLIGHT: dict[str, asyncio.Task[tuple[int, ...] | None]] = {}
 _REFERENCE_IMAGE_BYTES_CACHE: OrderedDict[str, tuple[float, "ReferenceImagePayload"]] = OrderedDict()
+_REFERENCE_BYTES_INFLIGHT: dict[tuple, asyncio.Task] = {}
+_REFERENCE_FETCHES = asyncio.Semaphore(6)
+_REFERENCE_HTTP_CLIENT: httpx.AsyncClient | None = None
+
+
+async def close_reference_http_client() -> None:
+    global _REFERENCE_HTTP_CLIENT
+    tasks = list(_REFERENCE_BYTES_INFLIGHT.values())
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    _REFERENCE_BYTES_INFLIGHT.clear()
+    if _REFERENCE_HTTP_CLIENT is not None:
+        await _REFERENCE_HTTP_CLIENT.aclose()
+        _REFERENCE_HTTP_CLIENT = None
+
+
+def _reference_http_client() -> httpx.AsyncClient:
+    global _REFERENCE_HTTP_CLIENT
+    if _REFERENCE_HTTP_CLIENT is None or _REFERENCE_HTTP_CLIENT.is_closed:
+        _REFERENCE_HTTP_CLIENT = httpx.AsyncClient(
+            follow_redirects=False, limits=httpx.Limits(max_connections=8, max_keepalive_connections=8))
+    return _REFERENCE_HTTP_CLIENT
 
 
 def _clear_reference_image_hash_cache() -> None:
@@ -95,7 +123,25 @@ def _fingerprints(image: Image.Image) -> tuple[int, ...]:
     return tuple(dict.fromkeys(values))
 
 
-def _open_image(data: bytes) -> tuple[Image.Image, int, int]:
+def reference_display_min_dimension(url: str) -> int:
+    """CardTrader's exact blueprint thumbnails are 180px; scans remain 200px."""
+    try:
+        parsed = urlparse(url)
+        if (parsed.scheme == 'https'
+                and parsed.hostname in {'cardtrader.com', 'www.cardtrader.com'}
+                and parsed.port in {None, 443}
+                and parsed.username is None and parsed.password is None
+                and not parsed.query and not parsed.fragment
+                and re.fullmatch(
+                    r'/uploads/blueprints/image/[0-9]+/preview_[A-Za-z0-9_.()-]+\.(?:png|webp|jpg|jpeg)',
+                    parsed.path, flags=re.I)):
+            return 180
+    except (TypeError, ValueError):
+        pass
+    return 200
+
+
+def _open_image(data: bytes, *, min_dimension: int = 200) -> tuple[Image.Image, int, int]:
     if not data:
         raise RecognitionImageError("Recognition image is empty")
     Image.MAX_IMAGE_PIXELS = 40_000_000
@@ -108,7 +154,7 @@ def _open_image(data: bytes) -> tuple[Image.Image, int, int]:
     if getattr(image, "is_animated", False):
         raise RecognitionImageError("Animated images are not supported")
     width, height = image.size
-    if width < 200 or height < 200:
+    if width < min_dimension or height < min_dimension:
         raise RecognitionImageError("Recognition image resolution is too low")
     if width * height > 40_000_000:
         raise RecognitionImageError("Recognition image dimensions are too large")
@@ -170,6 +216,10 @@ REFERENCE_IMAGE_MAX_REDIRECTS = 3
 
 
 def _trusted_reference_url(url: str) -> bool:
+    from .book_artwork import publisher_cover_url
+    from .pokemon_official_artwork import official_image_url
+    if publisher_cover_url(url) or official_image_url(url):
+        return True
     try:
         parsed = urlparse(url)
     except ValueError:
@@ -217,68 +267,75 @@ async def _fetch_reference_image_uncached(
     max_bytes: int,
     timeout_seconds: float,
 ) -> ReferenceImagePayload | None:
+    from .book_artwork import publisher_cover_url
     current = url
     data = b""
     content_type = ""
     try:
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(timeout_seconds),
-            follow_redirects=False,
-        ) as client:
-            for redirect_count in range(REFERENCE_IMAGE_MAX_REDIRECTS + 1):
-                if not _trusted_reference_url(current):
-                    return None
-                async with client.stream(
-                    "GET",
-                    current,
-                    headers={"Accept": "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.5"},
-                ) as response:
-                    if response.status_code in {301, 302, 303, 307, 308}:
-                        if redirect_count >= REFERENCE_IMAGE_MAX_REDIRECTS:
-                            return None
-                        target = _trusted_reference_redirect(
-                            current,
-                            response.headers.get("location", ""),
-                        )
-                        if target is None:
-                            return None
-                        current = target
-                        continue
-
-                    response.raise_for_status()
-                    content_type = response.headers.get("content-type", "").split(";", 1)[0].casefold()
-                    if content_type not in {
-                        "image/jpeg",
-                        "image/png",
-                        "image/webp",
-                        "image/avif",
-                    }:
-                        return None
-                    content_length = response.headers.get("content-length")
-                    if content_length:
-                        try:
-                            if int(content_length) > max_bytes:
-                                return None
-                        except ValueError:
-                            return None
-                    chunks: list[bytes] = []
-                    size = 0
-                    async for chunk in response.aiter_bytes():
-                        size += len(chunk)
-                        if size > max_bytes:
-                            return None
-                        chunks.append(chunk)
-                    data = b"".join(chunks)
-                    break
-            else:
+        client = _reference_http_client()
+        for redirect_count in range(REFERENCE_IMAGE_MAX_REDIRECTS + 1):
+            if not _trusted_reference_url(current):
                 return None
+            async with client.stream(
+                "GET",
+                current,
+                timeout=httpx.Timeout(timeout_seconds), follow_redirects=False,
+                headers={"Accept": "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.5"},
+            ) as response:
+                if response.status_code in {301, 302, 303, 307, 308}:
+                    if redirect_count >= REFERENCE_IMAGE_MAX_REDIRECTS:
+                        return None
+                    target = _trusted_reference_redirect(
+                        current,
+                        response.headers.get("location", ""),
+                    )
+                    if target is None:
+                        return None
+                    current = target
+                    continue
+
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "").split(";", 1)[0].casefold()
+                if content_type not in {
+                    "image/jpeg",
+                    "image/png",
+                    "image/webp",
+                    "image/avif",
+                } and not (not content_type and publisher_cover_url(current)):
+                    return None
+                content_length = response.headers.get("content-length")
+                if content_length:
+                    try:
+                        if int(content_length) > max_bytes:
+                            return None
+                    except ValueError:
+                        return None
+                chunks: list[bytes] = []
+                size = 0
+                async for chunk in response.aiter_bytes():
+                    size += len(chunk)
+                    if size > max_bytes:
+                        return None
+                    chunks.append(chunk)
+                data = b"".join(chunks)
+                break
+        else:
+            return None
     except httpx.HTTPError:
         return None
 
     try:
-        _open_image(data)
+        image, _, _ = _open_image(data, min_dimension=max(
+            reference_display_min_dimension(url), reference_display_min_dimension(current)))
     except RecognitionImageError:
         return None
+    # Some VIZ publisher JPEGs omit Content-Type. Only those exact publisher
+    # paths may use a decoded raster format; HTML/SVG and declared bad MIME fail.
+    if not content_type:
+        content_type = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp",
+                        "AVIF": "image/avif"}.get(image.format)
+        if not content_type:
+            return None
     return ReferenceImagePayload(content_type=content_type, data=data)
 
 
@@ -296,19 +353,31 @@ async def reference_image_bytes(
     cached = _REFERENCE_IMAGE_BYTES_CACHE.get(url)
     if cached is not None:
         expires_at, payload = cached
-        if expires_at > now:
+        if expires_at > now and len(payload.data) <= max_bytes:
             _REFERENCE_IMAGE_BYTES_CACHE.move_to_end(url)
             return payload
         _REFERENCE_IMAGE_BYTES_CACHE.pop(url, None)
 
-    payload = await _fetch_reference_image_uncached(
-        url,
-        max_bytes=max_bytes,
-        timeout_seconds=timeout_seconds,
-    )
-    if payload is not None:
-        _cache_reference_image_bytes(url, payload)
-    return payload
+    # A cancelled browser request must not cancel another reader of the same
+    # public image. Cache hits never queue behind cold provider downloads.
+    key = (url, max_bytes, timeout_seconds)
+    async def fetch():
+        try:
+            async with _REFERENCE_FETCHES:
+                payload = await _fetch_reference_image_uncached(
+                    url, max_bytes=max_bytes, timeout_seconds=timeout_seconds)
+            if payload is not None:
+                _cache_reference_image_bytes(url, payload)
+            return payload
+        finally:
+            _REFERENCE_BYTES_INFLIGHT.pop(key, None)
+    task = _REFERENCE_BYTES_INFLIGHT.get(key)
+    if task is None:
+        if len(_REFERENCE_BYTES_INFLIGHT) >= 64:
+            return None
+        task = asyncio.create_task(fetch())
+        _REFERENCE_BYTES_INFLIGHT[key] = task
+    return await asyncio.shield(task)
 
 
 async def _reference_image_hashes_uncached(

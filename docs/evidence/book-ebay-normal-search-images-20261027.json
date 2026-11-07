@@ -1,0 +1,135 @@
+{
+  "checked_at": "2026-10-27T22:02:06.558Z",
+  "browser": "140.0.7339.186",
+  "requested_origin": "https://drop-rate-api-live-production.up.railway.app",
+  "source_evidence": "Two exact .jpg URLs returned by ordinary unpinned PR768 Naruto ISBN probe at 2026-10-27T22:00:24Z, supplied by parent agent. No Browse call is made by this test.",
+  "test_environment": "Fresh isolated Chromium context per photo; HTML locally fulfilled at production origin. Only each exact image URL can access network. Test-only ignoreHTTPSErrors handles the local interception certificate; production TLS settings unchanged.",
+  "production_image_csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://assets.tcgdex.net https://covers.openlibrary.org https://archive.org/download/ https://*.us.archive.org/view_archive.php https://i.ebayimg.com https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net https://e4d4b363540e991048d2e1812d5ef53e.eu.r2.cloudflarestorage.com; connect-src 'self' https://ozrxenrdladkooixutmm.supabase.co; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  "requested_image_settings": {
+    "crossOrigin": "anonymous",
+    "referrerPolicy": "no-referrer",
+    "loading": "lazy",
+    "decoding": "async"
+  },
+  "samples": [
+    {
+      "listing_id": "800761400014",
+      "listing_url": "https://www.ebay.co.uk/itm/800761400014",
+      "image_url": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.jpg",
+      "checked_at": "2026-10-27T22:02:06.559Z",
+      "image_requests": [
+        {
+          "url": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.jpg",
+          "method": "GET",
+          "origin": "https://drop-rate-api-live-production.up.railway.app",
+          "referrer_present": false,
+          "authorization_present": false,
+          "cookie_present": false
+        }
+      ],
+      "responses": [
+        {
+          "url": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.jpg",
+          "status": 200,
+          "content_type": "image/jpeg",
+          "access_control_allow_origin": "*",
+          "access_control_allow_credentials": null,
+          "received_bytes": 362359,
+          "content_length": "362359"
+        }
+      ],
+      "console_errors": [],
+      "request_failures": [],
+      "downloaded_image": {
+        "path": "/workspace/scratch/d4e997978efd/evidence/pr768-ebay-image-800761400014.jpg",
+        "sha256": "a3927389b890eee48515d48a115f5ae0902fcb63864f75dd9df1cdfb0d64d0a2"
+      },
+      "image": {
+        "loaded": true,
+        "width": 1000,
+        "height": 1494,
+        "current_src": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.jpg",
+        "cross_origin": "anonymous",
+        "referrer_policy": "no-referrer",
+        "canvas_readable": true
+      },
+      "csp_violations": [],
+      "status": "passed",
+      "completed_at": "2026-10-27T22:02:06.855Z",
+      "visual_review": {
+        "reviewed_at": "2026-10-27T22:02:26.233964+00:00",
+        "status": "MATCHES_TITLE_AND_VOLUME",
+        "method": "Viewed the exact downloaded JPEG bytes through the image viewer; no additional network request.",
+        "observations": [
+          "Cover visibly reads NARUTO and volume 1.",
+          "Masashi Kishimoto and Shonen Jump Graphic Novel are visible.",
+          "Flat cover artwork; no placeholder or error image."
+        ],
+        "limits": "Front-cover appearance does not establish ISBN, printing, interior language or ownership. These remain source-linked eBay listing photo references labelled Copy may vary."
+      }
+    },
+    {
+      "listing_id": "116764306695",
+      "listing_url": "https://www.ebay.co.uk/itm/116764306695",
+      "image_url": "https://i.ebayimg.com/images/g/xI4AAeSwcE1ouVHQ/s-l1600.jpg",
+      "checked_at": "2026-10-27T22:02:06.862Z",
+      "image_requests": [
+        {
+          "url": "https://i.ebayimg.com/images/g/xI4AAeSwcE1ouVHQ/s-l1600.jpg",
+          "method": "GET",
+          "origin": "https://drop-rate-api-live-production.up.railway.app",
+          "referrer_present": false,
+          "authorization_present": false,
+          "cookie_present": false
+        }
+      ],
+      "responses": [
+        {
+          "url": "https://i.ebayimg.com/images/g/xI4AAeSwcE1ouVHQ/s-l1600.jpg",
+          "status": 200,
+          "content_type": "image/jpeg",
+          "access_control_allow_origin": "*",
+          "access_control_allow_credentials": null,
+          "received_bytes": 561148,
+          "content_length": "561148"
+        }
+      ],
+      "console_errors": [],
+      "request_failures": [],
+      "downloaded_image": {
+        "path": "/workspace/scratch/d4e997978efd/evidence/pr768-ebay-image-116764306695.jpg",
+        "sha256": "cb18827a8bbe98c8d6cb49e7e255088d11fd5de81c096a60d4a9c49845752566"
+      },
+      "image": {
+        "loaded": true,
+        "width": 1600,
+        "height": 1600,
+        "current_src": "https://i.ebayimg.com/images/g/xI4AAeSwcE1ouVHQ/s-l1600.jpg",
+        "cross_origin": "anonymous",
+        "referrer_policy": "no-referrer",
+        "canvas_readable": true
+      },
+      "csp_violations": [],
+      "status": "passed",
+      "completed_at": "2026-10-27T22:02:07.207Z",
+      "visual_review": {
+        "reviewed_at": "2026-10-27T22:02:26.233964+00:00",
+        "status": "MATCHES_TITLE_AND_VOLUME",
+        "method": "Viewed the exact downloaded JPEG bytes through the image viewer; no additional network request.",
+        "observations": [
+          "Photograph shows a physical book on a carpet.",
+          "Cover visibly reads NARUTO and volume 1.",
+          "Masashi Kishimoto and Shonen Jump Manga are visible.",
+          "The imprint wording differs from the first image, so the two photos do not prove the same physical printing.",
+          "No placeholder or error image."
+        ],
+        "limits": "Front-cover appearance does not establish ISBN, printing, interior language or ownership. These remain source-linked eBay listing photo references labelled Copy may vary."
+      }
+    }
+  ],
+  "status": "passed",
+  "total_image_requests": 2,
+  "completed_at": "2026-10-27T22:02:07.213Z",
+  "visual_review_status": "BOTH_MATCH_TITLE_AND_VOLUME",
+  "visual_review_completed_at": "2026-10-27T22:02:26.233964+00:00"
+}

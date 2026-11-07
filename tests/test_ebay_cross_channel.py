@@ -297,17 +297,18 @@ def test_shopify_idempotent_paths_keep_inventory_ids_for_channel_retry() -> None
     assert source.count('{"inventory_id": str(row["inventory_id"])}') >= 3
 
 
-def test_ebay_sale_zeroes_and_drafts_shopify_then_reads_back() -> None:
+def test_ebay_sale_reconciles_remaining_shopify_stock_then_reads_back() -> None:
     source = EBAY.read_text()
     start = source.index("async def _zero_shopify_for_ebay_sale(")
     end = source.index('@router.post("/order-notifications"', start)
     block = source[start:end]
     assert "set_inventory_quantity(" in block
-    assert "quantity=0" in block
-    assert 'status="DRAFT"' in block
+    assert "tcg.shopify_stock_after_ebay_sale" in block
+    assert "quantity=quantity" in block
+    assert 'status=status' in block
     assert "get_product_snapshot(" in block
-    assert 'snapshot.get("status") != "DRAFT"' in block
-    assert "quantity != 0" in block
+    assert 'snapshot.get("status") != status' in block
+    assert "verified_quantity != quantity" in block
 
 
 def test_ebay_sale_conflict_is_persisted_after_transaction_rolls_back() -> None:

@@ -73,11 +73,11 @@ def test_owner_scan_intake_is_idempotent_and_payload_bound() -> None:
     assert "on conflict (intake_request_key) do nothing" in source
 
 
-def test_owner_scan_intake_runs_same_deterministic_pricing_engine() -> None:
+def test_owner_scan_intake_keeps_pricing_separate_from_collection_save() -> None:
     source = SOURCE.read_text()
 
     assert "from .pricing import _recalculate_one" in source
-    assert "valuation = await _recalculate_one(connection, owner_id, inventory_id)" in source
+    assert "valuation = await _recalculate_one(connection, owner_id, inventory_id)" not in _scan_intake_source()
     assert '"recommended_retail_minor"' in source
     assert '"store_value_minor"' in source
 

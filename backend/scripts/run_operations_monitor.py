@@ -22,6 +22,7 @@ def main() -> None:
     automation_code = _run_script("check_automation_outbox_health.py")
     n8n_heartbeat_code = _run_script("check_n8n_runtime_heartbeat.py")
     dispatcher_code = _run_script("check_automation_dispatcher_heartbeat.py")
+    capacity_code = _run_script("check_database_capacity.py")
 
     if (
         heartbeat_code == 0
@@ -29,6 +30,7 @@ def main() -> None:
         and automation_code == 0
         and n8n_heartbeat_code == 0
         and dispatcher_code == 0
+        and capacity_code == 0
     ):
         print(
             json.dumps(
@@ -39,6 +41,7 @@ def main() -> None:
                     "automation_code": 0,
                     "n8n_heartbeat_code": 0,
                     "dispatcher_code": 0,
+                    "capacity_code": 0,
                 },
                 sort_keys=True,
             ),
@@ -55,6 +58,7 @@ def main() -> None:
                 "automation_code": automation_code,
                 "n8n_heartbeat_code": n8n_heartbeat_code,
                 "dispatcher_code": dispatcher_code,
+                "capacity_code": capacity_code,
             },
             sort_keys=True,
         ),

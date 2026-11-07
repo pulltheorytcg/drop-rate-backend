@@ -1,0 +1,68 @@
+.owner-collectible-dialog {
+  color: var(--hub-text, #f7f9fc);
+  background: var(--hub-panel, #10264a);
+  border: 1px solid var(--hub-line, #2b4567);
+  border-radius: 16px;
+  width: min(760px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(900px, calc(100dvh - 32px));
+  scroll-padding-bottom: 100px;
+  padding: 0;
+  box-shadow: 0 28px 90px #0008;
+}
+.owner-collectible-dialog::backdrop { background: color-mix(in srgb, var(--hub-bg, #071b3f) 75%, transparent); }
+.owner-collectible-dialog [hidden] { display: none !important; }
+.owner-collectible-dialog * { box-sizing: border-box; }
+.owner-collectible-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 28px 18px; border-bottom: 1px solid var(--hub-line, #2b4567); }
+.owner-collectible-header h2 { margin: 4px 0 8px; font-size: clamp(1.35rem, 3vw, 1.75rem); letter-spacing: -.025em; line-height: 1.2; }
+.owner-collectible-header p { margin: 0; color: var(--hub-muted, #b4c4d9); font-size: .9rem; line-height: 1.55; }
+.owner-collectible-dialog .owner-collectible-eyebrow { font-size: .68rem; font-weight: 650; text-transform: uppercase; letter-spacing: .14em; color: var(--hub-muted, #b4c4d9); }
+.owner-collectible-close { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; background: transparent; color: inherit; border: 1px solid var(--hub-control-line, #607e9e); border-radius: 9px; font-size: 1.5rem; cursor: pointer; }
+.owner-collectible-dialog form { padding: 24px 28px 0; }
+.owner-collectible-dialog fieldset { min-width: 0; margin: 0; border: 0; padding: 0; }
+.owner-collectible-dialog legend { margin-bottom: 16px; padding: 0; font-weight: 600; font-size: 1rem; }
+.owner-collectible-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 20px; }
+.owner-collectible-dialog label { display: block; min-width: 0; color: var(--hub-text, #f7f9fc); font-size: .82rem; font-weight: 550; }
+.owner-collectible-dialog label span, .owner-collectible-details summary span { color: var(--hub-muted, #b4c4d9); font-weight: 400; }
+.owner-collectible-dialog label span { display: inline; }
+.owner-collectible-dialog input, .owner-collectible-dialog select, .owner-collectible-dialog textarea {
+  display: block; width: 100%; min-width: 0; min-height: 46px; margin-top: 8px; padding: 11px 12px;
+  background: var(--hub-input, #091e40); color: inherit; border: 1px solid var(--hub-control-line, #607e9e); border-radius: 8px;
+  font: inherit; font-size: .9rem; font-weight: 400; color-scheme: dark;
+}
+.owner-collectible-dialog input::placeholder, .owner-collectible-dialog textarea::placeholder { color: var(--hub-muted, #b4c4d9); opacity: 1; }
+.owner-collectible-dialog :is(input, select, textarea, button, summary):focus-visible { outline: 2px solid var(--hub-accent, #ff9a52); outline-offset: 3px; }
+.owner-collectible-dialog .owner-collectible-category { margin-bottom: 24px; max-width: 260px; }
+.owner-collectible-details { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--hub-line, #2b4567); }
+.owner-collectible-details summary { cursor: pointer; min-height: 44px; padding: 7px 0 12px; font-size: .88rem; font-weight: 550; }
+.owner-collectible-details[open] summary { margin-bottom: 12px; }
+.owner-collectible-notes { margin-top: 18px; }
+#owner-collectible-copy > .owner-collectible-grid ~ .owner-collectible-grid { margin-top: 18px; }
+.owner-collectible-dialog #owner-collectible-grading { margin: 18px 0; }
+.owner-collectible-hint, #owner-collectible-message, .owner-collectible-reference p { color: var(--hub-muted, #b4c4d9); font-size: .84rem; line-height: 1.6; overflow-wrap: anywhere; }
+#owner-collectible-explanation { margin: 24px 0 10px; }
+#owner-collectible-message { margin: 10px 0; color: var(--hub-text, #f7f9fc); }
+.owner-collectible-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 12px; padding: 18px 0; border-top: 1px solid var(--hub-line, #2b4567); background: var(--hub-panel, #10264a); }
+.owner-collectible-actions button { min-height: 46px; border-radius: 8px; padding: 11px 18px; font-family: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
+.owner-collectible-actions .owner-primary-action { color: var(--hub-action-ink, #ffffff); background: var(--hub-action, #1768d4); border: 1px solid transparent; }
+.owner-collectible-actions .owner-secondary-action { color: var(--hub-text, #f7f9fc); background: transparent; border: 1px solid var(--hub-line, #2b4567); }
+.owner-collectible-dialog button:disabled { opacity: .55; cursor: wait; }
+.owner-collectible-reference { border: 1px solid var(--hub-line, #2b4567); border-radius: 10px; padding: 18px; }
+.owner-collectible-reference h3 { margin: 8px 0; font-size: 1.2rem; overflow-wrap: anywhere; }
+.owner-collectible-reference p { margin: 6px 0; }
+.owner-collectible-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 560px) {
+  .owner-collectible-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 12px; }
+  .owner-collectible-header { padding: 20px 18px 16px; gap: 12px; }
+  .owner-collectible-dialog form { padding: 20px 18px 0; }
+  .owner-collectible-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .owner-collectible-dialog input, .owner-collectible-dialog select, .owner-collectible-dialog textarea { font-size: 16px; }
+  .owner-collectible-dialog .owner-collectible-category { max-width: none; }
+  .owner-collectible-actions { padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+  .owner-collectible-actions button { flex: 1; padding-inline: 10px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  body:not([data-hub-motion="off"]) .owner-collectible-dialog[open] { animation: owner-collectible-enter .18s ease-out; }
+  body:not([data-hub-motion="off"]) .owner-collectible-dialog button { transition: background-color .15s ease, border-color .15s ease; }
+  @keyframes owner-collectible-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+}

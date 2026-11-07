@@ -1,0 +1,42 @@
+.dr-scan-photo-choice {
+  display: grid;
+  gap: .45rem;
+  margin: .75rem 0;
+  min-width: 0;
+  color: var(--hub-text, #f7f9fc);
+  font-size: .78rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.dr-scan-photo-choice select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--hub-control-line, #607e9e);
+  border-radius: 8px;
+  padding: .65rem .75rem;
+  background: var(--hub-input, #091e40);
+  color: var(--hub-text, #f7f9fc);
+  font: inherit;
+}
+.dr-scan-photo-choice select:focus-visible {
+  outline: 2px solid var(--hub-accent, #ff9a52);
+  outline-offset: 2px;
+}
+.dr-scan-photo-note {
+  margin: .55rem 0;
+  color: var(--hub-muted, #b4c4d9);
+  font-size: .75rem;
+  line-height: 1.6;
+}
+.owner-book-photo-save {
+  margin: 1rem 0;
+  padding: .9rem;
+  border: 1px solid var(--hub-line, #2b4567);
+  border-radius: 10px;
+  background: var(--hub-panel-2, #19365b);
+}
+.owner-book-photo-save p { margin: 0 0 .75rem; line-height: 1.6; }
+.owner-book-photo-save button { min-height: 44px; }
+.owner-book-photos .dr-scan-photo-choice { width: 100%; }

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
+import re
 import time
 from typing import Any
 from urllib.parse import quote
@@ -11,8 +13,126 @@ import httpx
 from .ebay_official_client import EBAY_PRODUCTION_BASE_URL, EbayApiError, EbayOfficialClient
 
 
+logger = logging.getLogger(__name__)
+
+
+def _failure_hints(response: httpx.Response) -> list[str]:
+    """Classify known listing requirements without retaining provider prose."""
+    try:
+        payload = response.json()
+    except ValueError:
+        return []
+    errors = payload.get("errors") if isinstance(payload, dict) else None
+    if not isinstance(errors, list):
+        return []
+    fragments = []
+    for error in errors[:10]:
+        if not isinstance(error, dict):
+            continue
+        for key in ("message", "longMessage"):
+            value = error.get(key)
+            if isinstance(value, str):
+                fragments.append(value[:2000])
+        parameters = error.get("parameters")
+        if isinstance(parameters, list):
+            for parameter in parameters[:10]:
+                if isinstance(parameter, dict) and isinstance(parameter.get("value"), str):
+                    fragments.append(parameter["value"][:2000])
+    message = " ".join(fragments)
+    patterns = {
+        "missing": r"missing|required|must (?:be|have|provide|specify)|add at least",
+        "invalid": r"invalid|not valid|not supported|unsupported",
+        "length": r"length|characters|too (?:long|short)|maximum|minimum",
+        "item_specific": r"item.?specific|attribute|aspect",
+        "title": r"title", "description": r"description",
+        "images": r"photo|picture|image", "price": r"price|amount|currency",
+        "quantity": r"quantity|availableQuantity", "condition": r"condition",
+        "graded": r"graded", "grader": r"grader|grading company", "grade": r"\bgrade\b",
+        "certificate": r"certific", "game": r"\bgame\b", "card_name": r"card.?name",
+        "card_number": r"card.?number", "language": r"language", "set": r"\bset\b",
+        "rarity": r"rarity", "brand": r"\bbrand\b", "manufacturer": r"manufacturer",
+        "autographed": r"autograph", "franchise": r"franchise",
+        "shipping": r"shipping|delivery|fulfillment|fulfilment|dispatch",
+        "returns": r"return", "payment": r"payment|paypal",
+        "location": r"location|address|city", "country": r"country",
+        "postal_code": r"postal|postcode|zip", "tax": r"\btax\b|\bvat\b",
+        "category": r"category", "duration": r"duration|\bgtc\b",
+        "ean": r"\bean\b", "upc": r"\bupc\b", "isbn": r"\bisbn\b", "gtin": r"\bgtin\b",
+        "selling_limit": r"selling limit|exceed.*limit|limit.*exceed",
+        "duplicate": r"duplicate|already exists", "account": r"account|seller registration",
+        "verification": r"verif|register|onboard|identity",
+        "policy": r"polic", "restriction": r"restrict|blocked|not allowed|not eligible",
+        "terms": r"agreement|terms", "format": r"\bformat\b|\bauction\b|\bfixed.?price\b",
+    }
+    return [label for label, pattern in patterns.items() if re.search(pattern, message, re.I)]
+
+
+def _failure_action(path: str) -> str:
+    tail = path.rsplit("/", 1)[-1]
+    if tail in {"publish", "withdraw", "enable", "test", "shipping_fulfillment"}:
+        return tail
+    return "detail" if len(path.split("/")) > 5 else "collection"
+
+
+def _failure_context(path: str, response: httpx.Response) -> tuple[str, list[int]]:
+    """Keep only a known resource and numeric codes, never provider text or IDs."""
+    resource = "/".join(path.split("/")[:5])
+    if resource not in {
+        "/sell/account/v1/program",
+        "/sell/account/v1/payment_policy",
+        "/sell/account/v1/fulfillment_policy",
+        "/sell/account/v1/return_policy",
+        "/sell/inventory/v1/location",
+        "/sell/inventory/v1/inventory_item",
+        "/sell/inventory/v1/offer",
+        "/sell/fulfillment/v1/order",
+        "/commerce/notification/v1/config",
+        "/commerce/notification/v1/destination",
+        "/commerce/notification/v1/subscription",
+        "/commerce/notification/v1/topic",
+    }:
+        resource = "seller-api"
+    try:
+        payload = response.json()
+    except ValueError:
+        return resource, []
+    errors = payload.get("errors") if isinstance(payload, dict) else None
+    if not isinstance(errors, list):
+        return resource, []
+    codes = []
+    for error in errors[:10]:
+        code = error.get("errorId") if isinstance(error, dict) else None
+        if type(code) is int and 0 <= code <= 999999 and code not in codes:
+            codes.append(code)
+    return resource, codes
+
+
 class EbaySellApiError(EbayApiError):
     """Safe eBay seller-API error that never exposes credentials or raw payloads."""
+
+
+class _EbayOffersNotFound(EbaySellApiError):
+    """An exact SKU lookup explicitly returned eBay's absent-offer response."""
+
+
+def _offers_absent(method: str, path: str, response: httpx.Response) -> bool:
+    if method != "GET" or path != "/sell/inventory/v1/offer" or response.status_code != 404:
+        return False
+    try:
+        payload = response.json()
+    except ValueError:
+        return False
+    errors = payload.get("errors") if isinstance(payload, dict) else None
+    if not isinstance(errors, list) or not 1 <= len(errors) <= 10:
+        return False
+    # Route + status + numeric error ID identify the condition. Descriptive
+    # domain/category metadata is not a stable discriminator in live responses.
+    # Every error must report absence; never discard a mixed or malformed error.
+    return all(
+        isinstance(error, dict) and type(error.get("errorId")) is int
+        and error["errorId"] == 25713
+        for error in errors
+    )
 
 
 REQUIRED_SELLER_SCOPES = (
@@ -240,8 +360,34 @@ class EbaySellClient:
 
         allowed = expected or {200}
         if response.status_code not in allowed:
+            # eBay reports a first-time SKU's empty offer collection as 404/25713.
+            # Only get_offers consumes this typed absence; other 404s still fail.
+            if _offers_absent(method, path, response):
+                raise _EbayOffersNotFound("No eBay offer exists for this SKU", status_code=404)
+            resource, error_ids = _failure_context(path, response)
+            action = _failure_action(path)
+            hints = _failure_hints(response)
+            logger.warning(
+                "eBay seller request failed method=%s resource=%s status=%s error_ids=%s action=%s hints=%s",
+                method if method in {"GET", "POST", "PUT", "DELETE"} else "UNKNOWN",
+                resource, response.status_code, error_ids, action, hints,
+            )
+            detail = "eBay seller API rejected the request"
+            if (
+                method == "POST" and resource == "/sell/inventory/v1/offer"
+                and action == "publish" and response.status_code == 400
+                and error_ids == [25002]
+                and {"missing", "account", "verification"}.issubset(hints)
+            ):
+                # Report only the observed validation class, never provider prose
+                # or a guessed missing bank, identity or contact field.
+                detail = (
+                    "eBay rejected publication and flagged account verification. "
+                    "Open eBay Seller Hub to check and complete the required "
+                    "account action, then retry."
+                )
             raise EbaySellApiError(
-                "eBay seller API rejected the request",
+                detail,
                 status_code=response.status_code,
                 retryable=response.status_code == 429 or response.status_code >= 500,
             )
@@ -608,11 +754,16 @@ class EbaySellClient:
         return payload
 
     async def get_offers(self, *, sku: str) -> list[dict[str, Any]]:
-        payload = await self._request(
-            "GET",
-            "/sell/inventory/v1/offer",
-            params={"sku": sku, "marketplace_id": self._marketplace_id},
-        )
+        if not sku.strip():
+            raise ValueError("eBay offer lookup requires a SKU")
+        try:
+            payload = await self._request(
+                "GET",
+                "/sell/inventory/v1/offer",
+                params={"sku": sku, "marketplace_id": self._marketplace_id},
+            )
+        except _EbayOffersNotFound:
+            return []
         rows = [] if payload is None else payload.get("offers", [])
         if rows is None:
             return []

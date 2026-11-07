@@ -4,6 +4,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.owner_portal_api import _owner_scan_inventory_payload
+from app.recognition_images import _trusted_reference_url
 from app.recognition_sealed import resolve_sealed_candidates
 from app.recognition_vision import OBSERVATION_SCHEMA, RecognitionObservation, VISION_INSTRUCTIONS
 
@@ -140,6 +141,50 @@ def test_pack_scan_cannot_exact_match_a_booster_box() -> None:
     assert result["top"] is None
     assert result["candidates"][0]["hard_rejected"] is True
     assert "sealed product type mismatch" in result["candidates"][0]["rejection_reasons"]
+
+
+def test_generic_collection_can_suggest_exact_catalogue_family_but_never_autoconfirm() -> None:
+    """The video showed a Premium Card Collection rejected as a type mismatch."""
+    row = op17_row(
+        product_type="COLLECTION",
+        name="Premium Card Collection -6 assort vol.1-",
+        set_name=None,
+        sealed_product_type="PREMIUM_CARD_COLLECTION",
+        set_code=None,
+        manufacturer_sku=None,
+    )
+    photo = observation(
+        sealed_product_type="COLLECTION",
+        sealed_product_type_confidence=0.93,
+        name_guess="Premium Card Collection",
+        name_confidence=0.81,
+        set_name_guess="",
+        set_name_confidence=0,
+        product_code="",
+        product_code_confidence=0,
+        language_confidence=0.68,
+    )
+    result = resolve_sealed_candidates(photo, [row])
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert result["top"]["catalogue_id"] == row["catalogue_id"]
+    assert result["top"]["signals"]["sealed_product_type"]["match"] == 0.75
+    assert "SEALED_PRODUCT_CODE_UNRESOLVED" in result["risk_flags"]
+    assert "SEALED_TYPE_UNRESOLVED" in result["risk_flags"]
+
+
+def test_generic_collection_never_matches_a_booster_pack() -> None:
+    result = resolve_sealed_candidates(
+        observation(sealed_product_type="COLLECTION", sealed_product_type_confidence=0.98),
+        [op17_row()],
+    )
+    assert result["decision"] == "NO_MATCH"
+    assert result["candidates"][0]["hard_rejected"]
+
+
+def test_approved_shopify_cdn_sealed_artwork_can_use_authenticated_image_proxy() -> None:
+    assert _trusted_reference_url("https://cdn.shopify.com/s/files/1/collection.jpg")
+    assert not _trusted_reference_url("https://cdn.shopify.com.evil.example/collection.jpg")
+    assert not _trusted_reference_url("http://cdn.shopify.com/s/files/1/collection.jpg")
 
 
 def test_sealed_exact_match_requires_verified_identity() -> None:
@@ -326,7 +371,7 @@ def test_verified_exact_sealed_intake_sets_identity_confirmed_without_affecting_
     assert "pr.collectible_type='SEALED'" in recognition_block
     assert "pr.identity_status='VERIFIED'" in recognition_block
     assert "sd.identity_status='VERIFIED'" in recognition_block
-    assert "$11,'DRAFT',$12,$13::jsonb,'FOR_SALE'" in recognition_block
+    assert "$11,'DRAFT',$12,$13::jsonb,'PERSONAL_COLLECTION'" in recognition_block
     assert "verified_exact_sealed_identity," in recognition_block
     assert "verified_exact_sealed_identity" not in graded_block
 
@@ -386,3 +431,75 @@ def test_batch_copy_treats_cards_and_sealed_products_as_items() -> None:
     assert "item.identityStatus = data.identity_status || null" in js
     assert 'item.identityStatus !== "VERIFIED_CANONICAL_IDENTITY"' in js
     assert "added with verified identity" in js
+
+
+def test_sealed_recognition_prefers_english_display_metadata() -> None:
+    source = SEALED.read_text()
+
+    assert "sd.attributes->>'display_name_en'" in source
+    assert "sd.attributes->>'set_name_en'" in source
+
+
+def test_owner_inventory_exposes_sealed_state_verified_identity_and_refresh_capability() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/inventory")')
+    end = api.index('@router.post("/inventory/{inventory_code}/refresh-market")', start)
+    block = api[start:end]
+
+    assert "i.seal_status" in block
+    assert "sealed_type.value_code as sealed_product_type" in block
+    assert "as can_refresh_market" in block
+    assert "sd.attributes->>'display_name_en'" in block
+    assert "sd.attributes->>'set_name_en'" in block
+    assert "left join tcg.sealed_product_details sd on sd.catalogue_id=p.id" in block
+    assert ") sealed_type on true" in block
+
+
+def test_owner_refresh_route_delegates_without_holding_user_connection() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.post("/inventory/{inventory_code}/refresh-market")')
+    end = api.index('@router.post("/graded-certificate-intake"', start)
+    block = api[start:end]
+
+    assert "refresh_verified_sealed_ebay_market(" in block
+    assert "user_connection(" not in block
+    assert 'owner_id=UUID(str(access["owner_id"]))' in block
+    assert 'result.get("status") == "BLOCKED"' in block
+
+
+def test_recognition_intake_does_not_call_external_market_provider_inside_transaction() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.post("/recognition-intake"')
+    block = api[start:]
+
+    assert "_hydrate_verified_sealed_market" not in block
+    assert "refresh_verified_sealed_ebay_market" not in block
+    assert "_recalculate_one(connection, owner_id, inventory_id)" not in block
+
+
+def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() -> None:
+    js = (ROOT / "backend" / "app" / "static" / "owner-portal.js").read_text()
+
+    assert 'return "Sealed"' in js
+    assert 'refresh.title = "Refresh market value"' in js
+    assert 'item.market_value_minor == null' in js
+    assert '? "—"' in js
+    assert '/refresh-market' in js
+    assert '"Your collection starts here"' in js
+    assert '"Your latest cards and sealed products will appear here' in js
+
+
+def test_batch_sealed_intake_refreshes_market_after_inventory_commit_without_failing_item() -> None:
+    js = OWNER_JS.read_text()
+
+    intake_index = js.index('await apiRequest("/api/v1/owner/recognition-intake"')
+    refresh_index = js.index('/refresh-market', intake_index)
+    assert intake_index < refresh_index
+    assert "&& data.inventory?.identity_confirmed" in js
+    assert "marketPending += 1" in js
+    assert "item.marketValueError =" in js
+    market_catch = js.index("} catch (marketError) {", refresh_index)
+    market_catch_end = js.index("}", market_catch + len("} catch (marketError) {"))
+    nested = js[market_catch:market_catch_end]
+    assert 'item.status = "error"' not in nested
+    assert "pending exact UK sold evidence" in js

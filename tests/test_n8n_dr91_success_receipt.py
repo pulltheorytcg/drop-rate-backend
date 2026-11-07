@@ -68,6 +68,7 @@ def test_dr91_requires_durable_fastapi_acceptance() -> None:
     assert request["rawContentType"] == "application/json"
     assert request["options"]["response"]["response"]["fullResponse"] is True
     assert request["options"]["response"]["response"]["neverError"] is True
+    assert request["options"]["response"]["response"]["responseFormat"] == "autodetect"
     assert "body.accepted !== true" in verify
     assert "body.status !== 'SUCCEEDED'" in verify
 

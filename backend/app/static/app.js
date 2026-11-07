@@ -48,7 +48,7 @@ function setBusy(form, busy) {
 }
 async function readJson(response) {
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(errorMessage(data));
+  if (!response.ok) { const error = new Error(errorMessage(data)); error.status = response.status; error.code = data.code || data.error_code; error.detail = data.detail; throw error; }
   return data;
 }
 async function authRequest(path, options = {}) {
@@ -84,7 +84,9 @@ function startOAuth(provider) {
   }
   const authorizeUrl = new URL(`${state.config.supabase_url}/auth/v1/authorize`);
   authorizeUrl.searchParams.set("provider", provider);
-  authorizeUrl.searchParams.set("redirect_to", `${window.location.origin}/`);
+  // The custom app domain serves the public launch page at /. /app is the
+  // actual session callback for both seller and founder accounts.
+  authorizeUrl.searchParams.set("redirect_to", `${window.location.origin}/app`);
   window.location.assign(authorizeUrl.toString());
 }
 function parseOAuthSession() {
@@ -101,52 +103,98 @@ function parseOAuthSession() {
 }
 async function hydrateSessionUser() {
   if (!state.session?.access_token) return;
-  const user = await authRequest("/user", {
-    headers: {Authorization: `Bearer ${state.session.access_token}`},
-  });
-  state.session.user = user;
-  saveSession(state.session);
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  try {
+    const user = await authRequest("/user", {
+      headers: {Authorization: `Bearer ${state.session.access_token}`},
+    });
+    checkSession();
+    state.session.user = user;
+    saveSession(state.session);
+  } catch (error) { checkSession(); throw error; }
 }
 function saveSession(session) {
   state.session = session;
   window.PullTheoryHubSession.save(session);
 }
 function clearSession() {
+  window.dropRateCatalogue?.destroy();
+  window.dropRateCatalogue = null;
+  window.dropRateScanner?.destroy();
+  window.dropRateScanner = null;
   state.session = null;
   window.PullTheoryHubSession.clear();
 }
 async function refreshSession() {
-  if (!state.session?.refresh_token) throw new Error("Your session has expired.");
-  const session = await authRequest("/token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: state.session.refresh_token }) });
-  saveSession(session);
-  return session.access_token;
+  const previous = state.session;
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  return window.PullTheoryHubSession.refresh(async () => {
+    try {
+      checkSession();
+      if (!previous?.refresh_token) {
+        const error = new Error("Your session has expired.");
+        error.sessionExpired = true;
+        throw error;
+      }
+      const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
+      checkSession();
+      if (session.user?.id && previous.user?.id && session.user.id !== previous.user.id) {
+        throw new Error("Your account changed. Please sign in again.");
+      }
+      if (!session.user && previous.user) session.user = previous.user;
+      saveSession(session);
+      return session.access_token;
+    } catch (error) {
+      checkSession();
+      error.refreshSession = previous;
+      error.sessionExpired ||= window.PullTheoryHubSession.isExpiredRefresh(error);
+      throw error;
+    }
+  });
 }
 async function apiRequest(path, options = {}, retry = true) {
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  checkSession();
   const requestOptions = {
     ...options,
-    headers: { Authorization: `Bearer ${state.session.access_token}`, "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: {"Content-Type": "application/json", ...(options.headers || {}), Authorization: `Bearer ${state.session.access_token}`},
   };
-  let response = await fetch(path, requestOptions);
-  if (response.status === 401 && retry) {
-    requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
-    response = await fetch(path, requestOptions);
-  }
-  return readJson(response);
+  try {
+    let response = await fetch(path, requestOptions);
+    checkSession();
+    if (response.status === 401 && retry) {
+      requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
+      checkSession();
+      response = await fetch(path, requestOptions);
+      checkSession();
+    }
+    const data = await readJson(response);
+    checkSession();
+    return data;
+  } catch (error) { checkSession(); throw error; }
 }
 async function apiImageBlob(path, retry = true) {
-  const requestOptions = {
-    headers: { Authorization: `Bearer ${state.session.access_token}` },
-  };
-  let response = await fetch(path, requestOptions);
-  if (response.status === 401 && retry) {
-    requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
-    response = await fetch(path, requestOptions);
-  }
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(errorMessage(data));
-  }
-  return response.blob();
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  checkSession();
+  const requestOptions = {headers: {Authorization: `Bearer ${state.session.access_token}`}};
+  try {
+    let response = await fetch(path, requestOptions);
+    checkSession();
+    if (response.status === 401 && retry) {
+      requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
+      checkSession();
+      response = await fetch(path, requestOptions);
+      checkSession();
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      checkSession();
+      throw new Error(errorMessage(data));
+    }
+    const blob = await response.blob();
+    checkSession();
+    return blob;
+  } catch (error) { checkSession(); throw error; }
 }
 
 function redirectPendingFounderInviteCallback() {
@@ -208,7 +256,6 @@ function itemCoreReadiness(item) {
       ? (isGraded || Boolean((item.condition || "").trim()))
       : Boolean(item.seal_status),
   });
-  checks.push({ label: "Cost", ok: item.acquisition_cost_minor !== null && item.acquisition_cost_minor !== undefined });
   if (isCard) checks.push({ label: "Language", ok: Boolean((item.language || "").trim()) });
   checks.push({ label: "Location", ok: Boolean(item.storage_location_id) });
   checks.push({ label: "Price", ok: item.store_price_minor !== null && item.store_price_minor !== undefined });
@@ -528,9 +575,10 @@ function inventoryImageFigure(item) {
   figure.type = "button";
   figure.className = "inventory-card-art";
   figure.setAttribute("aria-label", `Review ${item.name}`);
-  figure.addEventListener("click", () => openEditor(item));
+  figure.addEventListener("click", () => openInventoryCopies(item));
 
-  if (!item.card_image_url) {
+  const community = window.DropRateBookArtwork?.reference(item);
+  if (!item.card_image_url && !community) {
     const empty = document.createElement("div");
     empty.className = "inventory-card-art-empty";
     empty.innerHTML = "<span>◇</span><strong>No image yet</strong><small>Exact image not assigned yet</small>";
@@ -542,6 +590,22 @@ function inventoryImageFigure(item) {
   image.alt = [item.name, item.set_name, item.card_number, item.language || item.catalogue_language]
     .filter(Boolean).join(" · ");
   image.decoding = "async";
+  image.referrerPolicy = "no-referrer";
+
+  if (!item.card_image_url && community) {
+    image.loading = "lazy";
+    image.alt += " · Community cover reference; cover may vary";
+    image.addEventListener("error", () => {
+      image.remove();
+      const empty = document.createElement("div"); empty.className = "inventory-card-art-empty";
+      empty.textContent = "Cover unavailable"; figure.append(empty);
+    }, {once:true});
+    figure.append(image); image.src = community.image_url;
+    const badge = document.createElement("span"); badge.className = "inventory-image-badge";
+    badge.textContent = "Cover reference · Cover may vary"; figure.append(badge);
+    figure.dataset.imageState = "community-reference";
+    return figure;
+  }
 
   const showFailure = () => {
     if (image.isConnected) image.remove();
@@ -625,15 +689,19 @@ function inventoryVisualCard(item) {
   selectWrap.className = "inventory-card-select";
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
-  checkbox.checked = state.selected.has(item.id);
+  checkbox.checked = (item.group_members || [item]).every(copy => state.selected.has(copy.id));
+  checkbox.indeterminate = !checkbox.checked && (item.group_members || [item]).some(copy => state.selected.has(copy.id));
   checkbox.setAttribute("aria-label", `Select ${item.name}`);
   checkbox.addEventListener("change", () => {
-    if (checkbox.checked) state.selected.set(item.id, item);
-    else state.selected.delete(item.id);
+    for (const copy of item.group_members || [item]) {
+      if (checkbox.checked) state.selected.set(copy.id, copy); else state.selected.delete(copy.id);
+    }
     refreshSelectionControls();
   });
   selectWrap.append(checkbox);
   card.append(selectWrap, inventoryImageFigure(item));
+  const community = window.DropRateBookArtwork?.reference(item);
+  if (community && !item.card_image_url) card.append(window.DropRateBookArtwork.credit(community));
 
   const body = document.createElement("div");
   body.className = "inventory-visual-card-body";
@@ -644,8 +712,8 @@ function inventoryVisualCard(item) {
   const title = document.createElement("button");
   title.type = "button";
   title.className = "inventory-card-title";
-  title.textContent = item.name;
-  title.addEventListener("click", () => openEditor(item));
+  title.textContent = item.name + (item.grouped_quantity > 1 ? ` · Qty ${item.grouped_quantity}` : "");
+  title.addEventListener("click", () => openInventoryCopies(item));
   const subtitle = document.createElement("p");
   subtitle.textContent = [
     item.set_name,
@@ -657,19 +725,20 @@ function inventoryVisualCard(item) {
   titleWrap.append(title, subtitle);
 
   const status = document.createElement("span");
-  status.className = `pill ${String(item.status || "").toLowerCase()}`;
-  status.textContent = item.status
+  status.className = `pill ${item.group_status_label === "Mixed status" ? "mixed" : String(item.status || "").toLowerCase()}`;
+  status.textContent = item.group_status_label === "Mixed status" ? item.group_status_label : item.status
     ? item.status.charAt(0) + item.status.slice(1).toLowerCase()
     : "Unknown";
+  status.title = item.group_status_description || "";
   heading.append(titleWrap, status);
   body.append(heading);
 
   const valueRow = document.createElement("div");
   valueRow.className = "inventory-card-values";
   const values = [
-    ["Market", money(item.market_value_minor, item.currency)],
-    ["Store", money(item.store_price_minor, item.currency)],
-    ["Cost", money(item.acquisition_cost_minor, item.currency)],
+    [item.grouped_quantity > 1 ? "Market · each" : "Market", window.DropRateReferenceValue.text(item, value => money(value, item.currency))],
+    ["Store", window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", value => money(value, item.currency))],
+    ["Cost", window.DropRateInventoryGroups.moneyRange(item, "acquisition_cost_minor", value => money(value, item.currency))],
   ];
   values.forEach(([label, value]) => {
     const box = document.createElement("div");
@@ -685,13 +754,13 @@ function inventoryVisualCard(item) {
   const facts = document.createElement("div");
   facts.className = "inventory-card-facts";
   const factValues = [
-    ["Inventory", item.inventory_code],
-    ["Intent", item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "For sale"],
+    ["Inventory", item.grouped_quantity > 1 ? `${item.grouped_quantity} copies` : item.inventory_code],
+    ["Intent", item.group_members?.some(copy => copy.sale_intent !== item.sale_intent) ? "Mixed · choose a copy" : item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "For sale"],
     ["Condition", item.grade
       ? [item.grading_company || "Graded", item.grade].filter(Boolean).join(" ")
       : (item.condition || "—")],
-    ["Location", item.storage_location_label || item.location || "—"],
-    ["Identity", item.identity_confirmed ? "Confirmed" : "Needs verification"],
+    ["Location", item.group_members?.some(copy => copy.storage_location_id !== item.storage_location_id || copy.location !== item.location) ? "Multiple locations" : item.storage_location_label || item.location || "—"],
+    ["Identity", item.group_members?.some(copy => !copy.identity_confirmed) ? "Some copies need verification" : item.identity_confirmed ? "Confirmed" : "Needs verification"],
   ];
   factValues.forEach(([label, value]) => {
     const row = document.createElement("div");
@@ -707,7 +776,7 @@ function inventoryVisualCard(item) {
   const readiness = itemCoreReadiness(item);
   const readinessLine = document.createElement("span");
   readinessLine.className = `core-readiness${readiness.complete === readiness.total ? " complete" : ""}`;
-  readinessLine.textContent = item.sale_intent === "PERSONAL_COLLECTION"
+  readinessLine.textContent = item.grouped_quantity > 1 ? item.group_status_description : item.sale_intent === "PERSONAL_COLLECTION"
     ? "Personal collection · not for sale"
     : readiness.complete === readiness.total
       ? `Core ${readiness.complete}/${readiness.total} ✓`
@@ -720,9 +789,13 @@ function inventoryVisualCard(item) {
   review.className = "primary-button compact";
   review.type = "button";
   review.textContent = "Review";
-  review.addEventListener("click", () => openEditor(item));
-  actions.append(review, saleIntentAction(item));
-  if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
+  review.addEventListener("click", () => openInventoryCopies(item));
+  if (item.grouped_quantity > 1) {
+    review.textContent = "Manage copies"; actions.append(review);
+  } else {
+    actions.append(review, saleIntentAction(item));
+    if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
+  }
   body.append(actions);
 
   card.append(body);
@@ -732,24 +805,28 @@ function inventoryVisualCard(item) {
 function renderInventory(data) {
   state.total = data.total;
   state.items = new Map(data.items.map((item) => [item.id, item]));
-  byId("total-count").textContent = state.readiness?.total?.toLocaleString("en-GB") || data.total.toLocaleString("en-GB");
+  byId("total-count").textContent = state.readiness?.total?.toLocaleString("en-GB") || (data.copy_total ?? data.total).toLocaleString("en-GB");
   byId("owner-name").textContent = data.owner.display_name;
   byId("owner-initial").textContent = data.owner.display_name.slice(0, 1).toUpperCase();
   const body = byId("inventory-body");
   const visualGrid = byId("inventory-visual-grid");
   body.replaceChildren();
   visualGrid.replaceChildren();
-  data.items.forEach((item) => {
+  const displayItems = data.display_items = window.DropRateInventoryGroups.group(data.items);
+  displayItems.forEach((item) => {
     visualGrid.append(inventoryVisualCard(item));
     const row = document.createElement("tr");
     const selectCell = document.createElement("td");
     selectCell.dataset.label = "Select";
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = state.selected.has(item.id);
+    checkbox.checked = (item.group_members || [item]).every(copy => state.selected.has(copy.id));
+    checkbox.indeterminate = !checkbox.checked && (item.group_members || [item]).some(copy => state.selected.has(copy.id));
     checkbox.setAttribute("aria-label", `Select ${item.name}`);
     checkbox.addEventListener("change", () => {
-      if (checkbox.checked) state.selected.set(item.id, item); else state.selected.delete(item.id);
+      for (const copy of item.group_members || [item]) {
+        if (checkbox.checked) state.selected.set(copy.id, copy); else state.selected.delete(copy.id);
+      }
       refreshSelectionControls();
     });
     selectCell.append(checkbox);
@@ -759,7 +836,7 @@ function renderInventory(data) {
     const wrap = document.createElement("div");
     wrap.className = "card-name";
     const strong = document.createElement("strong");
-    strong.textContent = item.name;
+    strong.textContent = item.name + (item.grouped_quantity > 1 ? ` · Qty ${item.grouped_quantity}` : "");
     const meta = document.createElement("small");
     const productLabel = item.product_type === "SEALED"
       ? "Sealed product"
@@ -773,11 +850,11 @@ function renderInventory(data) {
     ].filter(Boolean).join(" · ") || "Uncatalogued";
     const code = document.createElement("span");
     code.className = "code";
-    code.textContent = item.inventory_code;
+    code.textContent = item.grouped_quantity > 1 ? `${item.grouped_quantity} physical copies` : item.inventory_code;
     const readiness = itemCoreReadiness(item);
     const readinessLine = document.createElement("span");
     readinessLine.className = `core-readiness${readiness.complete === readiness.total ? " complete" : ""}`;
-    readinessLine.textContent = item.sale_intent === "PERSONAL_COLLECTION"
+    readinessLine.textContent = item.grouped_quantity > 1 ? item.group_status_description : item.sale_intent === "PERSONAL_COLLECTION"
       ? "Personal collection · not for sale"
       : readiness.complete === readiness.total
         ? `Core ${readiness.complete}/${readiness.total} ✓`
@@ -789,15 +866,16 @@ function renderInventory(data) {
     row.append(textCell("Condition", item.product_type === "CARD" && !item.grade ? (item.condition || "—") : "—"));
     row.append(textCell("Grading", item.product_type === "CARD" && item.grade ? `${item.grading_company || "Graded"} ${item.grade}` : "—"));
     row.append(textCell("Seal", item.product_type !== "CARD" ? (item.seal_status === "SEALED" ? "Sealed" : item.seal_status === "UNSEALED" ? "Unsealed" : "—") : "—"));
-    row.append(textCell("Cost", money(item.acquisition_cost_minor, item.currency)));
-    row.append(textCell("Store price", money(item.store_price_minor, item.currency)));
+    row.append(textCell("Cost", window.DropRateInventoryGroups.moneyRange(item, "acquisition_cost_minor", value => money(value, item.currency))));
+    row.append(textCell("Store price", window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", value => money(value, item.currency))));
     const status = document.createElement("td");
     status.dataset.label = "Status";
     const pill = document.createElement("span");
-    pill.className = `pill ${item.status.toLowerCase()}`;
-    pill.textContent = item.status.charAt(0) + item.status.slice(1).toLowerCase();
+    pill.className = `pill ${item.group_status_label === "Mixed status" ? "mixed" : item.status.toLowerCase()}`;
+    pill.textContent = item.group_status_label === "Mixed status" ? item.group_status_label : item.status.charAt(0) + item.status.slice(1).toLowerCase();
+    pill.title = item.group_status_description || "";
     status.append(pill);
-    if (item.sale_intent === "PERSONAL_COLLECTION") {
+    if (item.sale_intent === "PERSONAL_COLLECTION" && !item.group_members?.some(copy => copy.sale_intent !== item.sale_intent)) {
       const intent = document.createElement("span");
       intent.className = "channel-status ended";
       intent.textContent = "Personal";
@@ -811,9 +889,10 @@ function renderInventory(data) {
     edit.className = "row-button";
     edit.type = "button";
     edit.textContent = "Review";
-    edit.addEventListener("click", () => openEditor(item));
-    actions.append(edit, saleIntentAction(item));
-    if (item.product_type === "CARD" && item.identity_confirmed) {
+    edit.addEventListener("click", () => openInventoryCopies(item));
+    if (item.grouped_quantity > 1) { edit.textContent = "Manage copies"; actions.append(edit); }
+    else actions.append(edit, saleIntentAction(item));
+    if (item.grouped_quantity <= 1 && item.product_type === "CARD" && item.identity_confirmed) {
       const preview = document.createElement("button");
       preview.className = "row-button";
       preview.type = "button";
@@ -822,7 +901,7 @@ function renderInventory(data) {
       preview.addEventListener("click", () => openFiveSoldPreview(item));
       actions.append(preview);
     }
-    if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
+    if (item.grouped_quantity <= 1 && item.product_type === "CARD") actions.append(ebayInventoryAction(item));
     row.append(actions);
     body.append(row);
   });
@@ -916,7 +995,7 @@ async function loadBrandOptions() {
 
 async function loadInventory() {
   showMessage("inventory-message", "Loading inventory…");
-  const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(state.offset) });
+  const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(state.offset), group_copies: "true" });
   if (state.search) params.set("search", state.search);
   if (state.status) params.set("status", state.status);
   if (state.brand) params.set("brand", state.brand);
@@ -935,7 +1014,27 @@ async function reloadDashboard(message = "") {
   if (message) showMessage("inventory-message", message, "success");
 }
 
+function openInventoryCopies(item) {
+  const copies = item.group_members || [item];
+  const selected = copies.find(copy => copy.id === item.id) || copies[0];
+  openEditor(selected);
+  const label = byId("edit-copy-label"), select = byId("edit-copy");
+  label.hidden = copies.length < 2;
+  select.replaceChildren();
+  copies.forEach(copy => {
+    const option = document.createElement("option"); option.value = copy.id;
+    option.textContent = `${copy.inventory_code} · ${copy.status} · ${copy.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "For sale"}`;
+    select.append(option);
+  });
+  select.value = selected.id;
+  select.onchange = () => {
+    openEditor(copies.find(copy => copy.id === select.value));
+    label.hidden = false;
+  };
+}
+
 function openEditor(item) {
+  byId("edit-copy-label").hidden = true;
   state.editing = item;
   byId("editor-title").textContent = item.name;
   const productLabel = item.product_type === "SEALED"
@@ -1086,7 +1185,8 @@ function updateAllocationRemaining() {
 }
 async function saveBulkAllocation(event) {
   event.preventDefault();
-  setBusy(event.currentTarget, true);
+  const form = event.currentTarget;
+  setBusy(form, true);
   showMessage("bulk-message");
   try {
     const total = inputToMinor(byId("bulk-total").value, false);
@@ -1103,30 +1203,48 @@ async function saveBulkAllocation(event) {
     byId("bulk-dialog").close();
     await reloadDashboard(`Acquisition cost allocated across ${items.length} cards.`);
   } catch (error) { showMessage("bulk-message", error.message, "error"); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 }
 
 async function openDashboard() {
   try {
     const access = await apiRequest("/api/v1/access/me");
     if (access.access?.access_role === "OWNER" && access.access?.portal === "OWNER_PORTAL") {
-      window.location.replace("/owner");
+      state.routing=true;
+      window.location.replace("/owner" + window.location.search + window.location.hash);
       return;
     }
     if (!access.access?.founder_hq_allowed) {
       throw new Error("FOUNDER_HQ_ACCESS_DENIED");
+    }
+    if (window.location.pathname !== "/founders") {
+      state.routing = true;
+      const legacy = {dashboard: "overview", intake: "scan", accounts: "founders", more: "settings"};
+      const view = window.location.hash.slice(1);
+      const operations = ["verification", "media", "reports"];
+      window.location.replace(operations.includes(view)
+        ? "/founders" + window.location.search + window.location.hash
+        : "/owner" + window.location.search + (view ? "#" + (legacy[view] || view) : ""));
+      return;
     }
     const me = await apiRequest("/api/v1/me");
     byId("owner-email").textContent = state.session.user?.email || byId("login-email").value || "Founder account";
     byId("owner-name").textContent = me.owner.display_name;
     byId("auth-view").classList.add("hidden");
     byId("dashboard-view").classList.remove("hidden");
-    await reloadDashboard();
+    document.body.classList.remove("hub-restoring");
+    document.dispatchEvent(new Event("hub-ready"));
+    // A data-panel failure must not destroy an authenticated session.
+    try { await reloadDashboard(); }
+    catch (error) { showMessage("inventory-message", "Some data could not load. Use Refresh to try again. " + error.message, "error"); }
   } catch (error) {
+    if ("refreshSession" in error && state.session !== error.refreshSession) return;
     const denied = error.message === "FOUNDER_HQ_ACCESS_DENIED"
       || error.message === "No active owner membership"
       || error.message === "Platform administrator access required";
-    clearSession();
+    const expired = error.sessionExpired || [401,403].includes(error.status);
+    if (denied || expired) clearSession();
+    document.body.classList.remove("hub-restoring");
     byId("dashboard-view").classList.add("hidden");
     byId("auth-view").classList.remove("hidden");
     showForm("login-form");
@@ -1134,7 +1252,8 @@ async function openDashboard() {
       "login-message",
       denied
         ? "This account is not authorised for Founder HQ."
-        : "Please sign in to continue.",
+        : expired ? "Your session has expired. Please sign in again."
+          : "We couldn’t open your workspace. Your session is kept; refresh to retry or sign in again.",
       "error"
     );
   }
@@ -1147,12 +1266,16 @@ function logout() {
   byId("auth-view").classList.remove("hidden");
   showForm("login-form");
   byId("login-password").value = "";
+  document.body.classList.remove("hub-restoring");
+  history.replaceState({}, "", "/app");
 }
-async function initialise() {
+async function initialiseSession() {
+  const notice=sessionStorage.getItem("drop-rate-signin-notice");if(notice){showMessage("login-message",notice,"error");sessionStorage.removeItem("drop-rate-signin-notice");}
+  if(!window.PullTheoryHubSession.read()?.access_token && !window.location.hash.includes("access_token=")) document.body.classList.remove("hub-restoring");
   try { state.config = await readJson(await fetch("/api/v1/public-config")); }
   catch (_error) { showMessage("login-message", "The dashboard is temporarily unavailable. Please refresh shortly.", "error"); return; }
 
-  await loadSocialProviders();
+  loadSocialProviders();
 
   if (redirectPendingFounderInviteCallback()) return;
   if (parseRecoverySession()) return;
@@ -1177,33 +1300,38 @@ byId("login-google").addEventListener("click", () => startOAuth("google"));
 byId("login-apple").addEventListener("click", () => startOAuth("apple"));
 
 byId("login-form").addEventListener("submit", async (event) => {
-  event.preventDefault(); setBusy(event.currentTarget, true); showMessage("login-message");
+  event.preventDefault();
+  const form = event.currentTarget;
+  setBusy(form, true); showMessage("login-message");
   try {
-    const session = await authRequest("/token?grant_type=password", { method: "POST", body: JSON.stringify({ email: byId("login-email").value.trim(), password: byId("login-password").value }) });
+    const session = await readJson(await fetch("/api/v1/public/owner-session", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({identifier:byId("login-email").value.trim(), password:byId("login-password").value})}));
     saveSession(session); await openDashboard();
   } catch (error) { showMessage("login-message", error.message, "error"); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 });
 byId("show-reset").addEventListener("click", () => { byId("reset-email").value = byId("login-email").value; showForm("request-reset-form"); });
 document.querySelector("[data-back-login]").addEventListener("click", () => showForm("login-form"));
 byId("request-reset-form").addEventListener("submit", async (event) => {
-  event.preventDefault(); setBusy(event.currentTarget, true);
+  event.preventDefault();
+  const form = event.currentTarget;
+  setBusy(form, true);
   try {
-    await authRequest("/recover", { method: "POST", body: JSON.stringify({ email: byId("reset-email").value.trim(), redirect_to: `${window.location.origin}/` }) });
+    await authRequest("/recover", { method: "POST", body: JSON.stringify({ email: byId("reset-email").value.trim(), redirect_to: `${window.location.origin}/app` }) });
     showMessage("reset-message", "Recovery email sent. Check your inbox and junk folder.", "success");
   } catch (error) { showMessage("reset-message", error.message, "error"); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 });
 byId("new-password-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const form = event.currentTarget;
   const password = byId("new-password").value;
   if (password !== byId("confirm-password").value) { showMessage("password-message", "The passwords do not match.", "error"); return; }
-  setBusy(event.currentTarget, true);
+  setBusy(form, true);
   try {
     await authRequest("/user", { method: "PUT", headers: { Authorization: `Bearer ${state.session.access_token}` }, body: JSON.stringify({ password }) });
     showMessage("password-message", "Password saved. Opening your inventory…", "success"); await openDashboard();
   } catch (error) { showMessage("password-message", error.message, "error"); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 });
 
 let searchTimer;
@@ -1229,4 +1357,8 @@ byId("select-page").addEventListener("change", (event) => {
 });
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => byId(button.dataset.close).close()));
 
+async function initialise() {
+  try { await initialiseSession(); }
+  finally { if(!state.routing)document.body.classList.remove("hub-restoring"); }
+}
 initialise();

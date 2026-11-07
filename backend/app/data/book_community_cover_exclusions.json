@@ -1,0 +1,12 @@
+{
+  "version": "book-community-cover-exclusions-v1",
+  "records": [
+    {
+      "edition_id": "OL9465913M",
+      "source_url": "https://openlibrary.org/books/OL9465913M",
+      "reason": "COVER_LANGUAGE_AND_VOLUME_MISMATCH",
+      "reviewed_on": "2026-10-27",
+      "review_note": "The source's current cover shows Korean volume 5, while this imported edition is English 50 Rules for Teenagers volume 2 (ISBN 9781413900941). Suppress this cover only; do not change the metadata or substitute another edition."
+    }
+  ]
+}

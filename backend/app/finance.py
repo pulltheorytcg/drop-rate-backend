@@ -17,6 +17,7 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
+from .shopify_net_postage_policy import seller_auto_postage_charge
 
 
 router = APIRouter(prefix="/api/v1")
@@ -88,6 +89,7 @@ class EbayFeeReconcile(BaseModel):
 class ShopifyPostageReconcile(BaseModel):
     amount_minor: int = Field(ge=0)
     reference: str = Field(min_length=1, max_length=96)
+    owner_id: UUID | None = None
     notes: str = Field(default="", max_length=1000)
     occurred_at: datetime | None = None
 
@@ -276,8 +278,8 @@ def _settlement_amounts(
     fulfilment_material_cost_minor: int,
     commission_minor: int,
     adjustments_minor: int,
-    effective_cogs_minor: int,
-) -> dict[str, int]:
+    effective_cogs_minor: int | None,
+) -> dict[str, int | None]:
     gross_proceeds = (
         item_revenue_minor
         + shipping_revenue_minor
@@ -296,7 +298,7 @@ def _settlement_amounts(
         - commission_minor
         + adjustments_minor
     )
-    owner_profit = net_owner_proceeds - effective_cogs_minor
+    owner_profit = None if effective_cogs_minor is None else net_owner_proceeds - effective_cogs_minor
     return {
         "gross_proceeds_minor": gross_proceeds,
         "external_deductions_minor": external_deductions,
@@ -366,7 +368,7 @@ async def finance_summary(
         )
         cogs = await connection.fetchval(
             """
-            select coalesce(sum(oi.cost_basis_minor), 0)::bigint
+            select case when count(*) filter(where oi.cost_basis_minor is null)>0 then null else coalesce(sum(oi.cost_basis_minor), 0) end::bigint
             from tcg.order_items oi
             where oi.owner_id = $1
               and not exists (
@@ -453,12 +455,12 @@ async def finance_summary(
             "commission_bps": int(owner["commission_bps"] or 0),
             "refunds_minor": refunds,
             "shipping_refunds_minor": shipping_refunds,
-            "cost_of_goods_minor": cost_of_goods,
-            "gross_profit_minor": gross_profit,
-            "net_profit_minor": net_profit,
+            "cost_of_goods_minor": cost_of_goods if cogs is not None else None,
+            "gross_profit_minor": gross_profit if cogs is not None else None,
+            "net_profit_minor": net_profit if cogs is not None else None,
             "fees_complete": missing_fee_sales == 0,
             "shipping_cost_complete": missing_shipping_cost_sales == 0,
-            "net_profit_complete": unreconciled_shopify_sales == 0,
+            "net_profit_complete": unreconciled_shopify_sales == 0 and cogs is not None,
             "unreconciled_external_sales": unreconciled_external_sales,
             "unreconciled_shopify_sales": unreconciled_external_sales,
             "sold_items": int(ledger["sold_items"] or 0),
@@ -533,7 +535,9 @@ async def finance_sales(
         items = []
         for row in rows:
             item = dict(row)
-            effective_cost = 0 if item["returned_to_stock"] else int(item["cost_basis_minor"])
+            effective_cost = None
+            if item["returned_to_stock"] or item["cost_basis_minor"] is not None:
+                effective_cost = 0 if item["returned_to_stock"] else int(item["cost_basis_minor"])
             item["effective_cost_basis_minor"] = effective_cost
             item["fees_complete"] = (
                 item["source"] not in {"SHOPIFY", "EBAY"} or bool(item["fees_reconciled"])
@@ -543,7 +547,7 @@ async def finance_sales(
                 or bool(item["shipping_cost_reconciled"])
             )
             item["profit_complete"] = (
-                item["fees_complete"] and item["shipping_cost_complete"]
+                item["fees_complete"] and item["shipping_cost_complete"] and effective_cost is not None
             )
             item["profit_minor"] = (
                 int(item["net_sale_minor"])
@@ -555,8 +559,8 @@ async def finance_sales(
                 - int(item["commission_minor"])
                 - int(item["refund_minor"])
                 - int(item["shipping_refund_minor"])
-                - effective_cost
-            )
+                - (effective_cost or 0)
+            ) if effective_cost is not None else None
             items.append(item)
         return jsonable_encoder({
             "total": total,
@@ -645,9 +649,9 @@ async def finance_sales_analytics(
               select
                 count(*)::int as sold_items,
                 count(distinct order_id)::int as orders,
-                coalesce(sum(
-                  case when returned_to_stock then 0 else cost_basis_minor end
-                ),0)::bigint as cost_of_goods_minor
+                case when count(*) filter(where not returned_to_stock and cost_basis_minor is null)>0 then null
+                else coalesce(sum(case when returned_to_stock then 0 else cost_basis_minor end),0)
+                end::bigint as cost_of_goods_minor
               from scoped_items
             ),
             reconciliation as (
@@ -751,9 +755,9 @@ async def finance_sales_analytics(
                 bucket_date,
                 count(*)::int as sold_items,
                 count(distinct order_id)::int as orders,
-                coalesce(sum(
-                  case when returned_to_stock then 0 else cost_basis_minor end
-                ),0)::bigint as cost_of_goods_minor
+                case when count(*) filter(where not returned_to_stock and cost_basis_minor is null)>0 then null
+                else coalesce(sum(case when returned_to_stock then 0 else cost_basis_minor end),0)
+                end::bigint as cost_of_goods_minor
               from scoped_items
               group by bucket_date
             )
@@ -765,14 +769,14 @@ async def finance_sales_analytics(
                 + coalesce(l.shipping_revenue_minor,0)
                 - coalesce(l.refunds_minor,0)
               )::bigint as net_revenue_minor,
-              (
+              case when i.sold_items>0 and i.cost_of_goods_minor is null then null else (
                 coalesce(l.sales_revenue_minor,0)
                 + coalesce(l.shipping_revenue_minor,0)
                 - coalesce(l.refunds_minor,0)
                 - coalesce(l.operating_costs_minor,0)
                 - coalesce(i.cost_of_goods_minor,0)
                 + coalesce(l.adjustments_minor,0)
-              )::bigint as profit_minor,
+              ) end::bigint as profit_minor,
               coalesce(i.orders,0)::int as orders,
               coalesce(i.sold_items,0)::int as sold_items
             from items_by_bucket i
@@ -833,9 +837,9 @@ async def finance_sales_analytics(
         "commission_minor": commission,
         "commission_bps": int(owner["commission_bps"] or 0),
         "adjustments_minor": adjustments,
-        "cost_of_goods_minor": cogs,
-        "net_profit_minor": net_profit,
-        "net_profit_complete": missing_fees == 0 and missing_postage == 0,
+        "cost_of_goods_minor": cogs if summary["cost_of_goods_minor"] is not None else None,
+        "net_profit_minor": net_profit if summary["cost_of_goods_minor"] is not None else None,
+        "net_profit_complete": missing_fees == 0 and missing_postage == 0 and summary["cost_of_goods_minor"] is not None,
         "unreconciled_external_sales": max(missing_fees, missing_postage),
         "unreconciled_shopify_sales": max(missing_fees, missing_postage),
         "orders": orders,
@@ -871,7 +875,9 @@ async def finance_settlements(
                 oi.order_id,
                 oi.owner_id,
                 count(*)::int as item_count,
-                coalesce(
+                case when count(*) filter(where oi.cost_basis_minor is null and not exists(
+                    select 1 from tcg.refund_events r where r.order_item_id=oi.id and r.return_to_stock))>0
+                then null else coalesce(
                   sum(
                     case
                       when exists (
@@ -885,7 +891,7 @@ async def finance_settlements(
                     end
                   ),
                   0
-                )::bigint as effective_cogs_minor,
+                ) end::bigint as effective_cogs_minor,
                 bool_and(rec.fees_reconciled_at is not null) as fees_reconciled,
                 bool_and(rec.shipping_cost_reconciled_at is not null)
                   as shipping_cost_reconciled
@@ -1023,7 +1029,7 @@ async def finance_settlements(
             )
             commission = int(item["commission_minor"] or 0)
             adjustments = int(item["adjustments_minor"] or 0)
-            effective_cogs = int(item["effective_cogs_minor"] or 0)
+            effective_cogs = int(item["effective_cogs_minor"]) if item["effective_cogs_minor"] is not None else None
 
             amounts = _settlement_amounts(
                 item_revenue_minor=item_revenue,
@@ -1453,7 +1459,7 @@ async def reconcile_ebay_fees(
         rows = await connection.fetch(
             """
             select
-              o.source,o.order_number,
+              o.source,o.order_number,o.status as order_status,
               oi.id as order_item_id,oi.net_sale_minor,
               rec.fees_reconciled_at,rec.fees_source
             from tcg.orders o
@@ -1571,6 +1577,7 @@ async def reconcile_shopify_postage(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _owner(connection)
+        target_owner_id = payload.owner_id if (payload.owner_id and "/finance/shopify/" in request.url.path) else owner["id"]
         await connection.execute(
             "select pg_advisory_xact_lock(hashtext($1::text))",
             order_id,
@@ -1592,7 +1599,7 @@ async def reconcile_shopify_postage(
             where o.id=$1 and oi.owner_id=$2
             order by oi.id
             """,
-            order_id, owner["id"],
+            order_id, target_owner_id,
         )
         if not rows:
             raise HTTPException(status_code=404, detail="Order not found")
@@ -1605,57 +1612,86 @@ async def reconcile_shopify_postage(
                 detail=f"Postage reconciliation path does not match {rows[0]['source']} order",
             )
 
-        profile_keys: list[str] = []
-        for row in rows:
-            if row["product_type"] != "CARD":
-                raise HTTPException(
-                    status_code=409,
-                    detail="No fulfilment profile is configured for this product type",
-                )
-            is_graded = bool(
-                str(row["grading_company"] or "").strip()
-                and str(row["grade"] or "").strip()
+        platform_account = None
+        if expected_source == "SHOPIFY":
+            platform_account = await connection.fetchrow(
+                "select charge_policy from tcg.shopify_delivery_accounts where order_id=$1",
+                order_id,
             )
-            profile_keys.append("GRADED_CARD" if is_graded else "RAW_CARD")
-        if len(set(profile_keys)) != 1:
+        if platform_account is not None and rows[0]["order_status"] != "PAID":
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    "Mixed shipping profiles require an approved fulfilment "
-                    "allocation policy"
-                ),
+                detail="Refunded or cancelled Shopify orders require review before postage cost reconciliation",
             )
-        profile_key = profile_keys[0]
-
-        components = await connection.fetch(
-            """
-            select
-              component_key,quantity,accounting_unit_cost_minor_gbp,
-              allocation_basis
-            from tcg.fulfilment_cost_components
-            where owner_id=$1
-              and shipping_profile_key=$2
-              and active
-            order by component_key
-            """,
-            owner["id"], profile_key,
+        owner_postage_charge = (
+            seller_auto_postage_charge(platform_account["charge_policy"], payload.amount_minor)
+            if platform_account is not None else payload.amount_minor
         )
-        try:
-            material_allocations = _fulfilment_material_allocations(
-                rows,
-                components,
+
+        if platform_account is not None:
+            # Existing material components remain stored as platform cost
+            # evidence; the founder chose only one seller NET SHIPPING charge.
+            material_allocations = [0] * len(rows)
+            material_total = 0
+        else:
+            profile_keys: list[str] = []
+            for row in rows:
+                if row["product_type"] != "CARD":
+                    raise HTTPException(
+                        status_code=409,
+                        detail="No fulfilment profile is configured for this product type",
+                    )
+                is_graded = bool(
+                    str(row["grading_company"] or "").strip()
+                    and str(row["grade"] or "").strip()
+                )
+                profile_keys.append("GRADED_CARD" if is_graded else "RAW_CARD")
+            if len(set(profile_keys)) != 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Mixed shipping profiles require an approved fulfilment "
+                        "allocation policy"
+                    ),
+                )
+            profile_key = profile_keys[0]
+
+            components = await connection.fetch(
+                """
+                select
+                  component_key,quantity,accounting_unit_cost_minor_gbp,
+                  allocation_basis
+                from tcg.fulfilment_cost_components
+                where owner_id=$1
+                  and shipping_profile_key=$2
+                  and active
+                order by component_key
+                """,
+                target_owner_id, profile_key,
             )
-        except ValueError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        material_total = sum(material_allocations)
+            try:
+                material_allocations = _fulfilment_material_allocations(
+                    rows,
+                    components,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            material_total = sum(material_allocations)
         postage_allocations = allocate_minor(
-            payload.amount_minor,
+            owner_postage_charge,
             [int(row["net_sale_minor"]) for row in rows],
         )
-        reconciliation_source = (
-            f"MANUAL_FULFILMENT:{payload.reference}:"
-            f"POSTAGE:{payload.amount_minor}:MATERIALS:{material_total}"
-        )
+        if platform_account is not None:
+            reconciliation_source = (
+                f"AUTO_SHOPIFY_POSTAGE:{payload.reference}:"
+                f"CARRIER:{payload.amount_minor}:NET_OWNER:{owner_postage_charge}:"
+                f"POLICY:{platform_account['charge_policy']}"
+            )
+        else:
+            reconciliation_source = (
+                f"MANUAL_FULFILMENT:{payload.reference}:"
+                f"POSTAGE:{payload.amount_minor}:MATERIALS:{material_total}"
+            )
 
         reconciled = [
             row for row in rows
@@ -1672,7 +1708,9 @@ async def reconcile_shopify_postage(
                 return jsonable_encoder({
                     "order_id": order_id,
                     "order_number": rows[0]["order_number"],
-                    "shipping_cost_minor": payload.amount_minor,
+                    "verified_carrier_cost_minor": payload.amount_minor,
+                    "seller_net_shipping_charge_minor": owner_postage_charge,
+                    "shipping_cost_minor": owner_postage_charge,
                     "fulfilment_material_cost_minor": material_total,
                     "replayed": True,
                 })
@@ -1683,6 +1721,26 @@ async def reconcile_shopify_postage(
                     "adjustment workflow"
                 ),
             )
+
+        if platform_account is not None:
+            # One privately audited carrier receipt, no hidden seller debit.
+            # A duplicate label reference or owner/order cannot charge twice.
+            try:
+                await connection.execute(
+                    """
+                    insert into tcg.shopify_postage_actual_costs(
+                      order_id,owner_id,carrier_label_reference,
+                      verified_postage_minor,owner_net_charge_minor
+                    ) values($1,$2,$3,$4,$5)
+                    """,
+                    order_id, target_owner_id, payload.reference,
+                    payload.amount_minor, owner_postage_charge,
+                )
+            except asyncpg.UniqueViolationError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This carrier receipt or owner order has already been recorded",
+                ) from exc
 
         for index, row in enumerate(rows):
             postage = postage_allocations[index]
@@ -1696,7 +1754,7 @@ async def reconcile_shopify_postage(
                     ) values($1,$2,$3,'SHIPPING_COST',$4,'GBP','PENDING',$5,$6,$7)
                     on conflict(source_key) do nothing
                     """,
-                    owner["id"], order_id, row["order_item_id"], -postage,
+                    target_owner_id, order_id, row["order_item_id"], -postage,
                     f"postage:{payload.reference}:{row['order_item_id']}",
                     occurred_at,
                     payload.notes or "Actual Royal Mail postage cost.",
@@ -1713,7 +1771,7 @@ async def reconcile_shopify_postage(
                     )
                     on conflict(source_key) do nothing
                     """,
-                    owner["id"], order_id, row["order_item_id"], -materials,
+                    target_owner_id, order_id, row["order_item_id"], -materials,
                     (
                         f"fulfilment-material:{payload.reference}:"
                         f"{row['order_item_id']}"
@@ -1733,14 +1791,16 @@ async def reconcile_shopify_postage(
                     updated_at=clock_timestamp(),
                     version=tcg.order_item_reconciliations.version+1
                 """,
-                row["order_item_id"], order_id, owner["id"],
+                row["order_item_id"], order_id, target_owner_id,
                 reconciliation_source,
             )
 
         return jsonable_encoder({
             "order_id": order_id,
             "order_number": rows[0]["order_number"],
-            "shipping_cost_minor": payload.amount_minor,
+            "verified_carrier_cost_minor": payload.amount_minor,
+            "seller_net_shipping_charge_minor": owner_postage_charge,
+            "shipping_cost_minor": owner_postage_charge,
             "fulfilment_material_cost_minor": material_total,
             "replayed": False,
         })
@@ -1788,17 +1848,6 @@ async def create_manual_sale(
                 "message": "Only APPROVED physical inventory can be sold",
                 "inventory_codes": not_approved,
             })
-        missing_cost = [
-            by_id[item.inventory_id]["inventory_code"]
-            for item in payload.items
-            if by_id[item.inventory_id]["acquisition_cost_minor"] is None
-        ]
-        if missing_cost:
-            raise HTTPException(status_code=422, detail={
-                "message": "Sale requires a known acquisition cost snapshot",
-                "inventory_codes": missing_cost,
-            })
-
         order_id = uuid4()
         await connection.execute(
             """

@@ -1,0 +1,54 @@
+{
+  "commit": "fc439fe657baee4194cd80211d3274ef57248d61",
+  "checked_at": "2026-10-18T14:58:58.161412+00:00",
+  "assets": {
+    "scanner-flow.js": {
+      "url": "/assets/scanner-flow.js?v=book-cover-v5",
+      "matches": true,
+      "sha256": "4044f2be4b59382e29824c1a6e1034644bea1a09f01b16f46bf7f62c80af9ae1"
+    },
+    "scanner-flow.css": {
+      "url": "/assets/scanner-flow.css?v=book-cover-v5",
+      "matches": true,
+      "sha256": "6cdc8424e5d7789982cea109b7a6a184c0253eb23b68dbe9ffeb37fef808ef59"
+    },
+    "owner-books.js": {
+      "url": "/assets/owner-books.js?v=book-cover-v5",
+      "matches": true,
+      "sha256": "32a60c431410ac0f2edc70792a26ce783f568c962142e23066e0775339b95f43"
+    },
+    "owner-books.css": {
+      "url": "/assets/owner-books.css?v=book-cover-v5",
+      "matches": true,
+      "sha256": "77860340c67cac96ffb8083d736a210aa4060fa23661ee61dfaec0e162263a1d"
+    }
+  },
+  "ready": {
+    "status": "ready",
+    "database": "connected"
+  },
+  "owner_entrypoint": true,
+  "founder_entrypoint": true,
+  "anonymous_book_cover_status": 401,
+  "anonymous_book_receipt_status": 401,
+  "verified": true,
+  "pr": 691,
+  "tested_head": "75f3ec73e54ff465065117a0c8e9d32c73a96f8c",
+  "railway_deployment_id": "8d7cc901-ced5-4121-8d20-c4aa3c7b0f37",
+  "railway_success_at": "2026-10-18T14:58:45.618Z",
+  "python_tests_passed": 6180,
+  "browser_engines": [
+    "chromium",
+    "webkit"
+  ],
+  "browser_viewport_widths": [
+    390,
+    1440
+  ],
+  "browser_artifact_id": 12141000428,
+  "browser_artifact_sha256": "988b50db60c0dea5667ab69496d456974ebfb44317bb735234a526a29c811ea7",
+  "limitations": [
+    "Browser camera/provider fixtures do not establish physical-phone recognition speed or universal publisher coverage.",
+    "No earlier scan receipts or saved copies were rewritten."
+  ]
+}

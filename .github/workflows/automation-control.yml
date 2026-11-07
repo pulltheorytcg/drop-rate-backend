@@ -1,0 +1,55 @@
+name: Automation control database contracts
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/automation_control.py'
+      - 'backend/app/automation_dispatcher.py'
+      - 'backend/app/db.py'
+      - 'database/migrations/*automation*.sql'
+      - 'database/migrations/*n8n_runtime_heartbeat.sql'
+      - 'database/migrations/20260926213000_access_control_foundation.sql'
+      - 'database/migrations/20260928211713_import_enrichment_action_queue.sql'
+      - 'tests/*automation_control*'
+      - 'tests/test_automation_runs_n8n_contract.py'
+      - 'tests/test_n8n_runtime_heartbeat.py'
+      - 'docs/evidence/automation-control-runtime-preflight-20261027.sql'
+      - 'requirements.txt'
+      - '.github/workflows/automation-control.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: automation_control_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d automation_control_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --requirement requirements.txt
+      - name: Signed API and compatibility regressions
+        run: >-
+          PYTHONPATH=backend python -m pytest -q
+          tests/test_automation_control_api.py tests/test_automation_control.py
+          tests/test_automation_runs_n8n_contract.py tests/test_n8n_runtime_heartbeat.py
+          tests/test_automation_dispatcher.py
+      - name: Native restricted-role, replay, concurrency and rollback regression
+        run: PYTHONPATH=backend python tests/automation_control_postgres.py
+        env:
+          AUTOMATION_CONTROL_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/automation_control_test
+          AUTOMATION_CONTROL_TEST_ISOLATED: 'true'

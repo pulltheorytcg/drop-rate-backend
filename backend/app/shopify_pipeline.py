@@ -25,6 +25,8 @@ from .media_resolver import (
 )
 from .ownership import current_owner as _owner
 from .settings import get_settings
+from .seller_inventory_policy import seller_held_consignment
+from .shopify_net_postage_policy import classify_shopify_shipping
 from .shopify_completeness import (
     build_shopify_product_plan,
     media_completeness,
@@ -180,6 +182,8 @@ async def withdraw_shopify_for_inventory(
     inventory_ids: list[str],
     *,
     owner_id: UUID,
+    actor_user_id: UUID,
+    request_id: str,
     reason: str,
 ) -> list[dict[str, Any]]:
     """Fail closed and verify Shopify is no longer selling exact inventory."""
@@ -187,7 +191,7 @@ async def withdraw_shopify_for_inventory(
     if not inventory_ids:
         return []
 
-    async with pool.acquire() as connection:
+    async with user_connection(pool, actor_user_id, request_id) as connection:
         rows = await connection.fetch(
             """
             select
@@ -197,6 +201,7 @@ async def withdraw_shopify_for_inventory(
             from tcg.shopify_inventory_links
             where owner_id=$1
               and inventory_id=any($2::uuid[])
+              and not test_mode
               and sync_state in ('DRAFT','PUBLISHED','ERROR')
             order by linked_at,id
             """,
@@ -211,7 +216,7 @@ async def withdraw_shopify_for_inventory(
     except HTTPException as exc:
         detail = str(exc.detail)
         results: list[dict[str, Any]] = []
-        async with pool.acquire() as connection:
+        async with user_connection(pool, actor_user_id, request_id) as connection:
             for row in rows:
                 await connection.execute(
                     """
@@ -235,38 +240,17 @@ async def withdraw_shopify_for_inventory(
     results: list[dict[str, Any]] = []
     for row in rows:
         try:
-            sibling_state = "PUBLISHED" if row["sync_state"] == "PUBLISHED" else "DRAFT"
-            async with pool.acquire() as connection:
-                remaining_sellable_quantity = await connection.fetchval(
-                    """
-                    select count(*)::int
-                    from tcg.shopify_inventory_links pool_link
-                    join tcg.inventory_items pool_item
-                      on pool_item.id=pool_link.inventory_id
-                    where pool_link.shopify_variant_gid=$1
-                      and pool_link.id <> $2
-                      and pool_link.sync_state=$3
-                      and pool_link.reserved_order_reference is null
-                      and pool_link.reserved_line_reference is null
-                      and pool_item.status='APPROVED'
-                      and pool_item.sale_intent='FOR_SALE'
-                    """,
-                    row["shopify_variant_gid"],
-                    row["id"],
-                    sibling_state,
-                )
-            target_quantity = int(remaining_sellable_quantity or 0)
-            target_status = (
-                "ACTIVE"
-                if row["sync_state"] == "PUBLISHED" and target_quantity > 0
-                else "DRAFT"
-            )
+            async with user_connection(pool, actor_user_id, request_id) as connection:
+                target = await connection.fetchval(
+                    "select tcg.shopify_personal_withdrawal_target($1,$2)", row["id"], owner_id)
+            target_quantity = int(target["quantity"])
+            target_status = target["status"]
             await client.set_inventory_quantity(
                 inventory_item_id=str(row["shopify_inventory_item_gid"]),
                 location_id=str(row["shopify_location_gid"]),
                 quantity=target_quantity,
                 idempotency_key=(
-                    f"withdraw-{reason.casefold()}-{row['inventory_id']}"
+                    f"withdraw-{reason.casefold()}-{row['inventory_id']}-{row['version']}-{target_quantity}"
                 ),
             )
             await client.set_product_status(
@@ -277,17 +261,16 @@ async def withdraw_shopify_for_inventory(
                 str(row["shopify_product_gid"])
             )
             variants = snapshot.get("variants", {}).get("nodes", [])
-            quantity = (
-                variants[0].get("inventoryQuantity")
-                if len(variants) == 1 and isinstance(variants[0], dict)
-                else None
-            )
+            exact = [variant for variant in variants if isinstance(variant, dict)
+                     and variant.get("id") == row["shopify_variant_gid"]]
+            quantity = exact[0].get("inventoryQuantity") if len(exact) == 1 else None
             if snapshot.get("status") != target_status or quantity != target_quantity:
                 raise ShopifyApiError(
                     "Shopify inventory withdrawal could not be verified"
                 )
         except ShopifyApiError as exc:
-            async with pool.acquire() as connection:
+            logger.warning("Shopify personal withdrawal failed: %s", str(exc))
+            async with user_connection(pool, actor_user_id, request_id) as connection:
                 await connection.execute(
                     """
                     update tcg.shopify_inventory_links
@@ -307,7 +290,7 @@ async def withdraw_shopify_for_inventory(
             })
             continue
 
-        async with pool.acquire() as connection:
+        async with user_connection(pool, actor_user_id, request_id) as connection:
             updated = await connection.fetchrow(
                 """
                 update tcg.shopify_inventory_links
@@ -433,9 +416,6 @@ def _test_sync_missing(
         missing.append("APPROVED status")
     if not item["identity_confirmed"]:
         missing.append("identity confirmation")
-    if item["acquisition_cost_minor"] is None:
-        missing.append("acquisition cost")
-
     if item["product_type"] == "CARD":
         is_graded = bool(
             str(item["grading_company"] or "").strip()
@@ -459,14 +439,27 @@ def _test_sync_missing(
                 missing.append("photo-backed Near Mint verification")
         if not (item["language"] or item["catalogue_language"]):
             missing.append("card language")
+    elif item["product_type"] == "COMIC":
+        # A comic is not sealed TCG stock. Its issue and edition must be
+        # explicit; the founder still confirms identity and physical media.
+        if not str(item.get("card_number") or "").strip():
+            missing.append("comic issue / volume number")
+        if not str(item.get("variant") or "").strip():
+            missing.append("comic printing / cover variant")
+        if not (str(item.get("condition") or "").strip() or
+                (str(item.get("grading_company") or "").strip() and
+                 str(item.get("grade") or "").strip())):
+            missing.append("comic condition / grade")
+        if not (item.get("language") or item.get("catalogue_language")):
+            missing.append("comic language")
     elif item["seal_status"] is None:
         missing.append("seal status")
 
     if item["store_price_minor"] is None:
         missing.append("store price")
-    if item["storage_location_id"] is None:
+    if item["storage_location_id"] is None and not seller_held_consignment(item):
         missing.append("registered storage location")
-    elif (
+    elif item["storage_location_id"] is not None and (
         item["registered_location_id"] is None
         or not item["registered_location_active"]
     ):
@@ -529,6 +522,7 @@ def _build_media_intake_queue(
     raw_pending = 0
     graded_pending = 0
     sealed_pending = 0
+    comic_pending = 0
 
     for source in items:
         item = dict(source)
@@ -569,7 +563,9 @@ def _build_media_intake_queue(
         if not missing:
             continue
 
-        if is_sealed:
+        if product_type == "COMIC":
+            comic_pending += 1
+        elif is_sealed:
             sealed_pending += 1
         elif is_graded:
             graded_pending += 1
@@ -639,11 +635,13 @@ def _build_media_intake_queue(
         "raw_items_pending": raw_pending,
         "graded_items_pending": graded_pending,
         "sealed_items_pending": sealed_pending,
+        "comic_items_pending": comic_pending,
         "policy": {
             "existing_image_first": True,
             "physical_photo_threshold_minor": physical_photo_threshold_minor,
             "low_risk_raw_cards_use_canonical_storefront_media": True,
             "sealed_products_use_exact_first_party_front_photo": True,
+            "comic_books_use_exact_first_party_photo": True,
         },
     }
 
@@ -718,7 +716,7 @@ async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
 
 def _supported_shipping_profile_key(value: str) -> bool:
     key = str(value or "").strip().upper()
-    if key in {"RAW_CARD", "GRADED_CARD"}:
+    if key in {"RAW_CARD", "GRADED_CARD", "COMIC_BOOK", "MANGA_BOOK"}:
         return True
     if not key.startswith("SEALED_"):
         return False
@@ -804,7 +802,7 @@ async def create_shipping_profile(
             status_code=422,
             detail=(
                 "Supported shipping profile keys are RAW_CARD, GRADED_CARD, "
-                "or SEALED_<32-character canonical catalogue id>"
+                "COMIC_BOOK, MANGA_BOOK or SEALED_<32-character canonical catalogue id>"
             ),
         )
     package_gid = _validated_shipping_package_gid(payload.shipping_package_gid)
@@ -1137,7 +1135,7 @@ async def media_intake_queue(
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
               and i.sale_intent='FOR_SALE'
-              and p.product_type in ('CARD','SEALED','COLLECTION')
+              and p.product_type in ('CARD','SEALED','COLLECTION','COMIC')
             order by p.game,p.set_name,p.name,p.card_number,i.inventory_code
             """,
             owner["id"],
@@ -2546,10 +2544,14 @@ async def publish_inventory_to_shopify(
                     status_code=409,
                     detail=f"Required Shopify collection is missing: {collection_title}",
                 )
-            await shopify.add_product_to_collection(
-                collection_id=str(collection["id"]),
-                product_id=product_id,
-            )
+            # Shopify manages smart-collection membership from product rules.
+            # Manual assignment is rejected even when the product already
+            # belongs. Both draft/final readbacks below still require membership.
+            if not collection.get("automated"):
+                await shopify.add_product_to_collection(
+                    collection_id=str(collection["id"]),
+                    product_id=product_id,
+                )
 
         media_file_ids = set(launch["mediaReadiness"].get("shopifyFileIds") or [])
         for file_id in sorted(media_file_ids):
@@ -2563,7 +2565,7 @@ async def publish_inventory_to_shopify(
             variant_id=variant_id,
             price=_money(int(item["store_price_minor"])),
             sku=str(item["inventory_code"]),
-            cost=_money(int(item["acquisition_cost_minor"])),
+            cost=_money(int(item["acquisition_cost_minor"])) if item["acquisition_cost_minor"] is not None else None,
             shipping_spec=launch["shippingSpec"],
         )
         inventory_item = updated_variant.get("inventoryItem")
@@ -2864,10 +2866,24 @@ async def _resolve_order_scopes(
 ) -> list[dict[str, Any]]:
     rows = await connection.fetch(
         """
-        select distinct owner_id, created_by_user_id
-        from tcg.shopify_inventory_links
-        where shopify_variant_gid=any($1::text[])
-          and sync_state in ('PUBLISHED','SOLD','ARCHIVED','ERROR')
+        select distinct owner_id, created_by_user_id from (
+            select owner_id, created_by_user_id
+            from tcg.shopify_inventory_links
+            where shopify_variant_gid=any($1::text[])
+              and sync_state in ('PUBLISHED','SOLD','ARCHIVED','ERROR')
+            union all
+            -- A delayed pre-pool order must still identify its exact physical
+            -- owner, even after the duplicate variant is archived at Shopify.
+            select a.owner_id,a.created_by_user_id
+            from tcg.shopify_variant_pool_aliases a
+            join tcg.shopify_inventory_links sil
+              on sil.inventory_id=a.inventory_id
+             and sil.owner_id=a.owner_id
+             and sil.shopify_variant_gid=a.pooled_variant_gid
+             and sil.shopify_product_gid=a.pooled_product_gid
+            where a.legacy_variant_gid=any($1::text[])
+              and sil.sync_state in ('PUBLISHED','SOLD','ARCHIVED','ERROR')
+        ) scoped
         order by owner_id, created_by_user_id
         """,
         variant_gids,
@@ -2889,21 +2905,71 @@ async def _select_order_units(
     selected_units: list[dict[str, Any]] = []
     for spec in line_specs:
         line = spec["line"]
-        links = await connection.fetch(
-            """
-            select
-                sil.*, i.inventory_code, i.status as inventory_status,
-                i.sale_intent,
-                i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version
-            from tcg.shopify_inventory_links sil
-            join tcg.inventory_items i on i.id=sil.inventory_id
-            where sil.shopify_variant_gid=$1
-              and sil.sync_state='PUBLISHED'
-            order by sil.allocation_priority, sil.linked_at, sil.inventory_id
-            for update of sil, i
-            """,
-            spec["variant_gid"],
-        )
+        # Historic orders may have been placed immediately before a pool's
+        # shared SKU was activated. Resolve the original SKU, even when the
+        # original anchor kept its variant ID; never reassign that old sale to
+        # another copy based only on current allocation order.
+        sku=str(line.get("sku") or "").strip()
+        legacy=[]
+        if sku:
+            legacy=await connection.fetch(
+                """
+                select
+                  sil.*, a.legacy_variant_gid, a.legacy_product_gid,
+                  a.legacy_sku,
+                  i.inventory_code,i.status as inventory_status,
+                  i.sale_intent,i.acquisition_cost_minor,i.store_price_minor,
+                  i.version as inventory_version,i.source_record,
+                  i.catalogue_id,i.language,i.seal_status,i.identity_confirmed,
+                  p.product_type,p.name,p.set_name,p.variant,
+                  p.language as catalogue_language,o.owner_type
+                from tcg.shopify_variant_pool_aliases a
+                join tcg.shopify_inventory_links sil
+                  on sil.inventory_id=a.inventory_id
+                 and sil.owner_id=a.owner_id
+                 and sil.shopify_variant_gid=a.pooled_variant_gid
+                 and sil.shopify_product_gid=a.pooled_product_gid
+                join tcg.inventory_items i on i.id=sil.inventory_id
+                join tcg.catalogue_products p on p.id=i.catalogue_id
+                join tcg.owners o on o.id=i.owner_id
+                where a.legacy_variant_gid=$1
+                  and a.legacy_sku=$2
+                  and sil.sync_state='PUBLISHED'
+                  and (sil.reserved_order_reference is null
+                       or sil.reserved_order_reference=$3)
+                order by sil.allocation_priority,sil.linked_at,sil.inventory_id
+                for update of sil, i
+                """,
+                spec["variant_gid"],sku,order_reference,
+            )
+        if legacy:
+            links=[]
+            for record in legacy:
+                mapped=dict(record)
+                mapped["shopify_variant_gid"]=mapped.pop("legacy_variant_gid")
+                mapped["shopify_product_gid"]=mapped.pop("legacy_product_gid")
+                mapped["sku"]=mapped.pop("legacy_sku")
+                links.append(mapped)
+        else:
+            links = await connection.fetch(
+                """
+                select
+                    sil.*, i.inventory_code, i.status as inventory_status,
+                    i.sale_intent,
+                    i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version,
+                    i.source_record,i.catalogue_id,i.language,i.seal_status,i.identity_confirmed,
+                    p.product_type,p.name,p.set_name,p.variant,p.language as catalogue_language,o.owner_type
+                from tcg.shopify_inventory_links sil
+                join tcg.inventory_items i on i.id=sil.inventory_id
+                join tcg.catalogue_products p on p.id=i.catalogue_id
+                join tcg.owners o on o.id=i.owner_id
+                where sil.shopify_variant_gid=$1
+                  and sil.sync_state='PUBLISHED'
+                order by sil.allocation_priority, sil.linked_at, sil.inventory_id
+                for update of sil, i
+                """,
+                spec["variant_gid"],
+            )
         eligible = [
             link
             for link in links
@@ -2929,8 +2995,6 @@ async def _select_order_units(
                 "Shopify order exceeds Drop Rate linked stock",
             )
         for allocation_index, link in enumerate(eligible[:spec["quantity"]], start=1):
-            if link["acquisition_cost_minor"] is None:
-                raise ShopifyProcessingError("MISSING_COST", "Linked inventory has no acquisition cost")
             if spec["unit_price_minor"] != int(link["synced_price_minor"]):
                 raise ShopifyProcessingError(
                     "PRICE_DRIFT",
@@ -3210,18 +3274,37 @@ async def _process_paid_order(
         unit["discount_minor"] = discount
         unit_weights.append(max(unit["sale_price_minor"] - discount, 0))
 
-    shipping_set = payload.get("total_shipping_price_set")
-    shipping_minor = 0
-    if isinstance(shipping_set, dict):
-        shop_money = shipping_set.get("shop_money")
-        if isinstance(shop_money, dict):
-            if str(shop_money.get("currency_code") or "").upper() not in {"", "GBP"}:
-                raise ShopifyProcessingError(
-                    "SHIPPING_CURRENCY_MISMATCH",
-                    "Shopify shipping currency is not GBP",
-                )
-            shipping_minor = _minor(shop_money.get("amount"), field="shipping")
-    shipping_allocations = allocate_minor(shipping_minor, unit_weights)
+    # Shopify shipping belongs to the platform, not the physical owner.
+    # The checkout charge is recorded ONCE per order in an immutable,
+    # platform-only account; sellers receive no SHIPPING_REVENUE entries.
+    # Zero-paid free UK Tracked48 on >=£50 is automatically debited only
+    # after the actual label cost is independently verified.
+    try:
+        shipping_snapshot = classify_shopify_shipping(
+            payload, merchandise_minor=sum(unit_weights),
+        )
+    except ValueError as exc:
+        raise ShopifyProcessingError(
+            "SHIPPING_ACCOUNTING_INVALID",
+            "Shopify delivery money cannot be verified",
+        ) from exc
+    await connection.execute(
+        """
+        insert into tcg.shopify_delivery_accounts(
+          order_id,shopify_order_reference,customer_shipping_paid_minor,
+          qualifying_merchandise_minor,delivery_service,destination_country,
+          evidence_status,charge_policy,source_webhook_id
+        ) values($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        """,
+        order_id, order_reference,
+        shipping_snapshot.customer_shipping_paid_minor,
+        shipping_snapshot.qualifying_merchandise_minor,
+        shipping_snapshot.delivery_service,
+        shipping_snapshot.destination_country,
+        shipping_snapshot.evidence_status,
+        shipping_snapshot.charge_policy,
+        webhook_id,
+    )
 
     created = []
     for index, unit in enumerate(selected_units):
@@ -3253,19 +3336,6 @@ async def _process_paid_order(
                 f"shopify:{order_reference}:{unit['line_reference']}:{unit['allocation_index']}:sale",
                 placed_at,
                 "Shopify gross line revenue; platform/payment fees are not yet settled.",
-            )
-        if shipping_allocations[index]:
-            await connection.execute(
-                """
-                insert into tcg.financial_ledger_entries(
-                  owner_id,order_id,order_item_id,entry_type,amount_minor,
-                  currency,funds_status,source_key,occurred_at,notes
-                ) values($1,$2,$3,'SHIPPING_REVENUE',$4,'GBP','PENDING',$5,$6,$7)
-                """,
-                owner_id, order_id, order_item_id, shipping_allocations[index],
-                f"shopify:{order_reference}:{unit['line_reference']}:{unit['allocation_index']}:shipping",
-                placed_at,
-                "Shopify shipping revenue allocated deterministically by net line value.",
             )
         expected_status = link["inventory_status"]
         sold = await connection.fetchrow(
@@ -3685,7 +3755,61 @@ async def _process_refund(
             })
 
     shipping_created: list[dict[str, Any]] = []
+    platform_delivery = None
     if shipping_refund_minor:
+        platform_delivery = await connection.fetchrow(
+            """
+            select customer_shipping_paid_minor
+            from tcg.shopify_delivery_accounts
+            where order_id=$1
+            for update
+            """,
+            order["id"],
+        )
+        if platform_delivery is not None:
+            existing_company_refund = await connection.fetchrow(
+                """
+                select amount_minor from tcg.shopify_delivery_refunds
+                where shopify_refund_id=$1
+                """,
+                refund_id,
+            )
+            if existing_company_refund is not None:
+                if int(existing_company_refund["amount_minor"]) != shipping_refund_minor:
+                    raise ShopifyProcessingError(
+                        "SHIPPING_REFUND_ID_CONFLICT",
+                        "The same Shopify refund ID has a different delivery amount",
+                    )
+            else:
+                already_refunded = await connection.fetchval(
+                    """
+                    select coalesce(sum(amount_minor),0)::bigint
+                    from tcg.shopify_delivery_refunds
+                    where order_id=$1
+                    """,
+                    order["id"],
+                )
+                if int(already_refunded or 0) + shipping_refund_minor > int(platform_delivery["customer_shipping_paid_minor"]):
+                    raise ShopifyProcessingError(
+                        "SHIPPING_REFUND_EXCEEDS_REVENUE",
+                        "Shopify refunded more delivery money than the platform received",
+                    )
+                await connection.execute(
+                    """
+                    insert into tcg.shopify_delivery_refunds(
+                      order_id,shopify_refund_id,amount_minor
+                    ) values($1,$2,$3)
+                    """,
+                    order["id"], refund_id, shipping_refund_minor,
+                )
+            shipping_created.append({
+                "platform_shipping_refund_minor": shipping_refund_minor,
+            })
+
+    # Historical orders have owner SHIPPING_REVENUE and matching owner
+    # SHIPPING_REFUND entries. Preserve that audited legacy route; new
+    # platform-funded orders must never debit sellers for buyer refunds.
+    if shipping_refund_minor and platform_delivery is None:
         duplicate_shipping = await connection.fetchval(
             """
             select exists(

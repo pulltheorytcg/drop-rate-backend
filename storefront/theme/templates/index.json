@@ -46,11 +46,31 @@
             "label": "Shop One Piece",
             "tone": "navy"
           }
+        },
+        "comics": {
+          "type": "game",
+          "settings": {
+            "collection": "comics",
+            "eyebrow": "Marvel, DC & indie",
+            "label": "Explore comics",
+            "tone": "navy"
+          }
+        },
+        "manga": {
+          "type": "game",
+          "settings": {
+            "collection": "manga",
+            "eyebrow": "Collected stories",
+            "label": "Explore manga",
+            "tone": "aqua"
+          }
         }
       },
       "block_order": [
         "pokemon",
-        "onepiece"
+        "onepiece",
+        "comics",
+        "manga"
       ]
     },
     "latest": {

@@ -1,0 +1,61 @@
+"use strict";
+(() => {
+  const seller = Boolean(document.getElementById("owner-view-scan"));
+  const scanner = () => seller ? ownerSharedScanner() : founderSharedScanner();
+  const host = document.getElementById(seller ? "owner-view-search" : "seller-view-search");
+  const navigate = view => seller ? activateOwnerView(view === "home" ? "overview" : view)
+    : activateSellerView(view === "home" ? "dashboard" : view, true);
+  if(!host)return;
+  if(!seller)host.append(makeSellerHeading("Discover", "Search", "Choose a category, find the exact item and add it to your collection."));
+  let opening=false;
+  window.openDropRateCatalogue = async (systemCode = "", productKey = "", {reset = false} = {}) => {
+    if (!state.session?.access_token || opening) return;
+    opening=true;
+    try {
+      navigate("search");
+      if (!window.dropRateCatalogue || !window.dropRateCatalogue.active()) {
+        window.dropRateCatalogue?.destroy();
+        window.dropRateCatalogue = new window.DropRateCatalogue.Browser({host,client:scanner(),navigate,
+          scan:async mode=>{if(seller)ownerScanStopCamera();else stopRecognitionCamera();await scanner().open(mode);},
+          graded:async row=>{const current=scanner();await current.open("GRADED");current.manualSlab();
+            if(row.catalogue_id&&current.edit){const candidate={...row,catalogue_id:row.catalogue_id,candidate_snapshot:row,market_value_minor:null,image_url:row.display_image_url};
+              current.edit.item.candidates=[candidate];current.edit.selected=candidate;current.renderSlabDetails();}},
+          books:options=>seller?window.DropRateBooks?.open(options):navigate("inventory"),
+          collectibles:options=>{const intake=seller?window.DropRateOwnerCollectibles:window.DropRateCollectibles;return intake?intake.open(options):false;},
+          returnToSearch:()=>window.openDropRateCatalogue(),
+          afterSave:()=>seller?Promise.all([loadOwnerOverview(),loadOwnerInventory()]):reloadDashboard(),
+          viewCollection:()=>navigate("inventory"),
+          viewItem:receipt=>{
+            navigate("inventory");
+            const item=receipt?.inventory||{};
+            document.dispatchEvent(new CustomEvent("hub:inventory-open",{detail:{inventoryId:item.id||item.inventory_id,inventoryCode:item.inventory_code}}));
+          },
+        });
+      }
+      if(reset || systemCode || productKey){
+        window.dropRateCatalogue.defaults(["COMICS","MANGA"].includes(systemCode)?systemCode:"TCG");
+        window.dropRateCatalogue.filters.system_code=systemCode;
+        if(systemCode&&!["COMICS","MANGA"].includes(systemCode))window.dropRateCatalogue.filters.product_type="";
+      }
+      opening=false;
+      await window.dropRateCatalogue.open(productKey);
+    } finally {opening=false;}
+  };
+  const launch=()=>window.openDropRateCatalogue().catch(error=>{
+    let status=host.querySelector('.catalogue-entry-error');
+    if(!status){status=document.createElement('p');status.className='catalogue-entry-error';status.setAttribute('role','status');host.append(status);}
+    status.textContent=error.message;
+  });
+  document.querySelectorAll('[data-browse-products]:not([data-owner-view])').forEach(control=>control.addEventListener('click',launch));
+  const shortcut=document.createElement('button');shortcut.type='button';shortcut.className='dr-browse-launch';shortcut.textContent='Search catalogue';shortcut.addEventListener('click',launch);
+  document.getElementById(seller?'owner-view-scan':'recognition-scanner-panel')?.prepend(shortcut);
+  document.addEventListener(seller?'owner-view-changed':'seller-view-changed',event=>{
+    if(event.detail.view==='search')launch();
+    else if(window.dropRateCatalogue?.embedded)window.dropRateCatalogue.close();
+  });
+  document.addEventListener('hub-ready',()=>{if(!host.classList.contains('hidden'))launch();});
+  window.addEventListener('hub-session-cleared',()=>{window.dropRateCatalogue?.destroy();window.dropRateCatalogue=null;});
+  if(seller){const nav=document.querySelector('.owner-nav');['overview','search','scan','inventory','more'].forEach(view=>{const item=nav.querySelector(`[data-owner-view="${view}"]`);if(item)nav.append(item);});}
+  const workspace=document.getElementById(seller?"owner-portal-view":"dashboard-view");
+  if(state.session?.access_token && workspace && !workspace.classList.contains("hidden") && !host.classList.contains("hidden"))launch();
+})();

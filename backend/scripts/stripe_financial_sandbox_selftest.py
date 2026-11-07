@@ -7,6 +7,7 @@ from typing import Any
 
 import asyncpg
 
+from app.db import retry_database_connection
 from app.settings import get_settings
 
 
@@ -39,14 +40,18 @@ async def _run() -> None:
             "Stripe financial sandbox self-test refuses to run without a Stripe test secret key"
         )
 
-    connection = await asyncpg.connect(
-        dsn=settings.database_url,
-        command_timeout=15,
-        server_settings={
-            "application_name": "drop-rate-stripe-financial-sandbox-selftest",
-            "search_path": "pg_catalog,tcg",
-            "statement_timeout": "15000",
-        },
+    connection = await retry_database_connection(
+        lambda: asyncpg.connect(
+            dsn=settings.database_url,
+            timeout=15,
+            command_timeout=15,
+            server_settings={
+                "application_name": "drop-rate-stripe-financial-sandbox-selftest",
+                "search_path": "pg_catalog,tcg",
+                "statement_timeout": "15000",
+            },
+        ),
+        context="stripe_financial_selftest",
     )
     try:
         row = await connection.fetchrow(

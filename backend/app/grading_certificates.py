@@ -15,6 +15,7 @@ from .db import user_connection
 from .ownership import current_owner as _owner
 from .recognition_images import RecognitionImageError, decode_image_data_url
 from .settings import Settings, get_settings
+from .slab_evidence import grade_value, card_numbers_agree, evidence_key
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ PSA_CERT_URL = "https://www.psacard.com/cert"
 ACE_CERT_URL = "https://acegrading.com/cert"
 CGC_CERT_URL = "https://www.cgccards.com/certlookup/"
 BECKETT_CERT_URL = "https://marketplace.beckett.com/grading/withoutLogin_card_lookup"
+TAG_CERT_URL = "https://taggrading.com/pages/cert-search"
 
 PSA_CERT_PATTERN = re.compile(r"^\d{7,10}$")
 GENERIC_CERT_PATTERN = re.compile(r"^\d{4,14}$")
@@ -41,6 +43,7 @@ class GradingProvider(str, Enum):
     BGS = "BGS"
     BVG = "BVG"
     BCCG = "BCCG"
+    TAG = "TAG"
 
 
 class CertificateLookupStatus(str, Enum):
@@ -69,6 +72,8 @@ _PROVIDER_ALIASES = {
     "BECKETT BGS": GradingProvider.BGS,
     "BVG": GradingProvider.BVG,
     "BCCG": GradingProvider.BCCG,
+    "TAG": GradingProvider.TAG,
+    "TAG GRADING": GradingProvider.TAG,
 }
 
 
@@ -116,6 +121,7 @@ class GradingCertificateResult(BaseModel):
     category: str | None = None
     grade: str | None = None
     grade_description: str | None = None
+    display_grade: str | None = None
     language_printing: str | None = None
     subgrades: dict[str, str] = Field(default_factory=dict)
     front_image_url: str | None = None
@@ -201,6 +207,11 @@ def normalize_grading_provider(value: str) -> GradingProvider:
 
 def normalize_certificate_number(provider: GradingProvider, value: str) -> str:
     certificate = re.sub(r"[\s-]+", "", str(value or "")).strip()
+    if provider is GradingProvider.TAG:
+        certificate = certificate.upper()
+        if not re.fullmatch(r"[A-Z0-9]{8}", certificate):
+            raise ValueError("TAG certificate number must contain 8 letters or digits")
+        return certificate
     pattern = PSA_CERT_PATTERN if provider is GradingProvider.PSA else GENERIC_CERT_PATTERN
     if not pattern.fullmatch(certificate):
         if provider is GradingProvider.PSA:
@@ -210,6 +221,8 @@ def normalize_certificate_number(provider: GradingProvider, value: str) -> str:
 
 
 def provider_verification_url(provider: GradingProvider, certificate: str) -> str:
+    if provider is GradingProvider.TAG:
+        return TAG_CERT_URL
     if provider is GradingProvider.PSA:
         return f"{PSA_CERT_URL}/{certificate}/psa"
     if provider is GradingProvider.ACE:
@@ -516,7 +529,7 @@ def grading_catalogue_search_seed(
     observation: GradingSlabObservation,
     provider_result: GradingCertificateResult | None,
 ) -> str | None:
-    if provider_result is not None:
+    if provider_result is not None and provider_result.verified:
         for value in (provider_result.card_number, provider_result.subject):
             if value and value.strip():
                 return value.strip()
@@ -540,16 +553,26 @@ def grading_provider_conflicts(
     if (
         observation.grade.strip()
         and provider_result.grade
-        and observation.grade.strip().casefold() != provider_result.grade.strip().casefold()
+        and (grade_value(provider_result.provider.value, observation.grade) or observation.grade.strip().casefold())
+        != (grade_value(provider_result.provider.value, provider_result.grade) or provider_result.grade.strip().casefold())
     ):
         conflicts.append("GRADE_CONFLICT")
     if (
         observation.card_number.strip()
         and provider_result.card_number
-        and re.sub(r"[^A-Za-z0-9]", "", observation.card_number).casefold()
-        != re.sub(r"[^A-Za-z0-9]", "", provider_result.card_number).casefold()
+        and not (card_numbers_agree(observation.card_number, provider_result.card_number)
+                 or card_numbers_agree(provider_result.card_number, observation.card_number))
     ):
         conflicts.append("CARD_NUMBER_CONFLICT")
+    if observation.card_name.strip() and provider_result.subject and evidence_key(observation.card_name) != evidence_key(provider_result.subject):
+        conflicts.append("CARD_NAME_CONFLICT")
+    if observation.certificate_number.strip() and evidence_key(observation.certificate_number) != evidence_key(provider_result.certificate_number):
+        conflicts.append("CERTIFICATE_CONFLICT")
+    language_aliases = {"en": "english", "jp": "japanese", "ja": "japanese"}
+    observed_language, provider_language = evidence_key(observation.language), evidence_key(provider_result.language_printing)
+    if observed_language not in ("", "unknown") and provider_language not in ("", "unknown"):
+        if language_aliases.get(observed_language, observed_language) != language_aliases.get(provider_language, provider_language):
+            conflicts.append("LANGUAGE_CONFLICT")
     return conflicts
 
 
@@ -629,6 +652,8 @@ async def observe_graded_slab(
 
         try:
             payload = response.json()
+            if payload.get("status") not in (None, "completed"):
+                raise ValueError("Slab evidence did not complete")
             text = _openai_output_text(payload)
             raw = json.loads(text)
             return GradingSlabObservation.model_validate(raw)
@@ -698,6 +723,18 @@ async def scan_graded_slab(
             normalized_provider.value if normalized_provider else None
         ),
         "normalized_certificate": normalized_certificate,
+        "normalized_grade": grade_value(
+            normalized_provider.value if normalized_provider else observation.grader,
+            provider_result.grade if provider_result and provider_result.verified and not conflicts else observation.grade,
+        ),
+        "verification_url": provider_verification_url(normalized_provider, normalized_certificate)
+            if normalized_provider and normalized_certificate else None,
+        "catalogue_label": {
+            "card_name": provider_result.subject if provider_result and provider_result.verified and not conflicts else observation.card_name,
+            "card_number": provider_result.card_number if provider_result and provider_result.verified and not conflicts else observation.card_number,
+            "set_name": provider_result.set_brand if provider_result and provider_result.verified and not conflicts else observation.set_name,
+            "language": provider_result.language_printing if provider_result and provider_result.verified and not conflicts else observation.language,
+        },
         "catalogue_search_seed": grading_catalogue_search_seed(
             observation,
             provider_result,
@@ -756,6 +793,11 @@ async def grading_certificate_status(
                 "source": "OFFICIAL_VERIFICATION_PAGE",
             },
             "BCCG": {
+                "mode": "MANUAL_VERIFICATION",
+                "configured": True,
+                "source": "OFFICIAL_VERIFICATION_PAGE",
+            },
+            "TAG": {
                 "mode": "MANUAL_VERIFICATION",
                 "configured": True,
                 "source": "OFFICIAL_VERIFICATION_PAGE",
@@ -833,17 +875,20 @@ async def grading_certificate_lookup(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except CertificateProviderConfigurationError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="PSA certificate lookup is not configured",
-        ) from exc
+    except CertificateProviderConfigurationError:
+        # No token is not evidence of authenticity and must not strand intake.
+        # Offer the existing official manual route, explicitly unverified.
+        provider = normalize_grading_provider(payload.grader)
+        certificate = normalize_certificate_number(provider, payload.certificate_number)
+        result = manual_provider_result(provider, certificate)
+        result.warnings.append("PROVIDER_NOT_CONFIGURED")
     except CertificateProviderUpstreamError as exc:
         raise HTTPException(
             status_code=502,
             detail="Grading certificate provider is unavailable",
         ) from exc
 
+    result.display_grade = grade_value(result.provider.value, result.grade)
     logger.info(
         "grading_certificate_lookup provider=%s cert=%s status=%s automated=%s user_id=%s",
         result.provider.value,

@@ -90,4 +90,163 @@ $workflow_id"
   done
 fi
 
+# A separate reviewed operation may update only the four observed inactive
+# control-plane definitions. Its backup, exact-hash guards and readback are
+# mandatory; failure stops this requested upgrade before n8n starts.
+case "${DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-control-plane-upgrade.cjs 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_REVIEWED_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# Publication is a later, separate operator phase. The error handler is
+# published first, then the health workflows, then the approved-media schedule.
+case "${DROP_RATE_N8N_CONTROL_PLANE_PUBLISH_ON_BOOT:-false}" in
+  error-handler|health-schedules|media-schedule)
+    node --no-warnings /opt/drop-rate/ops/guarded-control-plane-upgrade.cjs --publish 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_REVIEWED_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# A separate opt-in pause unpublishes only the reviewed DR92 heartbeat before
+# server startup. Other workflows and history remain unchanged.
+case "${DROP_RATE_N8N_HEARTBEAT_PAUSE_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-heartbeat-pause.cjs 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_HEARTBEAT_PAUSE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# DR91 has a separate observed-state plan. Preserve current core publication,
+# import only this inactive receipt sub-workflow, then publish in a later boot.
+case "${DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-success-receipt-upgrade.cjs 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+case "${DROP_RATE_N8N_SUCCESS_RECEIPT_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-success-receipt-upgrade.cjs --publish 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# Explicit, one-time supervised source-scout activation. This verifies the
+# six newly imported inactive definitions, DR90 publication, pinned n8n version,
+# persistent SQLite backup and each published version before server startup.
+# No existing DR90-95 workflow is altered. Fail closed on unknown state.
+case "${DROP_RATE_N8N_RELEASE_SCOUT_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-release-scout-publish.cjs || exit 1
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_RELEASE_SCOUT_PUBLISH","status":"BLOCKED","reason":"UNEXPECTED_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# DR97 legacy game release scouts: opt-in, source-hash verified, n8n offline,
+# complete SQLite backup, exact eight workflow publications and DR90 readback.
+# This does not bypass the backend's 400MB DB capacity guard or Riot approval.
+case "${DROP_RATE_N8N_LEGACY_RELEASE_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-legacy-release-publish.cjs || exit 1
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_LEGACY_RELEASE_PUBLISH","status":"BLOCKED","reason":"UNEXPECTED_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# DR98: verified private Cloudflare R2 enrichment evidence. On-boot publish
+# is opt-in, single-purpose and guarded by exact persisted SQLite source hashes,
+# a private database backup and an already-published DR90 error workflow.
+# No actual card art/pricing/Shopify content becomes public through this flag.
+case "${DROP_RATE_N8N_ENRICHMENT_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-enrichment-publish.cjs || exit 1
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_ENRICHMENT_PUBLISH","status":"BLOCKED","reason":"UNEXPECTED_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# Opt-in metadata inspection only. The helper reads SQLite without n8n/ORM
+# initialization, emits a strict summary, and has a 15-second child deadline.
+# A diagnostic failure must never prevent this service from starting.
+case "${DROP_RATE_N8N_METADATA_INSPECT_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/inspect-stored-metadata.cjs 2>/dev/null ||
+      echo '{"event":"DROP_RATE_N8N_METADATA_INSPECTION","schema_version":1,"status":"UNAVAILABLE","reason":"INSPECTOR_PROCESS_FAILED"}'
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_METADATA_INSPECTION","schema_version":1,"status":"UNAVAILABLE","reason":"INVALID_OPERATOR_FLAG"}'
+    ;;
+esac
+
+# An operator-controlled one-shot bridge test runs with n8n's actual Railway
+# secret and endpoint, not with API service credentials. This is the evidence
+# required before considering the separate DR-94 scheduling switch.
+case "${DROP_RATE_R2_MEDIA_SIGNED_BRIDGE_PROBE_ON_BOOT:-false}" in
+  true)
+    echo "Drop Rate n8n: testing signed R2 mirror bridge (one approved image maximum)."
+    node /opt/drop-rate/pilot/verify-r2-signed-bridge.cjs
+    ;;
+  false|'') ;;
+  *)
+    echo "Drop Rate n8n: invalid signed R2 media probe setting." >&2
+    exit 1
+    ;;
+esac
+
+# A dedicated, opt-in switch may publish only the reviewed R2 artwork
+# mirroring schedule. Other customer, marketing and finance workflows remain
+# inactive unless explicitly approved through their existing processes.
+# n8n 2.x uses publish:workflow rather than the deprecated --active toggle.
+case "${DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT:-false}" in
+  true)
+    reviewed_id='DR94R2ApprovedMediaMirrorV1'
+    if ! printf '%s\n' "$installed_ids" | grep -Fxq "$reviewed_id"; then
+      echo "Drop Rate n8n: approved-media workflow is missing; refusing publication." >&2
+      exit 1
+    fi
+    # ID presence is not proof that an older persistent definition was updated.
+    node --no-warnings /opt/drop-rate/ops/guarded-control-plane-upgrade.cjs --verify 2>/dev/null
+    echo "Drop Rate n8n: publishing reviewed DR-94 R2 media schedule."
+    n8n publish:workflow --id="$reviewed_id"
+    ;;
+  false|'') ;;
+  *)
+    echo "Drop Rate n8n: invalid R2 media publication setting; expected true/false." >&2
+    exit 1
+    ;;
+esac
+
 exec n8n start

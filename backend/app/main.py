@@ -2,21 +2,29 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
 
 import asyncpg
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
-from .db import create_pool
+from .db import DATABASE_WRITE_READY_SQL, create_pool
+from .seller_channel_sync import router as seller_channel_sync_router
+from .seller_hub_launch import router as seller_hub_launch_router
+from .seller_hub_shopify_sync import run_shopify_waitlist_sync
+from .owner_inventory import router as owner_inventory_router
+from .owner_imports import router as owner_csv_imports_router
+from .founder_accounts import router as founder_accounts_router
 from .access_control import require_platform_admin_request, router as access_control_router
 from .action_required import router as action_required_router
 from .automation_control import router as automation_control_router
 from .automation_commands import router as automation_commands_router
+from .drive_archive_api import router as drive_archive_router
 from .automation_recovery import router as automation_recovery_router
 from .finance import router as finance_router
 from .founder_onboarding import router as founder_onboarding_router
@@ -29,6 +37,12 @@ from .imports import router as imports_router
 from .import_enrichment import router as import_enrichment_router
 from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
+from .owner_books import router as owner_books_router
+from .book_recognition import router as book_recognition_router
+from .catalogue_browser import router as catalogue_browser_router
+from .catalogue_saved import router as catalogue_saved_router
+from .owner_collectibles import router as owner_collectibles_router
+from .book_ebay_context import router as book_ebay_context_router
 from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
@@ -46,16 +60,20 @@ from .marketplace_listings import router as marketplace_listings_router
 from .market_provider_probe import router as market_provider_probe_router
 from .market_smoke import router as market_smoke_router
 from .pricing import router as pricing_router
+from .live_market_refresh import run_live_market_refresh
 from .payout_preferences import router as payout_preferences_router
 from .owner_login import router as owner_login_router
 from .owner_portal_api import router as owner_portal_api_router
 from .owner_portal_finance import router as owner_portal_finance_router
+from .owner_fulfillment import router as owner_fulfillment_router
 from .owner_onboarding import router as owner_onboarding_router
 from .imported_benchmark_pricing import router as imported_benchmark_pricing_router
 from .ebay_sold_pricing import router as ebay_sold_pricing_router
 from .pricing_preview import router as pricing_preview_router
 from .recognition import router as recognition_router
 from .recognition_vision import close_shared_vision_http_client
+from .recognition_images import close_reference_http_client
+from .catalogue_artwork import close_artwork_tasks
 from .reference_library import router as reference_library_router
 from .purchase_lots import router as purchase_lots_router
 from .refunds import router as refunds_router
@@ -65,10 +83,15 @@ from .shopify_client import ShopifyApiError
 from .shopify_catalogue_bootstrap import run_shopify_catalogue_bootstrap
 from .shopify_linked_draft_reconciliation import run_linked_draft_reconciliation
 from .shopify_pipeline import router as shopify_pipeline_router
+from .comic_listing_preparation import router as comic_listing_preparation_router
+from .comic_photo_review import router as comic_photo_review_router
 from .shopify_pooling import router as shopify_pooling_router
 from .shopify_published_pooling import router as shopify_published_pooling_router
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
+from .object_storage_api import router as object_storage_router
+from .d1_r2_shadow_export import router as d1_r2_shadow_export_router
+from .object_storage import ObjectStorageConfig, ObjectStorageError
 
 logger = logging.getLogger(__name__)
 from .stripe_connect import router as stripe_connect_router
@@ -93,17 +116,28 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
-        '<script src="/assets/dashboard-shell.js" defer></script>',
+        '<script src="/assets/dashboard-shell.js?v=shared-movers-20261103" defer></script>',
         '<script src="/assets/seller-invites.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
-        '<script src="/assets/recognition-scanner.js" defer></script>',
+        '<script src="/assets/scanner-flow.js?v=market-values-20261104" defer></script>',
+        '<script src="/assets/recognition-scanner.js?v=shared-value-v1" defer></script>',
         '<script src="/assets/reference-library.js?v=2" defer></script>',
-        '<script src="/assets/shopify-settings.js" defer></script>',
-        '<script src="/assets/media-condition.js" defer></script>',
+        '<script src="/assets/shopify-settings.js?v=comic-photo-20261101" defer></script>',
+        '<script src="/assets/media-condition.js?v=scan-review-20261103" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
-        '<script src="/assets/market-value-column.js" defer></script>',
+        '<script src="/assets/reference-value-display.js?v=market-values-20261104" defer></script>',
+        '<script src="/assets/market-value-column.js?v=grouped-reference-v5" defer></script>',
         '<script src="/assets/founder-workspace.js" defer></script>',
+        '<script src="/assets/founder-accounts.js?v=unified-founders-20261104" defer></script>',
+        '<script src="/assets/catalogue-title-art.js?v=3" defer></script>',
+        '<script src="/assets/catalogue-browser.js?v=market-values-20261105" defer></script>',
+        '<script src="/assets/catalogue-browser-entry.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/workspace-shell.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/collector-worlds.js?v=premium-navy-20261103" defer></script>',
+        '<script src="/assets/account-experience.js?v=ux-20261103" defer></script>',
+        '<script src="/assets/hub-experience.js?v=premium-navy-20261103" defer></script>',
+        '<script src="/assets/owner-collectibles.js?v=metadata-20261104" defer></script>',
     )
     for script in scripts:
         if script not in html:
@@ -154,6 +188,14 @@ def _database_error_response(exc: asyncpg.PostgresError, request_id: str) -> JSO
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    try:
+        mirror_config = ObjectStorageConfig.from_env()
+    except ObjectStorageError:
+        mirror_config = None
+    r2_img_origin = (" " + mirror_config.endpoint.rstrip("/")) if (
+        mirror_config and any(os.getenv(flag, 'false').lower() in ('true', '1') for flag in (
+            'TCG_R2_MEDIA_DELIVERY_ENABLED', 'TCG_R2_REFERENCE_CACHE_DELIVERY_ENABLED'))
+    ) else ""
     configure_market_adapters(settings)
 
     @asynccontextmanager
@@ -161,6 +203,56 @@ def create_app() -> FastAPI:
         app.state.db_pool = await create_pool(settings)
         bootstrap_task: asyncio.Task | None = None
         linked_draft_task: asyncio.Task | None = None
+        market_task: asyncio.Task | None = None
+        maintenance_tasks=[]
+        # Owner-free catalogue data should be warmed before customers browse.
+        # The existing maintenance identity supplies RLS context; index
+        # downloading/building stays asynchronous and never blocks readiness.
+        from . import catalogue_r2_live, catalogue_r2_market
+        from . import r2_first_import, r2_first_service
+        if settings.catalogue_maintenance_actor_user_id and r2_first_service.enabled():
+            maintenance_tasks.append(asyncio.create_task(r2_first_service.prewarm(
+                app.state.db_pool, UUID(settings.catalogue_maintenance_actor_user_id))))
+        if os.getenv('TCG_R2_FIRST_IMPORT_SOURCES', '').strip():
+            if settings.catalogue_maintenance_actor_user_id:
+                maintenance_tasks.append(asyncio.create_task(r2_first_import.run_loop(
+                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id)))
+            else:
+                logger.error('R2-first catalogue import requires an authorised actor')
+        if settings.catalogue_maintenance_actor_user_id and catalogue_r2_live.enabled('DELIVERY'):
+            maintenance_tasks.append(asyncio.create_task(
+                catalogue_r2_live.prewarm(
+                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id,
+                )
+            ))
+        if settings.catalogue_maintenance_actor_user_id and catalogue_r2_market.enabled('DELIVERY'):
+            maintenance_tasks.append(asyncio.create_task(
+                catalogue_r2_market.prewarm(
+                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id,
+                )
+            ))
+        if settings.shopify_waitlist_sync_enabled:
+            maintenance_tasks.append(asyncio.create_task(
+                run_shopify_waitlist_sync(app.state.db_pool, settings)
+            ))
+        from .r2_reference_images import worker_enabled, run_reference_mirror_loop
+        if worker_enabled() and settings.catalogue_maintenance_actor_user_id:
+            maintenance_tasks.append(asyncio.create_task(run_reference_mirror_loop(
+                app.state.db_pool, settings.catalogue_maintenance_actor_user_id)))
+        app.state.shopify_sync_wakeup = None
+        from .catalogue_maintenance import run_loop
+        for enabled,shopify in ((settings.catalogue_daily_refresh_enabled,False),(settings.shopify_auto_sync_enabled,True)):
+            if enabled and settings.catalogue_maintenance_actor_user_id:
+                wakeup = asyncio.Event() if shopify else None
+                if shopify:app.state.shopify_sync_wakeup = wakeup
+                maintenance_tasks.append(asyncio.create_task(run_loop(app.state.db_pool,settings,shopify=shopify,wakeup=wakeup)))
+            elif enabled:
+                logger.error('Catalogue maintenance requires an authorised actor')
+        if settings.ebay_market_refresh_enabled:
+            if not settings.trawl_api_key or not settings.ebay_market_refresh_actor_user_id:
+                logger.error("Live eBay market refresh enabled without required provider/actor configuration")
+            else:
+                market_task = asyncio.create_task(run_live_market_refresh(app.state.db_pool, settings))
         shopify_config_complete = all(
             (
                 settings.shopify_shop_domain,
@@ -222,7 +314,7 @@ def create_app() -> FastAPI:
         try:
             yield
         finally:
-            for task in (bootstrap_task, linked_draft_task):
+            for task in (bootstrap_task, linked_draft_task, market_task,*maintenance_tasks):
                 if task is not None and not task.done():
                     task.cancel()
                     try:
@@ -235,6 +327,9 @@ def create_app() -> FastAPI:
                     except Exception:
                         pass
             await close_shared_vision_http_client()
+            await close_artwork_tasks()
+            await close_reference_http_client()
+            await r2_first_service.close()
             await app.state.db_pool.close()
 
     app = FastAPI(
@@ -245,6 +340,7 @@ def create_app() -> FastAPI:
         openapi_url=None,
         lifespan=lifespan,
     )
+    app.state.settings = settings
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
@@ -284,21 +380,50 @@ def create_app() -> FastAPI:
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Cache-Control"] = "no-store"
+        # Only exact, authenticated shared-reference imagery is cacheable.
+        # All API JSON, sessions, personal scans and financial data remain no-store.
+        reference_image = (request.method.upper() == 'GET'
+            and request.url.path == '/api/v1/catalogue-browser/reference-image'
+            and response.status_code == 200)
+        if not (reference_image and response.headers.get('Cache-Control', '').startswith('private, max-age=')):
+            response.headers["Cache-Control"] = "no-store"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; style-src 'self'; "
-            "img-src 'self' data: blob: https://assets.tcgdex.net https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net; "
+            f"img-src 'self' data: blob: https://assets.tcgdex.net https://covers.openlibrary.org https://archive.org/download/ https://*.us.archive.org/view_archive.php https://i.ebayimg.com https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net{r2_img_origin}; "
             f"connect-src 'self' {settings.supabase_url}; "
             "font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
         return response
 
+    @app.get("/app", include_in_schema=False)
     @app.get("/", include_in_schema=False)
-    async def dashboard() -> HTMLResponse:
+    async def dashboard(request: Request) -> HTMLResponse:
+        if request.url.hostname == "app.droprate.co.uk" and request.url.path == "/":
+            return HTMLResponse((STATIC_DIR / "seller-hub-launch.html").read_text(encoding="utf-8"))
         return HTMLResponse(_dashboard_html())
+
+    @app.api_route("/riot.txt", methods=["GET", "HEAD"], include_in_schema=False)
+    async def riot_domain_verification() -> FileResponse:
+        """Public Riot domain verification; exact bytes live in riot.txt."""
+        return FileResponse(STATIC_DIR / "riot.txt", media_type="text/plain")
+
+    @app.get("/seller-hub", include_in_schema=False)
+    async def seller_hub_launch() -> HTMLResponse:
+        return HTMLResponse((STATIC_DIR / "seller-hub-launch.html").read_text(encoding="utf-8"))
+
+    @app.get("/founders", include_in_schema=False)
+    async def founder_operations() -> HTMLResponse:
+        # Presentation is public, like /app. All data/actions retain their
+        # authenticated founder dependencies; a URL is never a permission.
+        html = _dashboard_html().replace(
+            "</head>", '<link rel="stylesheet" href="/assets/founder-dashboard.css?v=unified-20261104"></head>'
+        ).replace(
+            "</body>", '<script src="/assets/founder-operations.js?v=unified-20261104" defer></script></body>'
+        )
+        return HTMLResponse(html)
 
     @app.get("/join", include_in_schema=False)
     async def founder_join() -> HTMLResponse:
@@ -327,8 +452,13 @@ def create_app() -> FastAPI:
     async def ready(request: Request):
         try:
             async with request.app.state.db_pool.acquire() as connection:
-                value = await connection.fetchval("select 1")
-            if value != 1:
+                writable = await connection.fetchval(DATABASE_WRITE_READY_SQL)
+            if writable is False:
+                return JSONResponse(
+                    status_code=503,
+                    content={"status": "not_ready", "database": "read_only"},
+                )
+            if writable is not True:
                 raise RuntimeError("Unexpected readiness response")
         except Exception:
             return JSONResponse(status_code=503, content={"status": "not_ready", "database": "unavailable"})
@@ -336,10 +466,19 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
+    app.include_router(seller_hub_launch_router)
     app.include_router(access_control_router)
+    app.include_router(founder_accounts_router)
+    app.include_router(seller_channel_sync_router)
+    app.include_router(owner_inventory_router)
+    app.include_router(comic_listing_preparation_router)
+    app.include_router(owner_books_router)
+    app.include_router(book_recognition_router)
+    app.include_router(owner_csv_imports_router)
     app.include_router(action_required_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(automation_control_router)
     app.include_router(automation_commands_router)
+    app.include_router(drive_archive_router)
     app.include_router(automation_recovery_router)
     app.include_router(finance_router)
     app.include_router(founder_onboarding_router)
@@ -355,6 +494,7 @@ def create_app() -> FastAPI:
     app.include_router(owner_login_router)
     app.include_router(owner_portal_api_router)
     app.include_router(owner_portal_finance_router)
+    app.include_router(owner_fulfillment_router)
     app.include_router(owner_onboarding_router)
     app.include_router(imported_benchmark_pricing_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(ebay_sold_pricing_router, dependencies=[Depends(require_platform_admin_request)])
@@ -376,16 +516,24 @@ def create_app() -> FastAPI:
     app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(recognition_router)
     app.include_router(reference_library_router)
+    app.include_router(catalogue_browser_router)
+    app.include_router(catalogue_saved_router)
+    app.include_router(owner_collectibles_router)
+    app.include_router(book_ebay_context_router)
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(competitive_intelligence_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(competitive_intelligence_automation_router)
     app.include_router(shopify_router)
     app.include_router(shopify_pipeline_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(comic_photo_review_router)
     app.include_router(shopify_pooling_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_published_pooling_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_readiness_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(purchase_lots_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(storage_locations_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(object_storage_router, dependencies=[Depends(require_platform_admin_request)])
+    # Independently authenticated by exact signed GitHub OIDC workflow, never browser auth.
+    app.include_router(d1_r2_shadow_export_router)
     app.include_router(stripe_connect_router)
     app.include_router(tcggraph_media_router, dependencies=[Depends(require_platform_admin_request)])
     return app

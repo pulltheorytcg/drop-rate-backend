@@ -1,0 +1,50 @@
+{
+  "pilot_id": "6d3c3d1e-0ec0-4fc8-b5fb-5f9d4eeb925a",
+  "actor_user_id": "6e8291db-0975-4acf-9ce4-f2f25a87d88d",
+  "organization_id": "6ac1a59ca59739d7c3e08601",
+  "approved_source": "User approved the latest posters for a one-off n8n publishing test in this conversation on 4 October 2026.",
+  "original_file_id": "file_00000000acc081f49f4c89102c586b3d",
+  "original_sha256": "4781fb9bfa37084421e7854cf5004df592dd113858a18b2ec235d67cebfa78a1",
+  "approval_scope": "One Gunko story on the two image-capable channels. Immediate mode. No recurring schedule. No price posts or YouTube video in this pilot.",
+  "evidence_note": "Card number and identity from founder-provided OP18-065_p1.jpg. Release dates corroborated by the dated reporting below; publisher product pages could not be directly fetched during this session. Chase status is explicitly opinion.",
+  "evidence_urls": [
+    "https://samuraiswordtokyo.com/blogs/news/op-18-the-dominance-of-god-release-date-card-list-guide",
+    "https://www.shonentcg.com/blog/op-18-leaders-confirmed-and-reported"
+  ],
+  "expires_at": "2026-10-05T23:59:00+00:00",
+  "format_note": "Lossless PNG publication copies of the selected original and prepared Instagram canvas. Exact RGB pixel hashes bind visible approval; encoded metadata/compression differences are permitted, but any pixel or dimension change is rejected. Captions, accounts, story and pilot identity are unchanged.",
+  "channels": {
+    "instagram": {
+      "channel_id": "6ac1a5deea19ca0bde6c81b7",
+      "title": "Your OP-18 chase? 👀",
+      "text": "Is Saint Gunko your OP-18 chase? 👀🔥\n\nOP18-065 is our early chase pick for The Dominance of God. Which card is on your watchlist?\n\nThe poster shows planned release dates of 20 November 2026 (English) and 21 November 2026 (Japanese), subject to change. “Likely chase” is our collecting opinion—not a confirmed value or pull rate.\n\nAI-assisted fan illustration featuring a Japanese card preview. This is not a stock or pre-order announcement.\n\nFollow @dropratetcg for cards, community and culture.\nVisit droprate.co.uk through the link in our profile.\n\n#DropRate #OnePieceCardGame #OP18 #TCGCommunity #CardCollectors",
+      "asset": {
+        "url": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-gunko-instagram-pixel-184856ef.png?v=1791135907",
+        "sha256": "f79ee360d5539850da2ce7ad97e07c47628d135c488195c488674397180ef8cb",
+        "bytes": 2113818,
+        "width": 1080,
+        "height": 1350,
+        "mime_type": "image/png",
+        "integrity": "rgb8-sha256-v1",
+        "rgb_sha256": "184856efc33e384b0cc3d878a6c0d724e0ba8573d27ba077c9f8bfc2115733d6",
+        "source_sha256": "dd50fa082ebec63502735d8ddd04fbf798e9278f2fbb59adad73a0616886c574"
+      }
+    },
+    "tiktok": {
+      "channel_id": "6ac1a66eea19ca0bde6c89ac",
+      "title": "Your OP-18 chase? 👀",
+      "text": "Is Saint Gunko your OP-18 chase? 👀🔥\n\nOP18-065 is our early chase pick for The Dominance of God. Which card is on your watchlist?\n\nThe poster shows planned release dates of 20 November 2026 (English) and 21 November 2026 (Japanese), subject to change. “Likely chase” is our collecting opinion—not a confirmed value or pull rate.\n\nAI-assisted fan illustration featuring a Japanese card preview. This is not a stock or pre-order announcement.\n\nFollow @dropratetcg for cards, community and culture.\nVisit droprate.co.uk through the link in our profile.\n\n#DropRate #OnePieceCardGame #OP18 #TCGCommunity #CardCollectors",
+      "asset": {
+        "url": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-gunko-tiktok-pixel-5cb56b61.png?v=1791135937",
+        "sha256": "c44270e561ae5da38c9d1078f7d8534ee9f446ec6f7bca7f9c4ef3404480a936",
+        "bytes": 2753353,
+        "width": 948,
+        "height": 1659,
+        "mime_type": "image/png",
+        "integrity": "rgb8-sha256-v1",
+        "rgb_sha256": "5cb56b61b635a55463def50d4d65c889eb2b4a573355c898824b92c14660cb2f",
+        "source_sha256": "4781fb9bfa37084421e7854cf5004df592dd113858a18b2ec235d67cebfa78a1"
+      }
+    }
+  }
+}

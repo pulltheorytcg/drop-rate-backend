@@ -42,7 +42,7 @@ jobs:
       - name: Verify canonical migration layout
         run: |
           python -m pip install --requirement requirements-dev.txt
-          PYTHONPATH=backend pytest -q tests/test_migration_layout.py
+          PYTHONPATH=backend pytest -q tests/test_migration_layout.py tests/test_supabase_migration_staging.py
 
       - name: Fail closed if required secrets are missing
         shell: bash
@@ -63,16 +63,44 @@ jobs:
       - name: Link production project
         run: supabase link --project-ref "${SUPABASE_PROJECT_ID}"
 
+      # This runner reaches production through the verified IPv4 session pooler.
+      # Keep port 5432 for migration sessions; transaction pooling uses 6543.
+      - name: Prepare masked IPv4 session-pooler connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from urllib.parse import quote
+
+          project_ref = os.environ["SUPABASE_PROJECT_ID"]
+          password = os.environ["SUPABASE_DB_PASSWORD"]
+          if "\r" in password or "\n" in password:
+              raise SystemExit("Database password must not contain a newline")
+
+          encoded_password = quote(password, safe="")
+          db_url = (
+              f"postgresql://postgres.{project_ref}:{encoded_password}"
+              "@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+          )
+          # Escape workflow-command data so literal percent signs are masked too.
+          # Register both masks before sharing the URL with subsequent steps.
+          for secret in (encoded_password, db_url):
+              print("::add-mask::" + secret.replace("%", "%25"), flush=True)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"SUPABASE_POOLER_URL={db_url}\n")
+          PY
+
       - name: Show local and remote migration history
-        run: supabase migration list
+        run: supabase migration list --db-url "${SUPABASE_POOLER_URL}"
 
       - name: Preview pending migrations
-        run: supabase db push --dry-run
+        run: supabase db push --dry-run --db-url "${SUPABASE_POOLER_URL}"
 
       - name: Apply pending migrations
         if: ${{ inputs.mode == 'apply' }}
-        run: supabase db push
+        run: supabase db push --db-url "${SUPABASE_POOLER_URL}"
 
       - name: Verify migration history after apply
         if: ${{ inputs.mode == 'apply' }}
-        run: supabase migration list
+        run: supabase migration list --db-url "${SUPABASE_POOLER_URL}"

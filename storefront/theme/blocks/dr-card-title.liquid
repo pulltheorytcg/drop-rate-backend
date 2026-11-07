@@ -35,6 +35,25 @@
 </div>
 {% stylesheet %}
 .dr-card-copy p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* Product-list sections use resource-list, not .product-list. Grow the copy
+   area so variable titles/meta cannot stagger the price and purchase rows.
+   Keep the real accelerated checkout controls and their visibility unchanged. */
+.resource-list--grid .product-card .dr-card-copy__title h3 {
+  min-block-size: 2.44em;
+}
+.resource-list--grid .product-card__content > .dr-card-copy {
+  flex: 1 0 auto;
+  align-content: start;
+}
+.resource-list--grid .product-card__content > .buy-buttons-block {
+  --buy-button-preferred-width: 100%;
+}
+/* Its quantity component is already hidden in cards; the empty flex wrapper
+   must not reserve another button row for products with multiple copies. */
+.resource-list--grid .product-card__content > .buy-buttons-block .dr-hide-single-quantity {
+  display: none;
+}
 {% endstylesheet %}
 {% schema %}
 {"name":"Drop Rate card title","tag":null,"settings":[]}

@@ -231,7 +231,7 @@ def test_catalogue_schema_accepts_future_collectible_types_without_breaking_card
     schemas = SCHEMAS.read_text()
     assert (
         'CatalogueProductType = Literal["CARD", "SEALED", "COLLECTION", '
-        '"COMIC", "ACCESSORY"]'
+        '"COMIC", "ACCESSORY", "FIGURE"]'
         in schemas
     )
 

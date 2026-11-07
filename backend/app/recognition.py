@@ -37,6 +37,8 @@ from .recognition_images import (
     decode_image_data_url,
     reference_image_bytes,
 )
+from .r2_media import with_signed_mirror
+from .catalogue_display_prices import read_shared_prices
 from .recognition_learning import (
     attach_learning_visual_evidence,
     discover_learning_candidate_hints,
@@ -70,11 +72,45 @@ from .recognition_vision import (
     RecognitionVisionError,
 )
 from .settings import get_settings
+from .book_observation import book_route
+from .book_recognition import finish_automatic_book_scan
+from .book_research import public_result
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.9.0"
+ENGINE_VERSION = "v1.10.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
+
+
+def _vision_terminal_evidence(
+    *,
+    timings_ms: dict[str, float],
+    pipeline_started: float,
+    vision_telemetry: dict[str, Any] | None = None,
+    reference_hints: list[dict[str, Any]] | None = None,
+    vision_error: RecognitionVisionError | None = None,
+) -> dict[str, Any]:
+    """Keep latency diagnostics when vision exits before catalogue matching.
+
+    An unknown game or rejected provider call is often the slowest scan and
+    previously left provider_evidence empty. Store only sanitized error status,
+    never the provider response body, image or credentials.
+    """
+    snapshot = dict(timings_ms)
+    snapshot["pipeline_before_persist"] = round(
+        (time.perf_counter() - pipeline_started) * 1000, 2,
+    )
+    evidence: dict[str, Any] = {"timings_ms": snapshot}
+    if vision_telemetry is not None:
+        evidence["vision_telemetry"] = vision_telemetry
+    if reference_hints is not None:
+        evidence["reference_index_hint_count"] = len(reference_hints)
+    if vision_error is not None:
+        evidence["vision_error"] = {
+            "http_status": vision_error.status_code,
+            "retryable": vision_error.retryable,
+        }
+    return evidence
 
 
 class RecognitionRequest(BaseModel):
@@ -151,6 +187,61 @@ def _decimal(value: object | None) -> Decimal | None:
     return Decimal(str(value))
 
 
+def _candidate_review_payload(candidate: dict[str, Any]) -> dict[str, Any]:
+    """Offer the existing explicit reference correction, never auto-confirm it."""
+    reference = candidate.get("reference_selection")
+    if isinstance(reference, str):
+        reference = json.loads(reference)
+    candidate["reference_selection"] = reference
+    source = str(candidate.get("market_value_source") or "")
+    candidate["pricing_status"] = (
+        "NO_VERIFIED_VALUATION" if candidate.get("market_value_minor") is None
+        else "REFERENCE_ESTIMATE" if source in {
+            "CARDMARKET_ESTIMATE", "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT",
+            "CARDMARKET_BULK_SINGLES", "CARDMARKET_CATALOGUE",
+        } else "AVAILABLE"
+    )
+    return candidate
+
+
+async def _add_shared_candidate_prices(connection, candidates):
+    """Attach exact canonical display guides without pricing a physical copy.
+
+    Catalogue recognition candidates often have no physical market snapshot,
+    even when a current, identity-matched provider guide exists. Resolve only
+    the bounded candidate set via the same alias safety rules as catalogue
+    browsing; never turn a raw reference into a graded/condition valuation.
+    """
+    rows = [dict(row) for row in candidates]
+    pending, matches = [], []
+    for row in rows:
+        if row.get('market_value_minor') is not None or not row.get('catalogue_id'):
+            continue
+        identity = row.get('candidate_snapshot') or {}
+        if isinstance(identity, str):
+            try:
+                identity = json.loads(identity)
+            except ValueError:
+                continue
+        if (row.get('source_kind') != 'CATALOGUE'
+                or not isinstance(identity, dict)
+                or identity.get('product_type', 'CARD') != 'CARD'
+                or not identity.get('card_number')):
+            continue
+        key = 'c:' + str(row['catalogue_id'])
+        pending.append({'key': key, 'catalogue_id': row['catalogue_id'],
+                        'product_type': 'CARD', 'card_number': identity['card_number']})
+        matches.append((row, key))
+    if not pending:
+        return rows
+    shared = await read_shared_prices(connection, pending, product_type='CARD')
+    for row, key in matches:
+        guide = shared.get(key, {}).get('shared_price')
+        if guide is not None:
+            row['shared_price'] = guide
+    return rows
+
+
 async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     run = await connection.fetchrow(
         """
@@ -169,6 +260,15 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     )
     if run is None:
         raise HTTPException(status_code=404, detail="Recognition run not found")
+    run = dict(run)
+    evidence = run.get("provider_evidence") or {}
+    if isinstance(evidence, str):
+        evidence = json.loads(evidence)
+    if evidence.get("book_result"):
+        book_result = {**public_result(evidence["book_result"]), "run_id": str(run_id)}
+        run["provider_evidence"] = {**evidence, "book_result": book_result}
+        return {"run": run, "book_result": book_result, "candidates": [], "feedback": [],
+                "engine_version": ENGINE_VERSION, "auto_applied": False}
     candidates = await connection.fetch(
         """
         select
@@ -177,9 +277,20 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
             rc.provider,rc.provider_id,rc.provider_language,rc.rank,rc.score,
             rc.hard_rejected,rc.rejection_reasons,rc.signals,
             rc.candidate_snapshot,rc.created_at,
-            price.market_value_minor,
-            price.recommended_retail_minor,
-            price.pricing_updated_at,
+            reference_mirror.object_key as r2_reference_object_key,
+            case when reference.provider_id is not null then jsonb_build_object(
+                'provider',reference.provider,'system_code',reference.system_code,
+                'language',reference.language,'provider_id',reference.provider_id
+            ) end as reference_selection,
+            coalesce(price.market_value_minor,ref_market.market_value_minor,ref_catalogue.market_value_minor) as market_value_minor,
+            case when price.market_value_minor>0 then price.recommended_retail_minor end as recommended_retail_minor,
+            case when price.market_value_minor>0 then price.pricing_updated_at
+                 when ref_market.market_value_minor>0 then ref_market.pricing_updated_at
+                 else ref_catalogue.pricing_updated_at end as pricing_updated_at,
+            case when price.market_value_minor is not null then price.valuation_source
+                when ref_market.market_value_minor is not null then ref_market.quotes->0->>'source'
+                when ref_catalogue.market_value_minor is not null then 'CARDMARKET_CATALOGUE'
+            end as market_value_source,
             price.pricing_confidence,
             price.pricing_source_count,
             price.pricing_observation_count,
@@ -201,16 +312,83 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
             limit 1
         ) provider_map on true
         left join lateral (
+            select c.provider,c.system_code,c.language,c.provider_id,
+                   c.name,c.set_id,c.card_number,c.rarity,c.image_url,
+                   s.name as set_name
+            from tcg.reference_cards c
+            join tcg.reference_sets s using(provider,system_code,language,set_id)
+            where c.provider=rc.provider and c.provider_id=rc.provider_id
+              and c.system_code=rc.system_code and c.language=rc.provider_language
+              and not rc.hard_rejected and rc.source_kind='PROVIDER'
+              and (s.release_date is null or s.release_date<=current_date)
+            limit 1
+        ) reference on true
+        -- Art can also be attached to a mapped catalogue candidate. Keep this
+        -- lookup separate from the PROVIDER-only price join, so art delivery
+        -- cannot accidentally broaden which valuations are eligible.
+        left join lateral (
+            select c.provider,c.system_code,c.language,c.provider_id,c.image_url
+            from tcg.reference_cards c
+            join tcg.reference_sets s using(provider,system_code,language,set_id)
+            where c.provider=rc.provider and c.provider_id=rc.provider_id
+              and c.system_code=rc.system_code and c.language=rc.provider_language
+              and not rc.hard_rejected
+              and (s.release_date is null or s.release_date<=current_date)
+              and c.image_url is not null
+              and (coalesce(nullif(rc.candidate_snapshot->>'reference_image_url',''),
+                            nullif(rc.candidate_snapshot->>'image_url','')) is null
+                   or c.image_url=coalesce(nullif(rc.candidate_snapshot->>'reference_image_url',''),
+                                           nullif(rc.candidate_snapshot->>'image_url','')))
+            limit 1
+        ) artwork_reference on true
+        -- A verified private R2 copy must belong to this exact provider printing
+        -- and the card's current source URL; a different language or art is unsafe.
+        left join tcg.reference_image_mirrors reference_mirror
+          on (reference_mirror.provider,reference_mirror.system_code,
+              reference_mirror.language,reference_mirror.provider_id)=
+             (artwork_reference.provider,artwork_reference.system_code,
+              artwork_reference.language,artwork_reference.provider_id)
+         and reference_mirror.source_url=artwork_reference.image_url
+         and reference_mirror.status='VERIFIED'
+        -- Owner-independent reference guide for exactly matched provider card and printing.
+        left join tcg.reference_market_prices ref_market
+          on (ref_market.provider,ref_market.system_code,ref_market.language,ref_market.provider_id)=
+             (reference.provider,reference.system_code,reference.language,reference.provider_id)
+         and ref_market.market_value_minor>0
+         and (coalesce(ref_market.quotes->0->>'match_basis','')<>'CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID'
+              or reference.rarity is not distinct from ref_market.quotes->0->>'reference_rarity')
+         and ref_market.pricing_updated_at between now()-interval '7 days' and now()
+         and ref_market.quotes->0->>'source' in (
+             'TCGDEX_CARDMARKET','TCGDEX_CARDMARKET_VARIANT','CARDMARKET_BULK_SINGLES')
+         and (
+             (ref_market.quotes->0->>'source' in ('TCGDEX_CARDMARKET','TCGDEX_CARDMARKET_VARIANT')
+               and ref_market.quotes->0->>'reference_language'=reference.language)
+             or (ref_market.quotes->0->>'source'='CARDMARKET_BULK_SINGLES'
+               and ref_market.quotes->0->'reference_identity'=jsonb_build_object(
+                   'name',reference.name,'set_id',reference.set_id,
+                   'card_number',reference.card_number,'set_name',reference.set_name))
+         )
+        left join tcg.reference_catalogue_prices ref_catalogue
+          on (ref_catalogue.provider,ref_catalogue.system_code,ref_catalogue.language,ref_catalogue.provider_id)=
+             (reference.provider,reference.system_code,reference.language,reference.provider_id)
+         and ref_catalogue.market_value_minor>0
+         and ref_catalogue.pricing_updated_at between now()-interval '7 days' and now()
+         and ref_catalogue.quotes->0->>'source'='CARDMARKET_CATALOGUE'
+         and ref_catalogue.quotes->0->'reference_identity'=jsonb_build_object(
+             'name',reference.name,'set_id',reference.set_id,
+             'card_number',reference.card_number,'set_name',reference.set_name)
+        left join lateral (
             select
                 v.market_value_minor,
                 v.recommended_retail_minor,
                 v.pricing_updated_at,
+                v.valuation_source,
                 null::numeric as pricing_confidence,
                 null::integer as pricing_source_count,
                 null::integer as pricing_observation_count,
                 null::timestamptz as pricing_newest_observation_at,
                 'REFERENCE_SNAPSHOT'::text as pricing_algorithm_version
-            from tcg.recognition_catalogue_reference_value(
+            from tcg.catalogue_reference_value_v2(
                 coalesce(rc.catalogue_id,provider_map.catalogue_id),
                 nullif(rc.candidate_snapshot->>'language','')
             ) v
@@ -220,6 +398,7 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
         """,
         run_id,
     )
+    candidates = await _add_shared_candidate_prices(connection, candidates)
     feedback = await connection.fetch(
         """
         select
@@ -233,7 +412,7 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     )
     return {
         "run": dict(run),
-        "candidates": [dict(row) for row in candidates],
+        "candidates": [_candidate_review_payload(with_signed_mirror(row)) for row in candidates],
         "feedback": [dict(row) for row in feedback],
         "engine_version": ENGINE_VERSION,
         "auto_applied": False,
@@ -1010,6 +1189,11 @@ async def recognize_card(
         vision_telemetry = vision_result.telemetry.to_dict()
         timings_ms["vision_provider_http"] = vision_result.telemetry.request_ms
     except RecognitionVisionError as exc:
+        evidence = _vision_terminal_evidence(
+            timings_ms=timings_ms,
+            pipeline_started=pipeline_started,
+            vision_error=exc,
+        )
         async with user_connection(
             request.app.state.db_pool,
             user.user_id,
@@ -1021,6 +1205,7 @@ async def recognize_card(
                 set status='FAILED',decision='FAILED',
                     error_code='VISION_PROVIDER_ERROR',
                     error_detail=$1,decision_reasons=$2::jsonb,
+                    provider_evidence=$5::jsonb,
                     completed_at=clock_timestamp(),updated_at=clock_timestamp(),
                     version=version+1
                 where id=$3 and owner_id=$4
@@ -1029,9 +1214,23 @@ async def recognize_card(
                 json.dumps([exc.detail]),
                 run_id,
                 owner_id,
+                json.dumps(evidence),
             )
             result = await _run_payload(connection, run_id)
         return jsonable_encoder(result)
+
+    if book_route(observation):
+        await finish_automatic_book_scan(request, user, owner_id, run_id, observation, image,
+                                         payload.image_data_url, vision_telemetry)
+        async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+            return jsonable_encoder(await _run_payload(connection, run_id))
+
+    terminal_evidence = json.dumps(_vision_terminal_evidence(
+        timings_ms=timings_ms,
+        pipeline_started=pipeline_started,
+        vision_telemetry=vision_telemetry,
+        reference_hints=reference_hints,
+    ))
 
     if observation.object_type == "NONE" and observation.object_type_confidence >= 0.80:
         async with user_connection(
@@ -1045,6 +1244,7 @@ async def recognize_card(
                 set status='NO_MATCH',decision='NO_MATCH',
                     ai_observation=$1::jsonb,
                     decision_reasons=$2::jsonb,risk_flags=$3::jsonb,
+                    provider_evidence=$6::jsonb,
                     completed_at=clock_timestamp(),updated_at=clock_timestamp(),
                     version=version+1
                 where id=$4 and owner_id=$5
@@ -1054,6 +1254,7 @@ async def recognize_card(
                 json.dumps(["NO_COLLECTIBLE_PRESENT"]),
                 run_id,
                 owner_id,
+                terminal_evidence,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
 
@@ -1069,6 +1270,7 @@ async def recognize_card(
                 set status='NEEDS_REVIEW',decision='NEEDS_REVIEW',
                     ai_observation=$1::jsonb,
                     decision_reasons=$2::jsonb,risk_flags=$3::jsonb,
+                    provider_evidence=$6::jsonb,
                     completed_at=clock_timestamp(),updated_at=clock_timestamp(),
                     version=version+1
                 where id=$4 and owner_id=$5
@@ -1078,6 +1280,7 @@ async def recognize_card(
                 json.dumps(["OBJECT_TYPE_UNRESOLVED"]),
                 run_id,
                 owner_id,
+                terminal_evidence,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
 
@@ -1095,6 +1298,7 @@ async def recognize_card(
                     ai_observation=$1::jsonb,
                     decision_reasons=$2::jsonb,
                     risk_flags=$3::jsonb,
+                    provider_evidence=$6::jsonb,
                     completed_at=clock_timestamp(),updated_at=clock_timestamp(),
                     version=version+1
                 where id=$4 and owner_id=$5
@@ -1104,6 +1308,7 @@ async def recognize_card(
                 json.dumps(["UNSUPPORTED_OR_UNKNOWN_GAME"]),
                 run_id,
                 owner_id,
+                terminal_evidence,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
 

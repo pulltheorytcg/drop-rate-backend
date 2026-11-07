@@ -109,6 +109,31 @@ class Settings:
     seller_invite_reply_to: str | None = None
     resend_webhook_secret: str | None = None
     trawl_api_key: str | None = None
+    ebay_market_refresh_enabled: bool = False
+    ebay_market_refresh_actor_user_id: str | None = None
+    ebay_market_refresh_max_groups: int = 500
+    history_r2_archive_enabled: bool = False
+    history_r2_archive_cleanup_enabled: bool = False
+    import_preview_rebuild_enabled: bool = False
+    catalogue_source_archive_enabled: bool = False
+    catalogue_r2_cache_build_enabled: bool = False
+    catalogue_daily_refresh_enabled: bool = False
+    one_piece_base_recovery_enabled: bool = False
+    catalogue_maintenance_actor_user_id: str | None = None
+    catalogue_price_refresh_limit: int = 20000
+    tcgcsv_free_enabled: bool = False
+    pokewallet_api_key: str | None = None
+    pokewallet_pricing_apply_enabled: bool = False
+    pokewallet_one_piece_artwork_matching_enabled: bool = False
+    pokewallet_pricing_coverage_first_enabled: bool = False
+    pokewallet_pricing_request_limit: int = 60
+    pokewallet_dragon_ball_enabled: bool = False
+    pokewallet_dragon_ball_apply_enabled: bool = False
+    pokewallet_dragon_ball_request_limit: int = 35
+    pokewallet_pokemon_enabled: bool = False
+    pokewallet_pokemon_apply_enabled: bool = False
+    shopify_auto_sync_enabled: bool = False
+    shopify_waitlist_sync_enabled: bool = False
     ebay_deletion_verification_token: str | None = None
     ebay_deletion_endpoint: str | None = None
     ebay_user_refresh_token: str | None = None
@@ -121,6 +146,9 @@ class Settings:
     ebay_merchant_location_key: str | None = None
     ebay_notification_endpoint: str | None = None
     ebay_notification_verification_token: str | None = None
+    ebay_shared_store_owner_id: str | None = None
+    shopify_seller_sync_enabled: bool = False
+    ebay_seller_sync_enabled: bool = False
     ebay_publish_enabled: bool = False
     ebay_price_markup_bps: int = 0
     ebay_origin_postcode: str | None = None
@@ -130,6 +158,11 @@ class Settings:
     ebay_shipping_carrier_code: str = "RoyalMail"
     ebay_shipping_service_code: str = "UK_RoyalMailTracked"
     market_ingestion_enabled: bool = False
+    # Display-only official eBay listing context. This never supplies sold
+    # observations, physical-copy values, portfolio totals or retail prices.
+    book_ebay_context_enabled: bool = False
+    book_ebay_context_daily_call_limit: int = 500
+    book_ebay_context_probe_isbn: str | None = None
     shopify_shop_domain: str | None = None
     shopify_client_id: str | None = None
     shopify_client_secret: str | None = None
@@ -140,6 +173,9 @@ class Settings:
     shopify_test_publish_enabled: bool = False
     shopify_publish_enabled: bool = False
     automation_command_secret: str | None = None
+    # Bulk reference caching is deliberately independent of licensed media
+    # publication, and off until provider reproduction terms are assessed.
+    r2_reference_cache_apply_enabled: bool = False
     shopify_catalogue_bootstrap_enabled: bool = False
     shopify_catalogue_bootstrap_actor_user_id: str | None = None
     shopify_linked_draft_reconciliation_enabled: bool = False
@@ -152,6 +188,12 @@ class Settings:
     tcggraph_max_concurrency: int = 8
     cardtrader_api_token: str | None = None
     cardtrader_max_concurrency: int = 8
+    cardtrader_bulk_guides_enabled: bool = False
+    cardtrader_bulk_guides_apply_enabled: bool = False
+    cardtrader_bulk_guides_expansion_limit: int = 15
+    drop_rate_daily_model_enabled: bool = False
+    drop_rate_daily_model_apply_enabled: bool = False
+    drop_rate_daily_model_batch_limit: int = 1000
     psa_public_api_token: str | None = None
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
@@ -196,6 +238,37 @@ class Settings:
             ebay_client_secret=_optional("TCG_EBAY_CLIENT_SECRET"),
             ebay_marketplace_id=os.getenv("TCG_EBAY_MARKETPLACE_ID", "EBAY_GB").strip() or "EBAY_GB",
             trawl_api_key=_optional("TCG_TRAWL_API_KEY"),
+            ebay_market_refresh_enabled=_boolean("TCG_EBAY_MARKET_REFRESH_ENABLED", False),
+            ebay_market_refresh_actor_user_id=_optional("TCG_EBAY_MARKET_REFRESH_ACTOR_USER_ID"),
+            ebay_market_refresh_max_groups=_bounded_int("TCG_EBAY_MARKET_REFRESH_MAX_GROUPS", 500, minimum=1, maximum=1000),
+            history_r2_archive_enabled=_boolean("TCG_HISTORY_R2_ARCHIVE_ENABLED", False),
+            history_r2_archive_cleanup_enabled=_boolean("TCG_HISTORY_R2_ARCHIVE_CLEANUP_ENABLED", False),
+            import_preview_rebuild_enabled=_boolean("TCG_IMPORT_PREVIEW_REBUILD_ENABLED", False),
+            catalogue_source_archive_enabled=_boolean("TCG_CATALOGUE_SOURCE_ARCHIVE_ENABLED", False),
+            catalogue_r2_cache_build_enabled=_boolean("TCG_R2_CATALOGUE_CACHE_BUILD_ENABLED", False),
+            catalogue_daily_refresh_enabled=_boolean("TCG_CATALOGUE_DAILY_REFRESH_ENABLED", False),
+            one_piece_base_recovery_enabled=_boolean("TCG_ONE_PIECE_BASE_RECOVERY_ENABLED", False),
+            catalogue_maintenance_actor_user_id=_optional("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID"),
+            catalogue_price_refresh_limit=_bounded_int("TCG_CATALOGUE_PRICE_REFRESH_LIMIT", 20000, minimum=1, maximum=30000),
+            tcgcsv_free_enabled=_boolean("TCG_TCGCSV_FREE_ENABLED", False),
+            pokewallet_api_key=_optional("TCG_POKEWALLET_API_KEY"),
+            pokewallet_pricing_apply_enabled=_boolean("TCG_POKEWALLET_PRICING_APPLY_ENABLED", False),
+            pokewallet_one_piece_artwork_matching_enabled=_boolean(
+                "TCG_POKEWALLET_ONE_PIECE_ARTWORK_MATCH_ENABLED", False),
+            pokewallet_pricing_coverage_first_enabled=_boolean(
+                "TCG_POKEWALLET_PRICING_COVERAGE_FIRST_ENABLED", False),
+            pokewallet_pricing_request_limit=_bounded_int(
+                "TCG_POKEWALLET_PRICING_REQUEST_LIMIT", 60, minimum=3, maximum=60
+            ),
+            pokewallet_dragon_ball_enabled=_boolean("TCG_POKEWALLET_DBS_ENABLED", False),
+            pokewallet_dragon_ball_apply_enabled=_boolean("TCG_POKEWALLET_DBS_APPLY_ENABLED", False),
+            pokewallet_dragon_ball_request_limit=_bounded_int(
+                "TCG_POKEWALLET_DBS_REQUEST_LIMIT", 35, minimum=1, maximum=35
+            ),
+            pokewallet_pokemon_enabled=_boolean("TCG_POKEWALLET_POKEMON_ENABLED", False),
+            pokewallet_pokemon_apply_enabled=_boolean("TCG_POKEWALLET_POKEMON_APPLY_ENABLED", False),
+            shopify_auto_sync_enabled=_boolean("TCG_SHOPIFY_AUTO_SYNC_ENABLED", False),
+            shopify_waitlist_sync_enabled=_boolean("TCG_SHOPIFY_WAITLIST_SYNC_ENABLED", False),
             ebay_deletion_verification_token=_optional("TCG_EBAY_DELETION_VERIFICATION_TOKEN"),
             ebay_deletion_endpoint=_optional("TCG_EBAY_DELETION_ENDPOINT"),
             ebay_user_refresh_token=_optional("TCG_EBAY_USER_REFRESH_TOKEN"),
@@ -210,6 +283,9 @@ class Settings:
             ebay_notification_verification_token=_optional(
                 "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN"
             ),
+            ebay_shared_store_owner_id=_optional("TCG_EBAY_SHARED_STORE_OWNER_ID"),
+            shopify_seller_sync_enabled=_boolean("TCG_SHOPIFY_SELLER_SYNC_ENABLED", False),
+            ebay_seller_sync_enabled=_boolean("TCG_EBAY_SELLER_SYNC_ENABLED", False),
             ebay_publish_enabled=_boolean("TCG_EBAY_PUBLISH_ENABLED", False),
             ebay_price_markup_bps=_bounded_int(
                 "TCG_EBAY_PRICE_MARKUP_BPS", 0, minimum=0, maximum=10000
@@ -231,6 +307,11 @@ class Settings:
                 or "UK_RoyalMailTracked"
             ),
             market_ingestion_enabled=_boolean("TCG_MARKET_INGESTION_ENABLED", False),
+            book_ebay_context_enabled=_boolean("TCG_BOOK_EBAY_CONTEXT_ENABLED", False),
+            book_ebay_context_daily_call_limit=_bounded_int(
+                "TCG_BOOK_EBAY_CONTEXT_DAILY_CALL_LIMIT", 500, minimum=1, maximum=4000
+            ),
+            book_ebay_context_probe_isbn=_optional("TCG_BOOK_EBAY_CONTEXT_PROBE_ISBN"),
             shopify_shop_domain=_shopify_domain("TCG_SHOPIFY_SHOP_DOMAIN"),
             shopify_client_id=_optional("TCG_SHOPIFY_CLIENT_ID"),
             shopify_client_secret=_optional("TCG_SHOPIFY_CLIENT_SECRET"),
@@ -241,6 +322,9 @@ class Settings:
             shopify_test_publish_enabled=_boolean("TCG_SHOPIFY_TEST_PUBLISH_ENABLED", False),
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),
             automation_command_secret=_optional("TCG_AUTOMATION_COMMAND_SECRET"),
+            r2_reference_cache_apply_enabled=_boolean(
+                "TCG_R2_REFERENCE_CACHE_APPLY_ENABLED", False
+            ),
             shopify_catalogue_bootstrap_enabled=_boolean(
                 "TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ENABLED", False
             ),
@@ -285,6 +369,20 @@ class Settings:
                 minimum=1,
                 maximum=20,
             ),
+            cardtrader_bulk_guides_enabled=_boolean(
+                "TCG_CARDTRADER_BULK_GUIDES_ENABLED", False),
+            cardtrader_bulk_guides_apply_enabled=_boolean(
+                "TCG_CARDTRADER_BULK_GUIDES_APPLY_ENABLED", False),
+            cardtrader_bulk_guides_expansion_limit=_bounded_int(
+                "TCG_CARDTRADER_BULK_GUIDES_EXPANSION_LIMIT", 15,
+                minimum=1, maximum=30),
+            drop_rate_daily_model_enabled=_boolean(
+                "TCG_DROP_RATE_DAILY_MODEL_ENABLED", False),
+            drop_rate_daily_model_apply_enabled=_boolean(
+                "TCG_DROP_RATE_DAILY_MODEL_APPLY_ENABLED", False),
+            drop_rate_daily_model_batch_limit=_bounded_int(
+                "TCG_DROP_RATE_DAILY_MODEL_BATCH_LIMIT", 1000,
+                minimum=1, maximum=1000),
             psa_public_api_token=_optional("TCG_PSA_PUBLIC_API_TOKEN"),
             stripe_secret_key=_optional("TCG_STRIPE_SECRET_KEY"),
             stripe_webhook_secret=_optional("TCG_STRIPE_WEBHOOK_SECRET"),

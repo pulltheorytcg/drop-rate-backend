@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from statistics import median, pstdev
@@ -16,6 +16,7 @@ from fastapi.encoders import jsonable_encoder
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_official_adapter import _looks_like_multi_item_listing, _variant_matches
+from .ebay_sold_normalization import normalize_uk_sold_payload, has_normalized_uk_evidence, REVISION as SOLD_NORMALIZATION_REVISION
 from .ebay_uk_parse_adapter import _contains_term, _normalise_text
 from .market_adapters import NormalizedMarketObservation, stable_source_record_key
 from .ownership import current_owner as _owner
@@ -103,6 +104,18 @@ class TrawlEbaySoldClient:
             raise TrawlApiError("eBay sold-data provider returned invalid JSON") from exc
         if not isinstance(payload, dict):
             raise TrawlApiError("eBay sold-data provider returned an invalid response shape")
+        try:
+            payload = normalize_uk_sold_payload(payload)
+        except ValueError as exc:
+            raise TrawlApiError("eBay sold-data provider returned invalid UK sale evidence") from exc
+        # Public quota metadata only; never persist headers containing credentials.
+        usage = {}
+        for field, header in (("limit", "X-RateLimit-Limit"), ("remaining", "X-RateLimit-Remaining"),
+                              ("reset", "X-RateLimit-Reset"), ("charged", "X-Credits-Charged")):
+            value = response.headers.get(header, "")
+            if value.isdigit():
+                usage[field] = int(value)
+        payload["_usage"] = usage
         return payload
 
 
@@ -115,6 +128,7 @@ class SoldComparable:
     shipping_minor: int | None
     condition_raw: str | None
     url: str | None
+    provider_evidence: dict[str, Any] | None = None
 
     @property
     def delivered_minor(self) -> int | None:
@@ -129,14 +143,14 @@ def _money_minor(value: object, *, expected_currency: str | None = None, currenc
             return None
     if value is None or isinstance(value, bool):
         return None
-    text = str(value).strip().replace("£", "").replace(",", "")
+    text = str(value).strip().replace("�", "").replace(",", "")
     if not text:
         return None
     try:
         amount = Decimal(text)
     except InvalidOperation:
         return None
-    if amount < 0:
+    if not amount.is_finite() or amount < 0 or amount >= Decimal("1e10"):
         return None
     return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
@@ -332,6 +346,7 @@ def select_five_newest_comps(payload: dict[str, Any], *, target: dict[str, Any])
             shipping_minor=shipping_minor,
             condition_raw=(str(row.get("condition_raw")).strip() if row.get("condition_raw") is not None else None),
             url=(str(row.get("item_link")).strip() if row.get("item_link") else None),
+            provider_evidence=row.get("_pricing_evidence"),
         )
 
     return sorted(accepted.values(), key=lambda comp: comp.sold_at, reverse=True)[:5]
@@ -384,6 +399,9 @@ async def _target_snapshot(connection, owner_id: UUID, inventory_id: UUID) -> di
 
 
 async def _fetch_comp_result(target: dict[str, Any]) -> dict[str, Any]:
+    from .live_market_refresh import query_for, select_comps, value_comps
+    target = {"product_type":"CARD", **target}
+    query = query_for(target)
     api_key = get_settings().trawl_api_key
     if not api_key:
         raise HTTPException(
@@ -395,7 +413,7 @@ async def _fetch_comp_result(target: dict[str, Any]) -> dict[str, Any]:
         )
     client = TrawlEbaySoldClient(api_key=api_key)
     try:
-        payload = await client.sold(query=_query_for_target(target), max_pages=1)
+        payload = await client.sold(query=query, max_pages=1)
     except TrawlApiError as exc:
         raise HTTPException(
             status_code=502 if exc.status_code != 429 else 429,
@@ -406,21 +424,22 @@ async def _fetch_comp_result(target: dict[str, Any]) -> dict[str, Any]:
             },
         ) from exc
 
-    comps = select_five_newest_comps(payload, target=target)
+    comps = [SoldComparable(**{k:c.get(k) for k in SoldComparable.__dataclass_fields__})
+             for c in select_comps(payload,target,datetime.now(timezone.utc))]
     if len(comps) < 5:
         return {
             "status": "BLOCKED",
             "reason": "Fewer than five exact comparable UK eBay sold records were found",
-            "query": _query_for_target(target),
+            "query": query,
             "comparable_count": len(comps),
             "comps": comps,
             "store_price_minor": None,
         }
-    market_value_minor = five_sold_market_value(comps)
+    market_value_minor = value_comps([asdict(c) for c in comps],target).market_value_minor
     return {
         "status": "READY",
         "reason": None,
-        "query": _query_for_target(target),
+        "query": query,
         "comparable_count": 5,
         "comps": comps,
         "market_value_minor": market_value_minor,
@@ -430,6 +449,12 @@ async def _fetch_comp_result(target: dict[str, Any]) -> dict[str, Any]:
 
 async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable, *, query: str) -> bool:
     key = stable_source_record_key("EBAY", "TRAWL", comp.item_id, comp.sold_at.isoformat())
+    if target.get("seal_status"):
+        key = stable_source_record_key("EBAY", "TRAWL", "SEALED", str(target["catalogue_id"]), comp.item_id, comp.sold_at.isoformat())
+    if has_normalized_uk_evidence({"provider_evidence": comp.provider_evidence}):
+        # Append the corrected evidence once; never overwrite a legacy price,
+        # nominal timestamp or its missing provenance on an existing record.
+        key = stable_source_record_key(key, SOLD_NORMALIZATION_REVISION)
     observation = NormalizedMarketObservation(
         source="EBAY",
         source_record_key=key,
@@ -446,6 +471,7 @@ async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable
         grading_company=target["grading_company"],
         grade=target["grade"],
         language=target["language"],
+        seal_status=target.get("seal_status"),
         source_country="GB",
         sample_size=1,
         evidence_quality=1.0,
@@ -461,8 +487,13 @@ async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable
             "selection_rule": "FIVE_NEWEST_EXACT_COMPARABLE_SALES",
             "sale_price_excludes_shipping": True,
             "shipping_observed_separately": comp.shipping_minor is not None,
+            "provider_evidence": comp.provider_evidence or {},
         },
     ).validate()
+    if target.get("product_type")=="COMIC":
+        from .book_market import printing_digest
+        observation.metadata["selection_rule"]="FIVE_NEWEST_EXACT_BOOK_SALES"
+        observation.metadata["book_identity_digest"]=printing_digest(target["book_printing"])
     row = await connection.fetchrow(
         """
         insert into tcg.market_observations(
@@ -497,74 +528,10 @@ async def _pricing_snapshot(
     comps: list[SoldComparable],
     query: str,
 ) -> UUID:
-    prices = [comp.price_minor for comp in comps]
-    market_value_minor = five_sold_market_value(comps)
-    volatility_pct = (
-        (pstdev(prices) / market_value_minor) * 100
-        if market_value_minor > 0 and len(prices) > 1
-        else 0.0
-    )
-    quick_sale_minor = store_price_floor(
-        int(
-            (Decimal(market_value_minor) * Decimal("0.92")).quantize(
-                Decimal("1"), rounding=ROUND_HALF_UP
-            )
-        )
-    )
-    target_acquisition_minor = int(
-        (Decimal(market_value_minor) * Decimal("0.70")).quantize(
-            Decimal("1"), rounding=ROUND_HALF_UP
-        )
-    )
-    evidence = {
-        "method": "FIVE_NEWEST_EXACT_COMPARABLE_EBAY_UK_SALES",
-        "provider": "TRAWL",
-        "query": query,
-        "sale_price_excludes_shipping": True,
-        "comps": [
-            {
-                "item_id": comp.item_id,
-                "title": comp.title,
-                "sold_at": comp.sold_at.isoformat(),
-                "price_minor": comp.price_minor,
-                "shipping_minor": comp.shipping_minor,
-                "url": comp.url,
-            }
-            for comp in comps
-        ],
-    }
-    snapshot = await connection.fetchrow(
-        """
-        insert into tcg.pricing_snapshots(
-            inventory_id,catalogue_id,owner_id,market_value_minor,
-            recommended_retail_minor,quick_sale_minor,target_acquisition_minor,
-            confidence,source_count,observation_count,sold_observation_count,
-            volatility_pct,newest_observation_at,algorithm_version,evidence,
-            auto_publish_eligible,block_reasons
-        ) values(
-            $1,$2,$3,$4,$5,$6,$7,
-            1.0,1,5,5,$8,$9,'ebay-five-sold-v2-floor',$10::jsonb,
-            false,$11::jsonb
-        )
-        returning id
-        """,
-        inventory_id,
-        target["catalogue_id"],
-        owner_id,
-        market_value_minor,
-        store_price_minor,
-        quick_sale_minor,
-        target_acquisition_minor,
-        volatility_pct,
-        max(comp.sold_at for comp in comps),
-        json.dumps({
-            **evidence,
-            "market_value_minor": market_value_minor,
-            "store_price_floor_applied": store_price_minor > market_value_minor,
-        }),
-        json.dumps(["single-source founder pricing rule"]),
-    )
-    return snapshot["id"]
+    from .live_market_refresh import save_snapshot
+    item = dict(target,id=inventory_id,owner_id=owner_id)
+    snapshot,_ = await save_snapshot(connection,item,[asdict(c) for c in comps],query,datetime.now(timezone.utc))
+    return snapshot
 
 
 async def _locked_apply_rows(
@@ -768,7 +735,7 @@ async def ebay_five_sold_status(
         )
     return jsonable_encoder({
         "configured": bool(settings.trawl_api_key),
-        "method": "median of five newest exact comparable eBay UK sold item prices; shipping recorded separately",
+        "method": "Drop Rate v4 using five newest exact eBay UK sold comparisons; shipping recorded separately",
         **dict(row),
     })
 
