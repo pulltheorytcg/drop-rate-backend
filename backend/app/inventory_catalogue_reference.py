@@ -25,6 +25,7 @@ from .reference_market import _text, _time
 # Do not update match_status; the priced physical-copy resolver retains its
 # stricter REVIEW veto in REFERENCE_VALUES_SQL.
 #
+# Missing proof must fail closed: SQL NULL is not a verified exception.
 # Explicit REJECTED mappings, non-media reviews, unknown identities, conflicting
 # languages, and missing source IDs still block ALL price displays. The later
 # reference_candidates() + catalogue_guide() also reject ambiguous printings
@@ -34,7 +35,7 @@ PRODUCTS_SQL = """select p.*,
   where profile.catalogue_id=p.id) as profile_system_code,
  exists(select 1 from tcg.provider_catalogue_mappings m where m.catalogue_id=p.id
    and m.match_status in ('REVIEW','REJECTED')
-   and not (
+   and not coalesce((
      p.product_type='CARD' and p.language='Japanese'
      and m.match_status='REVIEW'
      and m.verification_basis='DETERMINISTIC_EXACT'
@@ -65,7 +66,7 @@ PRODUCTS_SQL = """select p.*,
              and lower(r.name)=lower(p.name) and lower(s.name)=lower(p.set_name))
          )
      )
-   ))
+   ), false))
  or exists(select 1 from tcg.market_source_mappings m where m.catalogue_id=p.id
    and m.source='CARDMARKET' and m.match_status in ('REVIEW','REJECTED')) as blocked
  from tcg.catalogue_products p where p.id=any($1::uuid[])"""
