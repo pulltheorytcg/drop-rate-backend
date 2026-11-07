@@ -63,10 +63,15 @@ def test_publisher_selects_only_first_party_rights_cleared_images(tmp_path, grad
         tmp_path, [publisher_sql(graded=graded)], setup=SETUP, inspect="select 1"
     )
     assert result["results"][0]["ok"], result
-    assert result["results"][0]["rows"] == [
+    rows = result["results"][0]["rows"]
+    assert [{key: row[key] for key in ("side", "shopify_cdn_url")} for row in rows] == [
         {"side": "FRONT", "shopify_cdn_url": "front"},
         {"side": "BACK", "shopify_cdn_url": "back"},
     ]
+    assert all(row["owner_id"] == "seller" and row["inventory_id"] == "copy"
+               and row["rights_tier"] == "FIRST_PARTY_CAPTURE"
+               and row["approval_status"] == "APPROVED"
+               and row["capture_context"] == "GRADED_SLAB" for row in rows)
 
 
 def test_publisher_rejects_provider_reference_only_photos(tmp_path):
@@ -94,7 +99,8 @@ def test_publisher_rejects_wrong_capture_context_for_graded_card(tmp_path):
     )
     assert all(step["ok"] for step in result["results"]), result
     assert result["results"][0]["rows"] == []
-    assert result["results"][1]["rows"] == [
+    assert [{key: row[key] for key in ("side", "shopify_cdn_url")}
+            for row in result["results"][1]["rows"]] == [
         {"side": "FRONT", "shopify_cdn_url": "front"},
         {"side": "BACK", "shopify_cdn_url": "back"},
     ]
