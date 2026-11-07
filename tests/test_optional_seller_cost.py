@@ -58,7 +58,16 @@ async def test_ebay_readiness_preserves_nullable_cost_and_photo_requirement(monk
             assert 'tcg.media_assets' in sql and params==(owner,inventory,False)
             assert "rights_tier='FIRST_PARTY_CAPTURE'" in sql
             assert "capture_context='GRADED_SLAB'" in sql
-            return [dict(side=side,shopify_cdn_url='https://fixture.invalid/photo') for side in photos]
+            return [dict(
+                side=side,
+                shopify_cdn_url=f'https://cdn.shopify.com/s/files/{side.lower()}.jpg',
+                owner_id=owner, inventory_id=inventory,
+                scope='INVENTORY_ITEM', media_kind='IMAGE',
+                source_type='FOUNDER_UPLOAD', rights_tier='FIRST_PARTY_CAPTURE',
+                capture_context='RAW_UNSLEEVED', rights_status='VERIFIED',
+                approval_status='APPROVED', source_status='ACTIVE',
+                revoked_at=None, shopify_file_status='READY'
+            ) for side in photos]
     @asynccontextmanager
     async def connection(*args,**kwargs):
         yield Connection()
