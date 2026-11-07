@@ -1,4 +1,4 @@
-"""Cross-owner, authorised Shopify graded-slab media safety audit.
+"""Owner-scoped, authorised Shopify graded-slab media safety audit.
 
 A Shopify DB publication link is NOT proof that a specific physical slab's
 front/back images are ready for commercial storefront use. Only verified,
@@ -78,7 +78,8 @@ async def audit_published_graded_media(connection, *, actor_user_id: UUID,
     rows = [dict(row) for row in await connection.fetch(PUBLISHED_GRADED_AUDIT_SQL,limit+1)]
     if len(rows)>limit:
         raise ValueError("Graded-photo audit limit exceeded; no partial owner decisions")
-    report = {"graded_published_checked":len(rows), "ready":0, "missing":0,
+    report = {"owner_scope":"CURRENT_MAINTENANCE_ACTOR_RLS_ONLY",
+              "graded_published_checked":len(rows), "ready":0, "missing":0,
               "new_or_reopened":0, "existing_open":0, "resolved":0,
               "shopify_publications_changed":0, "ownership_changed":0}
     for item in rows:
