@@ -9,7 +9,7 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .media_resolver import (
     DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
-    resolve_storefront_media,
+    resolve_media,
 )
 from .ownership import current_owner as _owner
 from .settings import get_settings
@@ -70,9 +70,11 @@ def summarize_local_readiness(
             item,
             physical_photo_threshold_minor=physical_photo_threshold_minor,
         )
-        media = resolve_storefront_media(
+        media = resolve_media(
             item,
             _media_assets_for_item(item, media_assets),
+            channel="SHOPIFY",
+            purpose="LISTING",
             threshold_minor=physical_photo_threshold_minor,
         )
         blockers = list(media["blockers"])
