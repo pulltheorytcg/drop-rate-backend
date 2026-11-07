@@ -104,7 +104,7 @@ async def test_lorcana_exact_crd_set_print_and_image_url():
 @pytest.mark.asyncio
 async def test_magic_exact_set_collector_finish_scryfall_candidate_is_not_crosswalk_approved():
     ref = make_row(magic_ref())
-    scryfall = magic_source()["printings"][0]["scryfall"]
+    scryfall = {**magic_source()["printings"][0]["scryfall"], "rarity": "rare"}
     def handler(req):
         assert req.url.path == "/cards/tst/117"
         return httpx.Response(200, json=scryfall)
@@ -120,7 +120,7 @@ async def test_magic_exact_set_collector_finish_scryfall_candidate_is_not_crossw
 
 @pytest.mark.asyncio
 async def test_magic_wrong_set_rarity_or_finish_rejected_without_crosslink():
-    source = magic_source()["printings"][0]["scryfall"]
+    source = {**magic_source()["printings"][0]["scryfall"], "rarity": "rare"}
     for key, value in [("collector_number", "118"), ("rarity", "uncommon"),
                        ("finishes", ["foil"]), ("set", "other")]:
         card = {**source, key: value}
