@@ -53,11 +53,24 @@ window.DropRateInventory = (() => {
   const active = item => ["DRAFT", "INSPECTION", "APPROVED"].includes(item.status);
   const price = minor => minor == null ? "Value unavailable" : formatMoney(minor);
 
+  function slabMediaKind(item) {
+    if (item.card_image_scope !== "INVENTORY_ITEM" || item.card_image_capture_context !== "GRADED_SLAB") return "";
+    if (item.card_image_rights_tier === "FIRST_PARTY_CAPTURE" &&
+        ["FOUNDER_UPLOAD","CONSIGNOR_UPLOAD"].includes(item.card_image_source_type)) return "PHYSICAL_PHOTO";
+    if (item.card_image_rights_tier === "INTERNAL_REFERENCE_ONLY" &&
+        item.card_image_source_type === "OFFICIAL_PROVIDER" &&
+        ["PSA","ACE","BGS","CGC"].includes(String(item.card_image_source_provider || "").toUpperCase()) &&
+        String(item.card_image_source_provider || "").toUpperCase() === String(item.grading_company || "").toUpperCase())
+      return "CERTIFICATE_REFERENCE";
+    return "";
+  }
+
   function image(item, cls) {
     const graded = [item.grading_company, item.grade, item.certificate_number].some(value => String(value || "").trim());
+    const mediaKind = slabMediaKind(item);
     const wrap = el("div", cls), placeholder = el("span", "owner-image-placeholder", "Loading image…");
     const img = el("img");
-    img.alt = `${item.name || "Inventory item"} ${graded ? "slab photo" : "reference image"}`;
+    img.alt = `${item.name || "Inventory item"} ${graded ? (mediaKind === "CERTIFICATE_REFERENCE" ? "grading certificate reference image" : "slab photo") : "reference image"}`;
     img.loading = "lazy"; img.decoding = "async"; img.referrerPolicy = "no-referrer";
     wrap.append(placeholder, img);
     const owner = account(), attempts = [];
@@ -74,8 +87,7 @@ window.DropRateInventory = (() => {
     };
     // Same delivery route as Founder HQ; a provider's public URL need not work
     // in a browser. Send credentials ONLY to our owned-item API, never a CDN.
-    const slabPhoto = item.card_image_scope === "INVENTORY_ITEM" && item.card_image_capture_context === "GRADED_SLAB";
-    const direct = (!graded || slabPhoto) && directUrl(item.image_url);
+    const direct = (!graded || Boolean(mediaKind)) && directUrl(item.image_url);
     if (direct) attempts.push({url: direct});
     // The shared proxy is for assigned physical/canonical media only. If a
     // copy has no assigned asset, calling it for every card repeats ownership
@@ -95,7 +107,7 @@ window.DropRateInventory = (() => {
     let index = 0, objectUrl = null, loading = false, started = false;
     const current = () => owner === account() && wrap.isConnected;
     const release = () => {if (objectUrl) {URL.revokeObjectURL(objectUrl); objectUrl = null;}};
-    const unavailable = () => {release(); img.remove(); placeholder.textContent = graded ? (slabPhoto ? "Slab photo unavailable" : "Slab photo required") : "Image unavailable"; placeholder.hidden = false;};
+    const unavailable = () => {release(); img.remove(); placeholder.textContent = graded ? (mediaKind === "CERTIFICATE_REFERENCE" ? "Certificate image unavailable" : mediaKind === "PHYSICAL_PHOTO" ? "Slab photo unavailable" : "Slab photo required") : "Image unavailable"; placeholder.hidden = false;};
     async function next() {
       if (loading || !current()) return;
       release();
@@ -651,8 +663,11 @@ window.DropRateInventory = (() => {
     dialog.querySelector("#owner-item-title").textContent=listingIntent?"Prepare listing":"Item details";
     const hero = el("section", "owner-item-hero"), figure = el("figure");
     const gradedImage = [item.grading_company, item.grade, item.certificate_number].some(value => String(value || "").trim());
+    const slabKind = slabMediaKind(item);
     figure.append(image(item, "owner-item-art"), el("figcaption", "", gradedImage
-      ? (item.card_image_scope === "INVENTORY_ITEM" && item.card_image_capture_context === "GRADED_SLAB" ? "Your slab photo" : "Add a photo of this slab")
+      ? (slabKind === "PHYSICAL_PHOTO" ? "Your slab photo" : slabKind === "CERTIFICATE_REFERENCE"
+          ? `${safeText(item.card_image_source_provider, "Grading service")} certificate image · private reference, not listing media`
+          : "Add a photo of this slab")
       : item.image_url ? "Item image" : "Reference image · not a photo of your copy"));
     const community = window.DropRateBookArtwork?.reference(item, true);
     if (community && !item.image_url && !item.reference_image_path) figure.append(window.DropRateBookArtwork.credit(community));

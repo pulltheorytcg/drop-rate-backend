@@ -1,3 +1,10 @@
+## 7 November 2026 — Private certificate images and highest-value-first Collection (PR pending CI)
+
+- Read-only production audit: 12 active graded copies (Founder 1: 8, Founder 2: 1, consignor: 3). Seven approved Founder 1 slabs have approved, exact certificate-bound PSA/ACE front images, presently `INTERNAL_REFERENCE_ONLY`. Eight graded image requests showed 404 before this fix. Other slabs have no qualifying recorded provider front image.
+- Scope: authenticated founder/seller collection now accepts approved, exact-owner/Inventory ID/certificate-matched PSA, ACE, BGS and CGC provider images for private reference display only; first-party photography still takes precedence. The original rights tier and Shopify/eBay photo publication checks are unchanged. Missing, revoked or wrong-certificate images remain unavailable, not replaced with raw art.
+- Both Collection screens initially request existing `value_desc` sorted pages, unvalued items last; retain explicit manual sort and migrate old implicit updated-sort preferences. No pricing algorithm, inventory, ownership, schema, Shopify, payout, media approval or R2 changes.
+- Regression updates cover all four graders, wrong provider, first-party precedence, media SQL provenance, cache versions, default sort and saved-sort override. CI/merge/deployment/live authenticated device acceptance remain **UNVERIFIED** at authoring. See `docs/PRIVATE_GRADED_COLLECTION_REFERENCE_20261107.md`.
+
 ## 7 November 2026 — eBay first-party photo publication safety (PR in review; NOT deployed)
 
 - Live read-only SQL: the sole eBay listing link remains ERROR / PUBLISH:400, GBP 35, no stored offer/listing ID and no publication timestamp (last attempted 4 Nov 14:21 UTC). The connected EBAY_GB seller record is READY with all three API business policy IDs; this does **not** establish eBay seller registration/payment verification. Previous authenticated Seller Hub inspection showed missing payout and selling-cost payment methods and individual-account status.

@@ -38,6 +38,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.w.fetch=async url=>{calls.push(url);return {ok:false,status:404};};
   const picture=f.w.DropRateInventory.image({...item,grading_company:'PSA',grade:'10',
    card_image_scope:'INVENTORY_ITEM',card_image_capture_context:'GRADED_SLAB',
+   card_image_rights_tier:'FIRST_PARTY_CAPTURE',card_image_source_type:'FOUNDER_UPLOAD',
    image_url:'https://cdn.shopify.com/my-slab.png'},'owner-card-thumb');
   f.w.document.body.append(picture);await tick();const img=picture.querySelector('img');
   assert.equal(img.src,'https://cdn.shopify.com/my-slab.png');assert.match(img.alt,/slab photo/);
@@ -45,6 +46,19 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
    assert.deepEqual(calls,[`/api/v1/inventory/${id}/image`]);
    assert.equal(picture.querySelector('img'),null);assert.match(picture.textContent,/Slab photo unavailable/);
   }else assert.equal(calls.length,0);
+  f.finish();checks++;
+ }
+ // Exact grading-service references render privately without pretending to be first-party sale photographs.
+ for (const grading_company of ['PSA','ACE','BGS','CGC']) {
+  const f=fixture();
+  const picture=f.w.DropRateInventory.image({...item,grading_company,grade:'10',
+   card_image_scope:'INVENTORY_ITEM',card_image_capture_context:'GRADED_SLAB',
+   card_image_rights_tier:'INTERNAL_REFERENCE_ONLY',card_image_source_type:'OFFICIAL_PROVIDER',
+   card_image_source_provider:grading_company,
+   image_url:'https://cdn.shopify.com/certificate.png'},'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();await tick();
+  assert.match(picture.querySelector('img').alt,/grading certificate reference image/);
+  assert.equal(picture.querySelector('img').src,'https://cdn.shopify.com/certificate.png');
   f.finish();checks++;
  }
  // The selected market value is the only valuation; retail multipliers cannot prefill the selling form.
@@ -832,7 +846,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  // A bounded value-sort failure leaves the last successful ordering accurately labelled.
  {
-  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;state.inventory.offset=50;');
+  const f=fixture();f.run('loadOwnerInventory=window.testLoadInventory;state.inventory.offset=50;state.inventory.sort="updated";');
   f.setHandler(async()=>{throw new Error('Value sorting supports up to 10,000 matching copies. Choose a filter.');});
   await f.w.DropRateCollection.setFilters({sort:'value_desc'});
   assert.equal(new URL(f.calls[0].url,'https://example.test').searchParams.get('sort'),'value_desc');

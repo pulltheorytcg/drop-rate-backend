@@ -40,7 +40,7 @@ async def test_shared_response_preserves_exact_slab_and_clears_raw_fields(monkey
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('override', [
-    {'rights_tier': 'INTERNAL_REFERENCE_ONLY', 'source_provider': 'PSA',
+    {'rights_tier': 'INTERNAL_REFERENCE_ONLY', 'source_provider': 'BGS',
      'source_type': 'OFFICIAL_PROVIDER'},
     {'rights_tier': 'MARKETPLACE_NATIVE_ONLY', 'source_provider': 'ACE',
      'source_type': 'OFFICIAL_PROVIDER'},
@@ -48,7 +48,7 @@ async def test_shared_response_preserves_exact_slab_and_clears_raw_fields(monkey
     {'rights_tier': 'FIRST_PARTY_CAPTURE', 'source_type': 'FOUNDER_UPLOAD',
      'approval_status': 'PENDING'},
 ])
-async def test_graded_provider_or_unapproved_shopify_file_never_claims_copy_photo(monkeypatch, override):
+async def test_wrong_grader_or_unapproved_shopify_file_never_claims_copy_photo(monkeypatch, override):
     item = dict(id=uuid4(), grading_company='PSA', grade='10',
                 reference_image_url='https://assets.tcgdex.net/raw/high.webp',
                 reference_image_path='/reference', image_url='old-raw')
@@ -66,6 +66,26 @@ async def test_graded_provider_or_unapproved_shopify_file_never_claims_copy_phot
     assert result['card_image_direct_url'] is None
     assert result['reference_image_status'] == 'SLAB_PHOTO_REQUIRED'
     assert result['card_image_scope'] is None
+    assert 'reference_image_url' not in result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('grader', ['PSA','ACE','BGS','CGC'])
+async def test_approved_exact_grader_reference_displays_privately_but_not_as_selling_photo(monkeypatch, grader):
+    item = dict(id=uuid4(), grading_company=grader, grade='10', certificate_number='12345678',
+                reference_image_url='old-raw', reference_image_path='/raw')
+    asset = dict(inventory_id=item['id'], scope='INVENTORY_ITEM', capture_context='GRADED_SLAB',
+                 approval_status='APPROVED', rights_tier='INTERNAL_REFERENCE_ONLY',
+                 source_type='OFFICIAL_PROVIDER', source_provider=grader,
+                 shopify_cdn_url='https://cdn.shopify.com/certificate.jpg')
+    async def assets(*args):
+        return [asset]
+    monkeypatch.setattr(media,'shared_media_assets',assets)
+    result = (await media.add_shared_inventory_media(None,[item]))[0]
+    assert result['image_url'] == asset['shopify_cdn_url']
+    assert result['reference_image_status'] == 'GRADER_CERTIFICATE_REFERENCE'
+    assert result['card_image_source_type'] == 'OFFICIAL_PROVIDER'
+    assert result['card_image_rights_tier'] == 'INTERNAL_REFERENCE_ONLY'
     assert 'reference_image_url' not in result
 
 
@@ -93,6 +113,11 @@ def test_media_sql_enforces_exact_owner_first_party_rights_and_staff_approval():
         "ma.inventory_id=i.id and ma.owner_id=i.owner_id",
         "ma.rights_tier='FIRST_PARTY_CAPTURE'",
         "ma.source_type in ('FOUNDER_UPLOAD','CONSIGNOR_UPLOAD')",
+        "ma.rights_tier='INTERNAL_REFERENCE_ONLY'",
+        "ma.source_type='OFFICIAL_PROVIDER'",
+        "upper(btrim(ma.source_provider))=upper(btrim(i.grading_company))",
+        "position(btrim(i.certificate_number) in ma.source_reference)>0",
+        "position(btrim(i.certificate_number) in ma.provider_asset_id)>0",
         "ma.approval_status='APPROVED'",
         "ma.capture_context='GRADED_SLAB'",
         "ma.revoked_at is null",
