@@ -913,6 +913,34 @@ window.DropRateInventory = (() => {
       channelGrid.append(block);
     }
     sellerChannels.append(channelGrid);
+    // One authenticated owner-scoped media decision feeds all channels. This
+    // is a preview, not a listing action; never trust an image URL from the UI.
+    const mediaPreview=el("div","owner-channel-media-status");
+    mediaPreview.setAttribute("role","status");
+    mediaPreview.append(el("p","owner-item-note","Checking approved images for each channel…"));
+    sellerChannels.append(mediaPreview);
+    const previewRevision=revision,previewOwner=account(),previewItemId=item.id;
+    apiRequest(`/api/v1/media/resolve/${encodeURIComponent(previewItemId)}`).then(result=>{
+      if(!alive(previewRevision,previewOwner) || selected?.id!==previewItemId
+         || !mediaPreview.isConnected || result.inventory_id!==previewItemId)return;
+      const list=el("ul","owner-channel-media-list");
+      for(const [code,label] of [["DROP_RATE","Drop Rate"],["SHOPIFY","Shopify"],["EBAY","eBay"],["WHATNOT","Whatnot"]]){
+        const choice=result.channels?.[code];
+        if(!choice)continue;
+        const count=Array.isArray(choice.selectedMedia)?choice.selectedMedia.length:0;
+        const summary=code==="WHATNOT"?"Not connected — no publishing":
+          choice.complete && count?(`Approved ${count===1?"image":"images"}: ${count} selected`):
+          code==="EBAY"?"Front and back photos required":
+          choice.blockers?.length?"Approved image still required":"No eligible image selected";
+        list.append(el("li","",`${label}: ${summary}`));
+      }
+      mediaPreview.replaceChildren(el("strong","","Channel image selection"),list,
+        el("p","owner-item-note","Image selection is separate from listing approval. Scanned photos remain attached to your exact physical copy."));
+    }).catch(()=>{
+      if(alive(previewRevision,previewOwner) && selected?.id===previewItemId
+         && mediaPreview.isConnected)
+        mediaPreview.replaceChildren(el("p","owner-item-note","Image preview unavailable; existing listing checks still apply."));
+    });
     if(!ebayEligible) sellerChannels.append(el("p","owner-item-channel-footnote",
       "eBay: "+ebayReason+"."));
     sale.append(sellerChannels);
