@@ -52,7 +52,8 @@ COLUMNS = {
           ("expires_at", "timestamptz"), ("refresh_revision", "integer")),
     "b": (("provider", "text"), ("system_code", "text"), ("language", "text"),
           ("provider_id", "text"), ("market_value_minor", "bigint"), ("market_value_high_minor", "bigint"),
-          ("pricing_updated_at", "timestamptz"), ("quotes", "jsonb")),
+          ("pricing_updated_at", "timestamptz"), ("quotes", "jsonb"),
+          ("expires_at", "timestamptz")),
 }
 
 
