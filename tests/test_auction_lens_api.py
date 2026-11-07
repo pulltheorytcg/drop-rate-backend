@@ -199,3 +199,25 @@ def test_slow_index_never_hangs_auction_or_returns_stale_identity(pilot, monkeyp
     next_result = client.post("/api/v1/auction-lens/pilot/resolve", json=PAYLOAD)
     assert next_result.status_code == 200
     assert next_result.json()["decision"] == "EXACT"
+
+
+def test_sold_market_value_expires_at_earlier_comparable_or_refresh_window(monkeypatch):
+    now = datetime(2026, 11, 7, 16, tzinfo=timezone.utc)
+    evidence_at = now - timedelta(hours=1)
+    oldest_sale = now - timedelta(days=89)
+    snapshot_id = uuid4()
+    con = ReadOnlyConnection(rows=[{
+        "snapshot_id": snapshot_id,
+        "oldest_sale_at": oldest_sale,
+    }])
+    monkeypatch.setattr(api, "resolve_reference_value", lambda *_a, **_kw: {
+        "status": "AVAILABLE", "method": api.SOLD,
+        "market_value_minor": 3200, "checked_at": evidence_at,
+        "snapshot_id": snapshot_id,
+    })
+    value = asyncio.run(api._eligible_uk_value(con, catalogue_id=P_ID, now=now))
+    assert value["marketValueMinor"] == 3200
+    assert value["currency"] == "GBP"
+    assert value["basis"] == "English · Near Mint · raw"
+    assert value["evidenceAtMs"] == int(evidence_at.timestamp() * 1000)
+    assert value["expiresAtMs"] == int((oldest_sale + timedelta(days=90)).timestamp() * 1000)
