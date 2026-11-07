@@ -55,7 +55,9 @@ async def test_ebay_readiness_preserves_nullable_cost_and_photo_requirement(monk
         async def fetchval(self,sql,*params):
             assert 'tcg.shopify_shipping_profiles' in sql;return True
         async def fetch(self,sql,*params):
-            assert 'tcg.media_assets' in sql and params==(owner,inventory)
+            assert 'tcg.media_assets' in sql and params==(owner,inventory,False)
+            assert "rights_tier='FIRST_PARTY_CAPTURE'" in sql
+            assert "capture_context='GRADED_SLAB'" in sql
             return [dict(side=side,shopify_cdn_url='https://fixture.invalid/photo') for side in photos]
     @asynccontextmanager
     async def connection(*args,**kwargs):
