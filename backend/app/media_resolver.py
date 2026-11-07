@@ -299,9 +299,12 @@ def resolve_storefront_media(
     """Resolve the exact storefront media for an inventory item, fail closed.
 
     Priority:
-      1. ready FIRST_PARTY_CAPTURE media for the exact inventory item;
-      2. for low-risk items only, exact STOREFRONT_ALLOWED canonical media;
-      3. otherwise Action Required / first-party capture.
+      1. copy-specific first-party front/back where mandatory (graded, high-risk);
+      2. for ordinary raw cards, exact STOREFRONT_ALLOWED canonical card art;
+      3. otherwise eligible owned-copy photo or Action Required.
+
+    Captured scan evidence remains on the physical inventory item regardless
+    of which eligible image is chosen as the Shopify listing's primary image.
     """
 
     policy = physical_photo_policy(item, threshold_minor=threshold_minor)
