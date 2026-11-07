@@ -124,3 +124,67 @@ def test_coverage_route_requires_platform_admin_at_router_mount():
             "backend/app/main.py").read_text(encoding="utf-8")
     assert "app.include_router(expanded_artwork_coverage_router, dependencies=[Depends(require_platform_admin_request)])" in main
     assert '@router.get("/coverage")' in Path(coverage.__file__).read_text()
+
+
+@pytest.mark.asyncio
+async def test_review_sample_reads_only_verified_cached_publication_and_caps_at_25(monkeypatch):
+    from contextlib import contextmanager
+    from app import r2_first_catalogue as catalogue
+    actual = {
+        "provider": "ygoprodeck", "system_code": "YUGIOH",
+        "language": "English", "provider_id": "ygoprodeck:123:ABC-001",
+        "product_type": "CARD", "name": "Test Card",
+        "set_id": "ABC", "set_name": "Test Set",
+        "card_number": "ABC-001", "rarity": None, "finish": None,
+        "release_date": None, "source_url": "https://db.ygoprodeck.com/api/v7/cardinfo.php",
+    }
+    actual["key"] = catalogue.stable_key(
+        actual["provider"], actual["system_code"], actual["language"],
+        actual["provider_id"],
+    )
+    class Snapshot:
+        provider = "ygoprodeck"
+        manifest_digest = "e" * 64
+        def search(self, *, limit, sort, include_upcoming):
+            assert limit == 25 and sort == "name" and include_upcoming is False
+            return {"items": [actual], "total": 1}
+
+    @contextmanager
+    def borrow(snapshots):
+        assert len(snapshots) == 1
+        yield
+
+    @asynccontextmanager
+    async def connection(pool, user_id, request_id):
+        assert user_id == ACTOR and request_id == "dr107-sample"
+        yield object()
+
+    async def read(conn, *, system_code, language):
+        assert system_code == "YUGIOH" and language == "English"
+        return [Snapshot()]
+
+    monkeypatch.setattr(coverage, "user_connection", connection)
+    monkeypatch.setattr(coverage.r2_first_service, "read", read)
+    monkeypatch.setattr(coverage.r2_first_service, "_borrow", borrow)
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),
+        state=SimpleNamespace(request_id="dr107-sample"),
+    )
+    response = await coverage.artwork_review_sample(
+        "YUGIOH", request, SimpleNamespace(user_id=ACTOR), limit=25,
+    )
+    assert response["sample_count"] == 1
+    assert response["source_manifest_sha256"] == "e" * 64
+    assert response["references"][0]["key"] == actual["key"]
+    assert response["can_publish"] is False
+    assert response["can_mirror"] is False
+
+
+@pytest.mark.asyncio
+async def test_unknown_artwork_game_never_reads_private_storage():
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as exc:
+        await coverage.artwork_review_sample(
+            "UNKNOWN", object(), SimpleNamespace(user_id=ACTOR), limit=25
+        )
+    assert exc.value.status_code == 404
