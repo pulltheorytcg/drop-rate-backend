@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import asyncpg
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -410,6 +410,13 @@ def create_app() -> FastAPI:
     async def riot_domain_verification() -> FileResponse:
         """Public Riot domain verification; exact bytes live in riot.txt."""
         return FileResponse(STATIC_DIR / "riot.txt", media_type="text/plain")
+
+    @app.get("/auction-lens-lab", include_in_schema=False)
+    async def auction_lens_lab() -> HTMLResponse:
+        # Explicit enablement only; never a public live auction capture route.
+        if os.getenv("TCG_AUCTION_LENS_AUTHORISED_PILOT_ENABLED", "").strip().lower() != "true":
+            raise HTTPException(status_code=404, detail="Auction Lens pilot is not active")
+        return HTMLResponse((STATIC_DIR / "auction-lens-lab.html").read_text(encoding="utf-8"))
 
     @app.get("/seller-hub", include_in_schema=False)
     async def seller_hub_launch() -> HTMLResponse:
