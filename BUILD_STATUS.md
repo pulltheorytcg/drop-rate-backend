@@ -1,3 +1,10 @@
+## 7 November 2026 — UK Live Auction Lens comparison foundation (draft PR; NOT DEPLOYED)
+
+- Recovered [Live Auction Scanner Proposal](docs/LIVE_AUCTION_SCANNER_PROPOSAL.md) and prior Seller Hub concept [PR #837](https://github.com/pulltheorytcg/drop-rate-backend/pull/837). Source files describe a future buyer-side desktop capture companion for eBay/Whatnot; no capture or auction engine was previously live.
+- This isolated branch adds only a pure server-side GBP/pence buying-comparison module and offline test fixtures. It enforces active/current bids, exact scene/identity binding, current eligible permitted UK Market Value, source/expiry, and all known costs. Guides, asking prices, unknown charges, stale values or wrong variants abstain.
+- [Scope, terms, tests and release gates](docs/AUCTION_LENS_UK_FOUNDATION_20261107.md). No endpoint, browser extension, screen capture, source calls, inventory, pricing writes, Shopify, n8n, migration or Railway configuration change. Original test videos were not found in available project/Drive files; actual video recognition remains untested. Existing 7 November expiry remediation continues independently.
+- **State: IN REVIEW**. CI and genuine live acceptance remain unverified; don't claim auction capture, pricing overlays or live Whatnot/eBay access.
+
 ## 7 November 2026 — eBay first-party photo publication safety (PR in review; NOT deployed)
 
 - Live read-only SQL: the sole eBay listing link remains ERROR / PUBLISH:400, GBP 35, no stored offer/listing ID and no publication timestamp (last attempted 4 Nov 14:21 UTC). The connected EBAY_GB seller record is READY with all three API business policy IDs; this does **not** establish eBay seller registration/payment verification. Previous authenticated Seller Hub inspection showed missing payout and selling-cost payment methods and individual-account status.
