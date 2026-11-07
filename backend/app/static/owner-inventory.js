@@ -56,8 +56,7 @@ window.DropRateInventory = (() => {
   function slabMediaKind(item) {
     if (item.card_image_scope === "CANONICAL_CARD" || item.card_image_scope === "CANONICAL_PRODUCT") {
       // This is the exact printing's approved artwork, not the owner's slab.
-      return item.graded_reference_allowed === true &&
-        item.reference_image_status === "GRADED_CARD_ART_REFERENCE" ? "CARD_ART_REFERENCE" : "";
+      return item.reference_image_status === "GRADED_CARD_ART_REFERENCE" ? "CARD_ART_REFERENCE" : "";
     }
     if (item.card_image_scope !== "INVENTORY_ITEM") return "";
     if (item.card_image_capture_context === "GRADED_SLAB" &&
