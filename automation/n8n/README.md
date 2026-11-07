@@ -393,3 +393,12 @@ Eight new **initially inactive** daily n8n release scouts use the signed FastAPI
 The Riot Riftbound job is an official app-permission readiness monitor only until access to the authorised Riot API is connected, because public website access is not permission to commercialise the images. The workflow returns `DEFERRED_RIOT_APPROVAL` with no network call.
 
 A separate scoped, guarded n8n publication operator `/opt/drop-rate/ops/guarded-legacy-release-publish.cjs` is controlled by `DROP_RATE_N8N_LEGACY_RELEASE_PUBLISH_ON_BOOT=true`. It proves source hashes, DR90, pinned runtime version, private SQLite backup, 8 published versions and rollback rather than replacing already active DR96 or DR94 definitions. [Runbook](../../docs/DR97_LEGACY_RIFTBOUND_RELEASE_SCOUTS_20261106.md).
+
+
+## DR-98 — verified, private R2 evidence worklists after each approved metadata generation
+
+The six R2-first catalogue sources have separate signed 15-minute n8n orchestration workflows: YGOPRODeck, Lorcast, MTGJSON, sports Bowman/Heritage, and curated figures. They call `POST /api/v1/automation/commands/catalogue/prepare-enrichment-worklist`, which reads the current authorised source generation and its verified R2 shards, writes append-only SHA-256/private-artwork-and-market-evidence tasks into R2 with complete readback, and returns only bounded metadata receipts.
+
+These are **enrichment candidate worklists**, not image downloaders or Market Value publishers. The existing DR94 rights-approved mirror remains the current approved image path; the missing legal source art and verified sold-value adapters are separately gated.
+
+The independent n8n publisher `/opt/drop-rate/ops/guarded-enrichment-publish.cjs` uses opt-in `DROP_RATE_N8N_ENRICHMENT_PUBLISH_ON_BOOT=true` only after Railway API health and prior six-source test pass. It validates exact six stored hashes, DR90, offline persistent SQLite backup and exact published version readback, and never alters DR90–97. [Runbook](../../docs/DR98_R2_ARTWORK_MARKET_EVIDENCE_BRIDGE_20261107.md).
