@@ -1,3 +1,10 @@
+## 7 November 2026 — Auction Lens iPhone scene loop + consented screen-capture feasibility (draft; NOT LIVE)
+
+- Draft [PR #983](https://github.com/pulltheorytcg/drop-rate-backend/pull/983) now includes the FastAPI-side GBP/pence all-in comparison, mobile scene loop (three stable crops at 4fps; one recognition request per unchanged lot; stale-result/stop/revocation protections) and an **unlinked** iOS 27 ScreenCaptureKit capture proof; no production capture, native build, API bridge, Whatnot/eBay access, video-recognition benchmark or live overlay exists yet.
+- Focused [iPhone scene-loop CI 42392833981](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42392833981) passed 10 new tests and TS typecheck; the separate full [mobile CI 42392833974](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42392833974) failed 3 existing Hub access tests (unmodified by this PR), so app gate is not green. Complete backend CI and iPhone/Xcode device verification remain to be established at the final head.
+- Whatnot UK section 19 and eBay UK terms restrict automated capture/extraction; this feature must use permitted data/footage until platform authorisation is established. UK market snapshots remain subject to the existing expiry/eligibility repair; neither an asking price nor a provider guide is promoted to Market Value.
+- [Native capture limitations and verification plan](mobile/experimental/auction-lens-ios27/README.md) · [UK project plan](docs/AUCTION_LENS_UK_FOUNDATION_20261107.md). No merge/deployment, secrets, n8n activation, native entitlements, stock/finance or database writes.
+
 ## 7 November 2026 — UK Live Auction Lens comparison foundation (draft PR; NOT DEPLOYED)
 
 - Recovered [Live Auction Scanner Proposal](docs/LIVE_AUCTION_SCANNER_PROPOSAL.md) and prior Seller Hub concept [PR #837](https://github.com/pulltheorytcg/drop-rate-backend/pull/837). Source files describe a future buyer-side desktop capture companion for eBay/Whatnot; no capture or auction engine was previously live.
