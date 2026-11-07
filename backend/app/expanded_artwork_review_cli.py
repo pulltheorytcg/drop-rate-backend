@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 from .expanded_artwork_pilot import preview_yugioh, preview_lorcana
+from .expanded_artwork_mtg import preview_mtgjson
 
 SOURCE_MAX_BYTES = 40_000_000
 REFERENCE_MAX_BYTES = 200_000
@@ -29,13 +30,14 @@ def _json_file(path: str, max_bytes: int):
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Review unapproved exact-ID artwork leads offline; no writes")
-    parser.add_argument("--game", required=True, choices=("yugioh", "lorcana"))
+    parser.add_argument("--game", required=True, choices=("yugioh", "lorcana", "magic"))
     parser.add_argument("--source", required=True, help="Existing original provider source JSON (local only)")
     parser.add_argument("--references", required=True, help="Exact published R2 reference rows JSON (max 25)")
     args = parser.parse_args(argv)
     source, source_sha = _json_file(args.source, SOURCE_MAX_BYTES)
     references, refs_sha = _json_file(args.references, REFERENCE_MAX_BYTES)
-    decisions = (preview_yugioh if args.game == "yugioh" else preview_lorcana)(source, references)
+    decisions = {"yugioh": preview_yugioh, "lorcana": preview_lorcana,
+                 "magic": preview_mtgjson}[args.game](source, references)
     report = {
         "schema": "expanded-artwork-preview-v1",
         "game": args.game,
