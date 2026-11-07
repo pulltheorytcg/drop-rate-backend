@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "mobile/src/lib/auctionLensStream.ts"
+      - "mobile/src/lib/auctionLensResolver.ts"
       - "mobile/tests/auction-lens-stream.test.ts"
+      - "mobile/tests/auction-lens-resolver.test.ts"
       - "mobile/package.json"
       - "mobile/package-lock.json"
       - ".github/workflows/auction-lens-mobile.yml"
@@ -29,4 +31,4 @@ jobs:
       - name: Typecheck Expo client
         run: npm --prefix mobile run typecheck
       - name: Run Auction Lens frame tests
-        run: npm --prefix mobile test -- auction-lens-stream.test.ts
+        run: npm --prefix mobile test -- auction-lens
