@@ -34,7 +34,7 @@ def test_video_lab_has_no_external_live_source_or_recording_upload():
     assert 'URL.revokeObjectURL(objectURL)' in script
     assert '"/api/v1/auction-lens/pilot/resolve"' in script
     assert '"Authorization":"Bearer "+token' in script
-    assert 'controller.abort()' in script
+    assert 'currentRequest.abort()' in script
     assert 'result.generation!==ownGeneration' in script
     assert 'video.currentTime' in script
 
