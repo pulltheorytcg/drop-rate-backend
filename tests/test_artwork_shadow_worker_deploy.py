@@ -109,3 +109,41 @@ def test_existing_rows_are_read_but_never_modified():
 def test_smoke_rejects_unrelated_or_insecure_origins_before_network(url):
     with pytest.raises(stage.ArtworkDeploymentBlocked):
         stage.smoke_url(url)
+
+
+def test_smoke_sends_descriptive_user_agent_and_requires_both_negative_responses(monkeypatch):
+    """Cloudflare workers.dev BIC blocks urllib's default User-Agent with 403."""
+    seen = []
+
+    def fake_urlopen(req, timeout):
+        assert timeout == 15
+        assert req.get_header("User-agent") == "DropRate-Artwork-Shadow-Smoke/1.0 (GitHub-Actions)"
+        assert "Python-urllib" not in req.get_header("User-agent")
+        assert req.get_header("X-drop-rate-signature") == "sha256=" + "0" * 64
+        if req.full_url.endswith("/public/artwork/no-such-public-route"):
+            assert req.get_method() == "GET"
+            status = 404
+        elif req.full_url.endswith("/v1/internal/artwork/shadow"):
+            assert req.get_method() == "POST"
+            status = 401
+        else:
+            raise AssertionError("Unexpected Worker route")
+        seen.append((req.get_method(), status))
+        raise stage.error.HTTPError(req.full_url, status, "Expected negative response", {}, None)
+
+    monkeypatch.setattr(stage.request, "urlopen", fake_urlopen)
+    result = stage.smoke_url("https://drop-rate-artwork-shadow.daiyansunny.workers.dev")
+    assert seen == [("GET", 404), ("POST", 401)]
+    assert result["status"] == "PRIVATE_WORKER_NEGATIVE_HTTP_SMOKE_VERIFIED"
+    assert result["image_bytes_written"] == 0
+    assert result["d1_rows_written"] == 0
+
+
+def test_smoke_fails_closed_on_real_cloudflare_403(monkeypatch):
+    """Descriptive UA is not a bypass: a Cloudflare 403 must still fail CI."""
+    def fake_urlopen(req, timeout):
+        raise stage.error.HTTPError(req.full_url, 403, "Blocked upstream", {}, None)
+
+    monkeypatch.setattr(stage.request, "urlopen", fake_urlopen)
+    with pytest.raises(stage.ArtworkDeploymentBlocked, match="HTTP 403"):
+        stage.smoke_url("https://drop-rate-artwork-shadow.daiyansunny.workers.dev")
