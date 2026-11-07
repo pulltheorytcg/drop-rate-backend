@@ -1,7 +1,10 @@
+> Archived development path: this Expo project is preserved for reference.
+> Active development has moved to [`../native`](../native/README.md), using Xcode and Android Studio without Expo.
+
 # Drop Rate — one app, two account roles
 
 The iPhone and Android app displays the existing Seller Hub and Founder HQ from
-`https://drop-rate-api-live-production.up.railway.app`. Shopify remains the separate existing storefront.
+`https://app.droprate.co.uk`. Shopify remains the separate existing storefront.
 There are no replacement native dashboards or demo accounts in the active app routes.
 
 ## How it works
@@ -30,3 +33,21 @@ Legacy hub sessions require a fresh sign-in once after that deployment.
 The earlier replacement screens are preserved under `prototype-routes/` and are not
 registered with Expo Router. Their API helpers/tests remain as reference material.
 The prior localhost live-proxy scripts are not part of the unified hub app.
+
+## Home Screen web app
+
+The hosted `/app` and `/owner` shells share `/assets/app.webmanifest`. Its start
+URL is `/app`; the root scope keeps both role destinations inside one standalone
+window. The Home Screen icons use the existing Drop Rate storefront artwork.
+Regenerate them with `node scripts/home-screen-icons.mjs` from this directory.
+
+After deploying these assets, open the hosted `/app` URL in iPhone Safari and
+choose Share → Add to Home Screen (enable Open as Web App if offered). On Android,
+open the same URL in Chrome and use its Install app / Add to Home screen menu.
+Sign in inside the installed app; an existing browser login may not carry over.
+This is the hosted web app, not a signed native iOS or Android release. It requires
+an internet connection; no service worker or private-data offline cache is added.
+
+Physical-device acceptance remains pending: install and relaunch, seller/founder
+routing, camera capture and photo upload, external links, background/resume, and
+sign-out. The native app build and signing requirements above still apply.

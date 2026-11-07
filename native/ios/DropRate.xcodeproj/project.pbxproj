@@ -1,0 +1,179 @@
+// !$*UTF8*$!
+{
+"archiveVersion" = 1;
+"classes" = {
+
+};
+"objectVersion" = 56;
+"objects" = {
+"000000000000000000000014" = {
+"isa" = "PBXFileReference";
+"lastKnownFileType" = "sourcecode.swift";
+"path" = "DropRate/AppDelegate.swift";
+"sourceTree" = "<group>";
+};
+"00000000000000000000001E" = {
+"isa" = "PBXBuildFile";
+"fileRef" = "000000000000000000000014";
+};
+"000000000000000000000015" = {
+"isa" = "PBXFileReference";
+"lastKnownFileType" = "sourcecode.swift";
+"path" = "DropRate/HubViewController.swift";
+"sourceTree" = "<group>";
+};
+"00000000000000000000001F" = {
+"isa" = "PBXBuildFile";
+"fileRef" = "000000000000000000000015";
+};
+"000000000000000000000016" = {
+"isa" = "PBXFileReference";
+"lastKnownFileType" = "sourcecode.swift";
+"path" = "DropRate/NavigationPolicy.swift";
+"sourceTree" = "<group>";
+};
+"000000000000000000000020" = {
+"isa" = "PBXBuildFile";
+"fileRef" = "000000000000000000000016";
+};
+"000000000000000000000028" = {
+"isa" = "PBXFileReference";
+"lastKnownFileType" = "folder.assetcatalog";
+"path" = "DropRate/Assets.xcassets";
+"sourceTree" = "<group>";
+};
+"000000000000000000000029" = {
+"isa" = "PBXBuildFile";
+"fileRef" = "000000000000000000000028";
+};
+"000000000000000000000005" = {
+"isa" = "PBXFileReference";
+"explicitFileType" = "wrapper.application";
+"path" = "DropRate.app";
+"sourceTree" = "BUILT_PRODUCTS_DIR";
+};
+"000000000000000000000002" = {
+"isa" = "PBXGroup";
+"children" = ("000000000000000000000014", "000000000000000000000015", "000000000000000000000016", "000000000000000000000028", "000000000000000000000003");
+"sourceTree" = "<group>";
+};
+"000000000000000000000003" = {
+"isa" = "PBXGroup";
+"children" = ("000000000000000000000005");
+"name" = "Products";
+"sourceTree" = "<group>";
+};
+"000000000000000000000006" = {
+"isa" = "PBXSourcesBuildPhase";
+"buildActionMask" = 2147483647;
+"files" = ("00000000000000000000001E", "00000000000000000000001F", "000000000000000000000020");
+"runOnlyForDeploymentPostprocessing" = 0;
+};
+"000000000000000000000007" = {
+"isa" = "PBXResourcesBuildPhase";
+"buildActionMask" = 2147483647;
+"files" = ("000000000000000000000029");
+"runOnlyForDeploymentPostprocessing" = 0;
+};
+"000000000000000000000008" = {
+"isa" = "PBXFrameworksBuildPhase";
+"buildActionMask" = 2147483647;
+"files" = ();
+"runOnlyForDeploymentPostprocessing" = 0;
+};
+"000000000000000000000032" = {
+"isa" = "XCBuildConfiguration";
+"name" = "Debug";
+"buildSettings" = {
+"SDKROOT" = "iphoneos";
+"IPHONEOS_DEPLOYMENT_TARGET" = "16.0";
+"CLANG_ENABLE_MODULES" = "YES";
+"SWIFT_VERSION" = "5.0";
+};
+};
+"00000000000000000000003C" = {
+"isa" = "XCBuildConfiguration";
+"name" = "Debug";
+"buildSettings" = {
+"PRODUCT_NAME" = "DropRate";
+"PRODUCT_BUNDLE_IDENTIFIER" = "com.pulltheory.tcg";
+"INFOPLIST_FILE" = "DropRate/Info.plist";
+"CODE_SIGN_STYLE" = "Automatic";
+"TARGETED_DEVICE_FAMILY" = "1";
+"ASSETCATALOG_COMPILER_APPICON_NAME" = "AppIcon";
+"CURRENT_PROJECT_VERSION" = "1";
+"MARKETING_VERSION" = "0.1.0";
+"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+"SUPPORTED_PLATFORMS" = "iphoneos iphonesimulator";
+"SUPPORTS_MACCATALYST" = "NO";
+};
+};
+"000000000000000000000033" = {
+"isa" = "XCBuildConfiguration";
+"name" = "Release";
+"buildSettings" = {
+"SDKROOT" = "iphoneos";
+"IPHONEOS_DEPLOYMENT_TARGET" = "16.0";
+"CLANG_ENABLE_MODULES" = "YES";
+"SWIFT_VERSION" = "5.0";
+};
+};
+"00000000000000000000003D" = {
+"isa" = "XCBuildConfiguration";
+"name" = "Release";
+"buildSettings" = {
+"PRODUCT_NAME" = "DropRate";
+"PRODUCT_BUNDLE_IDENTIFIER" = "com.pulltheory.tcg";
+"INFOPLIST_FILE" = "DropRate/Info.plist";
+"CODE_SIGN_STYLE" = "Automatic";
+"TARGETED_DEVICE_FAMILY" = "1";
+"ASSETCATALOG_COMPILER_APPICON_NAME" = "AppIcon";
+"CURRENT_PROJECT_VERSION" = "1";
+"MARKETING_VERSION" = "0.1.0";
+"SWIFT_OPTIMIZATION_LEVEL" = "-O";
+"SUPPORTED_PLATFORMS" = "iphoneos iphonesimulator";
+"SUPPORTS_MACCATALYST" = "NO";
+};
+};
+"000000000000000000000046" = {
+"isa" = "XCConfigurationList";
+"buildConfigurations" = ("000000000000000000000032", "000000000000000000000033");
+"defaultConfigurationIsVisible" = 0;
+"defaultConfigurationName" = "Release";
+};
+"000000000000000000000047" = {
+"isa" = "XCConfigurationList";
+"buildConfigurations" = ("00000000000000000000003C", "00000000000000000000003D");
+"defaultConfigurationIsVisible" = 0;
+"defaultConfigurationName" = "Release";
+};
+"000000000000000000000004" = {
+"isa" = "PBXNativeTarget";
+"buildConfigurationList" = "000000000000000000000047";
+"buildPhases" = ("000000000000000000000006", "000000000000000000000008", "000000000000000000000007");
+"buildRules" = ();
+"dependencies" = ();
+"name" = "DropRate";
+"productName" = "DropRate";
+"productReference" = "000000000000000000000005";
+"productType" = "com.apple.product-type.application";
+};
+"000000000000000000000001" = {
+"isa" = "PBXProject";
+"attributes" = {
+"LastUpgradeCheck" = "1600";
+};
+"buildConfigurationList" = "000000000000000000000046";
+"compatibilityVersion" = "Xcode 14.0";
+"developmentRegion" = "en";
+"hasScannedForEncodings" = 0;
+"knownRegions" = ("en", "Base");
+"mainGroup" = "000000000000000000000002";
+"productRefGroup" = "000000000000000000000003";
+"projectDirPath" = "";
+"projectRoot" = "";
+"targets" = ("000000000000000000000004");
+};
+};
+"rootObject" = "000000000000000000000001";
+}

@@ -1,2 +1,2 @@
-import sharp from "sharp";
-await sharp("assets/app-icon.svg").png().toFile("assets/icon.png");
+// Regenerate Drop Rate icons from the shared storefront brand asset.
+import "./home-screen-icons.mjs";

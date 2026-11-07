@@ -4,9 +4,11 @@ import { runInNewContext } from 'node:vm';
 import { HUB_ENTRY, isHubUrl, isExternalHttps } from '../src/lib/hub';
 describe('existing hub navigation', () => {
   it('keeps both hubs on the exact trusted origin', () => {
+    expect(HUB_ENTRY).toBe('https://app.droprate.co.uk/app');
     expect(isHubUrl(HUB_ENTRY)).toBe(true);
+    expect(isHubUrl('https://drop-rate-api-live-production.up.railway.app/app')).toBe(false);
     expect(isHubUrl(new URL('/',HUB_ENTRY).href)).toBe(true);
-    for (const url of ['http://drop-rate-api-live-production.up.railway.app/', 'https://drop-rate-api-live-production.up.railway.app.evil.test/', 'https://user@drop-rate-api-live-production.up.railway.app/', 'javascript:alert(1)', 'file:///etc/passwd']) expect(isHubUrl(url)).toBe(false);
+    for (const url of ['http://app.droprate.co.uk/', 'https://app.droprate.co.uk.evil.test/', 'https://user@app.droprate.co.uk/', 'javascript:alert(1)', 'file:///etc/passwd']) expect(isHubUrl(url)).toBe(false);
     expect(isExternalHttps('https://example.com')).toBe(true);
     expect(isExternalHttps('intent://scan')).toBe(false);
   });
@@ -53,7 +55,8 @@ describe('existing hub role boundaries', () => {
     const redirects: string[] = [];
     let cleared = false;
     const context = {
-      window: {location:{replace:(url:string)=>redirects.push(url)},locationHash:''},
+      window: {location:{pathname:'/app',search:'',hash:'',replace:(url:string)=>redirects.push(url)}},
+      document: {body:{classList:{remove:()=>{}}}},
       apiRequest: async (path:string) => { calls.push(path); return path.endsWith('/access/me') ? {access} : {owner:{display_name:'Test'}}; },
       state:{session:{user:{email:'test@example.invalid'}}},
       byId:()=>({classList:{add:()=>{},remove:()=>{}},value:''}),
@@ -75,9 +78,9 @@ describe('existing hub role boundaries', () => {
     expect(result.calls).toEqual(['/api/v1/access/me']);
     expect(result.cleared).toBe(true);
   });
-  it('hands an authorized founder to the existing founder hub',async()=>{
-    const result=await enter('owner-portal.js','openOwnerPortal',{access_role:'PLATFORM_ADMIN',founder_hq_allowed:true});
-    expect(result.redirects).toEqual(['/']);
+  it('hands an authorized founder to the shared owner workspace',async()=>{
+    const result=await enter('app.js','openDashboard',{access_role:'PLATFORM_ADMIN',founder_hq_allowed:true});
+    expect(result.redirects).toEqual(['/owner']);
     expect(result.calls).toEqual(['/api/v1/access/me']);
     expect(result.cleared).toBe(false);
   });

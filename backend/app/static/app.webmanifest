@@ -1,0 +1,26 @@
+{
+  "id": "/app",
+  "name": "Drop Rate",
+  "short_name": "Drop Rate",
+  "description": "Seller Hub and Founder HQ in one Drop Rate app.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#071b3f",
+  "theme_color": "#071b3f",
+  "lang": "en-GB",
+  "icons": [
+    {
+      "src": "/assets/brand-assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/brand-assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

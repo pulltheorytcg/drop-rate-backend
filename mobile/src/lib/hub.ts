@@ -1,5 +1,5 @@
 // Both existing hubs are served by this origin. Roles remain server-authorized.
-export const HUB_ORIGIN = "https://drop-rate-api-live-production.up.railway.app";
+export const HUB_ORIGIN = "https://app.droprate.co.uk";
 export const HUB_ENTRY = `${HUB_ORIGIN}/app`;
 export function isHubUrl(value: string): boolean {
   try {

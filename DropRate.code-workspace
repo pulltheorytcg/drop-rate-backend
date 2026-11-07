@@ -16,34 +16,42 @@
     "version": "2.0.0",
     "tasks": [
       {
-        "label": "Drop Rate: start mobile",
-        "type": "shell",
-        "command": "npm start",
-        "options": {
-          "cwd": "${workspaceFolder}/mobile"
-        },
-        "problemMatcher": [],
-        "isBackground": true
+        "label": "Drop Rate: open iPhone project",
+        "type": "process",
+        "command": "open",
+        "args": [
+          "${workspaceFolder}/native/ios/DropRate.xcodeproj"
+        ],
+        "problemMatcher": []
       },
       {
-        "label": "Drop Rate: check app",
+        "label": "Drop Rate: check native app",
         "type": "shell",
-        "command": "npm run check",
+        "command": "./scripts/check.sh",
         "options": {
-          "cwd": "${workspaceFolder}/mobile"
+          "cwd": "${workspaceFolder}/native"
         },
         "problemMatcher": [],
         "group": "test"
       },
       {
-        "label": "Drop Rate: browser preview",
+        "label": "Drop Rate: build Android APK",
         "type": "shell",
-        "command": "npm run export && npm run preview",
+        "command": "./gradlew assembleDebug",
         "options": {
-          "cwd": "${workspaceFolder}/mobile"
+          "cwd": "${workspaceFolder}/native/android"
         },
         "problemMatcher": [],
-        "isBackground": true
+        "group": "build"
+      },
+      {
+        "label": "Drop Rate: open live hub",
+        "type": "process",
+        "command": "open",
+        "args": [
+          "https://app.droprate.co.uk/app"
+        ],
+        "problemMatcher": []
       }
     ]
   }

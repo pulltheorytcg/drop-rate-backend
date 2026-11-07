@@ -1,5 +1,8 @@
 # Drop Rate Backend
 
+Native iPhone and Android app development: [native/README.md](native/README.md).
+Open `DropRate.code-workspace` in VS Code for the native development tasks.
+
 Private FastAPI backend and founder dashboard for Drop Rate's inventory system.
 
 ## Seller Hub prelaunch registrations
