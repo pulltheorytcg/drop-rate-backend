@@ -198,7 +198,7 @@ def test_graded_card_always_requires_physical_capture() -> None:
     assert "graded card" in policy["reasons"]
 
 
-def test_official_exact_card_art_is_shopify_primary_even_when_scan_is_saved() -> None:
+def test_first_party_photo_is_primary_even_when_exact_catalogue_art_exists() -> None:
     physical = _asset(
         asset_id="physical-front",
         scope="INVENTORY_ITEM",
@@ -211,9 +211,9 @@ def test_official_exact_card_art_is_shopify_primary_even_when_scan_is_saved() ->
     result = resolve_storefront_media(_item(), [_asset(), physical])
     assert result["complete"] is True
     assert result["physicalPhotosRequired"] is False
-    assert result["resolutionSource"] == "CANONICAL_STOREFRONT"
-    assert result["selectedMedia"][0]["id"] == "asset-1"
-    assert "physical scan photos remain attached" in result["selectionReason"]
+    assert result["resolutionSource"] == FIRST_PARTY_CAPTURE
+    assert result["selectedMedia"][0]["id"] == "physical-front"
+    assert "takes priority" in result["selectionReason"]
 
 
 def test_raw_scan_photo_is_fallback_when_official_printing_is_not_eligible() -> None:

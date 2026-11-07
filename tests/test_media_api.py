@@ -89,7 +89,7 @@ async def test_owner_gets_all_four_consistent_channel_decisions_without_writes(s
     assert result["inventory_id"] == str(ITEM)
     assert result["mutated"] is False
     assert set(result["channels"]) == {"DROP_RATE", "SHOPIFY", "EBAY", "WHATNOT"}
-    assert result["channels"]["DROP_RATE"]["selectedMedia"][0]["id"] == "asset-1"
+    assert result["channels"]["DROP_RATE"]["selectedMedia"][0]["id"] == "photo"
     assert result["channels"]["SHOPIFY"]["publishReady"] is True
     assert result["channels"]["EBAY"]["publishReady"] is True
     assert len(result["channels"]["EBAY"]["imageUrls"]) == 2

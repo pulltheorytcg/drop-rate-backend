@@ -47,11 +47,11 @@ def test_all_channels_resolve_from_one_inventory_without_mutating_source():
     assert MEDIA_CHANNELS == {"DROP_RATE", "SHOPIFY", "EBAY", "WHATNOT"}
     for result in (drop_rate, shopify):
         assert result["complete"]
-        assert result["resolutionSource"] == "CANONICAL_STOREFRONT"
-        assert result["selectedMedia"][0]["id"] == "asset-1"
+        assert result["resolutionSource"] == FIRST_PARTY_CAPTURE
+        assert result["selectedMedia"][0]["id"] == "photo"
     assert drop_rate["publishReady"] is False
     assert shopify["publishReady"] is True
-    assert shopify["shopifyFileIds"] == ["gid://shopify/MediaImage/asset-1"]
+    assert shopify["shopifyFileIds"] == ["gid://shopify/MediaImage/photo", "gid://shopify/MediaImage/back"]
 
     assert ebay["complete"] and ebay["publishReady"]
     assert ebay["resolutionSource"] == FIRST_PARTY_CAPTURE
@@ -156,3 +156,38 @@ def test_unconnected_whatnot_does_not_reuse_a_valid_shopify_publish_decision():
     assert not result["channelConnected"]
     assert result["selectedMedia"][0]["rightsTier"] == STOREFRONT_ALLOWED
     assert result["imageUrls"] == []
+
+
+@pytest.mark.parametrize('kind', ['CARD', 'COMIC', 'BOOK', 'FIGURE', 'LEGO', 'SEALED'])
+def test_own_product_photo_needs_no_separate_publisher_licence(kind):
+    item = owned_item(product_type=kind, seal_status='SEALED')
+    photo = physical(context='SEALED_PRODUCT' if kind == 'SEALED' else 'RAW_UNSLEEVED')
+    photo.update(permission_evidence_url=None,
+                 rights_basis='Photographed by consignor; authorised for sale of this Inventory ID.')
+    for channel in ('DROP_RATE', 'SHOPIFY'):
+        result = resolve_media(item, [photo], channel=channel)
+        assert result['complete']
+        assert result['resolutionSource'] == FIRST_PARTY_CAPTURE
+        assert result['selectedMedia'][0]['id'] == photo['id']
+
+
+@pytest.mark.parametrize('change,reason', [
+    ({'rights_status': 'PENDING'}, 'photographer/source permission'),
+    ({'approval_status': 'PENDING'}, 'internal media approval'),
+    ({'revoked_at': '2026-11-07T00:00:00Z'}, 'inactive or revoked'),
+    ({'shopify_file_status': 'PROCESSING'}, 'Shopify file processing'),
+    ({'rights_tier': INTERNAL_REFERENCE_ONLY}, 'not a first-party product photograph'),
+])
+def test_photo_blocker_reports_specific_reason(change, reason):
+    photo = physical()
+    photo.update(change)
+    result = resolve_media(owned_item(store_price_minor=8000), [photo], channel='SHOPIFY')
+    assert not result['publishReady']
+    assert any(reason in blocker for blocker in result['blockers'])
+    assert not any('publisher' in blocker or 'copyright' in blocker for blocker in result['blockers'])
+
+
+def test_first_party_photograph_cannot_become_reusable_catalogue_media():
+    photo = physical()
+    photo.update(scope='CANONICAL_CARD', inventory_id=None, catalogue_id='catalogue-1')
+    assert not resolve_media(owned_item(), [photo], channel='SHOPIFY')['complete']
