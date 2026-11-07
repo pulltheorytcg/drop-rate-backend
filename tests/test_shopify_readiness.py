@@ -40,7 +40,7 @@ def test_local_readiness_summary_separates_core_and_media_blockers(monkeypatch) 
     )
     monkeypatch.setattr(
         readiness,
-        "resolve_storefront_media",
+        "resolve_media",
         lambda row, assets, **kwargs: {
             "blockers": (
                 []
@@ -107,7 +107,8 @@ def test_local_readiness_endpoint_is_owner_scoped_and_has_no_publish_path() -> N
     assert '"linked_drafts"] = linked_drafts' in source
     assert "lim.id is null" in source
     assert "_test_sync_missing" in source
-    assert "resolve_storefront_media" in source
+    assert "resolve_media" in source
+    assert 'channel="SHOPIFY"' in source
     assert '"network_calls"] = 0' in source
     assert '"publication_actions"] = 0' in source
     assert "ShopifyAdminClient" not in source
