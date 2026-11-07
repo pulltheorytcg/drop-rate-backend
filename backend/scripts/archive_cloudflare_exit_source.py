@@ -25,7 +25,7 @@ async def run(*, apply: bool) -> dict:
     actor = UUID(settings.catalogue_maintenance_actor_user_id)
     pool = await create_pool(settings)
     try:
-        return await backup_operational_sources(pool,actor,upload=apply)
+        # A hung upstream source/R2 request must not leave an endless half-job.\n        # An aborted job never reports a completed manifest or D1 cutover.\n        return await asyncio.wait_for(\n            backup_operational_sources(pool,actor,upload=apply),timeout=1200)
     finally:
         await pool.close()
 
