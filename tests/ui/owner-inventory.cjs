@@ -61,6 +61,53 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(picture.querySelector('img').src,'https://cdn.shopify.com/certificate.png');
   f.finish();checks++;
  }
+ // Reviewed graded inventory may show exact card artwork in private collection,
+ // but it is never presented as an actual slab or verified certificate scan.
+ {
+  const f=fixture(),graded={...item,product_type:'CARD',seal_status:null,
+   grading_company:'PSA',grade:'9',certificate_number:'62398872',
+   graded_reference_allowed:true,card_image_scope:'CANONICAL_CARD',
+   card_image_source_type:'LICENSED_PROVIDER',card_image_rights_tier:'STOREFRONT_ALLOWED',
+   reference_image_status:'GRADED_CARD_ART_REFERENCE',
+   image_url:'https://assets.tcgdex.net/en/swsh/swsh3/19/high.webp'};
+  const picture=f.w.DropRateInventory.image(graded,'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();
+  assert.match(picture.querySelector('img').alt,/matching card artwork, not a slab photo/);
+  assert.match(picture.querySelector('img').src,/assets.tcgdex.net/);
+  f.run(`renderInventoryCards([${JSON.stringify(graded)}]);`);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.equal(tile.querySelector('.owner-card-image-wrap--graded')!==null,true);
+  assert.match(tile.querySelector('.owner-graded-reference-caption').textContent,/not slab photo/);
+  assert.equal(tile.querySelector('.owner-card-image-wrap--reference-only')!==null,true);
+  f.finish();checks++;
+ }
+ {
+  // Grader photo of the raw card is explicitly distinct from the slab photo.
+  const f=fixture(),graded={...item,product_type:'CARD',seal_status:null,
+   grading_company:'PSA',grade:'9',certificate_number:'62398872',
+   card_image_scope:'INVENTORY_ITEM',card_image_capture_context:'RAW_UNSLEEVED',
+   card_image_source_provider:'PSA',card_image_source_type:'OFFICIAL_PROVIDER',
+   card_image_rights_tier:'INTERNAL_REFERENCE_ONLY',
+   reference_image_status:'GRADER_CERTIFICATE_RAW_REFERENCE',
+   image_url:'https://cdn.shopify.com/cert-raw.png'};
+  const picture=f.w.DropRateInventory.image(graded,'owner-card-thumb');
+  f.w.document.body.append(picture);await tick();
+  assert.match(picture.querySelector('img').alt,/certificate raw card reference image, not a slab photo/);
+  f.run(`renderInventoryCards([${JSON.stringify(graded)}]);`);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.match(tile.querySelector('.owner-graded-reference-caption').textContent,/Certificate card image/);
+  f.finish();checks++;
+ }
+ {
+  // Both phone and desktop tile styles must give the entire slab room and
+  // preserve its original aspect ratio instead of forcing a cropped preview.
+  const css=fs.readFileSync(path.join(base,'owner-collection.css'),'utf8');
+  assert.match(css,/\\.owner-card-image-wrap--graded\\s*\\{/);
+  assert.match(css,/object-fit:\\s*contain\\s*!important/);
+  assert.match(css,/height:\\s*218px/);
+  assert.match(css,/padding-bottom:\\s*26px/);
+  checks++;
+ }
  // The selected market value is the only valuation; retail multipliers cannot prefill the selling form.
  for(const saved of [null,2000]){
   const current={...item,product_type:'CARD',condition:'Near Mint',market_value_minor:1200,store_price_minor:saved,recommended_retail_minor:9900,
