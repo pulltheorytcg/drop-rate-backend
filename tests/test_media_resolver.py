@@ -198,7 +198,7 @@ def test_graded_card_always_requires_physical_capture() -> None:
     assert "graded card" in policy["reasons"]
 
 
-def test_exact_first_party_front_has_priority_for_low_risk_card() -> None:
+def test_official_exact_card_art_is_shopify_primary_even_when_scan_is_saved() -> None:
     physical = _asset(
         asset_id="physical-front",
         scope="INVENTORY_ITEM",
@@ -210,8 +210,52 @@ def test_exact_first_party_front_has_priority_for_low_risk_card() -> None:
     )
     result = resolve_storefront_media(_item(), [_asset(), physical])
     assert result["complete"] is True
-    assert result["resolutionSource"] == FIRST_PARTY_CAPTURE
-    assert result["selectedMedia"][0]["id"] == "physical-front"
+    assert result["physicalPhotosRequired"] is False
+    assert result["resolutionSource"] == "CANONICAL_STOREFRONT"
+    assert result["selectedMedia"][0]["id"] == "asset-1"
+    assert "physical scan photos remain attached" in result["selectionReason"]
+
+
+def test_raw_scan_photo_is_fallback_when_official_printing_is_not_eligible() -> None:
+    physical = _asset(
+        asset_id="owned-scan", scope="INVENTORY_ITEM", side="FRONT",
+        rights_tier=FIRST_PARTY_CAPTURE, inventory_id="inventory-1",
+        catalogue_id=None, capture_context="RAW_UNSLEEVED",
+    )
+    for official in (
+        _asset(asset_id="wrong-language", language="Japanese"),
+        _asset(asset_id="wrong-variant", variant="Alternate Art"),
+        _asset(asset_id="internal", rights_tier=INTERNAL_REFERENCE_ONLY),
+        _asset(asset_id="unready"),
+    ):
+        if official["id"] == "unready":
+            official["shopify_file_status"] = "NOT_UPLOADED"
+            official["shopify_file_gid"] = None
+        result = resolve_storefront_media(_item(), [physical, official])
+        assert result["complete"] is True
+        assert result["resolutionSource"] == FIRST_PARTY_CAPTURE
+        assert result["selectedMedia"][0]["id"] == "owned-scan"
+
+
+def test_high_value_or_graded_items_keep_physical_media_requirement_even_with_official_art() -> None:
+    physical_front = _asset(
+        asset_id="real-front", scope="INVENTORY_ITEM", side="FRONT",
+        rights_tier=FIRST_PARTY_CAPTURE, inventory_id="inventory-1",
+        catalogue_id=None, capture_context="GRADED_SLAB",
+    )
+    for item in (
+        _item(store_price_minor=5_000),
+        _item(grading_company="PSA", grade="10", certificate_number="123456789"),
+    ):
+        blocked = resolve_storefront_media(item, [_asset(), physical_front])
+        assert not blocked["complete"]
+        assert "approved first-party physical back image" in blocked["blockers"]
+        assert blocked["resolutionSource"] != "CANONICAL_STOREFRONT"
+        back = dict(physical_front, id="real-back", side="BACK",
+                    shopify_file_gid="gid://shopify/MediaImage/real-back")
+        ready = resolve_storefront_media(item, [_asset(), physical_front, back])
+        assert ready["complete"] is True
+        assert ready["resolutionSource"] == FIRST_PARTY_CAPTURE
 
 
 def test_sealed_collection_requires_exact_first_party_packaging_front() -> None:
