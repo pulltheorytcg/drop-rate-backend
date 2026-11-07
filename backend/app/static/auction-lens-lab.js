@@ -128,7 +128,11 @@
           && Number.isSafeInteger(price.marketValueMinor) && price.marketValueMinor>0
           && Date.now()<price.expiresAtMs && price.source) {
         const formatted=new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"}).format(price.marketValueMinor/100);
-        show("Exact match",result.title,"Current, eligible UK Market Value · "+price.source,formatted,latency);
+        const checked=Number.isFinite(price.evidenceAtMs)
+          ? new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",dateStyle:"medium"}).format(new Date(price.evidenceAtMs))
+          : "date unavailable";
+        show("Exact match",result.title,"UK Market Value · "+(price.basis||"confirmed raw condition")+
+          " · evidence "+checked+" · "+price.source,formatted,latency);
       } else {
         show("Identity found",result.title,"No eligible current UK Market Value for this exact printing and confirmed condition. Missing evidence remains unavailable.",null,latency);
       }
