@@ -102,10 +102,10 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   // Both phone and desktop tile styles must give the entire slab room and
   // preserve its original aspect ratio instead of forcing a cropped preview.
   const css=fs.readFileSync(path.join(base,'owner-collection.css'),'utf8');
-  assert.match(css,/\\.owner-card-image-wrap--graded\\s*\\{/);
-  assert.match(css,/object-fit:\\s*contain\\s*!important/);
-  assert.match(css,/height:\\s*218px/);
-  assert.match(css,/padding-bottom:\\s*26px/);
+  assert.match(css,/\.owner-card-image-wrap--graded\s*\{/);
+  assert.match(css,/object-fit:\s*contain\s*!important/);
+  assert.match(css,/height:\s*218px/);
+  assert.match(css,/padding-bottom:\s*26px/);
   checks++;
  }
  // The selected market value is the only valuation; retail multipliers cannot prefill the selling form.
