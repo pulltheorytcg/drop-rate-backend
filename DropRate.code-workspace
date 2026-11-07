@@ -1,7 +1,7 @@
 {
   "folders": [
     {
-      "name": "PullTheory",
+      "name": "Drop Rate",
       "path": "."
     }
   ],
@@ -16,7 +16,7 @@
     "version": "2.0.0",
     "tasks": [
       {
-        "label": "PullTheory: start mobile",
+        "label": "Drop Rate: start mobile",
         "type": "shell",
         "command": "npm start",
         "options": {
@@ -26,7 +26,7 @@
         "isBackground": true
       },
       {
-        "label": "PullTheory: check app",
+        "label": "Drop Rate: check app",
         "type": "shell",
         "command": "npm run check",
         "options": {
@@ -36,7 +36,7 @@
         "group": "test"
       },
       {
-        "label": "PullTheory: browser preview",
+        "label": "Drop Rate: browser preview",
         "type": "shell",
         "command": "npm run export && npm run preview",
         "options": {

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "PullTheory TCG",
+    "name": "Drop Rate",
     "slug": "pulltheory-tcg",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -17,7 +17,9 @@
     },
     "android": {
       "package": "com.pulltheory.tcg",
-      "permissions": ["CAMERA"],
+      "permissions": [
+        "CAMERA"
+      ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_VIDEO",
@@ -30,7 +32,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow PullTheory to photograph your cards for recognition.",
+          "cameraPermission": "Allow Drop Rate to photograph your cards for recognition.",
           "recordAudioAndroid": false,
           "microphonePermission": false
         }
@@ -38,8 +40,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Choose a card photo to identify in PullTheory.",
-          "cameraPermission": "Allow PullTheory to photograph your cards.",
+          "photosPermission": "Choose a card photo to identify in Drop Rate.",
+          "cameraPermission": "Allow Drop Rate to photograph your cards.",
           "microphonePermission": false
         }
       ],

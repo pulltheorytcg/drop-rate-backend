@@ -1,4 +1,4 @@
-# PullTheory — one app, existing hubs
+# Drop Rate — one app, existing hubs
 
 The iPhone and Android app displays the existing Seller Hub and Founder HQ from
 `https://drop-rate-api-live-production.up.railway.app`. Shopify remains the separate existing storefront.
