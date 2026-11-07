@@ -176,7 +176,7 @@ def test_graded_fallback_selector_requires_exact_identity_review_and_never_publi
         "to_jsonb(i)->>'identity_confirmed'='true'",
         "to_jsonb(i)->>'condition_review_status'='VERIFIED_GRADED'",
         "to_jsonb(i)->>'condition_verified_by_user_id' is not null",
-        "i.status in ('APPROVED','RESERVED','SOLD')",
+        "to_jsonb(i)->>'status' in ('APPROVED','RESERVED','SOLD')",
         "length(btrim(i.certificate_number))>=6",
         "to_jsonb(p)->>'product_type'='CARD'",
         "ma.capture_context in ('GRADED_SLAB','RAW_UNSLEEVED')",
