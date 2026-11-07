@@ -151,13 +151,13 @@ async def test_exact_approved_grader_raw_card_image_is_private_reference(monkeyp
 @pytest.mark.parametrize('reviewed', [True, False])
 async def test_reviewed_graded_card_uses_exact_canonical_art_only_privately(monkeypatch, reviewed):
     item = dict(id=uuid4(), grading_company='PSA', grade='9', certificate_number='62398872',
-                graded_reference_allowed=reviewed, reference_image_url='old-unbound',
+                reference_image_url='old-unbound',
                 reference_image_path='/old', image_url='old-unbound')
     asset = dict(inventory_id=item['id'], scope='CANONICAL_CARD', capture_context=None,
                  approval_status='APPROVED', rights_tier='STOREFRONT_ALLOWED',
                  source_type='LICENSED_PROVIDER', source_provider='TCGdex',
                  public_source_url='https://assets.tcgdex.net/en/swsh/swsh3/19/high.webp',
-                 shopify_cdn_url=None)
+                 shopify_cdn_url=None, graded_card_art_allowed=reviewed)
     async def assets(*args):
         return [asset]
     monkeypatch.setattr(media, 'shared_media_assets', assets)
@@ -173,12 +173,12 @@ async def test_reviewed_graded_card_uses_exact_canonical_art_only_privately(monk
 def test_graded_fallback_selector_requires_exact_identity_review_and_never_public_sale_rights():
     sql = media.MEDIA_SQL
     for clause in (
-        "i.identity_confirmed is true",
-        "i.condition_review_status='VERIFIED_GRADED'",
-        "i.condition_verified_by_user_id is not null",
+        "to_jsonb(i)->>'identity_confirmed'='true'",
+        "to_jsonb(i)->>'condition_review_status'='VERIFIED_GRADED'",
+        "to_jsonb(i)->>'condition_verified_by_user_id' is not null",
         "i.status in ('APPROVED','RESERVED','SOLD')",
         "length(btrim(i.certificate_number))>=6",
-        "p.product_type='CARD'",
+        "to_jsonb(p)->>'product_type'='CARD'",
         "ma.capture_context in ('GRADED_SLAB','RAW_UNSLEEVED')",
         "ma.capture_context='RAW_UNSLEEVED' and ma.rights_tier='INTERNAL_REFERENCE_ONLY'",
         "and ma.source_type='OFFICIAL_PROVIDER'",
