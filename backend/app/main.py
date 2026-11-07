@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 import asyncpg
 from fastapi import Depends, FastAPI, Request
+from fastapi import HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -71,6 +72,7 @@ from .imported_benchmark_pricing import router as imported_benchmark_pricing_rou
 from .ebay_sold_pricing import router as ebay_sold_pricing_router
 from .pricing_preview import router as pricing_preview_router
 from .recognition import router as recognition_router
+from .auction_lens_api import router as auction_lens_router
 from .recognition_vision import close_shared_vision_http_client
 from .recognition_images import close_reference_http_client
 from .catalogue_artwork import close_artwork_tasks
@@ -389,8 +391,11 @@ def create_app() -> FastAPI:
             response.headers["Cache-Control"] = "no-store"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
+        # The opt-in local-video lab needs blob: only for its user-selected
+        # video element. Keep that permission off every other production page.
+        local_video_media = "media-src 'self' blob:; " if request.url.path == "/auction-lens-lab" else ""
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
+            "default-src 'self'; " + local_video_media +
             "script-src 'self'; style-src 'self'; "
             f"img-src 'self' data: blob: https://assets.tcgdex.net https://covers.openlibrary.org https://archive.org/download/ https://*.us.archive.org/view_archive.php https://i.ebayimg.com https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net{r2_img_origin}; "
             f"connect-src 'self' {settings.supabase_url}; "
@@ -409,6 +414,13 @@ def create_app() -> FastAPI:
     async def riot_domain_verification() -> FileResponse:
         """Public Riot domain verification; exact bytes live in riot.txt."""
         return FileResponse(STATIC_DIR / "riot.txt", media_type="text/plain")
+
+    @app.get("/auction-lens-lab", include_in_schema=False)
+    async def auction_lens_lab() -> HTMLResponse:
+        # Explicit enablement only; never a public live auction capture route.
+        if os.getenv("TCG_AUCTION_LENS_AUTHORISED_PILOT_ENABLED", "").strip().lower() != "true":
+            raise HTTPException(status_code=404, detail="Auction Lens pilot is not active")
+        return HTMLResponse((STATIC_DIR / "auction-lens-lab.html").read_text(encoding="utf-8"))
 
     @app.get("/seller-hub", include_in_schema=False)
     async def seller_hub_launch() -> HTMLResponse:
@@ -515,6 +527,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_sale_intent_router)
     app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(recognition_router)
+    app.include_router(auction_lens_router)
     app.include_router(reference_library_router)
     app.include_router(catalogue_browser_router)
     app.include_router(catalogue_saved_router)

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Auction Lens Video Lab · Drop Rate</title>
+<link rel="stylesheet" href="/assets/auction-lens-lab.css">
+<script src="/assets/hub-session.js" defer></script>
+<script src="/assets/auction-lens-lab.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="topbar"><a href="/app" class="wordmark">DROP <em>RATE</em></a>
+    <span class="tag">PRIVATE DEVELOPMENT PREVIEW</span>
+  </header>
+  <section class="intro">
+    <p class="eyebrow">AUCTION LENS · UK</p>
+    <h1>Find the exact card.<br><span>Know its market value.</span></h1>
+    <p class="sub">Offline-video recognition experiment, not live auction capture. Use only footage you own or have explicit permission to process. Nothing is published or sold.</p>
+  </section>
+  <div class="layout">
+    <section class="panel">
+      <h2>1. Load permitted footage</h2>
+      <label class="upload">Select a local video
+        <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/*">
+      </label>
+      <div class="video-frame"><video id="footage" controls playsinline muted preload="metadata"></video><div id="video-empty">Your chosen video plays here.</div></div>
+      <p class="hint">The video stays on this device. When you start recognition, only a cropped JPEG of the item is sent to Drop Rate's authenticated pilot API. Check the preview below to ensure no chat, usernames or notifications are included.</p>
+      <div class="crop-grid">
+        <label>Left <input id="crop-left" type="range" min="0" max="70" value="18"><output id="crop-left-value">18%</output></label>
+        <label>Top <input id="crop-top" type="range" min="0" max="70" value="20"><output id="crop-top-value">20%</output></label>
+        <label>Width <input id="crop-width" type="range" min="20" max="100" value="64"><output id="crop-width-value">64%</output></label>
+        <label>Height <input id="crop-height" type="range" min="20" max="100" value="60"><output id="crop-height-value">60%</output></label>
+      </div>
+      <div class="crop-preview"><img id="crop-preview" alt="The exact cropped region being tested. No image is retained."><span>Selected card crop</span></div>
+    </section>
+    <section class="panel right">
+      <h2>2. Confirm visible printing</h2>
+      <p class="hint">In this first benchmark, supply the text visible in the video. Automatic native OCR is not connected yet, so this test measures our visual matching and backend response—not full Shazam-style automation.</p>
+      <form id="identity-form" autocomplete="off">
+        <div class="field-pair">
+          <label>Game <input value="Pokémon" disabled></label>
+          <label>Language <input value="English" disabled></label>
+        </div>
+        <label>Card name <input id="card-name" type="text" maxlength="120" placeholder="e.g. Rapidash" required></label>
+        <label>Set <input id="set-name" type="text" maxlength="120" placeholder="e.g. Temporal Forces" required></label>
+        <div class="field-pair">
+          <label>Collector number <input id="card-number" type="text" maxlength="45" placeholder="048/162" required></label>
+          <label>Finish <select id="finish"><option>Normal</option><option>Holofoil</option><option>Reverse Holofoil</option></select></label>
+        </div>
+        <label class="check"><input id="nm-confirmed" type="checkbox"> I have personally confirmed this raw card is Near Mint</label>
+      </form>
+      <label>Footage source <select id="source-rights">
+        <option value="OWN_VIDEO">My own recording</option>
+        <option value="EXPLICITLY_AUTHORISED_VIDEO">Footage I have explicit permission to process</option>
+      </select></label>
+      <label class="check"><input id="rights-affirmed" type="checkbox"> I own this footage or have explicit permission to process it</label>
+      <div class="controls">
+        <button id="start-scan" type="button" class="primary">Start recognition</button>
+        <button id="new-lot" type="button">New lot</button>
+        <button id="stop-scan" type="button" class="stop">Stop</button>
+      </div>
+      <div class="result">
+        <div class="result-heading"><span id="result-light" class="dot"></span><span id="result-state">Stopped</span><span id="result-latency"></span></div>
+        <h3 id="result-title">Waiting for a clear card</h3>
+        <div class="market-value"><span>UK Market Value</span><strong id="result-price">—</strong></div>
+        <p id="result-explanation">Only supported, unexpired UK sold evidence for the exact printing and confirmed condition can appear here. No RRP or asking-price substitutes.</p>
+      </div>
+      <p class="footnote">Never automates bidding. Doesn't connect to Whatnot, eBay or any other live service. Feature is disabled in production unless separately authorised.</p>
+    </section>
+  </div>
+</main>
+<canvas id="card-canvas" hidden></canvas>
+<canvas id="hash-canvas" width="9" height="8" hidden></canvas>
+</body>
+</html>
