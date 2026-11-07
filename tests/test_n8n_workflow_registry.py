@@ -11,13 +11,13 @@ def _registry() -> dict:
     return json.loads(REGISTRY.read_text())
 
 
-def test_n8n_workflow_registry_covers_46_founder_workflows() -> None:
+def test_n8n_workflow_registry_covers_47_founder_workflows() -> None:
     registry = _registry()
     workflows = registry["workflows"]
     assert registry["schema_version"] == 1
-    assert len(workflows) == 46
-    assert [row["sequence"] for row in workflows] == list(range(1, 47))
-    assert len({row["key"] for row in workflows}) == 46
+    assert len(workflows) == 47
+    assert [row["sequence"] for row in workflows] == list(range(1, 48))
+    assert len({row["key"] for row in workflows}) == 47
 
 
 def test_every_workflow_has_safety_and_activation_contract() -> None:
@@ -84,3 +84,15 @@ def test_eight_older_game_scouts_preserve_existing_sources_and_riot_gate() -> No
     assert len(row["implementation_paths"]) == 8
     assert all((ROOT / item).exists() for item in row["implementation_paths"])
     assert "Riftbound" in row["activation_note"]
+
+
+def test_dr98_private_enrichment_cannot_publish_images_or_prices() -> None:
+    row, = [entry for entry in _registry()["workflows"]
+            if entry["key"] == "r2-first-release-enrichment-worklist"]
+    assert row["status"] == "BUILT_INACTIVE"
+    assert row["authority"] == "ORCHESTRATE"
+    assert row["decision_engine"] == "FastAPI"
+    assert row["ai_may_assist"] is False
+    assert len(row["implementation_paths"]) == 6
+    assert all((ROOT / path).exists() for path in row["implementation_paths"])
+    assert row["control_contract"] == "/api/v1/automation/commands/catalogue/prepare-enrichment-worklist"
