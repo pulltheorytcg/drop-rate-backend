@@ -54,6 +54,7 @@ from .cardmarket_valuations import refresh_cardmarket_values, REVISION as CARDMA
 from .catalogue_valuations import REVISION as CATALOGUE_VALUE_REVISION, refresh_catalogue_values
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 from .shopify_client import ShopifyMediaScopeRequired
+from .shopify_graded_photo_audit import audit_published_graded_media
 
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
@@ -648,13 +649,31 @@ async def shopify_pass(pool,settings):
                 publication_failures += status == 'FAILED'
                 publication_incomplete += status == 'INCOMPLETE'
                 await receipt(pool,actor,'SHOPIFY_SYNC',status,report,run)
+            # Exact physical slab-front/back photo proof remains independent
+            # of a Shopify publication link. Add owner-visible exceptions, but
+            # never auto-unpublish a founder's item or override prior review.
+            graded_audit={'graded_published_checked':0,'missing':0,
+                          'new_or_reopened':0,'existing_open':0,'resolved':0,
+                          'shopify_publications_changed':0,'ownership_changed':0}
+            graded_audit_failed=False
+            try:
+                async with actor_connection(pool,actor) as connection:
+                    graded_audit=await audit_published_graded_media(
+                        connection,actor_user_id=actor)
+            except Exception as exc:
+                # A media integrity audit must not interrupt order, inventory
+                # or financial workflows. Preserve failure in the durable
+                # Shopify job receipt so operators know the audit is not clean.
+                graded_audit_failed=True
+                graded_audit['failure_type']=type(exc).__name__
+                log.error('SHOPIFY_GRADED_MEDIA_AUDIT_FAILED type=%s',type(exc).__name__)
             prices=await reconcile_shopify_product_prices(pool,limit=25,request_id=str(uuid4()))
             if candidates or prices['candidate_count'] or previous is None or previous<datetime.now(timezone.utc)-timedelta(hours=1):
-                status='INCOMPLETE' if publication_failures or publication_incomplete or prices.get('failed_count') or prices.get('retry_required_count') else 'COMPLETE'
+                status='INCOMPLETE' if publication_failures or publication_incomplete or graded_audit_failed or prices.get('failed_count') or prices.get('retry_required_count') else 'COMPLETE'
                 await receipt(pool,actor,'SHOPIFY_SYNC',status,{'publication_candidates':len(candidates),
                     'publication_failures':publication_failures,'publication_incomplete':publication_incomplete,
                     'price_candidates':prices['candidate_count'],'prices_synced':prices['synced_count'],
-                    'price_failures':prices.get('failed_count',0),'heartbeat':True})
+                    'price_failures':prices.get('failed_count',0),'graded_media_audit':graded_audit,'heartbeat':True})
                 log.warning('Automatic Shopify sync candidates=%s prices=%s status=%s',len(candidates),prices['synced_count'],status)
         finally:await lock.execute('select pg_advisory_unlock($1)',847220093)
 
