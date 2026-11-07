@@ -54,14 +54,21 @@ window.DropRateInventory = (() => {
   const price = minor => minor == null ? "Value unavailable" : formatMoney(minor);
 
   function slabMediaKind(item) {
-    if (item.card_image_scope !== "INVENTORY_ITEM" || item.card_image_capture_context !== "GRADED_SLAB") return "";
-    if (item.card_image_rights_tier === "FIRST_PARTY_CAPTURE" &&
+    if (item.card_image_scope === "CANONICAL_CARD" || item.card_image_scope === "CANONICAL_PRODUCT") {
+      // This is the exact printing's approved artwork, not the owner's slab.
+      return item.reference_image_status === "GRADED_CARD_ART_REFERENCE" ? "CARD_ART_REFERENCE" : "";
+    }
+    if (item.card_image_scope !== "INVENTORY_ITEM") return "";
+    if (item.card_image_capture_context === "GRADED_SLAB" &&
+        item.card_image_rights_tier === "FIRST_PARTY_CAPTURE" &&
         ["FOUNDER_UPLOAD","CONSIGNOR_UPLOAD"].includes(item.card_image_source_type)) return "PHYSICAL_PHOTO";
-    if (item.card_image_rights_tier === "INTERNAL_REFERENCE_ONLY" &&
+    if (["GRADED_SLAB","RAW_UNSLEEVED"].includes(item.card_image_capture_context) &&
+        item.card_image_rights_tier === "INTERNAL_REFERENCE_ONLY" &&
         item.card_image_source_type === "OFFICIAL_PROVIDER" &&
         ["PSA","ACE","BGS","CGC"].includes(String(item.card_image_source_provider || "").toUpperCase()) &&
         String(item.card_image_source_provider || "").toUpperCase() === String(item.grading_company || "").toUpperCase())
-      return "CERTIFICATE_REFERENCE";
+      return item.card_image_capture_context === "RAW_UNSLEEVED"
+        ? "CERTIFICATE_RAW_REFERENCE" : "CERTIFICATE_REFERENCE";
     return "";
   }
 
@@ -70,7 +77,12 @@ window.DropRateInventory = (() => {
     const mediaKind = slabMediaKind(item);
     const wrap = el("div", cls), placeholder = el("span", "owner-image-placeholder", "Loading image…");
     const img = el("img");
-    img.alt = `${item.name || "Inventory item"} ${graded ? (mediaKind === "CERTIFICATE_REFERENCE" ? "grading certificate reference image" : "slab photo") : "reference image"}`;
+    img.alt = `${item.name || "Inventory item"} ${graded
+      ? mediaKind === "CERTIFICATE_REFERENCE" ? "grading certificate reference image"
+        : mediaKind === "CERTIFICATE_RAW_REFERENCE" ? "grading certificate raw card reference image, not a slab photo"
+        : mediaKind === "CARD_ART_REFERENCE" ? "matching card artwork, not a slab photo"
+        : "slab photo"
+      : "reference image"}`;
     img.loading = "lazy"; img.decoding = "async"; img.referrerPolicy = "no-referrer";
     wrap.append(placeholder, img);
     const owner = account(), attempts = [];
@@ -107,7 +119,12 @@ window.DropRateInventory = (() => {
     let index = 0, objectUrl = null, loading = false, started = false;
     const current = () => owner === account() && wrap.isConnected;
     const release = () => {if (objectUrl) {URL.revokeObjectURL(objectUrl); objectUrl = null;}};
-    const unavailable = () => {release(); img.remove(); placeholder.textContent = graded ? (mediaKind === "CERTIFICATE_REFERENCE" ? "Certificate image unavailable" : mediaKind === "PHYSICAL_PHOTO" ? "Slab photo unavailable" : "Slab photo required") : "Image unavailable"; placeholder.hidden = false;};
+    const unavailable = () => {release(); img.remove(); placeholder.textContent = graded
+      ? mediaKind === "CERTIFICATE_REFERENCE" ? "Certificate image unavailable"
+        : mediaKind === "CERTIFICATE_RAW_REFERENCE" ? "Certificate card image unavailable"
+        : mediaKind === "CARD_ART_REFERENCE" ? "Card artwork unavailable"
+        : mediaKind === "PHYSICAL_PHOTO" ? "Slab photo unavailable" : "Slab photo required"
+      : "Image unavailable"; placeholder.hidden = false;};
     async function next() {
       if (loading || !current()) return;
       release();
@@ -666,7 +683,11 @@ window.DropRateInventory = (() => {
     const slabKind = slabMediaKind(item);
     figure.append(image(item, "owner-item-art"), el("figcaption", "", gradedImage
       ? (slabKind === "PHYSICAL_PHOTO" ? "Your slab photo" : slabKind === "CERTIFICATE_REFERENCE"
-          ? `${safeText(item.card_image_source_provider, "Grading service")} certificate image · private reference, not listing media`
+          ? `${safeText(item.card_image_source_provider, "Grading service")} certificate slab image · private reference, not listing media`
+          : slabKind === "CERTIFICATE_RAW_REFERENCE"
+          ? `${safeText(item.card_image_source_provider, "Grading service")} certificate card image · not a slab photo or listing media`
+          : slabKind === "CARD_ART_REFERENCE"
+          ? "Matching card artwork · not this slab's photo or listing media"
           : "Add a photo of this slab")
       : item.image_url ? "Item image" : "Reference image · not a photo of your copy"));
     const community = window.DropRateBookArtwork?.reference(item, true);

@@ -124,3 +124,65 @@ def test_media_sql_enforces_exact_owner_first_party_rights_and_staff_approval():
     ):
         assert clause in sql
     assert "ma.approval_status in ('PENDING','APPROVED')" not in sql
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('grader', ['PSA','ACE','BGS','CGC'])
+async def test_exact_approved_grader_raw_card_image_is_private_reference(monkeypatch, grader):
+    item = dict(id=uuid4(), grading_company=grader, grade='9', certificate_number='62398872',
+                reference_image_url='should-clear', reference_image_path='/raw')
+    asset = dict(inventory_id=item['id'], scope='INVENTORY_ITEM',
+                 capture_context='RAW_UNSLEEVED', approval_status='APPROVED',
+                 rights_tier='INTERNAL_REFERENCE_ONLY', source_type='OFFICIAL_PROVIDER',
+                 source_provider=grader, shopify_cdn_url='https://cdn.shopify.com/cert-card.jpg')
+    async def assets(*args):
+        return [asset]
+    monkeypatch.setattr(media, 'shared_media_assets', assets)
+    result = (await media.add_shared_inventory_media(None, [item]))[0]
+    assert result['image_url'] == asset['shopify_cdn_url']
+    assert result['reference_image_status'] == 'GRADER_CERTIFICATE_RAW_REFERENCE'
+    assert result['card_image_capture_context'] == 'RAW_UNSLEEVED'
+    assert result['card_image_rights_tier'] == 'INTERNAL_REFERENCE_ONLY'
+    assert result['card_image_source_type'] == 'OFFICIAL_PROVIDER'
+    assert 'reference_image_url' not in result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('reviewed', [True, False])
+async def test_reviewed_graded_card_uses_exact_canonical_art_only_privately(monkeypatch, reviewed):
+    item = dict(id=uuid4(), grading_company='PSA', grade='9', certificate_number='62398872',
+                reference_image_url='old-unbound',
+                reference_image_path='/old', image_url='old-unbound')
+    asset = dict(inventory_id=item['id'], scope='CANONICAL_CARD', capture_context=None,
+                 approval_status='APPROVED', rights_tier='STOREFRONT_ALLOWED',
+                 source_type='LICENSED_PROVIDER', source_provider='TCGdex',
+                 public_source_url='https://assets.tcgdex.net/en/swsh/swsh3/19/high.webp',
+                 shopify_cdn_url=None, graded_card_art_allowed=reviewed)
+    async def assets(*args):
+        return [asset]
+    monkeypatch.setattr(media, 'shared_media_assets', assets)
+    result = (await media.add_shared_inventory_media(None, [item]))[0]
+    assert result['image_url'] == (asset['public_source_url'] if reviewed else None)
+    assert result['reference_image_status'] == (
+        'GRADED_CARD_ART_REFERENCE' if reviewed else 'SLAB_PHOTO_REQUIRED')
+    assert result['card_image_scope'] == ('CANONICAL_CARD' if reviewed else None)
+    assert 'reference_image_path' not in result
+    assert 'reference_image_url' not in result
+
+
+def test_graded_fallback_selector_requires_exact_identity_review_and_never_public_sale_rights():
+    sql = media.MEDIA_SQL
+    for clause in (
+        "to_jsonb(i)->>'identity_confirmed'='true'",
+        "to_jsonb(i)->>'condition_review_status'='VERIFIED_GRADED'",
+        "to_jsonb(i)->>'condition_verified_by_user_id' is not null",
+        "to_jsonb(i)->>'status' in ('APPROVED','RESERVED','SOLD')",
+        "length(btrim(i.certificate_number))>=6",
+        "to_jsonb(p)->>'product_type'='CARD'",
+        "ma.capture_context in ('GRADED_SLAB','RAW_UNSLEEVED')",
+        "ma.capture_context='RAW_UNSLEEVED' and ma.rights_tier='INTERNAL_REFERENCE_ONLY'",
+        "and ma.source_type='OFFICIAL_PROVIDER'",
+        "ma.rights_tier='STOREFRONT_ALLOWED'",
+    ):
+        assert clause in sql
+    assert "or (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in sql

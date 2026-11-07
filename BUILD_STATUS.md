@@ -1,3 +1,10 @@
+## 7 November 2026 — Full slab tiles and reviewed raw-card reference fallback (CI pending)
+
+- Founder and consignor Collection grids now give graded items a taller **uncropped** object-contain image frame on desktop and mobile, keeping the grading label and full slab visible.
+- Private reference precedence: owner first-party slab → certificate-matched approved grader slab → certificate-matched approved grader raw card → exact catalogue art **only for staff-verified graded physical items**. Last fallback is explicitly labelled **not a slab photo** or grader image. No owner/rights/price/Shopify/eBay changes.
+- Production SQL read-only check: PSA 9 Charizard V certificate 62398872 selects approved exact Darkness Ablaze 019/189 TCGdex art (no stored PSA photo); PSA 10 Mega Charizard X ex still selects its exact official slab image. No production records changed.
+- Tests cover Python provenance gates and UI captions/mobile layout. See [full-slab fallback plan](docs/GRADED_FULL_SLAB_RAW_REFERENCE_20261107.md). **CI, merge, deployment and signed-in owner acceptance pending verification.**
+
 ## 7 November 2026 — Private certificate images and highest-value-first Collection (PR pending CI)
 
 - Read-only production audit: 12 active graded copies (Founder 1: 8, Founder 2: 1, consignor: 3). Seven approved Founder 1 slabs have approved, exact certificate-bound PSA/ACE front images, presently `INTERNAL_REFERENCE_ONLY`. Eight graded image requests showed 404 before this fix. Other slabs have no qualifying recorded provider front image.
