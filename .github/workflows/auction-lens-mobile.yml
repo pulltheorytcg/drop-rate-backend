@@ -7,6 +7,9 @@ on:
       - "mobile/src/lib/auctionLensResolver.ts"
       - "mobile/tests/auction-lens-stream.test.ts"
       - "mobile/tests/auction-lens-resolver.test.ts"
+      - "backend/app/static/auction-lens-lab.js"
+      - "backend/app/static/auction-lens-lab.html"
+      - "backend/app/static/auction-lens-lab.css"
       - "mobile/package.json"
       - "mobile/package-lock.json"
       - ".github/workflows/auction-lens-mobile.yml"
@@ -30,5 +33,7 @@ jobs:
         run: npm ci --prefix mobile
       - name: Typecheck Expo client
         run: npm --prefix mobile run typecheck
-      - name: Run Auction Lens frame tests
+      - name: Syntax-check local-video test screen
+        run: node --check backend/app/static/auction-lens-lab.js
+      - name: Run both Auction Lens client suites
         run: npm --prefix mobile test -- auction-lens
