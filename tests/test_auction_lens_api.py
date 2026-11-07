@@ -82,6 +82,7 @@ def pilot(monkeypatch):
         assert options["system_code"] == "POKEMON_TCG"
         return [dict(HINT)]
 
+    monkeypatch.setattr(api, "get_settings", lambda: SimpleNamespace(recognition_max_image_bytes=900_000))
     monkeypatch.setattr(api, "user_connection", fake_user_connection)
     monkeypatch.setattr(api, "current_owner", fake_owner)
     monkeypatch.setattr(api, "decode_image_data_url",
