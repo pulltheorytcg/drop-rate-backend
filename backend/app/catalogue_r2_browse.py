@@ -191,34 +191,34 @@ with static_page as (
 ), entries as (
  select {public_columns},
  case when st.source_kind='REFERENCE' then
-   coalesce(case when m.pricing_updated_at>=now()-interval '7 days'
+   coalesce(case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
        then m.market_value_minor end,b.market_value_minor)
  when st.source_kind='SEALED_REFERENCE' then
-   case when sm.pricing_updated_at>=now()-interval '7 days'
+   case when s(m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
        then sm.market_value_minor end
  end as reference_value_minor,
  case when st.source_kind='REFERENCE' then
-   case when m.pricing_updated_at>=now()-interval '7 days'
+   case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
                 and m.market_value_minor is not null
        then m.market_value_high_minor else b.market_value_high_minor end
  when st.source_kind='SEALED_REFERENCE' then
-   case when sm.pricing_updated_at>=now()-interval '7 days'
+   case when s(m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
        then sm.market_value_high_minor end
  end as reference_value_high_minor,
  case when st.source_kind='REFERENCE' then
-   case when m.pricing_updated_at>=now()-interval '7 days'
+   case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
                 and m.market_value_minor is not null
         then m.pricing_updated_at else coalesce(b.pricing_updated_at,m.pricing_updated_at) end
  when st.source_kind='SEALED_REFERENCE' then sm.pricing_updated_at
  end as reference_pricing_updated_at,
  case when st.source_kind='REFERENCE' then
-   case when m.pricing_updated_at>=now()-interval '7 days'
+   case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
              and m.market_value_minor is not null then m.quotes
    else coalesce(b.quotes,'[]'::jsonb) ||
-     case when m.pricing_updated_at>=now()-interval '7 days'
+     case when (m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
           then m.quotes else '[]'::jsonb end end
  when st.source_kind='SEALED_REFERENCE' then
-   case when sm.pricing_updated_at>=now()-interval '7 days'
+   case when s(m.pricing_updated_at>=now()-interval '7 days' and m.expires_at>now())
         then sm.quotes else '[]'::jsonb end
  else '[]'::jsonb end as market_quotes,
  (st.source_kind='REFERENCE' and st.provider='TCGdex'
@@ -243,7 +243,7 @@ with static_page as (
    on st.source_kind='REFERENCE'
   and (b.provider,b.system_code,b.language,b.provider_id)=
       (st.provider,st.system_code,st.language,st.provider_id)
-  and b.pricing_updated_at>=now()-interval '7 days'
+  and b.pricing_updated_at>=now()-interval '7 days' and b.expires_at>now()
   and (b.quotes->0->>'source'<>'DROP_RATE_COMPUTED_MARKET_V1'
        or b.pricing_updated_at>now()-interval '2 days')
   and b.quotes->0->'reference_identity'=jsonb_build_object(
