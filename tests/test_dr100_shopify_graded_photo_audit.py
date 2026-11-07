@@ -54,6 +54,7 @@ async def test_published_graded_without_exact_photos_produces_owner_action(downs
     authorised,upsert,resolve=downstream
     report=await audit.audit_published_graded_media(
         FakeConnection([row()]),actor_user_id=ACTOR)
+    assert report["owner_scope"]=="CURRENT_MAINTENANCE_ACTOR_RLS_ONLY"
     assert report["graded_published_checked"]==1
     assert report["missing"]==1 and report["new_or_reopened"]==1
     assert report["shopify_publications_changed"]==0
