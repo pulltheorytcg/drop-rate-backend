@@ -109,7 +109,7 @@
         method:"POST", credentials:"omit", cache:"no-store", signal:controller.signal,
         headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
         body:JSON.stringify({
-          generation:ownGeneration, source:"OWN_VIDEO",
+          generation:ownGeneration, source:$("source-rights").value,
           image_data_url:frameURL, observed,
           ...( $("nm-confirmed").checked ? {confirmed_raw_condition:"Near Mint"} : {} ),
         }),
