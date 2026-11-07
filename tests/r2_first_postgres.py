@@ -137,13 +137,30 @@ async def seed(admin):
         create table tcg.inventory_items(id uuid primary key default gen_random_uuid(),
             owner_id uuid not null references tcg.owners(id),catalogue_id uuid not null references tcg.catalogue_products(id),
             status text not null,market_value_minor bigint,acquisition_cost_minor bigint,
-            store_price_minor bigint,private_notes text);
+            store_price_minor bigint,private_notes text,
+            grading_company text,grade text,certificate_number text);
         alter table tcg.inventory_items enable row level security;
         alter table tcg.inventory_items force row level security;
         create policy own_inventory_read on tcg.inventory_items for select to tcg_api
             using(owner_id=(select tcg.current_owner_id()));
         create policy own_inventory_insert on tcg.inventory_items for insert to tcg_api
             with check(owner_id=(select tcg.current_owner_id()));
+        -- A production-shape, private owner-scoped photo entitlement fixture.
+        -- Only tcg_api SELECT is needed: DR104 never uploads or approves media.
+        create table tcg.media_assets (
+            id uuid primary key default gen_random_uuid(),
+            inventory_id uuid not null references tcg.inventory_items(id),
+            owner_id uuid not null references tcg.owners(id),
+            scope text, media_kind text, side text, source_type text,
+            rights_tier text,rights_status text,approval_status text,
+            source_status text,revoked_at timestamptz,shopify_file_status text,
+            shopify_cdn_url text,public_source_url text,capture_context text
+        );
+        alter table tcg.media_assets enable row level security;
+        alter table tcg.media_assets force row level security;
+        create policy own_photo_read on tcg.media_assets for select to tcg_api
+            using(owner_id=(select tcg.current_owner_id()));
+        grant select on tcg.media_assets to tcg_api;
         create table tcg.reference_cards(provider text,provider_id text,name text);
         insert into tcg.reference_cards values('legacy','unchanged','Existing catalogue stays in SQL');
         grant usage on schema tcg,tcg_private to tcg_api;
@@ -312,11 +329,28 @@ async def run_checks(admin, pool):
             acquisition_cost_minor,store_price_minor,private_notes) values($1,$2,$3,$4,777,999,'fixture-private')""",
             [(SELLER_OWNER, row["id"], "DRAFT", 100), (SELLER_OWNER, row["id"], "DRAFT", None),
              (SELLER_OWNER, row["id"], "REMOVED", 10000), (ADMIN_OWNER, row["id"], "DRAFT", 400)])
+        admin_copy = await admin.fetchval("select id from tcg.inventory_items where owner_id=$1 and catalogue_id=$2 and status='DRAFT'", ADMIN_OWNER, row["id"])
+        # The seller owns two distinct copies: their photos are never borrowed
+        # as a globally reusable reference image. The founder owns one copy.
+        await admin.execute("""
+            insert into tcg.media_assets(inventory_id,owner_id,scope,media_kind,side,
+                source_type,rights_tier,rights_status,approval_status,source_status,
+                shopify_file_status,shopify_cdn_url,capture_context)
+            values($1,$2,'INVENTORY_ITEM','IMAGE','FRONT',
+                'FOUNDER_UPLOAD','FIRST_PARTY_CAPTURE','VERIFIED','APPROVED','ACTIVE',
+                'READY','https://cdn.shopify.com/s/files/test/founder-copy.webp','RAW_CARD')
+            """, admin_copy, ADMIN_OWNER)
         for actor, owner, quantity in ((SELLER, SELLER_OWNER, 2), (ADMIN, ADMIN_OWNER, 1)):
             async with user_connection(pool, actor, "r2-first-owner-overlay") as connection:
                 page = await service.browse(connection, owner_id=owner, system_code=SYSTEM, keys=[KEY], limit=1)
                 assert len(page["items"]) == 1 and page["items"][0]["owned_quantity"] == quantity
                 assert page["items"][0]["market_value_minor"] is None
+                if actor == ADMIN:
+                    assert page["items"][0]["owner_inventory_image_path"] == (
+                        f"/api/v1/owner/inventory/{admin_copy}/image")
+                else:
+                    assert "owner_inventory_image_path" not in page["items"][0], (
+                        "Never borrow an arbitrary physical photo when multiple copies exist")
                 assert not any(field in page["items"][0] for field in ("owner_id", "private_notes", "acquisition_cost_minor", "store_price_minor"))
                 assert (await service.browse(connection, owner_id=owner, system_code=SYSTEM, keys=[]))["items"] == []
                 # Even a tampered caller-supplied owner filter cannot bypass the
@@ -327,6 +361,21 @@ async def run_checks(admin, pool):
                 assert foreign["items"][0]["owned_quantity"] == 0
                 assert (await service.browse(connection, owner_id=other_owner,
                     system_code=SYSTEM, owned="owned"))["items"] == []
+        # A graded copy must not reuse RAW_CARD art; actual slab photography
+        # becomes eligible only when the exact physical item is approved.
+        await admin.execute("update tcg.inventory_items set grading_company='PSA',grade='10' where id=$1", admin_copy)
+        async with user_connection(pool, ADMIN, "r2-first-graded-no-raw-image") as connection:
+            graded = await service.browse(connection, owner_id=ADMIN_OWNER, keys=[KEY])
+            assert "owner_inventory_image_path" not in graded["items"][0]
+        await admin.execute("update tcg.media_assets set capture_context='GRADED_SLAB' where inventory_id=$1", admin_copy)
+        async with user_connection(pool, ADMIN, "r2-first-graded-approved-copy") as connection:
+            graded = await service.browse(connection, owner_id=ADMIN_OWNER, keys=[KEY])
+            assert graded["items"][0]["owner_inventory_image_path"] == (
+                f"/api/v1/owner/inventory/{admin_copy}/image")
+        await admin.execute("update tcg.media_assets set revoked_at=now() where inventory_id=$1", admin_copy)
+        async with user_connection(pool, ADMIN, "r2-first-graded-revoked") as connection:
+            revoked = await service.browse(connection, owner_id=ADMIN_OWNER, keys=[KEY])
+            assert "owner_inventory_image_path" not in revoked["items"][0]
         assert all(b"fixture-private" not in raw for raw in store.objects.values())
 
         # x bookmarks use the real migration and remain private to their user.

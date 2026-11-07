@@ -567,11 +567,17 @@ window.DropRateCatalogue = (() => {
       const publisherReference=row.source_kind==="SEALED_REFERENCE"&&row.provider==="Kayou Official";
       const missingPokemonSource=row.source_kind==="REFERENCE"&&row.provider==="TCGdex"&&row.system_code==="POKEMON_TCG";
       const referencePath=row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')?row.reference_image_path+(cls==="dr-browse-detail-image"?"":"&size=grid"):null;
-      const placeholder=node("span","dr-browse-image-placeholder",(urls.length||referencePath)?"Loading image…":publisherReference?"Verified Kayou product · Packaging photo pending":missingPokemonSource?"Card image not yet available · Reference only":"Artwork unavailable");
+      // A seller's own approved physical photo is available only via the
+      // authenticated owner route. Never expose it as shared catalogue art.
+      const ownerPhotoPath=typeof row.owner_inventory_image_path==="string" &&
+        /^\/api\/v1\/owner\/inventory\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/image$/i.test(row.owner_inventory_image_path)
+        ?row.owner_inventory_image_path:null;
+      const protectedPath=ownerPhotoPath||referencePath;
+      const placeholder=node("span","dr-browse-image-placeholder",(urls.length||protectedPath)?(ownerPhotoPath?"Loading your saved photo…":"Loading image…"):publisherReference?"Verified Kayou product · Packaging photo pending":missingPokemonSource?"Card image not yet available · Reference only":"Artwork unavailable");
       if(publisherReference&&!urls.length)wrap.classList.add("dr-browse-publisher-photo-pending");
       if(missingPokemonSource&&!urls.length)wrap.classList.add("dr-browse-reference-photo-pending");
       wrap.append(placeholder);
-      let exhausted=!(urls.length||referencePath),listingData=null,listingImage=null,attempted=new Set();
+      let exhausted=!(urls.length||protectedPath),listingData=null,listingImage=null,attempted=new Set();
       const clearListing=()=>{listingImage?.remove();listingImage=null;listingCredit?.replaceChildren();wrap.dispatchEvent(new CustomEvent("listing-photo-change",{detail:false}));};
       const listingFallback=()=>{
         if(!exhausted || !listingCredit || !current())return;
@@ -596,27 +602,28 @@ window.DropRateCatalogue = (() => {
         listingData=window.DropRateBookEbay?.validate(row,data);attempted=new Set();clearListing();
         if(exhausted){placeholder.hidden=false;placeholder.textContent="Image unavailable";listingFallback();}
       };
-      if(urls.length||referencePath){
+      if(urls.length||protectedPath){
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
         if(row.artwork_kind==="PUBLISHER_REFERENCE")image.alt+=" — publisher reference cover";
         if(community)image.alt+=" — community cover reference; cover may vary";
+        if(ownerPhotoPath)image.alt+=" — approved photo of your own physical copy";
         if(cls==="dr-browse-detail-image"&&!community)image.loading="eager";
         image.addEventListener("load",()=>{placeholder.hidden=true;});
         // One Piece's publisher blocks direct cross-site card images. Other
         // reference providers first load from their own origin so Railway only
         // relays an image if the browser could not load the source URL.
         const directProviderFirst=new Set(["POKEMON_TCG","DRAGON_BALL_SUPER_MASTERS","DRAGON_BALL_SUPER_FUSION_WORLD"]).has(row.system_code);
-        const useReferenceFirst=Boolean(referencePath&&!row.r2_image_url&&!directProviderFirst);
+        const useReferenceFirst=Boolean(ownerPhotoPath||(referencePath&&!row.r2_image_url&&!directProviderFirst));
         let proxyTried=useReferenceFirst;
         const fallback=()=>{if(!this.active() || epoch!==this.artworkEpoch)return;if(urls.length)image.src=urls.shift();else {image.remove();exhausted=true;placeholder.textContent=missingPokemonSource?"Card image not yet available · Reference only":"Image unavailable";placeholder.hidden=false;if(missingPokemonSource)wrap.classList.add("dr-browse-reference-photo-pending");listingFallback();}};
         image.addEventListener("error",()=>{
-          if(!proxyTried && referencePath){
-            proxyTried=true;this.loadReferenceImage(image,referencePath,fallback);
+          if(!proxyTried && protectedPath){
+            proxyTried=true;this.loadReferenceImage(image,protectedPath,fallback);
           } else fallback();
         });
         // These official hosts reject cross-site <img> loads. Use the exact,
         // authenticated reference route first instead of waiting for a failure.
-        if(useReferenceFirst){const source=urls.indexOf(row.image_url);if(source>=0)urls.splice(source,1);this.loadReferenceImage(image,referencePath,fallback);}
+        if(useReferenceFirst){const source=urls.indexOf(row.image_url);if(source>=0)urls.splice(source,1);this.loadReferenceImage(image,protectedPath,fallback);}
         else image.src=urls.shift();wrap.append(image);
       }
       return wrap;

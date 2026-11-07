@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -71,6 +72,7 @@ class Connection:
         self.calls = []
         self.owner_links = {OWNER_A: [], OWNER_B: []}
         self.canonical = {}
+        self.owner_photo_ids = {OWNER_A: {}, OWNER_B: {}}
         self.in_transaction = False
 
     async def fetchval(self, sql, *args):
@@ -82,6 +84,17 @@ class Connection:
         self.calls.append((sql, args))
         if "select * from tcg_private.r2_first_catalogue_publications" in sql:
             return [deepcopy(p) for p in self.publications if p["active"]]
+        if "R2_FIRST_OWNER_PHOTOS" in sql:
+            assert len(args) == 2
+            assert "l.source_manifest_sha256=r.manifest" in sql
+            assert "m.owner_id=$1" in sql and "m.scope='INVENTORY_ITEM'" in sql
+            assert "m.rights_tier='FIRST_PARTY_CAPTURE'" in sql
+            assert "m.capture_context='GRADED_SLAB'" in sql
+            assert "m.approval_status='APPROVED'" in sql
+            assert "o.copy_count=1" in sql
+            requested = json.loads(args[1])
+            return [{"reference_key": item["key"], "inventory_id": self.owner_photo_ids[args[0]][item["key"]]}
+                    for item in requested if item["key"] in self.owner_photo_ids[args[0]]]
         assert "r2_first_catalogue_links" in sql and "i.owner_id=$1" in sql
         assert len(args) == 2
         owned = {r["reference_key"]: r for r in self.owner_links.get(args[0], [])}
@@ -357,6 +370,60 @@ async def test_owner_filters_and_overlays_never_mutate_shared_catalogue_cache(sn
     assert [r["key"] for r in other["items"]] == [beta["key"]]
     assert snapshot.search()["items"] == before
     assert all("owner_id" not in r and "owned_count" not in r for r in before)
+
+
+
+@pytest.mark.asyncio
+async def test_owned_one_copy_can_show_only_its_own_approved_photo_through_authenticated_route(snapshots):
+    snapshot = await snapshots([row("one", name="Alpha"), row("two", name="Beta")])
+    connection = Connection([cache(snapshot)])
+    first, second = snapshot.search()["items"]
+    photo_id = UUID("44444444-4444-4444-8444-444444444444")
+    connection.owner_links[OWNER_A] = [owned_link(first["key"], quantity=1)]
+    connection.owner_photo_ids[OWNER_A][first["key"]] = photo_id
+    result = await service.browse(connection, owner_id=OWNER_A, limit=2)
+    owned = next(item for item in result["items"] if item["key"] == first["key"])
+    other = next(item for item in result["items"] if item["key"] == second["key"])
+    assert owned["owner_inventory_image_path"] == f"/api/v1/owner/inventory/{photo_id}/image"
+    assert owned["image_url"] is None and owned["metadata_only"] is True
+    assert "owner_inventory_image_path" not in other
+    assert all("owner_id" not in item for item in result["items"])
+
+    # Another owner cannot receive the URL of the original owner's physical item.
+    other_owner = await service.browse(connection, owner_id=OWNER_B, limit=2)
+    assert all("owner_inventory_image_path" not in item for item in other_owner["items"])
+    assert "owner_inventory_image_path" not in snapshot.search()["items"][0]
+
+
+@pytest.mark.asyncio
+async def test_multiple_owned_copies_never_choose_an_arbitrary_physical_photo(snapshots):
+    snapshot = await snapshots([row("one")])
+    connection = Connection([cache(snapshot)])
+    key = snapshot.search()["items"][0]["key"]
+    connection.owner_links[OWNER_A] = [owned_link(key, quantity=2)]
+    connection.owner_photo_ids[OWNER_A][key] = UUID("44444444-4444-4444-8444-444444444444")
+    result = await service.browse(connection, owner_id=OWNER_A, owned="owned")
+    assert "owner_inventory_image_path" not in result["items"][0]
+    assert not any("R2_FIRST_OWNER_PHOTOS" in sql for sql, _ in connection.calls)
+
+
+@pytest.mark.asyncio
+async def test_owner_photo_query_requires_matching_manifest_and_one_authorized_copy(snapshots):
+    snapshot = await snapshots([row("one")])
+    connection = Connection([cache(snapshot)])
+    key = snapshot.search()["items"][0]["key"]
+    connection.owner_links[OWNER_A] = [owned_link(key)]
+    connection.owner_photo_ids[OWNER_A][key] = UUID("44444444-4444-4444-8444-444444444444")
+    await service.browse(connection, owner_id=OWNER_A, limit=1)
+    sql, args = next((sql, args) for sql, args in connection.calls if "R2_FIRST_OWNER_PHOTOS" in sql)
+    requested = json.loads(args[1])
+    assert requested == [{"key": key, "manifest": snapshot.manifest_digest}]
+    assert args[0] == OWNER_A
+    assert "l.source_manifest_sha256=r.manifest" in sql
+    assert "i.owner_id=$1" in sql and "m.owner_id=$1" in sql
+    assert "m.revoked_at is null" in sql and "m.source_status='ACTIVE'" in sql
+    assert "m.shopify_file_status='READY'" in sql
+    assert "or m.capture_context='GRADED_SLAB'" in sql
 
 
 @pytest.mark.asyncio

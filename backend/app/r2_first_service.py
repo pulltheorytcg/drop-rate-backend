@@ -353,6 +353,62 @@ async def _page_links(connection, owner_id, keys):
         """, owner_id, keys)}
 
 
+async def _owner_photo_paths(connection, owner_id, rows):
+    """Only a unique, currently linked, owner-authorized physical photo.
+
+    Never use a physical copy as public, shared catalogue or Shopify artwork.
+    The /owner/inventory route re-checks RLS and approved media on each request.
+    """
+    requested = [
+        {"key": row["key"], "manifest": row["source_manifest_sha256"]}
+        for row in rows if row.get("owned_quantity") == 1
+    ]
+    if not requested:
+        return {}
+    # Bound the query to the visible page. The R2 metadata source does not
+    # contain any inventory owners, photos or sensitive upload URLs.
+    if len(requested) > 100:
+        raise HTTPException(422, "Artwork page exceeds the owner-photo limit")
+    matches = await connection.fetch("""
+        -- R2_FIRST_OWNER_PHOTOS: exact active source manifest + one physical copy
+        with requested as (
+            select key, manifest from jsonb_to_recordset($2::jsonb)
+              as r(key text, manifest text)
+        ), owned as (
+            select l.reference_key, i.id as inventory_id,
+                   i.grading_company,i.grade,i.certificate_number,
+                   count(*) over(partition by l.reference_key) as copy_count
+            from requested r
+            join tcg_private.r2_first_catalogue_links l
+              on l.reference_key=r.key and l.source_manifest_sha256=r.manifest
+            join tcg.inventory_items i
+              on i.catalogue_id=l.catalogue_id and i.owner_id=$1
+             and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+        )
+        select o.reference_key,o.inventory_id from owned o
+        where o.copy_count=1 and exists (
+            select 1 from tcg.media_assets m
+            where m.inventory_id=o.inventory_id and m.owner_id=$1
+              and m.scope='INVENTORY_ITEM'
+              and m.media_kind='IMAGE' and m.side='FRONT'
+              and m.source_type in ('FOUNDER_UPLOAD','CONSIGNOR_UPLOAD')
+              and m.rights_tier='FIRST_PARTY_CAPTURE'
+              and m.rights_status='VERIFIED' and m.approval_status='APPROVED'
+              and m.source_status='ACTIVE' and m.revoked_at is null
+              and m.shopify_file_status='READY'
+              and coalesce(nullif(btrim(m.shopify_cdn_url),''),
+                           nullif(btrim(m.public_source_url),'')) is not null
+              and (coalesce(nullif(btrim(o.grading_company),''),
+                            nullif(btrim(o.grade),''),
+                            nullif(btrim(o.certificate_number),'')) is null
+                   or m.capture_context='GRADED_SLAB')
+        )
+        """, owner_id, json.dumps(requested, separators=(",", ":")))
+    return {str(row["reference_key"]):
+            "/api/v1/owner/inventory/" + str(row["inventory_id"]) + "/image"
+            for row in matches}
+
+
 class _HeapRow:
     def __init__(self, row, partition, sort):
         self.row, self.partition, self.sort = row, partition, sort
@@ -442,6 +498,10 @@ async def browse(connection, *, owner_id, q="", system_code="", language="", cat
             link = links.get(row["key"], {})
             row.update({key: value for key, value in link.items() if key in {"catalogue_id", "owned_quantity"}})
             row["owned_count"] = row["owned_quantity"]
+        photo_paths = await _owner_photo_paths(connection, owner_id, page["items"])
+        for row in page["items"]:
+            if row["key"] in photo_paths:
+                row["owner_inventory_image_path"] = photo_paths[row["key"]]
         return page
 
 
