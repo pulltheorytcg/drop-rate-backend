@@ -69,7 +69,7 @@ async def main():
             await db.execute("insert into tcg.inventory_items(id,owner_id,catalogue_id,language) values($1,$2,$3,'Japanese')",item,owners[n],p)
         async def asset(scope, product=None, inventory=None, language='Japanese',variant='Foil',approval='APPROVED',source='ACTIVE',suffix='card'):
             return await db.fetchval('''insert into tcg.media_assets(owner_id,catalogue_id,inventory_id,scope,source_type,source_reference,public_source_url,rights_status,rights_basis,approval_status,alt_text,created_by_user_id,approved_by_user_id,approved_at,rights_tier,source_provider,media_language,media_variant,source_status)
-              values($1,$2,$3,$4,'OFFICIAL_PROVIDER','synthetic fixture',$5,'VERIFIED','Synthetic test permission',$6,'Test image',$7,$7,now(),$8,'Test source',$9,$10,$11) returning id''',owners[0],product,inventory,scope,f'https://www.onepiece-cardgame.com/{suffix}.png',approval,actors[0],'FIRST_PARTY_CAPTURE' if inventory else 'STOREFRONT_ALLOWED',language,variant,source)
+              values($1,$2,$3,$4,case when $3::uuid is not null then 'FOUNDER_UPLOAD' else 'OFFICIAL_PROVIDER' end,'synthetic fixture',$5,'VERIFIED','Synthetic test permission',$6,'Test image',$7,$7,now(),$8,'Test source',$9,$10,$11) returning id''',owners[0],product,inventory,scope,f'https://www.onepiece-cardgame.com/{suffix}.png',approval,actors[0],'FIRST_PARTY_CAPTURE' if inventory else 'STOREFRONT_ALLOWED',language,variant,source)
         card_media = await asset('CANONICAL_CARD',card)
         pack_media = await asset('CANONICAL_PRODUCT',pack,suffix='pack')
         physical = await asset('INVENTORY_ITEM',inventory=copies[0,card],suffix='private-slab')
