@@ -71,6 +71,7 @@ from .imported_benchmark_pricing import router as imported_benchmark_pricing_rou
 from .ebay_sold_pricing import router as ebay_sold_pricing_router
 from .pricing_preview import router as pricing_preview_router
 from .recognition import router as recognition_router
+from .auction_lens_api import router as auction_lens_router
 from .recognition_vision import close_shared_vision_http_client
 from .recognition_images import close_reference_http_client
 from .catalogue_artwork import close_artwork_tasks
@@ -515,6 +516,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_sale_intent_router)
     app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(recognition_router)
+    app.include_router(auction_lens_router)
     app.include_router(reference_library_router)
     app.include_router(catalogue_browser_router)
     app.include_router(catalogue_saved_router)
