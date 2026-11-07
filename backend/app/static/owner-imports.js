@@ -140,6 +140,7 @@
 
   function resetPreview() {
     state.batch = null;
+    if ($("owner-import-preview")) $("owner-import-preview").textContent = "Import collection";
     state.candidates = [];
     state.summary = null;
     state.warnings = [];
@@ -229,7 +230,7 @@
     state.generation++;
     state.fileContents = null;
     state.headers = [];
-    resetPreview();
+    if (!state.batch?.recoveryEligible) resetPreview();
     const file = $("owner-import-file").files?.[0];
     $("owner-import-map-fields").replaceChildren();
     if (!file) return;
@@ -299,13 +300,16 @@
       message("Select a valid CSV or TSV file first.", "error");
       return;
     }
+    const recovery = state.batch?.recoveryEligible ? {id: state.batch.id, version: state.batch.version} : null;
+    if (recovery && !window.confirm("Rebuild this preview with the selected file and settings? Previous match/skip decisions will need review again. No copies will be added until you choose Add recognised cards.")) return;
     const generation = state.generation;
     setBusy(true);
-    message("Checking exact matches and adding recognised copies…");
+    message(recovery ? "Rebuilding preview; no copies are being added…" : "Checking exact matches and adding recognised copies…");
     try {
-      const preview = await apiRequest("/api/v1/owner/imports/upload", {
+      const preview = await apiRequest(recovery ? `/api/v1/owner/imports/${encodeURIComponent(recovery.id)}/rebuild` : "/api/v1/owner/imports/upload", {
         method: "POST",
         body: JSON.stringify({
+          ...(recovery ? {version: recovery.version} : {}),
           filename: file.name,
           content: state.fileContents,
           adapter: $("owner-import-adapter").value,
@@ -320,11 +324,18 @@
       );
       if (generation !== state.generation || !state.dialog?.open) return;
       loadPreview(stored, preview);
-      message(`${state.summary.added_units} copies added to your inventory. ${state.summary.review_rows} rows need confirmation. Nothing is published.`, "success");
+      message(recovery ? "Preview rebuilt. Review the corrected rows, then explicitly add recognised cards. No copies were added." : `${state.summary.added_units} copies added to your inventory. ${state.summary.review_rows} rows need confirmation. Nothing is published.`, "success");
       await refreshInventory();
       await loadHistory();
     } catch (_error) {
       if (generation !== state.generation || !state.dialog?.open) return;
+      if (recovery) {
+        try {
+          const stored = await apiRequest(`/api/v1/owner/imports/${encodeURIComponent(recovery.id)}`);
+          if (!current(generation)) return;
+          loadPreview(stored);
+        } catch (_readError) { if (current(generation)) resetPreview(); }
+      }
       message("Import could not finish. Check Recent imports for any copies already added and rows still needing review; do not upload it as Other.", "error");
       await loadHistory();
     } finally {
@@ -344,6 +355,7 @@
       adapter: stored.batch.adapter,
       source_rows: Number(stored.batch.source_rows || 0),
       physical_units: Number(stored.batch.physical_units || 0),
+      recoveryEligible: stored.owner_rebuild_enabled === true && stored.owner_rebuild_eligible === true,
     };
     state.candidates = stored.candidates.map(normalizeCandidate);
     state.warnings = parseJSON(stored.batch.warnings, []);
@@ -357,7 +369,7 @@
       skipped_rows: state.candidates.filter(x => x.status === "SKIPPED").length,
     };
     // Use authoritative totals when the mutation returns them.
-    state.summary = {...summary, ...(compact?.summary || {})};
+    state.summary = {...summary, ...(stored.owner_intake_summary || stored.summary || {}), ...(compact?.summary || {})};
     state.filter = state.batch.automatic_intake && summary.review_rows ? "REVIEW" : "ALL";
     state.page = 0;
     $("owner-import-filter").value = state.filter;
@@ -371,6 +383,7 @@
   }
 
   function renderPreview() {
+    $("owner-import-preview").textContent = state.batch.recoveryEligible ? "Rebuild preview" : "Import collection";
     const summary = $("owner-import-summary");
     summary.replaceChildren();
     for (const [value, title] of [

@@ -34,6 +34,6 @@ The Founder Dashboard already supported this flow; it was absent from Seller Hub
 
 ## Important current limitations
 
-CSV and TSV supported; **Excel XLSX, PDFs, screenshots and direct Collectr/HoloDex account sync are not implemented**. For an unsupported export format, convert to CSV first; do not claim a nonexistent parser. Mapped columns must be selected before creating the first preview; remapping an already fingerprinted preview requires an explicit reviewed reset workflow (not implemented). Prices from external exports are recorded only as source acquisition costs when valid GBP, never accepted as definitive automated market values.
+CSV and TSV supported; **Excel XLSX, PDFs, screenshots and direct Collectr/HoloDex account sync are not implemented**. For an unsupported export format, convert to CSV first; do not claim a nonexistent parser. Mapped columns should be selected before the first upload. Zero-copy preview recovery is implemented behind a separate default-off flag; partially admitted imports cannot be reset. See `SELLER_IMPORT_PREVIEW_RECOVERY.md` for the migration, review and live acceptance gates. Prices from external exports are recorded only as source acquisition costs when valid GBP, never accepted as definitive automated market values.
 
 This release remains subordinate to the storefront/fulfilment launch freeze except for the user-requested Seller Hub import capability. It does not activate new catalogue providers or sell channels.

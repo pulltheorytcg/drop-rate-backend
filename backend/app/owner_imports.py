@@ -18,6 +18,7 @@ from .db import user_connection
 from .import_catalogue_search import CATALOGUE_SEARCH_SQL, search_tokens
 
 from .access_control import require_owner_portal_request
+from .owner_import_recovery import rebuild_owner_preview
 from .owner_auto_imports import upload_collection, add_recognised, confirm_candidate, skip_candidate
 from .imports import (
     get_import_batch,
@@ -77,3 +78,5 @@ router.add_api_route(
     skip_candidate,
     methods=["POST"],
 )
+
+router.add_api_route("/{batch_id}/rebuild", rebuild_owner_preview, methods=["POST"])

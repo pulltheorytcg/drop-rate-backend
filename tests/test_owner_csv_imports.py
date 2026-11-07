@@ -35,6 +35,7 @@ def test_owner_api_is_allowlisted_and_founder_apis_remain_admin_only():
         (prefix, ("GET",)),
         (prefix + "/{batch_id}", ("GET",)),
         (prefix + "/{batch_id}/commit", ("POST",)),
+        (prefix + "/{batch_id}/rebuild", ("POST",)),
         (prefix + "/{batch_id}/candidates/{candidate_id}/resolve", ("POST",)),
         (prefix + "/{batch_id}/candidates/{candidate_id}/skip", ("POST",)),
         (prefix + "/catalogue-search", ("GET",)),
