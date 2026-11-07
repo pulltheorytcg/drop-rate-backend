@@ -50,9 +50,11 @@ PHYSICAL_REVIEW_SCOPE_SQL = """from tcg.media_assets m
     join tcg.inventory_items i on i.id=m.inventory_id and i.owner_id=m.owner_id
     join tcg.catalogue_products p on p.id=i.catalogue_id
     join tcg.owners o on o.id=m.owner_id
-    where o.owner_type='CONSIGNOR' and o.active
+    where o.active
+      and ((o.owner_type='CONSIGNOR' and m.source_type='CONSIGNOR_UPLOAD')
+        or (o.owner_type='FOUNDER' and m.source_type='FOUNDER_UPLOAD'))
       and p.product_type in ('CARD','COMIC','SEALED','FIGURE','COLLECTION')
-      and m.scope='INVENTORY_ITEM' and m.source_type='CONSIGNOR_UPLOAD'
+      and m.scope='INVENTORY_ITEM'
       and m.rights_tier='FIRST_PARTY_CAPTURE' and m.source_provider='Drop Rate'"""
 
 
