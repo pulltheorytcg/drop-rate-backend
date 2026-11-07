@@ -91,4 +91,4 @@ def test_coverage_counts_expired_source_value_as_stale_not_current():
     assert "b.expires_at>now()" in sql
     assert "when p.market_value_minor>0 and (p.expires_at is null or p.expires_at<=now()) then 'STALE_EVIDENCE'" in sql
     assert "when b.market_value_minor>0 and (b.expires_at is null or b.expires_at<=now()) then 'STALE_EVIDENCE'" in sql
-    assert "when p.expires_at is null or p.expires_at<=now() then 'STALE_EVIDENCE'" in sql
+    assert "when p.checked_at is not null and (p.expires_at is null or p.expires_at<=now()) then 'STALE_EVIDENCE'" in sql
