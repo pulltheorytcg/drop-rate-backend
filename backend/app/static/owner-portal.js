@@ -465,6 +465,7 @@ function renderInventoryCards(items) {
     if (graded) imageWrap.classList.add("owner-card-image-wrap--graded");
     imageWrap.append(createCardImage(item, "owner-card-thumb"));
     if (graded && ["GRADER_CERTIFICATE_RAW_REFERENCE","GRADED_CARD_ART_REFERENCE"].includes(item.reference_image_status)) {
+      imageWrap.classList.add("owner-card-image-wrap--reference-only");
       const caption = document.createElement("span");
       caption.className = "owner-graded-reference-caption";
       caption.textContent = item.reference_image_status === "GRADER_CERTIFICATE_RAW_REFERENCE"
