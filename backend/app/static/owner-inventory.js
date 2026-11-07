@@ -107,7 +107,7 @@ window.DropRateInventory = (() => {
     let index = 0, objectUrl = null, loading = false, started = false;
     const current = () => owner === account() && wrap.isConnected;
     const release = () => {if (objectUrl) {URL.revokeObjectURL(objectUrl); objectUrl = null;}};
-    const unavailable = () => {release(); img.remove(); placeholder.textContent = graded ? (mediaKind === "CERTIFICATE_REFERENCE" ? "Certificate image unavailable" : mediaKind === "PHYSICAL_PHOTO" ? "Slab photo unavailable" : "Slab image required") : "Image unavailable"; placeholder.hidden = false;};
+    const unavailable = () => {release(); img.remove(); placeholder.textContent = graded ? (mediaKind === "CERTIFICATE_REFERENCE" ? "Certificate image unavailable" : mediaKind === "PHYSICAL_PHOTO" ? "Slab photo unavailable" : "Slab photo required") : "Image unavailable"; placeholder.hidden = false;};
     async function next() {
       if (loading || !current()) return;
       release();
