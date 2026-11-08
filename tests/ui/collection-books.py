@@ -67,7 +67,8 @@ def main():
                 page.locator('#owner-book-cover').fill('Cover A')
                 page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
                 page.locator('#owner-book-state').select_option('GRADED')
-                assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC']
+                assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC', 'CBCS']
+                page.locator('#owner-book-grader').select_option('CBCS')
                 page.locator('#owner-book-grade').fill('9.8')
                 page.locator('#owner-book-certificate').fill('fixture-cert')
                 assert page.locator('#owner-book-condition').is_hidden()
@@ -87,7 +88,7 @@ def main():
                 assert len(writes) == 2 and writes[0]['body'] == writes[1]['body']
                 assert writes[0]['headers']['Idempotency-Key'] == writes[1]['headers']['Idempotency-Key']
                 body = json.loads(writes[0]['body'])
-                assert body['grading_company'] == 'CGC' and body['grade'] == '9.8' and body['condition'] is None
+                assert body['grading_company'] == 'CBCS' and body['grade'] == '9.8' and body['condition'] is None
                 assert body['new_catalogue']['comic_printing']['system_code'] == 'MARVEL_COMICS'
                 page.get_by_role('button', name='View item', exact=True).click()
                 assert not page.locator('#owner-book-dialog').is_visible()
@@ -136,7 +137,7 @@ def main():
                         page.locator('#owner-book-certificate').fill('old-bgs-cert')
                         for category in ('DC_COMICS', 'OTHER_COMICS', 'MARVEL_COMICS'):
                             page.locator('#owner-book-category').select_option(category)
-                            assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC']
+                            assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC', 'CBCS']
                             assert page.locator('#owner-book-grade').input_value() == ''
                             assert page.locator('#owner-book-certificate').input_value() == ''
                         page.locator('#owner-book-category').select_option('MANGA')
@@ -160,7 +161,7 @@ def main():
                 assert not errors, errors
                 page.close()
             browser.close()
-    print('PASS: CGC comics, CGC/BGS manga, category-specific choices, certificate reset, responsive form, immutable retry, refresh failure and account change; fixture API only.')
+    print('PASS: CBCS comics, CGC/BGS manga, category-specific choices, certificate reset, responsive form, immutable retry, refresh failure and account change; fixture API only.')
 
 
 if __name__ == '__main__':

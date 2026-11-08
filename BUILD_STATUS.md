@@ -2323,3 +2323,13 @@ User clarified the required Seller Hub choices: **CGC for Marvel, DC and other c
 - Added CLI-generated migration `20261103184836_optional_seller_purchase_cost.sql` to allow nullable reservation costs and extend the existing nullable sale-cost guard to approved managed stock of every physical type. Owner, identity, sale status and dispatch checks remain enforced. The exact seller-held sealed exception is unchanged; existing sale, commission and audit records are not rewritten.
 - The default Collection, facets, overview totals, actionable state counts, grouping and page/value ordering now include active copies only. Removing a copy closes its detail after server readback and refreshes the Collection. Removed and sold records remain available for history; Sold is an explicit UI filter. The last empty page returns to a valid page, and obsolete saved Removed filters reset to the active view.
 - Local checks: focused backend/API suites, 74 inventory interactions, nine Collection control/pagination scenarios, six real Chromium Collection layouts, and actual PostgreSQL migrations/triggers across 42 type/owner/cost combinations passed. Disposable SQL verifies unchanged revenue commission, nullable reservations, exact-owner/dispatch guards, retained history and active Collection totals. CI, the approved database migration workflow and deployment remain release gates. No production data was mutated for these tests.
+
+## 7 November 2026 — Graded Shopify capture-context guard (review pending)
+
+- Reproduced a shared media-selector gap: raw captures could satisfy graded
+  front/back requirements. Require GRADED_SLAB before selecting physical candidates
+  for graded cards/comics; preserve existing rights, approval and identity gates.
+- 428 focused Shopify/media/eBay tests passed. Regression fails on old code and
+  passes after correction. Full CI pending; no production listing impact claimed.
+- UI and production records unchanged. No merge/deployment. See
+  `docs/SHOPIFY_SLAB_CAPTURE_CONTEXT_FIX.md`. PR #991 and native PR #511 separate.

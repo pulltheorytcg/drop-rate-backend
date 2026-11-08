@@ -67,7 +67,7 @@ def eligibility(target):
     if re.search(SPECIAL_STATE, str(target.get("notes") or ""), re.I):
         return "SPECIAL_BOOK_STATE_REVIEW_REQUIRED"
     company,grade = target.get("grading_company"),target.get("grade")
-    allowed = {"CGC","BGS"} if b["system_code"] == "MANGA" else {"CGC"}
+    allowed = {"CGC","BGS"} if b["system_code"] == "MANGA" else {"CGC","CBCS"}
     if company or grade:
         if (company not in allowed or not grade or target.get("condition")
                 or not re.fullmatch(r"(?:10(?:\.0)?|[0-9](?:\.[0-9])?)",str(grade)) or Decimal(str(grade))<Decimal('.5')):

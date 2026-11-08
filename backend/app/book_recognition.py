@@ -81,8 +81,10 @@ def suggestion(observation: BookObservation) -> dict:
             value = re.sub(r"[\s-]", "", value).upper()
             if not valid_book_barcode(value):
                 uncertain.append(key); continue
-        if key == "grading_company" and value.upper() not in {"CGC", "BGS"}:
-            uncertain.append(key); continue
+        if key == "grading_company":
+            value = value.upper()
+            if value not in {"CGC", "BGS", "CBCS"}:
+                uncertain.append(key); continue
         if key == "grade" and (not re.fullmatch(r"(?:10(?:\.0)?|[0-9](?:\.[0-9])?)", value) or float(value) < .5):
             uncertain.append(key); continue
         values[key] = value
@@ -94,7 +96,11 @@ def suggestion(observation: BookObservation) -> dict:
     for key in ("system_code", "series_title", "issue_number", "language", "publisher", "printing_number"):
         if key not in values and key not in uncertain:
             uncertain.append(key)
-    if values.get("grading_company", "").upper() == "BGS" and observation.category != "MANGA":
+    allowed_graders = ({"CGC", "BGS"} if observation.category == "MANGA" else
+                       {"CGC", "CBCS"} if observation.category in {"MARVEL_COMICS", "DC_COMICS", "OTHER_COMICS"}
+                       else set())
+    if (any(key in values for key in ("grading_company", "grade", "certificate_number"))
+            and values.get("grading_company") not in allowed_graders):
         for key in ("grading_company", "grade", "certificate_number"):
             values.pop(key, None)
             if key not in uncertain: uncertain.append(key)
