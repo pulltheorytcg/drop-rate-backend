@@ -188,6 +188,12 @@ def _inventory_capture_candidates(
         and _text(asset.get("inventory_id")) == inventory_id
         and _text(asset.get("rights_tier")) == FIRST_PARTY_CAPTURE
     ]
+    if product_type in {"CARD", "COMIC"} and _text(item.get("grading_company")) and _text(item.get("grade")):
+        # Raw-card/reference captures cannot prove the photographed graded slab.
+        # Filter before latest-by-side selection so stale-context photos cannot
+        # displace eligible slab captures for the same physical copy.
+        return [asset for asset in candidates
+                if _text(asset.get("capture_context")) == "GRADED_SLAB"]
     if product_type in {"SEALED", "COLLECTION"}:
         return [
             asset

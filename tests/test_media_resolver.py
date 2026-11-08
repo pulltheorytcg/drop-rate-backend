@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app.media_resolver import (
     FIRST_PARTY_CAPTURE,
     INTERNAL_REFERENCE_ONLY,
@@ -327,3 +329,21 @@ def test_unknown_region_never_uses_reusable_canonical_product_media_for_sealed()
     assert result["complete"] is False
     assert result["physicalPhotosRequired"] is True
     assert result["resolutionSource"] == "NONE"
+
+
+@pytest.mark.parametrize("product_type", ["CARD", "COMIC"])
+def test_graded_shopify_rejects_raw_photos_and_keeps_valid_slab_photos(product_type):
+    item = _item(product_type=product_type, grading_company='PSA', grade='10')
+    def photo(side, context, suffix):
+        return _asset(asset_id=side+suffix, scope='INVENTORY_ITEM', side=side,
+                      rights_tier=FIRST_PARTY_CAPTURE, inventory_id=item['id'],
+                      catalogue_id=None, capture_context=context)
+    raw = [photo(side, 'RAW_UNSLEEVED', 'raw') for side in ('FRONT', 'BACK')]
+    slab = [photo(side, 'GRADED_SLAB', 'slab') for side in ('FRONT', 'BACK')]
+    for assets in (raw, [slab[0], raw[1]], [raw[0], slab[1]]):
+        result = resolve_storefront_media(item, assets)
+        assert not result['complete']
+        assert result['shopifyFileIds'] == []
+    result = resolve_storefront_media(item, slab + raw)
+    assert result['complete']
+    assert all(media['captureContext'] == 'GRADED_SLAB' for media in result['selectedMedia'])
