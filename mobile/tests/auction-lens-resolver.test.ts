@@ -83,3 +83,45 @@ describe("authenticated owned-video auction resolver",()=>{
     expect(body.source).toBe("EXPLICITLY_AUTHORISED_VIDEO");
   });
 });
+
+
+describe("auction quote transport boundary", () => {
+  const quote = {
+    lot_ref:"own-video-lot",status:"ACTIVE" as const,currency:"GBP" as const,
+    bid_minor:5000,shipping_minor:600,buyer_fees_minor:900,
+    import_tax_minor:0,additional_costs_minor:0,
+    bid_observed_at:new Date().toISOString(),
+  };
+  it("posts explicit bid facts but never a client market price", async () => {
+    const fn=vi.fn(async()=>new Response(JSON.stringify({
+      generation:7,decision:"EXACT",identityKey:"card:abc:English:Normal:RAW",
+      title:"Rapidash",
+      value:{marketValueMinor:10000,currency:"GBP",source:"Eligible UK sold",
+        expiresAtMs:Date.now()+60000,valuationEligible:true},
+      comparison:{status:"UNDER_MARKET",allInMinor:6500,
+        marketValueMinor:10000,differenceMinor:3500},
+    }),{status:200}));
+    const result=await configured(fn as typeof fetch,"test",{
+      observed:OBS,source:"OWN_VIDEO",confirmed_raw_condition:"Near Mint",quote,
+    })(FRAME,7,new AbortController().signal);
+    expect(result.comparison?.status).toBe("UNDER_MARKET");
+    expect(result.comparison?.differenceMinor).toBe(3500);
+    const body=JSON.parse(fn.mock.calls[0][1]!.body as string);
+    expect(body.quote).toEqual(quote);
+    expect(body.marketValueMinor).toBeUndefined();
+    expect(body.quote.marketValueMinor).toBeUndefined();
+  });
+  it("rejects a forged bargain when the displayed Market Value and arithmetic diverge",async()=>{
+    const fn=vi.fn(async()=>new Response(JSON.stringify({
+      generation:7,decision:"EXACT",identityKey:"card:abc:English:Normal:RAW",
+      title:"Rapidash",
+      value:{marketValueMinor:10000,currency:"GBP",source:"Eligible UK sold",
+        expiresAtMs:Date.now()+60000,valuationEligible:true},
+      comparison:{status:"UNDER_MARKET",allInMinor:6500,
+        marketValueMinor:10000,differenceMinor:999999},
+    }),{status:200}));
+    const result=await configured(fn as typeof fetch)(FRAME,7,new AbortController().signal);
+    expect(result.value?.marketValueMinor).toBe(10000);
+    expect(result.comparison).toBeUndefined();
+  });
+});
