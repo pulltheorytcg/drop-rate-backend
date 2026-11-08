@@ -379,6 +379,17 @@
       if(video.videoWidth&&drawCrop())$("crop-preview").src=canvas.toDataURL("image/jpeg",.6);
     });
   });
+  // A same-tab sign-out or account replacement must clear the displayed
+  // card immediately instead of retaining the previous beta user's preview.
+  window.addEventListener("hub-session-cleared",()=>{
+    ++betaCheckId;
+    applyBetaAccess(false,"Private beta · Sign in again to verify this account.");
+  });
+  window.addEventListener("focus",()=>{void checkBetaAccess();});
+  document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden)void checkBetaAccess();
+  });
+
   // Revocation is enforced by the server on every request; refresh local
   // entitlement as well so a running video stops shortly after access removal.
   void checkBetaAccess();
