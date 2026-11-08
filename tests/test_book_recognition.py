@@ -33,6 +33,28 @@ def test_visible_fields_prefill_but_never_save_or_value():
     assert 'condition' not in result['fields'] and 'certificate_number' in result['uncertain_fields']
 
 
+@pytest.mark.parametrize('category', ['MARVEL_COMICS','DC_COMICS','OTHER_COMICS'])
+def test_visible_cbcs_label_prefills_comics_without_authenticating_or_saving(category):
+    obs=observed(grading_company='cbcs',grade='9.8',certificate_number='fixture-cert').model_copy(
+        update={'category':category,'book_format':'SINGLE_ISSUE'})
+    result=suggestion(obs)
+    assert result['fields']['grading_company']=='CBCS'
+    assert result['fields']['grade']=='9.8'
+    assert result['fields']['certificate_number']=='fixture-cert'
+    assert result['status']=='NEEDS_REVIEW' and result['auto_save'] is False
+    assert result['market_value_minor'] is None
+
+
+@pytest.mark.parametrize('company,category', [('CBCS','MANGA'),('BGS','MARVEL_COMICS'),
+                                            ('CGC','UNKNOWN'),('Unsupported','MARVEL_COMICS')])
+def test_unsupported_book_labels_do_not_leave_orphan_grade_or_certificate(company,category):
+    obs=observed(grading_company=company,grade='9.8',certificate_number='fixture-cert').model_copy(
+        update={'category':category})
+    result=suggestion(obs)
+    assert not {'grading_company','grade','certificate_number'} & result['fields'].keys()
+    assert {'grading_company','grade','certificate_number'} <= set(result['uncertain_fields'])
+
+
 @pytest.mark.parametrize('field,evidence',[
     ('printing_number',dict(value='1',visible_text='',confidence=.99)),
     ('language',dict(value='English',visible_text='English',confidence=.6)),

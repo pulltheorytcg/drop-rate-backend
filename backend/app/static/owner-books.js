@@ -25,7 +25,7 @@
 
   function update() {
     const manga = value("category") === "MANGA", graded = value("state") === "GRADED";
-    const companies = manga ? ["CGC", "BGS"] : ["CGC"], grader = node("grader");
+    const companies = manga ? ["CGC", "BGS"] : ["CGC", "CBCS"], grader = node("grader");
     if (Array.from(grader.options, option => option.value).join(",") !== companies.join(",")) {
       const previous = grader.value;
       grader.replaceChildren(...companies.map(company => new Option(company, company)));

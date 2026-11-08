@@ -49,6 +49,20 @@ def test_positive_raw_and_graded_match_and_conflicting_labels():
     assert not books.exact_match(sale(title=graded.replace('9.8','9.6')),t)
 
 
+def test_cbcs_comics_keep_exact_grade_company_and_special_state():
+    t=target(condition=None,grading_company='CBCS',grade='9.8')
+    graded=TITLE.replace('Near Mint','CBCS 9.8')
+    assert books.eligibility(t) is None
+    assert books.exact_match(sale(title=graded),t)
+    for title in (TITLE,graded.replace('CBCS','CGC'),graded.replace('9.8','9.6'),
+                  graded+' signed',graded+' restored',graded+' raw',graded+' CGC 9.8',
+                  graded.replace('Cover A','Cover B'),graded.replace('first','second')):
+        assert not books.exact_match(sale(title=title),t)
+    assert not books.exact_match(sale(title=graded),target())
+    t['book_printing']['system_code']='MANGA'
+    assert books.eligibility(t)=='BOOK_GRADE_REVIEW_REQUIRED'
+
+
 def test_manga_requires_volume_printing_language_edition_and_isbn():
     t=target();t['book_printing'].update(system_code='MANGA',series_title='Fixture Manga',publisher='VIZ Media',
         book_format='MANGA',cover_code=None,release_year=2003,barcode_gtin='9781566199094')
