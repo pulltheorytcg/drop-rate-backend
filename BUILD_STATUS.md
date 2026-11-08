@@ -1,3 +1,9 @@
+## 7 November 2026 — MTGJSON registry revision repair (local tests passed; not deployed)
+
+- Align the source registry's stale v1 metadata revision with the existing v2 downloader, preserving strict permission and checksum enforcement. No UI, price, schema, integration or capacity-safeguard changes.
+- Add a regression through the real registry-to-downloader entry point and reject the old descriptor explicitly. Affected local suites pass with simulated upstream data; production import and CI remain separate verification gates.
+- See [repair and rollback notes](docs/MTGJSON_REGISTRY_REVISION_REPAIR_20261107.md). This is an isolated Cloudflare migration repair, not completed pricing recovery or a production cutover.
+
 ## 7 November 2026 — Full slab tiles and reviewed raw-card reference fallback (CI pending)
 
 - Founder and consignor Collection grids now give graded items a taller **uncropped** object-contain image frame on desktop and mobile, keeping the grading label and full slab visible.
