@@ -219,7 +219,7 @@ async def run_selected(pool, actor, source: str):
             return {"status": "ALREADY_RUNNING", "source": source, "metadata_only": True}
         try:
             result = await import_source(pool, UUID(str(actor)), source)
-            # The background 48h loop normally prewarms after imports. Keep
+            # The background loop normally prewarms after imports. Keep
             # newly published source generations available to app readers
             # immediately after an n8n-triggered update too.
             if result.get("status") in {"PUBLISHED", "CURRENT"} and service.enabled():
@@ -237,6 +237,11 @@ async def run_loop(pool, actor):
     while True:
         delay = REFRESH_SECONDS
         try:
+            # Wake for the shortest configured cadence. import_source still
+            # checks each publication's own cooldown before any provider I/O.
+            # The old fixed 48h sleep skipped daily Lorcast/MTG refreshes.
+            delay = min((SOURCE_REFRESH_SECONDS.get(source, REFRESH_SECONDS)
+                         for source in configured_sources()), default=REFRESH_SECONDS)
             reports = await run_once(pool, actor)
             if reports == [{"status": "ALREADY_RUNNING"}]:
                 # A retiring deployment may still hold the session lock. It
