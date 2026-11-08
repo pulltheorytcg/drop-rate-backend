@@ -73,7 +73,7 @@ For manga issue_number means the book's volume number. volume_identifier is the
 series edition (omnibus/deluxe etc), not the issue number again. Preserve variant,
 newsstand/direct-edition markings and cover artist only when explicitly visible.
 Report ISBN/UPC/EAN including a visible comic supplemental barcode, without inventing
-digits. Transcribe CGC or BGS company, numerical grade and certificate separately;
+digits. Transcribe CGC, CBCS or BGS company, numerical grade and certificate separately;
 never infer grade from condition, or authenticate a label. Put signatures,
 restoration, qualified labels, missing pages and other special states in label_notes.
 Do not estimate condition, authenticity, rarity, price, cost or market value.
