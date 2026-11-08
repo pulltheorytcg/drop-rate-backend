@@ -22,6 +22,7 @@ from .access_control import require_platform_admin
 from .database_capacity import check_database_capacity
 from .ebay_official_client import EbayApiError
 from .reference_applicability import DIGITAL_REFERENCE_SQL
+from .reference_asking_funnel import begin_funnel, record_estimate
 from .reference_asking_display import asking_cache_join, matching_reference_evidence, reference_number_alias as _number_alias
 from .reference_asking_estimator import (
     _GRADE_RE, _MULTI_RE, _aspects, _number_matches, _text,
@@ -650,6 +651,8 @@ class SqlBackfillStore:
                     await self.capacity()
                     await self.connection.fetchval(CACHE_SQL, snapshot_id)
                     updated["stats"]["written"] += 1
+                    if "funnel" in updated:
+                        updated["funnel"]["estimates_persisted"] += 1
                     updated["database_price_writes"] += 1
             await self.save(updated)
         return updated
@@ -669,6 +672,7 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
     quota_baseline = 0
     deadline = monotonic() + MAX_RUN_SECONDS
     detail_cache = {}
+    begin_funnel(report)
     for key in ("search_requests", "detail_requests", "details_observed", "detail_cache_hits"):
         report["stats"].setdefault(key, 0)
 
@@ -695,6 +699,8 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
         # interrupted GET still consumes the slot and retains the card cursor.
         updated = deepcopy(report)
         updated["stats"][kind] += 1
+        if kind == "search_requests":
+            updated["funnel"]["references_searched"] += 1
         report = await store.reserve(updated, reference)
         checkpoint(report)
         session_used += 1
@@ -735,13 +741,17 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                     raise BackfillStop("INVALID_BROWSE_SUMMARIES")
                 report["stats"]["collected"] += 1
                 report["stats"]["summaries_seen"] += len(summaries)
+                report["funnel"]["searches_returning_listings"] += bool(summaries)
+                report["funnel"]["candidates_discovered"] += len(summaries)
                 # Search fields are discovery/diagnostics only. Missing item
                 # aspects are retrieved through getItem before any acceptance.
                 diagnostic = estimate_reference_asking_price(reference, summaries, observed_at=observed, now=observed)
                 for code, count in diagnostic["rejection_counts"].items():
                     _bump(report, "SUMMARY_" + code, count)
                 details = []
-                for item_id in item_detail_candidates(reference, summaries):
+                selected_ids = item_detail_candidates(reference, summaries)
+                report["funnel"]["selected_detail_candidates"] += len(selected_ids)
+                for item_id in selected_ids:
                     if item_id in detail_cache:
                         detail, acquired = detail_cache[item_id]
                         report["stats"]["detail_cache_hits"] += 1
@@ -755,6 +765,7 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                         # a charged ambiguous call during this invocation.
                         detail_cache[item_id] = (detail, acquired)
                         report["stats"]["details_observed"] += int(detail is not None)
+                        report["funnel"]["full_details_retrieved"] += int(detail is not None)
                     if detail is None:
                         _bump(report, "DETAIL_ITEM_ID_MISMATCH")
                         continue
@@ -762,6 +773,7 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                     observed = min(observed, acquired)
                     details.append(detail)
                 estimate = estimate_reference_asking_price(reference, details, observed_at=observed, now=clock())
+                record_estimate(report, estimate)
                 if estimate["status"] == "READY":
                     report["stats"]["matched"] += 1
                 else:
