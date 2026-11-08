@@ -254,6 +254,7 @@ def test_pilot_quote_uses_server_market_evidence_only(pilot, monkeypatch):
     body = result.json()
     assert body["comparison"]["status"] == "UNDER_MARKET"
     assert body["comparison"]["allInMinor"] == 6500
+    assert body["comparison"]["bidExpiresAtMs"] > int(now.timestamp() * 1000)
     assert body["comparison"]["differenceMinor"] == 3500
     assert body["value"]["marketValueMinor"] == 10000
     assert seen == [P_ID]
