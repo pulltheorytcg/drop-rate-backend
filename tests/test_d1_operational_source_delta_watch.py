@@ -125,3 +125,54 @@ def test_no_sensitive_ids_appear_in_receipt():
     assert "id-owners" not in rendered
     assert "id-inventory_items" not in rendered
     assert "catalogue-1" not in rendered
+
+
+def payload_pair(before,after):
+    import hashlib
+    old=json.dumps(before);new=json.dumps(after)
+    digest=lambda value:hashlib.sha256(value.encode()).hexdigest()
+    return [(after['id'],after,new,digest(new))],[{'id':before['id'],'source_row_json':old,'source_row_sha256':digest(old)}]
+
+
+def test_column_diagnostics_preserve_privacy_and_distinguish_missing_null_and_types():
+    src,remote=payload_pair({'id':'private-id','owner_id':'owner-a','cost':None,'active':1},
+                            {'id':'private-id','owner_id':'owner-b','active':True})
+    r=watch.explain_changed_fields(src,remote,{'id','owner_id','cost','active'})
+    assert r['changed_field_counts']=={'active':1,'cost':1,'owner_id':1}
+    assert r['changed_records_examined']==1
+    assert r['serialization_only_records']==0
+    assert 'private-id' not in str(r) and 'owner-a' not in str(r)
+
+
+def test_column_diagnostics_reject_corrupt_payload_and_unapproved_fields():
+    src,remote=payload_pair({'id':'x','owner_id':'a'},{'id':'x','owner_id':'b'})
+    with pytest.raises(watch.SnapshotDriftGuard,match='Unapproved'):
+        watch.explain_changed_fields(src,remote,{'id'})
+    remote[0]['source_row_json']='{}'
+    with pytest.raises(watch.SnapshotDriftGuard,match='hash'):
+        watch.explain_changed_fields(src,remote,{'id','owner_id'})
+
+
+def test_serialization_difference_is_explained_but_hash_still_blocks():
+    import hashlib
+    src,remote=payload_pair({'id':'x'},{'id':'x'})
+    remote[0]['source_row_json']='{ "id": "x" }'
+    remote[0]['source_row_sha256']=hashlib.sha256(remote[0]['source_row_json'].encode()).hexdigest()
+    r=watch.explain_changed_fields(src,remote,{'id'})
+    assert r['serialization_only_records']==1
+    assert watch.compare_hashes(src,remote)['changed_after_snapshot']==1
+
+
+def test_real_diagnostic_path_keeps_cutover_blocked_and_issues_no_writes():
+    src=source();db=FakeD1(src)
+    new,old=payload_pair({'id':'private-inventory','owner_id':'a'},
+                         {'id':'private-inventory','owner_id':'b'})
+    src['inventory_items']=new
+    db.tables[TARGETS['inventory_items'][0]]=old
+    r=watch.verify_shadow(db,src,{'catalogue-1':H},explain_drift=True,
+        source_schema={'inventory_items':[{'column':'id'},{'column':'owner_id'}]})
+    assert r['column_drift_diagnostics']['inventory_items']['changed_field_counts']=={'owner_id':1}
+    assert r['status']=='READ_ONLY_OPERATIONAL_D1_SNAPSHOT_STALE'
+    assert r['safely_authorizes_cutover'] is False
+    assert db.write_calls==0
+    assert 'private-inventory' not in json.dumps(r)

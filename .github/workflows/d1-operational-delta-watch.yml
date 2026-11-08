@@ -75,7 +75,7 @@ jobs:
       - name: Compare SOURCE PostgreSQL original record SHA against private D1 generation
         run: |
           set -euo pipefail
-          python tools/d1_operational_source_delta_watch.py > private-d1-source-drift-status.json
+          python tools/d1_operational_source_delta_watch.py --explain-drift > private-d1-source-drift-status.json
           python - <<'PY'
           import json
           data=json.load(open('private-d1-source-drift-status.json',encoding='utf-8'))
