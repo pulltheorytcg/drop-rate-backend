@@ -30,6 +30,43 @@ export type CaptureFrame = {
   lotToken?: string; // only if obtained through a permitted/authoritative source
 };
 
+export type VerifiedAuctionComparison = {
+  status:
+    | "UNDER_MARKET" | "OVER_MARKET" | "AROUND_MARKET"
+    | "NO_CURRENT_MARKET_VALUE" | "CHARGES_UNKNOWN" | "STALE_BID"
+    | "CHECK_VERSION" | "AUCTION_NOT_ACTIVE" | "UNSUPPORTED_CURRENCY";
+  allInMinor?: number;
+  marketValueMinor?: number;
+  differenceMinor?: number;
+  source?: string;
+  evidenceAtMs?: number;
+};
+
+/** Only the server can create the verdict; the client may reject unsafe data. */
+function eligibleComparison(
+  comparison: VerifiedAuctionComparison | undefined,
+  marketValueMinor: number | undefined
+): VerifiedAuctionComparison | undefined {
+  if (!comparison || marketValueMinor === undefined) return undefined;
+  if (["UNDER_MARKET", "OVER_MARKET", "AROUND_MARKET"].includes(comparison.status)) {
+    if (!Number.isSafeInteger(comparison.allInMinor) ||
+        comparison.allInMinor! < 0 ||
+        comparison.marketValueMinor !== marketValueMinor ||
+        !Number.isSafeInteger(comparison.differenceMinor) ||
+        comparison.differenceMinor !== marketValueMinor - comparison.allInMinor!) {
+      return undefined;
+    }
+    return comparison;
+  }
+  if (["CHARGES_UNKNOWN", "STALE_BID", "CHECK_VERSION", "NO_CURRENT_MARKET_VALUE",
+       "AUCTION_NOT_ACTIVE", "UNSUPPORTED_CURRENCY"].includes(comparison.status) &&
+      comparison.allInMinor === undefined && comparison.marketValueMinor === undefined &&
+      comparison.differenceMinor === undefined) {
+    return { status: comparison.status };
+  }
+  return undefined;
+}
+
 export type VerifiedRecognition = {
   generation: number;
   decision: "EXACT" | "CHECK_VERSION" | "NO_MATCH";
@@ -39,6 +76,7 @@ export type VerifiedRecognition = {
    * The backend may include a value ONLY after exact-identity, profile,
    * expiry, currency, market-region, source-rights and eligibility checks.
    */
+  comparison?: VerifiedAuctionComparison;
   value?: {
     marketValueMinor: number;
     currency: "GBP";
@@ -54,6 +92,7 @@ export type LensView = {
   identityKey?: string;
   title?: string;
   value?: VerifiedRecognition["value"];
+  comparison?: VerifiedAuctionComparison;
 };
 
 export type FrameResolver = (frame: CaptureFrame, generation: number, signal: AbortSignal) =>
@@ -261,10 +300,15 @@ export class AuctionLensStream {
       }
       // The remote endpoint is still required to verify exact printing and
       // market evidence. Client-side display gate is defence-in-depth.
+      const valueIsCurrent = validValue(result.value, Date.now());
+      const comparison = valueIsCurrent
+        ? eligibleComparison(result.comparison, result.value?.marketValueMinor)
+        : undefined;
       this.publish({
-        status: validValue(result.value, Date.now()) ? "IDENTIFIED" : "NO_VALUE",
+        status: valueIsCurrent ? "IDENTIFIED" : "NO_VALUE",
         generation, identityKey: result.identityKey, title: result.title,
-        ...(validValue(result.value, Date.now()) ? { value: result.value } : {}),
+        ...(valueIsCurrent ? { value: result.value } : {}),
+        ...(comparison ? {comparison} : {}),
       });
     }).catch(() => {
       if (!controller.signal.aborted && generation === this.view.generation) {
