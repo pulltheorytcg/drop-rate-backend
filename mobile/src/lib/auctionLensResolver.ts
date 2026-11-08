@@ -77,12 +77,15 @@ function safeResult(value: unknown, generation: number): VerifiedRecognition {
         Number.isSafeInteger(cmp.allInMinor) && (cmp.allInMinor as number)>=0 &&
         cmp.marketValueMinor===result.value.marketValueMinor &&
         Number.isSafeInteger(cmp.differenceMinor) &&
-        cmp.differenceMinor===result.value.marketValueMinor-(cmp.allInMinor as number)) {
+        cmp.differenceMinor===result.value.marketValueMinor-(cmp.allInMinor as number) &&
+        Number.isFinite(cmp.bidExpiresAtMs) &&
+        (cmp.bidExpiresAtMs as number)>Date.now()) {
       result.comparison={
         status:status as VerifiedAuctionComparison["status"],
         allInMinor:cmp.allInMinor as number,
         marketValueMinor:cmp.marketValueMinor as number,
         differenceMinor:cmp.differenceMinor as number,
+        bidExpiresAtMs:cmp.bidExpiresAtMs as number,
       };
     } else if(typeof status==="string" && abstain.includes(status) &&
               cmp.allInMinor===undefined && cmp.marketValueMinor===undefined &&
