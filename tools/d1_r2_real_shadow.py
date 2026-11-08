@@ -316,9 +316,9 @@ def _refresh_lorcana_generation(client,uid,name,source,registry,prior_sha,*,now=
                 for column in fields:field_changes[column]=field_changes.get(column,0)+1
     if len(old_keys)!=prior[0]['expected_rows'] or not set(old_keys)<=wanted.keys():
         raise MigrationGuard('Prior Lorcana identities removed or incomplete')
-    page_count=_query(client,uid,'PRAGMA page_count')[0]['page_count']
-    page_size=_query(client,uid,'PRAGMA page_size')[0]['page_size']
-    database_bytes=page_count*page_size
+    # Reuse the existing metadata API guard; D1 rejects SQLite size PRAGMAs.
+    from d1_full_catalogue_capacity import _database_size
+    database_bytes=_database_size(client,uid)
     # Conservative preflight, followed by actual post-copy size readback.
     projected_bytes=database_bytes+6*sum(len(json.dumps(row).encode()) for row in source.rows)+65536
     if projected_bytes>450_000_000:
@@ -355,7 +355,7 @@ def _refresh_lorcana_generation(client,uid,name,source,registry,prior_sha,*,now=
                            'params':[v for row in rows for v in row]})
     for offset in range(0,len(statements),12):client.batch(uid,statements[offset:offset+12])
     verify_d1_projection(client,uid,source)
-    final_size=_query(client,uid,'PRAGMA page_count')[0]['page_count']*_query(client,uid,'PRAGMA page_size')[0]['page_size']
+    final_size=_database_size(client,uid)
     if final_size>450_000_000:raise MigrationGuard('Lorcana actual retained-generation size limit exceeded')
     # CAS: never replace a generation another publisher advanced after our read.
     _query(client,uid,'update shadow_active_partitions set manifest_sha=? where provider=? and system_code=? and language=? and manifest_sha=?',
