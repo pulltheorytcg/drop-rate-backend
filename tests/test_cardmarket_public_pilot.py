@@ -252,3 +252,84 @@ def test_fake_expansion_proof_with_only_repeated_card_name_is_rejected():
     result = run(cards=cards, products=products, guides=guides)
     assert result["candidate_count"] == 0
     assert result["rejected"]["INSUFFICIENT_EXPANSION_PROOF"] == 9
+
+
+def test_guide_scope_does_not_invent_language_condition_or_grade():
+    cards, products, guides, fx = _fixtures()
+    cards[0].update(collector_number='123a', set_code='EXM')
+    result = run(cards, products, guides, fx)
+    assert result['accepted_product_ids'] == 1
+    assert result['candidate_finish_counts'] == {'foil': 1, 'nonfoil': 1}
+    assert result['physical_market_value_eligible'] == 0
+    for c in result['candidates']:
+        assert c['collector_number'] == '123a'
+        assert c['set_code'] == 'EXM'
+        assert c['guide_language_basis'] == c['guide_condition_basis'] == 'UNSPECIFIED'
+        assert c['guide_grade_basis'] == 'NOT_GRADE_SPECIFIC'
+
+
+def snapshot_fixture(tmp_path):
+    import hashlib
+    from scripts.pilot_cardmarket_public_daily_mtg import SOURCES
+    receipts = []
+    for source in SOURCES:
+        raw = ('{"source": "' + source + '"}\n').encode()
+        (tmp_path / (source + '.json')).write_bytes(raw)
+        receipts.append({'source': source, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()})
+    return {'source_receipts': receipts}
+
+
+class SnapshotStorage:
+    def __init__(self): self.uploads = []
+    def put_verified_file(self, path, **kwargs):
+        import hashlib
+        raw = path.read_bytes()
+        self.uploads.append(raw)
+        return {'verified': True, 'sha256': hashlib.sha256(raw).hexdigest(),
+                'size_bytes': len(raw), 'key': 'private/exports/fixture'}
+
+
+def test_snapshot_preserves_exact_response_bytes_and_auditable_manifest(tmp_path):
+    import json
+    from scripts.pilot_cardmarket_public_daily_mtg import archive_sources
+    receipt = snapshot_fixture(tmp_path)
+    storage = SnapshotStorage()
+    result = archive_sources(storage, tmp_path, receipt)
+    assert result['objects_verified'] == 3 and result['database_writes'] == 0
+    assert len(storage.uploads) == 4
+    manifest = json.loads(storage.uploads[-1])
+    assert manifest['pilot_receipt'] == receipt
+    assert manifest['publication'] == 'SOURCE_ARCHIVE_ONLY_NOT_MARKET_VALUE'
+    assert len(manifest['objects']) == 3
+
+
+@pytest.mark.parametrize('fault', ['hash', 'size', 'missing', 'symlink', 'source'])
+def test_snapshot_preflights_all_files_before_upload(tmp_path, fault):
+    from scripts.pilot_cardmarket_public_daily_mtg import archive_sources
+    receipt = snapshot_fixture(tmp_path)
+    source = receipt['source_receipts'][-1]
+    path = tmp_path / (source['source'] + '.json')
+    if fault == 'hash': source['sha256'] = '0' * 64
+    elif fault == 'size': source['bytes'] += 1
+    elif fault == 'source': source['source'] = '../private'
+    elif fault == 'missing': path.unlink()
+    else:
+        saved = path.with_suffix('.saved')
+        path.rename(saved)
+        path.symlink_to(saved)
+    storage = SnapshotStorage()
+    with pytest.raises(PilotError): archive_sources(storage, tmp_path, receipt)
+    assert storage.uploads == []
+
+
+def test_snapshot_remote_corruption_never_publishes_manifest(tmp_path):
+    from scripts.pilot_cardmarket_public_daily_mtg import archive_sources
+    receipt = snapshot_fixture(tmp_path)
+    class Corrupt(SnapshotStorage):
+        def put_verified_file(self, path, **kwargs):
+            result = super().put_verified_file(path, **kwargs)
+            result['sha256'] = '0' * 64
+            return result
+    storage = Corrupt()
+    with pytest.raises(PilotError, match='Remote snapshot'): archive_sources(storage, tmp_path, receipt)
+    assert len(storage.uploads) == 1

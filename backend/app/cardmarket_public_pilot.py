@@ -95,7 +95,9 @@ def _mtg_identity_cards(cards: list[dict]) -> tuple[dict, set]:
         valid = {finish for finish in finishes if finish in VALID_FINISHES}
         if not valid:
             continue
-        identity = {"uuid": uid, "name": name, "set_name": set_name, "finishes": valid}
+        identity = {"uuid": uid, "name": name, "set_name": set_name, "finishes": valid,
+                    "collector_number": card.get("collector_number"),
+                    "set_code": card.get("set_code")}
         if source_id in by_id and by_id[source_id] != identity:
             collisions.add(source_id)
         else:
@@ -207,6 +209,11 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
                 "provider": "MTGJSON", "system_code": "MAGIC_THE_GATHERING",
                 "language": "English", "provider_id": f"mtgjson:{identity['uuid']}:{finish}",
                 "cardmarket_product_id": mcm_id, "finish": finish,
+                "collector_number": identity["collector_number"], "set_code": identity["set_code"],
+                "source_classification": "AGGREGATED_PRODUCT_GUIDE",
+                "guide_language_basis": "UNSPECIFIED",
+                "guide_condition_basis": "UNSPECIFIED",
+                "guide_grade_basis": "NOT_GRADE_SPECIFIC",
                 "cardmarket_expansion_id": expansion_id,
                 "expansion_anchor_names": len(expansion_names.get(
                     (expansion_id, identity["set_name"]), set())),
@@ -231,6 +238,12 @@ def read_only_mtg_pilot(*, mtg_cards: list[dict], products_export: dict,
         "expansion_ids_ambiguous": len(ambiguous_expansions),
         "min_distinct_anchor_names": MIN_EXPANSION_ANCHOR_NAMES,
         "candidate_count": len(candidates), "rejected": dict(rejected),
+        "accepted_product_ids": len({c["cardmarket_product_id"] for c in candidates}),
+        "candidate_finish_counts": {finish: sum(c["finish"] == finish for c in candidates)
+                                    for finish in sorted(VALID_FINISHES)},
+        "guide_distinctions": {"language": "UNSPECIFIED", "condition": "UNSPECIFIED",
+                               "grade": "NOT_GRADE_SPECIFIC"},
+        "physical_market_value_eligible": 0,
         "diagnostic_examples": diagnosis,
         "source_checked_at": price_checked.isoformat(), "candidates": candidates,
         "database_writes": 0, "object_storage_writes": 0, "store_price_changes": 0,
