@@ -6,7 +6,7 @@ No quote, provider call, image or frame is stored.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from .auction_lens_uk import AuctionLot, MarketEvidence, compare_uk_auction
@@ -81,6 +81,9 @@ def compare_verified_quote(
             and comparison.market_value_minor is not None
             and comparison.saving_vs_market_minor is not None):
         output.update({
+            "bidExpiresAtMs": int(
+                (quote.bid_observed_at + timedelta(seconds=30)).timestamp() * 1000
+            ),
             "allInMinor": comparison.all_in_minor,
             "marketValueMinor": comparison.market_value_minor,
             "differenceMinor": comparison.saving_vs_market_minor,
