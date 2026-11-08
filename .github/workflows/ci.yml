@@ -45,6 +45,7 @@ jobs:
           PYTHONPATH=backend python tests/optional_seller_cost_postgres.py
           PYTHONPATH=backend:tests python tests/inventory_photo_postgres.py --pglite
           PYTHONPATH=backend:tests python tests/seller_photo_review_postgres.py --pglite
+          PYTHONPATH=backend:tests python tests/catalogue_review_evidence_postgres.py
           PYTHONPATH=backend:tests python tests/inventory_market_movers_postgres.py
 
   dashboard-ui:
