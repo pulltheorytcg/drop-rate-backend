@@ -81,11 +81,12 @@
       Number.isSafeInteger(comparison.allInMinor)&&comparison.allInMinor>=0&&
       comparison.marketValueMinor===value.marketValueMinor&&
       Number.isSafeInteger(comparison.differenceMinor)&&
-      comparison.differenceMinor===value.marketValueMinor-comparison.allInMinor;
+      comparison.differenceMinor===value.marketValueMinor-comparison.allInMinor&&
+      Number.isFinite(comparison.bidExpiresAtMs)&&comparison.bidExpiresAtMs>Date.now();
     if(complete) {
       // Bid observations age out independently of market evidence. A static
       // frame must never keep a "BELOW MARKET" label after the bid goes stale.
-      bannerBidExpiresAt=Date.parse(quote.bid_observed_at)+30_000;
+      bannerBidExpiresAt=comparison.bidExpiresAtMs;
       $("auction-banner-all-in").textContent=money(comparison.allInMinor);
       badge.dataset.state=status;
       badge.textContent=status==="UNDER_MARKET"?"↓ "+money(comparison.differenceMinor)+" BELOW"
