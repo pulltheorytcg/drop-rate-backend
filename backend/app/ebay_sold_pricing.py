@@ -191,9 +191,9 @@ def _explicit_print_markers(name: str) -> tuple[str, ...]:
     return tuple(marker for marker in _EXPLICIT_PRINT_MARKERS if _contains_term(normalised, marker))
 
 
-def _variant_matches_target(title: str, *, game: str, variant: str) -> bool:
+def _variant_matches_target(title: str, *, game: str, variant: str, name: str | None = None) -> bool:
     if is_magic(game):
-        return magic_finish_matches(title, variant)
+        return magic_finish_matches(title, variant, name=name)
     # One Piece Collectr exports mark ordinary cards as Foil even when sellers
     # rarely state "foil". Card code + name + explicit Parallel/SP/Manga marker
     # are more reliable discriminators for that game.
@@ -286,6 +286,7 @@ def _matches_comp(row: dict[str, Any], target: dict[str, Any]) -> bool:
         title,
         game=target["game"],
         variant=target["variant"],
+        name=target["name"],
     ):
         return False
 

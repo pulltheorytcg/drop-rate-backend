@@ -48,3 +48,15 @@ def test_nonfoil_spelling_and_etched_aliases(matcher):
 def test_signed_and_unsigned_magic_do_not_mix(matcher):
     assert not matcher(row("foil signed"), target())
     assert not matcher(row("foil artist autograph"), target())
+
+
+@pytest.mark.parametrize("matcher", [_matches_comp, exact_card_match])
+@pytest.mark.parametrize("name", ["Foil", "Gilded Scholar", "Etched Scholar"])
+def test_card_name_is_not_finish_evidence(matcher, name):
+    t = dict(target("nonfoil"), name=name)
+    r = row("nonfoil")
+    r["title"] = r["title"].replace("Fixture Mage", name)
+    assert matcher(r, t)
+    t["variant"] = "foil"
+    r["title"] = r["title"].replace("nonfoil", "")
+    assert not matcher(r, t)

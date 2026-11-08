@@ -23,9 +23,11 @@ record is changed. Existing stored quotes are not rewritten by this patch.
 The five-sale route remains a sold-specific route; permitted guide/active-listing
 estimates are separate recovery work, not relabelled by this identity correction.
 
-Validation: 20 failures reproduced before repair; all 118 targeted tests pass
+Validation: 20 failures reproduced before repair; all 124 targeted tests pass
 afterward. New tests exercise both pricing entry paths, the finish cross-product,
 different/missing sets, aliases, signed listings and ambiguous/special finishes.
+The exact card-name phrase is removed once before interpreting finish/treatment
+words, so a card name cannot supply or contradict its finish evidence.
 These fixtures are not real market evidence or measured pricing accuracy.
 
 Release after CI/review. Verify a non-mutating quote preview with authorized
