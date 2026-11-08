@@ -5,6 +5,10 @@ on:
     paths:
       - "mobile/src/lib/auctionLensStream.ts"
       - "mobile/src/lib/auctionLensResolver.ts"
+      - "mobile/src/lib/auctionLensBanner.ts"
+      - "mobile/tests/auction-lens-banner.test.ts"
+      - "backend/app/auction_lens_quote.py"
+      - "backend/app/auction_lens_api.py"
       - "mobile/tests/auction-lens-stream.test.ts"
       - "mobile/tests/auction-lens-resolver.test.ts"
       - "backend/app/static/auction-lens-lab.js"
@@ -35,5 +39,5 @@ jobs:
         run: npm --prefix mobile run typecheck
       - name: Syntax-check local-video test screen
         run: node --check backend/app/static/auction-lens-lab.js
-      - name: Run both Auction Lens client suites
+      - name: Run Auction Lens stream, resolver and banner suites
         run: npm --prefix mobile test -- auction-lens
