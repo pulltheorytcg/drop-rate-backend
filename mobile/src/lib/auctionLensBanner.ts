@@ -74,6 +74,10 @@ export function presentAuctionBanner(
   result.verdict = "VALUE CHECKED";
 
   const quote = view.comparison;
+  if (quote?.bidExpiresAtMs && quote.bidExpiresAtMs <= now) {
+    result.verdict = "BID TOO OLD";
+    return result;
+  }
   if (quote?.status === "CHARGES_UNKNOWN") {
     result.verdict = "FEES UNKNOWN";
     return result;
@@ -86,7 +90,8 @@ export function presentAuctionBanner(
       !Number.isSafeInteger(quote.allInMinor) || quote.allInMinor! < 0 ||
       quote.marketValueMinor !== value.marketValueMinor ||
       !Number.isSafeInteger(quote.differenceMinor) ||
-      quote.differenceMinor !== value.marketValueMinor - quote.allInMinor!) {
+      quote.differenceMinor !== value.marketValueMinor - quote.allInMinor! ||
+      !Number.isFinite(quote.bidExpiresAtMs) || quote.bidExpiresAtMs! <= now) {
     return result;
   }
   result.allIn = money(quote.allInMinor!);
