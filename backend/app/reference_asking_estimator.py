@@ -404,10 +404,12 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     return None
 
 
-def _comparable(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping[str, Any], observed_at: datetime) -> tuple[dict[str, Any] | None, str | None]:
+def _comparable(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping[str, Any], observed_at: datetime, *, funnel: dict | None = None) -> tuple[dict[str, Any] | None, str | None]:
     reason = _matches(row, reference, spec)
     if reason:
         return None, reason
+    if funnel is not None:
+        funnel["identity_and_condition_accepted"] += 1
     options = row.get("buyingOptions")
     if not isinstance(options, list) or "FIXED_PRICE" not in options or any(option not in ("FIXED_PRICE", "BEST_OFFER") for option in options) or row.get("currentBidPrice") is not None or row.get("bidCount") not in (None, 0, "0"):
         return None, "NOT_FIXED_PRICE"
@@ -504,6 +506,9 @@ def estimate_reference_asking_price(
         "condition_basis": "RAW_NEAR_MINT_OR_MINT", "includes_shipping": True,
         "observed_at": None, "expires_at": None, "sample_count": 0, "seller_count": 0,
         "confidence": "NONE", "evidence": {}, "comparables": [], "rejection_counts": {},
+        "funnel": {"evaluated": False, "rows_seen": len(browse_rows),
+                   "identity_and_condition_accepted": 0, "comparable_rows_accepted": 0,
+                   "missing_language_evidence": 0, "conflicting_language_evidence": 0},
         "selected_finish": None, "physical_valuation_eligible": False,
         "identity": {key: reference.get(key) for key in ("name", "set_id", "card_number", "set_name", "finish", "rarity")},
     }
@@ -521,6 +526,7 @@ def estimate_reference_asking_price(
     if reason or spec is None:
         result.update(status="IDENTITY_UNSUPPORTED", rejection_counts={reason: 1})
         return result
+    result["funnel"]["evaluated"] = True
     rejected: Counter[str] = Counter()
     by_id: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in browse_rows:
@@ -529,10 +535,17 @@ def estimate_reference_asking_price(
             continue
         # A reused response retains acquisition time for TTL, but a listing
         # whose known end time has passed is no longer an active comparable.
-        comparable, reason = _comparable(row, reference, spec, current)
+        comparable, reason = _comparable(row, reference, spec, current, funnel=result["funnel"])
         if comparable is None:
+            if reason == "LANGUAGE_MISMATCH_OR_UNKNOWN":
+                language_text = " ".join((_text(row.get("title")), _aspects(row).get("language", "")))
+                known_language = any(_phrase(language_text, alias)
+                    for aliases in _LANGUAGES.values() for alias in aliases)
+                field = "conflicting_language_evidence" if known_language else "missing_language_evidence"
+                result["funnel"][field] += 1
             rejected[reason or "INVALID_ROW"] += 1
         else:
+            result["funnel"]["comparable_rows_accepted"] += 1
             by_id[comparable["item_id"]].append(comparable)
     by_seller: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for rows in by_id.values():
