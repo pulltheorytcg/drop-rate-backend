@@ -99,7 +99,7 @@ describe("auction quote transport boundary", () => {
       value:{marketValueMinor:10000,currency:"GBP",source:"Eligible UK sold",
         expiresAtMs:Date.now()+60000,valuationEligible:true},
       comparison:{status:"UNDER_MARKET",allInMinor:6500,
-        marketValueMinor:10000,differenceMinor:3500},
+        marketValueMinor:10000,differenceMinor:3500,bidExpiresAtMs:Date.now()+60000},
     }),{status:200}));
     const result=await configured(fn as typeof fetch,"test",{
       observed:OBS,source:"OWN_VIDEO",confirmed_raw_condition:"Near Mint",quote,
