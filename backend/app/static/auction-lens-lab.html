@@ -25,7 +25,28 @@
       <label class="upload">Select a local video
         <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/*">
       </label>
-      <div class="video-frame"><video id="footage" controls playsinline muted preload="metadata"></video><div id="video-empty">Your chosen video plays here.</div></div>
+      <div class="video-frame" id="video-frame">
+        <video id="footage" controls playsinline muted preload="metadata"></video>
+        <div id="video-empty">Your chosen video plays here.</div>
+        <!-- This is a TEST-FOOTAGE overlay, not a system-wide iPhone banner. -->
+        <aside class="auction-banner" id="auction-banner" aria-live="polite" aria-atomic="true" hidden>
+          <img id="auction-banner-thumb" class="banner-card" alt="Locally cropped scanned card" hidden>
+          <div class="banner-identity">
+            <div class="banner-topline">
+              <span class="banner-eyebrow">AUCTION LENS <span class="banner-mode">VIDEO LAB</span></span>
+              <img class="banner-brand" src="/assets/brand-assets/storefront-logo.png" alt="Drop Rate">
+            </div>
+            <strong id="auction-banner-title">Scanning for a card…</strong>
+            <span id="auction-banner-subtitle">Verifying exact printing and UK market evidence</span>
+          </div>
+          <div class="banner-figures">
+            <span><small>Entered bid</small><b id="auction-banner-bid">—</b></span>
+            <span><small>All-in</small><b id="auction-banner-all-in">—</b></span>
+            <span><small>UK Market Value</small><b id="auction-banner-market">—</b></span>
+          </div>
+          <strong id="auction-banner-verdict" class="banner-verdict" data-state="WAITING">CHECKING</strong>
+        </aside>
+      </div>
       <p class="hint">The video stays on this device. When you start recognition, only a cropped JPEG of the item is sent to Drop Rate's authenticated pilot API. Check the preview below to ensure no chat, usernames or notifications are included.</p>
       <div class="crop-grid">
         <label>Left <input id="crop-left" type="range" min="0" max="70" value="18"><output id="crop-left-value">18%</output></label>
@@ -56,6 +77,17 @@
         <option value="EXPLICITLY_AUTHORISED_VIDEO">Footage I have explicit permission to process</option>
       </select></label>
       <label class="check"><input id="rights-affirmed" type="checkbox"> I own this footage or have explicit permission to process it</label>
+      <details class="quote-editor">
+        <summary>Optional: manually enter auction bid and charges</summary>
+        <p class="hint">This is test footage, not an auction-platform feed. Bid observations must be recent; blank fees mean unknown, never £0.</p>
+        <div class="quote-grid">
+          <label>Bid (£)<input id="bid-manual" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 52.00"></label>
+          <label>Shipping (£)<input id="ship-manual" type="text" inputmode="decimal" autocomplete="off" placeholder="Unknown"></label>
+          <label>Buyer fees (£)<input id="fee-manual" type="text" inputmode="decimal" autocomplete="off" placeholder="Unknown"></label>
+          <label>Import tax (£)<input id="tax-manual" type="text" inputmode="decimal" autocomplete="off" placeholder="Unknown"></label>
+          <label>Other costs (£)<input id="other-manual" type="text" inputmode="decimal" autocomplete="off" placeholder="Unknown"></label>
+        </div>
+      </details>
       <div class="controls">
         <button id="start-scan" type="button" class="primary">Start recognition</button>
         <button id="new-lot" type="button">New lot</button>

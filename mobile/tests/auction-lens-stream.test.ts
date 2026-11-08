@@ -114,6 +114,20 @@ describe("bounded live auction frame coordinator", () => {
     expect(loop.snapshot(Date.now()+200).status).toBe("NO_VALUE");
   });
 
+  it("expires an observed bid verdict without hiding still-eligible market evidence", async () => {
+    const bidExpiry = Date.now() + 100;
+    const loop = new AuctionLensStream(async (_f,g) => ({
+      ...result(g), generation:g,
+      comparison:{status:"UNDER_MARKET",allInMinor:6500,marketValueMinor:12000,
+        differenceMinor:5500,bidExpiresAtMs:bidExpiry},
+    }), () => {});
+    loop.start();[0,250,500].forEach(t=>loop.ingest(frame(t)));await tick();
+    expect(loop.snapshot(Date.now()).comparison?.status).toBe("UNDER_MARKET");
+    const expired=loop.snapshot(bidExpiry+1);
+    expect(expired.comparison?.status).toBe("STALE_BID");
+    expect(expired.value?.marketValueMinor).toBe(12000);
+  });
+
   it("rejects a generation mismatch from a delayed/invalid backend response", async () => {
     const loop = new AuctionLensStream(async (_f,g) => result(g+100), () => {});
     loop.start();[0,250,500].forEach(t=>loop.ingest(frame(t)));await tick();

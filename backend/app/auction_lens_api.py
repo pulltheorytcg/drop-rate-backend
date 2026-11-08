@@ -13,9 +13,10 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from .auth import AuthenticatedUser, require_user
+from .auction_lens_quote import compare_verified_quote
 from .auction_lens_pilot import (
     ObservedCard, MAX_CANDIDATES, confirm_exact_printing,
 )
@@ -48,6 +49,23 @@ class PilotObservedCard(BaseModel):
     object_type: Literal["RAW_CARD"] = "RAW_CARD"
 
 
+# All charges are explicitly observed integer pence; None is NOT zero.
+MoneyMinor = Annotated[StrictInt, Field(ge=0, le=100_000_000)]
+
+
+class PilotAuctionQuote(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lot_ref: str = Field(min_length=1, max_length=120)
+    status: Literal["ACTIVE", "ENDED"] = "ACTIVE"
+    currency: Literal["GBP"] = "GBP"
+    bid_minor: MoneyMinor
+    shipping_minor: MoneyMinor | None = None
+    buyer_fees_minor: MoneyMinor | None = None
+    import_tax_minor: MoneyMinor | None = None
+    additional_costs_minor: MoneyMinor | None = None
+    bid_observed_at: AwareDatetime
+
+
 class PilotResolveRequest(BaseModel):
     generation: int = Field(ge=0, le=2_147_483_647)
     image_data_url: str = Field(min_length=100, max_length=1_300_000)
@@ -55,6 +73,7 @@ class PilotResolveRequest(BaseModel):
     source: Literal["OWN_VIDEO", "EXPLICITLY_AUTHORISED_VIDEO"]
     # An AI/vision condition estimate must NEVER be treated as user confirmation.
     confirmed_raw_condition: Literal["Near Mint"] | None = None
+    quote: PilotAuctionQuote | None = None
 
 
 async def _eligible_uk_value(connection, *, catalogue_id: UUID, now: datetime) -> dict | None:
@@ -182,16 +201,26 @@ async def resolve_authorised_auction_frame(
                     "identityKey": exact["identityKey"],
                     "title": exact["title"],
                 }
-                if (
-                    payload.confirmed_raw_condition == "Near Mint"
-                    and _enabled("TCG_AUCTION_LENS_UK_SOLD_DISPLAY_RIGHTS_APPROVED")
-                ):
+                # A server-only verified valuation is the sole allowed price
+                # input. Never accept an untrusted market value from the quote.
+                now = datetime.now(timezone.utc)
+                rights_approved = _enabled(
+                    "TCG_AUCTION_LENS_UK_SOLD_DISPLAY_RIGHTS_APPROVED"
+                )
+                if payload.confirmed_raw_condition == "Near Mint" and rights_approved:
                     value = await _eligible_uk_value(
-                        connection, catalogue_id=UUID(exact["catalogue_id"]),
-                        now=datetime.now(timezone.utc)
+                        connection, catalogue_id=UUID(exact["catalogue_id"]), now=now
                     )
                     if value:
                         response["value"] = value
+                if payload.quote is not None:
+                    response["comparison"] = compare_verified_quote(
+                        quote=payload.quote, identity_key=exact["identityKey"],
+                        scene_generation=payload.generation,
+                        verified_uk_value=response.get("value"),
+                        display_rights_approved=rights_approved,
+                        now=now,
+                    )
                 return response
     except TimeoutError:
         # Fail closed instead of holding the UI on a slow DB/index read.

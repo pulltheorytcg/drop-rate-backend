@@ -221,3 +221,100 @@ def test_sold_market_value_expires_at_earlier_comparable_or_refresh_window(monke
     assert value["basis"] == "English · Near Mint · raw"
     assert value["evidenceAtMs"] == int(evidence_at.timestamp() * 1000)
     assert value["expiresAtMs"] == int((oldest_sale + timedelta(days=90)).timestamp() * 1000)
+
+
+def test_pilot_quote_uses_server_market_evidence_only(pilot, monkeypatch):
+    client, _connection, _seen = pilot
+    now = datetime.now(timezone.utc)
+    seen = []
+
+    async def approved_market(_con, *, catalogue_id, now):
+        seen.append(catalogue_id)
+        return {
+            "marketValueMinor": 10000, "currency": "GBP",
+            "source": "Verified UK sold Market Value",
+            "evidenceAtMs": int((now - timedelta(hours=1)).timestamp() * 1000),
+            "expiresAtMs": int((now + timedelta(hours=1)).timestamp() * 1000),
+            "valuationEligible": True,
+        }
+
+    monkeypatch.setattr(api, "_eligible_uk_value", approved_market)
+    monkeypatch.setattr(api, "_enabled", lambda _: True)
+    quote = {
+        "lot_ref": "consented-own-video-lot-1", "status": "ACTIVE",
+        "currency": "GBP", "bid_minor": 5000,
+        "shipping_minor": 600, "buyer_fees_minor": 900,
+        "import_tax_minor": 0, "additional_costs_minor": 0,
+        "bid_observed_at": now.isoformat(),
+    }
+    result = client.post("/api/v1/auction-lens/pilot/resolve", json={
+        **PAYLOAD, "confirmed_raw_condition": "Near Mint", "quote": quote,
+    })
+    assert result.status_code == 200
+    body = result.json()
+    assert body["comparison"]["status"] == "UNDER_MARKET"
+    assert body["comparison"]["allInMinor"] == 6500
+    assert body["comparison"]["bidExpiresAtMs"] > int(now.timestamp() * 1000)
+    assert body["comparison"]["differenceMinor"] == 3500
+    assert body["value"]["marketValueMinor"] == 10000
+    assert seen == [P_ID]
+
+    # A buyer can supply observations, but cannot supply a replacement
+    # market value, source or expired price in the quote.
+    injected = client.post("/api/v1/auction-lens/pilot/resolve", json={
+        **PAYLOAD, "quote": {**quote, "marketValueMinor": 999999},
+    })
+    assert injected.status_code == 422
+
+
+def test_pilot_quote_never_leaks_bargain_when_value_or_charges_unknown(pilot, monkeypatch):
+    client, _con, _seen = pilot
+    now = datetime.now(timezone.utc)
+    quote = {
+        "lot_ref": "consented-own-video-lot-1", "bid_minor": 5000,
+        "shipping_minor": 0, "buyer_fees_minor": 0,
+        "import_tax_minor": 0, "additional_costs_minor": 0,
+        "bid_observed_at": now.isoformat(),
+    }
+    # Pilot enabled but no display licence and no confirmed raw condition.
+    body = client.post("/api/v1/auction-lens/pilot/resolve", json={
+        **PAYLOAD, "quote": quote,
+    }).json()
+    assert body["comparison"] == {"status": "NO_CURRENT_MARKET_VALUE"}
+    assert "value" not in body
+
+    async def approved_market(_con, *, catalogue_id, now):
+        return {
+            "marketValueMinor": 10000, "currency": "GBP",
+            "source": "Verified UK sold Market Value",
+            "evidenceAtMs": int((now - timedelta(hours=1)).timestamp() * 1000),
+            "expiresAtMs": int((now + timedelta(hours=1)).timestamp() * 1000),
+            "valuationEligible": True,
+        }
+    monkeypatch.setattr(api, "_eligible_uk_value", approved_market)
+    monkeypatch.setattr(api, "_enabled", lambda _: True)
+    body = client.post("/api/v1/auction-lens/pilot/resolve", json={
+        **PAYLOAD, "confirmed_raw_condition": "Near Mint",
+        "quote": {**quote, "shipping_minor": None},
+    }).json()
+    assert body["comparison"] == {"status": "CHARGES_UNKNOWN"}
+    assert body["value"]["marketValueMinor"] == 10000
+
+
+@pytest.mark.parametrize("invalid_quote", [
+    {"currency": "USD"},
+    {"bid_minor": -1},
+    {"bid_minor": True},
+    {"shipping_minor": -1},
+    {"bid_observed_at": "2026-11-08T15:00:00"},
+])
+def test_pilot_quote_rejects_invalid_currency_amounts_or_naive_time(pilot, invalid_quote):
+    client, _con, _seen = pilot
+    quote = {
+        "lot_ref": "own-video-lot", "bid_minor": 5000,
+        "bid_observed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = client.post("/api/v1/auction-lens/pilot/resolve", json={
+        **PAYLOAD, "quote": {**quote, **invalid_quote},
+    })
+    assert result.status_code == 422
