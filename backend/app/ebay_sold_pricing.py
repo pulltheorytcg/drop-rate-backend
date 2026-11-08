@@ -22,6 +22,7 @@ from .market_adapters import NormalizedMarketObservation, stable_source_record_k
 from .ownership import current_owner as _owner
 from .pricing_rules import store_price_floor
 from .settings import get_settings
+from .sports_market import sports_printing_matches
 from .magic_market import is_magic, finish_matches as magic_finish_matches, printing_matches as magic_printing_matches
 
 
@@ -254,6 +255,9 @@ def _matches_comp(row: dict[str, Any], target: dict[str, Any]) -> bool:
     if is_magic(target.get("game")) and not magic_printing_matches(title, target):
         return False
     if _looks_like_multi_item_listing(title):
+        return False
+    if (target.get("game") == "Sports Cards"
+            and not sports_printing_matches(title, target)):
         return False
 
     card_number = target["card_number"]
