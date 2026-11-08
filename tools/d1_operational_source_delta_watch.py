@@ -121,8 +121,10 @@ def verify_shadow(client,captured,catalogue, *, explain_drift=False, source_sche
         raise SnapshotDriftGuard("Unique operational D1 shadow not found")
     dbid=databases[0]["uuid"]
     generations=_d1_query(client,dbid,
-        "SELECT generation_id,state,source_manifest_sha256 FROM ops_shadow_generations "
-        "ORDER BY created_at DESC,generation_id DESC LIMIT 2")
+        "SELECT g.generation_id,g.state,g.source_manifest_sha256 FROM ops_shadow_generations g "
+        "WHERE g.state IN ('STAGING','PARITY_VERIFIED') AND "
+        "(SELECT COUNT(*) FROM ops_shadow_table_receipts r WHERE r.generation_id=g.generation_id)=9 "
+        "ORDER BY g.created_at DESC,g.generation_id DESC LIMIT 2")
     if not generations:
         raise SnapshotDriftGuard("No private operational generation has been staged")
     gen=generations[0]

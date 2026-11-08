@@ -1,3 +1,9 @@
+## 8 November 2026 — Version-aware immutable inventory shadow catch-up (CI pending)
+
+- Extend the existing protected operational staging workflow with field classification, immutable generation replay, per-item version high-water mark, private journal, persistent daily reservation and independent source recapture.
+- Typed D1 fields and original JSON now receive exact readback comparison. Partial generations stay quarantined; financial/ownership/Store Price changes remain blocking. No production read/write or authentication cutover.
+- See docs/OPERATIONAL_SHADOW_CATCHUP_20261108.md. Local simulations passed; live parity remains unverified until protected deployment receipts.
+
 ## 8 November 2026 — Supabase exit evidence and dependency inventory (PR pending)
 
 - Rechecked merged migration PRs and downloaded current count-only staging artifacts. D1 shadow has 94 changed inventory hashes; YGO 24,000/45,418; follow-on and legacy remain deferred. No cutover authorised by these results.
