@@ -68,7 +68,7 @@ describe("compact branded Auction Lens presentation", () => {
   });
 
   it("rejects client-inconsistent comparison payloads", () => {
-    const manipulated = {
+    const manipulated: LensView = {
       ...verified, comparison: {
         ...quote("UNDER_MARKET", 6500), differenceMinor: 99000,
       },
