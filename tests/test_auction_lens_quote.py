@@ -41,6 +41,7 @@ def test_verified_uk_pence_bid_comparison():
     result = compare()
     assert result["status"] == "UNDER_MARKET"
     assert result["allInMinor"] == 6500
+    assert result["bidExpiresAtMs"] == int((QUOTE["bid_observed_at"] + timedelta(seconds=30)).timestamp() * 1000)
     assert result["marketValueMinor"] == 10000
     assert result["differenceMinor"] == 3500
     assert result["evidenceAtMs"] == PRICE["evidenceAtMs"]
