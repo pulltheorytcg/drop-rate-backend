@@ -98,6 +98,20 @@ async def shared_media_assets(connection, inventory_ids):
     return await connection.fetch(MEDIA_SQL, [UUID(str(value)) for value in inventory_ids])
 
 
+def _is_private_certificate_reference(item, asset):
+    """Check this selected asset only; owner/certificate binding remains in MEDIA_SQL."""
+    return (is_graded_item(item)
+            and asset.get('scope') == 'INVENTORY_ITEM'
+            and asset.get('capture_context') in {'GRADED_SLAB', 'RAW_UNSLEEVED'}
+            and asset.get('rights_tier') == 'INTERNAL_REFERENCE_ONLY'
+            and asset.get('source_type') == 'OFFICIAL_PROVIDER'
+            and asset.get('approval_status') == 'APPROVED'
+            and str(asset.get('source_provider') or '').strip().upper()
+                == str(item.get('grading_company') or '').strip().upper()
+            and str(item.get('grading_company') or '').strip().upper()
+                in {'PSA', 'ACE', 'BGS', 'CGC'})
+
+
 async def add_shared_inventory_media(connection, items):
     # Owner/certificate eligibility is established in MEDIA_SQL under RLS.
     by_item = {str(item['id']): item for item in items if item.get('id')}
@@ -112,16 +126,7 @@ async def add_shared_inventory_media(connection, items):
             and asset.get('rights_tier') == 'FIRST_PARTY_CAPTURE'
             and asset.get('source_type') in ('FOUNDER_UPLOAD', 'CONSIGNOR_UPLOAD')
             and asset.get('approval_status') == 'APPROVED')
-        certificate = (is_graded_item(item)
-            and asset.get('scope') == 'INVENTORY_ITEM'
-            and asset.get('capture_context') in {'GRADED_SLAB', 'RAW_UNSLEEVED'}
-            and asset.get('rights_tier') == 'INTERNAL_REFERENCE_ONLY'
-            and asset.get('source_type') == 'OFFICIAL_PROVIDER'
-            and asset.get('approval_status') == 'APPROVED'
-            and str(asset.get('source_provider') or '').strip().upper()
-                == str(item.get('grading_company') or '').strip().upper()
-            and str(item.get('grading_company') or '').strip().upper()
-                in {'PSA', 'ACE', 'BGS', 'CGC'})
+        certificate = _is_private_certificate_reference(item, asset)
         if asset.get('scope') == 'INVENTORY_ITEM' and not (physical or certificate):
             continue
         existing = best.get(identity)
@@ -135,7 +140,8 @@ async def add_shared_inventory_media(connection, items):
             item.pop('reference_image_path', None)
             if asset and asset.get('scope') == 'INVENTORY_ITEM':
                 if asset.get('capture_context') != 'GRADED_SLAB' and not (
-                    asset.get('capture_context') == 'RAW_UNSLEEVED' and certificate):
+                    asset.get('capture_context') == 'RAW_UNSLEEVED'
+                    and _is_private_certificate_reference(item, asset)):
                     asset = None
             elif asset and (asset.get('scope') not in {'CANONICAL_CARD','CANONICAL_PRODUCT'}
                             or asset.get('graded_card_art_allowed') is not True):

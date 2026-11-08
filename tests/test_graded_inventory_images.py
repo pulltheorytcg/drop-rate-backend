@@ -186,3 +186,56 @@ def test_graded_fallback_selector_requires_exact_identity_review_and_never_publi
     ):
         assert clause in sql
     assert "or (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in sql
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('grader', ['PSA', 'ACE', 'BGS', 'CGC'])
+@pytest.mark.parametrize('reverse_assets', [False, True])
+async def test_certificate_reference_is_independent_of_other_items_in_page(monkeypatch, grader, reverse_assets):
+    """An unrelated physical photo must not decide another item's reference eligibility."""
+    first = dict(id=uuid4(), grading_company=grader, grade='9', certificate_number='12345678')
+    second = dict(id=uuid4(), grading_company='PSA', grade='10', certificate_number='87654321')
+    reference = dict(inventory_id=first['id'], scope='INVENTORY_ITEM',
+        capture_context='RAW_UNSLEEVED', approval_status='APPROVED',
+        rights_tier='INTERNAL_REFERENCE_ONLY', source_type='OFFICIAL_PROVIDER',
+        source_provider=grader, shopify_cdn_url='https://cdn.shopify.com/reference.jpg')
+    slab = dict(inventory_id=second['id'], scope='INVENTORY_ITEM',
+        capture_context='GRADED_SLAB', approval_status='APPROVED',
+        rights_tier='FIRST_PARTY_CAPTURE', source_type='CONSIGNOR_UPLOAD',
+        source_provider='Drop Rate', shopify_cdn_url='https://cdn.shopify.com/slab.jpg')
+    selected = [reference, slab]
+    if reverse_assets:
+        selected.reverse()
+    async def assets(*args):
+        return selected
+    monkeypatch.setattr(media, 'shared_media_assets', assets)
+    result = await media.add_shared_inventory_media(None, [first, second])
+    assert result[0]['image_url'] == reference['shopify_cdn_url']
+    assert result[0]['reference_image_status'] == 'GRADER_CERTIFICATE_RAW_REFERENCE'
+    assert result[0]['card_image_rights_tier'] == 'INTERNAL_REFERENCE_ONLY'
+    assert result[1]['image_url'] == slab['shopify_cdn_url']
+    assert result[1]['reference_image_status'] == 'COPY_PHOTO'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('invalid', [
+    {'rights_tier': 'FIRST_PARTY_CAPTURE', 'source_type': 'FOUNDER_UPLOAD'},
+    {'source_provider': 'BGS'},
+    {'approval_status': 'PENDING'},
+    {'rights_tier': 'MARKETPLACE_NATIVE_ONLY'},
+])
+async def test_other_items_valid_certificate_cannot_authorize_invalid_raw_photo(monkeypatch, invalid):
+    first = dict(id=uuid4(), grading_company='PSA', grade='10')
+    second = dict(id=uuid4(), grading_company='PSA', grade='9')
+    valid = dict(inventory_id=second['id'], scope='INVENTORY_ITEM',
+        capture_context='RAW_UNSLEEVED', approval_status='APPROVED',
+        rights_tier='INTERNAL_REFERENCE_ONLY', source_type='OFFICIAL_PROVIDER',
+        source_provider='PSA', shopify_cdn_url='https://cdn.shopify.com/reference.jpg')
+    invalid_asset = dict(valid, inventory_id=first['id'], **invalid)
+    async def assets(*args):
+        return [invalid_asset, valid]
+    monkeypatch.setattr(media, 'shared_media_assets', assets)
+    result = await media.add_shared_inventory_media(None, [first, second])
+    assert result[0]['image_url'] is None
+    assert result[0]['reference_image_status'] == 'SLAB_PHOTO_REQUIRED'
+    assert result[1]['reference_image_status'] == 'GRADER_CERTIFICATE_RAW_REFERENCE'
