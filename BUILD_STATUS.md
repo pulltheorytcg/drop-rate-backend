@@ -1,3 +1,9 @@
+## 8 November 2026 — Supabase exit evidence and dependency inventory (PR pending)
+
+- Rechecked merged migration PRs and downloaded current count-only staging artifacts. D1 shadow has 94 changed inventory hashes; YGO 24,000/45,418; follow-on and legacy remain deferred. No cutover authorised by these results.
+- Added a read-only tracked-code dependency inventory that emits paths/categories/line numbers, never source values; historical SQL and docs remain distinct from runtime candidates.
+- Live exit tracker: https://github.com/pulltheorytcg/drop-rate-backend/issues/1010. See docs/SUPABASE_EXIT_TRACKER_20261108.md for stage gates, evidence and limitations. No UI or production connection changes.
+
 ## 7 November 2026 — MTGJSON registry revision repair (local tests passed; not deployed)
 
 - Align the source registry's stale v1 metadata revision with the existing v2 downloader, preserving strict permission and checksum enforcement. No UI, price, schema, integration or capacity-safeguard changes.

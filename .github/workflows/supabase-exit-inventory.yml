@@ -1,0 +1,27 @@
+name: Supabase exit dependency inventory
+on:
+  pull_request:
+    paths:
+      - 'tools/supabase_exit_inventory.py'
+      - 'tests/test_supabase_exit_inventory.py'
+      - '.github/workflows/supabase-exit-inventory.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest
+      - run: python -m pytest -q tests/test_supabase_exit_inventory.py
+      - run: python tools/supabase_exit_inventory.py > supabase-exit-inventory.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supabase-exit-dependency-candidates
+          path: supabase-exit-inventory.json
+          retention-days: 30
