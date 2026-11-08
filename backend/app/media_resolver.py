@@ -203,6 +203,33 @@ def _inventory_capture_candidates(
     return candidates
 
 
+def _physical_photo_diagnostics(item, assets):
+    """Explain existing technical/permission gates without a publisher-copyright veto."""
+    reasons = []
+    for asset in assets:
+        if (_text(asset.get("scope")) != "INVENTORY_ITEM"
+                or not _text(item.get("id"))
+                or _text(asset.get("inventory_id")) != _text(item.get("id"))):
+            continue
+        if _text(asset.get("rights_tier")) != FIRST_PARTY_CAPTURE:
+            reasons.append("reference-only or third-party media is not a first-party product photograph")
+        elif _text(asset.get("rights_status")) != "VERIFIED":
+            reasons.append("photographer/source permission for this product photograph is not verified")
+        if asset.get("revoked_at") or _text(asset.get("source_status") or "ACTIVE") != "ACTIVE":
+            reasons.append("product photograph source is inactive or revoked")
+        if _text(asset.get("approval_status")) != "APPROVED":
+            reasons.append("product photograph has not passed internal media approval")
+        if _text(asset.get("media_kind") or "IMAGE") != "IMAGE":
+            reasons.append("submitted product media is not an image")
+        if (_text(asset.get("shopify_file_status")) != "READY"
+                or not _text(asset.get("shopify_file_gid"))):
+            reasons.append("product photograph has not completed Shopify file processing")
+        if (_text(item.get("product_type")) in {"SEALED", "COLLECTION"}
+                and _text(asset.get("capture_context")) != "SEALED_PRODUCT"):
+            reasons.append("product photograph does not show the required sealed-product context")
+    return list(dict.fromkeys(reasons))
+
+
 def _canonical_scope(item: Mapping[str, Any]) -> str:
     return (
         "CANONICAL_CARD"
@@ -307,8 +334,8 @@ def resolve_storefront_media(
 
     Priority:
       1. copy-specific first-party front/back where mandatory (graded, high-risk);
-      2. for ordinary raw cards, exact STOREFRONT_ALLOWED canonical card art;
-      3. otherwise eligible owned-copy photo or Action Required.
+      2. otherwise an approved first-party photograph of the exact physical item;
+      3. exact STOREFRONT_ALLOWED catalogue art where policy permits, or Action Required.
 
     Captured scan evidence remains on the physical inventory item regardless
     of which eligible image is chosen as the Shopify listing's primary image.
@@ -318,8 +345,8 @@ def resolve_storefront_media(
     physical = _latest_by_side(_inventory_capture_candidates(item, assets))
     physical_front = physical.get("FRONT")
     physical_back = physical.get("BACK")
-    # Keep physical intake evidence independent from the canonical image used
-    # as the default Shopify primary for ordinary, low-risk raw cards.
+    # First-party resale photos take priority; catalogue reuse retains its
+    # separate exact-identity and permission checks.
     canonical_matches, canonical_diagnostics = _canonical_candidates(item, assets)
     canonical = _latest_by_side(canonical_matches)
     canonical_front = canonical.get("FRONT")
@@ -358,19 +385,6 @@ def resolve_storefront_media(
                 "Exact first-party media selected because physical photos are "
                 "mandatory for this inventory item."
             )
-    elif _text(item.get("product_type")) == "CARD" and canonical_front is not None:
-        # A successfully stored scan is evidence of this owned copy, not the
-        # default raw-card product artwork. Only an exact, rights-approved,
-        # Shopify-READY canonical printing can replace it on the storefront.
-        selected = [canonical_front]
-        if canonical.get("BACK") is not None:
-            selected.append(canonical["BACK"])
-        source = "CANONICAL_STOREFRONT"
-        rights_tier = STOREFRONT_ALLOWED
-        selection_reason = (
-            "Exact approved official card image is the raw-card Shopify default; "
-            "physical scan photos remain attached to the inventory record."
-        )
     elif physical_front is not None:
         selected = [physical_front]
         if physical_back is not None:
@@ -378,14 +392,14 @@ def resolve_storefront_media(
         source = FIRST_PARTY_CAPTURE
         rights_tier = FIRST_PARTY_CAPTURE
         selection_reason = (
-            "No eligible exact official card image was available; selected "
-            "the approved physical-copy photograph instead."
+            "Approved first-party photograph of this exact physical item "
+            "takes priority over reusable catalogue artwork."
         )
     elif canonical_front is None:
         blockers.append("exact storefront-allowed canonical front image")
         blockers.extend(canonical_diagnostics)
     else:
-        # Non-card product types retain their existing media policy.
+        # Catalogue fallback retains its own identity/permission requirements.
         selected = [canonical_front]
         if canonical.get("BACK") is not None:
             selected.append(canonical["BACK"])
@@ -396,6 +410,8 @@ def resolve_storefront_media(
             "media with verified storefront rights was selected."
         )
 
+    if blockers:
+        blockers.extend(_physical_photo_diagnostics(item, assets))
     blockers = list(dict.fromkeys(blockers))
     file_ids = [
         _text(asset.get("shopify_file_gid"))
@@ -493,7 +509,7 @@ def resolve_media(
     """One auditable, read-only media decision for an owned physical item.
 
     DROP_RATE: signed-in own-item display; use existing approved media.
-    SHOPIFY: exact authorised official printing first for ordinary raw cards.
+    SHOPIFY: approved owned-copy photo first, then permitted exact catalogue art.
     EBAY: GB used-card contract remains exact FIRST_PARTY_CAPTURE FRONT+BACK.
     WHATNOT: preview the decision, but never claim the channel can publish.
 
