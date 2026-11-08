@@ -28,6 +28,9 @@ def test_disabled_lab_controls_are_not_enabled_until_signed_in_entitlement():
     assert 'id!==betaCheckId' in LAB
     assert 'if(previouslyAllowed&&!allowed)stop()' in LAB
     assert 'betaCheckInterval=setInterval' in LAB
+    assert 'window.addEventListener("hub-session-cleared"' in LAB
+    assert 'window.addEventListener("focus"' in LAB
+    assert 'document.addEventListener("visibilitychange"' in LAB
 
 
 def test_beta_scope_is_account_specific_both_on_access_and_frame_resolve():
