@@ -18,12 +18,13 @@
     <p class="eyebrow">AUCTION LENS · UK</p>
     <h1>Find the exact card.<br><span>Know its market value.</span></h1>
     <p class="sub">Offline-video recognition experiment, not live auction capture. Use only footage you own or have explicit permission to process. Nothing is published or sold.</p>
+    <p id="beta-access-state" class="beta-access-state" role="status" aria-live="polite">Checking private beta access…</p>
   </section>
   <div class="layout">
     <section class="panel">
       <h2>1. Load permitted footage</h2>
       <label class="upload">Select a local video
-        <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/*">
+        <input id="video-file" type="file" disabled accept="video/mp4,video/quicktime,video/*">
       </label>
       <div class="video-frame" id="video-frame">
         <video id="footage" controls playsinline muted preload="metadata"></video>
@@ -89,8 +90,8 @@
         </div>
       </details>
       <div class="controls">
-        <button id="start-scan" type="button" class="primary">Start recognition</button>
-        <button id="new-lot" type="button">New lot</button>
+        <button id="start-scan" type="button" class="primary" disabled>Start recognition</button>
+        <button id="new-lot" type="button" disabled>New lot</button>
         <button id="stop-scan" type="button" class="stop">Stop</button>
       </div>
       <div class="result">

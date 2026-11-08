@@ -39,6 +39,36 @@ def _enabled(name: str) -> bool:
     return os.getenv(name, "").strip().lower() == "true"
 
 
+def _beta_allowed(user_id: UUID) -> bool:
+    """Fail-closed account allowlist, never email, roles or user-editable JWT data.
+
+    An empty, malformed, or oversized allowlist denies EVERY user. It is
+    independent of the pilot's environment kill switch. UUIDs must be canonical
+    and account-specific; founders are not implicitly included.
+    """
+    raw = os.getenv("TCG_AUCTION_LENS_BETA_USER_IDS", "").strip()
+    if not raw or len(raw) > 1000:
+        return False
+    tokens = [part.strip().lower() for part in raw.split(",")]
+    if not 1 <= len(tokens) <= 25 or any(not part for part in tokens):
+        return False
+    try:
+        valid = {str(UUID(part)) for part in tokens}
+    except ValueError:
+        return False
+    if len(valid) != len(tokens) or any(str(UUID(part)) != part for part in tokens):
+        return False
+    return str(user_id) in valid
+
+
+def _require_beta(user: AuthenticatedUser) -> None:
+    # A direct POST to the pilot API is denied exactly like the UI preview.
+    # Neither role nor email can opt a user into a paid/early-access feature.
+    if (not _enabled("TCG_AUCTION_LENS_AUTHORISED_PILOT_ENABLED")
+            or not _beta_allowed(user.user_id)):
+        raise HTTPException(status_code=404, detail="Auction Lens beta is unavailable")
+
+
 class PilotObservedCard(BaseModel):
     game: Literal["Pokemon"]
     language: Literal["English"]
@@ -130,6 +160,29 @@ async def _eligible_uk_value(connection, *, catalogue_id: UUID, now: datetime) -
     }
 
 
+@router.get("/pilot/access")
+async def authorised_auction_beta_access(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Private opt-in status for signed-in, approved owners; no account list."""
+    _require_beta(user)
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+        readonly_snapshot=True,
+    ) as connection:
+        await current_owner(connection)
+    return {
+        "enabled": True,
+        "footage_scope": "OWN_OR_EXPLICITLY_AUTHORISED_VIDEO",
+        "uk_sold_market_display_enabled": _enabled(
+            "TCG_AUCTION_LENS_UK_SOLD_DISPLAY_RIGHTS_APPROVED"
+        ),
+    }
+
+
 @router.post("/pilot/resolve")
 async def resolve_authorised_auction_frame(
     payload: PilotResolveRequest,
@@ -142,8 +195,7 @@ async def resolve_authorised_auction_frame(
     Temporary pilot access must be deliberately enabled for authorised video,
     independently of (also default-off) licensed sold-value display.
     """
-    if not _enabled("TCG_AUCTION_LENS_AUTHORISED_PILOT_ENABLED"):
-        raise HTTPException(status_code=404, detail="Auction Lens pilot is not active")
+    _require_beta(user)
     # Source selection is the operator's declaration, NOT a platform licence.
     # This endpoint must never be used on unapproved third-party live streams.
     try:

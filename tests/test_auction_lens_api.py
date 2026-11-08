@@ -56,7 +56,10 @@ class ReadOnlyConnection:
 @pytest.fixture()
 def pilot(monkeypatch):
     connection = ReadOnlyConnection()
-    seen = {"readonly": [], "hints": 0}
+    actor_id = uuid4()
+    seen = {"readonly": [], "hints": 0, "actor_id": actor_id}
+    # One exact signed-in test account; no implicit account-wide beta access.
+    monkeypatch.setenv("TCG_AUCTION_LENS_BETA_USER_IDS", str(actor_id))
     app = FastAPI()
     app.state.db_pool = object()
 
@@ -67,7 +70,7 @@ def pilot(monkeypatch):
 
     app.include_router(api.router)
     app.dependency_overrides[require_user] = lambda: AuthenticatedUser(
-        user_id=uuid4(), session_id=None
+        user_id=actor_id, session_id=None
     )
 
     @asynccontextmanager
@@ -318,3 +321,85 @@ def test_pilot_quote_rejects_invalid_currency_amounts_or_naive_time(pilot, inval
         **PAYLOAD, "quote": {**quote, **invalid_quote},
     })
     assert result.status_code == 422
+
+
+def test_beta_allowlist_is_closed_by_default_and_does_not_decode_unapproved_frames(
+    pilot, monkeypatch,
+):
+    client, connection, seen = pilot
+
+    def forbidden_decode(*_args, **_kwargs):
+        raise AssertionError("Must not decode an excluded user's image")
+
+    monkeypatch.setattr(api, "decode_image_data_url", forbidden_decode)
+    # Pilot flag alone is not permission to access a private scanner.
+    monkeypatch.delenv("TCG_AUCTION_LENS_BETA_USER_IDS")
+    response = client.post("/api/v1/auction-lens/pilot/resolve", json=PAYLOAD)
+    assert response.status_code == 404
+    assert connection.query_count == 0 and seen["hints"] == 0
+    assert client.get("/api/v1/auction-lens/pilot/access").status_code == 404
+
+    # One other real UUID, but not the currently signed-in account.
+    monkeypatch.setenv("TCG_AUCTION_LENS_BETA_USER_IDS", str(uuid4()))
+    assert client.post("/api/v1/auction-lens/pilot/resolve", json=PAYLOAD).status_code == 404
+    assert connection.query_count == 0
+
+
+@pytest.mark.parametrize("allowlist", [
+    "",
+    "not-a-uuid",
+    "00000000-0000-0000-0000-000000000001,broken",
+    "00000000-0000-0000-0000-000000000001,",
+    "00000000-0000-0000-0000-000000000001,,00000000-0000-0000-0000-000000000002",
+    "00000000-0000-0000-0000-000000000001,00000000-0000-0000-0000-000000000001",
+    ",".join(str(uuid4()) for _ in range(26)),
+])
+def test_malformed_or_overlarge_allowlist_fails_closed(pilot, monkeypatch, allowlist):
+    client, connection, _seen = pilot
+    monkeypatch.setenv("TCG_AUCTION_LENS_BETA_USER_IDS", allowlist)
+    assert client.get("/api/v1/auction-lens/pilot/access").status_code == 404
+    assert client.post("/api/v1/auction-lens/pilot/resolve", json=PAYLOAD).status_code == 404
+    assert connection.query_count == 0
+
+
+def test_entitlement_endpoint_only_returns_boolean_no_peer_ids(pilot):
+    client, connection, seen = pilot
+    response = client.get("/api/v1/auction-lens/pilot/access")
+    assert response.status_code == 200
+    assert response.json() == {
+        "enabled": True,
+        "footage_scope": "OWN_OR_EXPLICITLY_AUTHORISED_VIDEO",
+        "uk_sold_market_display_enabled": False,
+    }
+    assert seen["readonly"] == [True]
+    # No other tester's identity or count of approved accounts leaks.
+    assert "actor_id" not in response.text
+    assert str(seen["actor_id"]) not in response.text
+    assert connection.query_count == 0
+
+
+def test_disabling_pilot_kills_entitlement_and_resolution_for_all_users(pilot, monkeypatch):
+    client, connection, seen = pilot
+    monkeypatch.setattr(api, "_enabled", lambda _: False)
+    assert client.get("/api/v1/auction-lens/pilot/access").status_code == 404
+    assert client.post("/api/v1/auction-lens/pilot/resolve", json=PAYLOAD).status_code == 404
+    assert connection.query_count == 0 and seen["readonly"] == []
+
+
+def test_beta_cannot_be_bypassed_by_user_id_in_request_body_or_headers(pilot, monkeypatch):
+    client, connection, seen = pilot
+    other = uuid4()
+    monkeypatch.setenv("TCG_AUCTION_LENS_BETA_USER_IDS", str(other))
+    result = client.post("/api/v1/auction-lens/pilot/resolve", json={
+        **PAYLOAD, "user_id": str(other), "email": "tester@example.invalid"
+    }, headers={"X-Owner-Id": str(other), "X-Auction-Beta": "true"})
+    assert result.status_code == 404
+    assert connection.query_count == 0 and seen["hints"] == 0
+
+
+def test_allowlist_accepts_two_selected_users_but_not_every_owner(pilot, monkeypatch):
+    client, _con, seen = pilot
+    owner_id = seen["actor_id"]
+    monkeypatch.setenv("TCG_AUCTION_LENS_BETA_USER_IDS", f"{owner_id},{uuid4()}")
+    assert client.get("/api/v1/auction-lens/pilot/access").status_code == 200
+    assert api._beta_allowed(uuid4()) is False
