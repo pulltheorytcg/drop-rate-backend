@@ -585,13 +585,13 @@ async def test_loop_resumes_after_rollover_lock_releases_without_duplicate_provi
             prewarm.assert_not_awaited()
             lock.acquired = True
         else:
-            assert delay == worker.REFRESH_SECONDS
+            assert delay == 86400
             raise asyncio.CancelledError
 
     monkeypatch.setattr(worker.asyncio, "sleep", sleep)
     with pytest.raises(asyncio.CancelledError):
         await worker.run_loop(pool, str(ACTOR))
-    assert delays == [worker.LOCK_RETRY_SECONDS, worker.REFRESH_SECONDS]
+    assert delays == [worker.LOCK_RETRY_SECONDS, 86400]
     importer.assert_awaited_once_with(pool, ACTOR, "mtgjson")
     prewarm.assert_awaited_once_with(pool, ACTOR)
     assert len(lock.operations) == 3 and "pg_advisory_unlock" in lock.operations[-1]
@@ -682,3 +682,51 @@ async def test_loop_shutdown_never_starts_another_attempt(monkeypatch, cancel_at
     once.assert_awaited_once_with(None, ACTOR)
     assert prewarm.await_count == (1 if cancel_at == "prewarm" else 0)
     assert sleep.await_count == (1 if cancel_at == "contention_sleep" else 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sources,seconds", [
+    ("", 172800), ("ygoprodeck", 172800), ("lorcast", 86400),
+    ("mtgjson", 86400), ("cardcollectorcapital", 604800),
+    ("ygoprodeck,mtgjson,cardcollectorcapital", 86400),
+])
+@pytest.mark.parametrize("failed", [False, True])
+async def test_worker_wakes_for_configured_source_cadence(monkeypatch, sources, seconds, failed):
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", sources)
+    once = AsyncMock(side_effect=SourceError("private response") if failed else None,
+                     return_value=[{"status": "CURRENT"}])
+    monkeypatch.setattr(worker, "run_once", once)
+    monkeypatch.setattr(worker.service, "enabled", lambda: False)
+    sleep = AsyncMock(side_effect=asyncio.CancelledError)
+    monkeypatch.setattr(worker.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_loop(None, ACTOR)
+    once.assert_awaited_once_with(None, ACTOR)
+    sleep.assert_awaited_once_with(seconds)
+
+
+@pytest.mark.asyncio
+async def test_daily_wake_does_not_refetch_a_two_day_source_early(database, snapshot_factory, monkeypatch):
+    snapshot = await snapshot_factory()
+    database.old = publication(snapshot, age_days=1)
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "ygoprodeck,lorcast")
+    fetch = AsyncMock()
+    monkeypatch.setattr(worker, "fetch_source", fetch)
+    store = LocalObjects(database)
+    result = await worker.import_source(None, ACTOR, "ygoprodeck", object_store=store, client=object())
+    assert result["status"] == "CURRENT"
+    fetch.assert_not_awaited()
+    assert store.puts == [] and store.reads == []
+
+
+@pytest.mark.asyncio
+async def test_unreviewed_schedule_never_starts_a_pass(monkeypatch):
+    monkeypatch.setenv("TCG_R2_FIRST_IMPORT_SOURCES", "mtgjson,unreviewed")
+    once = AsyncMock()
+    monkeypatch.setattr(worker, "run_once", once)
+    sleep = AsyncMock(side_effect=asyncio.CancelledError)
+    monkeypatch.setattr(worker.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_loop(None, ACTOR)
+    once.assert_not_awaited()
+    sleep.assert_awaited_once_with(worker.REFRESH_SECONDS)
