@@ -12,6 +12,7 @@
   let objectURL = null, interval = null, currentRequest = null, generation = 0;
   let anchor = null, stable = 0, attempted = false, lastSample = -Infinity;
   let running = false, previousVideoTime = -1;
+  let betaAllowed = false, betaCheckId = 0, betaCheckInterval = null;
 
   let bidObservedAtMs = 0, bannerEvidenceExpiresAt = 0, bannerBidExpiresAt = 0;
   const pounds = new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"});
@@ -177,6 +178,48 @@
     return session && typeof session.access_token==="string" ? session.access_token : null;
   }
 
+  function applyBetaAccess(allowed, message) {
+    const previouslyAllowed=betaAllowed;
+    betaAllowed=allowed;
+    $("video-file").disabled=!allowed;
+    $("start-scan").disabled=!allowed;
+    $("new-lot").disabled=!allowed;
+    $("beta-access-state").textContent=message;
+    $("beta-access-state").dataset.access=allowed?"granted":"denied";
+    if(previouslyAllowed&&!allowed)stop();
+  }
+
+  async function checkBetaAccess() {
+    const id=++betaCheckId;
+    const token=accessToken();
+    if(!token) {
+      applyBetaAccess(false,"Private beta · Sign in to Drop Rate to check access.");
+      return;
+    }
+    try {
+      const response=await fetch("/api/v1/auction-lens/pilot/access",{
+        method:"GET",credentials:"omit",cache:"no-store",
+        headers:{"Authorization":"Bearer "+token},
+      });
+      if(id!==betaCheckId)return; // No older response may re-grant access.
+      if(!response.ok) {
+        applyBetaAccess(false,"Private beta · This account is not approved or access has been disabled.");
+        return;
+      }
+      const data=await response.json();
+      if(id!==betaCheckId)return;
+      if(data.enabled===true && data.footage_scope==="OWN_OR_EXPLICITLY_AUTHORISED_VIDEO") {
+        applyBetaAccess(true,"Private beta enabled for this account · Authorised footage only.");
+      } else {
+        applyBetaAccess(false,"Private beta · Account entitlement could not be verified.");
+      }
+    } catch {
+      if(id===betaCheckId) {
+        applyBetaAccess(false,"Private beta · Connection unavailable. Access is paused.");
+      }
+    }
+  }
+
   function identity() {
     return {
       game:"Pokemon", language:"English", object_type:"RAW_CARD",
@@ -186,6 +229,7 @@
   }
 
   async function requestMatch(frameURL) {
+    if(!betaAllowed){show("Private beta","Access has not been verified","Only approved Drop Rate accounts may use the recognition API.");return;}
     const token=accessToken(), observed=identity();
     if(!token){show("Sign in", "An active Drop Rate account is required", "Sign in through /app in this browser tab before using the pilot.");return;}
     if(!observed.name||!observed.set_name||!observed.card_number){
@@ -283,6 +327,10 @@
   }
 
   $("video-file").addEventListener("change", event=>{
+    if(!betaAllowed) {
+      show("Private beta","Access is restricted","Sign in with an approved test account.");
+      return;
+    }
     stop();
     if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null;}
     const file=event.target.files?.[0];
@@ -294,6 +342,7 @@
   });
 
   $("start-scan").addEventListener("click",async()=>{
+    if(!betaAllowed){show("Private beta","Access is restricted","Use an approved test account.");return;}
     if(!$("rights-affirmed").checked){show("Permission required","Only use footage you are authorised to process");return;}
     if(!video.videoWidth){show("Choose video","Load a local video first");return;}
     if(!$("identity-form").reportValidity())return;
@@ -330,7 +379,13 @@
       if(video.videoWidth&&drawCrop())$("crop-preview").src=canvas.toDataURL("image/jpeg",.6);
     });
   });
+  // Revocation is enforced by the server on every request; refresh local
+  // entitlement as well so a running video stops shortly after access removal.
+  void checkBetaAccess();
+  betaCheckInterval=setInterval(()=>{void checkBetaAccess();},15000);
   window.addEventListener("pagehide",()=>{
+    ++betaCheckId;
+    if(betaCheckInterval)clearInterval(betaCheckInterval);
     stop();
     if(objectURL)URL.revokeObjectURL(objectURL);
     $("crop-preview").removeAttribute("src");
