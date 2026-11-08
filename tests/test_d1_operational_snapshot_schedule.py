@@ -19,8 +19,8 @@ def test_real_d1_staging_requires_main_branch_and_protected_event():
     assert "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}" in src
     assert "CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}" in src
     assert "readonly" in Path("tools/d1_operational_source_stage.py").read_text()
-    assert "PRIVATE_OPERATIONAL_D1_SOURCE_STAGED_NOT_LIVE" in src
-    assert "production_read_switch" in src
+    assert "INVENTORY_REPLAY_SNAPSHOT_PARITY_VERIFIED" in src
+    assert "production_reads_switched" in src
     assert "payment_or_settlement_executed" in src
 
 
@@ -29,7 +29,7 @@ def test_d1_snapshot_daily_is_not_live_seller_traffic_or_auth_migration():
     assert "shopify" not in src.lower().split("stage-real-private-d1:")[1].split("      - name:")[0]
     assert "postgres w" not in src.lower()
     # The release gate asserts no cutover, no payments, no Supabase retirement.
-    for clause in ("r['production_read_switch'] is False",
+    for clause in ("r['production_reads_switched'] is False",
                    "r['payment_or_settlement_executed'] is False",
                    "r['supabase_source_retired'] is False"):
         assert clause in src

@@ -130,7 +130,7 @@ def _digest(records: list[tuple[str,dict,str,str]]) -> str:
     return sha("".join(key+":"+row_sha+"\n" for key,_,_,row_sha in records))
 
 
-async def source_capture(dsn: str) -> tuple[dict,dict,dict]:
+async def source_capture(dsn: str, *, snapshot_metadata: dict | None = None) -> tuple[dict,dict,dict]:
     if not isinstance(dsn,str) or not dsn.startswith("postgresql://") or PG_PROJECT not in dsn:
         raise StageGuard("Unexpected PostgreSQL source")
     conn=await asyncpg.connect(dsn=dsn,command_timeout=90,server_settings={
@@ -145,6 +145,10 @@ async def source_capture(dsn: str) -> tuple[dict,dict,dict]:
                 (SELECT rolbypassrls FROM pg_roles WHERE rolname=current_user) AS bypass""")
             if role["username"]!="postgres" or role["bypass"] is not True:
                 raise StageGuard("Source must be existing privileged backup connection in read-only snapshot")
+            if snapshot_metadata is not None:
+                mark=await conn.fetchrow("SELECT transaction_timestamp()::text AS captured_at, "
+                                         "txid_current_snapshot()::text AS source_snapshot")
+                snapshot_metadata.update(dict(mark))
             out={}
             meta={}
             for table in TABLES:
@@ -256,16 +260,21 @@ def _insert_rows(client,dbid,table,columns,records):
 
 
 def _verify_rows(client,dbid,table,gen,expected):
+    name=next((n for n,(target,_) in TARGETS.items() if target==table),None)
+    if name is None:raise StageGuard("Unapproved parity target")
+    columns=TARGETS[name][1]
     rows=_d1_query(client,dbid,
-        f'SELECT id,source_row_sha256 FROM "{table}" WHERE generation_id=? ORDER BY id',
+        'SELECT '+','.join('"'+c+'"' for c in columns)+f' FROM "{table}" WHERE generation_id=? ORDER BY id',
         [gen])
-    actual=[(r["id"],r["source_row_sha256"]) for r in rows]
-    wanted=[(r[0],r[3]) for r in expected]
-    if len(actual)!=len(wanted) or actual!=wanted:
-        raise StageGuard("D1 shadow row-count/identity/hash parity failure")
+    wanted=[_map_row(name,gen,record,raw,digest,{}) for _,record,raw,digest in expected]
+    actual=[tuple(r[c] for c in columns) for r in rows]
+    if actual!=wanted:
+        raise StageGuard("D1 shadow typed-field/JSON/identity/hash parity failure")
 
 
-def stage(client, captured, schema, catalogue) -> dict:
+def stage(client, captured, schema, catalogue, *, captured_at=None, initial_state='STAGING') -> dict:
+    if initial_state not in {'STAGING','REJECTED'}:
+        raise StageGuard('Invalid staging state')
     if client.account_id!=ACCOUNT:
         raise StageGuard("Wrong Cloudflare account")
     databases=client.list_databases()
@@ -275,7 +284,10 @@ def stage(client, captured, schema, catalogue) -> dict:
     dbid=db[0]["uuid"]
     schema_objects=_d1_query(client,dbid,
         "SELECT type,name FROM sqlite_master WHERE name GLOB 'ops_shadow_*'")
-    if len(schema_objects)!=32:
+    replay_names={"ops_shadow_replay_checkpoints","ops_shadow_inventory_replay",
+                  "ops_shadow_replay_daily_budget","ops_shadow_replay_head"}
+    base_objects=[r for r in schema_objects if r["name"] not in replay_names]
+    if len(base_objects)!=32 or any(r["type"]!="table" for r in schema_objects if r["name"] in replay_names):
         raise StageGuard("Target D1 schema no longer matches verified 32-object shadow")
     data_digest=sha("".join(t+":"+_digest(captured[t])+"\n" for t in TABLES)
                     +"catalogue:"+sha(json.dumps(catalogue,sort_keys=True))+"\n")
@@ -287,8 +299,8 @@ def stage(client, captured, schema, catalogue) -> dict:
         raise StageGuard("Unapproved D1 daily write budget")
     _insert_rows(client,dbid,"ops_shadow_generations",
         ("generation_id","source_manifest_sha256","source_captured_at","source_schema_sha256","state"),
-        [(generation,data_digest,datetime.now(timezone.utc).isoformat(),
-            schema_digest,"STAGING")])
+        [(generation,data_digest,captured_at or datetime.now(timezone.utc).isoformat(),
+            schema_digest,initial_state)])
     users=sorted({x[1]["user_id"] for x in captured["owner_memberships"]})
     _insert_rows(client,dbid,"ops_shadow_identity_map",
         ("generation_id","legacy_user_id"),
