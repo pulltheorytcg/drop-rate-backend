@@ -13,6 +13,89 @@
   let anchor = null, stable = 0, attempted = false, lastSample = -Infinity;
   let running = false, previousVideoTime = -1;
 
+  let bidObservedAtMs = 0;
+  const pounds = new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"});
+  const money = minor => pounds.format(minor / 100);
+
+  function parsePence(inputId) {
+    const value = $(inputId).value.trim();
+    if (!value) return null; // Explicitly unknown; never imply £0.
+    if (!/^\d{1,7}(?:\.\d{1,2})?$/.test(value)) {
+      throw new Error("Use pounds with at most two decimal places.");
+    }
+    const parts = value.split(".");
+    const pennies = Number(parts[0]) * 100 + Number((parts[1] || "").padEnd(2,"0"));
+    if (!Number.isSafeInteger(pennies) || pennies > 100_000_000) {
+      throw new Error("Auction amount is outside the permitted range.");
+    }
+    return pennies;
+  }
+
+  function observedQuote() {
+    const bid = parsePence("bid-manual");
+    if (bid === null) return null;
+    return {
+      lot_ref:"own-video-"+generation,
+      status:"ACTIVE", currency:"GBP", bid_minor:bid,
+      shipping_minor:parsePence("ship-manual"),
+      buyer_fees_minor:parsePence("fee-manual"),
+      import_tax_minor:parsePence("tax-manual"),
+      additional_costs_minor:parsePence("other-manual"),
+      bid_observed_at:new Date(bidObservedAtMs || 0).toISOString(),
+    };
+  }
+
+  function resetBanner(label) {
+    const banner=$("auction-banner"),thumb=$("auction-banner-thumb");
+    banner.hidden=!running;
+    thumb.hidden=true; thumb.removeAttribute("src");
+    $("auction-banner-title").textContent=label||"Scanning for a card…";
+    $("auction-banner-subtitle").textContent="Verifying exact printing and UK market evidence";
+    for(const id of ["auction-banner-bid","auction-banner-all-in","auction-banner-market"])$(id).textContent="—";
+    $("auction-banner-verdict").dataset.state="WAITING";
+    $("auction-banner-verdict").textContent="CHECKING";
+  }
+
+  function updateBanner(result, localFrame, quote) {
+    // Called ONLY for the current active generation and a server EXACT result.
+    const value=result.value,comparison=result.comparison;
+    const verified=Boolean(value&&value.currency==="GBP"&&value.valuationEligible===true
+      && Number.isSafeInteger(value.marketValueMinor)&&value.marketValueMinor>0
+      && typeof value.expiresAtMs==="number"&&Date.now()<value.expiresAtMs&&value.source);
+    $("auction-banner").hidden=false;
+    $("auction-banner-thumb").src=localFrame;
+    $("auction-banner-thumb").hidden=false;
+    $("auction-banner-title").textContent=result.title;
+    $("auction-banner-subtitle").textContent=verified
+      ? "Exact printing · eligible UK sold evidence" : "Exact printing · Market Value unavailable";
+    if(quote)$("auction-banner-bid").textContent=money(quote.bid_minor);
+    $("auction-banner-market").textContent=verified?money(value.marketValueMinor):"—";
+    const badge=$("auction-banner-verdict");
+    badge.dataset.state="WAITING";badge.textContent=verified?"VALUE CHECKED":"NO CURRENT VALUE";
+    // Do not compute a client-side bargain from an asking price or from partial fees.
+    const status=comparison&&comparison.status;
+    const complete=verified&&quote&&
+      ["UNDER_MARKET","OVER_MARKET","AROUND_MARKET"].includes(status)&&
+      Number.isSafeInteger(comparison.allInMinor)&&comparison.allInMinor>=0&&
+      comparison.marketValueMinor===value.marketValueMinor&&
+      Number.isSafeInteger(comparison.differenceMinor)&&
+      comparison.differenceMinor===value.marketValueMinor-comparison.allInMinor;
+    if(complete) {
+      $("auction-banner-all-in").textContent=money(comparison.allInMinor);
+      badge.dataset.state=status;
+      badge.textContent=status==="UNDER_MARKET"?"↓ "+money(comparison.differenceMinor)+" BELOW"
+        :status==="OVER_MARKET"?"↑ "+money(-comparison.differenceMinor)+" ABOVE"
+        :"AROUND MARKET";
+    } else if(status==="CHARGES_UNKNOWN") {
+      badge.textContent="FEES UNKNOWN";
+    } else if(status==="STALE_BID") {
+      badge.textContent="BID TOO OLD";
+    } else if(status==="CHECK_VERSION") {
+      badge.textContent="CHECK VERSION";
+    }
+  }
+
+
   function show(status, title, explanation, price, latency) {
     $("result-state").textContent = status;
     $("result-title").textContent = title || "Waiting for a clear card";
@@ -28,6 +111,7 @@
     anchor = null; stable = 0; attempted = false; lastSample = -Infinity;
     previousVideoTime = -1;
     show(label || "Checking", "Waiting for a stable card", "Old cards and values are cleared whenever a scene or crop changes.");
+    resetBanner(label || "Scanning for a card…");
   }
 
   function coords() {
@@ -101,6 +185,13 @@
     if(!observed.name||!observed.set_name||!observed.card_number){
       show("Check details", "Confirm the visible printing", "Name, set and collector number are required for an exact result.");return;
     }
+    let quote=null;
+    try { quote=observedQuote(); }
+    catch(error) {
+      show("Check amounts", "Enter valid GBP amounts", "Each charge must be in pounds with no more than two decimal places.");
+      resetBanner("Invalid auction amount");
+      return;
+    }
     const ownGeneration=generation, controller=new AbortController(), start=performance.now();
     currentRequest=controller; attempted=true;
     show("Recognising", "Matching exact artwork and printing", "One bounded internal lookup. No web scraping or external provider calls.");
@@ -112,6 +203,7 @@
           generation:ownGeneration, source:$("source-rights").value,
           image_data_url:frameURL, observed,
           ...( $("nm-confirmed").checked ? {confirmed_raw_condition:"Near Mint"} : {} ),
+          ...(quote ? {quote} : {}),
         }),
       });
       if(controller.signal.aborted||ownGeneration!==generation||!running)return;
@@ -121,6 +213,7 @@
       const result=await response.json();
       if(controller.signal.aborted||ownGeneration!==generation||!running)return;
       if(result.generation!==ownGeneration||result.decision!=="EXACT"||!result.identityKey||!result.title){
+        resetBanner("Check card version");
         show("Check version", "No safely verified exact printing", "Adjust the crop or visible details, then choose New lot. Similar artwork must not borrow another card's price.",null,latency);return;
       }
       const price=result.value;
@@ -133,8 +226,10 @@
           : "date unavailable";
         show("Exact match",result.title,"UK Market Value · "+(price.basis||"confirmed raw condition")+
           " · evidence "+checked+" · "+price.source,formatted,latency);
+        updateBanner(result,frameURL,quote);
       } else {
         show("Identity found",result.title,"No eligible current UK Market Value for this exact printing and confirmed condition. Missing evidence remains unavailable.",null,latency);
+        updateBanner(result,frameURL,quote);
       }
     }catch(error){
       if(!controller.signal.aborted&&ownGeneration===generation) {
@@ -197,6 +292,20 @@
   video.addEventListener("seeking",()=>{if(running)invalidate("Seeking");});
   video.addEventListener("ended",stop);
   video.addEventListener("pause",()=>{if(running)invalidate("Paused footage");});
+  for(const id of ["bid-manual","ship-manual","fee-manual","tax-manual","other-manual"]) {
+    $(id).addEventListener("input",()=>{
+      bidObservedAtMs=Date.now();
+      if(running)invalidate("Bid or fees changed");
+    });
+  }
+  for(const id of ["card-name","set-name","card-number","finish","nm-confirmed"]) {
+    $(id).addEventListener("change",()=>{ if(running)invalidate("Printing updated"); });
+  }
+  $("source-rights").addEventListener("change",()=>{if(running)invalidate("Footage source changed");});
+  $("rights-affirmed").addEventListener("change",()=>{
+    if(!$("rights-affirmed").checked&&running)stop();
+  });
+
   controls.forEach(id=>{
     const input=$(id),output=$(id+"-value");
     input.addEventListener("input",()=>{
