@@ -224,11 +224,43 @@ async def check(pglite=False):
                     raise AssertionError("Media reassignment was allowed")
                 except (asyncpg.RaiseError, RuntimeError) as exc:
                     assert "cannot be reassigned" in str(exc), str(exc)
+                # Founder uploads use the same receipt/approval flow as seller photos.
+                founder_item = uuid4()
+                await db.execute("""insert into tcg.inventory_items(id,owner_id,catalogue_id,language,condition,
+                    grading_company,grade,certificate_number) values($1,$2,$3,'English','Near Mint',
+                    'PSA','10','founder-synthetic-certificate')""", founder_item, owners[2], products["GRADED_CARD"])
+                founder_assets = []
+                for side in ("FRONT", "BACK"):
+                    response = await client.post(f"/api/v1/owner/inventory/{founder_item}/photo/upload", params={
+                        "side": side, "version": 3, "filename": "founder.png", "rights_confirmed": "true",
+                        "request_key": str(uuid4())}, headers={"content-type": "image/png"}, content=image.getvalue())
+                    assert response.status_code == 201, response.text
+                    asset = response.json()["asset"]
+                    source = await db.fetchrow("select source_type,capture_context,owner_id from tcg.media_assets where id=$1", UUID(asset["id"]))
+                    assert source["source_type"] == "FOUNDER_UPLOAD" and source["capture_context"] == "GRADED_SLAB"
+                    assert str(source["owner_id"]) == str(owners[2])
+                    queue = (await client.get("/api/v1/shopify/photo-review/queue")).json()["items"]
+                    assert asset["id"] in {r["id"] for r in queue}, "Founder upload vanished from review queue"
+                    session["actor"] = actors[0]
+                    assert (await client.post(f"/api/v1/shopify/photo-review/{asset['id']}/decision",
+                        json={"version": asset["version"], "decision": "APPROVE"})).status_code == 403
+                    session["actor"] = actors[2]
+                    approved = await client.post(f"/api/v1/shopify/photo-review/{asset['id']}/decision",
+                        json={"version": asset["version"], "decision": "APPROVE", "reason": "Own exact slab photo checked"})
+                    assert approved.status_code == 200, approved.text
+                    founder_assets.append(dict(await db.fetchrow("select * from tcg.media_assets where id=$1", UUID(asset["id"]))))
+                founder_record = dict(await db.fetchrow("""select i.*,p.product_type,p.variant from tcg.inventory_items i
+                    join tcg.catalogue_products p on p.id=i.catalogue_id where i.id=$1""", founder_item))
+                assert resolve_storefront_media(founder_record, founder_assets)["complete"]
+                assert not resolve_storefront_media(founder_record, founder_assets[:1])["complete"]
+                assert (await client.get("/api/v1/shopify/photo-review/queue")).json()["items"] == []
+                wake.assert_not_called()
                 await db.execute("update tcg.founder_app_accounts set active=false where user_id=$1", actors[2])
                 assert (await client.get("/api/v1/shopify/photo-review/queue")).status_code == 403
                 async with connection(db, actors[2], "revoked-roster") as c:
-                    assert await c.fetchval("select count(*) from tcg.media_assets") == 0
-        print("PASS: real founder-roster guard and media RLS; owner/unregistered/revoked admin denial; legacy comic-only alias; explicit review across five types plus graded card; condition filled after capture retained; changed catalogue/grade/certificate rejected; version/CDN/processing gates; reasoned retake; audited immutable identity; inventory, condition and publication unchanged")
+                    assert await c.fetchval("select count(*) from tcg.media_assets where owner_id<>$1", owners[2]) == 0
+                    assert await c.fetchval("select count(*) from tcg.media_assets where owner_id=$1", owners[2]) == 2
+        print("PASS: founder front/back upload, review and complete slab resolution; real founder-roster guard and media RLS; owner/unregistered/revoked admin denial; legacy comic-only alias; explicit review across five types plus graded card; condition filled after capture retained; changed catalogue/grade/certificate rejected; version/CDN/processing gates; reasoned retake; audited immutable identity; inventory, condition and publication unchanged")
     finally:
         await db.close()
 
