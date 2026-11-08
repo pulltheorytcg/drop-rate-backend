@@ -11,3 +11,7 @@ A quota-deferred result publishes a pending parity status, never a success claim
 Tests use synthetic SQLite/API doubles to prove exact source hashes, retained previous generation, no new database, interrupted-request resume, daily deferral, stable-ID removal rejection, wrong-source/credential checks and existing Yu-Gi-Oh quota behaviour. Production parity must be established by the protected workflow. Local Python 3.9 passes 28 importer/YGO tests; the existing shared-codec suite requires Python 3.12 (`zip(strict=True)`) and is covered by CI.
 
 Rollback: retain/repoint the prior verified shadow generation under review or stop the staging job. Production reads are unchanged. The failed recheck did not mutate any D1 records.
+
+## Live size-check correction
+
+The first protected refresh stopped with HTTP 400 before inserting any generation: D1 REST rejects SQLite page-count/page-size PRAGMAs. The repair reuses `_database_size` from the existing read-only capacity audit, which reads Cloudflare's supported database metadata `file_size`. The API double now rejects all SQL PRAGMAs, and missing metadata still blocks refresh. No token/scope change or source/identity gate relaxation.

@@ -34,12 +34,18 @@ class FakeD1:
     def list_databases(self): return list(type(self).existing)
 
     def call(self,method,path,data=None):
+        if method=="GET":
+            assert path==self.path+"/12345678-1234-1234-1234-1234567890ab"
+            # Simulate supported Cloudflare metadata, not a public SQL PRAGMA.
+            size=self.connection.execute('pragma page_count').fetchone()[0]*self.connection.execute('pragma page_size').fetchone()[0]
+            return {"file_size":size},0.0
         assert method=="POST" and path==self.path
         assert data["name"].startswith(runner.SHADOW_DB_PREFIX)
         type(self).created+=1
         return {"name":data["name"],"uuid":"12345678-1234-1234-1234-1234567890ab"},0.0
 
     def query(self,uuid,sql,params=()):
+        assert not sql.lstrip().lower().startswith('pragma'), "D1 REST rejects size PRAGMAs"
         assert uuid=="12345678-1234-1234-1234-1234567890ab"
         cur=self.connection.execute(sql,params)
         rows=[dict(row) for row in cur.fetchall()] if cur.description else []
@@ -340,5 +346,14 @@ def test_refresh_rejects_removed_identity_and_retains_pointer(monkeypatch):
     rows=list(new.rows);changed=list(rows[0]);changed[1]='x:'+'0'*64;rows[0]=tuple(changed)
     with pytest.raises(runner.MigrationGuard,match='identities'):
         runner._existing_lorcana_proof(cloud,replace(new,rows=tuple(rows)))
+    assert cloud.connection.execute('select manifest_sha from shadow_active_partitions').fetchone()[0]==old.manifest_sha
+    cloud.connection.close();FakeD1.existing=[]
+
+
+def test_missing_cloudflare_size_metadata_blocks_refresh(monkeypatch):
+    cloud,uid,old,new=refresh_fixture(monkeypatch)
+    monkeypatch.setattr(cloud,'call',lambda *args,**kw:({'file_size':None},0.0))
+    with pytest.raises(runner.MigrationGuard,match='file_size'):
+        runner._existing_lorcana_proof(cloud,new)
     assert cloud.connection.execute('select manifest_sha from shadow_active_partitions').fetchone()[0]==old.manifest_sha
     cloud.connection.close();FakeD1.existing=[]
