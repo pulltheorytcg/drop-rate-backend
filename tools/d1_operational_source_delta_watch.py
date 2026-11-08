@@ -8,6 +8,8 @@ or PostgreSQL/D1 credentials are ever printed. No database or R2 writes.
 """
 from __future__ import annotations
 
+import argparse
+import hashlib
 import asyncio
 from collections import defaultdict
 import json
@@ -60,7 +62,58 @@ def compare_hashes(source,remote) -> dict:
     }
 
 
-def verify_shadow(client,captured,catalogue) -> dict:
+def explain_changed_fields(source, remote, allowed_columns):
+    """Validate private original JSON, then emit only approved column counts.
+
+    Hash differences remain blocking even when caused only by serialization.
+    Missing/null and JSON number/string differences must not disappear.
+    """
+    compare_hashes(source, remote)
+    current={row[0]:row for row in source}
+    counts=defaultdict(int)
+    changed=0
+    serialization_only=0
+    missing=object()
+    for row in remote:
+        key=row['id']
+        if key not in current or current[key][3]==row['source_row_sha256']:
+            continue
+        _,body,raw,digest=current[key]
+        prior_raw=row.get('source_row_json')
+        if (not isinstance(raw,str) or not isinstance(prior_raw,str)
+                or len(raw)>1_000_000 or len(prior_raw)>1_000_000
+                or hashlib.sha256(raw.encode()).hexdigest()!=digest
+                or hashlib.sha256(prior_raw.encode()).hexdigest()!=row['source_row_sha256']):
+            raise SnapshotDriftGuard('Private source payload hash mismatch')
+        try:
+            now=json.loads(raw)
+            prior=json.loads(prior_raw)
+        except (ValueError,TypeError):
+            raise SnapshotDriftGuard('Invalid private source JSON') from None
+        if (not isinstance(now,dict) or not isinstance(prior,dict)
+                or now!=body or now.get('id')!=key or prior.get('id')!=key):
+            raise SnapshotDriftGuard('Private payload identity mismatch')
+        fields=set(now)|set(prior)
+        if not fields.issubset(allowed_columns):
+            raise SnapshotDriftGuard('Unapproved source columns')
+        changed+=1
+        differences=0
+        for field in fields:
+            a,b=now.get(field,missing),prior.get(field,missing)
+            different=(a is missing)!=(b is missing)
+            if a is not missing and b is not missing:
+                different=json.dumps(a,sort_keys=True)!=json.dumps(b,sort_keys=True)
+            if different:
+                counts[field]+=1
+                differences+=1
+        if differences==0:
+            serialization_only+=1
+    return {'changed_records_examined':changed,
+            'changed_field_counts':dict(sorted(counts.items())),
+            'serialization_only_records':serialization_only}
+
+
+def verify_shadow(client,captured,catalogue, *, explain_drift=False, source_schema=None) -> dict:
     if client.account_id!=ACCOUNT:
         raise SnapshotDriftGuard("Unexpected Cloudflare account")
     databases=[x for x in client.list_databases() if x.get("name")==DB_NAME]
@@ -79,12 +132,27 @@ def verify_shadow(client,captured,catalogue) -> dict:
         raise SnapshotDriftGuard("Unexpected source generation state")
     generation=gen["generation_id"]
     changes={}
+    explanations={}
     for source_name in ORDER:
         target=TARGETS[source_name][0]
         rows=_d1_query(client,dbid,
             f'SELECT id,source_row_sha256 FROM "{target}" '
             "WHERE generation_id=? ORDER BY id",[generation])
         changes[source_name]=compare_hashes(captured[source_name],rows)
+        if explain_drift and changes[source_name]['changed_after_snapshot']:
+            if not source_schema or source_name not in source_schema:
+                raise SnapshotDriftGuard('Source column schema required for diagnostics')
+            allowed={x['column'] for x in source_schema[source_name]}
+            if any(not isinstance(x,str) or not re.fullmatch(r'[a-z_][a-z0-9_]*',x) for x in allowed):
+                raise SnapshotDriftGuard('Invalid source column schema')
+            # Same immutable generation, SELECT only; never publish values.
+            private_rows=_d1_query(client,dbid,
+                f'SELECT id,source_row_sha256,source_row_json FROM "{target}" '
+                "WHERE generation_id=? ORDER BY id",[generation])
+            compare_hashes(captured[source_name],private_rows)
+            if {r['id']:r['source_row_sha256'] for r in private_rows}!={r['id']:r['source_row_sha256'] for r in rows}:
+                raise SnapshotDriftGuard('Shadow changed during diagnostic read')
+            explanations[source_name]=explain_changed_fields(captured[source_name],private_rows,allowed)
 
     references=_d1_query(client,dbid,
         "SELECT catalogue_id,reference_manifest_sha256 FROM ops_shadow_catalogue_links "
@@ -112,6 +180,7 @@ def verify_shadow(client,captured,catalogue) -> dict:
                   if mismatches==0 else "READ_ONLY_OPERATIONAL_D1_SNAPSHOT_STALE"),
         "verified_original_tables":len(ORDER),
         "source_drift":changes,
+        "column_drift_diagnostics":explanations,
         "catalogue_link_drift":catalogue_changes,
         "changed_or_missing_record_count":mismatches,
         "source_postgres_writes":0,
@@ -123,20 +192,24 @@ def verify_shadow(client,captured,catalogue) -> dict:
     }
 
 
-async def main():
+async def main(*, explain_drift=False):
     dsn=os.getenv("FULL_EXIT_PG_READONLY_DSN","").strip()
     account=os.getenv("CLOUDFLARE_ACCOUNT_ID","").strip()
     token=os.getenv("CLOUDFARE_D1_PILOT_TOKEN","").strip()
     if not dsn or account!=ACCOUNT or not token:
         raise SnapshotDriftGuard("Protected connection configuration missing")
-    snapshot,_,catalogue=await source_capture(dsn)
-    result=verify_shadow(D1Client(account,token),snapshot,catalogue)
+    snapshot,schema,catalogue=await source_capture(dsn)
+    result=verify_shadow(D1Client(account,token),snapshot,catalogue,
+                         explain_drift=explain_drift,source_schema=schema)
     return result
 
 
 if __name__=="__main__":
     try:
-        result=asyncio.run(main())
+        parser=argparse.ArgumentParser()
+        parser.add_argument('--explain-drift',action='store_true')
+        args=parser.parse_args()
+        result=asyncio.run(main(explain_drift=args.explain_drift))
         print(json.dumps(result,sort_keys=True,separators=(",",":")))
         if result["changed_or_missing_record_count"]:
             raise SystemExit(2)
