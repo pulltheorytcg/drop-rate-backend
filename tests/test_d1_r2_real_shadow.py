@@ -266,3 +266,79 @@ def test_corrupt_existing_lorcana_shadow_refuses_to_claim_success():
         runner._existing_lorcana_proof(cloud,source)
     cloud.connection.close()
     FakeD1.existing=[]
+
+
+def refresh_fixture(monkeypatch):
+    from dataclasses import replace
+    from app import d1_shadow_catalogue as bridge
+    FakeD1.existing=[];FakeD1.corrupt=False
+    raw,parts,_=fixture()
+    with http_client(raw,parts) as http:old,_=runner.load_verified_source(http,'fake-oidc')
+    cloud=FakeD1('a'*32,'dummy-d1-token');uid='12345678-1234-1234-1234-1234567890ab'
+    runner._schema(cloud,uid)
+    init=bridge.generation_statement(old);cloud.query(uid,init['sql'],init['params'])
+    for statement in bridge.insert_statements(old):cloud.query(uid,statement['sql'],statement['params'])
+    activate=bridge.activation_statement(old);cloud.query(uid,activate['sql'],activate['params'])
+    FakeD1.existing=[{'name':runner.SHADOW_DB_PREFIX+'123-1','uuid':uid}]
+    # Same stable source identities; one upstream factual-name correction.
+    rows=[list(r) for r in old.rows]
+    rows[0][7]='Corrected public name';rows[0][8]='corrected public name'
+    new_sha='f'*64
+    for row in rows:row[0]=new_sha
+    h=hashlib.sha256()
+    for row in sorted(rows,key=lambda r:r[1]):h.update(json.dumps(row,ensure_ascii=False,separators=(',',':')).encode()+b'\n')
+    new=replace(old,manifest_sha=new_sha,rows=tuple(tuple(r) for r in rows),projection_sha=h.hexdigest())
+    return cloud,uid,old,new
+
+
+def test_refresh_preserves_old_generation_and_is_idempotent(monkeypatch):
+    cloud,uid,old,new=refresh_fixture(monkeypatch)
+    before=FakeD1.created
+    result=runner._existing_lorcana_proof(cloud,new)
+    assert result['refreshed_existing_database'] is True
+    assert result['prior_generation_retained'] is True
+    assert result['d1_verified_rows']==new.expected_rows
+    assert FakeD1.created==before
+    assert runner.verify_d1_projection(cloud,uid,old)==old.expected_rows
+    assert runner._existing_lorcana_proof(cloud,new)['existing_readonly_reverified'] is True
+    assert cloud.connection.execute('select count(*) from shadow_generations').fetchone()[0]==2
+    cloud.connection.close();FakeD1.existing=[]
+
+
+def test_interrupted_refresh_resumes_and_old_pointer_remains_until_parity(monkeypatch):
+    cloud,uid,old,new=refresh_fixture(monkeypatch)
+    batch=cloud.batch;failed=False
+    def fail(db,queries):
+        nonlocal failed
+        if not failed:
+            failed=True;batch(db,queries[:1]);raise OSError('lost acknowledgement')
+        return batch(db,queries)
+    monkeypatch.setattr(cloud,'batch',fail)
+    with pytest.raises(OSError):runner._existing_lorcana_proof(cloud,new)
+    assert cloud.connection.execute('select manifest_sha from shadow_active_partitions').fetchone()[0]==old.manifest_sha
+    result=runner._existing_lorcana_proof(cloud,new)
+    assert result['new_rows_this_run']<new.expected_rows
+    assert runner.verify_d1_projection(cloud,uid,new)==new.expected_rows
+    cloud.connection.close();FakeD1.existing=[]
+
+
+def test_second_same_day_generation_defers_without_false_parity(monkeypatch):
+    from dataclasses import replace
+    cloud,uid,old,new=refresh_fixture(monkeypatch)
+    runner._existing_lorcana_proof(cloud,new)
+    third=replace(new,manifest_sha='e'*64)
+    result=runner._existing_lorcana_proof(cloud,third)
+    assert result['status']=='LORCANA_REFRESH_DEFERRED_DAILY_BUDGET'
+    assert 'd1_verified_rows' not in result
+    assert cloud.connection.execute('select manifest_sha from shadow_active_partitions').fetchone()[0]==new.manifest_sha
+    cloud.connection.close();FakeD1.existing=[]
+
+
+def test_refresh_rejects_removed_identity_and_retains_pointer(monkeypatch):
+    from dataclasses import replace
+    cloud,uid,old,new=refresh_fixture(monkeypatch)
+    rows=list(new.rows);changed=list(rows[0]);changed[1]='x:'+'0'*64;rows[0]=tuple(changed)
+    with pytest.raises(runner.MigrationGuard,match='identities'):
+        runner._existing_lorcana_proof(cloud,replace(new,rows=tuple(rows)))
+    assert cloud.connection.execute('select manifest_sha from shadow_active_partitions').fetchone()[0]==old.manifest_sha
+    cloud.connection.close();FakeD1.existing=[]

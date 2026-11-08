@@ -6,6 +6,8 @@ No catalogue search route, production D1 DB, Shopify or ownership is changed.
 """
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import datetime, timezone
 import asyncio
 import hashlib
 import json
@@ -251,8 +253,16 @@ def _existing_lorcana_proof(client: D1Client, source: projection_codec.Projectio
                 source.projection_sha, source.source_content_sha, source.source_revision)
     columns = ("manifest_sha","provider","system_code","language","expected_rows",
                "projection_sha","source_content_sha","source_revision")
-    if len(registry) != 1 or tuple(registry[0][key] for key in columns) != expected:
+    matching=[r for r in registry if r.get('manifest_sha')==source.manifest_sha]
+    if matching and (len(matching)!=1 or tuple(matching[0][key] for key in columns)!=expected):
         raise MigrationGuard("Existing Lorcana D1 generation differs from R2 source")
+    pointers = _query(client,uid,"select provider,system_code,language,manifest_sha from shadow_active_partitions")
+    if (len(pointers)!=1 or tuple(pointers[0][k] for k in ('provider','system_code','language'))!=source.scope):
+        raise MigrationGuard('Previous Lorcana D1 generation active pointer mismatch')
+    if pointers[0]['manifest_sha']!=source.manifest_sha:
+        return _refresh_lorcana_generation(client,uid,db['name'],source,registry,pointers[0]['manifest_sha'])
+    if not matching:
+        raise MigrationGuard('Active Lorcana generation is missing')
     if verify_d1_projection(client, uid, source) != source.expected_rows:
         raise MigrationGuard("Existing Lorcana D1 readback does not match source")
     pointers = _query(client, uid, "select provider,system_code,language,manifest_sha "
@@ -271,6 +281,100 @@ def _existing_lorcana_proof(client: D1Client, source: projection_codec.Projectio
             "main_catalogue_reads_switched":False,"production_shopify_writes":0,
             "production_money_or_owner_writes":0,
             "production_market_value_writes":0,"supabase_writes":0,"r2_writes":0}
+
+
+LORCANA_REFRESH_BUDGET_SQL="""create table if not exists shadow_lorcana_refresh_budget(
+ utc_day text primary key,
+ manifest_sha text not null,
+ prior_manifest_sha text not null,
+ rows_reserved integer not null check(rows_reserved between 1 and 8000)
+)"""
+
+
+def _refresh_lorcana_generation(client,uid,name,source,registry,prior_sha,*,now=None):
+    """Append only a verified bounded refresh in the existing Lorcana database."""
+    prior=[r for r in registry if r.get('manifest_sha')==prior_sha]
+    if len(prior)!=1 or tuple(prior[0][k] for k in ('provider','system_code','language'))!=source.scope:
+        raise MigrationGuard('Original Lorcana generation metadata is invalid')
+    if not 1<=prior[0]['expected_rows']<=source.expected_rows<=MAX_SOURCE_ROWS:
+        raise MigrationGuard('Lorcana source count decrease requires review')
+    verify_d1_projection(client,uid,replace(source,manifest_sha=prior_sha,
+        expected_rows=prior[0]['expected_rows'],projection_sha=prior[0]['projection_sha']))
+    # Preserve all prior stable identities. Removed products require explicit review.
+    old_keys=[]
+    field_changes={}
+    changed_identities=0
+    wanted={row[1]:row for row in source.rows}
+    for offset in range(0,prior[0]['expected_rows'],100):
+        prior_rows=_query(client,uid,D1_READBACK_SQL,[prior_sha,100,offset])
+        for row in prior_rows:
+            key=row['card_key'];old_keys.append(key)
+            if key in wanted:
+                fields=[column for i,column in enumerate(projection_codec.SQLITE_COLUMNS)
+                        if column!='manifest_sha' and row[column]!=wanted[key][i]]
+                if fields:changed_identities+=1
+                for column in fields:field_changes[column]=field_changes.get(column,0)+1
+    if len(old_keys)!=prior[0]['expected_rows'] or not set(old_keys)<=wanted.keys():
+        raise MigrationGuard('Prior Lorcana identities removed or incomplete')
+    page_count=_query(client,uid,'PRAGMA page_count')[0]['page_count']
+    page_size=_query(client,uid,'PRAGMA page_size')[0]['page_size']
+    database_bytes=page_count*page_size
+    # Conservative preflight, followed by actual post-copy size readback.
+    projected_bytes=database_bytes+6*sum(len(json.dumps(row).encode()) for row in source.rows)+65536
+    if projected_bytes>450_000_000:
+        raise MigrationGuard('Lorcana retained-generation storage headroom exhausted')
+    _query(client,uid,LORCANA_REFRESH_BUDGET_SQL)
+    today=(now or datetime.now(timezone.utc)).date().isoformat()
+    receipt=_query(client,uid,'select manifest_sha,prior_manifest_sha,rows_reserved from shadow_lorcana_refresh_budget where utc_day=?',[today])
+    if receipt and (len(receipt)!=1 or receipt[0]['manifest_sha']!=source.manifest_sha or receipt[0]['prior_manifest_sha']!=prior_sha):
+        return {'status':'LORCANA_REFRESH_DEFERRED_DAILY_BUDGET','source_rows':source.expected_rows,
+                'main_catalogue_reads_switched':False,'production_money_or_owner_writes':0,
+                'production_shopify_writes':0,'production_market_value_writes':0,'supabase_writes':0,'r2_writes':0}
+    if not receipt:
+        _query(client,uid,'insert into shadow_lorcana_refresh_budget values(?,?,?,?)',
+            [today,source.manifest_sha,prior_sha,source.expected_rows])
+    existing=[r for r in registry if r.get('manifest_sha')==source.manifest_sha]
+    if not existing:
+        statement=projection_codec.generation_statement(source)
+        _query(client,uid,statement['sql'],statement['params'])
+    count=_query(client,uid,'select count(*) as n from shadow_cards where manifest_sha=?',[source.manifest_sha])[0]['n']
+    staged={}
+    for offset in range(0,count,100):
+        for row in _query(client,uid,D1_READBACK_SQL,[source.manifest_sha,100,offset]):
+            key=row['card_key']
+            if key in staged or key not in wanted or tuple(row[c] for c in projection_codec.SQLITE_COLUMNS)!=wanted[key]:
+                raise MigrationGuard('Partial Lorcana refresh differs from immutable R2')
+            staged[key]=row
+    if len(staged)!=count:raise MigrationGuard('Partial Lorcana refresh count mismatch')
+    missing=[row for key,row in sorted(wanted.items()) if key not in staged]
+    # Original codec chunks keep every statement within D1 100-bind limit.
+    width=len(projection_codec.SQLITE_COLUMNS);chunk=100//width;statements=[]
+    for offset in range(0,len(missing),chunk):
+        rows=missing[offset:offset+chunk]
+        statements.append({'sql':projection_codec.INSERT_CARD_SQL+','.join('('+','.join('?' for _ in range(width))+')' for _ in rows),
+                           'params':[v for row in rows for v in row]})
+    for offset in range(0,len(statements),12):client.batch(uid,statements[offset:offset+12])
+    verify_d1_projection(client,uid,source)
+    final_size=_query(client,uid,'PRAGMA page_count')[0]['page_count']*_query(client,uid,'PRAGMA page_size')[0]['page_size']
+    if final_size>450_000_000:raise MigrationGuard('Lorcana actual retained-generation size limit exceeded')
+    # CAS: never replace a generation another publisher advanced after our read.
+    _query(client,uid,'update shadow_active_partitions set manifest_sha=? where provider=? and system_code=? and language=? and manifest_sha=?',
+           [source.manifest_sha,*source.scope,prior_sha])
+    pointer=_query(client,uid,'select manifest_sha from shadow_active_partitions where provider=? and system_code=? and language=?',source.scope)
+    if pointer!=[{'manifest_sha':source.manifest_sha}]:
+        raise MigrationGuard('Concurrent Lorcana generation advance')
+    verify_d1_projection(client,uid,source)
+    return {'status':'REAL_R2_LORCANA_TO_ISOLATED_D1_VERIFIED','database_name':name,'database_uuid':uid,
+            'r2_source_manifest_sha':source.manifest_sha,'r2_source_content_sha':source.source_content_sha,
+            'd1_projection_sha':source.projection_sha,'source_rows':source.expected_rows,
+            'd1_verified_rows':source.expected_rows,'new_rows_this_run':len(missing),
+            'refreshed_existing_database':True,'prior_generation_retained':True,
+            'changed_existing_identities':changed_identities,'new_identities':len(wanted)-len(old_keys),
+            'changed_projection_field_counts':dict(sorted(field_changes.items())),
+            'database_bytes_before':database_bytes,'database_bytes_after':final_size,
+            'main_catalogue_reads_switched':False,'production_shopify_writes':0,
+            'production_money_or_owner_writes':0,'production_market_value_writes':0,
+            'supabase_writes':0,'r2_writes':0}
 
 
 def _schema(client: D1Client, database_id: str):

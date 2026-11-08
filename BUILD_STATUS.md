@@ -1,3 +1,9 @@
+## 8 November 2026 — Existing Lorcana D1 generation refresh (CI pending)
+
+- Live recheck found current R2 source differs from the earlier D1 generation. Extend the existing importer/database with append-only generation refresh, resumable exact readback, daily quota receipt and compare-and-swap activation.
+- Previous source identities and generation retained; removals/decreased counts require review. A deferred refresh publishes pending parity. No production catalogue route cutover.
+- See docs/LORCANA_D1_REFRESH_20261108.md. Local importer/YGO simulations passed; fresh protected live parity remains required.
+
 ## 8 November 2026 — Version-aware immutable inventory shadow catch-up (CI pending)
 
 - Extend the existing protected operational staging workflow with field classification, immutable generation replay, per-item version high-water mark, private journal, persistent daily reservation and independent source recapture.

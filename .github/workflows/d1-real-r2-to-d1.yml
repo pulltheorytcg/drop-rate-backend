@@ -83,12 +83,20 @@ jobs:
           import os
           import urllib.request
 
-          state = "success" if os.environ["D1_IMPORT_OUTCOME"] == "success" else "failure"
-          description = (
-              "Verified full Lorcana R2-D1 shadow parity; no production cutover"
-              if state == "success" else
-              "Isolated R2-D1 shadow blocked; production data unchanged"
-          )
+          from pathlib import Path
+          state = "failure"
+          description = "Isolated R2-D1 shadow blocked; production data unchanged"
+          receipt = Path("d1-lorcana-real-shadow-report.json")
+          if os.environ["D1_IMPORT_OUTCOME"] == "success" and receipt.is_file():
+              data = json.loads(receipt.read_text())
+              if (data.get("status") == "REAL_R2_LORCANA_TO_ISOLATED_D1_VERIFIED"
+                  and data.get("source_rows") == data.get("d1_verified_rows")
+                  and data.get("main_catalogue_reads_switched") is False):
+                  state = "success"
+                  description = "Verified full Lorcana R2-D1 shadow parity; no production cutover"
+              elif data.get("status") == "LORCANA_REFRESH_DEFERRED_DAILY_BUDGET":
+                  state = "pending"
+                  description = "Lorcana source refresh deferred by daily quota; parity not current"
           body = json.dumps({
               "state": state,
               "context": "drop-rate-d1-real-lorcana-parity",
