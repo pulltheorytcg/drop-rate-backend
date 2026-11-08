@@ -38,6 +38,7 @@ export type VerifiedAuctionComparison = {
   allInMinor?: number;
   marketValueMinor?: number;
   differenceMinor?: number;
+  bidExpiresAtMs?: number;
   source?: string;
   evidenceAtMs?: number;
 };
@@ -45,7 +46,8 @@ export type VerifiedAuctionComparison = {
 /** Only the server can create the verdict; the client may reject unsafe data. */
 function eligibleComparison(
   comparison: VerifiedAuctionComparison | undefined,
-  marketValueMinor: number | undefined
+  marketValueMinor: number | undefined,
+  nowMs: number
 ): VerifiedAuctionComparison | undefined {
   if (!comparison || marketValueMinor === undefined) return undefined;
   if (["UNDER_MARKET", "OVER_MARKET", "AROUND_MARKET"].includes(comparison.status)) {
@@ -53,7 +55,9 @@ function eligibleComparison(
         comparison.allInMinor! < 0 ||
         comparison.marketValueMinor !== marketValueMinor ||
         !Number.isSafeInteger(comparison.differenceMinor) ||
-        comparison.differenceMinor !== marketValueMinor - comparison.allInMinor!) {
+        comparison.differenceMinor !== marketValueMinor - comparison.allInMinor! ||
+        !Number.isFinite(comparison.bidExpiresAtMs) ||
+        comparison.bidExpiresAtMs! <= nowMs) {
       return undefined;
     }
     return comparison;
@@ -173,6 +177,10 @@ export class AuctionLensStream {
     if (this.view.value && nowMs >= this.view.value.expiresAtMs) {
       this.publish({ status: "NO_VALUE", generation: this.view.generation,
         identityKey: this.view.identityKey, title: this.view.title });
+    } else if (this.view.comparison?.bidExpiresAtMs &&
+               nowMs >= this.view.comparison.bidExpiresAtMs) {
+      const { comparison: _expired, ...prior } = this.view;
+      this.publish({ ...prior, comparison: {status:"STALE_BID"} });
     }
     return { ...this.view };
   }
@@ -302,7 +310,7 @@ export class AuctionLensStream {
       // market evidence. Client-side display gate is defence-in-depth.
       const valueIsCurrent = validValue(result.value, Date.now());
       const comparison = valueIsCurrent
-        ? eligibleComparison(result.comparison, result.value?.marketValueMinor)
+        ? eligibleComparison(result.comparison, result.value?.marketValueMinor, Date.now())
         : undefined;
       this.publish({
         status: valueIsCurrent ? "IDENTIFIED" : "NO_VALUE",
