@@ -2,7 +2,7 @@
  * Capture and OCR are separate. No WebView credential extraction or live feeds.
  */
 import { HUB_ORIGIN } from "./hub";
-import type { CaptureFrame, FrameResolver, VerifiedRecognition } from "./auctionLensStream";
+import type { CaptureFrame, FrameResolver, VerifiedRecognition, VerifiedAuctionComparison } from "./auctionLensStream";
 
 export type PilotCardObservation = {
   game: "Pokemon";
@@ -13,10 +13,24 @@ export type PilotCardObservation = {
   finish: "Normal" | "Holofoil" | "Reverse Holofoil";
   object_type: "RAW_CARD";
 };
+/** Explicit, observed GBP inputs only; NEVER client-supplied Market Value. */
+export type ObservedAuctionQuote = {
+  lot_ref: string;
+  status: "ACTIVE" | "ENDED";
+  currency: "GBP";
+  bid_minor: number;
+  shipping_minor: number | null;
+  buyer_fees_minor: number | null;
+  import_tax_minor: number | null;
+  additional_costs_minor: number | null;
+  bid_observed_at: string;
+};
+
 export type PilotInput = {
   source: "OWN_VIDEO" | "EXPLICITLY_AUTHORISED_VIDEO";
   observed: PilotCardObservation;
   confirmed_raw_condition?: "Near Mint";
+  quote?: ObservedAuctionQuote;
 };
 export type PilotContext = {
   accessToken: () => Promise<string | null>;
@@ -52,6 +66,30 @@ function safeResult(value: unknown, generation: number): VerifiedRecognition {
       };
     }
   }
+  const rawComparison=response.comparison;
+  if (rawComparison && typeof rawComparison === "object" && result.value) {
+    const cmp=rawComparison as Record<string,unknown>;
+    const status=cmp.status;
+    const comparable=["UNDER_MARKET","OVER_MARKET","AROUND_MARKET"];
+    const abstain=["CHARGES_UNKNOWN","STALE_BID","CHECK_VERSION",
+      "NO_CURRENT_MARKET_VALUE","AUCTION_NOT_ACTIVE","UNSUPPORTED_CURRENCY"];
+    if (typeof status==="string" && comparable.includes(status) &&
+        Number.isSafeInteger(cmp.allInMinor) && (cmp.allInMinor as number)>=0 &&
+        cmp.marketValueMinor===result.value.marketValueMinor &&
+        Number.isSafeInteger(cmp.differenceMinor) &&
+        cmp.differenceMinor===result.value.marketValueMinor-(cmp.allInMinor as number)) {
+      result.comparison={
+        status:status as VerifiedAuctionComparison["status"],
+        allInMinor:cmp.allInMinor as number,
+        marketValueMinor:cmp.marketValueMinor as number,
+        differenceMinor:cmp.differenceMinor as number,
+      };
+    } else if(typeof status==="string" && abstain.includes(status) &&
+              cmp.allInMinor===undefined && cmp.marketValueMinor===undefined &&
+              cmp.differenceMinor===undefined) {
+      result.comparison={status:status as VerifiedAuctionComparison["status"]};
+    }
+  }
   return result;
 }
 
@@ -72,6 +110,7 @@ export function createAuthorisedAuctionResolver(context: PilotContext): FrameRes
         observed:input.observed, source:input.source,
         ...(input.confirmed_raw_condition
           ? {confirmed_raw_condition:input.confirmed_raw_condition} : {}),
+        ...(input.quote ? {quote:input.quote} : {}),
       }),
     });
     if (!response.ok) {
