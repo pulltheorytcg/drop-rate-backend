@@ -16,7 +16,7 @@ const verified: LensView = {
 
 const quote = (status: VerifiedAuctionComparison["status"], allInMinor: number): VerifiedAuctionComparison => ({
   status, allInMinor, marketValueMinor: 10000,
-  differenceMinor: 10000 - allInMinor,
+  differenceMinor: 10000 - allInMinor, bidExpiresAtMs: Date.now()+60000,
 });
 
 describe("compact branded Auction Lens presentation", () => {
@@ -79,6 +79,13 @@ describe("compact branded Auction Lens presentation", () => {
     expect(result.verdictTone).toBe("neutral");
   });
 
+  it("expires bid comparisons separately from longer-lived Market Values", () => {
+    const expiring = {...verified, comparison:{...quote("UNDER_MARKET",6500),bidExpiresAtMs:Date.now()+100}};
+    const result = presentAuctionBanner(expiring,5000,Date.now()+200);
+    expect(result.ukMarketValue).toBe("£100.00");
+    expect(result.allIn).toBe("—");
+    expect(result.verdict).toBe("BID TOO OLD");
+  });
   it("never shows an expired market price after a long auction session", () => {
     const result = presentAuctionBanner(verified, 5000, expiry + 1);
     expect(result.ukMarketValue).toBe("—");
