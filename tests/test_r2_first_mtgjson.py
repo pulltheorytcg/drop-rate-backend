@@ -13,7 +13,9 @@ import httpx
 import pytest
 
 from app import r2_first_mtgjson as mtg
-from app.r2_first_sources import SourceDescriptor, SourceError, SourcePermissionError
+from app.r2_first_sources import (
+    SourceDescriptor, SourceError, SourcePermissionError, fetch_source,
+)
 
 
 def descriptor():
@@ -323,6 +325,33 @@ async def test_fetch_two_fixed_requests_no_credentials_build_revision_and_checks
 
 
 @pytest.mark.asyncio
+async def test_registered_mtg_source_reaches_checked_downloader_and_preserves_price_join_id():
+    """Exercise the production registry, not a descriptor built from downloader constants."""
+    raw = compressed(payload([card(identifiers={"mcmId": "123456"})]))
+    digest = hashlib.sha256(raw).hexdigest()
+    calls = []
+
+    async def handler(request):
+        calls.append(str(request.url))
+        assert "authorization" not in request.headers and "cookie" not in request.headers
+        if str(request.url) == mtg.CHECKSUM_URL:
+            return httpx.Response(200, headers={"content-type": "text/plain"}, content=digest.encode())
+        assert str(request.url) == mtg.DOWNLOAD_URL
+        return httpx.Response(200, headers={"content-type": "application/octet-stream"}, content=raw)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await fetch_source("mtgjson", client, approved_sources={"mtgjson"})
+
+    assert calls == [mtg.CHECKSUM_URL, mtg.DOWNLOAD_URL]
+    assert result.source_sha256 == digest
+    assert result.source_revision.startswith(mtg.SOURCE_REVISION)
+    assert len(result.records) == 2
+    assert all(row["details"]["cardmarket_product_id"] == "123456" for row in result.records)
+    assert {row["finish"] for row in result.records} == {"nonfoil", "foil"}
+    assert all("market_value_minor" not in row for row in result.records)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status", [301, 302, 403, 429, 500])
 async def test_http_failure_never_follows_redirect_or_retries(status):
     calls = []
@@ -353,6 +382,7 @@ async def test_credential_clients_rejected_before_any_network(options):
     {"provider": "other"}, {"download_url": "https://not-followed.invalid/"},
     {"source_url": "https://not-followed.invalid/"}, {"permission_status": "REVIEW_REQUIRED"},
     {"permission_ref": "unreviewed"}, {"source_revision": "unknown"},
+    {"source_revision": "all-printings-v5-metadata-v1"},
     {"max_bytes": mtg.MAX_COMPRESSED_BYTES + 1}, {"max_bytes": True},
 ])
 async def test_unreviewed_or_forged_descriptor_rejected(change):

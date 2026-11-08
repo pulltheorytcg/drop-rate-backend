@@ -141,7 +141,7 @@ def source_descriptor(source: str, language: str = "English") -> SourceDescripto
         if code != "en":
             raise SourceError("MTGJSON catalogue import supports English-only")
         url = "https://mtgjson.com/api/v5/AllPrintings.json.xz"
-        return SourceDescriptor(source, "MAGIC_THE_GATHERING", url, "all-printings-v5-metadata-v1",
+        return SourceDescriptor(source, "MAGIC_THE_GATHERING", url, "all-printings-v5-metadata-v2-mcm-id",
             "https://mtgjson.com/license/", "METADATA_ACCESS_DOCUMENTED", url, 128_000_000)
     if source == "cardcollectorcapital":
         if code != "en":
