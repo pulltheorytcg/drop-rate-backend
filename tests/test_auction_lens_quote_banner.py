@@ -32,6 +32,8 @@ def test_banner_requires_explicit_verified_market_quote_and_unknown_cost_gate():
     assert '"CHARGES_UNKNOWN"' in JS
     assert 'badge.textContent="FEES UNKNOWN"' in JS
     assert 'badge.textContent="BID TOO OLD"' in JS
+    assert "bannerEvidenceExpiresAt" in JS and "bannerBidExpiresAt" in JS
+    assert "comparison.bidExpiresAtMs>Date.now()" in JS
     assert 'resetBanner(label || "Scanning for a card…")' in JS
     assert 'thumb.hidden=true; thumb.removeAttribute("src")' in JS
     assert 'if(!$("rights-affirmed").checked&&running)stop()' in JS
