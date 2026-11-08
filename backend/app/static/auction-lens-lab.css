@@ -1,1 +1,56 @@
 :root{color-scheme:light;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#13284c;background:#f4f7fc}*{box-sizing:border-box}body{margin:0;background:linear-gradient(140deg,#eef4fc 0%,#fff 60%,#fff6ec 100%);min-height:100vh}main{max-width:1200px;margin:auto;padding:26px 25px 80px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:10px 0 26px;border-bottom:1px solid #d9e3f1}.wordmark{font-size:20px;font-weight:900;letter-spacing:-1px;text-decoration:none;color:#13284c}.wordmark em{font-style:normal;color:#ed812f}.tag{border:1px solid #c7d5e9;color:#516989;padding:7px 11px;border-radius:9px;font-size:10px;font-weight:800;letter-spacing:1px}.intro{padding:40px 0 26px;max-width:850px}.eyebrow{color:#e77c25;letter-spacing:2px;font-weight:800;font-size:12px}.intro h1{font-weight:850;letter-spacing:-1.8px;font-size:clamp(32px,4vw,55px);line-height:1.1;margin:13px 0}.intro h1 span{color:#2753ae}.sub{color:#536681;line-height:1.7;max-width:690px}.layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px}.panel{padding:25px;border-radius:18px;border:1px solid #dce5f1;background:#fff;box-shadow:0 11px 34px #1a35610d;min-width:0}.panel h2{font-size:18px;letter-spacing:-.3px;margin:0 0 18px}.upload{display:inline-flex;align-items:center;gap:12px;cursor:pointer;background:#173f8c;color:white;font-size:13px;font-weight:750;padding:13px 17px;border-radius:10px}.upload input{display:none}.video-frame{background:#07162d;border-radius:13px;min-height:270px;max-height:510px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:18px 0}.video-frame video{width:100%;max-height:510px;object-fit:contain;display:none}.video-frame #video-empty{color:#a8b7d0;text-align:center;padding:36px}.video-frame.loaded video{display:block}.video-frame.loaded #video-empty{display:none}.hint,.footnote{font-size:12px;line-height:1.6;color:#657892;margin:10px 0 15px}.crop-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.crop-grid label{font-size:12px;font-weight:650;display:flex;align-items:center;gap:7px}.crop-grid input{min-width:0;flex:1;accent-color:#2457b7}.crop-grid output{font-variant-numeric:tabular-nums;font-size:11px;color:#60799a;width:32px}.crop-preview{display:flex;align-items:center;gap:12px;min-height:105px;padding:12px;background:#f6f8fd;border:1px solid #e3eaf4;border-radius:11px;margin-top:18px}.crop-preview img{width:95px;height:75px;object-fit:contain;background:#112c55;border-radius:5px}.crop-preview span{font-size:12px;font-weight:700;color:#617893}form label:not(.check){display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700;color:#405674;margin-bottom:14px}form input,form select{width:100%;border:1px solid #d4dfed;background:#f8fafd;color:#1d3456;border-radius:9px;padding:12px;font-size:14px;outline-color:#3565b6}form input:disabled{opacity:.7}.field-pair{display:grid;grid-template-columns:1fr 1fr;gap:13px}.check{display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.5;color:#526580;margin:10px 0 16px}.check input{accent-color:#2561bc;margin-top:3px}.controls{display:flex;flex-wrap:wrap;gap:9px;margin:23px 0}.controls button{cursor:pointer;background:#eef3fb;color:#315286;border:1px solid #d7e2f0;padding:11px 15px;border-radius:10px;font-weight:780}.controls button.primary{background:#1b53ad;border-color:#1b53ad;color:white}.controls button.stop{background:#fff3e9;color:#a6501d;border-color:#f3d4bc}.result{background:#0d2957;color:white;border:1px solid #1e4687;border-radius:15px;padding:21px}.result-heading{display:flex;align-items:center;gap:9px;color:#c0d4f3;font-size:12px;font-weight:750}.dot{width:8px;height:8px;border-radius:50%;background:#8798b1}.dot.active{background:#5dd6ad;box-shadow:0 0 0 4px #5dd6ad20}.result-heading #result-latency{margin-left:auto;font-variant-numeric:tabular-nums;color:#8fb8ed}#result-title{min-height:40px;font-size:19px;margin:19px 0}.market-value{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;border-top:1px solid #284574;padding-top:15px}.market-value span{font-size:12px;color:#c4d2ea}.market-value strong{font-size:25px;letter-spacing:-.5px}#result-explanation{font-size:11px;color:#adc2df;line-height:1.6;margin:16px 0 0}@media(max-width:900px){.layout{grid-template-columns:1fr}.intro{padding:28px 0}.panel{padding:18px}}@media(max-width:500px){main{padding:14px 12px 45px}.tag{font-size:8px;letter-spacing:0}.field-pair{gap:7px}.crop-grid{grid-template-columns:1fr}.controls button{flex:1}.intro h1{letter-spacing:-1px}}
+
+/* User-approved Auction Lens: ONE compact read-only banner, not a dashboard. */
+.video-frame{position:relative;isolation:isolate}
+.auction-banner[hidden],.auction-banner img[hidden]{display:none!important}
+.auction-banner{
+  position:absolute;z-index:5;top:9px;left:9px;right:9px;
+  display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;
+  column-gap:10px;row-gap:7px;min-height:69px;padding:9px 11px;
+  background:#071b3fee;color:#f7f9fc;border:1px solid #5579a4;
+  border-bottom:2px solid #ff9a52;border-radius:11px;box-shadow:0 8px 24px #0009;
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-variant-numeric:tabular-nums;
+  pointer-events:none;backdrop-filter:blur(12px)
+}
+.auction-banner:has(.banner-card[hidden]){grid-template-columns:minmax(0,1fr) auto}
+.auction-banner .banner-card{width:44px;height:62px;object-fit:contain;border-radius:3px;background:#10264a}
+.banner-identity{min-width:0;display:grid;gap:3px}
+.banner-topline{display:flex;justify-content:space-between;align-items:center;gap:8px;min-width:0}
+.banner-eyebrow{font-size:8px;font-weight:800;letter-spacing:.07em;color:#ff9a52;white-space:nowrap}
+.banner-mode{color:#abc8e7;border:1px solid #486487;border-radius:5px;padding:2px 4px;margin-left:2px}
+.banner-brand{width:69px;height:33px;object-fit:contain;flex:none}
+#auction-banner-title{font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#auction-banner-subtitle{font-size:10px;color:#b4c4d9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.banner-figures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-column:1/-1;gap:7px;padding-top:5px;border-top:1px solid #2b4567}
+.banner-figures>span{display:grid;gap:1px;min-width:0}
+.banner-figures>span+span{border-left:1px solid #365272;padding-left:7px}
+.banner-figures small{font-size:9px;font-weight:550;color:#b4c4d9;white-space:nowrap}
+.banner-figures b{font-size:13px;font-weight:750;color:white}
+.banner-verdict{grid-column:3;grid-row:1;font-size:10px;font-weight:750;color:#d9e8fb;
+  padding:6px 9px;border:1px solid #4a6587;border-radius:7px;max-width:117px;text-align:center;line-height:1.25}
+.banner-verdict[data-state="UNDER_MARKET"]{background:#123e33;border-color:#52c69c;color:#abffdc}
+.banner-verdict[data-state="OVER_MARKET"]{background:#4a1f30;border-color:#fa8b95;color:#ffb6c1}
+.banner-verdict[data-state="AROUND_MARKET"]{background:#193b66;border-color:#80b7ef;color:#c3e5ff}
+.quote-editor{margin:14px 0;padding:12px 14px;border:1px solid #dbe5f1;border-radius:10px;background:#f6f9fe}
+.quote-editor summary{cursor:pointer;color:#173f8c;font-size:12px;font-weight:750}
+.quote-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-top:8px}
+.quote-grid label{display:grid;gap:4px;font-size:11px;font-weight:650;color:#405674}
+.quote-grid input{width:100%;padding:9px 10px;border:1px solid #cfdded;border-radius:8px;background:white;color:#13284c;font:inherit}
+.quote-grid input:focus-visible{outline:2px solid #1768d4;outline-offset:2px}
+@media(min-width:1050px){
+ .auction-banner{grid-template-columns:49px minmax(0,1fr) auto;gap:9px;padding:10px 13px}
+ .auction-banner .banner-card{width:49px;height:68px}
+}
+@media(max-width:510px){
+ .auction-banner{top:6px;left:6px;right:6px;padding:6px 8px;grid-template-columns:36px minmax(0,1fr) auto;column-gap:6px}
+ .auction-banner .banner-card{width:36px;height:52px}
+ .banner-brand{width:48px;height:24px}
+ .banner-eyebrow{font-size:7px}
+ #auction-banner-title{font-size:11px}
+ #auction-banner-subtitle{font-size:9px}
+ .banner-figures b{font-size:11px}
+ .banner-figures small{font-size:8px}
+ .banner-verdict{max-width:94px;font-size:9px;padding:5px}
+ .quote-grid{grid-template-columns:1fr 1fr}
+}
+@media(prefers-reduced-motion:reduce){.auction-banner{backdrop-filter:none}}
