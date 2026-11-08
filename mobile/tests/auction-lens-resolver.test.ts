@@ -93,7 +93,7 @@ describe("auction quote transport boundary", () => {
     bid_observed_at:new Date().toISOString(),
   };
   it("posts explicit bid facts but never a client market price", async () => {
-    const fn=vi.fn(async()=>new Response(JSON.stringify({
+    const fn=vi.fn(async(_url:RequestInfo|URL,_opts?:RequestInit)=>new Response(JSON.stringify({
       generation:7,decision:"EXACT",identityKey:"card:abc:English:Normal:RAW",
       title:"Rapidash",
       value:{marketValueMinor:10000,currency:"GBP",source:"Eligible UK sold",
