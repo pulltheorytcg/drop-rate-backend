@@ -22,6 +22,7 @@ from .market_adapters import NormalizedMarketObservation, stable_source_record_k
 from .ownership import current_owner as _owner
 from .pricing_rules import store_price_floor
 from .settings import get_settings
+from .magic_market import is_magic, finish_matches as magic_finish_matches, printing_matches as magic_printing_matches
 
 
 router = APIRouter(prefix="/api/v1/pricing/ebay-five-sold", tags=["pricing"])
@@ -191,6 +192,8 @@ def _explicit_print_markers(name: str) -> tuple[str, ...]:
 
 
 def _variant_matches_target(title: str, *, game: str, variant: str) -> bool:
+    if is_magic(game):
+        return magic_finish_matches(title, variant)
     # One Piece Collectr exports mark ordinary cards as Foil even when sellers
     # rarely state "foil". Card code + name + explicit Parallel/SP/Manga marker
     # are more reliable discriminators for that game.
@@ -247,6 +250,8 @@ def _set_reprint_guard(title: str, game: str, set_name: str) -> bool:
 def _matches_comp(row: dict[str, Any], target: dict[str, Any]) -> bool:
     title = row.get("title")
     if not isinstance(title, str) or not title.strip():
+        return False
+    if is_magic(target.get("game")) and not magic_printing_matches(title, target):
         return False
     if _looks_like_multi_item_listing(title):
         return False
