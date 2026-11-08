@@ -48,7 +48,7 @@ def test_verified_uk_pence_bid_comparison():
 
 
 @pytest.mark.parametrize("cost,status", [
-    ({"bid_minor": 9900}, "AROUND_MARKET"),
+    ({"bid_minor": 8500}, "AROUND_MARKET"),
     ({"bid_minor": 11000}, "OVER_MARKET"),
     ({"status": "ENDED"}, "AUCTION_NOT_ACTIVE"),
     ({"shipping_minor": None}, "CHARGES_UNKNOWN"),
