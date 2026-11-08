@@ -13,7 +13,7 @@
   let anchor = null, stable = 0, attempted = false, lastSample = -Infinity;
   let running = false, previousVideoTime = -1;
 
-  let bidObservedAtMs = 0;
+  let bidObservedAtMs = 0, bannerEvidenceExpiresAt = 0, bannerBidExpiresAt = 0;
   const pounds = new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"});
   const money = minor => pounds.format(minor / 100);
 
@@ -46,6 +46,7 @@
   }
 
   function resetBanner(label) {
+    bannerEvidenceExpiresAt=0; bannerBidExpiresAt=0;
     const banner=$("auction-banner"),thumb=$("auction-banner-thumb");
     banner.hidden=!running;
     thumb.hidden=true; thumb.removeAttribute("src");
@@ -70,6 +71,7 @@
       ? "Exact printing · eligible UK sold evidence" : "Exact printing · Market Value unavailable";
     if(quote)$("auction-banner-bid").textContent=money(quote.bid_minor);
     $("auction-banner-market").textContent=verified?money(value.marketValueMinor):"—";
+    bannerEvidenceExpiresAt=verified?value.expiresAtMs:0;
     const badge=$("auction-banner-verdict");
     badge.dataset.state="WAITING";badge.textContent=verified?"VALUE CHECKED":"NO CURRENT VALUE";
     // Do not compute a client-side bargain from an asking price or from partial fees.
@@ -81,6 +83,9 @@
       Number.isSafeInteger(comparison.differenceMinor)&&
       comparison.differenceMinor===value.marketValueMinor-comparison.allInMinor;
     if(complete) {
+      // Bid observations age out independently of market evidence. A static
+      // frame must never keep a "BELOW MARKET" label after the bid goes stale.
+      bannerBidExpiresAt=Date.parse(quote.bid_observed_at)+30_000;
       $("auction-banner-all-in").textContent=money(comparison.allInMinor);
       badge.dataset.state=status;
       badge.textContent=status==="UNDER_MARKET"?"↓ "+money(comparison.differenceMinor)+" BELOW"
@@ -242,6 +247,16 @@
 
   function tick() {
     if(!running||!video.videoWidth||video.paused||video.ended)return;
+    if(bannerEvidenceExpiresAt && Date.now()>=bannerEvidenceExpiresAt) {
+      invalidate("Market evidence expired");
+    }
+    if(bannerBidExpiresAt && Date.now()>=bannerBidExpiresAt) {
+      bannerBidExpiresAt=0;
+      $("auction-banner-bid").textContent="—";
+      $("auction-banner-all-in").textContent="—";
+      $("auction-banner-verdict").dataset.state="WAITING";
+      $("auction-banner-verdict").textContent="BID TOO OLD";
+    }
     const now=performance.now();
     if(now-lastSample<250||previousVideoTime===video.currentTime)return;
     lastSample=now;previousVideoTime=video.currentTime;
