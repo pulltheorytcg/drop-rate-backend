@@ -1,3 +1,10 @@
+## 9 November 2026 — Harden inactive Cloudflare owner-read client host boundary (PR in review; no cutover)
+
+- The unconnected `backend/app/d1_private_read_client.py` accepted a generic HTTPS DNS hostname with only `ipaddress.ip_address` for literal IP blocking. Short numeric loopback aliases such as `127.1` were not IP literals to that validator, creating a potential SSRF/routing hazard if future internal-worker endpoint configuration is incorrect.
+- Restrict the preconfigured endpoint to an exact fixed HTTPS path on `*.workers.dev` or `*.droprate.co.uk`. Preserve existing HMAC, canonical UUID, owner isolation, response validation, no redirect, no public route, no SQL/Worker deployment and zero live D1 reads/writes from this change. Reject private/short numeric aliases, arbitrary domains and DNS helper domains. This is a security boundary in future Cloudflare-to-FastAPI integration, not a new authentication provider.
+- Extend synthetic `httpx` client regression with accepted approved-domain and rejected numeric-alias, unrelated HTTPS and attacker-suffix hostnames. Local CI and Railway fresh source build/production readiness **pending** at PR authoring; no deployment success inferred from merged code. Rollback: revert inactive client/test/docs only; existing Supabase-owned production API remains default.
+- Migration tracker [#1010](https://github.com/pulltheorytcg/drop-rate-backend/issues/1010); code and tests audited on 9 November. No operational source, Shopify, owner, pricing, credentials or settlement change.
+
 ## 9 November 2026 — Protected Cloudflare D1 parity restored after founder-reported Workers Paid upgrade (verified receipts; NO CUTOVER)
 
 - Founder reports Cloudflare Workers Paid is enabled. Billing tier and remaining monthly included usage were **not independently readable** from the connected tools; overage spending is not authorised or assumed. This does not change application-side D1 write-budget receipts or migration identity/finance gates.
