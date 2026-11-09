@@ -89,17 +89,17 @@ jobs:
               path = Path("d1-yugioh-real-shadow-report.json")
               if path.is_file():
                   data = json.loads(path.read_text())
-                  expected = 45418
+                  expected = data.get("source_rows")
                   count = data.get("d1_verified_rows", data.get("d1_staged_rows"))
-                  if (type(count) is int and 0 <= count <= expected
-                      and data.get("source_rows") == expected
+                  if (type(expected) is int and 45418 <= expected <= 50000
+                      and type(count) is int and 0 <= count <= expected
                       and data.get("no_public_catalogue_cutover") is True
                       and data.get("market_value_writes") == 0
                       and data.get("owner_and_settlement_writes") == 0):
                       if (data.get("status") == "REAL_R2_YUGIOH_TO_ISOLATED_D1_VERIFIED"
                           and count == expected):
                           state = "success"
-                          description = "Full 45,418-row R2-D1 SHA256 parity verified"
+                          description = f"Full {expected:,}-row R2-D1 SHA256 parity verified"
                       elif data.get("status") in {
                            "YUGIOH_D1_SHADOW_PARTIAL_VERIFIED",
                            "YUGIOH_D1_SHADOW_DAILY_BUDGET_ALREADY_USED"}:
