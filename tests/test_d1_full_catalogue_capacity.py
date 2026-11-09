@@ -147,7 +147,7 @@ def test_database_near_free_tier_capacity_blocks_new_import():
 def test_active_pointer_cannot_claim_full_with_partial_source():
     ReadOnlyD1.current=8000
     ReadOnlyD1.pointer=cap.YGO_MANIFEST_SHA
-    with pytest.raises(MigrationGuard,match="disagrees"):
+    with pytest.raises(MigrationGuard,match="active pointer is inconsistent"):
         cap.inspect_capacity(cap.ACCOUNT,"scoped-test-token")
 
 
