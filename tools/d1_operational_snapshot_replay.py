@@ -19,7 +19,7 @@ from pathlib import Path
 
 from d1_operational_source_stage import (
     ACCOUNT, DB_NAME, TABLES, ORDER, TARGETS, D1Client, StageGuard,
-    _d1_query, _digest, _insert_rows, sha, source_capture, stage,
+    _d1_query, _digest, _insert_rows, _verify_rows, sha, source_capture, stage,
 )
 from d1_operational_source_delta_watch import compare_hashes, explain_changed_fields, SnapshotDriftGuard
 
@@ -79,6 +79,12 @@ def instant(value):
 def data_digest(captured,catalogue):
     return sha(''.join(t+':'+_digest(captured[t])+'\n' for t in TABLES)
                +'catalogue:'+sha(json.dumps(catalogue,sort_keys=True))+'\n')
+
+
+def logical_rows(captured,catalogue,changed_records):
+    return (sum(len(captured[t]) for t in ORDER)+len(catalogue)
+        +len({r[1]['user_id'] for r in captured['owner_memberships']})
+        +len(ORDER)+1+changed_records+3)
 
 
 def plan_inventory(source, prior, allowed):
@@ -175,13 +181,53 @@ def replay(client,captured,schema,catalogue,metadata, *, apply=False):
     if head and instant(head[0]['captured_at'])>stamp:
         raise StageGuard('Stale source snapshot cannot advance replay head')
     if head and head[0]['generation_id']==generation:
+        # Do not bless an old, inconsistent midnight retry merely because its
+        # head already moved. Preserve legacy receipts for independent review.
+        checkpoints=_d1_query(client,dbid,'SELECT parent_generation_id,captured_at,source_snapshot,changed_records '
+            'FROM ops_shadow_replay_checkpoints WHERE generation_id=?',[generation])
+        reservations=_d1_query(client,dbid,'SELECT parent_generation_id,captured_at,source_snapshot,utc_day,logical_rows_reserved '
+            'FROM ops_shadow_replay_daily_budget WHERE generation_id=?',[generation])
+        source_marks=_d1_query(client,dbid,'SELECT source_captured_at,state,source_manifest_sha256,source_schema_sha256 '
+            'FROM ops_shadow_generations WHERE generation_id=?',[generation])
+        if len(checkpoints)!=1 or len(reservations)!=1 or len(source_marks)!=1:
+            raise StageGuard('Verified replay lost its unique checkpoint or original reservation')
+        checkpoint,reservation,source_mark=checkpoints[0],reservations[0],source_marks[0]
+        if (any(checkpoint[k]!=reservation[k] for k in ('parent_generation_id','captured_at','source_snapshot'))
+                or checkpoint['captured_at']!=head[0]['captured_at']
+                or checkpoint['captured_at']!=source_mark['source_captured_at']
+                or source_mark['state']!='PARITY_VERIFIED'
+                or source_mark['source_manifest_sha256']!=digest
+                or source_mark['source_schema_sha256']!=schema_digest
+                or instant(reservation['captured_at']).date().isoformat()!=reservation['utc_day']
+                or type(checkpoint['changed_records']) is not int
+                or checkpoint['changed_records']<0
+                or reservation['logical_rows_reserved']!=logical_rows(captured,catalogue,checkpoint['changed_records'])):
+            raise StageGuard('Verified replay capture or original reservation inconsistent')
+        for name in ORDER:
+            _verify_rows(client,dbid,TARGETS[name][0],generation,captured[name])
         public.update(status='INVENTORY_REPLAY_ALREADY_VERIFIED',changed_records=0,replay_idempotent=True)
         return public
     # Reserve one bounded new snapshot per UTC day, including all journal rows.
-    total=sum(len(captured[t]) for t in ORDER)+len(catalogue)+len({r[1]['user_id'] for r in captured['owner_memberships']})+len(ORDER)+1+len(journal)+3
+    total=logical_rows(captured,catalogue,len(journal))
     if total>2500:raise StageGuard('Existing 2500-row replay budget exceeded')
-    day=stamp.date().isoformat()
-    existing=_d1_query(client,dbid,'SELECT generation_id,logical_rows_reserved,parent_generation_id,captured_at,source_snapshot FROM ops_shadow_replay_daily_budget WHERE utc_day=?',[day])
+    # A pending immutable generation keeps its FIRST reservation even when the
+    # retry crosses UTC midnight. Looking up only today's row minted a second
+    # receipt and paired an old generation capture with a new checkpoint mark.
+    columns='utc_day,generation_id,logical_rows_reserved,parent_generation_id,captured_at,source_snapshot'
+    reserved=_d1_query(client,dbid,'SELECT '+columns+
+        ' FROM ops_shadow_replay_daily_budget WHERE generation_id=? ORDER BY utc_day',[generation])
+    if reserved:
+        if (len(reserved)!=1 or reserved[0]['logical_rows_reserved']!=total
+                or instant(reserved[0]['captured_at']).date().isoformat()!=reserved[0]['utc_day']):
+            raise StageGuard('Ambiguous or inconsistent original replay reservation')
+        if instant(reserved[0]['captured_at'])>stamp:
+            raise StageGuard('Source capture predates original replay reservation')
+        day=reserved[0]['utc_day']
+        existing=reserved
+    else:
+        day=stamp.date().isoformat()
+        existing=_d1_query(client,dbid,'SELECT '+columns+
+            ' FROM ops_shadow_replay_daily_budget WHERE utc_day=?',[day])
     if existing and (len(existing)!=1 or existing[0]['generation_id']!=generation or existing[0]['logical_rows_reserved']!=total):
         public.update(status='INVENTORY_REPLAY_DEFERRED_DAILY_BUDGET')
         return public
