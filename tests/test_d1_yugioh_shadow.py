@@ -516,3 +516,40 @@ def test_paid_reservation_can_only_resume_same_gitHub_run_after_partial_failure(
         assert FakeD1.conn.execute(
             "select count(*) from shadow_live_cards").fetchone()[0]==0
 
+
+
+@pytest.mark.parametrize(
+    "event,ref,approved_sha,approved_run,allowed",
+    [
+        ("push", "refs/heads/main", "", "", False),
+        ("schedule", "refs/heads/main", "", "", False),
+        ("push", "refs/heads/main", "a" * 40, "", False),
+        ("push", "refs/heads/main", "", "123", False),
+        ("push", "refs/heads/main", "b" * 40, "123", False),
+        ("schedule", "refs/heads/main", "a" * 40, "122", False),
+        ("pull_request", "refs/heads/main", "a" * 40, "123", False),
+        ("push", "refs/heads/feature", "a" * 40, "123", False),
+        ("push", "refs/heads/main", "a" * 40, "123", True),
+        ("schedule", "refs/heads/main", "a" * 40, "123", True),
+    ],
+)
+def test_import_job_requires_separate_exact_commit_and_run_release(
+    event, ref, approved_sha, approved_run, allowed,
+):
+    """Exercise the actual job condition before its credentials/8k import exist."""
+    from types import SimpleNamespace
+
+    workflow = (Path(__file__).resolve().parents[1]
+                / ".github/workflows/d1-yugioh-r2-shadow.yml").read_text()
+    job = workflow.split("  resume-isolated-yugioh:\n", 1)[1]
+    condition = job.split("    if: >-\n", 1)[1].split("    needs:", 1)[0]
+    expression = " ".join(condition.split()).replace("&&", "and").replace("||", "or")
+    # This is repository-controlled workflow source, not external input.
+    result = eval(expression, {"__builtins__": {}}, {
+        "github": SimpleNamespace(event_name=event, ref=ref, sha="a" * 40, run_id="123"),
+        "vars": SimpleNamespace(DR_D1_YUGIOH_IMPORT_APPROVED_SHA=approved_sha,
+                                DR_D1_YUGIOH_IMPORT_APPROVED_RUN_ID=approved_run),
+    })
+    assert result is allowed
+    assert "needs: offline-exact-id-and-rls" in job
+    assert "id-token: write" not in workflow.split("  resume-isolated-yugioh:", 1)[0]
