@@ -107,7 +107,7 @@ def _listed(cloud: D1Client):
     return {x["name"]:_database_identity(x) for x in listed}
 
 
-def _gate_yugioh(cloud: D1Client, databases: dict[str,str], today: str):
+def _yugioh_source_gate(cloud: D1Client, databases: dict[str,str]):
     """Read the verified active generation; never assume source count is static.
 
     A newer, larger retained generation keeps follow-on imports blocked until
@@ -167,14 +167,21 @@ def _gate_yugioh(cloud: D1Client, databases: dict[str,str], today: str):
     if not ready:
         return {"ready":False,"count":count,"source_rows":expected,
                 "reason":"YGO_NEWER_GENERATION_PENDING" if active else "YGO_FULL_PARITY_NOT_COMPLETE"}
+    return {"ready":True,"count":count,"source_rows":expected,
+            "reason":"YGO_FULL_PARITY_VERIFIED"}
+
+
+def _gate_yugioh(cloud: D1Client, databases: dict[str,str], today: str):
+    source=_yugioh_source_gate(cloud,databases)
+    if not source["ready"]:
+        return source
+    ident=databases[YGO_DB]
     latest=_query(cloud,ident,"select max(utc_day) as day from shadow_daily_write_budget")
     if len(latest)!=1:
         raise MigrationGuard("YGO prior daily write receipts unavailable")
     if latest[0].get("day")==today:
-        return {"ready":False,"count":count,"source_rows":expected,
-                "reason":"YGO_WROTE_TODAY"}
-    return {"ready":True,"count":count,"source_rows":expected,
-            "reason":"YGO_COMPLETE_PREVIOUS_DAY"}
+        return {**source,"ready":False,"reason":"YGO_WROTE_TODAY"}
+    return {**source,"reason":"YGO_COMPLETE_PREVIOUS_DAY"}
 
 
 def _get_shadow(cloud: D1Client, databases: dict[str,str]):
