@@ -37,7 +37,7 @@ No encryption/signing keys, cloud credentials, export/restore/transfer enable fl
 
 ## Manual release and incident procedure
 
-The new workflow runs synthetic tests on PR/push. All operational jobs require **manual main dispatch, operation-specific enable flag, exact commit AND run approval, offline success and distinct protected environment**. No recurring schedule exists. A merge cannot export or transfer operational data. The Drive-only restore job receives no Cloudflare secrets.
+The offline workflow `d1-operational-cloud-dr.yml` runs synthetic tests on PR/push and exposes a reusable test-only call; it has no environments, secrets or operational concurrency lock. Separate `d1-operational-cloud-dr-release.yml` is dispatch-only. All operational jobs require **manual main dispatch, operation-specific enable flag, exact commit AND run approval, offline success and distinct protected environment**. No recurring schedule exists. A merge cannot export or transfer operational data. The Drive-only restore job receives no Cloudflare secrets.
 
 Before first export, discover any already-approved backup; otherwise independently measure D1 size/read usage/account plan/export outage, R2/Drive requests/storage and runner cost. Cloudflare export temporarily blocks requests. Prepare separate signed source evidence, actual lock/key/credential policy and cost/security approval SHA references. Approve only the exact export SHA/run with a chosen retention date. Do not bypass protected import budgets. Writer status deliberately remains `R2_BYTES_VERIFIED_OFFSITE_AND_INDEPENDENT_RESTORE_PENDING`.
 
