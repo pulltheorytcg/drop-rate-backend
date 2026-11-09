@@ -190,7 +190,13 @@ def test_wrong_shipping_refund_and_payment_fee_signs_fail():
         finance.audit_source_finance(make_raw(records))
     records=source_records()
     records["financial_ledger_entries"][7]["amount_minor"]=30
-    with pytest.raises(finance.FinancialGuard,match="expense"):
+    with pytest.raises(finance.FinancialGuard,match="global financial ledger"):
+        finance.audit_source_finance(make_raw(records))
+    # Fee records may be attached to an order but not to an individual item.
+    records=source_records()
+    records["financial_ledger_entries"][7]["order_item_id"]=None
+    records["financial_ledger_entries"][7]["amount_minor"]=30
+    with pytest.raises(finance.FinancialGuard,match="global financial ledger"):
         finance.audit_source_finance(make_raw(records))
 
 
