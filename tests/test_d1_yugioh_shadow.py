@@ -474,12 +474,18 @@ def test_paid_reservation_can_only_resume_same_gitHub_run_after_partial_failure(
     monkeypatch.setenv("DR_D1_PAID_CATCHUP_APPROVAL",runner.PAID_EXTRA_APPROVAL)
     monkeypatch.setattr(runner,"PAID_EXTRA_MAX_ROWS",20)
     client,_=fixture(count=40)
+    # Every SQL statement may contain multiple card rows. Force one SQL
+    # statement per D1 batch so the simulated failure lands *after* a
+    # supplemental batch actually committed some rows, rather than assuming
+    # that 20 cards always create two HTTP batches.
+    monkeypatch.setattr(runner.codec, "MAX_BATCH_STATEMENTS", 1)
     original=FakeD1.batch
     counts={"n":0}
     def interrupted(self,uid,statements):
         counts["n"]+=1
-        # Initial normal 7 rows -> 1 batch; supplemental 20 -> 2 batches.
-        if counts["n"]==3:
+        # 7 original cards => 2 statement batches (6 + 1).
+        # The paid supplement starts at call 3; fail at 4 after 6 paid rows.
+        if counts["n"]==4:
             raise RuntimeError("synthetic D1 connection acknowledgement lost")
         return original(self,uid,statements)
     monkeypatch.setattr(FakeD1,"batch",interrupted)
