@@ -84,8 +84,32 @@ def test_new_source_digest_is_not_implicitly_authorized(monkeypatch):
     client, _ = source_fixture(altered=True)
     monkeypatch.setattr(magic, "_oidc_token", lambda: "fake-signed-oidc")
     monkeypatch.setattr(magic, "EXPECTED_ROWS", 3)
-    with client, pytest.raises(MigrationGuard, match="immutable generation"):
+    with client, pytest.raises(MigrationGuard, match="manifest revision needs manual review") as caught:
         magic.audit_magic_source(client=client)
+    assert '"manifest_sha_matches": false' in str(caught.value)
+    assert "Tampered" not in str(caught.value)
+
+
+@pytest.mark.parametrize("field,value,part",[
+    ("EXPECTED_ROWS",4,'"approved_rows": 4'),
+    ("MAX_TOTAL_BYTES",1,'"bytes_limit": 1'),
+    ("MAX_PARTS",0,'"parts_limit": 0'),
+])
+def test_current_manifest_limits_are_classified_without_fetching_parts(monkeypatch,
+                                                                        field,value,part):
+    client,sha=source_fixture()
+    monkeypatch.setattr(magic,"_oidc_token",lambda: "fake-signed-oidc")
+    monkeypatch.setattr(magic,"EXPECTED_ROWS",3)
+    monkeypatch.setattr(magic,"EXPECTED_MANIFEST_SHA",sha)
+    monkeypatch.setattr(magic,field,value)
+    with client,pytest.raises(MigrationGuard,match="manual review") as caught:
+        magic.audit_magic_source(client=client)
+    diagnostic=str(caught.value)
+    assert part in diagnostic
+    assert '"current_rows": 3' in diagnostic
+    assert "Magic Synthetic" not in diagnostic
+    assert "mtgjson:11111111" not in diagnostic
+    assert "Bearer" not in diagnostic
 
 
 def test_corrupt_r2_part_fails_without_producing_any_approved_preflight(monkeypatch):
