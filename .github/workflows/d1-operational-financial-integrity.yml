@@ -1,0 +1,104 @@
+name: Protected D1 operational financial penny-parity gate (read-only)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/d1_operational_financial_integrity.py'
+      - 'tests/test_d1_operational_financial_integrity.py'
+      - '.github/workflows/d1-operational-financial-integrity.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'tools/d1_operational_financial_integrity.py'
+      - '.github/workflows/d1-operational-financial-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-private-d1-financial-readonly-integrity
+  cancel-in-progress: false
+
+jobs:
+  offline-multi-owner-refund-and-typed-projection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Assert owner isolation, penny rounding and no double financial events
+        env:
+          PYTHONPATH: backend:tools
+        run: python -m pytest -q tests/test_d1_operational_financial_integrity.py tests/test_d1_operational_shadow.py
+
+  source-versus-d1-read-only:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: offline-multi-owner-refund-and-typed-projection
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment: production
+    permissions:
+      contents: read
+    env:
+      SUPABASE_PROJECT_ID: ozrxenrdladkooixutmm
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+      CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+      PYTHONPATH: backend:tools
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Construct masked read-only production snapshot connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from urllib.parse import quote
+          secret=os.environ.get('SUPABASE_DB_PASSWORD','')
+          project=os.environ['SUPABASE_PROJECT_ID']
+          if not secret or any(c in secret for c in '\r\n'):
+              raise SystemExit('Protected source credential is missing or malformed')
+          encoded=quote(secret,safe='')
+          dsn=(f'postgresql://postgres.{project}:{encoded}'
+               '@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require')
+          for value in (encoded,dsn):
+              print('::add-mask::'+value.replace('%','%25'),flush=True)
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as handle:
+              handle.write('FULL_EXIT_PG_READONLY_DSN='+dsn+'\n')
+          PY
+      - name: Compare live Supabase snapshot, every typed D1 financial column and penny totals
+        run: |
+          set -euo pipefail
+          python tools/d1_operational_financial_integrity.py > private-finance-typed-parity.json
+          python - <<'PY'
+          import json
+          data=json.load(open('private-finance-typed-parity.json',encoding='utf-8'))
+          assert data['status']=='READ_ONLY_D1_FINANCE_TYPED_AND_SOURCE_PENNY_PARITY'
+          assert data['financial_invariants_verified'] is True
+          assert data['source_original_sha_parity'] is True
+          assert data['financial_scope_tables']==8
+          assert data['private_d1_typed_rows_verified']>=0
+          assert data['full_financial_relation_coverage'] is False
+          assert data['production_finance_writer_switched'] is False
+          assert data['external_identity_replacement_verified'] is False
+          assert data['supabase_retirement_authorized'] is False
+          assert data['payouts_or_payments_executed']==0
+          assert data['source_postgres_writes']==data['private_d1_writes']==0
+          print('FINANCIAL_TYPED_SHADOW_PARITY_VERIFIED; NO PRODUCTION CUTOVER')
+          PY
+      - name: Retain only count-only cutover blocker receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operational-d1-finance-typed-no-cutover
+          path: private-finance-typed-parity.json
+          if-no-files-found: ignore
+          retention-days: 21
