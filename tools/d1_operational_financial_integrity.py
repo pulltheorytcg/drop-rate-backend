@@ -153,6 +153,16 @@ def audit_source_finance(captured: dict) -> dict:
                 or entry.get("funds_status") not in ("PENDING","AVAILABLE")):
             raise FinancialGuard("Financial ledger identity/value invalid")
         ledger_keys.add(key)
+        # Order-level payment/fulfilment fees may have no order_item_id.
+        # Validate debit/credit sign regardless of the line-link shape.
+        positive = {"SALE_REVENUE","SHIPPING_REVENUE","COMMISSION_REVERSAL"}
+        negative = {"COMMISSION","REFUND","SHIPPING_REFUND","PLATFORM_FEE",
+                    "PAYMENT_FEE","SHIPPING_COST","FULFILMENT_MATERIAL_COST",
+                    "PAYOUT"}
+        if ((typ in positive and amount <= 0)
+                or (typ in negative and amount >= 0)
+                or (typ not in positive | negative | {"ADJUSTMENT"})):
+            raise FinancialGuard("Invalid global financial ledger entry type or sign")
         if order_id is not None and order_id not in orders:
             raise FinancialGuard("Financial ledger order missing")
         if item_id is not None:
