@@ -44,7 +44,7 @@ class ClassifiedReadOnlyD1(D1Client):
         except PilotError as exc:
             # The shared D1 client exposes only allowlisted HTTP categories.
             # Never propagate provider messages or user/ledger identifiers.
-            category_match = re.search(r"category=([A-Z_]+)\\Z",str(exc))
+            category_match = re.search(r"category=([A-Z_]+)$",str(exc))
             category = (category_match.group(1)
                         if category_match and category_match.group(1) in {
                             "DAILY_ROW_READ_LIMIT", "DAILY_ROW_WRITE_LIMIT",
