@@ -341,3 +341,18 @@ def test_d1_capacity_uses_database_detail_not_unsupported_sql_pragmas(monkeypatc
         return original(uuid,sql,params)
     monkeypatch.setattr(cloud,"query",watch)
     assert runner._disk_used(cloud,SHARED_UID)>=0
+
+
+def test_magic_d1_candidate_is_pinned_to_protected_live_r2_source_and_no_implicit_run():
+    magic=next(s for s in runner.SOURCES if s.code=="magic")
+    assert magic.scope==("mtgjson","MAGIC_THE_GATHERING","English")
+    assert magic.expected_rows==153679
+    assert magic.manifest_sha=="e3bda5f54affe0055ec64d7ffb943cb5cae23df8108e74f29e250f7ec63e662a"
+    assert sum(source.expected_rows for source in runner.SOURCES)==155505
+    wf=(Path(__file__).resolve().parents[1]/
+        ".github/workflows/d1-followon-r2-shadow.yml").read_text()
+    assert 'doc.get("verified_d1_rows")==155505' in wf
+    assert "vars.DR_D1_FOLLOWON_IMPORT_APPROVED_SHA == github.sha" in wf
+    assert "vars.DR_D1_FOLLOWON_IMPORT_APPROVED_RUN_ID == github.run_id" in wf
+
+
