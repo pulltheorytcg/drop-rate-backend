@@ -1,3 +1,10 @@
+## 9 November 2026 — Existing operational shadow local restore drill (in review; no remote restore)
+
+- Added a bounded local-only SQLite restoration verifier for the existing operational shadow. Independently pinned private backup bytes are restored into disposable memory; exact schema/triggers, full-row hashes, nine source receipts, typed original JSON, owner/currency balances, identity/link scope and replay ancestry/high-water marks must agree. No cloud or PostgreSQL client is instantiated.
+- Existing inventory replay is reused to validate journals and demonstrate recovery after an interrupted stage on the restored disposable copy. Missing reservations, wrong heads, corruption, lost triggers, unknown tables, nonempty unsupported relations and live WAL inputs fail closed. Private records and balances never enter the public receipt.
+- 86 focused local restore/replay/source/preflight tests pass (0 failed, 0 skipped). This is actual local SQLite backup/restore with synthetic records, NOT a real D1 restore, all-150-relations parity or production recovery. No approved production snapshot or independent live restore receipt is available yet. Gates A–H remain 0/8; Supabase authoritative.
+- CLI procedure and limits: docs/D1_OPERATIONAL_LOCAL_RESTORE_DRILL_20261109.md. Exact-head CI, reviewed safe merge, deployment and live snapshot acceptance are pending at authoring. No imports, protected reruns, schema or route switches, financial/owner writes or paid cloud operations initiated.
+
 ## 9 November 2026 — Reconciled 150 source relations; lifecycle review still pending (PR)
 
 - Independent Supabase system-catalogue SELECT at 15:46:18 UTC captured 150 ordinary relations: 107 tcg, 6 tcg_private, 27 Auth and 10 Storage. All prior 148 names remain; the only additions are storage.bucket_lifecycle_states and storage.lifecycle_abandoned_artifacts (24,576 bytes each; estimated rows zero, not exact row counts). No application, Auth or financial record values were queried.
