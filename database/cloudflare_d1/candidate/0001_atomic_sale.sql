@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS candidate_inventory (
     ('RECEIVED','INSPECTION','APPROVED','RESERVED','SOLD','WITHDRAWN')),
   sale_intent TEXT NOT NULL CHECK(sale_intent IN ('FOR_SALE','PERSONAL_COLLECTION')),
   version INTEGER NOT NULL CHECK(version>=1),
+  -- Identifies the current sale cycle, not the historic one. A full refund
+  -- may return this same physical item to inspection for eventual resale.
+  current_sale_item_id TEXT REFERENCES candidate_order_items(id),
   acquisition_cost_minor INTEGER CHECK(acquisition_cost_minor IS NULL OR acquisition_cost_minor>=0),
   currency TEXT NOT NULL CHECK(currency='GBP')
 );
@@ -51,7 +54,7 @@ CREATE TABLE IF NOT EXISTS candidate_webhook_inbox (
 CREATE TABLE IF NOT EXISTS candidate_order_items (
   id TEXT PRIMARY KEY NOT NULL,
   order_id TEXT NOT NULL REFERENCES candidate_orders(id),
-  inventory_id TEXT NOT NULL UNIQUE REFERENCES candidate_inventory(id),
+  inventory_id TEXT NOT NULL REFERENCES candidate_inventory(id),
   owner_id TEXT NOT NULL REFERENCES candidate_owners(id),
   expected_inventory_version INTEGER NOT NULL CHECK(expected_inventory_version>=1),
   sale_price_minor INTEGER NOT NULL CHECK(sale_price_minor BETWEEN 1 AND 1000000000000),
@@ -73,25 +76,28 @@ CREATE TABLE IF NOT EXISTS candidate_ledger (
   owner_id TEXT NOT NULL REFERENCES candidate_owners(id),
   order_id TEXT NOT NULL REFERENCES candidate_orders(id),
   order_item_id TEXT NOT NULL REFERENCES candidate_order_items(id),
-  entry_type TEXT NOT NULL CHECK(entry_type IN ('SALE_REVENUE','COMMISSION')),
+  entry_type TEXT NOT NULL CHECK(entry_type IN (
+    'SALE_REVENUE','COMMISSION','REFUND','COMMISSION_REVERSAL')),
   amount_minor INTEGER NOT NULL CHECK(amount_minor<>0),
   currency TEXT NOT NULL CHECK(currency='GBP'),
   funds_status TEXT NOT NULL CHECK(funds_status='PENDING'),
   source_key TEXT NOT NULL UNIQUE,
   occurred_at TEXT NOT NULL,
   CHECK((entry_type='SALE_REVENUE' AND amount_minor>0)
-     OR (entry_type='COMMISSION' AND amount_minor<0))
+     OR (entry_type IN ('COMMISSION','REFUND') AND amount_minor<0)
+     OR (entry_type='COMMISSION_REVERSAL' AND amount_minor>0))
 );
 CREATE INDEX IF NOT EXISTS candidate_ledger_owner ON candidate_ledger(owner_id,occurred_at);
 
 CREATE TABLE IF NOT EXISTS candidate_outbox (
   id TEXT PRIMARY KEY NOT NULL,
   order_id TEXT NOT NULL REFERENCES candidate_orders(id),
-  event_type TEXT NOT NULL CHECK(event_type='ORDER_POSTED'),
+  event_type TEXT NOT NULL CHECK(event_type IN ('ORDER_POSTED','REFUND_POSTED')),
   payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64),
   status TEXT NOT NULL CHECK(status='PENDING'),
-  created_at TEXT NOT NULL,
-  UNIQUE(order_id,event_type)
+  created_at TEXT NOT NULL
+  -- One immutable ORDER_POSTED id per order; REFUND_POSTED needs one event
+  -- per distinct partial refund, not a uniqueness constraint on order/type.
 );
 
 -- The client cannot invent an owner, skip a version, mis-state cost basis or
@@ -119,7 +125,8 @@ END;
 CREATE TRIGGER IF NOT EXISTS candidate_item_sale_post
 AFTER INSERT ON candidate_order_items
 BEGIN
-  UPDATE candidate_inventory SET status='SOLD',version=version+1
+  UPDATE candidate_inventory
+    SET status='SOLD',version=version+1,current_sale_item_id=NEW.id
   WHERE id=NEW.inventory_id AND owner_id=NEW.owner_id
     AND status='APPROVED' AND version=NEW.expected_inventory_version;
   SELECT CASE WHEN changes()!=1
