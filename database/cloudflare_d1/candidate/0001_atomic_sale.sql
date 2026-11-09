@@ -77,14 +77,16 @@ CREATE TABLE IF NOT EXISTS candidate_ledger (
   order_id TEXT NOT NULL REFERENCES candidate_orders(id),
   order_item_id TEXT NOT NULL REFERENCES candidate_order_items(id),
   entry_type TEXT NOT NULL CHECK(entry_type IN (
-    'SALE_REVENUE','COMMISSION','REFUND','COMMISSION_REVERSAL')),
+    'SALE_REVENUE','COMMISSION','REFUND','COMMISSION_REVERSAL',
+    'SHIPPING_REVENUE','SHIPPING_REFUND','PAYMENT_FEE')),
   amount_minor INTEGER NOT NULL CHECK(amount_minor<>0),
   currency TEXT NOT NULL CHECK(currency='GBP'),
   funds_status TEXT NOT NULL CHECK(funds_status='PENDING'),
   source_key TEXT NOT NULL UNIQUE,
   occurred_at TEXT NOT NULL,
-  CHECK((entry_type='SALE_REVENUE' AND amount_minor>0)
-     OR (entry_type IN ('COMMISSION','REFUND') AND amount_minor<0)
+  CHECK((entry_type IN ('SALE_REVENUE','SHIPPING_REVENUE') AND amount_minor>0)
+     OR (entry_type IN ('COMMISSION','REFUND','SHIPPING_REFUND','PAYMENT_FEE')
+         AND amount_minor<0)
      OR (entry_type='COMMISSION_REVERSAL' AND amount_minor>0))
 );
 CREATE INDEX IF NOT EXISTS candidate_ledger_owner ON candidate_ledger(owner_id,occurred_at);
@@ -92,7 +94,9 @@ CREATE INDEX IF NOT EXISTS candidate_ledger_owner ON candidate_ledger(owner_id,o
 CREATE TABLE IF NOT EXISTS candidate_outbox (
   id TEXT PRIMARY KEY NOT NULL,
   order_id TEXT NOT NULL REFERENCES candidate_orders(id),
-  event_type TEXT NOT NULL CHECK(event_type IN ('ORDER_POSTED','REFUND_POSTED')),
+  event_type TEXT NOT NULL CHECK(event_type IN
+    ('ORDER_POSTED','REFUND_POSTED','SHIPPING_ALLOCATED',
+     'SHIPPING_REFUND_POSTED','PAYMENT_FEE_POSTED')),
   payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64),
   status TEXT NOT NULL CHECK(status='PENDING'),
   created_at TEXT NOT NULL
