@@ -1,5 +1,16 @@
 # DR95: disabled weekly private archive copier
 
+9 November extension: the source remains inactive and legacy behavior remains
+the default. A separate exact-execution-approved operational mode accepts only
+`OPERATIONAL_D1_SQLITE` encrypted members into the independently verified folder
+`1LrbyYjb5dkYPQehmN0q-IKIsmBFcH_pg`, with separate resume state. Its reviewed
+candidate definition SHA is
+`96581f3736669a3dfabb50ce10f6dcb81d386cee7362b0c8518f164eccd8eac3`;
+the older hash/receipts below remain historical. New pinned native CI and live
+permission/transfer/restore evidence are required before activation; no stored
+workflow or credential was changed. See
+[operational cloud DR](D1_OPERATIONAL_CLOUD_DR_20261109.md).
+
 `automation/n8n/workflows/dr-95-r2-drive-archive.json` is an **inactive,
 credential-unbound** n8n 2.32.6 export. It copies only the two archive kinds
 accepted by the separately disabled FastAPI transfer service:

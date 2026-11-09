@@ -24,6 +24,15 @@ Supported archive kinds are:
 | --- | --- |
 | `REFERENCE_HISTORY` | Content-addressed manifests under `reference-history/`, with the existing `drop-rate-reference-history-postgres-json-gzip-v2` schema, complete original snapshot identity and `POSTGRES_TEMP_TABLE_EVERY_FIELD_V1` restore proof. The member archive and original manifest are both required. |
 | `OPENLIBRARY_REVIEWED` | The fixed `openlibrary-reviewed-20261027-v1` checkpoint under `exports/`, matching the reviewed source commit and all 14 existing path/role/raw-size/raw-SHA pins. All compressed members and the original manifest are required, for 15 objects. Source gzip bytes are also decompressed and checked against the independently pinned raw SHA/size before transfer. |
+| `OPERATIONAL_D1_SQLITE` | Separately disabled operational extension: only separately source-attested, writer-signed AES-256-GCM ciphertext + original manifest under `operational-d1-backups/v1/`; distinct pinned operational folder and source/writer public keys required. Never plaintext SQLite or arbitrary exports. |
+
+The operational kind does not use the pricing folder above. Its actual new
+folder is `1LrbyYjb5dkYPQehmN0q-IKIsmBFcH_pg`, **Drop Rate – Operational D1
+Backups**, owned by `dropratetcg@gmail.com`, Restricted in the inspected sharing
+dialog on 9 November. Both the existing transfer flag and separate
+`TCG_OPERATIONAL_D1_DRIVE_TRANSFER_ENABLED` (default false) are required.
+No operational transfer or OAuth binding has occurred. See
+[cloud-only DR release controls](D1_OPERATIONAL_CLOUD_DR_20261109.md).
 
 Disposable catalogue input caches, media, arbitrary exports, other buckets,
 caller-selected object keys and caller-selected download URLs are unsupported.

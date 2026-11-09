@@ -50,13 +50,13 @@ class CommonCommand(BaseModel):
 
 
 class ArchiveCommand(CommonCommand):
-    kind: Literal['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED']
+    kind: Literal['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED','OPERATIONAL_D1_SQLITE']
     manifest_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
 
 
 class PlanCommand(CommonCommand):
     action: Literal['PLAN_DRIVE_ARCHIVE_COPY']
-    kind: Literal['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED']
+    kind: Literal['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED','OPERATIONAL_D1_SQLITE']
     cursor: str | None = Field(default=None,max_length=1500)
     limit: int = Field(default=2,ge=1,le=2,strict=True)
 
@@ -138,7 +138,7 @@ async def _command(request, model, *, binary=False):
     _verify_hmac(request,raw)
     try:
         command = model.model_validate_json(raw)
-        validate_destination(command.destination)
+        validate_destination(command.destination, kind=command.kind)
     except ValidationError as exc:
         raise HTTPException(422,'INVALID_ARCHIVE_COMMAND') from exc
     except ArchiveTransferError as exc:
@@ -218,7 +218,7 @@ async def verify_readback(request: Request):
     try:
         bundle = await _bundle(service,command)
         member = bundle.member(command.object_sha256)
-        permission = validate_destination(command.destination)
+        permission = validate_destination(command.destination, kind=command.kind)
         await storage_call(service.validate_drive_file,bundle,member,command.drive_file,permission)
         content_length = request.headers.get('content-length')
         if content_length is not None and (not content_length.isdigit() or int(content_length) != member.size_bytes):
