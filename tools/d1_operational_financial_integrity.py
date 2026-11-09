@@ -48,7 +48,7 @@ class ClassifiedReadOnlyD1(D1Client):
                 "ops_shadow_table_receipts",
                 "ops_shadow_catalogue_links",
             }
-            names = re.findall(r"\\bops_shadow_[a-z_]+\\b",
+            names = re.findall(r"\bops_shadow_[a-z_]+\b",
                                statement if isinstance(statement,str) else "")
             label = next((name for name in names if name in known),
                          "UNKNOWN_SCHEMA_QUERY")
