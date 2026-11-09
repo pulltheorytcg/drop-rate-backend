@@ -1,0 +1,180 @@
+name: Operational D1 cloud-only backup and restore (release gated)
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/operational_backup_contract.py'
+      - 'backend/app/drive_archive_*.py'
+      - 'tools/d1_operational_cloud_*.py'
+      - 'tools/d1_operational_drive_restore.py'
+      - 'tests/test_d1_operational_cloud_*.py'
+      - '.github/workflows/d1-operational-cloud-dr.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'backend/app/operational_backup_contract.py'
+      - 'backend/app/drive_archive_*.py'
+      - 'tools/d1_operational_cloud_*.py'
+      - 'tools/d1_operational_drive_restore.py'
+      - '.github/workflows/d1-operational-cloud-dr.yml'
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: ['restore-existing', 'restore-drive-existing', 'export-approved-shadow']
+        default: restore-existing
+        required: true
+
+permissions:
+  contents: read
+
+# Same lock as the existing operational replay writer. Export temporarily blocks
+# D1 reads; no scheduling until measured cost, RPO and release approval exist.
+concurrency:
+  group: private-operational-d1-real-source-single-writer
+  cancel-in-progress: false
+
+jobs:
+  offline-cloud-dr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Synthetic encryption, reconstruction, independent pins and private transfer regression
+        env:
+          PYTHONPATH: backend:tools
+        run: python -m pytest -q tests/test_d1_operational_cloud_restore.py tests/test_d1_operational_cloud_backup.py tests/test_d1_operational_restore_drill.py tests/test_drive_archive_transfer.py tests/test_drive_archive_api.py
+
+  export-approved-shadow:
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      && inputs.operation == 'export-approved-shadow'
+      && vars.DR_D1_BACKUP_EXPORT_ENABLED == 'true'
+      && vars.DR_D1_EXPORT_APPROVED_SHA == github.sha
+      && vars.DR_D1_EXPORT_APPROVED_RUN_ID == github.run_id
+    needs: offline-cloud-dr
+    environment: operational-d1-backup-export
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PYTHONPATH: backend:tools
+      DR_D1_EXPORT_APPROVED_SHA: ${{ vars.DR_D1_EXPORT_APPROVED_SHA }}
+      DR_D1_EXPORT_APPROVED_RUN_ID: ${{ vars.DR_D1_EXPORT_APPROVED_RUN_ID }}
+      DR_D1_EXPORT_COST_APPROVAL_SHA256: ${{ vars.DR_D1_EXPORT_COST_APPROVAL_SHA256 }}
+      DR_D1_EXPORT_SECURITY_APPROVAL_SHA256: ${{ vars.DR_D1_EXPORT_SECURITY_APPROVAL_SHA256 }}
+      DR_D1_SOURCE_APPROVAL_JSON: ${{ secrets.DR_D1_SOURCE_APPROVAL_JSON }}
+      DR_D1_BACKUP_SOURCE_PUBLIC_KEY: ${{ vars.DR_D1_BACKUP_SOURCE_PUBLIC_KEY }}
+      DR_D1_BACKUP_WRITER_PRIVATE_KEY: ${{ secrets.DR_D1_BACKUP_WRITER_PRIVATE_KEY }}
+      DR_D1_BACKUP_AES256_KEY: ${{ secrets.DR_D1_BACKUP_AES256_KEY }}
+      DR_D1_BACKUP_KEY_ID: ${{ vars.DR_D1_BACKUP_KEY_ID }}
+      DR_D1_BACKUP_RETENTION_UNTIL: ${{ vars.DR_D1_BACKUP_RETENTION_UNTIL }}
+      CLOUDFLARE_D1_BACKUP_EXPORT_TOKEN: ${{ secrets.CLOUDFLARE_D1_BACKUP_EXPORT_TOKEN }}
+      TCG_OBJECT_STORE_ENABLED: 'true'
+      TCG_OBJECT_STORE_ENDPOINT: ${{ vars.DR_D1_BACKUP_R2_ENDPOINT }}
+      TCG_OBJECT_STORE_BUCKET: drop-rate-private
+      TCG_OBJECT_STORE_REGION: auto
+      TCG_OBJECT_STORE_PREFIX: drop-rate
+      TCG_OBJECT_STORE_ACCESS_KEY_ID: ${{ secrets.DR_D1_BACKUP_R2_WRITER_ACCESS_KEY_ID }}
+      TCG_OBJECT_STORE_SECRET_ACCESS_KEY: ${{ secrets.DR_D1_BACKUP_R2_WRITER_SECRET_ACCESS_KEY }}
+      DR_D1_BACKUP_R2_SESSION_TOKEN: ${{ secrets.DR_D1_BACKUP_R2_WRITER_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Export only with independently signed source evidence and exact release approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          ulimit -c 0
+          sudo swapoff -a
+          test "$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)" = 0
+          python tools/d1_operational_cloud_backup.py
+
+  restore-existing:
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      && inputs.operation == 'restore-existing'
+      && vars.DR_D1_BACKUP_RESTORE_ENABLED == 'true'
+      && vars.DR_D1_RESTORE_APPROVED_SHA == github.sha
+      && vars.DR_D1_RESTORE_APPROVED_RUN_ID == github.run_id
+    needs: offline-cloud-dr
+    environment: operational-d1-backup-restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PYTHONPATH: backend:tools
+      DR_D1_RESTORE_APPROVED_SHA: ${{ vars.DR_D1_RESTORE_APPROVED_SHA }}
+      DR_D1_RESTORE_APPROVED_RUN_ID: ${{ vars.DR_D1_RESTORE_APPROVED_RUN_ID }}
+      DR_D1_BACKUP_MANIFEST_SHA256: ${{ vars.DR_D1_BACKUP_MANIFEST_SHA256 }}
+      DR_D1_BACKUP_SQLITE_SHA256: ${{ vars.DR_D1_BACKUP_SQLITE_SHA256 }}
+      DR_D1_BACKUP_GENERATION_SHA256: ${{ vars.DR_D1_BACKUP_GENERATION_SHA256 }}
+      DR_D1_BACKUP_SOURCE_PUBLIC_KEY: ${{ vars.DR_D1_BACKUP_SOURCE_PUBLIC_KEY }}
+      DR_D1_BACKUP_WRITER_PUBLIC_KEY: ${{ vars.DR_D1_BACKUP_WRITER_PUBLIC_KEY }}
+      DR_D1_BACKUP_AES256_KEY: ${{ secrets.DR_D1_BACKUP_AES256_KEY }}
+      TCG_OBJECT_STORE_ENABLED: 'true'
+      TCG_OBJECT_STORE_ENDPOINT: ${{ vars.DR_D1_BACKUP_R2_ENDPOINT }}
+      TCG_OBJECT_STORE_BUCKET: drop-rate-private
+      TCG_OBJECT_STORE_REGION: auto
+      TCG_OBJECT_STORE_PREFIX: drop-rate
+      TCG_OBJECT_STORE_ACCESS_KEY_ID: ${{ secrets.DR_D1_BACKUP_R2_READER_ACCESS_KEY_ID }}
+      TCG_OBJECT_STORE_SECRET_ACCESS_KEY: ${{ secrets.DR_D1_BACKUP_R2_READER_SECRET_ACCESS_KEY }}
+      DR_D1_BACKUP_R2_SESSION_TOKEN: ${{ secrets.DR_D1_BACKUP_R2_READER_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify exact existing ciphertext and restore only into cloud SQLite memory
+        shell: bash
+        run: |
+          set -euo pipefail
+          ulimit -c 0
+          sudo swapoff -a
+          test "$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)" = 0
+          python tools/d1_operational_cloud_restore.py
+
+  restore-drive-existing:
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      && inputs.operation == 'restore-drive-existing'
+      && vars.DR_D1_BACKUP_DRIVE_RESTORE_ENABLED == 'true'
+      && vars.DR_D1_RESTORE_APPROVED_SHA == github.sha
+      && vars.DR_D1_RESTORE_APPROVED_RUN_ID == github.run_id
+    needs: offline-cloud-dr
+    environment: operational-d1-backup-drive-restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PYTHONPATH: backend:tools
+      DR_D1_RESTORE_APPROVED_SHA: ${{ vars.DR_D1_RESTORE_APPROVED_SHA }}
+      DR_D1_RESTORE_APPROVED_RUN_ID: ${{ vars.DR_D1_RESTORE_APPROVED_RUN_ID }}
+      DR_D1_BACKUP_MANIFEST_SHA256: ${{ vars.DR_D1_BACKUP_MANIFEST_SHA256 }}
+      DR_D1_BACKUP_SQLITE_SHA256: ${{ vars.DR_D1_BACKUP_SQLITE_SHA256 }}
+      DR_D1_BACKUP_GENERATION_SHA256: ${{ vars.DR_D1_BACKUP_GENERATION_SHA256 }}
+      DR_D1_BACKUP_SOURCE_PUBLIC_KEY: ${{ vars.DR_D1_BACKUP_SOURCE_PUBLIC_KEY }}
+      DR_D1_BACKUP_WRITER_PUBLIC_KEY: ${{ vars.DR_D1_BACKUP_WRITER_PUBLIC_KEY }}
+      DR_D1_BACKUP_AES256_KEY: ${{ secrets.DR_D1_BACKUP_AES256_KEY }}
+      DR_D1_GOOGLE_ACCESS_TOKEN: ${{ secrets.DR_D1_GOOGLE_ACCESS_TOKEN }}
+      DR_D1_DRIVE_MANIFEST_FILE_ID: ${{ vars.DR_D1_DRIVE_MANIFEST_FILE_ID }}
+      DR_D1_DRIVE_CIPHERTEXT_FILE_ID: ${{ vars.DR_D1_DRIVE_CIPHERTEXT_FILE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Independently download Drive bytes and restore without any Cloudflare credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          ulimit -c 0
+          sudo swapoff -a
+          test "$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)" = 0
+          python tools/d1_operational_drive_restore.py
