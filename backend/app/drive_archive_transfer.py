@@ -401,7 +401,8 @@ class ArchiveTransfer:
                 ContentType='application/json',CacheControl='no-store',IfNoneMatch='*',
                 Metadata={'sha256':hashlib.sha256(data).hexdigest()})
         except Exception as exc:
-            if self._error_code(exc) not in {'PreconditionFailed','412','ConditionalRequestConflict','409'}:
+            if self._error_code(exc) not in {'PreconditionFailed','412','ConditionalRequestConflict','409',
+                                            'ObjectLockedByBucketPolicy'}:
                 raise ArchiveTransferError('PRIVATE_STORAGE_WRITE_FAILED') from exc
             created = False
         actual = self._read(key,MAX_RECORD_BYTES)
