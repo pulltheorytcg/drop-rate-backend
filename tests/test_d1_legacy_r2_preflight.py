@@ -180,3 +180,18 @@ def test_legacy_and_magic_followon_d1_writers_require_exact_one_run_release_appr
         assert "github.event_name == 'push'" in text
         # Offline PR tests run but the jobs with D1 credentials are not allowed.
         assert "needs: offline-" in text
+
+
+def test_protected_original_r2_sha_receipts_have_real_source_and_no_write_gate():
+    """Repinning the D1 writer requires actual protected R2, not guessed SHA."""
+    workflow=(Path(__file__).resolve().parents[1]/
+              ".github/workflows/d1-legacy-r2-preflight.yml").read_text()
+    assert 'if state=="success":' in workflow
+    assert 'got[relation].get("source_sha256")' in workflow
+    assert 're.fullmatch(r"[0-9a-f]{64}",digest)' in workflow
+    assert '"context":"drop-rate-r2-original-"+relation+"-sha256"' in workflow
+    assert "for relation in sorted(counts):" in workflow
+    assert 'data.get("verified_game_language_counts")==expected_family_language' in workflow
+    assert 'data.get("r2_parts_verified")==161' in workflow
+    assert "CLOUDFARE_D1_PILOT_TOKEN" not in workflow
+    assert "github.event_name == 'push'" in workflow
