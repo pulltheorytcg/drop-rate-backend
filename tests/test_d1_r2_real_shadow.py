@@ -47,6 +47,12 @@ class FakeD1:
     def query(self,uuid,sql,params=()):
         assert not sql.lstrip().lower().startswith('pragma'), "D1 REST rejects size PRAGMAs"
         assert uuid=="12345678-1234-1234-1234-1234567890ab"
+        if "from shadow_cards" in sql.lower() and "order by card_key" in sql.lower():
+            # This primary-source importer has no business burning the
+            # Cloudflare daily row-read quota on growing OFFSET pagination.
+            assert "offset" not in sql.lower()
+            assert "card_key>?" in sql.lower()
+            assert len(params)==3
         cur=self.connection.execute(sql,params)
         rows=[dict(row) for row in cur.fetchall()] if cur.description else []
         if self.corrupt and "from shadow_cards where manifest_sha=" in sql and "order by card_key" in sql:
@@ -92,6 +98,12 @@ def http_client(manifest_bytes, parts, *, tamper=False):
             return httpx.Response(200,content=raw)
         return httpx.Response(404)
     return httpx.Client(transport=httpx.MockTransport(request_handler),follow_redirects=False)
+
+
+def test_verified_projection_uses_primary_key_cursor():
+    assert "card_key>?" in runner.D1_KEYSET_READBACK_SQL
+    assert "offset" not in runner.D1_KEYSET_READBACK_SQL.lower()
+    assert "order by card_key" in runner.D1_KEYSET_READBACK_SQL.lower()
 
 
 def test_full_real_r2_to_isolated_d1_readback(monkeypatch):
