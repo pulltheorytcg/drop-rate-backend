@@ -11,6 +11,7 @@ import d1_full_catalogue_capacity as cap  # noqa: E402
 from d1_r2_real_shadow import MigrationGuard  # noqa: E402
 
 UUID = "12345678-1234-1234-1234-1234567890ab"
+NEW_YGO_SHA="f"*64
 
 
 class ReadOnlyD1:
@@ -19,6 +20,7 @@ class ReadOnlyD1:
     pointer = None
     pages = 1200
     total_queries = 0
+    newer=False
 
     def __init__(self,account,token):
         assert account==cap.ACCOUNT
@@ -42,9 +44,21 @@ class ReadOnlyD1:
         ))
         type(self).total_queries += 1
         assert not sql.lower().startswith("pragma")
-        if "count(*)" in sql:
-            assert cap.YGO_MANIFEST_SHA in sql
-            rows=[{"n":self.current}]
+        if "from shadow_generations" in sql:
+            rows=[{"manifest_sha":cap.YGO_MANIFEST_SHA,
+                   "expected_rows":cap.YGO_TOTAL,"projection_sha":"a"*64}]
+            if self.newer:
+                rows.append({"manifest_sha":NEW_YGO_SHA,
+                             "expected_rows":cap.YGO_TOTAL+1,"projection_sha":"b"*64})
+        elif "count(*)" in sql:
+            assert params and len(params)==1
+            sha=params[0]
+            if sha==NEW_YGO_SHA:
+                rows=[{"n":self.current}]
+            elif sha==cap.YGO_MANIFEST_SHA:
+                rows=[{"n":cap.YGO_TOTAL if self.newer else self.current}]
+            else:
+                raise AssertionError("Unexpected D1 source generation")
         elif "shadow_active_partitions" in sql:
             assert params==cap.YGO_SCOPE
             rows=[{"manifest_sha":self.pointer}] if self.pointer else []
@@ -60,6 +74,7 @@ def safe_fake(monkeypatch):
     ReadOnlyD1.pointer=None
     ReadOnlyD1.pages=1200
     ReadOnlyD1.total_queries=0
+    ReadOnlyD1.newer=False
     monkeypatch.setattr(cap,"D1Client",ReadOnlyD1)
 
 
@@ -72,7 +87,7 @@ def test_current_verified_yugioh_batch_does_not_unlock_other_writes():
     assert report["visible_database_count"]==2
     assert report["d1_writes"]==0
     assert not report["daily_account_write_quota_measured"]
-    assert ReadOnlyD1.total_queries==4
+    assert ReadOnlyD1.total_queries==5
 
 
 def test_full_source_and_active_pointer_allows_later_review():
@@ -83,6 +98,30 @@ def test_full_source_and_active_pointer_allows_later_review():
     assert report["subsequent_import_allowed_by_static_readiness"]
     assert report["owner_or_settlement_writes"]==0
     assert not report["production_reads_switched"]
+
+
+
+def test_capacity_tracks_newer_verified_active_yugioh_generation():
+    ReadOnlyD1.newer=True
+    ReadOnlyD1.current=cap.YGO_TOTAL+1
+    ReadOnlyD1.pointer=NEW_YGO_SHA
+    report=cap.inspect_capacity(cap.ACCOUNT,"scoped-test-token")
+    assert report["yugioh_source_rows"]==cap.YGO_TOTAL+1
+    assert report["yugioh_staged_rows"]==cap.YGO_TOTAL+1
+    assert report["yugioh_full_active_parity"] is True
+    assert report["subsequent_import_allowed_by_static_readiness"] is True
+    assert report["d1_writes"]==0
+
+
+def test_capacity_rejects_old_active_as_complete_when_newer_is_partial():
+    ReadOnlyD1.newer=True
+    ReadOnlyD1.current=24000
+    ReadOnlyD1.pointer=cap.YGO_MANIFEST_SHA
+    report=cap.inspect_capacity(cap.ACCOUNT,"scoped-test-token")
+    assert report["yugioh_source_rows"]==cap.YGO_TOTAL+1
+    assert report["yugioh_staged_rows"]==24000
+    assert report["yugioh_full_active_parity"] is False
+    assert report["subsequent_import_allowed_by_static_readiness"] is False
 
 
 def test_saturated_account_blocks_new_database():
