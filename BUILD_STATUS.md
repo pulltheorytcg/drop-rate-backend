@@ -1,3 +1,10 @@
+## 9 November 2026 — Inactive signed atomic D1 financial Worker candidate (CI pending; NO CUTOVER)
+
+- Added an isolated staging-only Cloudflare Worker which accepts just five HMAC-authenticated, fixed-schema event classes (SALE, CARD_REFUND, SHIPPING_ALLOCATION, SHIPPING_REFUND, PAYMENT_FEE) and transforms them into fixed, parameter-bound SQL mapped to the already-merged Python financial planners and D1 candidate schema. A mixed-owner order becomes **one** `D1Database.batch()` call: order, webhook inbox, original physical inventory line(s) and pending outbox, with D1 triggers enforcing ownership/stock/version/cost/commission and immutable ledger.
+- No arbitrary caller-supplied SQL, D1 selector, permission claim, owner override, webhook listener, Shopify publish, actual payment, settlement or payout. HMAC + explicit staging flag + separate candidate DB binding; no Worker deployment, credentials, production route or Supabase writes. Candidate Worker cannot run until separately bound and enabled.
+- Offline Node 22 direct Worker fetch tests exercise authenticated plan, two-owner single batch, invalid/old signatures, rogue SQL, monetary/UUID/duplicate copy rejection, D1 errors and unavailable configuration. Existing Python and full CI results, real D1 transactional behaviour, authentication and signed staging deployment still **pending**; test fakes are not real D1 parity.
+- Connected migration plan: `docs/D1_INACTIVE_SIGNED_FINANCE_WORKER_20261109.md` and GitHub issue #1010. Supabase remains source of truth; no production financial or Auth cutover.
+
 ## 9 November 2026 — Harden inactive Cloudflare owner-read client host boundary (PR in review; no cutover)
 
 - The unconnected `backend/app/d1_private_read_client.py` accepted a generic HTTPS DNS hostname with only `ipaddress.ip_address` for literal IP blocking. Short numeric loopback aliases such as `127.1` were not IP literals to that validator, creating a potential SSRF/routing hazard if future internal-worker endpoint configuration is incorrect.

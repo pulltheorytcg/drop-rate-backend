@@ -1,0 +1,31 @@
+name: Inactive Cloudflare D1 candidate finance Worker security
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/operational-candidate-finance/**'
+      - 'tests/cloudflare_candidate_finance_worker.test.mjs'
+      - '.github/workflows/d1-candidate-finance-worker.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'cloudflare/operational-candidate-finance/**'
+      - 'tests/cloudflare_candidate_finance_worker.test.mjs'
+      - '.github/workflows/d1-candidate-finance-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-finance-worker-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compile inactive Worker without deployment
+        run: node --check cloudflare/operational-candidate-finance/worker.mjs
+      - name: Test HMAC, fixed SQL, owner boundaries and atomic batch failure
+        run: node --test tests/cloudflare_candidate_finance_worker.test.mjs
