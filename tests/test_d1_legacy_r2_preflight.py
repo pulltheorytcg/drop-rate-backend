@@ -153,3 +153,20 @@ def test_preflight_workflow_has_no_d1_api_credentials():
     assert "CLOUDFLARE_ACCOUNT_ID" not in workflow
     assert (chr(92)+"${{") not in workflow
     assert "GITHUB_STATUS_TOKEN: "+"${{ github.token }}" in workflow
+
+
+def test_legacy_and_magic_followon_d1_writers_require_exact_one_run_release_approval():
+    """A read-only source refresh may never implicitly start private D1 writes."""
+    root=Path(__file__).resolve().parents[1]
+    workflows=(
+        (".github/workflows/d1-legacy-r2-shadow.yml","DR_D1_LEGACY"),
+        (".github/workflows/d1-followon-r2-shadow.yml","DR_D1_FOLLOWON"),
+    )
+    for file,stem in workflows:
+        text=(root/file).read_text()
+        assert f"vars.{stem}_IMPORT_APPROVED_SHA == github.sha" in text
+        assert f"vars.{stem}_IMPORT_APPROVED_RUN_ID == github.run_id" in text
+        assert "github.ref == 'refs/heads/main'" in text
+        assert "github.event_name == 'push'" in text
+        # Offline PR tests run but the jobs with D1 credentials are not allowed.
+        assert "needs: offline-" in text
