@@ -28,9 +28,9 @@ def register():
 
 def test_all_supabase_relations_have_explicit_destinations(register):
     result = validate_register(register)
-    assert result["source_relation_count"] == 148
+    assert result["source_relation_count"] == 150
     assert result["tables_by_schema"] == {
-        "tcg": 107, "tcg_private": 6, "auth": 27, "storage": 8,
+        "tcg": 107, "tcg_private": 6, "auth": 27, "storage": 10,
     }
     assert result["r2_data_export_completed_by_this_tool"] is False
     assert result["d1_data_import_completed_by_this_tool"] is False
@@ -101,7 +101,8 @@ def test_user_auth_row_cannot_be_routed_as_operational_bulk_copy(register):
 
 def test_schema_drift_catches_new_pg_tables(register):
     current = [{"schema_name":r["schema"], "table_name":r["table"],
-                "bytes":r["bytes"], "estimated_rows":r["estimated_rows"]}
+                "bytes":r["bytes"], "estimated_rows":r["estimated_rows"],
+                "relation_kind":r["relation_kind"]}
                for r in register["tables"]]
     assert_current_matches(current, register)
     current.append({"schema_name": "tcg", "table_name": "new_unmapped_ledger",
@@ -112,7 +113,8 @@ def test_schema_drift_catches_new_pg_tables(register):
 
 def test_missing_live_relation_fails_closed(register):
     current = [{"schema_name":r["schema"], "table_name":r["table"],
-                "bytes":r["bytes"], "estimated_rows":r["estimated_rows"]}
+                "bytes":r["bytes"], "estimated_rows":r["estimated_rows"],
+                "relation_kind":r["relation_kind"]}
                for r in register["tables"][1:]]
     with pytest.raises(MigrationGuard, match="absent"):
         assert_current_matches(current, register)
@@ -120,8 +122,64 @@ def test_missing_live_relation_fails_closed(register):
 
 def test_invalid_live_metadata_and_negative_size_fail_closed(register):
     current = [{"schema_name":r["schema"], "table_name":r["table"],
-                "bytes":r["bytes"], "estimated_rows":r["estimated_rows"]}
+                "bytes":r["bytes"], "estimated_rows":r["estimated_rows"],
+                "relation_kind":r["relation_kind"]}
                for r in register["tables"]]
     current[0]["bytes"] = -1
     with pytest.raises(MigrationGuard, match="metadata"):
         assert_current_matches(current, register)
+
+
+@pytest.mark.parametrize("table", ["bucket_lifecycle_states", "lifecycle_abandoned_artifacts"])
+def test_managed_storage_is_registered_but_cannot_be_silently_copied_or_excluded(register, table):
+    row = next(r for r in register["tables"] if r["schema"] == "storage" and r["table"] == table)
+    assert row["target"] == "PENDING_RUNTIME_AND_RESTORE_REVIEW_NO_BULK_COPY"
+    report = validate_register(register)
+    assert report["provisional_managed_storage_relations"] == 2
+    assert report["source_dependency_classification_complete"] is False
+    assert report["gate_a_complete"] is False
+    row["category"] = "media_registry"
+    row["target"] = "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY"
+    with pytest.raises(MigrationGuard, match="unresolved"):
+        validate_register(register)
+
+
+@pytest.mark.parametrize("field", ["runtime_dependency_reviewed", "restore_plan_verified", "retirement_authorized"])
+def test_pending_managed_review_cannot_claim_release_by_flipping_a_flag(register, field):
+    row = next(r for r in register["tables"] if r["table"] == "bucket_lifecycle_states")
+    row[field] = True
+    with pytest.raises(MigrationGuard, match="unresolved"):
+        validate_register(register)
+
+
+def test_live_kind_drift_or_missing_kind_fails_closed(register):
+    current = [{"schema_name":r["schema"], "table_name":r["table"],
+                "bytes":r["bytes"], "estimated_rows":r["estimated_rows"],
+                "relation_kind":r["relation_kind"]} for r in register["tables"]]
+    current[0]["relation_kind"] = "v"
+    with pytest.raises(MigrationGuard, match="kind drift"):
+        assert_current_matches(current, register)
+    del current[0]["relation_kind"]
+    with pytest.raises(MigrationGuard, match="kind drift"):
+        assert_current_matches(current, register)
+
+
+def test_discovery_includes_views_without_requesting_physical_view_size():
+    assert "c.relkind IN ('r','p','v','m')" in module.LIVE_SQL
+    assert "CASE WHEN c.relkind IN ('r','p','m')" in module.LIVE_SQL
+    assert "c.relkind::text AS relation_kind" in module.LIVE_SQL
+
+
+def test_managed_relation_cannot_be_replaced_by_equal_count_placeholder(register):
+    row = next(r for r in register["tables"] if r["table"] == "bucket_lifecycle_states")
+    row["table"] = "unknown_managed_metadata"
+    with pytest.raises(MigrationGuard, match="Unknown"):
+        validate_register(register)
+
+
+def test_original_148_relation_register_requires_scope_reconciliation(register):
+    register["tables"] = [r for r in register["tables"] if r["category"] != "managed_storage_review"]
+    register["source_table_count"] = 148
+    register["table_count_by_schema"]["storage"] = 8
+    with pytest.raises(MigrationGuard, match="Incomplete"):
+        validate_register(register)
