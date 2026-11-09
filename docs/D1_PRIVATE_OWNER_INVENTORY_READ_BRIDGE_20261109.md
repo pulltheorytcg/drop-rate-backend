@@ -9,6 +9,7 @@ A **read-only, undeployed Cloudflare Worker and inactive Python FastAPI signing 
 Components:
 - `backend/app/d1_private_read_client.py` — inactive, strictly configured HTTPS/HMAC FastAPI transport accepting only a verified legacy UUID, with response owner/row/penny/type checks, no redirects or retries.
 - `tests/test_d1_private_read_client.py` — offline `httpx.MockTransport` test of exact Python/Worker HMAC wire semantics, SSRF denial, row isolation, error privacy and replay safe transport.
+- `tests/test_d1_operational_read_worker_sql.py` — real SQLite execution of the Worker's exact SELECT SQL against the existing nine-table D1 operational shadow schema, verifying nine source receipts, verified generation, revoked/ambiguous owner membership, owner-specific pagination and indexed queries.
 - `cloudflare/operational-readonly/worker.mjs` — one fixed `POST /internal/v1/owner-inventory` handler, exactly two fixed parameter-bound SELECT queries.
 - `tests/cloudflare_operational_readonly.test.mjs` — disposable Node.js test fake proving authorization, query scope, pagination, privacy and failure behaviour.
 - `.github/workflows/d1-operational-readonly-worker.yml` — offline JS tests/compile only, **not** deployment, credential access or D1 calls.
