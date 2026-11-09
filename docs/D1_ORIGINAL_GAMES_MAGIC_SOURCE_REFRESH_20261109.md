@@ -26,6 +26,10 @@ Changed legacy manifest/generation/count/bytes/part SHA, missing R2 part, change
 
 Tests require exact legacy generation and source SHA even in synthetic mock transport, blocked corruption and forged claims. The existing Magic source SHA/scope tests remain. All backend/PostgreSQL, n8n/dashboard, Magic and legacy offline CI must pass; only protected main-run R2 audit proves the exact current object bytes. This is a **two-stage** migration change: after source CI passes, use its independently verified five relation digests to repin the write-capable legacy D1 importer **in a separate reviewed PR**. D1 import must have protected release SHA/run approval and all required immutability/parity/rollback protections; it must not be blocked solely because an unrelated Magic queue is incomplete. The Magic follow-on writer also requires a separate source-verified current-generation review.
 
+## Extra release protection
+
+The original `d1-legacy-r2-shadow.yml` and `d1-followon-r2-shadow.yml` workflows could previously run their write-capable D1 jobs from ordinary main pushes or schedules once their preceding source guards cleared. Both now additionally require a *separately managed GitHub Actions repository variable pair* matching the exact current commit and **the exact GitHub run ID**: `DR_D1_LEGACY_IMPORT_APPROVED_SHA`/`DR_D1_LEGACY_IMPORT_APPROVED_RUN_ID`, and `DR_D1_FOLLOWON_IMPORT_APPROVED_SHA`/`DR_D1_FOLLOWON_IMPORT_APPROVED_RUN_ID`. None is set by this change. A merged preflight update will **not** stage any D1 rows automatically. Read-only audit jobs still run.
+
 ## 5. Safety and rollback
 
 No Supabase mutation, source deletion, owner/financial/Shopify writes, Cloudflare plan change, D1 import, web path cutover or settlement. If source proof fails or a publication advances again, keep existing Supabase/R2 serving and do not stage D1. Revert these read-only pins if necessary. Retirement gates A–H remain **NO-GO**.
