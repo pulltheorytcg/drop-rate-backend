@@ -131,3 +131,108 @@ def test_reader_ignores_quarantined_partial_generation(setup):
     stage.stage(db,newer,schema,cat,initial_state='REJECTED')
     r=verify_shadow(db,data,cat)
     assert r['changed_or_missing_record_count']==0
+
+
+@pytest.mark.parametrize('failure_point', ['before_generation', 'before_journal'])
+def test_midnight_retry_preserves_one_original_reservation_and_capture_mark(setup, monkeypatch, failure_point):
+    db,data,schema,cat=setup
+    new=changed(data,version=2,market_value_minor=123)
+    original_meta={'captured_at':'2026-11-08T23:59:00+00:00','source_snapshot':'100:102:101'}
+    stage_real=replay.stage
+    insert_real=replay._insert_rows
+    def before_generation(*args,**kwargs):
+        raise OSError('synthetic interruption before generation creation')
+    def before_journal(*args,**kwargs):
+        if args[2]=='ops_shadow_inventory_replay':
+            raise OSError('synthetic interruption before journal')
+        return insert_real(*args,**kwargs)
+    monkeypatch.setattr(replay,'stage',before_generation if failure_point=='before_generation' else stage_real)
+    monkeypatch.setattr(replay,'_insert_rows',before_journal if failure_point=='before_journal' else insert_real)
+    with pytest.raises(OSError):
+        replay.replay(db,new,schema,cat,original_meta,apply=True)
+    reserved=[tuple(row) for row in db.con.execute('SELECT * FROM ops_shadow_replay_daily_budget')]
+    monkeypatch.setattr(replay,'stage',stage_real)
+    monkeypatch.setattr(replay,'_insert_rows',insert_real)
+    r=replay.replay(db,new,schema,cat,
+        {'captured_at':'2026-11-09T00:01:00+00:00','source_snapshot':'200:202:201'},apply=True)
+    assert r['status']=='INVENTORY_REPLAY_SNAPSHOT_PARITY_VERIFIED'
+    assert [tuple(row) for row in db.con.execute('SELECT * FROM ops_shadow_replay_daily_budget')]==reserved
+    marks=db.con.execute('SELECT g.source_captured_at,c.captured_at,h.captured_at '
+        'FROM ops_shadow_replay_checkpoints c JOIN ops_shadow_generations g USING(generation_id) '
+        'JOIN ops_shadow_replay_head h USING(generation_id)').fetchone()
+    assert tuple(marks)==(original_meta['captured_at'],)*3
+    assert db.con.execute('SELECT source_snapshot FROM ops_shadow_replay_checkpoints').fetchone()[0]==original_meta['source_snapshot']
+    assert db.con.execute('SELECT count(*) FROM ops_shadow_inventory_replay').fetchone()[0]==1
+
+
+@pytest.mark.parametrize('problem', ['duplicate', 'stale_capture', 'wrong_count', 'wrong_day', 'wrong_parent'])
+def test_invalid_original_reservation_cannot_be_replaced_by_new_day_receipt(setup, monkeypatch, problem):
+    db,data,schema,cat=setup
+    new=changed(data,version=2,market_value_minor=123)
+    real=replay.stage
+    def crash(*args,**kwargs):
+        raise OSError('synthetic interruption after reserving capacity')
+    monkeypatch.setattr(replay,'stage',crash)
+    with pytest.raises(OSError):
+        replay.replay(db,new,schema,cat,meta(),apply=True)
+    monkeypatch.setattr(replay,'stage',real)
+    if problem=='duplicate':
+        db.con.execute("INSERT INTO ops_shadow_replay_daily_budget SELECT '2026-11-09',"
+            "generation_id,parent_generation_id,'2026-11-09T12:00:00+00:00',source_snapshot,"
+            "logical_rows_reserved FROM ops_shadow_replay_daily_budget")
+    elif problem=='wrong_count':
+        db.con.execute('UPDATE ops_shadow_replay_daily_budget SET logical_rows_reserved=1')
+    elif problem=='wrong_day':
+        db.con.execute("UPDATE ops_shadow_replay_daily_budget SET utc_day='2026-11-07'")
+    elif problem=='wrong_parent':
+        db.con.execute("UPDATE ops_shadow_replay_daily_budget SET parent_generation_id='not-the-parent'")
+    before=db.con.total_changes
+    day='2026-11-07' if problem=='stale_capture' else '2026-11-09'
+    with pytest.raises(stage.StageGuard):
+        replay.replay(db,new,schema,cat,meta(day=day),apply=True)
+    assert db.con.total_changes==before
+    assert db.con.execute('SELECT count(*) FROM ops_shadow_generations').fetchone()[0]==1
+
+
+def test_lost_activation_acknowledgement_is_idempotent_after_midnight(setup, monkeypatch):
+    db,data,schema,cat=setup
+    new=changed(data,version=2,market_value_minor=123)
+    batch=db.batch
+    lost=False
+    def lost_ack(dbid,queries):
+        nonlocal lost
+        result=batch(dbid,queries)
+        if not lost and any('ops_shadow_replay_head' in row['sql'] for row in queries):
+            lost=True
+            raise OSError('synthetic acknowledgement lost after local commit')
+        return result
+    monkeypatch.setattr(db,'batch',lost_ack)
+    with pytest.raises(OSError):
+        replay.replay(db,new,schema,cat,meta(),apply=True)
+    original=[tuple(row) for row in db.con.execute('SELECT * FROM ops_shadow_replay_daily_budget')]
+    before=db.con.total_changes
+    assert replay.replay(db,new,schema,cat,meta(day='2026-11-09'),apply=True)['status']=='INVENTORY_REPLAY_ALREADY_VERIFIED'
+    assert db.con.total_changes==before
+    assert [tuple(row) for row in db.con.execute('SELECT * FROM ops_shadow_replay_daily_budget')]==original
+
+
+@pytest.mark.parametrize('problem', ['duplicate_budget','missing_budget','capture_mismatch','typed_projection'])
+def test_already_advanced_head_does_not_hide_corrupt_legacy_retry(setup, problem):
+    db,data,schema,cat=setup
+    new=changed(data,version=2,market_value_minor=123)
+    r=replay.replay(db,new,schema,cat,meta(),apply=True)
+    generation='src-'+r['generation_sha256'][:32]
+    if problem=='duplicate_budget':
+        db.con.execute("INSERT INTO ops_shadow_replay_daily_budget SELECT '2026-11-09',"
+            "generation_id,parent_generation_id,'2026-11-09T12:00:00+00:00',source_snapshot,"
+            "logical_rows_reserved FROM ops_shadow_replay_daily_budget")
+    elif problem=='missing_budget':
+        db.con.execute('DELETE FROM ops_shadow_replay_daily_budget')
+    elif problem=='capture_mismatch':
+        db.con.execute("UPDATE ops_shadow_generations SET source_captured_at='2026-11-09T12:00:00+00:00' WHERE generation_id=?",[generation])
+    else:
+        db.con.execute('UPDATE ops_shadow_inventory SET market_value_minor=999 WHERE generation_id=?',[generation])
+    before=db.con.total_changes
+    with pytest.raises(stage.StageGuard):
+        replay.replay(db,new,schema,cat,meta(day='2026-11-09'),apply=True)
+    assert db.con.total_changes==before
