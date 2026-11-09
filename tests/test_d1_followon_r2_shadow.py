@@ -341,3 +341,26 @@ def test_d1_capacity_uses_database_detail_not_unsupported_sql_pragmas(monkeypatc
         return original(uuid,sql,params)
     monkeypatch.setattr(cloud,"query",watch)
     assert runner._disk_used(cloud,SHARED_UID)>=0
+
+
+def test_current_magic_source_is_pinned_and_cannot_stage_stale_mtgjson():
+    """Prevents silently omitting the 17 newer Magic reference records."""
+    magic=[source for source in runner.SOURCES if source.code=="magic"]
+    assert len(magic)==1
+    assert magic[0].scope==("mtgjson","MAGIC_THE_GATHERING","English")
+    assert magic[0].expected_rows==153679
+    assert magic[0].manifest_sha==(
+        "e3bda5f54affe0055ec64d7ffb943cb5cae23df8108e74f29e250f7ec63e662a")
+    assert sum(s.expected_rows for s in runner.SOURCES)==155505
+
+
+def test_followon_actual_d1_write_job_needs_exact_commit_and_run_approval():
+    workflow=(Path(__file__).resolve().parents[1]/
+        ".github/workflows/d1-followon-r2-shadow.yml").read_text()
+    assert "vars.DR_D1_FOLLOWON_IMPORT_APPROVED_SHA == github.sha" in workflow
+    assert "vars.DR_D1_FOLLOWON_IMPORT_APPROVED_RUN_ID == github.run_id" in workflow
+    assert 'doc.get("verified_d1_rows")==155505' in workflow
+    # It remains isolated and does not enable a production catalogue route.
+    assert "id-token: write" in workflow
+    assert "production_reads_switched" in workflow
+
