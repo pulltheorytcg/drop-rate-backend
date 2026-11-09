@@ -149,7 +149,7 @@ def test_source_change_mid_migration_fails_without_a_new_generation_or_writes():
                    client=client,now=datetime(2026,11,6,tzinfo=timezone.utc))
     staged_before=FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]
     changed,_=fixture(name_prefix="Changed-source")
-    with changed, pytest.raises(MigrationGuard, match="differs"):
+    with changed, pytest.raises(MigrationGuard, match="identities changed"):
         runner.run("a"*32,"dummy-test-token","1103","1",
                    client=changed,now=datetime(2026,11,7,tzinfo=timezone.utc))
     assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]==staged_before
