@@ -84,9 +84,21 @@ jobs:
                           "reference_sealed_products":3893,
                           "catalogue_products":2062,
                           "catalogue_product_profiles":2062}
+                  expected_family_language={
+                      "POKEMON_TCG:English":23912,
+                      "POKEMON_TCG:Japanese":13156,
+                      "ONE_PIECE_CARD_GAME:English":4527,
+                      "ONE_PIECE_CARD_GAME:Japanese":4480,
+                      "DRAGON_BALL_SUPER_MASTERS:English":9031,
+                      "DRAGON_BALL_SUPER_FUSION_WORLD:English":4365,
+                      "DRAGON_BALL_SUPER_FUSION_WORLD:Japanese":3230,
+                      "NARUTO_BANDAI_LEGACY:Unknown":4487,
+                      "NARUTO_KAYOU:Unknown":2679,
+                  }
                   got=data.get("verified_relations")
                   verified=(isinstance(got,dict)
-                            and {k:v.get("rows") for k,v in got.items()}==counts)
+                            and {k:v.get("rows") for k,v in got.items()}==counts
+                            and data.get("verified_game_language_counts")==expected_family_language)
                   if (data.get("status")=="LEGACY_R2_SOURCE_PREPARED_FOR_D1"
                       and verified and data.get("source_rows_verified")==79357
                       and data.get("r2_parts_verified")==161
