@@ -10,7 +10,10 @@ on:
     branches: ['main']
     paths:
       - 'tools/d1_operational_financial_integrity.py'
-      - '.github/workflows/d1-operational-financial-integrity.yml'
+  # Run ONCE each UTC day after Cloudflare's Free read quota resets at 00:00,
+  # but before the existing 03:17 UTC Yu-Gi-Oh importer. No quota retries.
+  schedule:
+    - cron: '17 0 * * *'
   workflow_dispatch:
 
 permissions:
