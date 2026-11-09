@@ -60,7 +60,7 @@ def legacy_fixture(*, changed=False, corrupt=False):
         })
         payloads.append(raw)
     manifest={
-        "schema":codec.SCHEMA,"generation":122500,
+        "schema":codec.SCHEMA,"generation":preflight.EXPECTED_GENERATION,
         "counts":{k:len(v) for k,v in one.items()},
         "parts":parts,
         "raw_bytes":sum(p["raw_bytes"] for p in parts),
@@ -92,6 +92,7 @@ def little_source(monkeypatch):
     monkeypatch.setattr(preflight,"EXPECTED_PARTS",len(manifest["parts"]))
     monkeypatch.setattr(preflight,"EXPECTED_COUNTS",manifest["counts"])
     monkeypatch.setattr(preflight,"EXPECTED_RAW_BYTES",manifest["raw_bytes"])
+    monkeypatch.setattr(preflight,"EXPECTED_MANIFEST_SHA",codec.manifest_digest(manifest))
     monkeypatch.setattr(preflight,"_oidc_token",lambda:"signed-test")
     client.close()
 
@@ -110,6 +111,13 @@ def test_five_legacy_relations_are_exactly_verified():
     assert proof["d1_writes"]==0 and proof["market_value_writes"]==0
     assert proof["owner_and_settlement_writes"]==0
     assert not proof["production_reads_switched"]
+
+
+def test_wrong_immutable_manifest_sha_is_blocked_without_d1(monkeypatch):
+    client,_=legacy_fixture()
+    monkeypatch.setattr(preflight,"EXPECTED_MANIFEST_SHA","0"*64)
+    with client,pytest.raises(MigrationGuard,match="changed"):
+        preflight.audit_legacy_source(client=client)
 
 
 def test_any_corrupt_r2_part_is_blocked():
