@@ -76,15 +76,17 @@ def fake_cloud(monkeypatch):
     FakeD1.conn = None
 
 
-def fixture(count=23, *, tamper=False, name_prefix="Real-shaped"):
+def fixture(count=23, *, tamper=False, name_prefix="Real-shaped",
+            renamed_indices=(), rarity="Common", set_id="TST"):
     rows = []
     for i in range(count):
         rows.append({
             "provider":"ygoprodeck", "system_code":"YUGIOH", "language":"English",
             "provider_id":f"ygoprodeck:fixture-{i:05d}",
-            "product_type":"CARD", "name":f"{name_prefix} Yu-Gi-Oh {i}",
-            "set_id":"TST", "set_name":"Synthetic Yu-Gi-Oh",
-            "card_number":f"{i:04d}", "rarity":"Common", "finish":None,
+            "product_type":"CARD",
+            "name":f"{'Revised' if i in renamed_indices else name_prefix} Yu-Gi-Oh {i}",
+            "set_id":set_id, "set_name":"Synthetic Yu-Gi-Oh",
+            "card_number":f"{i:04d}", "rarity":rarity, "finish":None,
             "release_date":"2026-01-01",
             "source_url":"https://db.ygoprodeck.com/api/v7/cardinfo.php",
         })
@@ -148,7 +150,7 @@ def test_source_change_mid_migration_fails_without_a_new_generation_or_writes():
         runner.run("a"*32,"dummy-test-token","1102","1",
                    client=client,now=datetime(2026,11,6,tzinfo=timezone.utc))
     staged_before=FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]
-    changed,_=fixture(name_prefix="Changed-source")
+    changed,_=fixture(rarity="Rare")
     with changed, pytest.raises(MigrationGuard, match="identities changed") as drift:
         runner.run("a"*32,"dummy-test-token","1103","1",
                    client=changed,now=datetime(2026,11,7,tzinfo=timezone.utc))
@@ -184,12 +186,111 @@ def test_new_verified_r2_source_growth_retains_older_partial_generation():
     assert FakeD1.conn.execute("select count(*) from shadow_daily_write_budget").fetchone()[0] == 5
 
 
+
+def test_verified_three_name_corrections_create_new_immutable_generation(capsys):
+    old,_=fixture()
+    with old:
+        result=runner.run("a"*32,"dummy-test-token","1230","1",client=old,
+                          now=datetime(2026,11,6,tzinfo=timezone.utc))
+    assert result["d1_staged_rows"]==7
+    old_sha=FakeD1.conn.execute("select manifest_sha from shadow_generations").fetchone()[0]
+    original_row=FakeD1.conn.execute(
+        "select card_key,name from shadow_cards where manifest_sha=? order by card_key limit 1",
+        (old_sha,)).fetchone()
+    old_key,original_name=original_row["card_key"],original_row["name"]
+    retained_ids={
+        int(row[0].rsplit("-",1)[-1]) for row in FakeD1.conn.execute(
+            "select provider_id from shadow_cards where manifest_sha=? "
+            "order by card_key limit 3",(old_sha,)).fetchall()
+    }
+    assert len(retained_ids)==3
+    corrected,_=fixture(count=24,renamed_indices=retained_ids)
+    with corrected:
+        first=runner.run("a"*32,"dummy-test-token","1231","1",client=corrected,
+                         now=datetime(2026,11,7,tzinfo=timezone.utc))
+        assert first["status"]=="YUGIOH_D1_SHADOW_PARTIAL_VERIFIED"
+        assert first["d1_staged_rows"]==7
+        event=capsys.readouterr().out
+        assert "YUGIOH_RETAINED_NAME_ONLY_CORRECTIONS_VERIFIED" in event
+        assert '"changed_rows": 3' in event
+        assert '"name": 3' in event and '"name_fold": 3' in event
+        assert "Revised Yu-Gi-Oh" not in event
+        assert "ygoprodeck:fixture-" not in event
+        current_sha=FakeD1.conn.execute(
+            "select manifest_sha from shadow_generations where manifest_sha!=?",
+            (old_sha,)).fetchone()[0]
+        assert FakeD1.conn.execute(
+            "select name from shadow_cards where manifest_sha=? order by card_key limit 1",
+            (old_sha,)).fetchone()[0]==original_name
+        assert FakeD1.conn.execute(
+            "select name from shadow_cards where manifest_sha=? and card_key=?",
+            (current_sha,old_key)).fetchone()[0].startswith("Revised ")
+        assert FakeD1.conn.execute(
+            "select count(*) from shadow_live_cards").fetchone()[0]==0
+        for date,amount in [(8,14),(9,21),(10,24)]:
+            result=runner.run("a"*32,"dummy-test-token","1232","1",client=corrected,
+                              now=datetime(2026,11,date,tzinfo=timezone.utc))
+            assert result.get("d1_staged_rows",result.get("d1_verified_rows"))==amount
+        assert result["status"]=="REAL_R2_YUGIOH_TO_ISOLATED_D1_VERIFIED"
+        assert result["no_public_catalogue_cutover"] is True
+        assert result["market_value_writes"]==0
+        assert result["owner_and_settlement_writes"]==0
+        assert FakeD1.conn.execute(
+            "select count(*) from shadow_live_cards").fetchone()[0]==24
+    assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]==31
+    assert FakeD1.conn.execute(
+        "select name from shadow_cards where manifest_sha=? order by card_key limit 1",
+        (old_sha,)).fetchone()[0]==original_name
+
+
+def test_bad_name_fold_never_creates_new_generation():
+    old,_=fixture()
+    with old:
+        runner.run("a"*32,"dummy-test-token","1233","1",client=old,
+                   now=datetime(2026,11,6,tzinfo=timezone.utc))
+    FakeD1.conn.execute(
+        "update shadow_cards set name_fold='INVALID' "
+        "where card_key=(select card_key from shadow_cards order by card_key limit 1)")
+    before=FakeD1.mutations
+    retained_ids={
+        int(row[0].rsplit("-",1)[-1]) for row in FakeD1.conn.execute(
+            "select provider_id from shadow_cards order by card_key limit 3").fetchall()
+    }
+    corrected,_=fixture(count=24,renamed_indices=retained_ids)
+    with corrected,pytest.raises(MigrationGuard,match="normalization mismatch"):
+        runner.run("a"*32,"dummy-test-token","1234","1",client=corrected,
+                   now=datetime(2026,11,7,tzinfo=timezone.utc))
+    assert FakeD1.mutations==before
+    assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0]==1
+
+
+def test_bulk_name_changes_fail_closed_without_a_new_generation():
+    old,_=fixture()
+    with old:
+        for d in (6,7):
+            runner.run("a"*32,"dummy-test-token","1235","1",client=old,
+                       now=datetime(2026,11,d,tzinfo=timezone.utc))
+    before=FakeD1.mutations
+    changed_ids={
+        int(row[0].rsplit("-",1)[-1]) for row in FakeD1.conn.execute(
+            "select provider_id from shadow_cards order by card_key limit 14").fetchall()
+    }
+    assert len(changed_ids)==14
+    corrected,_=fixture(count=24,renamed_indices=changed_ids)
+    with corrected,pytest.raises(MigrationGuard,match="manual review required") as drift:
+        runner.run("a"*32,"dummy-test-token","1236","1",client=corrected,
+                   now=datetime(2026,11,8,tzinfo=timezone.utc))
+    assert '"changed_rows": 14' in str(drift.value)
+    assert FakeD1.mutations==before
+    assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0]==1
+
+
 def test_changed_existing_identity_blocks_source_growth_without_overwrite():
     old,_ = fixture()
     with old:
         runner.run("a"*32,"dummy-test-token","1202","1",
             client=old,now=datetime(2026,11,6,tzinfo=timezone.utc))
-    changed,_ = fixture(count=24,name_prefix="Source-renamed")
+    changed,_ = fixture(count=24,set_id="REVISED")
     with changed, pytest.raises(MigrationGuard,match="identities changed") as drift:
         runner.run("a"*32,"dummy-test-token","1203","1",
             client=changed,now=datetime(2026,11,7,tzinfo=timezone.utc))
@@ -197,9 +298,9 @@ def test_changed_existing_identity_blocks_source_growth_without_overwrite():
     assert '"retained_rows": 7' in diagnostic
     assert '"missing_keys": 0' in diagnostic
     assert '"changed_rows": 7' in diagnostic
-    assert '"name": 7' in diagnostic and '"name_fold": 7' in diagnostic
+    assert '"set_id": 7' in diagnostic
     assert "ygoprodeck:fixture-" not in diagnostic
-    assert "Source-renamed" not in diagnostic
+    assert "REVISED" not in diagnostic
     assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0]==1
     assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]==7
     assert FakeD1.conn.execute("select count(*) from shadow_live_cards").fetchone()[0]==0
