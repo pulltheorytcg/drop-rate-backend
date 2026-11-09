@@ -33,6 +33,7 @@ MAX_ROWS = 50_000
 MAX_SOURCE_BYTES = 30_000_000
 MAX_SOURCE_PARTS = 128
 DAILY_NEW_ROWS = 8_000
+MAX_REVIEWED_NAME_ONLY_CORRECTIONS = 10
 MAX_D1_DATABASES = 9
 REPORT_FILE = "d1-yugioh-real-shadow-report.json"
 
@@ -89,10 +90,11 @@ def _database(client: D1Client):
 def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
     """Retain an older partial generation when the reviewed R2 source grows.
 
-    Never relabel rows under a new source hash. A changed, removed or malformed
-    previously staged card blocks the refresh until reviewed. All existing rows
-    remain immutable and each current-source row is independently written and
-    checked under the current manifest. At most two generations may coexist.
+    Never relabel rows under a new source hash. Only up to ten verified,
+    name/name_fold-only corrections in staged cards can pass the bounded guard;
+    missing keys or all other changed fields block. Old rows stay immutable,
+    and every current-source row must still be staged and checksum-verified
+    under the new manifest. At most two generations may coexist.
     """
     rows = _query(cloud, dbid,
                   """select manifest_sha,provider,system_code,language,expected_rows,
@@ -164,8 +166,10 @@ def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
         if len(seen) != count:
             raise MigrationGuard("Retained Yu-Gi-Oh readback count mismatch")
         if missing_keys or changed_rows:
-            # This is diagnostic evidence, not an approval to rewrite the old
-            # generation or to publish the new one. Fail before D1 INSERT.
+            # Immutable source evidence may legitimately correct a card name.
+            # Only the coupled name/name_fold pair is eligible. Never reuse
+            # or mutate old rows, permit changed keys, or relax other fields.
+            # Require a *small* reviewed correction set, not mass renames.
             safe_counts = {
                 "source_rows": source.expected_rows,
                 "retained_rows": count,
@@ -173,10 +177,36 @@ def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
                 "changed_rows": changed_rows,
                 "changed_fields": dict(sorted(changed_columns.items())),
             }
-            raise MigrationGuard(
-                "Old Yu-Gi-Oh identities changed; manual review required: "
-                + json.dumps(safe_counts, sort_keys=True)
+            name_only = (
+                missing_keys == 0
+                and 0 < changed_rows <= MAX_REVIEWED_NAME_ONLY_CORRECTIONS
+                and changed_columns == {
+                    "name": changed_rows, "name_fold": changed_rows
+                }
             )
+            if not name_only:
+                raise MigrationGuard(
+                    "Old Yu-Gi-Oh identities changed; manual review required: "
+                    + json.dumps(safe_counts, sort_keys=True)
+                )
+            # Validate derived search values in *both* generations. A source
+            # normalization discrepancy is not an authorized display rename.
+            for offset in range(0, count, 100):
+                old_rows = _query(cloud, dbid, D1_READBACK_SQL,
+                                  (old_sha, min(100, count-offset), offset))
+                for old_row in old_rows:
+                    current_row = wanted[old_row["card_key"]]
+                    if (type(old_row["name"]) is not str
+                            or type(old_row["name_fold"]) is not str
+                            or old_row["name_fold"] != old_row["name"].casefold()
+                            or type(current_row[7]) is not str
+                            or type(current_row[8]) is not str
+                            or current_row[8] != current_row[7].casefold()):
+                        raise MigrationGuard(
+                            "Yu-Gi-Oh name search normalization mismatch; no D1 refresh"
+                        )
+            print("YUGIOH_RETAINED_NAME_ONLY_CORRECTIONS_VERIFIED "
+                  + json.dumps(safe_counts, sort_keys=True), flush=True)
     statement = codec.generation_statement(source)
     _query(cloud, dbid, statement["sql"], statement["params"])
     return rows + [dict(zip(columns, expected))]
