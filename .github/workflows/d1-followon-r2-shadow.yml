@@ -93,9 +93,9 @@ jobs:
                   and doc.get("market_value_writes")==0):
                   status=doc.get("status")
                   if (status=="ALL_FOLLOWON_R2_FIRST_SOURCES_VERIFIED"
-                      and doc.get("verified_d1_rows")==155488):
+                      and doc.get("verified_d1_rows")==155505):
                       state="success"
-                      description="155,488 remaining R2-first references fully verified in D1"
+                      description="155,505 remaining R2-first references fully verified in D1"
                   elif status=="FOLLOWON_WAITING_FOR_YUGIOH_OR_DAILY_WINDOW":
                       rows=doc.get("yugioh_staged_rows")
                       expected=doc.get("yugioh_source_rows")
