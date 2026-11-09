@@ -44,6 +44,37 @@ class PilotError(RuntimeError):
     """A configuration, safety, Cloudflare API or validation failure."""
 
 
+def classify_cloudflare_http_error(exc: error.HTTPError) -> str:
+    """Return an allowlisted category only: never log provider SQL or values.
+
+    D1 may use HTTP 400 for depleted per-account daily quotas, missing schema,
+    or a malformed statement. The fixed category is diagnostic evidence only,
+    never permission to relax limits, automatically retry writes or upgrade.
+    """
+    try:
+        payload=json.loads(exc.read(8192))
+        failures=payload.get("errors",[]) if isinstance(payload,dict) else []
+        descriptions=" ".join(
+            str(item.get("message","")).casefold()[:2048]
+            for item in failures[:8] if isinstance(item,dict)
+        )
+    except (ValueError,UnicodeError,TypeError,AttributeError):
+        return "UNCLASSIFIED"
+    categories=(
+        ("daily row read limit","DAILY_ROW_READ_LIMIT"),
+        ("daily row write limit","DAILY_ROW_WRITE_LIMIT"),
+        ("no such table","SCHEMA_TABLE_MISSING"),
+        ("no such column","SCHEMA_COLUMN_MISSING"),
+        ("too many requests queued","D1_OVERLOADED"),
+        ("too long","D1_OVERLOADED"),
+        ("maximum account storage limit","ACCOUNT_STORAGE_LIMIT"),
+    )
+    for phrase,category in categories:
+        if phrase in descriptions:
+            return category
+    return "UNCLASSIFIED"
+
+
 def validate_account_id(value: str) -> str:
     if not re.fullmatch(r"[a-fA-F0-9]{32}", value):
         raise PilotError("CLOUDFLARE_ACCOUNT_ID must be a 32-character hex account ID")
@@ -71,8 +102,10 @@ class D1Client:
             with request.urlopen(req, timeout=25) as response:
                 result = json.load(response)
         except error.HTTPError as exc:
-            # Do not include response bodies or credentials in CI logs.
-            raise PilotError(f"Cloudflare D1 HTTP {exc.code}; check token scope/account ID") from None
+            # Interpret only fixed error classes. Never include Cloudflare's
+            # free-form message, SQL, private row values or access token.
+            reason=classify_cloudflare_http_error(exc)
+            raise PilotError(f"Cloudflare D1 HTTP {exc.code}; category={reason}") from None
         except (error.URLError, TimeoutError, ValueError) as exc:
             raise PilotError(f"Cloudflare D1 request/response failed: {type(exc).__name__}") from None
         if not isinstance(result, dict) or not result.get("success"):
