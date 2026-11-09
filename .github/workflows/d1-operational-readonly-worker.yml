@@ -1,0 +1,34 @@
+name: Private D1 operational owner-inventory read bridge — offline security only
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/operational-readonly/**'
+      - 'tests/cloudflare_operational_readonly.test.mjs'
+      - '.github/workflows/d1-operational-readonly-worker.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'cloudflare/operational-readonly/**'
+      - 'tests/cloudflare_operational_readonly.test.mjs'
+      - '.github/workflows/d1-operational-readonly-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-signed-read-access-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify HMAC, scope, freshness, generation receipt, and zero writes
+        run: node --test tests/cloudflare_operational_readonly.test.mjs
+      - name: Verify code parses as an ESM Cloudflare Worker
+        run: node --check cloudflare/operational-readonly/worker.mjs
+
+# Deliberately NO production GitHub environment, Wrangler release, D1 token,
+# Cloudflare API call, Railway change, Supabase query or deploy step.
