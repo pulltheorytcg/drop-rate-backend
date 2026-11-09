@@ -21,6 +21,7 @@ class FakeD1:
     last=None
     corrupt=False
     existing=[]
+    keyset_queries=0
 
     def __init__(self,account,token):
         assert account=="a"*32
@@ -47,12 +48,13 @@ class FakeD1:
     def query(self,uuid,sql,params=()):
         assert not sql.lstrip().lower().startswith('pragma'), "D1 REST rejects size PRAGMAs"
         assert uuid=="12345678-1234-1234-1234-1234567890ab"
-        if "from shadow_cards" in sql.lower() and "order by card_key" in sql.lower():
-            # This primary-source importer has no business burning the
-            # Cloudflare daily row-read quota on growing OFFSET pagination.
+        if sql == runner.D1_KEYSET_READBACK_SQL:
             assert "offset" not in sql.lower()
             assert "card_key>?" in sql.lower()
             assert len(params)==3
+            type(self).keyset_queries += 1
+        # Legacy Lorcana generation-refresh reads still use the original
+        # OFFSET statement. This patch changes exact full-source parity only.
         cur=self.connection.execute(sql,params)
         rows=[dict(row) for row in cur.fetchall()] if cur.description else []
         if self.corrupt and "from shadow_cards where manifest_sha=" in sql and "order by card_key" in sql:
@@ -108,6 +110,7 @@ def test_verified_projection_uses_primary_key_cursor():
 
 def test_full_real_r2_to_isolated_d1_readback(monkeypatch):
     FakeD1.created=0;FakeD1.corrupt=False;FakeD1.existing=[]
+    FakeD1.keyset_queries=0
     monkeypatch.setattr(runner,"D1Client",FakeD1)
     monkeypatch.setattr(runner,"_oidc_token",lambda:"fake-oidc")
     manifest_bytes,parts,manifest=fixture()
@@ -115,6 +118,7 @@ def test_full_real_r2_to_isolated_d1_readback(monkeypatch):
         result=runner.import_real_lorcana("a"*32,"dummy-d1-token","12345","1",client=client)
     assert result["status"]=="REAL_R2_LORCANA_TO_ISOLATED_D1_VERIFIED"
     assert result["source_rows"]==result["d1_verified_rows"]==1002
+    assert FakeD1.keyset_queries >= 11  # 1,002 verified rows / 100-page cursor
     assert result["r2_source_manifest_sha"]==hashlib.sha256(manifest_bytes).hexdigest()
     assert result["production_money_or_owner_writes"]==0
     assert result["production_market_value_writes"]==0
