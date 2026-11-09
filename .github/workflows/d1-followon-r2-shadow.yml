@@ -94,9 +94,11 @@ jobs:
                       description="155,488 remaining R2-first references fully verified in D1"
                   elif status=="FOLLOWON_WAITING_FOR_YUGIOH_OR_DAILY_WINDOW":
                       rows=doc.get("yugioh_staged_rows")
-                      if type(rows) is int and 0<=rows<=45418:
+                      expected=doc.get("yugioh_source_rows")
+                      if (type(expected) is int and 45418<=expected<=50000
+                          and type(rows) is int and 0<=rows<=expected):
                           state="pending"
-                          description=f"Waiting for full YGO D1 parity ({rows}/45418)"
+                          description=f"Waiting for full YGO D1 parity ({rows}/{expected})"
                   elif status in (
                       "FOLLOWON_R2_PARTITION_PARTIAL_STAGED",
                       "FOLLOWON_R2_PARTITION_FULLY_VERIFIED"):
