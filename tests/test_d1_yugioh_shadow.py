@@ -194,9 +194,10 @@ def test_verified_three_name_corrections_create_new_immutable_generation(capsys)
                           now=datetime(2026,11,6,tzinfo=timezone.utc))
     assert result["d1_staged_rows"]==7
     old_sha=FakeD1.conn.execute("select manifest_sha from shadow_generations").fetchone()[0]
-    original_name=FakeD1.conn.execute(
-        "select name from shadow_cards where manifest_sha=? order by card_key limit 1",
-        (old_sha,)).fetchone()[0]
+    original_row=FakeD1.conn.execute(
+        "select card_key,name from shadow_cards where manifest_sha=? order by card_key limit 1",
+        (old_sha,)).fetchone()
+    old_key,original_name=original_row["card_key"],original_row["name"]
     retained_ids={
         int(row[0].rsplit("-",1)[-1]) for row in FakeD1.conn.execute(
             "select provider_id from shadow_cards where manifest_sha=? "
@@ -222,8 +223,8 @@ def test_verified_three_name_corrections_create_new_immutable_generation(capsys)
             "select name from shadow_cards where manifest_sha=? order by card_key limit 1",
             (old_sha,)).fetchone()[0]==original_name
         assert FakeD1.conn.execute(
-            "select name from shadow_cards where manifest_sha=? order by card_key limit 1",
-            (current_sha,)).fetchone()[0].startswith("Revised ")
+            "select name from shadow_cards where manifest_sha=? and card_key=?",
+            (current_sha,old_key)).fetchone()[0].startswith("Revised ")
         assert FakeD1.conn.execute(
             "select count(*) from shadow_live_cards").fetchone()[0]==0
         for date,amount in [(8,14),(9,21),(10,24)]:
