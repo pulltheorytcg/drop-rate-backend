@@ -11,7 +11,8 @@ import os
 from pathlib import Path
 
 from d1_remote_catalogue_pilot import D1Client, PilotError
-from d1_r2_real_shadow import _query, MigrationGuard
+from d1_r2_real_shadow import MigrationGuard
+from d1_followon_r2_shadow import _yugioh_source_gate
 
 ACCOUNT = "e4d4b363540e991048d2e1812d5ef53e"
 YGO = "drop-rate-d1-real-yugioh-shadow"
@@ -82,29 +83,15 @@ def inspect_capacity(account: str, token: str):
         if name == YGO:
             ygo = uuid
 
-    ygo_rows = 0
-    ygo_complete = False
-    if ygo is not None:
-        ygo_rows = _one_scalar(
-            cloud, ygo,
-            "select count(*) as n from shadow_cards where manifest_sha='"
-            + YGO_MANIFEST_SHA + "'",
-            "n",
-        )
-        if ygo_rows > YGO_TOTAL:
-            raise MigrationGuard("YGO D1 staged source exceeds original published count")
-        pointers = _query(
-            cloud, ygo,
-            "select manifest_sha from shadow_active_partitions "
-            "where provider=? and system_code=? and language=?", YGO_SCOPE,
-        )
-        ygo_complete = (
-            ygo_rows == YGO_TOTAL
-            and len(pointers) == 1
-            and pointers[0].get("manifest_sha") == YGO_MANIFEST_SHA
-        )
-        if pointers and not ygo_complete:
-            raise MigrationGuard("YGO D1 active generation disagrees with source")
+    # Read the current verified D1 generation, never an obsolete immutable SHA.
+    # Even if Yu-Gi-Oh finished writing today, capacity can report parity;
+    # follow-on staging independently enforces the next-day quota boundary.
+    selected = _yugioh_source_gate(
+        cloud, {row["name"]: row["uuid"] for row in visible}
+    )
+    ygo_rows = selected["count"]
+    ygo_total = selected["source_rows"]
+    ygo_complete = selected["ready"]
 
     # This is only a *preflight*. It cannot certify account-wide daily D1
     # rows already consumed by other applications or account plan. Never
@@ -123,7 +110,7 @@ def inspect_capacity(account: str, token: str):
         "free_plan_single_database_max_bytes": FREE_MAX_DB_BYTES,
         "has_space_for_one_new_database_by_count": room_for_one,
         "existing_database_storage_under_safety_threshold": storage_safe,
-        "yugioh_source_rows": YGO_TOTAL,
+        "yugioh_source_rows": ygo_total,
         "yugioh_staged_rows": ygo_rows,
         "yugioh_full_active_parity": ygo_complete,
         "subsequent_import_allowed_by_static_readiness": (
