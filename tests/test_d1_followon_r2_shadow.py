@@ -1,4 +1,4 @@
-"""Offline contract for the entire post-Yu-Gi-Oh R2-first D1 queue."""
+"""Offline contract for independently gated Magic/sports/figures private D1."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -176,30 +176,52 @@ def day(n):
     return datetime(2026,11,n,tzinfo=timezone.utc)
 
 
-def test_no_ygo_full_parity_means_no_database_creation_or_r2_import():
+def test_incomplete_yugioh_does_not_block_independent_magic_source_stage(monkeypatch):
     FakeCloud.complete=False
-    http,pinned=fixtures()
+    http,pinned=fixtures(specs=(("sports",13),))
+    monkeypatch.setattr(runner,"SOURCES",pinned)
     with http:
         result=runner.run(runner.ACCOUNT,"scoped-test-token","123","1",http=http,now=day(6))
-    assert result["status"]=="FOLLOWON_WAITING_FOR_YUGIOH_OR_DAILY_WINDOW"
-    assert result["yugioh_staged_rows"]==8000
-    assert FakeCloud.created==0 and FakeCloud.writes==0
+    assert result["status"]=="FOLLOWON_R2_PARTITION_PARTIAL_STAGED"
+    assert result["d1_staged_rows"]==6
+    assert result["production_reads_switched"] is False
+    assert FakeCloud.created==1 and FakeCloud.writes>0
 
 
 
 
-def test_old_complete_yugioh_does_not_release_queue_when_newer_generation_pending():
+def test_pending_new_yugioh_generation_cannot_hide_independent_source_proof(monkeypatch):
     FakeCloud.new_source=True
     FakeCloud.new_source_complete=False
     FakeCloud.new_source_active=False
-    http,pinned=fixtures()
+    http,pinned=fixtures(specs=(("sports",13),))
+    monkeypatch.setattr(runner,"SOURCES",pinned)
     with http:
         report=runner.run(runner.ACCOUNT,"scoped-test-token","123","1",
                           http=http,now=day(6))
-    assert report["status"]=="FOLLOWON_WAITING_FOR_YUGIOH_OR_DAILY_WINDOW"
-    assert report["reason"]=="YGO_NEWER_GENERATION_PENDING"
-    assert report["yugioh_staged_rows"]==16000
-    assert report["yugioh_source_rows"]==runner.YGO_EXPECTED+1
+    assert report["status"]=="FOLLOWON_R2_PARTITION_PARTIAL_STAGED"
+    assert report["d1_staged_rows"]==6
+    assert FakeCloud.created==1 and FakeCloud.writes>0
+
+
+def test_yugioh_database_can_be_absent_without_blocking_other_sources(monkeypatch):
+    FakeCloud.names=[]
+    http,pinned=fixtures(specs=(("sports",13),))
+    monkeypatch.setattr(runner,"SOURCES",pinned)
+    with http:
+        result=runner.run(runner.ACCOUNT,"scoped-test-token","777","1",
+                          http=http,now=day(6))
+    assert result["status"]=="FOLLOWON_R2_PARTITION_PARTIAL_STAGED"
+    assert result["d1_staged_rows"]==6
+    assert FakeCloud.created==1
+
+
+def test_corrupted_yugioh_daily_receipt_fails_closed_before_other_d1_write():
+    FakeCloud.yugioh_day="invalid/unknown"
+    http,_=fixtures()
+    with http,pytest.raises(MigrationGuard,match="daily write receipts"):
+        runner.run(runner.ACCOUNT,"scoped-test-token","778","1",
+                   http=http,now=day(6))
     assert FakeCloud.created==0 and FakeCloud.writes==0
 
 
@@ -217,14 +239,20 @@ def test_latest_yugioh_generation_can_release_queue_when_fully_active(monkeypatc
     assert FakeCloud.created==1 and FakeCloud.writes>0
 
 
-def test_new_active_yugioh_pointer_with_partial_rows_blocks():
+def test_corrupt_yugioh_active_pointer_is_still_diagnosable_but_not_used_as_followon_source(monkeypatch):
     FakeCloud.new_source=True
     FakeCloud.new_source_complete=False
     FakeCloud.new_source_active=True
-    http,pinned=fixtures()
-    with http,pytest.raises(MigrationGuard,match="active pointer is inconsistent"):
-        runner.run(runner.ACCOUNT,"scoped-test-token","123","1",http=http,now=day(6))
-    assert FakeCloud.created==0 and FakeCloud.writes==0
+    cloud=FakeCloud(runner.ACCOUNT,"scoped-test-token")
+    with pytest.raises(MigrationGuard,match="active pointer is inconsistent"):
+        runner._yugioh_source_gate(cloud,runner._listed(cloud))
+    http,pinned=fixtures(specs=(("sports",13),))
+    monkeypatch.setattr(runner,"SOURCES",pinned)
+    with http:
+        result=runner.run(runner.ACCOUNT,"scoped-test-token","123","1",
+                          http=http,now=day(6))
+    assert result["status"]=="FOLLOWON_R2_PARTITION_PARTIAL_STAGED"
+    assert FakeCloud.created==1
 
 def test_same_day_as_yugioh_completion_is_always_blocked():
     FakeCloud.yugioh_day="2026-11-06"
@@ -325,6 +353,12 @@ def test_workflow_has_one_daily_main_writer_and_no_escaped_secrets():
     assert "cron: '49 3 * * *'" in wf
     assert "CLOUDFARE_D1_PILOT_TOKEN: "+"${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}" in wf
     assert (chr(92)+"${{") not in wf
+    assert "vars.DR_D1_FOLLOWON_IMPORT_APPROVED_SHA == github.sha" in wf
+    assert "vars.DR_D1_FOLLOWON_IMPORT_APPROVED_RUN_ID == github.run_id" in wf
+    assert "group: drop-rate-d1-catalogue-private-single-writer" in wf
+    for related in ("d1-legacy-r2-shadow.yml","d1-yugioh-r2-shadow.yml"):
+        other=(Path(__file__).resolve().parents[1]/".github/workflows"/related).read_text()
+        assert "group: drop-rate-d1-catalogue-private-single-writer" in other
 
 
 def test_d1_capacity_uses_database_detail_not_unsupported_sql_pragmas(monkeypatch):
