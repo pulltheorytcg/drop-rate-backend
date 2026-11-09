@@ -149,9 +149,10 @@ def test_source_change_mid_migration_fails_without_a_new_generation_or_writes():
                    client=client,now=datetime(2026,11,6,tzinfo=timezone.utc))
     staged_before=FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]
     changed,_=fixture(name_prefix="Changed-source")
-    with changed, pytest.raises(MigrationGuard, match="identities changed"):
+    with changed, pytest.raises(MigrationGuard, match="identities changed") as drift:
         runner.run("a"*32,"dummy-test-token","1103","1",
                    client=changed,now=datetime(2026,11,7,tzinfo=timezone.utc))
+    assert '"changed_rows": 7' in str(drift.value)
     assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]==staged_before
     assert FakeD1.conn.execute("select count(*) from shadow_active_partitions").fetchone()[0]==0
 
@@ -189,9 +190,16 @@ def test_changed_existing_identity_blocks_source_growth_without_overwrite():
         runner.run("a"*32,"dummy-test-token","1202","1",
             client=old,now=datetime(2026,11,6,tzinfo=timezone.utc))
     changed,_ = fixture(count=24,name_prefix="Source-renamed")
-    with changed,pytest.raises(MigrationGuard,match="identities changed"):
+    with changed, pytest.raises(MigrationGuard,match="identities changed") as drift:
         runner.run("a"*32,"dummy-test-token","1203","1",
             client=changed,now=datetime(2026,11,7,tzinfo=timezone.utc))
+    diagnostic = str(drift.value)
+    assert '"retained_rows": 7' in diagnostic
+    assert '"missing_keys": 0' in diagnostic
+    assert '"changed_rows": 7' in diagnostic
+    assert '"name": 7' in diagnostic and '"name_fold": 7' in diagnostic
+    assert "ygoprodeck:fixture-" not in diagnostic
+    assert "Source-renamed" not in diagnostic
     assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0]==1
     assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]==7
     assert FakeD1.conn.execute("select count(*) from shadow_live_cards").fetchone()[0]==0

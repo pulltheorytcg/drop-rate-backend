@@ -1,3 +1,9 @@
+## 9 November 2026 — Protected Yu-Gi-Oh source-drift column diagnostic (CI/live pending)
+
+- Existing approved main-branch importer at 00:30 UTC failed safely on independently verified R2 source count growth beyond the 8 November 45,418-row checkpoint; the merged source-growth importer (#1015) then failed safely at 00:32 UTC on changed previously staged D1 identity fields. Neither run writes changed source identities or switches production routes. Source Supabase remains authoritative.
+- Add a strictly read-only, aggregated per-column difference diagnosis for previously staged Yu-Gi-Oh D1 records versus the newly verified R2 source: source row count, retained row count, missing stable keys, changed row count and column-name counts. No actual card IDs, values, provider data, token or per-card differences are logged. Any change still raises and blocks new D1 generation creation; existing 24,000 staged rows and prior pointers stay untouched.
+- Offline regression asserts precise aggregate counts, absence of sample card identities/names, and zero additional D1 writes after drift detection. CI/production receipt pending; acceptance requires diagnostic evidence, then a separately reviewed policy for any permitted display-metadata changes. No automatic ownership/price/financial changes.
+
 ## 9 November 2026 — D1 capacity status follows verified source count
 
 - Corrected the read-only Cloudflare capacity GitHub status publisher so it takes `yugioh_source_rows` from the verified D1 capacity report instead of assuming immutable 45,418 rows. Strict range/type and no-write guards remain; a newer partially staged generation is correctly PENDING rather than falsely FAILED or prematurely green.
