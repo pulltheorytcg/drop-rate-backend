@@ -24,3 +24,56 @@ Disposable SQLite simulations exercise exact fields and hashes, source IDs/Store
 Rollback: disable/stop the existing staging workflow; production continues using its existing Supabase path. Prior D1 generations and their replay journal/checkpoints remain available. No source deletions or destructive D1 rollback are part of this release. Never remove the 400 MB safeguard or copy source passwords/sessions as part of catch-up.
 
 Cloudflare documents transactional batch rollback in https://developers.cloudflare.com/d1/worker-api/d1-database/ . No operational financial cutover is authorised by a successful shadow replay.
+
+
+## 9 November — interrupted recovery across UTC midnight
+
+Offline reproduction found that a failed stage reserved on day one could retry
+with unchanged source rows on day two, mint a second reservation and report
+verified replay with different generation/checkpoint capture timestamps.
+
+Pending generations now locate their original reservation by immutable
+`generation_id` before checking the current day's budget. Exactly one matching
+reservation must exist. Preserve its original UTC day, row limit, parent,
+capture timestamp and source-snapshot marker; do not modify the old receipt or
+create another day's allowance for the same pending generation. Unrelated new
+source generations still obey the existing one-per-day/2,500-logical-row cap.
+
+Duplicate or inconsistent old reservations, stale retry capture and changed
+parents fail closed without repair writes. An already-advanced head must also
+have one consistent checkpoint/reservation/generation capture mark, exact
+original row budget and full typed/original-JSON readback before reporting
+idempotent verification. Existing corrupt metadata is not automatically
+rewritten to make a check green. Independent review/recovery is required.
+
+Tests cover failure before generation creation and before journal insertion,
+next-day retry with the original receipt unchanged, invalid old reservations,
+lost activation acknowledgement, already-verified metadata corruption and typed
+projection tampering. These are offline SQLite tests, not real D1 atomicity or
+production replay receipts. Idempotent readback adds nine fixed SELECTs; actual
+provider read metrics and account capacity still require review for an approved
+run. No account-wide cost or unlimited Paid allowance is claimed.
+
+## Explicit approval for every write-capable operational stage
+
+`stage-real-private-d1` now requires both maintainer-controlled repository
+Actions variables, in addition to its existing main/event/production-environment
+and offline-test guards:
+
+- `DR_D1_OPERATIONAL_STAGE_APPROVED_SHA`: exact full commit SHA.
+- `DR_D1_OPERATIONAL_STAGE_APPROVED_RUN_ID`: exact GitHub run ID.
+
+Empty or mismatched approval skips the entire job before credentials, source
+capture or D1 writes. Push, scheduling and workflow dispatch alone do not approve
+an import. A new run/commit cannot inherit another release's approval; same-run
+retries intentionally retain the matching run ID. Clear approval variables after
+the authorised release. Read-only drift monitoring is a separate unchanged
+workflow and remains scheduled.
+
+Before setting these variables or rerunning a protected job, obtain separate
+release authorisation, check current source/parity and measured Cloudflare
+usage/headroom, and verify the actual job gate is reevaluated for the approved
+run. Do not invoke `--apply` locally as a shortcut. No approval variable is set,
+protected job rerun, remote parity check or import performed by this code change.
+Rollback is a code revert with write approvals left empty; retain all original
+generations, budgets, journals and checkpoints. Supabase remains authoritative.
