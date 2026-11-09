@@ -9,6 +9,7 @@ retail prices or traffic cutover. Original source generation is pinned.
 """
 from __future__ import annotations
 
+from collections import Counter
 import hashlib
 import json
 import os
@@ -28,6 +29,20 @@ EXPECTED_COUNTS = {
     "reference_sealed_products": 3893,
     "catalogue_products": 2062,
     "catalogue_product_profiles": 2062,
+}
+# Real source family/language totals, independently read on 9 November.
+# Prove no game or Japanese-language slice disappeared behind a matching grand
+# total. Source `Unknown` Naruto language is preserved, not invented.
+EXPECTED_SYSTEM_LANGUAGE_COUNTS = {
+    "POKEMON_TCG:English": 23912,
+    "POKEMON_TCG:Japanese": 13156,
+    "ONE_PIECE_CARD_GAME:English": 4527,
+    "ONE_PIECE_CARD_GAME:Japanese": 4480,
+    "DRAGON_BALL_SUPER_MASTERS:English": 9031,
+    "DRAGON_BALL_SUPER_FUSION_WORLD:English": 4365,
+    "DRAGON_BALL_SUPER_FUSION_WORLD:Japanese": 3230,
+    "NARUTO_BANDAI_LEGACY:Unknown": 4487,
+    "NARUTO_KAYOU:Unknown": 2679,
 }
 EXPECTED_RAW_BYTES = 29_886_526
 # Canonical sort_keys + compact-JSON SHA256 of the *published* Supabase
@@ -88,6 +103,12 @@ def audit_legacy_source(*, client: httpx.Client | None = None):
     except (ValueError, TypeError, legacy.ObjectStorageError) as exc:
         raise MigrationGuard("Legacy R2 full source identities did not assemble") from exc
 
+    system_language = dict(sorted(Counter(
+        row["system_code"]+":"+row["language"]
+        for row in snapshot.rows["reference_cards"]
+    ).items()))
+    if system_language != EXPECTED_SYSTEM_LANGUAGE_COUNTS:
+        raise MigrationGuard("Legacy R2 game/language source coverage changed")
     by_relation = {}
     for relation, source in snapshot.rows.items():
         digest = hashlib.sha256()
@@ -110,6 +131,7 @@ def audit_legacy_source(*, client: httpx.Client | None = None):
         "r2_source_bytes": manifest["raw_bytes"],
         "r2_parts_verified": len(raws),
         "verified_relations": by_relation,
+        "verified_game_language_counts": system_language,
         "source_rows_verified": sum(v["rows"] for v in by_relation.values()),
         "verified_d1_rows": 0,
         "d1_database_created": False,
