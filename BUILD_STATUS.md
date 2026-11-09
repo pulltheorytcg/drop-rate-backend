@@ -1,3 +1,10 @@
+## 9 November 2026 — PR #1035 import release guard (unmerged; no import)
+
+- Review found that main pushes/schedules could still start the ordinary 8,000-row YGO import without separate release authorisation. The entire write-capable job now requires maintainer approval of both the exact commit SHA and GitHub run ID; the Paid supplement retains its additional marker/date checks. No approval variables were configured and no protected run was rerun.
+- All 86 focused YGO/export/shadow tests passed locally under Python 3.12. Ten release-condition scenarios cover missing/partial approvals, changed commit/run, PR/branch rejection and approved same-run retries. The new regressions fail against the previous workflow. Fresh exact-head CI remains a release requirement.
+- Read-only production checks: API readiness is ready/database connected; Railway API deployment 559160b1-820d-4bf9-8c8c-da4782fac763 is ACTIVE/successful and API/n8n are online on the earlier release. This PR has not been deployed. Retirement gates A–H remain 0/8.
+- Full local dependency installation is blocked by the configured package registry lacking pinned ijson==3.6.0. Focused suites do not require that package; the pin was preserved. No full-suite result is claimed.
+
 ## 9 November 2026 — One-time paid-capacity Yu-Gi-Oh D1 catch-up (PR pending; no public cutover)
 
 - The founder confirms Workers Paid upgrade. Previously Free-blocked production D1 source/finance read-only gates now passed on the same UTC day; independent billing subscription and monthly use remain unverified.
