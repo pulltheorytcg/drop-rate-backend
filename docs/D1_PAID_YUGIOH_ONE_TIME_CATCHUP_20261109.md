@@ -29,8 +29,34 @@ Potential extra inserts for the latest verified new generation: **37,419** rows,
 
 ## Tests and verification
 
-The existing offline fake D1/real SQLite staged source suite now covers: original receipt preserved byte-for-byte; single same-day extra receipt; full 23/23 synthetic catalogue activation only after checksum; bad approval; expired date; crashed partial paid batch; another run blocked; same-run recovery to reserved target; previous source drift/owner/price/non-publication and original 8k daily tests retained. Full backend/n8n/dashboard CI and source/capacity checks are merge gates. **After merge** the protected main push run must produce an exact D1 source count, staged rows, new source SHA and verified full activation result. No approval to switch public catalogue reads, Auth or Shopify.
+The existing offline fake D1/real SQLite staged source suite now covers: original receipt preserved byte-for-byte; single same-day extra receipt; full 23/23 synthetic catalogue activation only after checksum; bad approval; expired date; crashed partial paid batch; another run blocked; same-run recovery to reserved target; previous source drift/owner/price/non-publication and original 8k daily tests retained. Full backend/n8n/dashboard CI and source/capacity checks are merge gates. **After a separately authorised release** the protected import run must produce an exact D1 source count, staged rows, new source SHA and verified full activation result. No approval to switch public catalogue reads, Auth or Shopify.
 
 Rollback: keep both immutable generations, stop the existing protected importer and revert the date-locked supplemental code/workflow. No source deletion or D1 shadow overwrite. Future catalogue refreshes need their own reviewed immutable generation and monthly capacity policy.
 
 **This is partial catalogue migration, not a completed Supabase exit.**
+
+## Explicit release gate for every import
+
+Code merge and daily scheduling are not import authorisation. The entire
+`resume-isolated-yugioh` job (including OIDC credentials, the ordinary 8,000-row
+allowance and any Paid supplement) now requires BOTH maintainer-controlled
+repository Actions variables:
+
+- `DR_D1_YUGIOH_IMPORT_APPROVED_SHA`: the exact full commit SHA of the run.
+- `DR_D1_YUGIOH_IMPORT_APPROVED_RUN_ID`: the exact GitHub run ID.
+
+Missing or mismatched values skip the write-capable job; PR offline checks still
+run. A different push or scheduled run has a different run ID and cannot reuse
+a prior approval. Same-run retries intentionally retain approval, matching the
+existing immutable budget receipts; they still require separate operator
+authorisation to rerun. Clear both variables after the authorised release.
+
+Before configuring either variable or rerunning a protected run, obtain separate
+release authorisation, review source-generation acceptance tests and measured
+Cloudflare usage/storage headroom. A maintainer can identify the skipped main
+run, configure its exact SHA/run pair after approval, and request a rerun; verify
+that GitHub reevaluates the job gate before treating that as an accepted release.
+The Paid supplement additionally retains its existing approval marker and UTC-day
+checks. No approval variables, workflow reruns or remote imports are performed
+by this engineering change. Full source/count/checksum readback remains required
+before reporting new staged rows.
