@@ -51,7 +51,7 @@ jobs:
       && github.ref == 'refs/heads/main'
     needs: offline-exact-id-and-rls
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 35
     permissions:
       id-token: write
       contents: read
@@ -62,9 +62,12 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt
-      - name: Import up to 8,000 verified R2 Yu-Gi-Oh rows to isolated D1
+      - name: Import original 8k then one founder-approved Paid capacity supplement into isolated D1
         id: real_import
         env:
+          # One-time, date-locked user approval. Source code validates exact UTC day.
+          # Does not alter the original 8k/day receipt or any public route.
+          DR_D1_PAID_CATCHUP_APPROVAL: FOUNDER_APPROVED_WORKERS_PAID_20261109
           CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
           CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
           PYTHONPATH: 'backend:tools'
