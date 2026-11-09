@@ -112,6 +112,44 @@ def test_full_real_r2_to_isolated_d1_readback(monkeypatch):
     FakeD1.last.connection.close()
 
 
+
+def test_complete_lorcana_checksum_readback_uses_keyset_cursor(monkeypatch):
+    FakeD1.created=0;FakeD1.corrupt=False;FakeD1.existing=[]
+    original=FakeD1.query
+    scan=[]
+    def audited(self,uid,sql,params=()):
+        if "from shadow_cards where manifest_sha=" in sql and "order by card_key" in sql:
+            assert " offset " not in sql.lower(), "Deep OFFSET reads are quota-expensive"
+            assert "card_key>?" in sql
+            scan.append(tuple(params))
+        return original(self,uid,sql,params)
+    monkeypatch.setattr(FakeD1,"query",audited)
+    monkeypatch.setattr(runner,"D1Client",FakeD1)
+    monkeypatch.setattr(runner,"_oidc_token",lambda:"fake-oidc")
+    raw,parts,_=fixture(count=1002)
+    with http_client(raw,parts) as client:
+        result=runner.import_real_lorcana("a"*32,"dummy-d1-token","12348","1",client=client)
+    assert result["status"]=="REAL_R2_LORCANA_TO_ISOLATED_D1_VERIFIED"
+    assert result["d1_verified_rows"]==1002
+    assert len(scan)>=10 and scan[0][1]==""
+    assert all(len(p)==3 and p[2]<=100 for p in scan)
+    assert all(scan[i][1]<scan[i+1][1] for i in range(len(scan)-1))
+    FakeD1.last.connection.close()
+
+
+def test_keyset_page_rejects_repeated_or_out_of_order_card_key():
+    class BrokenPage:
+        def query(self,dbid,sql,params=()):
+            fields={key:None for key in runner.projection_codec.SQLITE_COLUMNS}
+            first=dict(fields,card_key="stable-2")
+            second=dict(fields,card_key="stable-1")
+            return {"results":[first,second]},0.0
+    with pytest.raises(runner.MigrationGuard,match="keyset identity order"):
+        runner._keyset_readback_page(
+            BrokenPage(),"synthetic-d1","a"*64,"",100)
+
+
+
 def test_corrupted_verified_part_refused_before_d1_creation(monkeypatch):
     FakeD1.created=0;FakeD1.existing=[]
     monkeypatch.setattr(runner,"D1Client",FakeD1)
