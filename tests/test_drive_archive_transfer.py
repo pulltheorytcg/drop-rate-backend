@@ -296,6 +296,22 @@ def test_empty_history_or_unrelated_exports_cannot_establish_drive_backup(servic
         assert page['history_cleanup_authorised'] is False
 
 
+def test_locked_control_record_retries_read_existing_bytes_without_overwrite(service):
+    key = 'drop-rate/drive-archive-copy/v1/synthetic/locked.json'
+    value = {'schema': 'synthetic-control-record', 'immutable': True}
+    assert service._create_once(key, value) == value
+    original = service.client.put_object
+
+    def locked(**kwargs):
+        if kwargs['Key'] in service.client.objects:
+            raise StorageFailure('ObjectLockedByBucketPolicy')
+        return original(**kwargs)
+
+    service.client.put_object = locked
+    assert service._create_once(key, {'immutable': 'not-a-replacement'}) == value
+    assert transfer.decode_json(service.client.objects[key]) == value
+
+
 def test_legacy_history_json_manifest_is_supported(service):
     sha,_,_ = history_fixture(service)
     old = f'drop-rate/reference-history/{sha}.manifest.json'
