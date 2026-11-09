@@ -15,8 +15,8 @@ on:
       - 'backend/app/d1_r2_shadow_export.py'
       - 'tools/d1_legacy_r2_shadow.py'
       - '.github/workflows/d1-legacy-r2-shadow.yml'
-  # The follow-on R2-first catalogue imports at 03:49 UTC. Legacy only runs
-  # after all those active SHA-proven partitions and NOT their completion day.
+  # Legacy sources are independent; schedule after 03:17 Yu-Gi-Oh and 03:49
+  # follow-on daily windows with a shared cloud-writer job concurrency gate.
   schedule:
     - cron: '13 6 * * *'
 
@@ -48,6 +48,11 @@ jobs:
             tests/test_d1_r2_shadow_export.py
 
   sequential-real-legacy-shadow:
+    # Across all three source-specific workflows, exactly ONE cloud catalogue
+    # writer may hold the D1 account reservation at any given instant.
+    concurrency:
+      group: drop-rate-d1-catalogue-private-single-writer
+      cancel-in-progress: false
     if: >-
       (github.event_name == 'push' || github.event_name == 'schedule')
       && github.ref == 'refs/heads/main'
@@ -68,7 +73,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt
-      - name: Stage at most 5,000 legacy source rows only after prior D1 full parity
+      - name: Stage at most 5,000 independent original-game R2 source rows
         id: legacy_import
         env:
           PYTHONPATH: 'backend:tools'
