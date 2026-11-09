@@ -1,3 +1,10 @@
+## 9 November 2026 — Independently stage current Magic/follow-on R2 without Yu-Gi-Oh completion (PR review)
+
+- The Magic R2 source has 153,679 referenced records and currently 151,609 released, verified by protected read-only source audit; #1043 updated the inactive D1 source pin to current SHA. Previously the follow-on importer would refuse any source until the separate Yu-Gi-Oh 45,419-row D1 generation reached full parity.
+- New preflight permits verified sports/figures/Magic R2 staging independently of YGO source completeness, **while continuing to reject an existing same-day YGO write receipt**, missing/corrupt receipt metadata, unknown R2 source SHA, tampered staged prefix, insufficient account slot/headroom and unsupported costs. No change to the original 8,000/day follow-on row reservation, full D1 projection SHA or unpublished source content restrictions.
+- The actual private **write-capable jobs** for YGO, Magic/follow-on and legacy four-game D1 now additionally share `drop-rate-d1-catalogue-private-single-writer` GitHub concurrency, preventing simultaneous account write-budget races. All still require separate exact SHA+run-id GitHub approvals and main/ref/source OIDC scope. Existing active Supabase market/owners/ledger remains untouched.
+- New real SQLite fake-D1 regressions cover YGO absent/incomplete/revision pending, current-day conflict, corrupted receipt, diagnostics and no premature public activation. Full CI and Railway post-merge deployment remain unverified as PR authored. No D1 import has been approved or run. Runbook `docs/D1_INDEPENDENT_MAGIC_FOLLOWON_STAGING_20261109.md`; exit tracker #1010 remains NO-GO.
+
 ## 9 November 2026 — Refresh inactive Magic D1 writer to 153,679 verified R2 records (in review)
 
 - Current R2 source is MTGJSON English 153,679 references (151,609 released) with immutable manifest SHA `e3bda5f54affe0055ec64d7ffb943cb5cae23df8108e74f29e250f7ec63e662a`. Its protected read-only R2 source audit returned SUCCESS against #1040 main. Previously the D1 follow-on writer expected 153,662 (17 stale).
