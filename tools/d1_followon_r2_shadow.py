@@ -107,33 +107,81 @@ def _listed(cloud: D1Client):
     return {x["name"]:_database_identity(x) for x in listed}
 
 
-def _gate_yugioh(cloud: D1Client, databases: dict[str,str], today: str):
+def _yugioh_source_gate(cloud: D1Client, databases: dict[str,str]):
+    """Read the verified active generation; never assume source count is static.
+
+    A newer, larger retained generation keeps follow-on imports blocked until
+    its full D1 projection is activated by the Yu-Gi-Oh source importer.
+    The pinned minimum is a floor, never a substitute for current parity.
+    """
     ident=databases.get(YGO_DB)
     if ident is None:
-        return {"ready":False,"count":0,"reason":"YGO_D1_NOT_PRESENT"}
-    rows=_query(cloud,ident,
-                "select count(*) as n from shadow_cards where manifest_sha=?",
-                (YGO_SOURCE_SHA,))
-    if len(rows)!=1 or type(rows[0].get("n")) is not int:
+        return {"ready":False,"count":0,"source_rows":YGO_EXPECTED,
+                "reason":"YGO_D1_NOT_PRESENT"}
+    generations=_query(cloud,ident,
+        "select manifest_sha,expected_rows,projection_sha from shadow_generations "
+        "where provider=? and system_code=? and language=?",YGO_SCOPE)
+    if not generations:
+        return {"ready":False,"count":0,"source_rows":YGO_EXPECTED,
+                "reason":"YGO_D1_SOURCE_NOT_STAGED"}
+    if len(generations)>2:
+        raise MigrationGuard("Ambiguous retained Yu-Gi-Oh generations")
+    for row in generations:
+        if (not isinstance(row.get("manifest_sha"),str)
+                or not re.fullmatch(r"[0-9a-f]{64}",row["manifest_sha"])
+                or type(row.get("expected_rows")) is not int
+                or not YGO_EXPECTED<=row["expected_rows"]<=50_000
+                or not isinstance(row.get("projection_sha"),str)
+                or not re.fullmatch(r"[0-9a-f]{64}",row["projection_sha"])):
+            raise MigrationGuard("Invalid Yu-Gi-Oh D1 generation metadata")
+    ordered=sorted(generations,key=lambda r:r["expected_rows"])
+    if len(ordered)>1 and ordered[-1]["expected_rows"]==ordered[-2]["expected_rows"]:
+        raise MigrationGuard("Ambiguous same-size Yu-Gi-Oh source generations")
+    target=ordered[-1]
+    count_rows=_query(cloud,ident,
+        "select count(*) as n from shadow_cards where manifest_sha=?",
+        (target["manifest_sha"],))
+    if len(count_rows)!=1 or type(count_rows[0].get("n")) is not int:
         raise MigrationGuard("YGO D1 staging state unavailable")
-    count=rows[0]["n"]
-    if not 0<=count<=YGO_EXPECTED:
-        raise MigrationGuard("YGO staging count exceeds original R2 source")
+    count=count_rows[0]["n"]
+    expected=target["expected_rows"]
+    if not 0<=count<=expected:
+        raise MigrationGuard("YGO staging count exceeds selected R2 source")
     active=_query(cloud,ident,
-                  "select manifest_sha from shadow_active_partitions "
-                  "where provider=? and system_code=? and language=?",YGO_SCOPE)
-    ready=(count==YGO_EXPECTED and len(active)==1
-           and active[0].get("manifest_sha")==YGO_SOURCE_SHA)
-    if active and not ready:
-        raise MigrationGuard("YGO active pointer is inconsistent")
+        "select manifest_sha from shadow_active_partitions "
+        "where provider=? and system_code=? and language=?",YGO_SCOPE)
+    if len(active)>1:
+        raise MigrationGuard("Duplicate Yu-Gi-Oh active pointers")
+    if active:
+        active_sha=active[0].get("manifest_sha")
+        active_meta=[r for r in generations if r["manifest_sha"]==active_sha]
+        if len(active_meta)!=1:
+            raise MigrationGuard("Unknown Yu-Gi-Oh active pointer")
+        check=_query(cloud,ident,
+            "select count(*) as n from shadow_cards where manifest_sha=?",
+            (active_sha,))
+        if len(check)!=1 or check[0].get("n")!=active_meta[0]["expected_rows"]:
+            raise MigrationGuard("YGO active pointer is inconsistent")
+    ready=(len(active)==1 and active[0]["manifest_sha"]==target["manifest_sha"]
+           and count==expected)
     if not ready:
-        return {"ready":False,"count":count,"reason":"YGO_FULL_PARITY_NOT_COMPLETE"}
+        return {"ready":False,"count":count,"source_rows":expected,
+                "reason":"YGO_NEWER_GENERATION_PENDING" if active else "YGO_FULL_PARITY_NOT_COMPLETE"}
+    return {"ready":True,"count":count,"source_rows":expected,
+            "reason":"YGO_FULL_PARITY_VERIFIED"}
+
+
+def _gate_yugioh(cloud: D1Client, databases: dict[str,str], today: str):
+    source=_yugioh_source_gate(cloud,databases)
+    if not source["ready"]:
+        return source
+    ident=databases[YGO_DB]
     latest=_query(cloud,ident,"select max(utc_day) as day from shadow_daily_write_budget")
     if len(latest)!=1:
         raise MigrationGuard("YGO prior daily write receipts unavailable")
-    if latest[0].get("day") == today:
-        return {"ready":False,"count":count,"reason":"YGO_WROTE_TODAY"}
-    return {"ready":True,"count":count,"reason":"YGO_COMPLETE_PREVIOUS_DAY"}
+    if latest[0].get("day")==today:
+        return {**source,"ready":False,"reason":"YGO_WROTE_TODAY"}
+    return {**source,"reason":"YGO_COMPLETE_PREVIOUS_DAY"}
 
 
 def _get_shadow(cloud: D1Client, databases: dict[str,str]):
@@ -293,6 +341,7 @@ def run(account: str, token: str, run_id: str, attempt: str, *,
         return {
             "status":"FOLLOWON_WAITING_FOR_YUGIOH_OR_DAILY_WINDOW",
             "reason":gate["reason"],"yugioh_staged_rows":gate["count"],
+            "yugioh_source_rows":gate["source_rows"],
             "d1_writes":0,"production_reads_switched":False,
             "owner_and_settlement_writes":0,"market_value_writes":0,
         }

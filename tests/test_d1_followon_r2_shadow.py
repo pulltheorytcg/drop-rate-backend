@@ -18,6 +18,7 @@ from d1_r2_real_shadow import MigrationGuard  # noqa: E402
 
 YGO_UID="11111111-1111-4111-8111-111111111111"
 SHARED_UID="22222222-2222-4222-8222-222222222222"
+NEW_YGO_SHA="f"*64
 
 
 class FakeCloud:
@@ -27,6 +28,9 @@ class FakeCloud:
     shared=None
     created=0
     writes=0
+    new_source=False
+    new_source_complete=False
+    new_source_active=False
 
     def __init__(self,account,token):
         assert account==runner.ACCOUNT and token=="scoped-test-token"
@@ -57,10 +61,26 @@ class FakeCloud:
     def query(self,uuid,sql,params=()):
         if uuid==YGO_UID:
             assert sql.startswith("select")
-            if "count(*)" in sql:
-                values=[{"n":runner.YGO_EXPECTED if self.complete else 8000}]
+            if "from shadow_generations" in sql:
+                values=[{"manifest_sha":runner.YGO_SOURCE_SHA,
+                         "expected_rows":runner.YGO_EXPECTED,
+                         "projection_sha":"a"*64}]
+                if self.new_source:
+                    values.append({"manifest_sha":NEW_YGO_SHA,
+                                   "expected_rows":runner.YGO_EXPECTED+1,
+                                   "projection_sha":"b"*64})
+            elif "count(*)" in sql:
+                sha=params[0]
+                if sha==NEW_YGO_SHA:
+                    values=[{"n":runner.YGO_EXPECTED+1 if self.new_source_complete else 16000}]
+                elif sha==runner.YGO_SOURCE_SHA:
+                    values=[{"n":runner.YGO_EXPECTED if self.complete else 8000}]
+                else:
+                    raise AssertionError("unexpected YGO generation")
             elif "shadow_active_partitions" in sql:
-                values=([{"manifest_sha":runner.YGO_SOURCE_SHA}]
+                values=([{"manifest_sha":NEW_YGO_SHA}]
+                        if self.new_source_active else
+                        [{"manifest_sha":runner.YGO_SOURCE_SHA}]
                         if self.complete else [])
             elif "max(utc_day)" in sql:
                 values=[{"day":self.yugioh_day}]
@@ -90,6 +110,9 @@ def source(monkeypatch):
     FakeCloud.shared=None
     FakeCloud.created=0
     FakeCloud.writes=0
+    FakeCloud.new_source=False
+    FakeCloud.new_source_complete=False
+    FakeCloud.new_source_active=False
     monkeypatch.setattr(runner,"D1Client",FakeCloud)
     monkeypatch.setattr(runner,"_oidc_token",lambda:"fake-signed-github-oidc")
     monkeypatch.setattr(runner,"DAILY_ROWS",6)
@@ -162,6 +185,46 @@ def test_no_ygo_full_parity_means_no_database_creation_or_r2_import():
     assert result["yugioh_staged_rows"]==8000
     assert FakeCloud.created==0 and FakeCloud.writes==0
 
+
+
+
+def test_old_complete_yugioh_does_not_release_queue_when_newer_generation_pending():
+    FakeCloud.new_source=True
+    FakeCloud.new_source_complete=False
+    FakeCloud.new_source_active=False
+    http,pinned=fixtures()
+    with http:
+        report=runner.run(runner.ACCOUNT,"scoped-test-token","123","1",
+                          http=http,now=day(6))
+    assert report["status"]=="FOLLOWON_WAITING_FOR_YUGIOH_OR_DAILY_WINDOW"
+    assert report["reason"]=="YGO_NEWER_GENERATION_PENDING"
+    assert report["yugioh_staged_rows"]==16000
+    assert report["yugioh_source_rows"]==runner.YGO_EXPECTED+1
+    assert FakeCloud.created==0 and FakeCloud.writes==0
+
+
+def test_latest_yugioh_generation_can_release_queue_when_fully_active(monkeypatch):
+    FakeCloud.new_source=True
+    FakeCloud.new_source_complete=True
+    FakeCloud.new_source_active=True
+    http,pinned=fixtures(specs=(("sports",13),))
+    monkeypatch.setattr(runner,"SOURCES",pinned)
+    with http:
+        report=runner.run(runner.ACCOUNT,"scoped-test-token","123","1",
+                          http=http,now=day(6))
+    assert report["status"]=="FOLLOWON_R2_PARTITION_PARTIAL_STAGED"
+    assert report["d1_staged_rows"]==6
+    assert FakeCloud.created==1 and FakeCloud.writes>0
+
+
+def test_new_active_yugioh_pointer_with_partial_rows_blocks():
+    FakeCloud.new_source=True
+    FakeCloud.new_source_complete=False
+    FakeCloud.new_source_active=True
+    http,pinned=fixtures()
+    with http,pytest.raises(MigrationGuard,match="active pointer is inconsistent"):
+        runner.run(runner.ACCOUNT,"scoped-test-token","123","1",http=http,now=day(6))
+    assert FakeCloud.created==0 and FakeCloud.writes==0
 
 def test_same_day_as_yugioh_completion_is_always_blocked():
     FakeCloud.yugioh_day="2026-11-06"
