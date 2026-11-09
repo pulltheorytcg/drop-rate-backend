@@ -80,12 +80,15 @@ jobs:
                   and d.get("owner_or_settlement_writes")==0
                   and d.get("production_reads_switched") is False):
                   rows=d.get("yugioh_staged_rows")
-                  if d.get("subsequent_import_allowed_by_static_readiness"):
-                      state="success"
-                      description="YGO D1 fully active; other DB capacity preflight passed"
-                  elif type(rows) is int and 0 <= rows <= 45418:
-                      state="pending"
-                      description=f"YGO staged {rows}/45418; D1 migration gate not open"
+                  expected=d.get("yugioh_source_rows")
+                  if (type(expected) is int and 45418 <= expected <= 50000
+                      and type(rows) is int and 0 <= rows <= expected):
+                      if d.get("subsequent_import_allowed_by_static_readiness"):
+                          state="success"
+                          description=f"YGO {expected:,} D1 rows fully active; capacity preflight passed"
+                      else:
+                          state="pending"
+                          description=f"YGO staged {rows}/{expected}; D1 migration gate not open"
           body=json.dumps({
               "state":state,"context":"drop-rate-full-catalogue-d1-capacity",
               "description":description,
