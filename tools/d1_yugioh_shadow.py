@@ -87,26 +87,71 @@ def _database(client: D1Client):
 
 
 def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
+    """Retain an older partial generation when the reviewed R2 source grows.
+
+    Never relabel rows under a new source hash. A changed, removed or malformed
+    previously staged card blocks the refresh until reviewed. All existing rows
+    remain immutable and each current-source row is independently written and
+    checked under the current manifest. At most two generations may coexist.
+    """
     rows = _query(cloud, dbid,
                   """select manifest_sha,provider,system_code,language,expected_rows,
                             projection_sha,source_content_sha,source_revision
                      from shadow_generations""")
-    if len(rows) > 1:
-        raise MigrationGuard("Multiple shadow generations need manual migration review")
+    if len(rows) > 2:
+        raise MigrationGuard("More than two Yu-Gi-Oh generations require review")
     expected = (
         source.manifest_sha, *source.scope, source.expected_rows,
         source.projection_sha, source.source_content_sha, source.source_revision,
     )
-    if rows:
-        found = rows[0]
-        actual = tuple(found[k] for k in (
-            "manifest_sha","provider","system_code","language","expected_rows",
-            "projection_sha","source_content_sha","source_revision"))
-        if actual != expected:
+    columns = ("manifest_sha","provider","system_code","language","expected_rows",
+               "projection_sha","source_content_sha","source_revision")
+    matching = [row for row in rows if row.get("manifest_sha") == source.manifest_sha]
+    if matching:
+        if len(matching) != 1 or tuple(matching[0].get(k) for k in columns) != expected:
             raise MigrationGuard("Existing D1 generation differs from immutable R2 source")
-    else:
-        statement = codec.generation_statement(source)
-        _query(cloud, dbid, statement["sql"], statement["params"])
+        return rows
+    if rows:
+        if len(rows) != 1:
+            raise MigrationGuard("Another incomplete Yu-Gi-Oh refresh requires review")
+        previous = rows[0]
+        if (tuple(previous.get(k) for k in ("provider","system_code","language"))
+                != source.scope or type(previous.get("expected_rows")) is not int
+                or not 1 <= previous["expected_rows"] <= source.expected_rows):
+            raise MigrationGuard("Old Yu-Gi-Oh generation scope/count differs from R2 source")
+        old_sha = previous.get("manifest_sha")
+        if not isinstance(old_sha, str) or not re.fullmatch(r"[0-9a-f]{64}", old_sha):
+            raise MigrationGuard("Invalid retained Yu-Gi-Oh generation")
+        wanted = {row[1]: row for row in source.rows}
+        if len(wanted) != source.expected_rows:
+            raise MigrationGuard("Current Yu-Gi-Oh identities are not unique")
+        count_rows = _query(cloud, dbid,
+            "select count(*) as n from shadow_cards where manifest_sha=?", (old_sha,))
+        if (len(count_rows) != 1 or type(count_rows[0].get("n")) is not int
+                or not 0 <= count_rows[0]["n"] <= previous["expected_rows"]):
+            raise MigrationGuard("Retained Yu-Gi-Oh generation count is invalid")
+        count = count_rows[0]["n"]
+        seen = set()
+        for offset in range(0, count, 100):
+            old_rows = _query(cloud, dbid, D1_READBACK_SQL,
+                              (old_sha, min(100, count-offset), offset))
+            if len(old_rows) != min(100, count-offset):
+                raise MigrationGuard("Retained Yu-Gi-Oh generation is incomplete")
+            for row in old_rows:
+                key = row.get("card_key")
+                expected_row = wanted.get(key)
+                if (key in seen or expected_row is None
+                        or set(row) != set(codec.SQLITE_COLUMNS)
+                        or any(row[column] != expected_row[i]
+                               for i, column in enumerate(codec.SQLITE_COLUMNS)
+                               if column != "manifest_sha")):
+                    raise MigrationGuard("Old Yu-Gi-Oh identities changed; manual review required")
+                seen.add(key)
+        if len(seen) != count:
+            raise MigrationGuard("Retained Yu-Gi-Oh readback count mismatch")
+    statement = codec.generation_statement(source)
+    _query(cloud, dbid, statement["sql"], statement["params"])
+    return rows + [dict(zip(columns, expected))]
 
 
 def _verify_staged_prefix(cloud: D1Client, dbid: str, source: codec.Projection):
@@ -167,32 +212,39 @@ def run(account: str, token: str, run_id: str, run_attempt: str, *,
                                 "R2 export rejected: HTTP 503"} or source_attempt == 29:
                 raise
             time.sleep(10)
-    if source.expected_rows != EXPECTED_RECORDS or source.scope != SCOPE:
+    if not EXPECTED_RECORDS <= source.expected_rows <= MAX_ROWS or source.scope != SCOPE:
         raise MigrationGuard("Unreviewed Yu-Gi-Oh catalogue count changed; no D1 writes")
     source = _stable_source_projection(source)
     cloud = D1Client(account, token)
     dbid = _database(cloud)
     _schema(cloud, dbid)
     _query(cloud, dbid, BUDGET_SCHEMA)
-    _existing_generation(cloud, dbid, source)
+    registry = _existing_generation(cloud, dbid, source)
     current = _verify_staged_prefix(cloud, dbid, source)
     published = _query(cloud, dbid,
                        "select provider,system_code,language,manifest_sha "
                        "from shadow_active_partitions")
-    if published and (
-        len(published) != 1 or
-        tuple(published[0][k] for k in ("provider","system_code","language","manifest_sha"))
-            != (*SCOPE, source.manifest_sha) or current != source.expected_rows
-    ):
-        raise MigrationGuard("Unexpected early D1 shadow active generation")
+    if published:
+        if (len(published) != 1 or
+                tuple(published[0][k] for k in ("provider","system_code","language")) != SCOPE):
+            raise MigrationGuard("Unexpected D1 active Yu-Gi-Oh partition")
+        active_sha = published[0]["manifest_sha"]
+        if active_sha != source.manifest_sha:
+            previous = [row for row in registry if row["manifest_sha"] == active_sha]
+            if len(previous) != 1:
+                raise MigrationGuard("Unrecognised active Yu-Gi-Oh generation")
+            count_rows = _query(cloud, dbid,
+                "select count(*) as n from shadow_cards where manifest_sha=?", (active_sha,))
+            if len(count_rows) != 1 or count_rows[0]["n"] != previous[0]["expected_rows"]:
+                raise MigrationGuard("Incomplete previously active Yu-Gi-Oh generation")
+        elif current != source.expected_rows:
+            raise MigrationGuard("Active Yu-Gi-Oh generation is incomplete")
 
     utc_day = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).date().isoformat()
     remaining = source.expected_rows - current
     if remaining:
         prior = _daily_receipt(cloud, dbid, utc_day)
         if prior:
-            if prior["manifest_sha"] != source.manifest_sha:
-                raise MigrationGuard("Another source used this D1 daily budget")
             return {"status":"YUGIOH_D1_SHADOW_DAILY_BUDGET_ALREADY_USED",
                     "source_rows":source.expected_rows,"d1_staged_rows":current,
                     "d1_database_name":EXACT_DATABASE_NAME,
@@ -232,6 +284,11 @@ def run(account: str, token: str, run_id: str, run_attempt: str, *,
     if not published:
         activation = codec.activation_statement(source)
         _query(cloud, dbid, activation["sql"], activation["params"])
+    elif published[0]["manifest_sha"] != source.manifest_sha:
+        _query(cloud, dbid,
+            "update shadow_active_partitions set manifest_sha=? "
+            "where provider=? and system_code=? and language=? and manifest_sha=?",
+            (source.manifest_sha, *SCOPE, published[0]["manifest_sha"]))
     check = _query(cloud, dbid,
                    "select manifest_sha from shadow_active_partitions where "
                    "provider=? and system_code=? and language=?", SCOPE)
