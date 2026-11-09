@@ -112,10 +112,24 @@ async def test_safe_read_round_trip_uses_exact_verified_legacy_user_id():
     "https://private-read.example.workers.dev/internal/v1/owner-inventory?x=1",
     "https://private-read.example.workers.dev/other",
     "https://private-read.example.workers.dev/internal/v1/owner-inventory#fragment",
+    # Decimal/short IPv4 syntax bypasses ipaddress.ip_address(host).
+    "https://127.1/internal/v1/owner-inventory",
+    "https://2130706433/internal/v1/owner-inventory",
+    "https://127.0.0.1.nip.io/internal/v1/owner-inventory",
+    # HTTPS alone does not make an arbitrary or attacker-controlled host safe.
+    "https://private-read.example.workers.dev.attacker.example/internal/v1/owner-inventory",
+    "https://internal.acme.example/internal/v1/owner-inventory",
+    "https://workers.dev/internal/v1/owner-inventory",
 ])
 def test_cannot_sign_ssrf_or_noncanonical_internal_worker_url(url):
     with pytest.raises(D1PrivateReadGuard):
         validate_internal_endpoint(url)
+
+
+def test_trusted_cloudflare_worker_and_drop_rate_custom_hosts_are_accepted():
+    assert validate_internal_endpoint(ENDPOINT)==ENDPOINT
+    custom = "https://ops.droprate.co.uk/internal/v1/owner-inventory"
+    assert validate_internal_endpoint(custom)==custom
 
 
 @pytest.mark.parametrize("bad",[
