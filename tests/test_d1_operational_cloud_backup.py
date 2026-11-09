@@ -1,10 +1,12 @@
 """No cloud operations: supported API contract, interruptions and gating."""
 from pathlib import Path
 import json
+import sys
 
 import httpx
 import pytest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 import d1_operational_cloud_backup as writer
 import d1_operational_cloud_restore as cloud
 from app.operational_backup_contract import BackupGuard, DATABASE_NAME, sha, canonical_json

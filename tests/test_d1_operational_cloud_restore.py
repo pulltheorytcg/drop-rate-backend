@@ -3,11 +3,14 @@ import copy
 import io
 import json
 import sqlite3
+import sys
+from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 import d1_operational_cloud_restore as cloud
 import d1_operational_drive_restore as offsite
 import httpx
