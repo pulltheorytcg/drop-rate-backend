@@ -65,9 +65,10 @@ jobs:
       - name: Import original 8k then one founder-approved Paid capacity supplement into isolated D1
         id: real_import
         env:
-          # One-time, date-locked user approval. Source code validates exact UTC day.
-          # Does not alter the original 8k/day receipt or any public route.
-          DR_D1_PAID_CATCHUP_APPROVAL: FOUNDER_APPROVED_WORKERS_PAID_20261109
+          # Empty unless independently approved and configured by a maintainer.
+          # Never auto-enable the large Paid supplement just by merging code.
+          # Source code also validates the exact UTC day.
+          DR_D1_PAID_CATCHUP_APPROVAL: ${{ vars.DR_D1_PAID_CATCHUP_APPROVAL }}
           CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
           CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
           PYTHONPATH: 'backend:tools'
