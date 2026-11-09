@@ -48,7 +48,8 @@ BUDGET_INSERT = """insert into shadow_daily_write_budget(
     utc_day,manifest_sha,run_id,rows_limit) values(?,?,?,?)"""
 
 D1_READBACK_SQL = ("select " + ",".join(codec.SQLITE_COLUMNS) +
-    " from shadow_cards where manifest_sha=? order by card_key limit ? offset ?")
+    " from shadow_cards where manifest_sha=? and card_key>? "
+    "order by card_key limit ?")
 
 
 def _stable_source_projection(source: codec.Projection) -> codec.Projection:
@@ -134,12 +135,13 @@ def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
             raise MigrationGuard("Retained Yu-Gi-Oh generation count is invalid")
         count = count_rows[0]["n"]
         seen = set()
+        cursor = ""
         missing_keys = 0
         changed_rows = 0
         changed_columns = {}
         for offset in range(0, count, 100):
             old_rows = _query(cloud, dbid, D1_READBACK_SQL,
-                              (old_sha, min(100, count-offset), offset))
+                              (old_sha, cursor, min(100, count-offset)))
             if len(old_rows) != min(100, count-offset):
                 raise MigrationGuard("Retained Yu-Gi-Oh generation is incomplete")
             for row in old_rows:
@@ -148,9 +150,10 @@ def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
                 if not isinstance(row, dict) or set(row) != set(codec.SQLITE_COLUMNS):
                     raise MigrationGuard("Invalid retained Yu-Gi-Oh D1 row shape")
                 key = row["card_key"]
-                if key in seen:
-                    raise MigrationGuard("Duplicate retained Yu-Gi-Oh D1 identity")
+                if not isinstance(key,str) or not key or key <= cursor or key in seen:
+                    raise MigrationGuard("Duplicate/unordered retained Yu-Gi-Oh D1 identity")
                 seen.add(key)
+                cursor = key
                 expected_row = wanted.get(key)
                 if expected_row is None:
                     missing_keys += 1
@@ -219,16 +222,20 @@ def _verify_staged_prefix(cloud: D1Client, dbid: str, source: codec.Projection):
     if not 0 <= count <= source.expected_rows:
         raise MigrationGuard("D1 staged row count outside original source")
     offset = 0
+    cursor = ""
     while offset < count:
         rows = _query(cloud, dbid, D1_READBACK_SQL,
-                      (source.manifest_sha, min(100,count-offset), offset))
+                      (source.manifest_sha, cursor, min(100,count-offset)))
         if len(rows) != min(100,count-offset):
             raise MigrationGuard("Missing staged source row")
         for i, row in enumerate(rows):
             if (not isinstance(row, dict) or set(row) != set(codec.SQLITE_COLUMNS)
+                    or not isinstance(row["card_key"],str)
+                    or not row["card_key"] or row["card_key"] <= cursor
                     or tuple(row[k] for k in codec.SQLITE_COLUMNS)
                        != source.rows[offset+i]):
                 raise MigrationGuard("D1 staged prefix does not match R2 source")
+            cursor = row["card_key"]
         offset += len(rows)
     return count
 
