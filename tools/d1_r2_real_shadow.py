@@ -42,6 +42,14 @@ D1_READBACK_SQL = (
     "select " + ",".join(projection_codec.SQLITE_COLUMNS)
     + " from shadow_cards where manifest_sha=? order by card_key limit ? offset ?"
 )
+# O(n) indexed pagination using the (manifest_sha,card_key) primary key,
+# rather than OFFSET scans whose total rows_read grow quadratically and can
+# exhaust Cloudflare D1's account-wide Free daily read allowance.
+D1_KEYSET_READBACK_SQL = (
+    "select " + ",".join(projection_codec.SQLITE_COLUMNS)
+    + " from shadow_cards where manifest_sha=? and card_key>? "
+      "order by card_key limit ?"
+)
 
 
 class MigrationGuard(PilotError):
@@ -192,14 +200,19 @@ def verify_d1_projection(client: D1Client, database_id: str,
         raise MigrationGuard("D1 staged row count does not match R2")
     hasher = hashlib.sha256()
     offset = 0
+    cursor = ""
     while offset < expected:
-        batch = _query(client, database_id, D1_READBACK_SQL,
-                       (projection.manifest_sha, 100, offset))
+        batch = _query(client, database_id, D1_KEYSET_READBACK_SQL,
+                       (projection.manifest_sha, cursor, min(100, expected-offset)))
         if len(batch) != min(100, expected-offset):
             raise MigrationGuard("Incomplete D1 row readback")
         for item in batch:
             if not isinstance(item, dict) or set(item) != set(projection_codec.SQLITE_COLUMNS):
                 raise MigrationGuard("D1 returned unexpected column set")
+            key = item["card_key"]
+            if not isinstance(key,str) or not key or key <= cursor:
+                raise MigrationGuard("Unordered, missing or duplicate D1 card key")
+            cursor = key
             original = tuple(item[col] for col in projection_codec.SQLITE_COLUMNS)
             hasher.update(json.dumps(original, ensure_ascii=False, separators=(",", ":")).encode() + b"\n")
         offset += len(batch)
