@@ -97,7 +97,7 @@ def test_rounding_is_on_cumulative_remaining_card_value_not_each_refund():
     assert second.cumulative_commission_reversed_minor==1
 
 
-@pytest.mark.parametrize("before,request",[
+@pytest.mark.parametrize("before,refund_request",[
     (progress(card=2100),RequestedRefund(card_refund_minor=1)),
     (progress(shipping=500),RequestedRefund(card_refund_minor=1)),
     (progress(card=1900,reversed=190),RequestedRefund(card_refund_minor=101)),
@@ -105,12 +105,12 @@ def test_rounding_is_on_cumulative_remaining_card_value_not_each_refund():
     (progress(reversed=1),RequestedRefund(card_refund_minor=1)),
     (progress(card=500,reversed=40),RequestedRefund(card_refund_minor=1)),
 ])
-def test_over_refund_and_inconsistent_historical_ledger_are_denied(before,request):
+def test_over_refund_and_inconsistent_historical_ledger_are_denied(before,refund_request):
     with pytest.raises(CandidateRefundGuard):
-        calculate_refund_ledger_delta(original(),before,request)
+        calculate_refund_ledger_delta(original(),before,refund_request)
 
 
-@pytest.mark.parametrize("before,request",[
+@pytest.mark.parametrize("before,refund_request",[
     (progress(),RequestedRefund(card_refund_minor=0)),
     (progress(),RequestedRefund(card_refund_minor=500,return_to_inspection=True)),
     (progress(inventory_status="APPROVED"),
@@ -119,9 +119,9 @@ def test_over_refund_and_inconsistent_historical_ledger_are_denied(before,reques
      RequestedRefund(card_refund_minor=2000,return_to_inspection=True)),
     (progress(already_returned=True),RequestedRefund(card_refund_minor=1)),
 ])
-def test_restocks_require_full_original_card_refund_and_no_prior_return(before,request):
+def test_restocks_require_full_original_card_refund_and_no_prior_return(before,refund_request):
     with pytest.raises(CandidateRefundGuard):
-        calculate_refund_ledger_delta(original(),before,request)
+        calculate_refund_ledger_delta(original(),before,refund_request)
 
 
 @pytest.mark.parametrize("bad",[
