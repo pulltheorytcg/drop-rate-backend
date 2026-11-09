@@ -1,3 +1,9 @@
+## 9 November 2026 — Reconciled 150 source relations; lifecycle review still pending (PR)
+
+- Independent Supabase system-catalogue SELECT at 15:46:18 UTC captured 150 ordinary relations: 107 tcg, 6 tcg_private, 27 Auth and 10 Storage. All prior 148 names remain; the only additions are storage.bucket_lifecycle_states and storage.lifecycle_abandoned_artifacts (24,576 bytes each; estimated rows zero, not exact row counts). No application, Auth or financial record values were queried.
+- Updated the existing register with fresh relation metadata and explicit provisional managed-Storage routes. These two relations are neither approved for bulk D1 copy nor excluded from runtime/restore review. The validator rejects silent rerouting, invented lifecycle exemptions and completion flags. Gate A and retirement remain incomplete.
+- Discovery now includes tables, partitioned tables, views and materialized views, safely avoiding physical-size requests for plain views; same-name relation-kind drift fails closed. 23 focused inventory/preflight tests pass locally. Fresh downloaded metadata matches all 150 names/kinds; this is schema-scope reconciliation, not data parity, restore verification or zero runtime dependency. Exact-head CI, review, merge and deployment remain pending.
+- Metadata-only CSV receipt SHA256: 6bf64eefcb51ba0a5b1676d787fedb87f540b8dc2ad26ba3f71158006a9e6e1a. No import, source mutation, credential, financial, authentication or production-route changes.
 ## 9 November 2026 — PR #1035 import release guard (unmerged; no import)
 
 - Review found that main pushes/schedules could still start the ordinary 8,000-row YGO import without separate release authorisation. The entire write-capable job now requires maintainer approval of both the exact commit SHA and GitHub run ID; the Paid supplement retains its additional marker/date checks. No approval variables were configured and no protected run was rerun.

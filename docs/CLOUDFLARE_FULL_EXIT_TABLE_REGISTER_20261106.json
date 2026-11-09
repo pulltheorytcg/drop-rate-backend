@@ -1,16 +1,16 @@
 {
   "format": "drop-rate-cloudflare-full-exit-table-register-v1",
-  "captured_on": "2026-11-06",
+  "captured_on": "2026-11-09",
   "source_project_ref": "ozrxenrdladkooixutmm",
-  "statement": "PostgreSQL pg_class metadata, approximate row estimates; not a data export, D1 proof or cutover",
-  "source_sql": "SELECT n.nspname schema_name,c.relname table_name,pg_total_relation_size(c.oid) bytes,greatest(c.reltuples,0)::bigint estimated_rows FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('tcg','tcg_private','auth','storage') AND c.relkind IN ('r','p') ORDER BY n.nspname,c.relname",
+  "statement": "Fresh PostgreSQL pg_class metadata only; approximate row estimates. Two managed Storage lifecycle relations remain provisional pending privileged runtime and restore review. Not a data export, D1 proof, exclusion approval or cutover.",
+  "source_sql": "SELECT now() AS checked_at,jsonb_agg(jsonb_build_object('schema_name',n.nspname,'table_name',c.relname,'relkind',c.relkind,'owner',pg_get_userbyid(c.relowner),'bytes',CASE WHEN c.relkind IN ('r','p','m') THEN pg_total_relation_size(c.oid) ELSE 0 END,'estimated_rows',greatest(c.reltuples,0)::bigint) ORDER BY n.nspname,c.relname) AS relations FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('tcg','tcg_private','auth','storage') AND c.relkind IN ('r','p','v','m');",
   "target_cloudflare_platform": "R2+D1",
-  "source_table_count": 148,
+  "source_table_count": 150,
   "table_count_by_schema": {
     "tcg": 107,
     "tcg_private": 6,
     "auth": 27,
-    "storage": 8
+    "storage": 10
   },
   "tables": [
     {
@@ -19,7 +19,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -27,7 +28,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 57344
+      "bytes": 57344,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -35,7 +37,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -43,7 +46,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -51,15 +55,17 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 16384
+      "bytes": 16384,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
       "table": "mfa_amr_claims",
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
-      "estimated_rows": 168,
-      "bytes": 114688
+      "estimated_rows": 229,
+      "bytes": 114688,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -67,7 +73,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -75,7 +82,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 57344
+      "bytes": 57344,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -83,7 +91,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -91,7 +100,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -99,7 +109,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -107,7 +118,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -115,7 +127,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -123,7 +136,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 49152
+      "bytes": 49152,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -131,7 +145,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 114688
+      "bytes": 114688,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -139,7 +154,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 279,
-      "bytes": 270336
+      "bytes": 270336,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -147,7 +163,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -155,7 +172,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -163,7 +181,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 82,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -171,7 +190,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 49152
+      "bytes": 49152,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -179,7 +199,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 90112
+      "bytes": 90112,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -187,7 +208,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 201,
-      "bytes": 172032
+      "bytes": 172032,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -195,7 +217,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -203,7 +226,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -211,7 +235,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 9,
-      "bytes": 262144
+      "bytes": 262144,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -219,7 +244,8 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "auth",
@@ -227,7 +253,21 @@
       "category": "identity_provider",
       "target": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
+    },
+    {
+      "schema": "storage",
+      "table": "bucket_lifecycle_states",
+      "category": "managed_storage_review",
+      "target": "PENDING_RUNTIME_AND_RESTORE_REVIEW_NO_BULK_COPY",
+      "classification_state": "PROVISIONAL_MANAGED_STORAGE",
+      "runtime_dependency_reviewed": false,
+      "restore_plan_verified": false,
+      "retirement_authorized": false,
+      "bytes": 24576,
+      "estimated_rows": 0,
+      "relation_kind": "r"
     },
     {
       "schema": "storage",
@@ -235,7 +275,8 @@
       "category": "media_registry",
       "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "storage",
@@ -243,7 +284,8 @@
       "category": "media_registry",
       "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "storage",
@@ -251,7 +293,21 @@
       "category": "media_registry",
       "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
       "estimated_rows": 0,
-      "bytes": 16384
+      "bytes": 16384,
+      "relation_kind": "r"
+    },
+    {
+      "schema": "storage",
+      "table": "lifecycle_abandoned_artifacts",
+      "category": "managed_storage_review",
+      "target": "PENDING_RUNTIME_AND_RESTORE_REVIEW_NO_BULK_COPY",
+      "classification_state": "PROVISIONAL_MANAGED_STORAGE",
+      "runtime_dependency_reviewed": false,
+      "restore_plan_verified": false,
+      "retirement_authorized": false,
+      "bytes": 24576,
+      "estimated_rows": 0,
+      "relation_kind": "r"
     },
     {
       "schema": "storage",
@@ -259,7 +315,8 @@
       "category": "media_registry",
       "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
       "estimated_rows": 68,
-      "bytes": 73728
+      "bytes": 73728,
+      "relation_kind": "r"
     },
     {
       "schema": "storage",
@@ -267,7 +324,8 @@
       "category": "media_registry",
       "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
       "estimated_rows": 0,
-      "bytes": 73728
+      "bytes": 90112,
+      "relation_kind": "r"
     },
     {
       "schema": "storage",
@@ -275,7 +333,8 @@
       "category": "media_registry",
       "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "storage",
@@ -283,7 +342,8 @@
       "category": "media_registry",
       "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
       "estimated_rows": 0,
-      "bytes": 16384
+      "bytes": 16384,
+      "relation_kind": "r"
     },
     {
       "schema": "storage",
@@ -291,15 +351,17 @@
       "category": "media_registry",
       "target": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
       "table": "action_required_items",
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
-      "estimated_rows": 58,
-      "bytes": 212992
+      "estimated_rows": 66,
+      "bytes": 212992,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -307,7 +369,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 46552,
-      "bytes": 106618880
+      "bytes": 107716608,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -315,7 +378,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 0,
-      "bytes": 16384
+      "bytes": 16384,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -323,7 +387,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 396,
-      "bytes": 761856
+      "bytes": 761856,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -331,7 +396,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 1,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -339,7 +405,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 0,
-      "bytes": 114688
+      "bytes": 122880,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -347,7 +414,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 360,
-      "bytes": 237568
+      "bytes": 237568,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -355,15 +423,17 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 460,
-      "bytes": 376832
+      "bytes": 376832,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
       "table": "catalogue_job_runs",
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
-      "estimated_rows": 1663,
-      "bytes": 3465216
+      "estimated_rows": 1869,
+      "bytes": 3555328,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -371,7 +441,8 @@
       "category": "market_current",
       "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
       "estimated_rows": 7736,
-      "bytes": 18186240
+      "bytes": 18423808,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -379,7 +450,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 2055,
-      "bytes": 1785856
+      "bytes": 1785856,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -387,7 +459,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 2055,
-      "bytes": 958464
+      "bytes": 958464,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -395,7 +468,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 16384
+      "bytes": 16384,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -403,7 +477,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 927,
-      "bytes": 507904
+      "bytes": 507904,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -411,7 +486,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -419,7 +495,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 1590,
-      "bytes": 1818624
+      "bytes": 1818624,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -427,7 +504,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 73728
+      "bytes": 73728,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -435,7 +513,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -443,7 +522,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -451,7 +531,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 57344
+      "bytes": 57344,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -459,7 +540,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -467,7 +549,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 0,
-      "bytes": 114688
+      "bytes": 114688,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -475,7 +558,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 147456
+      "bytes": 147456,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -483,7 +567,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -491,7 +576,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 147456
+      "bytes": 147456,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -499,7 +585,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -507,7 +594,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -515,7 +603,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 139264
+      "bytes": 139264,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -523,7 +612,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 57344
+      "bytes": 57344,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -531,7 +621,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 1,
-      "bytes": 98304
+      "bytes": 98304,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -539,7 +630,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 2,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -547,7 +639,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 434,
-      "bytes": 958464
+      "bytes": 958464,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -555,7 +648,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 3,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -563,7 +657,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 945,
-      "bytes": 1744896
+      "bytes": 1744896,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -571,7 +666,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 181,
-      "bytes": 229376
+      "bytes": 229376,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -579,7 +675,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 621,
-      "bytes": 1548288
+      "bytes": 1548288,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -587,7 +684,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -595,7 +693,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 49152
+      "bytes": 49152,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -603,7 +702,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 770,
-      "bytes": 770048
+      "bytes": 770048,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -611,7 +711,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 6160,
-      "bytes": 11780096
+      "bytes": 11976704,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -619,7 +720,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 73728
+      "bytes": 73728,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -627,7 +729,8 @@
       "category": "marketing",
       "target": "D1_AUTOMATION_STATE_AND_R2_ARCHIVE",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -635,7 +738,8 @@
       "category": "marketing",
       "target": "D1_AUTOMATION_STATE_AND_R2_ARCHIVE",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -643,7 +747,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -651,7 +756,8 @@
       "category": "media",
       "target": "R2_PRIVATE_MEDIA_AND_D1_RIGHTS_INDEX",
       "estimated_rows": 507,
-      "bytes": 851968
+      "bytes": 851968,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -659,7 +765,8 @@
       "category": "media",
       "target": "R2_PRIVATE_MEDIA_AND_D1_RIGHTS_INDEX",
       "estimated_rows": 401,
-      "bytes": 270336
+      "bytes": 270336,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -667,7 +774,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -675,7 +783,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 73728
+      "bytes": 73728,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -683,7 +792,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 49152
+      "bytes": 49152,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -691,7 +801,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -699,7 +810,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 1,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -707,7 +819,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -715,7 +828,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -723,7 +837,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 3,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -731,7 +846,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 49152
+      "bytes": 49152,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -739,15 +855,17 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
       "table": "payout_scheduler_runs",
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
-      "estimated_rows": 917,
-      "bytes": 286720
+      "estimated_rows": 988,
+      "bytes": 294912,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -755,7 +873,8 @@
       "category": "market_policy",
       "target": "D1_OPERATIONAL_PRICING_RULES_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 16384
+      "bytes": 16384,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -763,7 +882,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 6731,
-      "bytes": 14368768
+      "bytes": 14540800,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -771,7 +891,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 1605,
-      "bytes": 1515520
+      "bytes": 1515520,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -779,7 +900,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -787,7 +909,8 @@
       "category": "recognition",
       "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
       "estimated_rows": 596,
-      "bytes": 1515520
+      "bytes": 1515520,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -795,7 +918,8 @@
       "category": "recognition",
       "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
       "estimated_rows": 0,
-      "bytes": 106496
+      "bytes": 106496,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -803,7 +927,8 @@
       "category": "recognition",
       "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
       "estimated_rows": 57,
-      "bytes": 237568
+      "bytes": 237568,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -811,7 +936,8 @@
       "category": "recognition",
       "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
       "estimated_rows": 0,
-      "bytes": 196608
+      "bytes": 196608,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -819,7 +945,8 @@
       "category": "recognition",
       "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -827,7 +954,8 @@
       "category": "recognition",
       "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
       "estimated_rows": 4506,
-      "bytes": 3923968
+      "bytes": 3923968,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -835,7 +963,8 @@
       "category": "recognition",
       "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
       "estimated_rows": 0,
-      "bytes": 49152
+      "bytes": 49152,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -843,7 +972,8 @@
       "category": "recognition",
       "target": "R2_EVIDENCE_AND_D1_REVIEW_METADATA",
       "estimated_rows": 120,
-      "bytes": 802816
+      "bytes": 802816,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -851,7 +981,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -859,7 +990,8 @@
       "category": "market_asking",
       "target": "R2_ASKING_ONLY_AND_D1_NON_MARKET_EVIDENCE",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -867,7 +999,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 7,
-      "bytes": 606208
+      "bytes": 606208,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -875,23 +1008,26 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 0,
-      "bytes": 24576
+      "bytes": 24576,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
       "table": "reference_cards",
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
-      "estimated_rows": 69697,
-      "bytes": 77152256
+      "estimated_rows": 69861,
+      "bytes": 69099520,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
       "table": "reference_catalogue_prices",
       "category": "market_current",
       "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
-      "estimated_rows": 27676,
-      "bytes": 50053120
+      "estimated_rows": 27822,
+      "bytes": 53608448,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -899,7 +1035,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -907,7 +1044,8 @@
       "category": "market_current",
       "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
       "estimated_rows": 0,
-      "bytes": 16384
+      "bytes": 16384,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -915,7 +1053,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -923,7 +1062,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -931,7 +1071,8 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 51,
-      "bytes": 155648
+      "bytes": 163840,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -939,7 +1080,8 @@
       "category": "media",
       "target": "R2_PRIVATE_MEDIA_AND_D1_RIGHTS_INDEX",
       "estimated_rows": 64188,
-      "bytes": 30474240
+      "bytes": 30490624,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -947,15 +1089,17 @@
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
       "table": "reference_market_prices",
       "category": "market_current",
       "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
-      "estimated_rows": 59693,
-      "bytes": 58605568
+      "estimated_rows": 59863,
+      "bytes": 58679296,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -963,7 +1107,8 @@
       "category": "market_current",
       "target": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
       "estimated_rows": 3889,
-      "bytes": 4259840
+      "bytes": 4259840,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -971,23 +1116,26 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 3893,
-      "bytes": 3276800
+      "bytes": 3276800,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
       "table": "reference_sets",
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
-      "estimated_rows": 1472,
-      "bytes": 548864
+      "estimated_rows": 1473,
+      "bytes": 548864,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
       "table": "reference_sync_runs",
       "category": "market_history",
       "target": "R2_APPEND_ONLY_AND_D1_PROVENANCE_INDEX",
-      "estimated_rows": 348,
-      "bytes": 262144
+      "estimated_rows": 359,
+      "bytes": 278528,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -995,7 +1143,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 98304
+      "bytes": 98304,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1003,7 +1152,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1011,7 +1161,8 @@
       "category": "audit_controls",
       "target": "D1_ACTION_STATE_AND_R2_IMMUTABLE_AUDIT",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1019,7 +1170,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 0,
-      "bytes": 57344
+      "bytes": 57344,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1027,7 +1179,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 49152
+      "bytes": 49152,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1035,7 +1188,8 @@
       "category": "marketing",
       "target": "D1_AUTOMATION_STATE_AND_R2_ARCHIVE",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1043,7 +1197,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1051,7 +1206,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1059,7 +1215,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 507,
-      "bytes": 630784
+      "bytes": 630784,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1067,7 +1224,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 98304
+      "bytes": 98304,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1075,7 +1233,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1083,7 +1242,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1091,7 +1251,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1099,7 +1260,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1107,7 +1269,8 @@
       "category": "owners_inventory",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1115,7 +1278,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 81920
+      "bytes": 81920,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1123,7 +1287,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1131,7 +1296,8 @@
       "category": "orders_finance",
       "target": "D1_SINGLE_OPERATIONAL_DATABASE_R2_BACKUP",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1139,7 +1305,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 59,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg",
@@ -1147,7 +1314,8 @@
       "category": "catalogue",
       "target": "R2_SOURCE_AND_D1_INDEX",
       "estimated_rows": 216,
-      "bytes": 122880
+      "bytes": 122880,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg_private",
@@ -1155,7 +1323,8 @@
       "category": "private_publication",
       "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
       "estimated_rows": 1,
-      "bytes": 286720
+      "bytes": 1007616,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg_private",
@@ -1163,7 +1332,8 @@
       "category": "private_publication",
       "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
       "estimated_rows": 1,
-      "bytes": 360448
+      "bytes": 229376,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg_private",
@@ -1171,7 +1341,8 @@
       "category": "private_publication",
       "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg_private",
@@ -1179,7 +1350,8 @@
       "category": "private_publication",
       "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
       "estimated_rows": 0,
-      "bytes": 40960
+      "bytes": 40960,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg_private",
@@ -1187,7 +1359,8 @@
       "category": "private_publication",
       "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
       "estimated_rows": 0,
-      "bytes": 65536
+      "bytes": 65536,
+      "relation_kind": "r"
     },
     {
       "schema": "tcg_private",
@@ -1195,7 +1368,10 @@
       "category": "private_publication",
       "target": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
       "estimated_rows": 0,
-      "bytes": 32768
+      "bytes": 32768,
+      "relation_kind": "r"
     }
-  ]
+  ],
+  "captured_at": "2026-11-09 15:46:18.565275+00",
+  "metadata_receipt_csv_sha256": "6bf64eefcb51ba0a5b1676d787fedb87f540b8dc2ad26ba3f71158006a9e6e1a"
 }

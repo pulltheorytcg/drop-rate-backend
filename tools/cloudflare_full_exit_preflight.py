@@ -16,7 +16,11 @@ from uuid import UUID
 
 REGISTER = Path("docs/CLOUDFLARE_FULL_EXIT_TABLE_REGISTER_20261106.json")
 FORMAT = "drop-rate-cloudflare-full-exit-table-register-v1"
-SCHEMAS = {"tcg": 107, "tcg_private": 6, "auth": 27, "storage": 8}
+SCHEMAS = {"tcg": 107, "tcg_private": 6, "auth": 27, "storage": 10}
+MANAGED_STORAGE_REVIEW = {
+    ("storage", "bucket_lifecycle_states"),
+    ("storage", "lifecycle_abandoned_artifacts"),
+}
 DESTINATIONS = {
     "catalogue": "R2_SOURCE_AND_D1_INDEX",
     "market_current": "R2_EVIDENCE_AND_D1_ELIGIBLE_PRICE",
@@ -32,6 +36,7 @@ DESTINATIONS = {
     "private_publication": "R2_IMMUTABLE_MANIFEST_AND_D1_PRIVATE_POINTER",
     "identity_provider": "EXTERNAL_IDENTITY_MIGRATION_NO_SESSION_TOKEN_COPY",
     "media_registry": "R2_OBJECTS_AND_D1_RIGHTS_METADATA_ONLY",
+    "managed_storage_review": "PENDING_RUNTIME_AND_RESTORE_REVIEW_NO_BULK_COPY",
 }
 SCHEMA_CATEGORY = {
     "tcg_private": "private_publication",
@@ -59,17 +64,20 @@ CORE_TABLES = {
     ("auth", "users"): "identity_provider",
     ("auth", "refresh_tokens"): "identity_provider",
     ("storage", "objects"): "media_registry",
+    **{key: "managed_storage_review" for key in MANAGED_STORAGE_REVIEW},
 }
 
 # Restrict the input to PG metadata; record values are NEVER queried.
 LIVE_SQL = """SELECT n.nspname AS schema_name,
  c.relname AS table_name,
- pg_total_relation_size(c.oid) AS bytes,
+ c.relkind::text AS relation_kind,
+ CASE WHEN c.relkind IN ('r','p','m')
+      THEN pg_total_relation_size(c.oid) ELSE 0 END AS bytes,
  greatest(c.reltuples,0)::bigint AS estimated_rows
  FROM pg_class c
  JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname IN ('tcg','tcg_private','auth','storage')
-   AND c.relkind IN ('r','p')
+   AND c.relkind IN ('r','p','v','m')
  ORDER BY n.nspname,c.relname"""
 
 
@@ -101,18 +109,30 @@ def validate_register(data: dict) -> dict:
         raise MigrationGuard("Incorrect exit manifest format")
     if data.get("source_project_ref") != "ozrxenrdladkooixutmm":
         raise MigrationGuard("Wrong Supabase project")
-    if data.get("source_table_count") != 148 or data.get("table_count_by_schema") != SCHEMAS:
+    if data.get("source_table_count") != sum(SCHEMAS.values()) or data.get("table_count_by_schema") != SCHEMAS:
         raise MigrationGuard("Incomplete full-exit source register")
     rows = data.get("tables")
     keys = _unique_relations(rows, current=False)
     counted = Counter(row["schema"] for row in rows)
-    if len(keys) != 148 or dict(counted) != SCHEMAS:
+    if len(keys) != sum(SCHEMAS.values()) or dict(counted) != SCHEMAS:
         raise MigrationGuard("Source table coverage changed")
     for row in rows:
         schema, category = row["schema"], row.get("category")
         if category not in DESTINATIONS or row.get("target") != DESTINATIONS[category]:
             raise MigrationGuard("Missing or invalid target mapping")
-        if schema in SCHEMA_CATEGORY and category != SCHEMA_CATEGORY[schema]:
+        key = (schema, row["table"])
+        if row.get("relation_kind") not in {"r", "p", "v", "m"}:
+            raise MigrationGuard("Missing or invalid relation kind")
+        if key in MANAGED_STORAGE_REVIEW:
+            if (category != "managed_storage_review"
+                    or row.get("classification_state") != "PROVISIONAL_MANAGED_STORAGE"
+                    or any(row.get(field) is not False for field in (
+                        "runtime_dependency_reviewed", "restore_plan_verified",
+                        "retirement_authorized"))):
+                raise MigrationGuard("Managed Storage lifecycle review remains unresolved")
+        elif category == "managed_storage_review":
+            raise MigrationGuard("Unknown managed Storage review exception")
+        elif schema in SCHEMA_CATEGORY and category != SCHEMA_CATEGORY[schema]:
             raise MigrationGuard("Auth/private/storage relation crossed a boundary")
         if schema == "tcg" and category in SCHEMA_CATEGORY.values():
             raise MigrationGuard("Application relation incorrectly routed")
@@ -126,6 +146,9 @@ def validate_register(data: dict) -> dict:
     return {
         "state": "FULL_EXIT_SOURCE_INVENTORY_VALIDATED_NOT_MIGRATED",
         "source_relation_count": len(keys),
+        "provisional_managed_storage_relations": len(MANAGED_STORAGE_REVIEW),
+        "source_dependency_classification_complete": False,
+        "gate_a_complete": False,
         "tables_by_schema": dict(counted),
         "tables_by_route": dict(sorted(Counter(row["category"] for row in rows).items())),
         "source_size_bytes_for_included_relations": sum(row["bytes"] for row in rows),
@@ -145,7 +168,13 @@ def assert_current_matches(current: list[dict], recorded: dict) -> None:
         missing = len(recorded_keys - live_keys)
         new = len(live_keys - recorded_keys)
         raise MigrationGuard(f"Supabase schema drift: {new} new, {missing} absent tables")
+    recorded_kinds = {(row["schema"], row["table"]): row.get("relation_kind")
+                      for row in recorded["tables"]}
     for row in current:
+        key = (row["schema_name"], row["table_name"])
+        if (row.get("relation_kind") not in {"r", "p", "v", "m"}
+                or row["relation_kind"] != recorded_kinds[key]):
+            raise MigrationGuard("Supabase relation kind drift or missing metadata")
         if (type(row.get("bytes")) is not int or row["bytes"] < 0 or
                 type(row.get("estimated_rows")) is not int or row["estimated_rows"] < 0):
             raise MigrationGuard("Invalid live relation metadata")
