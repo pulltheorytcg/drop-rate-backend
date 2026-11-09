@@ -400,3 +400,156 @@ def test_main_branch_workflow_credentials_are_evaluated_not_literal_backslashes(
     assert "D1_IMPORT_OUTCOME: " + "$" + "{{ steps.real_import.outcome }}" in workflow
     assert "D1_IMPORT_COMMIT: " + "$" + "{{ github.sha }}" in workflow
     assert "D1_IMPORT_REPOSITORY: " + "$" + "{{ github.repository }}" in workflow
+
+
+def test_paid_catchup_reuses_original_daily_receipt_and_finishes_isolated_d1(monkeypatch):
+    """Founder-approved Paid supplement keeps original 8k receipt immutable."""
+    client,_=fixture()
+    day=datetime(2026,11,9,tzinfo=timezone.utc)
+    with client:
+        before=runner.run("a"*32,"dummy-test-token","9001","1",
+                          client=client,now=day)
+        assert before["d1_staged_rows"]==7
+        legacy=FakeD1.conn.execute(
+            "select utc_day,manifest_sha,run_id,rows_limit "
+            "from shadow_daily_write_budget").fetchone()
+        assert legacy["run_id"]=="9001" and legacy["rows_limit"]==7
+        monkeypatch.setenv("DR_D1_PAID_CATCHUP_APPROVAL",runner.PAID_EXTRA_APPROVAL)
+        after=runner.run("a"*32,"dummy-test-token","9002","1",
+                         client=client,now=day)
+    assert after["status"]=="REAL_R2_YUGIOH_TO_ISOLATED_D1_VERIFIED"
+    assert after["d1_verified_rows"]==23
+    assert after["no_public_catalogue_cutover"] is True
+    assert after["market_value_writes"]==after["owner_and_settlement_writes"]==0
+    assert FakeD1.conn.execute(
+        "select count(*) from shadow_live_cards").fetchone()[0]==23
+    current=FakeD1.conn.execute(
+        "select utc_day,manifest_sha,run_id,rows_limit "
+        "from shadow_daily_write_budget").fetchone()
+    assert dict(current)==dict(legacy)
+    paid=FakeD1.conn.execute(
+        "select utc_day,manifest_sha,run_id,start_rows,rows_limit "
+        "from shadow_paid_catchup_receipts").fetchone()
+    assert paid["run_id"]=="9002" and paid["start_rows"]==7
+    assert paid["rows_limit"]==16
+    assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0]==1
+
+
+def test_unapproved_paid_mode_does_not_bypass_old_receipt(monkeypatch):
+    client,_=fixture()
+    day=datetime(2026,11,9,tzinfo=timezone.utc)
+    with client:
+        first=runner.run("a"*32,"dummy-test-token","9010","1",
+                         client=client,now=day)
+        assert first["d1_staged_rows"]==7
+        before=FakeD1.mutations
+        monkeypatch.setenv("DR_D1_PAID_CATCHUP_APPROVAL","not-approved")
+        blocked=runner.run("a"*32,"dummy-test-token","9011","1",
+                           client=client,now=day)
+    assert blocked["status"]=="YUGIOH_D1_SHADOW_DAILY_BUDGET_ALREADY_USED"
+    assert blocked["d1_staged_rows"]==7
+    assert FakeD1.mutations==before
+    assert FakeD1.conn.execute(
+        "select count(*) from sqlite_master "
+        "where type='table' and name='shadow_paid_catchup_receipts'").fetchone()[0]==0
+
+
+def test_paid_approval_is_exact_day_and_cannot_enable_future_daily_bypass(monkeypatch):
+    client,_=fixture()
+    monkeypatch.setenv("DR_D1_PAID_CATCHUP_APPROVAL",runner.PAID_EXTRA_APPROVAL)
+    with client:
+        one=runner.run("a"*32,"dummy-test-token","9020","1",
+                       client=client,now=datetime(2026,11,10,tzinfo=timezone.utc))
+        again=runner.run("a"*32,"dummy-test-token","9021","1",
+                         client=client,now=datetime(2026,11,10,tzinfo=timezone.utc))
+    assert one["d1_staged_rows"]==7
+    assert again["status"]=="YUGIOH_D1_SHADOW_DAILY_BUDGET_ALREADY_USED"
+    assert FakeD1.conn.execute(
+        "select count(*) from sqlite_master "
+        "where type='table' and name='shadow_paid_catchup_receipts'").fetchone()[0]==0
+
+
+def test_paid_reservation_can_only_resume_same_gitHub_run_after_partial_failure(monkeypatch):
+    """Durable reserved count stops concurrent runner double-write; same run recovers."""
+    monkeypatch.setenv("DR_D1_PAID_CATCHUP_APPROVAL",runner.PAID_EXTRA_APPROVAL)
+    monkeypatch.setattr(runner,"PAID_EXTRA_MAX_ROWS",20)
+    client,_=fixture(count=40)
+    # Every SQL statement may contain multiple card rows. Force one SQL
+    # statement per D1 batch so the simulated failure lands *after* a
+    # supplemental batch actually committed some rows, rather than assuming
+    # that 20 cards always create two HTTP batches.
+    monkeypatch.setattr(runner.codec, "MAX_BATCH_STATEMENTS", 1)
+    original=FakeD1.batch
+    counts={"n":0}
+    def interrupted(self,uid,statements):
+        counts["n"]+=1
+        # 7 original cards => 2 statement batches (6 + 1).
+        # The paid supplement starts at call 3; fail at 4 after 6 paid rows.
+        if counts["n"]==4:
+            raise RuntimeError("synthetic D1 connection acknowledgement lost")
+        return original(self,uid,statements)
+    monkeypatch.setattr(FakeD1,"batch",interrupted)
+    now=datetime(2026,11,9,tzinfo=timezone.utc)
+    with client:
+        with pytest.raises(RuntimeError,match="acknowledgement lost"):
+            runner.run("a"*32,"dummy-test-token","9030","1",
+                       client=client,now=now)
+        count=FakeD1.conn.execute(
+            "select count(*) from shadow_cards").fetchone()[0]
+        assert 7 < count < 27
+        paid=FakeD1.conn.execute(
+            "select run_id,start_rows,rows_limit "
+            "from shadow_paid_catchup_receipts").fetchone()
+        assert paid["run_id"]=="9030"
+        assert paid["start_rows"]==7 and paid["rows_limit"]==20
+        monkeypatch.setattr(FakeD1,"batch",original)
+        before=FakeD1.mutations
+        denied=runner.run("a"*32,"dummy-test-token","9031","1",
+                          client=client,now=now)
+        assert denied["status"]=="YUGIOH_D1_SHADOW_PAID_RECEIPT_RESERVED"
+        assert denied["d1_staged_rows"]==count
+        assert FakeD1.mutations==before
+        resumed=runner.run("a"*32,"dummy-test-token","9030","2",
+                           client=client,now=now)
+        assert resumed["d1_staged_rows"]==27
+        assert resumed["status"]=="YUGIOH_D1_SHADOW_PARTIAL_VERIFIED"
+        assert FakeD1.conn.execute(
+            "select count(*) from shadow_live_cards").fetchone()[0]==0
+
+
+
+@pytest.mark.parametrize(
+    "event,ref,approved_sha,approved_run,allowed",
+    [
+        ("push", "refs/heads/main", "", "", False),
+        ("schedule", "refs/heads/main", "", "", False),
+        ("push", "refs/heads/main", "a" * 40, "", False),
+        ("push", "refs/heads/main", "", "123", False),
+        ("push", "refs/heads/main", "b" * 40, "123", False),
+        ("schedule", "refs/heads/main", "a" * 40, "122", False),
+        ("pull_request", "refs/heads/main", "a" * 40, "123", False),
+        ("push", "refs/heads/feature", "a" * 40, "123", False),
+        ("push", "refs/heads/main", "a" * 40, "123", True),
+        ("schedule", "refs/heads/main", "a" * 40, "123", True),
+    ],
+)
+def test_import_job_requires_separate_exact_commit_and_run_release(
+    event, ref, approved_sha, approved_run, allowed,
+):
+    """Exercise the actual job condition before its credentials/8k import exist."""
+    from types import SimpleNamespace
+
+    workflow = (Path(__file__).resolve().parents[1]
+                / ".github/workflows/d1-yugioh-r2-shadow.yml").read_text()
+    job = workflow.split("  resume-isolated-yugioh:\n", 1)[1]
+    condition = job.split("    if: >-\n", 1)[1].split("    needs:", 1)[0]
+    expression = " ".join(condition.split()).replace("&&", "and").replace("||", "or")
+    # This is repository-controlled workflow source, not external input.
+    result = eval(expression, {"__builtins__": {}}, {
+        "github": SimpleNamespace(event_name=event, ref=ref, sha="a" * 40, run_id="123"),
+        "vars": SimpleNamespace(DR_D1_YUGIOH_IMPORT_APPROVED_SHA=approved_sha,
+                                DR_D1_YUGIOH_IMPORT_APPROVED_RUN_ID=approved_run),
+    })
+    assert result is allowed
+    assert "needs: offline-exact-id-and-rls" in job
+    assert "id-token: write" not in workflow.split("  resume-isolated-yugioh:", 1)[0]

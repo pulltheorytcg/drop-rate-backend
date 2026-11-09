@@ -4,6 +4,19 @@
 - Updated the existing register with fresh relation metadata and explicit provisional managed-Storage routes. These two relations are neither approved for bulk D1 copy nor excluded from runtime/restore review. The validator rejects silent rerouting, invented lifecycle exemptions and completion flags. Gate A and retirement remain incomplete.
 - Discovery now includes tables, partitioned tables, views and materialized views, safely avoiding physical-size requests for plain views; same-name relation-kind drift fails closed. 23 focused inventory/preflight tests pass locally. Fresh downloaded metadata matches all 150 names/kinds; this is schema-scope reconciliation, not data parity, restore verification or zero runtime dependency. Exact-head CI, review, merge and deployment remain pending.
 - Metadata-only CSV receipt SHA256: 6bf64eefcb51ba0a5b1676d787fedb87f540b8dc2ad26ba3f71158006a9e6e1a. No import, source mutation, credential, financial, authentication or production-route changes.
+## 9 November 2026 — PR #1035 import release guard (unmerged; no import)
+
+- Review found that main pushes/schedules could still start the ordinary 8,000-row YGO import without separate release authorisation. The entire write-capable job now requires maintainer approval of both the exact commit SHA and GitHub run ID; the Paid supplement retains its additional marker/date checks. No approval variables were configured and no protected run was rerun.
+- All 86 focused YGO/export/shadow tests passed locally under Python 3.12. Ten release-condition scenarios cover missing/partial approvals, changed commit/run, PR/branch rejection and approved same-run retries. The new regressions fail against the previous workflow. Fresh exact-head CI remains a release requirement.
+- Read-only production checks: API readiness is ready/database connected; Railway API deployment 559160b1-820d-4bf9-8c8c-da4782fac763 is ACTIVE/successful and API/n8n are online on the earlier release. This PR has not been deployed. Retirement gates A–H remain 0/8.
+- Full local dependency installation is blocked by the configured package registry lacking pinned ijson==3.6.0. Focused suites do not require that package; the pin was preserved. No full-suite result is claimed.
+
+## 9 November 2026 — One-time paid-capacity Yu-Gi-Oh D1 catch-up (PR pending; no public cutover)
+
+- The founder confirms Workers Paid upgrade. Previously Free-blocked production D1 source/finance read-only gates now passed on the same UTC day; independent billing subscription and monthly use remain unverified.
+- Original 8,000-new-rows/day quota receipt is kept unchanged. New separate immutable, source SHA/run-ID/UTC-day pinned, bounded **at most 40,000 additional new-row reservation** is permitted **ONLY 9 November 2026** on the explicitly approved protected main importer. A partial D1 crash can resume within the same original GitHub run up to its reserved target; unrelated reruns cannot spend it again.
+- The last proven Yu-Gi-Oh new-generation checkpoint is 8,000/45,419 and 37,419 remaining. **The catch-up implementation is not itself a successful live import**; require new protected SHA/prefix/checksum receipt and isolated active pointer readback. The original 24,000-row generation remains intact. No storefront, financial, Auth, owner or Shopify switch.
+- Offline tests for original-receipt preservation, invalid date/approval, partial retry and checksum are added; full CI and protected production readback pending. See `docs/D1_PAID_YUGIOH_ONE_TIME_CATCHUP_20261109.md`. Migration retirement tracker #1010 remains NO-GO.
 
 ## 9 November 2026 — Inactive signed atomic D1 financial Worker candidate (CI pending; NO CUTOVER)
 
