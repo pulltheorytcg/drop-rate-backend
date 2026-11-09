@@ -33,6 +33,11 @@ MAX_ROWS = 50_000
 MAX_SOURCE_BYTES = 30_000_000
 MAX_SOURCE_PARTS = 128
 DAILY_NEW_ROWS = 8_000
+# Founder explicitly upgraded Workers Paid on 9 Nov 2026. This is ONE
+# reviewed, date-locked supplement, not an unrestricted daily quota bypass.
+PAID_EXTRA_MAX_ROWS = 40_000
+PAID_EXTRA_UTC_DAY = "2026-11-09"
+PAID_EXTRA_APPROVAL = "FOUNDER_APPROVED_WORKERS_PAID_20261109"
 MAX_REVIEWED_NAME_ONLY_CORRECTIONS = 10
 MAX_D1_DATABASES = 9
 REPORT_FILE = "d1-yugioh-real-shadow-report.json"
@@ -46,6 +51,19 @@ BUDGET_SCHEMA = """create table if not exists shadow_daily_write_budget(
 
 BUDGET_INSERT = """insert into shadow_daily_write_budget(
     utc_day,manifest_sha,run_id,rows_limit) values(?,?,?,?)"""
+
+# An immutable supplementary receipt reserves at most 40,000 additional
+# **new rows**, never edits the original 8k/day Free-plan receipt. Same run
+# can retry after partial Cloudflare acknowledgement loss using exact prefix.
+PAID_EXTRA_SCHEMA = """create table if not exists shadow_paid_catchup_receipts(
+    utc_day text primary key,
+    manifest_sha text not null references shadow_generations(manifest_sha),
+    run_id text not null,
+    start_rows integer not null check(start_rows>=0),
+    rows_limit integer not null check(rows_limit between 1 and 40000)
+)"""
+PAID_EXTRA_INSERT = """insert into shadow_paid_catchup_receipts(
+    utc_day,manifest_sha,run_id,start_rows,rows_limit) values(?,?,?,?,?)"""
 
 D1_READBACK_SQL = ("select " + ",".join(codec.SQLITE_COLUMNS) +
     " from shadow_cards where manifest_sha=? and card_key>? "
@@ -249,6 +267,63 @@ def _daily_receipt(cloud: D1Client, dbid: str, today: str):
     return rows[0] if rows else None
 
 
+def _paid_one_time_catchup(
+    cloud: D1Client, dbid: str, source: codec.Projection,
+    staged: int, run_id: str, utc_day: str,
+):
+    """Bounded one-time additional staging from *approved* paid capacity.
+
+    The immutable original daily receipt is retained. An independent,
+    date/manifest/run-pinned receipt is written BEFORE additional rows.
+    An acknowledgement-lost retry is allowed only for the SAME GitHub run
+    and only up to the reserved prefix target; it cannot mint more budget.
+    """
+    if utc_day != PAID_EXTRA_UTC_DAY:
+        raise MigrationGuard("Paid staging approval date has expired")
+    _query(cloud, dbid, PAID_EXTRA_SCHEMA)
+    rows = _query(cloud, dbid,
+        "select utc_day,manifest_sha,run_id,start_rows,rows_limit "
+        "from shadow_paid_catchup_receipts where utc_day=?", (utc_day,))
+    if len(rows)>1:
+        raise MigrationGuard("Ambiguous paid D1 catch-up receipt")
+    if rows:
+        receipt=rows[0]
+        if receipt.get("manifest_sha") != source.manifest_sha:
+            raise MigrationGuard("Paid catch-up source manifest changed; no writes")
+        if receipt.get("run_id") != run_id:
+            # Different runs cannot reuse/change a previous paid reservation.
+            # The original GitHub workflow may be rerun (same GITHUB_RUN_ID).
+            return staged, "PAID_CATCHUP_RESERVED_BY_DIFFERENT_RUN"
+        start=receipt.get("start_rows")
+        limit=receipt.get("rows_limit")
+        if (type(start) is not int or type(limit) is not int
+                or not 0 <= start <= staged <= start + limit
+                or not 1 <= limit <= PAID_EXTRA_MAX_ROWS
+                or start+limit > source.expected_rows):
+            raise MigrationGuard("Paid catch-up receipt/prefix inconsistent")
+    else:
+        remaining=source.expected_rows-staged
+        if remaining<=0:
+            return staged, "PAID_CATCHUP_NOT_NEEDED"
+        limit=min(PAID_EXTRA_MAX_ROWS,remaining)
+        start=staged
+        _query(cloud, dbid, PAID_EXTRA_INSERT,
+               (utc_day,source.manifest_sha,run_id,start,limit))
+    target=start+limit
+    if staged < target:
+        # At most 40,000 source rows; preserve immutable order and row keys.
+        subset=replace(source,rows=source.rows[staged:target],
+                       expected_rows=target-staged)
+        statements=list(codec.insert_statements(subset))
+        for i in range(0,len(statements),codec.MAX_BATCH_STATEMENTS):
+            cloud.batch(dbid,statements[i:i+codec.MAX_BATCH_STATEMENTS])
+        confirmed=_verify_staged_prefix(cloud,dbid,source)
+        if confirmed != target:
+            raise MigrationGuard("Paid D1 source prefix differs from receipt")
+        staged=confirmed
+    return staged, "PAID_CATCHUP_PREFIX_VERIFIED"
+
+
 def run(account: str, token: str, run_id: str, run_attempt: str, *,
         client: httpx.Client | None = None, now: datetime | None = None):
     if (not re.fullmatch(r"[0-9]{1,20}", run_id) or
@@ -303,33 +378,46 @@ def run(account: str, token: str, run_id: str, run_attempt: str, *,
             raise MigrationGuard("Active Yu-Gi-Oh generation is incomplete")
 
     utc_day = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).date().isoformat()
+    paid_approved = (
+        utc_day == PAID_EXTRA_UTC_DAY and
+        os.getenv("DR_D1_PAID_CATCHUP_APPROVAL", "") == PAID_EXTRA_APPROVAL
+    )
     remaining = source.expected_rows - current
+    staged = current
     if remaining:
         prior = _daily_receipt(cloud, dbid, utc_day)
-        if prior:
+        if prior and prior.get("manifest_sha") != source.manifest_sha:
+            raise MigrationGuard("Existing daily receipt is for another source; no writes")
+        if not prior:
+            limit = min(DAILY_NEW_ROWS, remaining)
+            # The legacy, independently enforced 8k/day receipt stays intact.
+            receipt = {"sql":BUDGET_INSERT,
+                       "params":[utc_day,source.manifest_sha,run_id,limit]}
+            _query(cloud, dbid, receipt["sql"], receipt["params"])
+            subset = replace(source, rows=source.rows[current:current+limit],
+                             expected_rows=limit)
+            statements = list(codec.insert_statements(subset))
+            for i in range(0, len(statements), codec.MAX_BATCH_STATEMENTS):
+                cloud.batch(dbid, statements[i:i+codec.MAX_BATCH_STATEMENTS])
+            staged = _verify_staged_prefix(cloud, dbid, source)
+            if staged != current + limit:
+                raise MigrationGuard("Daily D1 staged count not equal to bounded receipt")
+        elif not paid_approved:
             return {"status":"YUGIOH_D1_SHADOW_DAILY_BUDGET_ALREADY_USED",
                     "source_rows":source.expected_rows,"d1_staged_rows":current,
                     "d1_database_name":EXACT_DATABASE_NAME,
                     "no_public_catalogue_cutover":True,"market_value_writes":0,
                     "owner_and_settlement_writes":0}
-        limit = min(DAILY_NEW_ROWS, remaining)
-        # A durable receipt is written BEFORE any card inserts. A crash or
-        # network acknowledgement loss can resume on the NEXT UTC day only.
-        receipt = {"sql":BUDGET_INSERT,
-                   "params":[utc_day,source.manifest_sha,run_id,limit]}
-        _query(cloud, dbid, receipt["sql"], receipt["params"])
-        subset = replace(source, rows=source.rows[current:current+limit],
-                         expected_rows=limit)
-        statements = list(codec.insert_statements(subset))
-        for i in range(0, len(statements), codec.MAX_BATCH_STATEMENTS):
-            cloud.batch(dbid, statements[i:i+codec.MAX_BATCH_STATEMENTS])
-        # Verify all prior/current rows as exact prefix before reporting
-        # progress, not just a count or last-record guess.
-        staged = _verify_staged_prefix(cloud, dbid, source)
-        if staged != current + limit:
-            raise MigrationGuard("Daily D1 staged count not equal to bounded receipt")
-    else:
-        staged = current
+        if paid_approved and staged < source.expected_rows:
+            staged,paid_status = _paid_one_time_catchup(
+                cloud,dbid,source,staged,run_id,utc_day)
+            if paid_status == "PAID_CATCHUP_RESERVED_BY_DIFFERENT_RUN":
+                return {"status":"YUGIOH_D1_SHADOW_PAID_RECEIPT_RESERVED",
+                        "source_rows":source.expected_rows,
+                        "d1_staged_rows":staged,
+                        "d1_database_name":EXACT_DATABASE_NAME,
+                        "no_public_catalogue_cutover":True,"market_value_writes":0,
+                        "owner_and_settlement_writes":0}
 
     if staged < source.expected_rows:
         return {"status":"YUGIOH_D1_SHADOW_PARTIAL_VERIFIED",
