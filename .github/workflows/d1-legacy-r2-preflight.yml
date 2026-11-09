@@ -80,7 +80,7 @@ jobs:
               path=Path("d1-legacy-r2-source-preflight-report.json")
               if path.is_file():
                   data=json.loads(path.read_text())
-                  counts={"reference_cards":69697,"reference_sets":1472,
+                  counts={"reference_cards":69867,"reference_sets":1473,
                           "reference_sealed_products":3893,
                           "catalogue_products":2062,
                           "catalogue_product_profiles":2062}
@@ -88,14 +88,17 @@ jobs:
                   verified=(isinstance(got,dict)
                             and {k:v.get("rows") for k,v in got.items()}==counts)
                   if (data.get("status")=="LEGACY_R2_SOURCE_PREPARED_FOR_D1"
-                      and verified and data.get("source_rows_verified")==79186
+                      and verified and data.get("source_rows_verified")==79357
                       and data.get("r2_parts_verified")==161
+                      and data.get("generation")==122674
+                      and data.get("r2_manifest_sha256")==
+                          "977c9d114cf1aa96225e14bf5f76144cfd60ad2d85dffd82987e1197fdd4ef35"
                       and data.get("d1_writes")==0
                       and data.get("owner_and_settlement_writes")==0
                       and data.get("market_value_writes")==0
                       and data.get("production_reads_switched") is False):
                       state="success"
-                      description="Legacy 79,186 R2 source rows verified; NO D1 cutover"
+                      description="Legacy 79,357 R2 source rows verified; NO D1 cutover"
           payload=json.dumps({
              "state":state,"context":"drop-rate-legacy-r2-source-parity",
              "description":description,
