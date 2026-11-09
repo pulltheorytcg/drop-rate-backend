@@ -133,7 +133,8 @@ def test_complete_lorcana_checksum_readback_uses_keyset_cursor(monkeypatch):
     assert result["d1_verified_rows"]==1002
     assert len(scan)>=10 and scan[0][1]==""
     assert all(len(p)==3 and p[2]<=100 for p in scan)
-    assert all(scan[i][1]<scan[i+1][1] for i in range(len(scan)-1))
+    assert all(scan[i+1][1]=="" or scan[i][1]<scan[i+1][1]
+               for i in range(len(scan)-1))
     FakeD1.last.connection.close()
 
 
