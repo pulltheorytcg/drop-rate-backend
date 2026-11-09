@@ -23,6 +23,7 @@ from d1_remote_catalogue_pilot import D1Client, PilotError
 from d1_r2_real_shadow import (
     API_ORIGIN, SOURCE_PATH, _oidc_token, _query, _schema,
     load_verified_source, verify_d1_projection, MigrationGuard,
+    _keyset_readback_page,
 )
 
 SCOPE = ("ygoprodeck", "YUGIOH", "English")
@@ -137,9 +138,10 @@ def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
         missing_keys = 0
         changed_rows = 0
         changed_columns = {}
+        last_key = ""
         for offset in range(0, count, 100):
-            old_rows = _query(cloud, dbid, D1_READBACK_SQL,
-                              (old_sha, min(100, count-offset), offset))
+            old_rows,last_key = _keyset_readback_page(
+                cloud,dbid,old_sha,last_key,min(100,count-offset))
             if len(old_rows) != min(100, count-offset):
                 raise MigrationGuard("Retained Yu-Gi-Oh generation is incomplete")
             for row in old_rows:
@@ -219,9 +221,10 @@ def _verify_staged_prefix(cloud: D1Client, dbid: str, source: codec.Projection):
     if not 0 <= count <= source.expected_rows:
         raise MigrationGuard("D1 staged row count outside original source")
     offset = 0
+    last_key = ""
     while offset < count:
-        rows = _query(cloud, dbid, D1_READBACK_SQL,
-                      (source.manifest_sha, min(100,count-offset), offset))
+        rows,last_key = _keyset_readback_page(
+            cloud,dbid,source.manifest_sha,last_key,min(100,count-offset))
         if len(rows) != min(100,count-offset):
             raise MigrationGuard("Missing staged source row")
         for i, row in enumerate(rows):
