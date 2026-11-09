@@ -49,6 +49,8 @@ jobs:
     if: >-
       (github.event_name == 'push' || github.event_name == 'schedule')
       && github.ref == 'refs/heads/main'
+      && vars.DR_D1_YUGIOH_IMPORT_APPROVED_SHA == github.sha
+      && vars.DR_D1_YUGIOH_IMPORT_APPROVED_RUN_ID == github.run_id
     needs: offline-exact-id-and-rls
     runs-on: ubuntu-latest
     timeout-minutes: 35
