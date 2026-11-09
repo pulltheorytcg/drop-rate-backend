@@ -26,8 +26,8 @@ from d1_r2_real_shadow import (
     SOURCE_PATH, _oidc_token, _query, fetch_bytes, MigrationGuard,
 )
 from d1_followon_r2_shadow import (
-    ACCOUNT, DB_NAME as FOLLOWON_DB, SOURCES as FOLLOWON_SOURCES,
-    _listed, _source_active, _disk_used,
+    ACCOUNT, DB_NAME as FOLLOWON_DB, YGO_DB,
+    _listed, _disk_used,
 )
 
 SOURCE_PATH_LEGACY_D1 = SOURCE_PATH + "/legacy-d1"
@@ -288,7 +288,15 @@ def _next_stage(cloud: D1Client,uid: str,source:LegacyProjection,today: str,run_
 
 
 def _preflight(cloud:D1Client,dbs:dict[str,str],today:str):
-    """Block before source fetch and any D1 create until all follow-on sources done."""
+    """Independent legacy-card stage; other catalogue parity is not a prerequisite.
+
+    The 79k-card legacy source has its OWN signed immutable manifest, typed
+    relation hash guard, D1 database and rollback pointer. Requiring Magic,
+    sports and figures to finish first delayed Pokémon/One Piece/Dragon Ball/
+    Naruto for unrelated work. Never remove the independent **account-wide**
+    capacity/creation/day reservation precautions or the exact GitHub run
+    approval configured by the protected workflow.
+    """
     def waiting(reason):
         return {
             "status":"LEGACY_WAITING_FOR_PRECEDING_CATALOGUE",
@@ -296,16 +304,20 @@ def _preflight(cloud:D1Client,dbs:dict[str,str],today:str):
             "d1_writes":0,"market_value_writes":0,
             "owner_and_settlement_writes":0,"production_reads_switched":False,
         }
-    uid=dbs.get(FOLLOWON_DB)
-    if uid is None:
-        return waiting("FOLLOWON_D1_NOT_YET_PRESENT")
-    for source in FOLLOWON_SOURCES:
-        if not _source_active(cloud,uid,source):
-            return waiting("FOLLOWON_FULL_PARITY_NOT_YET_ACTIVE")
-    day_rows=_query(cloud,uid,
-        "select max(utc_day) as day from followon_daily_budget")
-    if len(day_rows)!=1 or day_rows[0].get("day")==today:
-        return waiting("FOLLOWON_WROTE_TODAY_OR_RECEIPT_UNAVAILABLE")
+    # Keep conservative single-day write separation even with Workers Paid.
+    # Only query source namespaces that are independently known to exist.
+    for name,table in (
+        (YGO_DB,"shadow_daily_write_budget"),
+        (FOLLOWON_DB,"followon_daily_budget"),
+    ):
+        uid=dbs.get(name)
+        if uid is None:
+            continue
+        receipt=_query(cloud,uid,
+                       "select max(utc_day) as day from "+table)
+        if len(receipt)!=1 or receipt[0].get("day")==today:
+            return waiting("ANOTHER_CATALOGUE_WROTE_TODAY_OR_RECEIPT_MISSING")
+
     total=0
     for uuid in dbs.values():
         size=_disk_used(cloud,uuid)

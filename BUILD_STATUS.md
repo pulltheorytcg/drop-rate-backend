@@ -1,3 +1,10 @@
+## 9 November 2026 — Remove unrelated Magic/follow-on blocking from original-game D1 stage (PR review)
+
+- Original-game R2 publication is already generation 122674 / 69,867 cards across Pokémon, One Piece, Dragon Ball, Naruto and 79,357 owner-free rows across five relations. The legacy D1 shadow importer had wrongly required FULL completion of Magic/sports/figures D1 follow-on before starting any legacy card stage. This serialised the four original games behind ~155k unrelated rows.
+- Its private preflight now independently checks *existing* Yu-Gi-Oh and Magic/follow-on same-day D1 receipts, all D1 account size/database-slot budget, and existing SHA/source/daily row guards without requiring other games to be complete. Synthetic tests prove staging if Magic DB is absent and fail-closed if competing same-day YGO/follow-on jobs wrote, wrong manifest, or broken rows. There is **NO** change to GitHub workflow exact-SHA/run write approval nor activation.
+- Critically, write-capable legacy D1 importer pins remain on **obsolete 122500 / 79,186 / old per-relation SHA** until independent protected latest-R2 byte and SHA proof is obtained. This PR by itself does NOT stage new D1 rows or remove Supabase. Runbook: `docs/D1_ORIGINAL_GAME_INDEPENDENT_STAGING_20261109.md`.
+- Full CI and deployment verification pending during PR authoring; source owner, physical inventory, auth, settlement, Shopify, price data and public routes remain unchanged. Supabase exit gates 0/8.
+
 ## 9 November 2026 — Original TCG families and Magic: current R2 source proof (read-only PR)
 
 - Live read-only source shows **69,867** original-game `reference_cards`: Pokémon 37,068; One Piece 9,007; Dragon Ball 16,626; Naruto 7,166. Current verified publication metadata is legacy R2 generation **122674** with **79,357** five-relation records (69,867 cards, 1,473 sets, 3,893 sealed, 2,062 products, 2,062 profiles), 161 parts, 29,886,526 bytes and canonical manifest SHA `977c9d114cf1aa96225e14bf5f76144cfd60ad2d85dffd82987e1197fdd4ef35`. Previous D1 importer is still pinned to 122500/79,186 and **not yet repinned or activated**.

@@ -19,6 +19,7 @@ from d1_r2_real_shadow import MigrationGuard  # noqa: E402
 
 FOLLOWON_UUID="11111111-1111-4111-8111-111111111111"
 LEGACY_UUID="22222222-2222-4222-8222-222222222222"
+YUGIOH_UUID="33333333-3333-4333-8333-333333333333"
 
 
 class FakeCloud:
@@ -26,13 +27,20 @@ class FakeCloud:
     created=0
     writes=0
     source_day="2026-11-05"
+    yugioh_day="2026-11-05"
+    followon_present=True
+    yugioh_present=False
 
     def __init__(self,account,token):
         assert account==mover.ACCOUNT and token=="scoped-test-token"
         self.path="/accounts/"+account+"/d1/database"
 
     def list_databases(self):
-        values=[{"name":mover.FOLLOWON_DB,"uuid":FOLLOWON_UUID}]
+        values=[]
+        if self.followon_present:
+            values.append({"name":mover.FOLLOWON_DB,"uuid":FOLLOWON_UUID})
+        if self.yugioh_present:
+            values.append({"name":mover.YGO_DB,"uuid":YUGIOH_UUID})
         if self.db is not None:
             values.append({"name":mover.LEGACY_DB,"uuid":LEGACY_UUID})
         return values
@@ -51,6 +59,9 @@ class FakeCloud:
         if uid==FOLLOWON_UUID:
             assert sql=="select max(utc_day) as day from followon_daily_budget"
             return {"success":True,"results":[{"day":self.source_day}]},0
+        if uid==YUGIOH_UUID:
+            assert sql=="select max(utc_day) as day from shadow_daily_write_budget"
+            return {"success":True,"results":[{"day":self.yugioh_day}]},0
         assert uid==LEGACY_UUID and self.db is not None
         c=self.db.execute(sql,params)
         if sql.lstrip().lower().startswith("insert"):
@@ -65,9 +76,11 @@ def fake_environment(monkeypatch):
     FakeCloud.created=0
     FakeCloud.writes=0
     FakeCloud.source_day="2026-11-05"
+    FakeCloud.yugioh_day="2026-11-05"
+    FakeCloud.followon_present=True
+    FakeCloud.yugioh_present=False
     monkeypatch.setattr(mover,"D1Client",FakeCloud)
     monkeypatch.setattr(mover,"_oidc_token",lambda:"signed-source")
-    monkeypatch.setattr(mover,"_source_active",lambda *args:True)
     monkeypatch.setattr(mover,"_disk_used",lambda *args:1024)
     monkeypatch.setattr(mover,"DAILY_ROWS",2)
     yield
@@ -175,14 +188,41 @@ def test_all_five_types_survive_multiple_days_and_only_activate_after_exact_sha(
         assert FakeCloud.created==1
 
 
-def test_followon_not_active_never_fetches_legacy_or_creates_d1(monkeypatch):
-    monkeypatch.setattr(mover,"_source_active",lambda *args:False)
-    client,_,_,_=fixture()
+def test_original_games_can_stage_when_magic_followon_db_is_absent(monkeypatch):
+    """The old importer incorrectly blocked Pokemon until all Magic rows migrated."""
+    FakeCloud.followon_present=False
+    client,sha,manifest,digests=fixture()
+    pin(monkeypatch,sha,manifest,digests)
     with client:
         report=mover.run(mover.ACCOUNT,"scoped-test-token","124","1",
                          http=client,now=clock(6))
-    assert report["status"]=="LEGACY_WAITING_FOR_PRECEDING_CATALOGUE"
+    assert report["status"]=="LEGACY_D1_PARTIAL_VERIFIED"
+    assert report["d1_staged_rows"]==2
+    assert FakeCloud.created==1
+    assert FakeCloud.db.execute("select count(*) from legacy_live_rows").fetchone()[0]==0
+
+
+def test_absent_magic_followon_does_not_override_yugioh_same_day_receipt():
+    FakeCloud.followon_present=False
+    FakeCloud.yugioh_present=True
+    FakeCloud.yugioh_day="2026-11-06"
+    client,_,_,_=fixture()
+    with client:
+        report=mover.run(mover.ACCOUNT,"scoped-test-token","135","1",
+                         http=client,now=clock(6))
+    assert report["reason"]=="ANOTHER_CATALOGUE_WROTE_TODAY_OR_RECEIPT_MISSING"
     assert FakeCloud.created==0
+
+
+def test_unrelated_incomplete_followon_is_not_a_source_identity_shortcut(monkeypatch):
+    """Independent scheduling must preserve exact legacy SHA rejection."""
+    FakeCloud.followon_present=False
+    client,sha,manifest,digests=fixture()
+    pin(monkeypatch,"0"*64,manifest,digests)
+    with client,pytest.raises(MigrationGuard,match="changed"):
+        mover.run(mover.ACCOUNT,"scoped-test-token","136","1",
+                  http=client,now=clock(6))
+    assert FakeCloud.db is None
 
 
 def test_followon_wrote_today_cannot_compete_for_account_quota():
@@ -191,7 +231,7 @@ def test_followon_wrote_today_cannot_compete_for_account_quota():
     with client:
         report=mover.run(mover.ACCOUNT,"scoped-test-token","125","1",
                          http=client,now=clock(6))
-    assert report["reason"]=="FOLLOWON_WROTE_TODAY_OR_RECEIPT_UNAVAILABLE"
+    assert report["reason"]=="ANOTHER_CATALOGUE_WROTE_TODAY_OR_RECEIPT_MISSING"
     assert FakeCloud.created==0
 
 
@@ -239,3 +279,5 @@ def test_only_trusted_workflow_credentials_can_write():
     assert "CLOUDFARE_D1_PILOT_TOKEN: "+"${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}" in workflow
     assert "GITHUB_STATUS_TOKEN: "+"${{ github.token }}" in workflow
     assert "id-token: write" in workflow and "refs/heads/main" in workflow
+    assert "vars.DR_D1_LEGACY_IMPORT_APPROVED_SHA == github.sha" in workflow
+    assert "vars.DR_D1_LEGACY_IMPORT_APPROVED_RUN_ID == github.run_id" in workflow
