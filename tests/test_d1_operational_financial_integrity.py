@@ -278,6 +278,21 @@ def test_wrong_cloudflare_account_refused_before_read():
         finance.audit_typed_d1(WrongCloud(src),src)
 
 
+def test_cloudflare_quota_error_is_classified_without_sensitive_message(monkeypatch):
+    from d1_remote_catalogue_pilot import PilotError
+    def rejected(_self,_db,_sql,_params=()):
+        raise PilotError("Cloudflare D1 HTTP 400; category=DAILY_ROW_READ_LIMIT")
+    monkeypatch.setattr(finance.D1Client,"query",rejected)
+    client=finance.ClassifiedReadOnlyD1(finance.ACCOUNT,"synthetic-token")
+    with pytest.raises(finance.FinancialGuard) as caught:
+        client.query(
+            "12345678-1234-1234-1234-1234567890ab",
+            "SELECT id FROM ops_shadow_owners WHERE generation_id=?",["private-source-id"])
+    assert "category=DAILY_ROW_READ_LIMIT" in str(caught.value)
+    assert "ops_shadow_owners" in str(caught.value)
+    assert "private-source-id" not in str(caught.value)
+
+
 def test_cloudflare_read_error_exposes_only_fixed_schema_label(monkeypatch):
     from d1_remote_catalogue_pilot import PilotError
 
