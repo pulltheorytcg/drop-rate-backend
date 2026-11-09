@@ -41,7 +41,17 @@ class ClassifiedReadOnlyD1(D1Client):
     def query(self, database_id, statement, params=()):
         try:
             return super().query(database_id, statement, params)
-        except PilotError:
+        except PilotError as exc:
+            # The shared D1 client exposes only allowlisted HTTP categories.
+            # Never propagate provider messages or user/ledger identifiers.
+            category_match = re.search(r"category=([A-Z_]+)\\Z",str(exc))
+            category = (category_match.group(1)
+                        if category_match and category_match.group(1) in {
+                            "DAILY_ROW_READ_LIMIT", "DAILY_ROW_WRITE_LIMIT",
+                            "SCHEMA_TABLE_MISSING", "SCHEMA_COLUMN_MISSING",
+                            "D1_OVERLOADED", "ACCOUNT_STORAGE_LIMIT",
+                            "UNCLASSIFIED",
+                        } else "UNCLASSIFIED")
             known = {
                 *[target for target,_ in TARGETS.values()],
                 "ops_shadow_generations",
@@ -52,7 +62,9 @@ class ClassifiedReadOnlyD1(D1Client):
                                statement if isinstance(statement,str) else "")
             label = next((name for name in names if name in known),
                          "UNKNOWN_SCHEMA_QUERY")
-            raise FinancialGuard("Private D1 read-only query rejected at "+label) from None
+            raise FinancialGuard(
+                "Private D1 read-only query rejected at "+label
+                +"; category="+category) from None
 
 
 def _minor(value, *, zero=True):
