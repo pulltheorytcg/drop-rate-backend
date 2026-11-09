@@ -14,6 +14,7 @@ import gzip
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import re
 import tempfile
@@ -30,7 +31,8 @@ from .reference_history_archive import FORMAT as HISTORY_SCHEMA
 EXPECTED_ACCOUNT = 'dropratetcg@gmail.com'
 EXPECTED_FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9'
 EXPECTED_FOLDER_NAME = 'Drop Rate - Pricing History Archives'
-KINDS = ('REFERENCE_HISTORY', 'OPENLIBRARY_REVIEWED')
+OPERATIONAL_FOLDER = '1LrbyYjb5dkYPQehmN0q-IKIsmBFcH_pg'
+KINDS = ('REFERENCE_HISTORY', 'OPENLIBRARY_REVIEWED', 'OPERATIONAL_D1_SQLITE')
 MAX_OBJECT_BYTES = 16_000_000
 MAX_MANIFEST_BYTES = 256_000
 MAX_RECORD_BYTES = 64_000
@@ -106,20 +108,33 @@ def _timestamp(value):
     return stamp.astimezone(timezone.utc)
 
 
-def validate_destination(value, *, now=None):
+def destination_for_kind(kind):
+    require(kind in KINDS, 'UNSUPPORTED_ARCHIVE_KIND')
+    if kind != 'OPERATIONAL_D1_SQLITE':
+        return EXPECTED_FOLDER, EXPECTED_FOLDER_NAME
+    require(os.getenv('TCG_OPERATIONAL_D1_DRIVE_TRANSFER_ENABLED', 'false') == 'true',
+            'OPERATIONAL_D1_TRANSFER_DISABLED')
+    folder = os.getenv('TCG_OPERATIONAL_D1_DRIVE_FOLDER_ID', '')
+    require(folder == OPERATIONAL_FOLDER,
+            'OPERATIONAL_D1_DESTINATION_UNCONFIGURED')
+    return folder, 'Drop Rate – Operational D1 Backups'
+
+
+def validate_destination(value, *, now=None, kind='REFERENCE_HISTORY'):
     """Validate signed evidence obtained by the workflow's actual OAuth reads.
 
     This binds the intended account/folder; it is not a substitute for the
     workflow's Google about/files calls and does not claim backend Google auth.
     """
+    folder, folder_name = destination_for_kind(kind)
     expected = {'account_email', 'account_permission_id', 'folder_id', 'folder_name',
                 'folder_mime_type', 'folder_trashed', 'folder_shared', 'folder_owner_email',
                 'folder_owner_permission_id', 'permission_roles', 'checked_at'}
     require(isinstance(value, dict) and set(value) == expected, 'INVALID_DESTINATION_EVIDENCE')
     require(value['account_email'] == EXPECTED_ACCOUNT
             and value['folder_owner_email'] == EXPECTED_ACCOUNT
-            and value['folder_id'] == EXPECTED_FOLDER
-            and value['folder_name'] == EXPECTED_FOLDER_NAME
+            and value['folder_id'] == folder
+            and value['folder_name'] == folder_name
             and value['folder_mime_type'] == 'application/vnd.google-apps.folder'
             and value['folder_trashed'] is False and value['folder_shared'] is False
             and value['permission_roles'] == ['owner'], 'DESTINATION_MISMATCH')
@@ -200,7 +215,7 @@ async def storage_call(function, *args, **kwargs):
 
 
 class ArchiveTransfer:
-    def __init__(self, config, client=None):
+    def __init__(self, config, client=None, *, session_token=None):
         self.config = config
         if client is None:
             import boto3
@@ -208,6 +223,7 @@ class ArchiveTransfer:
             client = boto3.client('s3', endpoint_url=config.endpoint,
                 region_name=config.region, aws_access_key_id=config.access_key_id,
                 aws_secret_access_key=config.secret_access_key,
+                aws_session_token=session_token,
                 config=Config(signature_version='s3v4', connect_timeout=3,
                               read_timeout=15, retries={'max_attempts': 1}))
         self.client = client
@@ -220,6 +236,9 @@ class ArchiveTransfer:
 
     def _prefix(self, kind):
         require(kind in KINDS, 'UNSUPPORTED_ARCHIVE_KIND')
+        if kind == 'OPERATIONAL_D1_SQLITE':
+            destination_for_kind(kind)
+            return f'{self.config.prefix}/operational-d1-backups/v1/'
         category = 'reference-history' if kind == 'REFERENCE_HISTORY' else 'exports'
         return f'{self.config.prefix}/{category}/'
 
@@ -276,6 +295,23 @@ class ArchiveTransfer:
             key = prefix + manifest_sha256 + '.json'
             data = self._read(key, MAX_MANIFEST_BYTES, expected_sha=manifest_sha256)
         manifest = decode_json(data)
+        if kind == 'OPERATIONAL_D1_SQLITE':
+            from .operational_backup_contract import validate_manifest, unb64, BackupGuard
+            try:
+                value, source = validate_manifest(manifest,
+                    unb64(os.getenv('DR_D1_BACKUP_WRITER_PUBLIC_KEY', ''), 32),
+                    unb64(os.getenv('DR_D1_BACKUP_SOURCE_PUBLIC_KEY', ''), 32), self.config.prefix)
+            except BackupGuard:
+                raise ArchiveTransferError('OPERATIONAL_D1_SIGNED_MANIFEST_INVALID') from None
+            size = object_size(value['ciphertext_bytes'])
+            members = (
+                ArchiveMember(value['ciphertext_sha256'], size, value['object_key'],
+                    '.sqlite.aesgcm', 'application/octet-stream', 'ENCRYPTED_SQLITE'),
+                ArchiveMember(manifest_sha256, len(data), key, '.manifest.json', 'application/json', 'MANIFEST'),
+            )
+            require(len({m.sha256 for m in members}) == 2, 'ARCHIVE_MEMBERS_INVALID')
+            return ArchiveBundle(kind, manifest_sha256, 'operational-d1:' + manifest_sha256,
+                                 source['generation_sha256'], members)
         schema = HISTORY_SCHEMA if kind == 'REFERENCE_HISTORY' else SOURCE_SCHEMA
         if manifest.get('schema') != schema:
             raise UnrecognisedArchive('UNRECOGNISED_ARCHIVE_SCHEMA')
@@ -343,7 +379,9 @@ class ArchiveTransfer:
     def _record_key(self, bundle, category, object_sha256=None):
         require(category in {'reservations','objects','complete'}, 'INVALID_RECORD_CATEGORY')
         suffix = digest(object_sha256) if object_sha256 is not None else 'complete'
-        return (f'{self.config.prefix}/drive-archive-copy/v1/{DESTINATION_ID}/{category}/'
+        folder, _ = destination_for_kind(bundle.kind)
+        destination_id = hashlib.sha256((EXPECTED_ACCOUNT + '\0' + folder).encode()).hexdigest()
+        return (f'{self.config.prefix}/drive-archive-copy/v1/{destination_id}/{category}/'
                 f'{bundle.kind}/{bundle.manifest_sha256}/{suffix}.json')
 
     def _record(self, key):
@@ -372,9 +410,11 @@ class ArchiveTransfer:
 
     @staticmethod
     def _identity(bundle, member=None):
-        value = {'destination_id':DESTINATION_ID,'kind':bundle.kind,
+        folder, _ = destination_for_kind(bundle.kind)
+        destination_id = hashlib.sha256((EXPECTED_ACCOUNT + '\0' + folder).encode()).hexdigest()
+        value = {'destination_id':destination_id,'kind':bundle.kind,
                  'manifest_sha256':bundle.manifest_sha256,'archive_id':bundle.archive_id,
-                 'folder_id':EXPECTED_FOLDER,'account_email':EXPECTED_ACCOUNT}
+                 'folder_id':folder,'account_email':EXPECTED_ACCOUNT}
         if member is not None:
             value.update(object_sha256=member.sha256,size_bytes=member.size_bytes)
         return value
@@ -438,13 +478,14 @@ class ArchiveTransfer:
             raise
 
     def validate_drive_file(self, bundle, member, value, account_permission_id):
+        folder, _ = destination_for_kind(bundle.kind)
         reservation = self.reservation(bundle,member)
         require(reservation is not None,'FILE_ID_NOT_RESERVED')
         require(isinstance(value,dict) and set(value) == {
             'id','name','parents','owner_email','owner_permission_id','shared','trashed',
             'mime_type','size_bytes','app_properties'}, 'INVALID_DRIVE_FILE_EVIDENCE')
         require(value['id'] == reservation['file_id'] and value['name'] == reservation['file_name']
-            and value['parents'] == [EXPECTED_FOLDER] and value['owner_email'] == EXPECTED_ACCOUNT
+            and value['parents'] == [folder] and value['owner_email'] == EXPECTED_ACCOUNT
             and value['owner_permission_id'] == account_permission_id
             and value['shared'] is False and value['trashed'] is False
             and value['mime_type'] == member.mime_type and type(value['size_bytes']) is int
@@ -531,7 +572,7 @@ class ArchiveTransfer:
         after = None
         if cursor is not None:
             require(isinstance(cursor,str) and len(cursor) <= 1500,'INVALID_PLAN_CURSOR')
-            match = re.fullmatch(r'v1\.([01])\.([A-Za-z0-9_-]+)',cursor)
+            match = re.fullmatch(r'v1\.([012])\.([A-Za-z0-9_-]+)',cursor)
             require(match is not None and int(match[1]) == KINDS.index(kind),'INVALID_PLAN_CURSOR')
             try:
                 raw = base64.urlsafe_b64decode(match[2] + '=' * (-len(match[2]) % 4))
