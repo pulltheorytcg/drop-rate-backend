@@ -77,14 +77,14 @@ def fake_cloud(monkeypatch):
 
 
 def fixture(count=23, *, tamper=False, name_prefix="Real-shaped",
-            rename_first=0, rarity="Common", set_id="TST"):
+            renamed_indices=(), rarity="Common", set_id="TST"):
     rows = []
     for i in range(count):
         rows.append({
             "provider":"ygoprodeck", "system_code":"YUGIOH", "language":"English",
             "provider_id":f"ygoprodeck:fixture-{i:05d}",
             "product_type":"CARD",
-            "name":f"{'Revised' if i < rename_first else name_prefix} Yu-Gi-Oh {i}",
+            "name":f"{'Revised' if i in renamed_indices else name_prefix} Yu-Gi-Oh {i}",
             "set_id":set_id, "set_name":"Synthetic Yu-Gi-Oh",
             "card_number":f"{i:04d}", "rarity":rarity, "finish":None,
             "release_date":"2026-01-01",
@@ -197,7 +197,13 @@ def test_verified_three_name_corrections_create_new_immutable_generation(capsys)
     original_name=FakeD1.conn.execute(
         "select name from shadow_cards where manifest_sha=? order by card_key limit 1",
         (old_sha,)).fetchone()[0]
-    corrected,_=fixture(count=24,rename_first=3)
+    retained_ids={
+        int(row[0].rsplit("-",1)[-1]) for row in FakeD1.conn.execute(
+            "select provider_id from shadow_cards where manifest_sha=? "
+            "order by card_key limit 3",(old_sha,)).fetchall()
+    }
+    assert len(retained_ids)==3
+    corrected,_=fixture(count=24,renamed_indices=retained_ids)
     with corrected:
         first=runner.run("a"*32,"dummy-test-token","1231","1",client=corrected,
                          now=datetime(2026,11,7,tzinfo=timezone.utc))
@@ -245,7 +251,11 @@ def test_bad_name_fold_never_creates_new_generation():
         "update shadow_cards set name_fold='INVALID' "
         "where card_key=(select card_key from shadow_cards order by card_key limit 1)")
     before=FakeD1.mutations
-    corrected,_=fixture(count=24,rename_first=3)
+    retained_ids={
+        int(row[0].rsplit("-",1)[-1]) for row in FakeD1.conn.execute(
+            "select provider_id from shadow_cards order by card_key limit 3").fetchall()
+    }
+    corrected,_=fixture(count=24,renamed_indices=retained_ids)
     with corrected,pytest.raises(MigrationGuard,match="normalization mismatch"):
         runner.run("a"*32,"dummy-test-token","1234","1",client=corrected,
                    now=datetime(2026,11,7,tzinfo=timezone.utc))
@@ -260,11 +270,16 @@ def test_bulk_name_changes_fail_closed_without_a_new_generation():
             runner.run("a"*32,"dummy-test-token","1235","1",client=old,
                        now=datetime(2026,11,d,tzinfo=timezone.utc))
     before=FakeD1.mutations
-    corrected,_=fixture(count=24,rename_first=12)
+    changed_ids={
+        int(row[0].rsplit("-",1)[-1]) for row in FakeD1.conn.execute(
+            "select provider_id from shadow_cards order by card_key limit 14").fetchall()
+    }
+    assert len(changed_ids)==14
+    corrected,_=fixture(count=24,renamed_indices=changed_ids)
     with corrected,pytest.raises(MigrationGuard,match="manual review required") as drift:
         runner.run("a"*32,"dummy-test-token","1236","1",client=corrected,
                    now=datetime(2026,11,8,tzinfo=timezone.utc))
-    assert '"changed_rows": 12' in str(drift.value)
+    assert '"changed_rows": 14' in str(drift.value)
     assert FakeD1.mutations==before
     assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0]==1
 
