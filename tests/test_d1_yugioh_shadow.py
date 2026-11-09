@@ -156,6 +156,47 @@ def test_source_change_mid_migration_fails_without_a_new_generation_or_writes():
     assert FakeD1.conn.execute("select count(*) from shadow_active_partitions").fetchone()[0]==0
 
 
+
+def test_new_verified_r2_source_growth_retains_older_partial_generation():
+    old,_ = fixture()
+    with old:
+        initial = runner.run("a"*32,"dummy-test-token","1200","1",
+            client=old,now=datetime(2026,11,6,tzinfo=timezone.utc))
+    assert initial["d1_staged_rows"] == 7
+    old_manifest = FakeD1.conn.execute(
+        "select manifest_sha from shadow_generations").fetchone()[0]
+    updated,_ = fixture(count=24)
+    with updated:
+        for day, expected in [(7,7),(8,14),(9,21),(10,24)]:
+            result = runner.run("a"*32,"dummy-test-token","1201","1",
+                client=updated,now=datetime(2026,11,day,tzinfo=timezone.utc))
+            assert result.get("d1_staged_rows",result.get("d1_verified_rows")) == expected
+            assert FakeD1.conn.execute(
+                "select count(*) from shadow_cards where manifest_sha=?",
+                (old_manifest,)).fetchone()[0] == 7
+            assert FakeD1.conn.execute(
+                "select count(*) from shadow_live_cards").fetchone()[0] == (
+                    24 if expected==24 else 0)
+    assert result["status"] == "REAL_R2_YUGIOH_TO_ISOLATED_D1_VERIFIED"
+    assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0] == 2
+    assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0] == 31
+    assert FakeD1.conn.execute("select count(*) from shadow_daily_write_budget").fetchone()[0] == 5
+
+
+def test_changed_existing_identity_blocks_source_growth_without_overwrite():
+    old,_ = fixture()
+    with old:
+        runner.run("a"*32,"dummy-test-token","1202","1",
+            client=old,now=datetime(2026,11,6,tzinfo=timezone.utc))
+    changed,_ = fixture(count=24,name_prefix="Source-renamed")
+    with changed,pytest.raises(MigrationGuard,match="identities changed"):
+        runner.run("a"*32,"dummy-test-token","1203","1",
+            client=changed,now=datetime(2026,11,7,tzinfo=timezone.utc))
+    assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0]==1
+    assert FakeD1.conn.execute("select count(*) from shadow_cards").fetchone()[0]==7
+    assert FakeD1.conn.execute("select count(*) from shadow_live_cards").fetchone()[0]==0
+
+
 def test_wrong_r2_digest_fails_before_any_cloudflare_writes():
     client,_=fixture(tamper=True)
     with client, pytest.raises((ValueError, MigrationGuard)):
