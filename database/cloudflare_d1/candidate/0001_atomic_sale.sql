@@ -92,11 +92,12 @@ CREATE INDEX IF NOT EXISTS candidate_ledger_owner ON candidate_ledger(owner_id,o
 CREATE TABLE IF NOT EXISTS candidate_outbox (
   id TEXT PRIMARY KEY NOT NULL,
   order_id TEXT NOT NULL REFERENCES candidate_orders(id),
-  event_type TEXT NOT NULL CHECK(event_type='ORDER_POSTED'),
+  event_type TEXT NOT NULL CHECK(event_type IN ('ORDER_POSTED','REFUND_POSTED')),
   payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64),
   status TEXT NOT NULL CHECK(status='PENDING'),
-  created_at TEXT NOT NULL,
-  UNIQUE(order_id,event_type)
+  created_at TEXT NOT NULL
+  -- One immutable ORDER_POSTED id per order; REFUND_POSTED needs one event
+  -- per distinct partial refund, not a uniqueness constraint on order/type.
 );
 
 -- The client cannot invent an owner, skip a version, mis-state cost basis or
