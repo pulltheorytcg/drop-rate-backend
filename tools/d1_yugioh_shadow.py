@@ -132,23 +132,51 @@ def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
             raise MigrationGuard("Retained Yu-Gi-Oh generation count is invalid")
         count = count_rows[0]["n"]
         seen = set()
+        missing_keys = 0
+        changed_rows = 0
+        changed_columns = {}
         for offset in range(0, count, 100):
             old_rows = _query(cloud, dbid, D1_READBACK_SQL,
                               (old_sha, min(100, count-offset), offset))
             if len(old_rows) != min(100, count-offset):
                 raise MigrationGuard("Retained Yu-Gi-Oh generation is incomplete")
             for row in old_rows:
-                key = row.get("card_key")
-                expected_row = wanted.get(key)
-                if (key in seen or expected_row is None
-                        or set(row) != set(codec.SQLITE_COLUMNS)
-                        or any(row[column] != expected_row[i]
-                               for i, column in enumerate(codec.SQLITE_COLUMNS)
-                               if column != "manifest_sha")):
-                    raise MigrationGuard("Old Yu-Gi-Oh identities changed; manual review required")
+                # Report fixed-schema column counts only. Card keys, subjects,
+                # per-row data, provider contents and tokens never enter logs.
+                if not isinstance(row, dict) or set(row) != set(codec.SQLITE_COLUMNS):
+                    raise MigrationGuard("Invalid retained Yu-Gi-Oh D1 row shape")
+                key = row["card_key"]
+                if key in seen:
+                    raise MigrationGuard("Duplicate retained Yu-Gi-Oh D1 identity")
                 seen.add(key)
+                expected_row = wanted.get(key)
+                if expected_row is None:
+                    missing_keys += 1
+                    continue
+                changed = [
+                    column for i, column in enumerate(codec.SQLITE_COLUMNS)
+                    if column != "manifest_sha" and row[column] != expected_row[i]
+                ]
+                if changed:
+                    changed_rows += 1
+                    for column in changed:
+                        changed_columns[column] = changed_columns.get(column, 0) + 1
         if len(seen) != count:
             raise MigrationGuard("Retained Yu-Gi-Oh readback count mismatch")
+        if missing_keys or changed_rows:
+            # This is diagnostic evidence, not an approval to rewrite the old
+            # generation or to publish the new one. Fail before D1 INSERT.
+            safe_counts = {
+                "source_rows": source.expected_rows,
+                "retained_rows": count,
+                "missing_keys": missing_keys,
+                "changed_rows": changed_rows,
+                "changed_fields": dict(sorted(changed_columns.items())),
+            }
+            raise MigrationGuard(
+                "Old Yu-Gi-Oh identities changed; manual review required: "
+                + json.dumps(safe_counts, sort_keys=True)
+            )
     statement = codec.generation_statement(source)
     _query(cloud, dbid, statement["sql"], statement["params"])
     return rows + [dict(zip(columns, expected))]
