@@ -1,0 +1,67 @@
+name: Audit retained Yu-Gi-Oh D1 vs current R2 source (read-only)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/d1_yugioh_drift_audit.py'
+      - 'tests/test_d1_yugioh_drift_audit.py'
+      - '.github/workflows/d1-yugioh-drift-audit.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'tools/d1_yugioh_drift_audit.py'
+      - '.github/workflows/d1-yugioh-drift-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-yugioh-source-drift-readonly
+  cancel-in-progress: false
+
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Prove no D1 writes, missing cards and identity drift are classified
+        env:
+          PYTHONPATH: 'backend:tools'
+        run: python -m pytest -q tests/test_d1_yugioh_drift_audit.py
+
+  read-protected-source-and-stage:
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref == 'refs/heads/main'
+    needs: offline-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Compare original D1 staged card records against authenticated current R2 source
+        env:
+          PYTHONPATH: 'backend:tools'
+          CLOUDFLARE_ACCOUNT_ID: e4d4b363540e991048d2e1812d5ef53e
+          CLOUDFARE_D1_PILOT_TOKEN: ${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}
+        run: python tools/d1_yugioh_drift_audit.py
+      - name: Retain only aggregate non-private discrepancy counts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-yugioh-source-drift
+          path: d1-yugioh-source-drift-audit.json
+          if-no-files-found: ignore
+          retention-days: 14
