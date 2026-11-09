@@ -1,3 +1,9 @@
+## 9 November 2026 — bounded Yu-Gi-Oh R2/D1 source drift classification (CI/live pending)
+
+- The merged protected D1 import from #1015 failed safely after ~87 seconds of read-only comparison with `Old Yu-Gi-Oh identities changed; manual review required` (GitHub Actions run 42540495323). The existing D1 checkpoint remained 24,000 staged rows; no current-source generation was promoted and no public catalogue cutover occurred.
+- Add `tools/d1_yugioh_drift_audit.py` and a read-only GitHub Actions workflow to compare every previously staged immutable card against the independently verified current R2 snapshot, returning aggregate counts for matching, changed, missing, identity-sensitive vs metadata-only fields, with no identifiable private ownership or payments. This audit must never create/alter D1 objects, consume write quotas or bypass the existing stage blocker.
+- Offline unit tests classify descriptive name changes, changed provider identity, removed keys, malformed source rows and unapproved account. First protected live report and CI required before any data migration rule changes; do not allow automatic reuse if critical fields differ. Related #1010 and #1015.
+
 ## 9 November 2026 — D1 capacity status follows verified source count
 
 - Corrected the read-only Cloudflare capacity GitHub status publisher so it takes `yugioh_source_rows` from the verified D1 capacity report instead of assuming immutable 45,418 rows. Strict range/type and no-write guards remain; a newer partially staged generation is correctly PENDING rather than falsely FAILED or prematurely green.
