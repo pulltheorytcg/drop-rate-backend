@@ -53,7 +53,12 @@ def _canonical_uuid(value: object) -> UUID:
 
 
 def validate_internal_endpoint(url: str) -> str:
-    """Single preconfigured HTTPS route, never from the incoming user request."""
+    """Only the approved Cloudflare Worker/custom Drop Rate HTTPS origin.
+
+    This URL is injected by trusted backend configuration, never a client.
+    A generic HTTPS/hostname regex alone is insufficient: shortened decimal
+    loopback names such as 127.1 are not recognised by ipaddress.ip_address.
+    """
     if not isinstance(url, str) or len(url) > 1024:
         raise D1PrivateReadGuard("Invalid private Cloudflare endpoint")
     try:
@@ -75,6 +80,14 @@ def validate_internal_endpoint(url: str) -> str:
         pass
     else:
         raise D1PrivateReadGuard("IP-literal Cloudflare endpoint not allowed")
+    # Explicit DNS families, not arbitrary HTTPS destinations. Rejects
+    # shortened/decimal loopback names, DNS rebinding helper domains, and
+    # accidental internal endpoints without relying on DNS resolution.
+    hostname = host.lower()
+    trusted_worker = hostname.endswith(".workers.dev")
+    trusted_drop_rate = hostname.endswith(".droprate.co.uk")
+    if not (trusted_worker or trusted_drop_rate):
+        raise D1PrivateReadGuard("Unapproved private Cloudflare endpoint hostname")
     return url
 
 
