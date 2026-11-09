@@ -59,8 +59,11 @@ SOURCES = (
     Source("figures", ("reviewed_figures", "FIGURES", "Not applicable"),
            4, "8bafa9e80735482c62dbb201ad26c21fa6c157c941d4e5c6edfc81a09f092d72",
            20_000, 10),
+    # Current source verified by the protected read-only Magic R2 preflight
+    # on main abc9d5f4. Source is 153,679, 151,609 released: D1 shadow
+    # never itself publishes those unreleased/undetermined release entries.
     Source("magic", ("mtgjson", "MAGIC_THE_GATHERING", "English"),
-           153662, "be5af5e84d3a10bcac32a996f0dc8779fdf33c95fac89669381a8bbd32fcad28",
+           153679, "e3bda5f54affe0055ec64d7ffb943cb5cae23df8108e74f29e250f7ec63e662a",
            110_000_000, 512),
 )
 
