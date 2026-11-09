@@ -42,6 +42,14 @@ D1_READBACK_SQL = (
     "select " + ",".join(projection_codec.SQLITE_COLUMNS)
     + " from shadow_cards where manifest_sha=? order by card_key limit ? offset ?"
 )
+# The composite PRIMARY KEY (manifest_sha,card_key) makes this a bounded
+# index seek. OFFSET pagination rescans skipped rows on every page, exhausting
+# the account-wide Cloudflare D1 daily read quota on large staged generations.
+D1_KEYSET_READBACK_SQL = (
+    "select " + ",".join(projection_codec.SQLITE_COLUMNS)
+    + " from shadow_cards where manifest_sha=? and card_key>? "
+      "order by card_key limit ?"
+)
 
 
 class MigrationGuard(PilotError):
@@ -177,6 +185,34 @@ def _query(client: D1Client, database_id: str, sql: str, params=()):
     return result["results"]
 
 
+def _keyset_readback_page(
+    client: D1Client, database_id: str, manifest_sha: str,
+    last_key: str, limit: int,
+) -> tuple[list[dict], str]:
+    """Fetch strictly increasing source keys with the existing SQLite PK.
+
+    No public read, no mutable cursor, no OFFSET, no per-row/identity logs.
+    Caller still verifies full source count and every row/hash. If an index
+    page repeats a key, skips a row or changes shape, fail before activation.
+    """
+    if (not isinstance(last_key,str) or type(limit) is not int
+            or not 1 <= limit <= 100):
+        raise MigrationGuard("Invalid D1 keyset readback boundary")
+    rows = _query(client,database_id,D1_KEYSET_READBACK_SQL,
+                  (manifest_sha,last_key,limit))
+    if len(rows)>limit:
+        raise MigrationGuard("D1 keyset readback exceeds requested page")
+    previous=last_key
+    for row in rows:
+        if not isinstance(row,dict) or set(row) != set(projection_codec.SQLITE_COLUMNS):
+            raise MigrationGuard("D1 returned unexpected column set")
+        key=row.get("card_key")
+        if not isinstance(key,str) or not key or key<=previous:
+            raise MigrationGuard("D1 keyset identity order invalid")
+        previous=key
+    return rows,previous
+
+
 def verify_d1_projection(client: D1Client, database_id: str,
                          projection: projection_codec.Projection):
     """Every D1 row and original source ID must match the R2 projection.
@@ -192,14 +228,14 @@ def verify_d1_projection(client: D1Client, database_id: str,
         raise MigrationGuard("D1 staged row count does not match R2")
     hasher = hashlib.sha256()
     offset = 0
+    last_key = ""
     while offset < expected:
-        batch = _query(client, database_id, D1_READBACK_SQL,
-                       (projection.manifest_sha, 100, offset))
+        batch,last_key = _keyset_readback_page(
+            client,database_id,projection.manifest_sha,last_key,
+            min(100,expected-offset))
         if len(batch) != min(100, expected-offset):
             raise MigrationGuard("Incomplete D1 row readback")
         for item in batch:
-            if not isinstance(item, dict) or set(item) != set(projection_codec.SQLITE_COLUMNS):
-                raise MigrationGuard("D1 returned unexpected column set")
             original = tuple(item[col] for col in projection_codec.SQLITE_COLUMNS)
             hasher.update(json.dumps(original, ensure_ascii=False, separators=(",", ":")).encode() + b"\n")
         offset += len(batch)
