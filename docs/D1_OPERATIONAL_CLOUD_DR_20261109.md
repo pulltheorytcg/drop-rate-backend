@@ -24,13 +24,15 @@ The verifier retains its 64 MB file, 100,000 restored-row and 32-generation boun
 
 ## Security and release blockers
 
-No keys, cloud credentials, enabled flags, protected environments, bucket locks or recurring jobs were configured by this candidate.
+Live Cloudflare readback after saving and refreshing confirms bucket-lock rule `operational-d1-backups-30d`: prefix `drop-rate/operational-d1-backups/v1/`, 30 day(s), Enabled. Existing media/archive prefixes and the default multipart-abort rule are unchanged. No objects were exported or uploaded by this metadata change. The EU bucket also reports Data Access Logs unavailable for jurisdictional buckets; end-to-end attributable job/transfer receipts and access-event coverage remain required.
+
+No encryption/signing keys, cloud credentials, export/restore/transfer enable flags, protected environments or recurring jobs were configured.
 
 - Independent source signer: separate trusted read-only capture and Ed25519 key unavailable to the writer. Retain the signed evidence independently of backup bytes. A signature proves the configured signer, not that an operator performed an independent capture.
 - Writer: dedicated export access for the reviewed shadow; separately managed AES and signing keys; short-lived R2 session scoped to backup objects/prefix. Restore: no export token/writer signing key; session scoped to exact approved objects and create-once receipt paths. Code requires a session and fixed EU endpoint, but TTL/permission verification is a separate release obligation.
 - Google: separate approved OAuth credential, actual API identity/permission reads, no tokens sent to backend and no R2 credentials in n8n. Browser login does not bind this credential.
 - Key recovery: approved independently protected cloud key store/broker outside Cloudflare, plus retained public trust roots, manifest/file/generation pins and actual Drive file IDs. A ciphertext with lost keys is not DR. Do not generate secrets into source/logs or extract browser credentials.
-- Retention: propose an initial protected restore point of at least 30 days, then approve RPO/RTO and recurrence using measured change rate/size/cost. **No automatic deletion exists.** Independently verify actual R2 bucket locks protecting objects, manifests and receipts; Google access/retention separation; and recovery without the primary account. Conditional PUT and a manifest retention date are not administrative WORM or proof these protections exist.
+- Retention: propose an initial protected restore point of at least 30 days, then approve RPO/RTO and recurrence using measured change rate/size/cost. **No automatic deletion exists.** The scoped R2 lock is enabled for 30 days; independently verify it remains active for actual object timestamps and the approved retention date. Administrative removal remains possible, so this is not immutable protection against a compromised account administrator. Verify Google access/retention separation; and recovery without the primary account. Conditional PUT and a manifest retention date are not administrative WORM or proof these protections exist.
 - Cloud runners: hosted ephemeral Linux only; swap/core dumps disabled; operational SQL/SQLite only in process memory. No public backup artifacts, caches, shell tracing or provider error logging. Runner teardown discards memory; Python does not guarantee zeroization of every immutable byte copy. Local engineering tests contain synthetic data only.
 
 ## Manual release and incident procedure
@@ -49,7 +51,7 @@ Rollback: leave flags unset/false, stop operational DR95 mode and preserve all r
 
 ## Acceptance still outstanding
 
-Actual R2 SQLite key/file SHA, independent new source attestation, encrypted artifact, Drive backup file IDs/readback SHA, real cloud export/restore receipt, key/retention controls, interrupted-generation recovery and approved recurrence remain **unverified**. Folder creation is complete; it is not a backup. Synthetic tests/deployment do not close Gates A/H or authorize retirement.
+The empty private Drive folder and scoped 30-day R2 lock are verified. Actual R2 SQLite key/file SHA, independent new source attestation, encrypted artifact, Drive backup file IDs/readback SHA, real cloud export/restore receipt, key custody/Google retention/access-event controls, interrupted-generation recovery and approved recurrence remain **unverified**. Folder creation is complete; it is not a backup. Synthetic tests/deployment do not close Gates A/H or authorize retirement.
 
 ## Primary references checked 9 November 2026
 
