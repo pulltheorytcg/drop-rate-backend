@@ -63,7 +63,7 @@ function fakeDb({fail=false,truncate=false}={}) {
     async batch(statements) {
       calls.push(statements);
       if (fail) throw new Error("secret: private customer money SQL");
-      return statements.slice(0,truncate?statements.length-1:undefined)
+      return (truncate?statements.slice(0,-1):statements)
         .map(()=>({success:true}));
     },
   };
