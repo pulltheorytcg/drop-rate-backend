@@ -45,6 +45,12 @@ class FakeD1:
 
     def query(self, uuid, sql, params=()):
         assert uuid == UUID
+        # Retained and current source readback must use the indexed
+        # (manifest_sha, card_key) cursor, never quadratic OFFSET scans.
+        if "from shadow_cards" in sql.lower() and "order by card_key" in sql.lower():
+            assert "offset" not in sql.lower()
+            assert "card_key>?" in sql.lower()
+            assert len(params)==3 and isinstance(params[1],str)
         cur = self.conn.execute(sql, params)
         if sql.lower().strip().startswith("insert"):
             type(self).mutations += 1
@@ -110,6 +116,19 @@ def fixture(count=23, *, tamper=False, name_prefix="Real-shaped",
         return httpx.Response(404)
     return httpx.Client(transport=httpx.MockTransport(handler),
                         follow_redirects=False), bundle
+
+
+def test_source_readback_is_primary_key_cursor_paged():
+    assert "card_key>?" in runner.D1_READBACK_SQL
+    assert "offset" not in runner.D1_READBACK_SQL.lower()
+    client, _ = fixture(count=301)
+    with client:
+        for day in range(1,8):
+            report=runner.run("a"*32,"dummy-test-token","7070","1",
+                client=client,now=datetime(2026,12,day,tzinfo=timezone.utc))
+            assert report["no_public_catalogue_cutover"] is True
+    assert FakeD1.conn.execute(
+        "select count(*) from shadow_cards").fetchone()[0]==49
 
 
 def test_yugioh_stage_is_immutable_unpublished_until_complete():

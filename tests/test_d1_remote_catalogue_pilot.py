@@ -109,6 +109,34 @@ class D1RemotePilotTests(unittest.TestCase):
                 client.list_databases()
         self.assertNotIn("hidden-secret", str(ctx.exception))
 
+    def test_http_400_quota_and_schema_errors_are_classified_without_provider_values(self):
+        client=D1Client(ACCOUNT,"super-secret-must-not-leak")
+        for provider_text,expected in (
+            ("Your account has exceeded D1's free tier daily row read limit.",
+             "DAILY_ROW_READ_LIMIT"),
+            ("Your account has exceeded D1's free tier daily row write limit.",
+             "DAILY_ROW_WRITE_LIMIT"),
+            ("D1_ERROR: no such table: private_sensitive_owner_table",
+             "SCHEMA_TABLE_MISSING"),
+            ("Unknown private card-123 customer-token secret", "UNCLASSIFIED"),
+        ):
+            def denial(req,timeout):
+                body=json.dumps({"success":False,"errors":[
+                    {"code":7500,"message":provider_text}
+                ]}).encode()
+                raise HTTPError(req.full_url,400,"bad request hidden-secret",
+                                {},io.BytesIO(body))
+            with patch("d1_remote_catalogue_pilot.request.urlopen",side_effect=denial):
+                with self.assertRaises(PilotError) as caught:
+                    client.query(UUID,"select id from private",[])
+            err=str(caught.exception)
+            self.assertIn("Cloudflare D1 HTTP 400",err)
+            self.assertIn("category="+expected,err)
+            for forbidden in ("super-secret-must-not-leak",
+                              "private_sensitive_owner_table","card-123",
+                              "customer-token","hidden-secret"):
+                self.assertNotIn(forbidden,err)
+
     def test_full_synthetic_remote_sequence_against_sqlite_transport_double(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
