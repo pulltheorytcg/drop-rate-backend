@@ -20,6 +20,7 @@ from d1_operational_source_stage import (
 from d1_operational_source_delta_watch import (
     verify_shadow, SnapshotDriftGuard, UUID_RE,
 )
+from d1_remote_catalogue_pilot import PilotError
 
 FINANCE_TABLES = (
     "owners", "owner_memberships", "inventory_items", "orders",
@@ -29,6 +30,29 @@ FINANCE_TABLES = (
 
 class FinancialGuard(ValueError):
     pass
+
+
+class ClassifiedReadOnlyD1(D1Client):
+    """Return a fixed schema-table label on remote D1 query failure.
+
+    Cloudflare HTTP 400 can mean a query error, not only a token-scope error.
+    Do not print SQL, parameters, source rows, identifiers or provider messages.
+    """
+    def query(self, database_id, statement, params=()):
+        try:
+            return super().query(database_id, statement, params)
+        except PilotError:
+            known = {
+                *[target for target,_ in TARGETS.values()],
+                "ops_shadow_generations",
+                "ops_shadow_table_receipts",
+                "ops_shadow_catalogue_links",
+            }
+            names = re.findall(r"\\bops_shadow_[a-z_]+\\b",
+                               statement if isinstance(statement,str) else "")
+            label = next((name for name in names if name in known),
+                         "UNKNOWN_SCHEMA_QUERY")
+            raise FinancialGuard("Private D1 read-only query rejected at "+label) from None
 
 
 def _minor(value, *, zero=True):
@@ -280,7 +304,7 @@ async def main() -> dict:
         raise FinancialGuard("Protected finance audit configuration missing")
     captured,_,catalogue = await source_capture(dsn)
     source = audit_source_finance(captured)
-    client = D1Client(account,token)
+    client = ClassifiedReadOnlyD1(account,token)
     drift = verify_shadow(client,captured,catalogue)
     if drift.get("status")!="READ_ONLY_OPERATIONAL_D1_SNAPSHOT_PARITY" or drift.get("changed_or_missing_record_count")!=0:
         raise FinancialGuard("Existing private D1 source SHA or catalogue parity is stale")
@@ -308,5 +332,9 @@ async def main() -> dict:
 if __name__=="__main__":
     try:
         print(json.dumps(asyncio.run(main()),sort_keys=True))
-    except (StageGuard,SnapshotDriftGuard,FinancialGuard,ValueError,TypeError):
+    except FinancialGuard as exc:
+        # Messages are written solely from fixed internal table labels and
+        # constant error classes; no dynamic record keys or SQL parameters.
+        raise SystemExit("Protected finance parity blocked: "+str(exc)+"; NO CUTOVER") from None
+    except (StageGuard,SnapshotDriftGuard,PilotError,ValueError,TypeError):
         raise SystemExit("Protected financial source/D1 parity unavailable; NO CUTOVER") from None
