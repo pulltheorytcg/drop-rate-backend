@@ -48,6 +48,10 @@ jobs:
     if: >-
       (github.event_name == 'push' || github.event_name == 'schedule')
       && github.ref == 'refs/heads/main'
+      # Explicit one-run release gate: an unrelated docs/source update must
+      # never start D1 writes, even if all predecessor catalogues finish.
+      && vars.DR_D1_FOLLOWON_IMPORT_APPROVED_SHA == github.sha
+      && vars.DR_D1_FOLLOWON_IMPORT_APPROVED_RUN_ID == github.run_id
     needs: offline-source-and-ledger-isolation
     runs-on: ubuntu-latest
     timeout-minutes: 25

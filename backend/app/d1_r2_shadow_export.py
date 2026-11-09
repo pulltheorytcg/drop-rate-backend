@@ -56,12 +56,15 @@ LEGACY_R2_WORKFLOW_REF = (
 LEGACY_D1_WORKFLOW_REF = (
     EXPECTED_REPOSITORY + "/.github/workflows/d1-legacy-r2-shadow.yml@refs/heads/main"
 )
-LEGACY_R2_SOURCE_GENERATION = 122500
+# Current immutable live R2 catalogue publication, independently read on
+# 2026-11-09. Counts include Pokemon/One Piece/Dragon Ball/Naruto, plus comics,
+# manga, sealed and canonical identities. Not a D1 write/cutover approval.
+LEGACY_R2_SOURCE_GENERATION = 122674
 LEGACY_R2_EXPECTED_PARTS = 161
-LEGACY_R2_EXPECTED_RAW_BYTES = 29_831_680
+LEGACY_R2_EXPECTED_RAW_BYTES = 29_886_526
 LEGACY_R2_EXPECTED_COUNTS = {
-    "reference_cards": 69697,
-    "reference_sets": 1472,
+    "reference_cards": 69867,
+    "reference_sets": 1473,
     "reference_sealed_products": 3893,
     "catalogue_products": 2062,
     "catalogue_product_profiles": 2062,
@@ -295,7 +298,7 @@ async def exported_magic_part(request: Request, ordinal: int) -> Response:
 # Legacy R2-only source contains Pokemon, One Piece, Dragon Ball, Naruto,
 # comics, manga, approved catalogue products and sealed items. It excludes
 # physical inventory, private owners, personal media, order and price tables.
-# This single immutable 122500 generation is only for the first catalogue
+# This single immutable reviewed generation is only for the catalogue
 # parity migration. Never disclose arbitrary older generations or object keys.
 async def _verified_legacy_manifest(request: Request):
     try:

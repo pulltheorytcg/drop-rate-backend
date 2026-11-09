@@ -58,7 +58,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt
-      - name: Check signed immutable R2 Magic source, all 153,662 identities, no D1
+      - name: Check signed immutable R2 Magic source, all 153,679 identities, no D1
         id: r2_source
         env:
           PYTHONPATH: 'backend:tools'
@@ -84,7 +84,9 @@ jobs:
               if f.is_file():
                   doc=json.loads(f.read_text())
                   if (doc.get("status")=="MAGIC_R2_SOURCE_PREPARED_FOR_D1"
-                      and doc.get("source_rows_verified")==153662
+                      and doc.get("source_rows_verified")==153679
+                      and doc.get("r2_source_manifest_sha")==
+                          "e3bda5f54affe0055ec64d7ffb943cb5cae23df8108e74f29e250f7ec63e662a"
                       and type(doc.get("source_parts_verified")) is int
                       and doc["source_parts_verified"] >= 100
                       and doc.get("verified_d1_rows")==0
@@ -93,7 +95,7 @@ jobs:
                       and doc.get("owner_and_settlement_writes")==0
                       and doc.get("production_reads_switched") is False):
                       state="success"
-                      description="153,662 Magic R2 references SHA256 checked; NO D1 import"
+                      description="153,679 Magic R2 references SHA256 checked; NO D1 import"
           payload=json.dumps({
               "state":state,"context":"drop-rate-magic-r2-preflight",
               "description":description,
