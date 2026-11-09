@@ -111,6 +111,32 @@ jobs:
                       and data.get("production_reads_switched") is False):
                       state="success"
                       description="Legacy 79,357 R2 source rows verified; NO D1 cutover"
+          # Report per-relation SHA256 only after the original immutable R2
+          # manifest, all 161 part bytes, all identity rows, game/language
+          # subcounts and read-only restrictions passed above. These are
+          # owner-free content digests, not secrets or D1 write approvals.
+          if state=="success":
+              import re
+              for relation in sorted(counts):
+                  digest=got[relation].get("source_sha256")
+                  if not isinstance(digest,str) or not re.fullmatch(r"[0-9a-f]{64}",digest):
+                      raise SystemExit("Missing audited original R2 relation SHA")
+                  receipt=json.dumps({
+                      "state":"success",
+                      "context":"drop-rate-r2-original-"+relation+"-sha256",
+                      "description":digest,
+                  }).encode()
+                  req=urllib.request.Request(
+                      "https://api.github.com/repos/"+os.environ["SOURCE_REPOSITORY"]
+                      +"/statuses/"+os.environ["SOURCE_COMMIT"],
+                      data=receipt,method="POST",headers={
+                          "Authorization":"Bearer "+os.environ["GITHUB_STATUS_TOKEN"],
+                          "Content-Type":"application/json",
+                          "Accept":"application/vnd.github+json",
+                      })
+                  with urllib.request.urlopen(req,timeout=20) as response:
+                      if response.status!=201:
+                          raise SystemExit("Original R2 SHA receipt not published")
           payload=json.dumps({
              "state":state,"context":"drop-rate-legacy-r2-source-parity",
              "description":description,
