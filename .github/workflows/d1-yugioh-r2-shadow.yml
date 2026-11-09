@@ -46,6 +46,11 @@ jobs:
             tests/test_d1_shadow_catalogue.py
 
   resume-isolated-yugioh:
+    # Across all three source-specific workflows, exactly ONE cloud catalogue
+    # writer may hold the D1 account reservation at any given instant.
+    concurrency:
+      group: drop-rate-d1-catalogue-private-single-writer
+      cancel-in-progress: false
     if: >-
       (github.event_name == 'push' || github.event_name == 'schedule')
       && github.ref == 'refs/heads/main'

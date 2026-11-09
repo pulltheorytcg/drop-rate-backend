@@ -1,9 +1,10 @@
-"""Resume R2-first sports/figures/Magic source references into ONE private D1.
+"""Resume independent R2-first sports/figures/Magic source into private D1.
 
 Strictly no public catalogue route, owner inventory, monetary prices or
-Shopify writes. A complete, verified Yu-Gi-Oh! D1 active pointer gates this
-queue. One maximum 8,000-new-row receipt for the *whole* follow-on D1 per UTC
-day, never in the UTC day Yu-Gi-Oh! finishes. Immutable scoped sources only.
+Shopify writes. Each partition has its OWN immutable R2 source, D1 checksum
+and isolated activation. No need to finish an unrelated Yu-Gi-Oh generation
+first. One maximum 8,000-new-row receipt for the *whole* follow-on D1 per UTC
+day, never in a UTC day with Yu-Gi-Oh writes. Signed exact-run approval required.
 """
 from __future__ import annotations
 
@@ -175,16 +176,29 @@ def _yugioh_source_gate(cloud: D1Client, databases: dict[str,str]):
 
 
 def _gate_yugioh(cloud: D1Client, databases: dict[str,str], today: str):
-    source=_yugioh_source_gate(cloud,databases)
-    if not source["ready"]:
-        return source
-    ident=databases[YGO_DB]
-    latest=_query(cloud,ident,"select max(utc_day) as day from shadow_daily_write_budget")
-    if len(latest)!=1:
-        raise MigrationGuard("YGO prior daily write receipts unavailable")
-    if latest[0].get("day")==today:
-        return {**source,"ready":False,"reason":"YGO_WROTE_TODAY"}
-    return {**source,"reason":"YGO_COMPLETE_PREVIOUS_DAY"}
+    """Only avoid another catalogue's same-UTC-day write; not its data parity.
+
+    Sports, Magic and figures have independent approved R2 source identities,
+    a separate private D1 database and independent SHA/full-readback checks.
+    Requiring a 45k-card Yu-Gi-Oh new generation to finish first was an
+    unrelated sequential bottleneck. This does NOT permit YGO's incomplete
+    D1 generation to become public; its own full-parity gate remains intact.
+    """
+    ident=databases.get(YGO_DB)
+    base={"ready":True,"count":0,"source_rows":YGO_EXPECTED,
+          "reason":"INDEPENDENT_FOLLOWON_SOURCE_READY"}
+    if ident is None:
+        return base
+    latest=_query(cloud,ident,
+                  "select max(utc_day) as day from shadow_daily_write_budget")
+    if (len(latest)!=1 or "day" not in latest[0]
+            or (latest[0]["day"] is not None and
+                (not isinstance(latest[0]["day"],str)
+                 or not re.fullmatch(r"\d{4}-\d{2}-\d{2}",latest[0]["day"])))):
+        raise MigrationGuard("YGO daily write receipts unavailable")
+    if latest[0]["day"]==today:
+        return {**base,"ready":False,"reason":"YGO_WROTE_TODAY"}
+    return base
 
 
 def _get_shadow(cloud: D1Client, databases: dict[str,str]):
