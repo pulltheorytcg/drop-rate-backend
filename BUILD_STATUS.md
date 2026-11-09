@@ -1,3 +1,10 @@
+## 9 November 2026 — One-time paid-capacity Yu-Gi-Oh D1 catch-up (PR pending; no public cutover)
+
+- The founder confirms Workers Paid upgrade. Previously Free-blocked production D1 source/finance read-only gates now passed on the same UTC day; independent billing subscription and monthly use remain unverified.
+- Original 8,000-new-rows/day quota receipt is kept unchanged. New separate immutable, source SHA/run-ID/UTC-day pinned, bounded **at most 40,000 additional new-row reservation** is permitted **ONLY 9 November 2026** on the explicitly approved protected main importer. A partial D1 crash can resume within the same original GitHub run up to its reserved target; unrelated reruns cannot spend it again.
+- The last proven Yu-Gi-Oh new-generation checkpoint is 8,000/45,419 and 37,419 remaining. **The catch-up implementation is not itself a successful live import**; require new protected SHA/prefix/checksum receipt and isolated active pointer readback. The original 24,000-row generation remains intact. No storefront, financial, Auth, owner or Shopify switch.
+- Offline tests for original-receipt preservation, invalid date/approval, partial retry and checksum are added; full CI and protected production readback pending. See `docs/D1_PAID_YUGIOH_ONE_TIME_CATCHUP_20261109.md`. Migration retirement tracker #1010 remains NO-GO.
+
 ## 9 November 2026 — Inactive signed atomic D1 financial Worker candidate (CI pending; NO CUTOVER)
 
 - Added an isolated staging-only Cloudflare Worker which accepts just five HMAC-authenticated, fixed-schema event classes (SALE, CARD_REFUND, SHIPPING_ALLOCATION, SHIPPING_REFUND, PAYMENT_FEE) and transforms them into fixed, parameter-bound SQL mapped to the already-merged Python financial planners and D1 candidate schema. A mixed-owner order becomes **one** `D1Database.batch()` call: order, webhook inbox, original physical inventory line(s) and pending outbox, with D1 triggers enforcing ownership/stock/version/cost/commission and immutable ledger.
