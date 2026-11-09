@@ -163,6 +163,11 @@ def test_capacity_workflow_has_valid_tokens_without_d1_changes():
     assert "CLOUDFARE_D1_PILOT_TOKEN: "+"${{ secrets.CLOUDFARE_D1_PILOT_TOKEN }}" in workflow
     assert "contents: read" in workflow
     assert "python tools/d1_full_catalogue_capacity.py" in workflow
+    assert 'expected=d.get("yugioh_source_rows")' in workflow
+    assert 'type(expected) is int and 45418 <= expected <= 50000' in workflow
+    assert 'description=f"YGO staged {rows}/{expected}' in workflow
+    assert '0 <= rows <= 45418' not in workflow
+
 
 
 def test_missing_supported_cloudflare_metadata_fails_closed(monkeypatch):

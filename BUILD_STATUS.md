@@ -4,6 +4,12 @@
 - Add a strictly read-only, aggregated per-column difference diagnosis for previously staged Yu-Gi-Oh D1 records versus the newly verified R2 source: source row count, retained row count, missing stable keys, changed row count and column-name counts. No actual card IDs, values, provider data, token or per-card differences are logged. Any change still raises and blocks new D1 generation creation; existing 24,000 staged rows and prior pointers stay untouched.
 - Offline regression asserts precise aggregate counts, absence of sample card identities/names, and zero additional D1 writes after drift detection. CI/production receipt pending; acceptance requires diagnostic evidence, then a separately reviewed policy for any permitted display-metadata changes. No automatic ownership/price/financial changes.
 
+## 9 November 2026 — D1 capacity status follows verified source count
+
+- Corrected the read-only Cloudflare capacity GitHub status publisher so it takes `yugioh_source_rows` from the verified D1 capacity report instead of assuming immutable 45,418 rows. Strict range/type and no-write guards remain; a newer partially staged generation is correctly PENDING rather than falsely FAILED or prematurely green.
+- Added static workflow regression assertions. CI and live readback are release gates. This workflow does not import, delete or modify D1 objects, routes, prices, owners, authentication or settlements; Supabase exit remains blocked until independent runtime/finance/auth cutover verification.
+- Related #1010 and PR #1015; standalone follow-on correctness patch.
+
 ## 9 November 2026 — Yu-Gi-Oh D1 retained-generation source growth (review/CI pending)
 
 - The protected Yu-Gi-Oh R2→D1 stage previously expected 45,418 source references while the current verified source can grow; strict equality stopped the existing 24,000-row partial stage. This change accepts only an independently verified current source with at least the prior approved count (maximum 50,000), preserving existing D1 rows and daily quota receipts.
