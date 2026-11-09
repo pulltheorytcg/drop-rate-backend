@@ -276,3 +276,25 @@ def test_wrong_cloudflare_account_refused_before_read():
         account_id="wrong"
     with pytest.raises(finance.FinancialGuard,match="account"):
         finance.audit_typed_d1(WrongCloud(src),src)
+
+
+def test_cloudflare_read_error_exposes_only_fixed_schema_label(monkeypatch):
+    from d1_remote_catalogue_pilot import PilotError
+
+    def rejected(_self,_db,_sql,_params=()):
+        raise PilotError("Cloudflare D1 HTTP 400; secret-reference-never-log")
+
+    monkeypatch.setattr(finance.D1Client,"query",rejected)
+    client=finance.ClassifiedReadOnlyD1(finance.ACCOUNT,"synthetic-token")
+    with pytest.raises(finance.FinancialGuard,match="ops_shadow_ledger") as exc:
+        client.query(
+            "12345678-1234-1234-1234-1234567890ab",
+            'SELECT id FROM "ops_shadow_ledger" WHERE generation_id=?',
+            ["some-private-item-id"])
+    assert "secret-reference-never-log" not in str(exc.value)
+    assert "some-private-item-id" not in str(exc.value)
+    with pytest.raises(finance.FinancialGuard,match="UNKNOWN_SCHEMA_QUERY"):
+        client.query(
+            "12345678-1234-1234-1234-1234567890ab",
+            "SELECT * FROM some_user_supplied_private_value",[],
+        )
