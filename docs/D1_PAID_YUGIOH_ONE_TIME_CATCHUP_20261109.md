@@ -6,7 +6,7 @@ Tracker: https://github.com/pulltheorytcg/drop-rate-backend/issues/1010
 
 The user reports upgrading the Cloudflare Workers account to Paid and explicitly requests prompt completion of the Supabase exit. On 9 November, protected D1 read-only financial and operational parity tests that had failed with `DAILY_ROW_READ_LIMIT` ran successfully during the same UTC day; this is evidence the former Free hard read stop is no longer affecting those reads, although independent billing/subscription and monthly usage endpoints were not read. Cloudflare's official D1 Paid plan includes 25 billion rows read and 50 million rows written per month before usage charges; monthly usage and overages still require monitoring.
 
-The **application**, independently of Cloudflare billing, had a hard Free-safe **8,000 new Yu-Gi-Oh D1 rows per UTC day**. The verified current Yu-Gi-Oh source is 45,419 R2 records; the new immutable generation last reported 8,000 staged, so a purely Free-era importer would require multiple daily windows despite the upgrade. This patch adds a one-time, strictly bounded **up to 40,000 additional rows** after the original receipt, only on `2026-11-09`, and only from the protected main-branch import job explicitly declaring `DR_D1_PAID_CATCHUP_APPROVAL=FOUNDER_APPROVED_WORKERS_PAID_20261109`. It cannot run on any other UTC day. Original `DAILY_NEW_ROWS=8_000` remains intact for all other runs.
+The **application**, independently of Cloudflare billing, had a hard Free-safe **8,000 new Yu-Gi-Oh D1 rows per UTC day**. The verified current Yu-Gi-Oh source is 45,419 R2 records; the new immutable generation last reported 8,000 staged, so a purely Free-era importer would require multiple daily windows despite the upgrade. This patch adds a one-time, strictly bounded **up to 40,000 additional rows** after the original receipt, only on `2026-11-09`, and only when a maintainer separately sets the repository Actions variable `DR_D1_PAID_CATCHUP_APPROVAL` to the exact approval marker. The workflow no longer hardcodes that approval; merging the PR by itself cannot authorise the extra 40,000-row supplement. It cannot run on any other UTC day. Original `DAILY_NEW_ROWS=8_000` remains intact for all other runs.
 
 **No production API, Auth, ownership, finance, Market Value or Shopify route changes.** This advances only isolated Yu-Gi-Oh reference-catalogue D1 staging.
 
@@ -20,7 +20,7 @@ Potential extra inserts for the latest verified new generation: **37,419** rows,
 
 ## Failure points
 
-- Wrong date/approval text → no supplemental schema/rows; ordinary 8k/day control is retained.
+- Missing maintainer-set approval variable, wrong date or wrong approval text → no supplemental schema/rows; ordinary 8k/day control is retained.
 - Wrong manifest, missing old source keys, changed non-name identity/rights, corrupt R2 part/source hash, changed name folds, unreviewed mass rename, unknown prior D1 generation → fail closed before new D1 inserts.
 - Concurrent/replayed paid GitHub runs or a different trusted run ID → cannot consume the same reserved additional capacity; original run may resume only up to its original exact target.
 - D1 rows-read/write/storage limitations, network failures, GitHub timeout or incomplete prefix → no active-pointer change; source PostgreSQL remains authoritative. Do not falsely mark D1 fully imported on an incomplete receipt.
