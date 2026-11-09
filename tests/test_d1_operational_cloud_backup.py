@@ -88,7 +88,12 @@ def test_immutable_r2_publish_and_retry_cannot_change_execution_binding(backup):
 
 
 def test_cloud_workflow_never_exports_on_push_pr_schedule_or_partial_approval():
-    src = Path('.github/workflows/d1-operational-cloud-dr.yml').read_text()
+    src = Path('.github/workflows/d1-operational-cloud-dr-release.yml').read_text()
+    ci = Path('.github/workflows/d1-operational-cloud-dr.yml').read_text()
+    assert 'environment:' not in ci and 'secrets.' not in ci and 'concurrency:' not in ci
+    assert '  workflow_call:' in ci
+    assert '  pull_request:' not in src and '  push:' not in src
+    assert 'uses: ./.github/workflows/d1-operational-cloud-dr.yml' in src
     assert 'schedule:' not in src and 'upload-artifact' not in src and 'actions/cache' not in src
     assert 'group: private-operational-d1-real-source-single-writer' in src
     assert src.count("github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'") == 3
