@@ -241,6 +241,22 @@ def test_old_ledger_tampering_blocks_new_refund(db):
     assert db.execute("SELECT count(*) FROM candidate_card_refunds").fetchone()[0]==0
 
 
+def test_missing_historical_refund_debit_blocks_followup(db):
+    _sale(db)
+    first=_refund(amount=500)
+    _run(db,build_card_refund_batch(first))
+    # Simulate historical ledger corruption by withholding one expected
+    # source debit in an isolated fixture. No production deletion route exists.
+    db.execute("DROP TRIGGER candidate_ledger_no_delete")
+    db.execute(
+        "DELETE FROM candidate_ledger WHERE source_key=?",
+        ("refund:"+first.id,))
+    with pytest.raises(sqlite3.IntegrityError,match="prior ledger"):
+        _run(db,build_card_refund_batch(_refund(n=302,amount=100)))
+    assert db.execute("SELECT count(*) FROM candidate_card_refunds").fetchone()[0]==1
+    assert _version(db)==("SOLD",2,ITEM_C)
+
+
 def test_refund_events_and_finance_ledger_are_immutable(db):
     _sale(db)
     _run(db,build_card_refund_batch(_refund()))
