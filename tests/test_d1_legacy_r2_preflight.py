@@ -93,6 +93,7 @@ def little_source(monkeypatch):
     monkeypatch.setattr(preflight,"EXPECTED_COUNTS",manifest["counts"])
     monkeypatch.setattr(preflight,"EXPECTED_RAW_BYTES",manifest["raw_bytes"])
     monkeypatch.setattr(preflight,"EXPECTED_MANIFEST_SHA",codec.manifest_digest(manifest))
+    monkeypatch.setattr(preflight,"EXPECTED_SYSTEM_LANGUAGE_COUNTS",{"POKEMON_TCG:English":1})
     monkeypatch.setattr(preflight,"_oidc_token",lambda:"signed-test")
     client.close()
 
@@ -105,12 +106,21 @@ def test_five_legacy_relations_are_exactly_verified():
     assert proof["source_rows_verified"]==5
     assert proof["r2_parts_verified"]==5
     assert proof["verified_relations"]["reference_cards"]["rows"]==1
+    assert proof["verified_game_language_counts"]=={"POKEMON_TCG:English":1}
     assert proof["verified_relations"]["reference_sealed_products"]["rows"]==1
     assert proof["verified_relations"]["catalogue_products"]["rows"]==1
     assert proof["verified_relations"]["catalogue_product_profiles"]["rows"]==1
     assert proof["d1_writes"]==0 and proof["market_value_writes"]==0
     assert proof["owner_and_settlement_writes"]==0
     assert not proof["production_reads_switched"]
+
+
+def test_missing_individual_game_language_slice_rejected_even_at_matching_total(monkeypatch):
+    client,_=legacy_fixture()
+    monkeypatch.setattr(preflight,"EXPECTED_SYSTEM_LANGUAGE_COUNTS",
+                        {"ONE_PIECE_CARD_GAME:English":1})
+    with client,pytest.raises(MigrationGuard,match="game/language source coverage"):
+        preflight.audit_legacy_source(client=client)
 
 
 def test_wrong_immutable_manifest_sha_is_blocked_without_d1(monkeypatch):
