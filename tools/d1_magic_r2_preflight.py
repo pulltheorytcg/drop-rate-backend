@@ -7,15 +7,17 @@ ownership, prices, Shopify, Supabase writes or R2 writes.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
 import time
 
 import httpx
+from app import r2_first_catalogue as source_codec
 
 from d1_r2_real_shadow import (
-    _oidc_token, load_verified_source, MigrationGuard,
+    _oidc_token, load_verified_source, fetch_bytes, MigrationGuard,
     SOURCE_PATH,
 )
 
@@ -28,6 +30,40 @@ SOURCE_PATH_MAGIC = SOURCE_PATH + "/magic"
 REPORT = "d1-magic-r2-preflight-report.json"
 
 
+def _precheck_magic_manifest(client: httpx.Client, identity: str) -> None:
+    """Read one signed manifest first; diagnose counts, not printing identities.
+
+    Changed provider scope, a revised source digest, unexpected record growth,
+    excess parts/bytes or corrupt bytes must remain blocked. No R2 parts
+    fetched and no Cloudflare D1 token is needed for rejected generations.
+    """
+    raw=fetch_bytes(client,SOURCE_PATH_MAGIC+"/manifest",identity,
+                    1_000_000,source_path=SOURCE_PATH_MAGIC)
+    manifest=source_codec.validate_manifest(source_codec._decode(raw))
+    digest=source_codec.manifest_digest(manifest)
+    if hashlib.sha256(raw).hexdigest()!=digest:
+        raise MigrationGuard("Magic R2 manifest digest does not match exact source bytes")
+    scope_ok=tuple(manifest[k] for k in ("provider","system_code","language"))==EXPECTED_SCOPE
+    observations={
+        "current_rows":manifest["record_count"],
+        "approved_rows":EXPECTED_ROWS,
+        "current_parts":len(manifest["parts"]),
+        "parts_limit":MAX_PARTS,
+        "current_source_bytes":manifest["raw_bytes"],
+        "bytes_limit":MAX_TOTAL_BYTES,
+        "scope_matches":scope_ok,
+        "manifest_sha_matches":digest==EXPECTED_MANIFEST_SHA,
+    }
+    if (not scope_ok or manifest["record_count"]!=EXPECTED_ROWS
+            or len(manifest["parts"])>MAX_PARTS or manifest["raw_bytes"]>MAX_TOTAL_BYTES
+            or digest!=EXPECTED_MANIFEST_SHA):
+        # Log only verified aggregate manifest counts and fixed booleans.
+        # No IDs, card subjects, raw source, URLs or bearer tokens.
+        raise MigrationGuard(
+            "Magic published R2 manifest revision needs manual review: "
+            +json.dumps(observations,sort_keys=True))
+
+
 def audit_magic_source(*, client: httpx.Client | None = None):
     """Fail closed; never allow arbitrary scope, URL or source digest."""
     if client is None:
@@ -36,6 +72,7 @@ def audit_magic_source(*, client: httpx.Client | None = None):
     for attempt in range(30):
         identity = _oidc_token()
         try:
+            _precheck_magic_manifest(client,identity)
             projection, manifest = load_verified_source(
                 client, identity,
                 source_path=SOURCE_PATH_MAGIC,
