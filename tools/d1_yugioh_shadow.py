@@ -160,6 +160,19 @@ def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
                     if column != "manifest_sha" and row[column] != expected_row[i]
                 ]
                 if changed:
+                    # A genuinely renamed card must have a consistent name
+                    # search fold in both immutable generations.
+                    if ("name" in changed or "name_fold" in changed) and (
+                        type(row["name"]) is not str
+                        or type(row["name_fold"]) is not str
+                        or row["name_fold"] != row["name"].casefold()
+                        or type(expected_row[7]) is not str
+                        or type(expected_row[8]) is not str
+                        or expected_row[8] != expected_row[7].casefold()
+                    ):
+                        raise MigrationGuard(
+                            "Yu-Gi-Oh name search normalization mismatch; no D1 refresh"
+                        )
                     changed_rows += 1
                     for column in changed:
                         changed_columns[column] = changed_columns.get(column, 0) + 1
@@ -189,22 +202,6 @@ def _existing_generation(cloud: D1Client, dbid: str, source: codec.Projection):
                     "Old Yu-Gi-Oh identities changed; manual review required: "
                     + json.dumps(safe_counts, sort_keys=True)
                 )
-            # Validate derived search values in *both* generations. A source
-            # normalization discrepancy is not an authorized display rename.
-            for offset in range(0, count, 100):
-                old_rows = _query(cloud, dbid, D1_READBACK_SQL,
-                                  (old_sha, min(100, count-offset), offset))
-                for old_row in old_rows:
-                    current_row = wanted[old_row["card_key"]]
-                    if (type(old_row["name"]) is not str
-                            or type(old_row["name_fold"]) is not str
-                            or old_row["name_fold"] != old_row["name"].casefold()
-                            or type(current_row[7]) is not str
-                            or type(current_row[8]) is not str
-                            or current_row[8] != current_row[7].casefold()):
-                        raise MigrationGuard(
-                            "Yu-Gi-Oh name search normalization mismatch; no D1 refresh"
-                        )
             print("YUGIOH_RETAINED_NAME_ONLY_CORRECTIONS_VERIFIED "
                   + json.dumps(safe_counts, sort_keys=True), flush=True)
     statement = codec.generation_statement(source)
