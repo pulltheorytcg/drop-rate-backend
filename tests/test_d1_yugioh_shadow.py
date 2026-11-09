@@ -285,6 +285,50 @@ def test_bulk_name_changes_fail_closed_without_a_new_generation():
     assert FakeD1.conn.execute("select count(*) from shadow_generations").fetchone()[0]==1
 
 
+
+def test_large_retained_prefix_and_refresh_never_use_offset_sql(monkeypatch):
+    # The 24k-row retained source made OFFSET an O(n²) index scan and may
+    # exhaust Cloudflare Free D1's account-wide daily rows-read allowance.
+    # Exercise >100 staged keys, source growth, a bounded name change and
+    # final exact SHA verification using only the composite PK cursor.
+    queries=[]
+    original=FakeD1.query
+    def track(self,uuid,sql,params=()):
+        if "from shadow_cards where manifest_sha=" in sql and "order by card_key" in sql:
+            queries.append(sql.lower())
+            assert " offset " not in sql.lower()
+            assert "card_key>?" in sql
+        return original(self,uuid,sql,params)
+    monkeypatch.setattr(FakeD1,"query",track)
+    monkeypatch.setattr(runner,"DAILY_NEW_ROWS",120)
+    old,_=fixture(count=180)
+    with old:
+        old_status=runner.run("a"*32,"dummy-test-token","1270","1",client=old,
+                              now=datetime(2026,11,6,tzinfo=timezone.utc))
+    assert old_status["d1_staged_rows"]==120
+    old_sha=FakeD1.conn.execute(
+        "select manifest_sha from shadow_generations").fetchone()[0]
+    retained_ids={
+        int(row[0].rsplit("-",1)[-1])
+        for row in FakeD1.conn.execute(
+            "select provider_id from shadow_cards where manifest_sha=? "
+            "order by card_key limit 3",(old_sha,)).fetchall()
+    }
+    current,_=fixture(count=181,renamed_indices=retained_ids)
+    with current:
+        partial=runner.run("a"*32,"dummy-test-token","1271","1",client=current,
+                           now=datetime(2026,11,7,tzinfo=timezone.utc))
+        assert partial["d1_staged_rows"]==120
+        assert partial["no_public_catalogue_cutover"] is True
+        final=runner.run("a"*32,"dummy-test-token","1272","1",client=current,
+                         now=datetime(2026,11,8,tzinfo=timezone.utc))
+    assert final["status"]=="REAL_R2_YUGIOH_TO_ISOLATED_D1_VERIFIED"
+    assert final["d1_verified_rows"]==181
+    assert FakeD1.conn.execute(
+        "select count(*) from shadow_cards where manifest_sha=?",
+        (old_sha,)).fetchone()[0]==120
+    assert queries and len(queries)>=6
+
 def test_changed_existing_identity_blocks_source_growth_without_overwrite():
     old,_ = fixture()
     with old:
