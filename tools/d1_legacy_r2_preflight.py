@@ -21,15 +21,19 @@ from app import catalogue_r2_live as legacy
 from d1_r2_real_shadow import _oidc_token, fetch_bytes, MigrationGuard, SOURCE_PATH
 
 SOURCE_PATH_LEGACY = SOURCE_PATH + "/legacy"
-EXPECTED_GENERATION = 122500
+EXPECTED_GENERATION = 122674
 EXPECTED_COUNTS = {
-    "reference_cards": 69697,
-    "reference_sets": 1472,
+    "reference_cards": 69867,
+    "reference_sets": 1473,
     "reference_sealed_products": 3893,
     "catalogue_products": 2062,
     "catalogue_product_profiles": 2062,
 }
-EXPECTED_RAW_BYTES = 29_831_680
+EXPECTED_RAW_BYTES = 29_886_526
+# Canonical sort_keys + compact-JSON SHA256 of the *published* Supabase
+# R2 manifest, independently calculated from the verified registry metadata.
+# R2 part bytes and full relation digests are still checked in protected CI.
+EXPECTED_MANIFEST_SHA = "977c9d114cf1aa96225e14bf5f76144cfd60ad2d85dffd82987e1197fdd4ef35"
 EXPECTED_PARTS = 161
 MAX_MANIFEST_BYTES = 120_000
 REPORT = "d1-legacy-r2-source-preflight-report.json"
@@ -64,7 +68,8 @@ def audit_legacy_source(*, client: httpx.Client | None = None):
         raise MigrationGuard("Legacy R2 manifest failed structural verification") from exc
     if (manifest["counts"] != EXPECTED_COUNTS
             or manifest["raw_bytes"] != EXPECTED_RAW_BYTES
-            or len(manifest["parts"]) != EXPECTED_PARTS):
+            or len(manifest["parts"]) != EXPECTED_PARTS
+            or legacy.manifest_digest(manifest) != EXPECTED_MANIFEST_SHA):
         raise MigrationGuard("Legacy R2 published source changed; human review required")
 
     raws = []
