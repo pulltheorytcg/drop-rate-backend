@@ -14,6 +14,8 @@ The previous D1 importer and preflight expect generation 122500 with **69,697 ca
 
 Magic: active `mtgjson/English` R2 generation 2 contains **153,679 reference records**, **151,609 released**, **98,902,731 raw bytes**, immutable manifest SHA `e3bda5f54affe0055ec64d7ffb943cb5cae23df8108e74f29e250f7ec63e662a`. The old read-only importer/preflight expected 153,662 and old SHA `be5af...`. This PR repins only the Magic **source verification job**, while the follow-on D1 writer stays pinned to its older approved SHA until full R2 evidence verifies the refresh and staged source generation design is reviewed.
 
+The legacy source preflight now separately asserts **every active system/language slice** rather than just 69,867 overall cards. The exact live source breakdown is Pokémon 23,912 English + 13,156 Japanese; One Piece 4,527 English + 4,480 Japanese; Dragon Ball Masters 9,031 English; Fusion World 4,365 English + 3,230 Japanese; Naruto Bandai Legacy 4,487 Unknown and Kayou 2,679 Unknown. The Unknown Naruto language is an explicit source limitation, not verified English/Japanese. An omitted Japanese or Naruto partition fails even if totals are artificially balanced.
+
 ## 2. Connections
 
 Authenticated protected GitHub main-branch OIDC → existing exact read-only FastAPI private R2 export → R2 snapshot manifests, **every** 161 legacy part + Magic source part → payload/hash/identity validation → count-only and hash-only CI artifacts/commit receipts. Existing Supabase publication registry still controls approved source; no new secrets, public routes, R2 keys, market valuation or owner data exposure.
