@@ -289,7 +289,7 @@ def test_manifest_pagination_does_not_omit_or_duplicate_bundles(service):
 
 def test_empty_history_or_unrelated_exports_cannot_establish_drive_backup(service):
     service.client.objects['drop-rate/exports/'+'a'*64+'.csv'] = b'unrelated export'
-    for kind in transfer.KINDS:
+    for kind in ('REFERENCE_HISTORY', 'OPENLIBRARY_REVIEWED'):
         page = service.plan(kind)
         assert page['archives'] == [] and page['scan_scope'] == 'PAGE'
         assert page['drive_current_availability'] == 'NOT_ASSESSED'

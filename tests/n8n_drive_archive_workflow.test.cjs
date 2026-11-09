@@ -13,6 +13,8 @@ const FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';
 const SECRET = 'synthetic-archive-signature-not-production-' + 'a'.repeat(32);
 const ENV = { DROP_RATE_DRIVE_ARCHIVE_ENABLED: 'true', DROP_RATE_AUTOMATION_COMMAND_SECRET: SECRET,
   DROP_RATE_API_AUTOMATION_CONTROL_URL: 'http://drop-rate-api-live.railway.internal:8000/api/v1/automation/control/receipt' };
+const OP_ENV = { ...ENV, DROP_RATE_OPERATIONAL_D1_ARCHIVE_MODE: 'true',
+  DROP_RATE_OPERATIONAL_D1_ARCHIVE_APPROVED_EXECUTION_ID: 'synthetic-execution-17' };
 const clone = value => JSON.parse(JSON.stringify(value));
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const response = body => ({ json: { statusCode: 200, body } });
@@ -106,6 +108,44 @@ async function reserved() {
     file_name: member.file_name, app_properties: properties(item.json.ctx) }),
   { refs: { 'Sign Bounded Backend Command': request } });
 }
+
+test('operational copy requires a separate exact execution approval before any OAuth call', async () => {
+  await assert.rejects(execute('Initialize Weekly Scan', { json: {} }, { env: {
+    ...OP_ENV, DROP_RATE_OPERATIONAL_D1_ARCHIVE_APPROVED_EXECUTION_ID: 'other-execution',
+  } }), /operational_archive_execution_not_approved/);
+});
+
+test('operational copy binds its private folder, one encrypted kind and separate resume state', async () => {
+  const state = { dr95_checkpoint: { private_legacy_fixture: true } };
+  const item = await execute('Initialize Weekly Scan', { json: {} }, { env: OP_ENV, state });
+  assert.deepEqual(item.json.ctx.checkpoint.cursors, [null]);
+  item.json.ctx.phase = 'PLAN';
+  const waiting = await execute('Advance Serial Work', item, { env: OP_ENV });
+  const opFolder = { ...folder, id: '1LrbyYjb5dkYPQehmN0q-IKIsmBFcH_pg', name: 'Drop Rate – Operational D1 Backups' };
+  const refs = { 'Advance Serial Work': waiting, 'Google Account Identity': response(account) };
+  await assert.rejects(execute('Verify Current Destination', response(folder), { env: OP_ENV, refs }), /drive_folder_mismatch/);
+  const verified = await execute('Verify Current Destination', response(opFolder), { env: OP_ENV, refs });
+  assert.equal(verified.json.ctx.destination.folder_id, opFolder.id);
+  const command = await execute('Sign Bounded Backend Command', verified, { env: OP_ENV });
+  assert.equal(JSON.parse(command.json.command_body).kind, 'OPERATIONAL_D1_SQLITE');
+  item.json.ctx.phase = 'FINISH'; item.json.ctx.finish_reason = 'TIME_BUDGET';
+  await execute('Save Bounded Resume Checkpoint', item, { env: OP_ENV, state });
+  assert.ok(state.dr95_operational_checkpoint);
+  assert.deepEqual(state.dr95_checkpoint, { private_legacy_fixture: true });
+});
+
+test('operational archive plan rejects plaintext or legacy gzip members', async () => {
+  const item = await execute('Initialize Weekly Scan', { json: {} }, { env: OP_ENV });
+  const bundle = archive('OPERATIONAL_D1_SQLITE');
+  item.json.ctx.checkpoint.page = { kind: bundle.kind, archives: [bundle], archive_index: 0,
+    object_index: 0, has_more: false, next_cursor: null };
+  await assert.rejects(execute('Advance Serial Work', item, { env: OP_ENV }), /archive_member_type_invalid/);
+  bundle.objects[0].mime_type = 'application/octet-stream';
+  bundle.objects[0].role = 'ENCRYPTED_SQLITE';
+  bundle.objects[0].file_name = bundle.objects[0].file_name.replace('.ndjson.gz', '.sqlite.aesgcm');
+  const accepted = await execute('Advance Serial Work', item, { env: OP_ENV });
+  assert.equal(accepted.json.ctx.phase, 'GENERATE_ID');
+});
 
 test('workflow stays disabled, credential-unbound, serial and execution-data saving is off', () => {
   assert.equal(workflow.active, false);
