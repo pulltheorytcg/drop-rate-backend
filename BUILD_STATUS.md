@@ -1,3 +1,10 @@
+## 9 November 2026 — Preserve original operational replay reservation across midnight (in review)
+
+- Reproduced two offline interrupted-stage cases that returned verified replay after creating a second day's reservation for the same unchanged generation; source and checkpoint capture timestamps could disagree. Recovery now binds to the first immutable generation reservation and preserves its original parent, UTC day, row limit, capture timestamp and snapshot marker.
+- Duplicate/inconsistent historical reservations, stale capture or changed parent fail closed without rewriting evidence. Already-verified retries additionally check checkpoint/head/generation metadata and all nine typed/source-JSON projections, preventing a stale success response from concealing corrupt legacy replay state. Lost-acknowledgement retries remain idempotent.
+- 88 focused local replay/schedule/source/drift/preflight tests pass; 112 combined tests including the newly merged restore verifier pass (0 failed, 0 skipped). Both new midnight regressions fail against the original implementation. These simulations are not remote D1 transaction/restore or production replay proof. Exact-head CI, safe merge and deployment remain pending.
+- Entire write-capable protected operational stage now requires exact commit AND run approval; push/schedule/dispatch cannot initiate an import alone. Existing read-only drift monitoring, production environment, single-writer concurrency, daily 2,500-row bound and Supabase authority are preserved. No approval variables configured or protected run initiated. See docs/OPERATIONAL_SHADOW_CATCHUP_20261108.md. Gates A–H remain 0/8.
+
 ## 9 November 2026 — Existing operational shadow local restore drill (in review; no remote restore)
 
 - Added a bounded local-only SQLite restoration verifier for the existing operational shadow. Independently pinned private backup bytes are restored into disposable memory; exact schema/triggers, full-row hashes, nine source receipts, typed original JSON, owner/currency balances, identity/link scope and replay ancestry/high-water marks must agree. No cloud or PostgreSQL client is instantiated.
