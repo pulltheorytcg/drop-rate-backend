@@ -431,7 +431,7 @@ def test_legacy_r2_export_preserves_admin_rls_and_fixed_source(monkeypatch):
     raw=json.dumps([card_set],sort_keys=True,separators=(",",":")).encode()
     sha=hashlib.sha256(raw).hexdigest()
     manifest={
-        "schema":legacy.SCHEMA,"generation":122500,
+        "schema":legacy.SCHEMA,"generation":export.LEGACY_R2_SOURCE_GENERATION,
         "counts":{r:(1 if r=="reference_sets" else 0) for r in legacy.RELATIONS},
         "parts":[{"relation":"reference_sets","sha256":sha,
                   "raw_bytes":len(raw),"rows":1}],
@@ -448,7 +448,7 @@ def test_legacy_r2_export_preserves_admin_rls_and_fixed_source(monkeypatch):
         async def fetchrow(self,sql):
             assert sql==legacy.STATE_SQL
             assert self.admin_checked
-            return {"generation":122500,"published_generation":122500,
+            return {"generation":export.LEGACY_R2_SOURCE_GENERATION,"published_generation":export.LEGACY_R2_SOURCE_GENERATION,
                     "manifest":manifest}
 
     @asynccontextmanager
@@ -517,7 +517,7 @@ def test_legacy_export_mismatched_generation_never_reaches_r2(monkeypatch):
         admin_checked=False
         async def fetchrow(self,sql):
             assert self.admin_checked
-            return {"generation":122500,"published_generation":122499,
+            return {"generation":export.LEGACY_R2_SOURCE_GENERATION,"published_generation":export.LEGACY_R2_SOURCE_GENERATION-1,
                     "manifest":{}}
 
     @asynccontextmanager
