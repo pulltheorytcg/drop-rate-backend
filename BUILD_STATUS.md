@@ -1,3 +1,10 @@
+## 9 November 2026 — Yu-Gi-Oh D1 retained-generation source growth (review/CI pending)
+
+- The protected Yu-Gi-Oh R2→D1 stage previously expected 45,418 source references while the current verified source can grow; strict equality stopped the existing 24,000-row partial stage. This change accepts only an independently verified current source with at least the prior approved count (maximum 50,000), preserving existing D1 rows and daily quota receipts.
+- Before appending a distinct current-manifest generation, compare every previously staged immutable card against the new source by stable key and all canonical identity fields. Changed/removed keys, malformed metadata, more than two generations, incomplete active generations and corrupt staged rows fail closed. No generation is silently relabelled or removed; the old active pointer stays until exact full new-generation checksum/readback and atomic compare-and-swap.
+- Offline regression coverage added for 23→24-card source growth, resumed 7-row daily quotas, retained old rows and rejection of changed identities. No network test, production Cloudflare import, production routing switch, financial writer, Supabase data change, plan upgrade or rollback claimed. CI and protected live import readback are mandatory before classifying this as released.
+- Linked tracker: https://github.com/pulltheorytcg/drop-rate-backend/issues/1010.
+
 ## 8 November 2026 — Existing Lorcana D1 generation refresh (CI pending)
 
 - Live recheck found current R2 source differs from the earlier D1 generation. Extend the existing importer/database with append-only generation refresh, resumable exact readback, daily quota receipt and compare-and-swap activation.
