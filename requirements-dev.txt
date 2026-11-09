@@ -1,1 +1,3 @@
 -r requirements.txt
+# Synthetic tests for GitHub's documented LibSodium environment-secret API.
+PyNaCl==1.6.0
