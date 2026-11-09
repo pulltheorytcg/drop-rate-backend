@@ -334,6 +334,7 @@ def run(account: str, token: str, run_id: str, attempt: str, *,
         return {
             "status":"FOLLOWON_WAITING_FOR_YUGIOH_OR_DAILY_WINDOW",
             "reason":gate["reason"],"yugioh_staged_rows":gate["count"],
+            "yugioh_source_rows":gate["source_rows"],
             "d1_writes":0,"production_reads_switched":False,
             "owner_and_settlement_writes":0,"market_value_writes":0,
         }
