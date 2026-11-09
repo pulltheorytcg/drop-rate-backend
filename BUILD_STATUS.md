@@ -1,3 +1,9 @@
+## 9 November 2026 — Refresh inactive Magic D1 writer to 153,679 verified R2 records (in review)
+
+- Current R2 source is MTGJSON English 153,679 references (151,609 released) with immutable manifest SHA `e3bda5f54affe0055ec64d7ffb943cb5cae23df8108e74f29e250f7ec63e662a`. Its protected read-only R2 source audit returned SUCCESS against #1040 main. Previously the D1 follow-on writer expected 153,662 (17 stale).
+- Re-pinned the *inactive* D1 follow-on source to current SHA/count and aggregate four-source completion check to **155,505**; original exact-run SHA+GitHub-run approval and 8,000/day reservation remain. No Magic D1 rows staged by this PR, no release of unreleased card rows/artwork, no public or financial cutover. See `docs/D1_MAGIC_CURRENT_SOURCE_REPIN_20261109.md`.
+- Offline CI/backend, pinned n8n/dashboard and Railway deployment receipt still required; no Supabase retirement gate satisfied.
+
 ## 9 November 2026 — Remove unrelated Magic/follow-on blocking from original-game D1 stage (PR review)
 
 - Original-game R2 publication is already generation 122674 / 69,867 cards across Pokémon, One Piece, Dragon Ball, Naruto and 79,357 owner-free rows across five relations. The legacy D1 shadow importer had wrongly required FULL completion of Magic/sports/figures D1 follow-on before starting any legacy card stage. This serialised the four original games behind ~155k unrelated rows.
