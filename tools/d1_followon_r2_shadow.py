@@ -194,7 +194,7 @@ def _gate_yugioh(cloud: D1Client, databases: dict[str,str], today: str):
     if (len(latest)!=1 or "day" not in latest[0]
             or (latest[0]["day"] is not None and
                 (not isinstance(latest[0]["day"],str)
-                 or not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}",latest[0]["day"])))):
+                 or not re.fullmatch(r"\d{4}-\d{2}-\d{2}",latest[0]["day"])))):
         raise MigrationGuard("YGO daily write receipts unavailable")
     if latest[0]["day"]==today:
         return {**base,"ready":False,"reason":"YGO_WROTE_TODAY"}
