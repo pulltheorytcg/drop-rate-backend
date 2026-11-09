@@ -313,3 +313,17 @@ def test_cloudflare_read_error_exposes_only_fixed_schema_label(monkeypatch):
             "12345678-1234-1234-1234-1234567890ab",
             "SELECT * FROM some_user_supplied_private_value",[],
         )
+
+
+def test_protected_finance_gate_schedules_one_utc_run_before_catalogue_import():
+    """Read-only audit runs once after 00:00 UTC, not on each workflow edit."""
+    workflow=Path(".github/workflows/d1-operational-financial-integrity.yml").read_text()
+    assert "cron: '17 0 * * *'" in workflow
+    assert "cron: '17 */" not in workflow
+    assert "environment: production" in workflow
+    assert "if: github.event_name != 'pull_request'" in workflow
+    assert "source-versus-d1-read-only:" in workflow
+    assert "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}" in workflow
+    push=workflow.split("  push:",1)[1].split("  schedule:",1)[0]
+    assert "'tools/d1_operational_financial_integrity.py'" in push
+    assert "'d1-operational-financial-integrity.yml'" not in push
