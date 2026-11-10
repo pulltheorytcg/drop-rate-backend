@@ -56,3 +56,13 @@ Founders HQ `/founders` previously used only `/api/v1/inventory/readiness` for t
 The Pro capacity guard is live at 8GB with reversible `DROP_RATE_CATALOGUE_BULK_HOLD=true` blocking bulk catalogue/image/provider updates. Keep it enabled. eBay Browse supplies **active** listings only, not sold comparables. The existing 505-item conservative read-only price preview is INSERT 0/UPDATE 0/SKIP 505, not permission to fill prices from retail guides.
 
 Image resolution and R2 proof remain distinct from exact artwork, commercial permissions and slab-photo verification. No missing artwork or Market Value was repaired by adding the exception queue.
+
+
+## Final production UI release receipt — 10 November 2026
+
+- [PR #1062](https://github.com/pulltheorytcg/drop-rate-backend/pull/1062) merged with reviewed commit `99086377638fb1e97f3d6ab88a29d669c86d3ca0`. All three GitHub Backend checks jobs passed: backend tests, dashboard UI/jsdom and pinned n8n-image validations.
+- Live Railway API service `6aa92310-153f-4fc9-9e22-dc338282605b` deployment **`a382f089-db13-47d4-83a0-383919cf9a27` SUCCESS**, `2026-11-10T20:20Z`. Unchanged pre-deploy check results: **11,485 pytest passing, 32 optional skipped, 1 warning**; Stripe sandbox/financial checks passed. Startup completed, `/health/ready` returned HTTP **200**.
+- Deployment startup logs confirm `CATALOGUE_OPERATOR_BULK_HOLD active`, Pro `database_limit_bytes=8000000000`, database `428158099` bytes, `CATALOGUE_BULK_REFRESH_DEFERRED`, `CATALOGUE_R2_REFERENCE_MEDIA_DEFERRED`, each `refresh_allowed=false` with reason `BULK_REFRESH_DEFERRED_OPERATOR_HOLD`. Independent archive and existing current R2 catalogue/market publications continued.
+- Railway has **zero pending staged changes** after deployment. No change to marketplace pricing, R2 bytes, product images, order allocation, owner IDs, Shopify publications or D1.
+- Database readback after deployment: nine audit-tagged HIGH media exceptions still OPEN, plus the pre-existing graded slab issue. Trigger audit has **9 INSERT events** for those exactly tagged owner-scoped tasks. The UI reads but never modifies them.
+- **Limitation:** deployed code, full jsdom behavior, API health and PostgreSQL queue are verified; a logged-in browser UI readback and cross-founder visual isolation were **not** executed through a founder session in this tool context. Those remain manual acceptance checks. Do not call the actual images repaired. The ten tasks are available through the existing authenticated Action Required API for the correct owner.
