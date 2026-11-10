@@ -22,6 +22,7 @@ PRO_DATABASE_INCLUDED_BYTES = 8_000_000_000
 PRO_REFRESH_PAUSE_BYTES = 7_000_000_000
 PRO_URGENT_ALERT_BYTES = 7_500_000_000
 PLAN_ENV = "DROP_RATE_SUPABASE_PLAN"
+OPERATOR_BULK_HOLD_ENV = "DROP_RATE_CATALOGUE_BULK_HOLD"
 
 # Backward-compatible aliases. Production remains Free-guarded unless the
 # explicit runtime plan is set to "pro".
@@ -57,6 +58,20 @@ class CapacityState:
         }
 
 
+def operator_bulk_hold_requested() -> bool:
+    """Explicit, reversible production hold; never override capacity urgency.
+
+    Keeps the daily maintenance loop alive for verified archive/backlog checks
+    while refusing scheduled catalogue/price/media refresh operations.
+    """
+    raw = os.getenv(OPERATOR_BULK_HOLD_ENV, "false").strip().lower()
+    if raw in {"true", "1"}:
+        return True
+    if raw in {"false", "0", ""}:
+        return False
+    raise ValueError("Invalid catalogue bulk-hold setting; refusing refresh")
+
+
 def _limits(plan: str) -> tuple[int, int, int]:
     if plan == "free":
         return FREE_DATABASE_LIMIT_BYTES, FREE_REFRESH_PAUSE_BYTES, FREE_URGENT_ALERT_BYTES
@@ -79,6 +94,7 @@ def assess_capacity(
         raise ValueError("Database write-mode evidence missing")
     selected = (os.getenv(PLAN_ENV, "free") if plan is None else plan).strip().lower()
     limit, refresh_pause, urgent = _limits(selected)
+    manually_held = operator_bulk_hold_requested()
     remaining = max(0, limit - database_bytes)
     if default_read_only == "on":
         severity, reason = "CRITICAL", "DATABASE_READ_ONLY"
@@ -86,6 +102,8 @@ def assess_capacity(
         severity, reason = "CRITICAL", ("FREE_DATABASE_CAPACITY_URGENT" if selected == "free" else "DATABASE_CAPACITY_URGENT")
     elif database_bytes >= refresh_pause:
         severity, reason = "WARNING", "BULK_REFRESH_DEFERRED_CAPACITY"
+    elif manually_held:
+        severity, reason = "WARNING", "BULK_REFRESH_DEFERRED_OPERATOR_HOLD"
     else:
         severity, reason = "OK", "WITHIN_SAFE_BULK_REFRESH_CAPACITY"
     return CapacityState(
