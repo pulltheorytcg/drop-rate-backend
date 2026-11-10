@@ -1,7 +1,12 @@
 name: Verify Supabase Pro backup inventory (read-only)
 
-# Manual only after approval. No schedule and no DB writes.
+# Run once on initial reviewed merge to main, then manually on demand.
+# This verifies backups without changing the database or R2.
 on:
+  push:
+    branches: ['main']
+    paths:
+      - '.github/workflows/supabase-backup-evidence.yml'
   workflow_dispatch:
 
 permissions:
