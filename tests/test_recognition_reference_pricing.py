@@ -111,5 +111,5 @@ def test_shared_coverage_is_independent_of_owner_and_never_counts_usd_as_gbp():
     summary = coverage_summary(evidence)
     assert summary == coverage_summary(list(reversed(evidence)))
     assert summary["by_kind"]["CARD"] == dict(total=104, priced=30, missing=74)
-    assert summary["by_kind"]["SEALED"] == dict(total=8, priced=8, missing=0)
+    assert summary["by_kind"]["SEALED"] == dict(total=8, priced=0, missing=8)
     assert summary["valuation_currency"] == "GBP"
