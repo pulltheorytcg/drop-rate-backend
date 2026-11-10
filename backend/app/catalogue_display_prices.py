@@ -101,6 +101,13 @@ def shared_prices(products, references, snapshots, *, now):
             if value['status'] == 'AVAILABLE':
                 value = dict(value, status='CONDITION_REFERENCE', label='Near-mint reference',
                              reason='Shared near-mint market reference for this exact printing.')
+            # A Cardmarket/model catalogue GUIDE is retained in its original
+            # source quote, not promoted into a browse Market Value or sorting
+            # key. Only exact-profile SOLD references may contribute money.
+            if value.get('status') in {'REFERENCE_ESTIMATE', 'CATALOGUE_GUIDE'}:
+                value = dict(value, market_value_minor=None,
+                             market_value_high_minor=None,
+                             last_known_minor=None)
             # Include unpriced candidates too. Duplicate identities must not be
             # resolved by selecting whichever catalogue record happens to sell.
             value = dict(value, physical_valuation_eligible=False, recommended_retail_minor=None)
