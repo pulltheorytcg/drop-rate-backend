@@ -83,7 +83,7 @@ def assess_capacity(
     if default_read_only == "on":
         severity, reason = "CRITICAL", "DATABASE_READ_ONLY"
     elif database_bytes >= urgent:
-        severity, reason = "CRITICAL", "DATABASE_CAPACITY_URGENT"
+        severity, reason = "CRITICAL", ("FREE_DATABASE_CAPACITY_URGENT" if selected == "free" else "DATABASE_CAPACITY_URGENT")
     elif database_bytes >= refresh_pause:
         severity, reason = "WARNING", "BULK_REFRESH_DEFERRED_CAPACITY"
     else:
