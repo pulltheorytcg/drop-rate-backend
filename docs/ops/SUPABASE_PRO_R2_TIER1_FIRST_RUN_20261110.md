@@ -49,3 +49,26 @@ Do **not** disable the entire `TCG_CATALOGUE_DAILY_REFRESH_ENABLED` loop: that l
 - Live application health, monitor log lines, and new deployment IDs **remain required evidence**. A successful CI check alone does not mean these API settings have been activated.
 
 **Pricing preview:** [the read-only SELECT](../audits/2026-11-10_tier1_pro_sold_dryrun_select.sql) and [20-example report](../audits/2026-11-10_tier1_pro_sold_dryrun.md) verified 505 physical items, 98 with any source-constrained recent UK sold match, 33 with 3+, **0 INSERT / 0 UPDATE / 505 SKIP** under narrow recency/condition/grade rules. Old Trawl API sales are not an official Browse API sold feed. No price or artwork mutations.
+
+
+## Production release — final verified receipt (10 November 2026, UTC)
+
+**SUPABASE PRO CAPACITY ACTIVATION: COMPLETE AND VERIFIED, automatic bulk jobs remain intentionally HELD.**
+
+- Source/CI: [PR #1057](https://github.com/pulltheorytcg/drop-rate-backend/pull/1057) added the reversible bulk-work hold; [PR #1059](https://github.com/pulltheorytcg/drop-rate-backend/pull/1059) and [PR #1060](https://github.com/pulltheorytcg/drop-rate-backend/pull/1060) isolated existing production env variables from *pytest only*, without removing any tests or changing production runtime behaviour. Reviewed source deployed from main commit `9288a0f158afbe1c15a3367858d0f704da1b076c`.
+- **Live API** Railway `drop-rate-api-live` (`6aa92310-153f-4fc9-9e22-dc338282605b`): deployment **`3dab404d-83cf-453f-87f7-137a7fffdeb6` SUCCESS** at `2026-11-10T19:25:47Z`. Pre-deploy `PYTHONPATH=backend pytest` **11,485 passed, 32 optional skips, 1 warning**, Stripe sandbox selftests passed, health readiness **HTTP 200** at `19:25:43Z`.
+- **API log at `2026-11-10T19:25:43Z`:**
+  - `CATALOGUE_OPERATOR_BULK_HOLD active; R2-first and eBay market jobs suppressed`
+  - `CATALOGUE_BULK_REFRESH_DEFERRED` and `CATALOGUE_R2_REFERENCE_MEDIA_DEFERRED` each reported `{"database_plan":"pro","database_limit_bytes":8000000000,"database_bytes":428133523,"remaining_bytes":7571866477,"refresh_allowed":false,"reason":"BULK_REFRESH_DEFERRED_OPERATOR_HOLD","severity":"WARNING"}`.
+  - Source constants/regression tests verify `PRO_REFRESH_PAUSE_BYTES=7_000_000_000`, `PRO_URGENT_ALERT_BYTES=7_500_000_000`; values are deliberately conservative (below included 8 GB).
+- **Read-only operations monitor** Railway `4307b725-08be-47fd-b85f-b8617a785d31` ran `2026-11-10T19:01:30Z`, `DATABASE_CAPACITY_HEALTHY` with `database_plan="pro"`, `database_limit_bytes=8000000000`, `database_bytes=428133523`, `remaining_bytes=7571866477`, `refresh_allowed=true` **in the monitor's independent read-only capacity assessment only**. This does not authorize bulk API work; the API's hold deliberately overrides the refresh flag.
+- No remaining Railway staged changes after the release, no startup permission changes, no RLS/ownership bypass, no Shopify/ledger/consignment changes, no pricing or image mutation. Existing history/source archivers and R2 generation reads continued; an existing source archive was verified without enabling a new provider import.
+- Supabase backup inventory prior to activation: [Actions run 42873462449](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42873462449), 8 COMPLETED, latest `2026-11-10T07:19:02Z`. A **restore test is still pending** and the verified project backups **exclude R2**; do not imply disaster recovery restoration is proven.
+
+### App visibility and subsequent controlled repair
+
+**Infrastructure changes do not by themselves alter storefront images or Market Values.** The [100-item R2 artwork audit](https://github.com/pulltheorytcg/drop-rate-backend/pull/1056) was read-only: 90 object byte/size/dimension passes (**visual identity and commercial rights unreviewed**), 5 missing approved assets, 4 missing mirrors, 1 low resolution. The isolated audit Railway service was deleted after preserving evidence. Only 100 of 505 priority physical items were sampled.
+
+The [Tier 1 pricing preview](../audits/2026-11-10_tier1_pro_sold_dryrun.md) was also read-only and limited by precise source/identity recency: 505 physical items, **0 proposed INSERT, 0 UPDATE, 505 SKIP**; 20 unpriced examples were recorded. These matches use Trawl API historical sold observations and do not establish licensed, fresh, exact-variant eBay Browse sold evidence. Unpriced display items remain unpriced rather than using retail/guide estimates.
+
+**Next release gate:** separately reviewed rights-cleared artwork repair (slab photos must remain slabs), and legal provider-compatible sold comparable ingestion with exact game/set/number/variant, condition/grade/language and deterministic FastAPI outlier logic. First issue a non-writing 20-example price apply preview, then request explicit approval for bounded changes. Verify database, R2 and mobile/desktop UI parity. Keep the operator hold active until those gates pass; do **not** auto-reenable imports just because Pro headroom exists.
