@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 jobs:
   verify-supabase-backup:
@@ -23,8 +24,41 @@ jobs:
         with:
           python-version: '3.12'
       - name: Verify completed production backup timestamp without changing data
+        id: verify
         env:
           # Requires a management API token with backups_read permission.
           # Never echo or upload this value.
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: python tools/supabase_backup_inventory.py
+      - name: Publish sanitised backup result to GitHub commit status
+        if: always() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          CHECK_OUTCOME: ${{ steps.verify.outcome }}
+          LATEST_BACKUP: ${{ steps.verify.outputs.latest_completed_backup_at }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          state = "success" if os.environ["CHECK_OUTCOME"] == "success" else "failure"
+          timestamp = os.environ.get("LATEST_BACKUP", "")
+          # Sanitize description: a timestamp, not an upstream body or secret.
+          safe = timestamp if len(timestamp) <= 35 and all(c.isdigit() or c in "TZ:+-." for c in timestamp) else ""
+          desc = ("Verified completed backup " + safe) if state == "success" and safe else (
+              "No recent completed backup verified; do not enable catalogue refresh"
+          )
+          req = urllib.request.Request(
+              "https://api.github.com/repos/" + os.environ["GH_REPOSITORY"] +
+              "/statuses/" + os.environ["GH_SHA"],
+              data=json.dumps({"state":state,"context":"drop-rate-supabase-pro-backup",
+                               "description":desc[:140]}).encode(),
+              headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],
+                       "Accept":"application/vnd.github+json",
+                       "Content-Type":"application/json",
+                       "X-GitHub-Api-Version":"2022-11-28"},
+              method="POST")
+          with urllib.request.urlopen(req, timeout=10) as response:
+              if response.status != 201:
+                  raise RuntimeError("Could not publish backup evidence")
+          PY

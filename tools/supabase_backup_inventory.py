@@ -88,6 +88,16 @@ def main() -> int:
     try:
         receipt = backup_receipt(get_backup_inventory(os.environ.get("SUPABASE_ACCESS_TOKEN", "")))
         print(json.dumps(receipt, sort_keys=True))
+        # GitHub output carries only an ISO timestamp, not credentials or raw
+        # provider responses; the next step can publish a public-safe status.
+        outputs = os.environ.get("GITHUB_OUTPUT")
+        if outputs:
+            with open(outputs, "a", encoding="utf-8") as out:
+                out.write("latest_completed_backup_at="
+                          + (receipt["latest_completed_backup_at"] or "not verified")
+                          + "\n")
+                out.write("completed_backup_count="
+                          + str(receipt["completed_backup_count"]) + "\n")
         summary = os.environ.get("GITHUB_STEP_SUMMARY")
         if summary:
             # This contains only the approved project reference and timestamps.
