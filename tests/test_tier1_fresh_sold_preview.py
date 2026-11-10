@@ -85,3 +85,38 @@ def test_safety_error_code_is_static_without_private_owner_data():
     exc = pilot.PilotSafetyError("TARGET_NO_LONGER_ELIGIBLE")
     assert type(exc).__name__ == "PilotSafetyError"
     assert str(exc) == "TARGET_NO_LONGER_ELIGIBLE"
+
+
+def test_isolated_sold_provider_does_not_require_full_api_settings(monkeypatch):
+    import asyncio
+    from app import ebay_sold_pricing
+
+    requests = []
+    def forbidden_settings():
+        raise AssertionError("Isolated provider lookup must not load unrelated API authentication settings")
+
+    class SinglePageClient:
+        def __init__(self, *, api_key):
+            assert api_key == "existing-test-credential"
+
+        async def sold(self, *, query, max_pages):
+            requests.append({"query": query, "pages": max_pages})
+            return {"site": "EBAY_GB", "currency": "GBP", "results": []}
+
+    monkeypatch.setattr(ebay_sold_pricing, "get_settings", forbidden_settings)
+    monkeypatch.setattr(ebay_sold_pricing, "TrawlEbaySoldClient", SinglePageClient)
+    result = asyncio.run(ebay_sold_pricing._fetch_comp_result(
+        pilot.IDENTITY.copy(), provider_key="existing-test-credential"
+    ))
+    assert result["status"] == "BLOCKED"
+    assert result["comparable_count"] == 0
+    assert result["store_price_minor"] is None
+    assert requests == [{"query": "charmander 011/094", "pages": 1}]
+
+
+def test_pilot_passes_provider_key_only_from_existing_environment():
+    import inspect
+    source = inspect.getsource(pilot.run)
+    assert 'provider_key=os.environ["TCG_TRAWL_API_KEY"]' in source
+    assert "--apply" not in source
+    assert "readonly_snapshot=True" in source
