@@ -13,6 +13,9 @@ import json
 import os
 from collections import Counter
 from datetime import datetime, timezone
+from uuid import UUID
+
+from app.access_control import require_platform_admin
 
 import asyncpg
 from PIL import Image, UnidentifiedImageError
@@ -155,11 +158,24 @@ def summarise(rows: list[dict], storage: S3ObjectStorage) -> dict:
     }
 
 
-async def load_rows(dsn: str, *, after: str, limit: int) -> list[dict]:
+async def load_rows(dsn: str, *, actor: UUID, after: str, limit: int) -> list[dict]:
+    """Apply the existing approved platform-admin identity inside read-only RLS.
+
+    The reference backup worker uses the same tcg.user_id / tcg.request_id
+    transaction-local GUCs, followed by require_platform_admin(). No role
+    bypass, service-key publication or database mutation is permitted.
+    """
     conn = await asyncpg.connect(dsn=dsn, timeout=10)
     try:
         async with conn.transaction(readonly=True, isolation="repeatable_read"):
-            return [dict(row) for row in await conn.fetch(TIER1_SQL, after, limit, timeout=30)]
+            await conn.execute("select set_config('tcg.user_id',$1,true)", str(actor))
+            await conn.execute("select set_config('tcg.request_id',$1,true)",
+                               "tier1-r2-media-bytecheck-readonly")
+            await require_platform_admin(conn)
+            rows = [dict(row) for row in await conn.fetch(TIER1_SQL, after, limit, timeout=30)]
+            if not rows and not after:
+                raise RuntimeError("Platform-admin RLS context returned no Tier 1 inventory; audit incomplete")
+            return rows
     finally:
         await conn.close()
 
@@ -176,10 +192,16 @@ def main() -> int:
     dsn = os.getenv("TCG_DATABASE_URL")
     if not dsn:
         parser.error("existing PostgreSQL connection is not configured")
+    actor_raw = os.getenv("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID", "")
+    try:
+        actor = UUID(actor_raw)
+    except (TypeError, ValueError):
+        parser.error("existing platform-maintenance actor is not configured")
     cfg = ObjectStorageConfig.from_env()
     if cfg is None:
         parser.error("existing R2 read configuration is not enabled")
-    rows = asyncio.run(load_rows(dsn, after=args.after_inventory_code, limit=args.limit))
+    rows = asyncio.run(load_rows(dsn, actor=actor,
+                                 after=args.after_inventory_code, limit=args.limit))
     result = summarise(rows, S3ObjectStorage(cfg))
     result.update(
         completed_at=datetime.now(timezone.utc).isoformat(),
