@@ -28,8 +28,9 @@ MIN_DIMENSION = 350
 # Data authority is always PostgreSQL. Read-only transaction ends before R2
 # byte verification (no DB locks across network I/O).
 TIER1_SQL = """
-select i.inventory_code,p.game,p.product_type,p.language,p.variant,
- i.grading_company,selected.asset_id,selected.media_language,
+select i.inventory_code,p.game,p.product_type,
+ coalesce(nullif(btrim(i.language),''),nullif(btrim(p.language),'')) as language,
+ p.variant,i.grade,i.grading_company,selected.asset_id,selected.media_language,
  selected.media_variant,selected.rights_status,selected.approval_status,
  selected.object_key,selected.content_sha256,selected.size_bytes
 from tcg.inventory_items i
@@ -95,7 +96,14 @@ def classify_image(row: dict, storage: S3ObjectStorage) -> str:
             return "MEDIA_LANGUAGE_MISMATCH"
     media_variant = (row.get("media_variant") or "").strip().casefold()
     if media_variant and media_variant not in {"unknown", "not applicable"}:
-        if media_variant != (row.get("variant") or "").strip().casefold():
+        if row.get("grading_company"):
+            # A slab photograph is labelled by grading company and grade,
+            # rather than the canonical raw-card finish (e.g. Holofoil).
+            grade = str(row.get("grade") or "").strip().casefold()
+            company = str(row["grading_company"]).strip().casefold()
+            if grade and media_variant != f"{company} {grade}":
+                return "MEDIA_GRADE_VARIANT_MISMATCH"
+        elif media_variant != (row.get("variant") or "").strip().casefold():
             return "MEDIA_VARIANT_MISMATCH"
     if not row.get("object_key"):
         return "NO_R2_MIRROR_RECORD"

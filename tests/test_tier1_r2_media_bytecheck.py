@@ -159,3 +159,24 @@ def test_empty_first_page_fails_without_silent_success(monkeypatch):
     monkeypatch.setattr(job, "require_platform_admin", fake_admin)
     with pytest.raises(RuntimeError, match="returned no Tier 1 inventory"):
         asyncio.run(job.load_rows("not-used", actor=UUID("00000000-0000-4000-8000-000000000001"), after="", limit=100))
+
+
+def test_reference_query_uses_item_language_when_catalogue_language_is_null():
+    from scripts.tier1_r2_media_bytecheck import TIER1_SQL
+    assert "coalesce(nullif(btrim(i.language),''),nullif(btrim(p.language),'')) as language" in TIER1_SQL
+    assert "p.variant,i.grade,i.grading_company" in TIER1_SQL
+
+
+def test_psa_10_slab_matches_its_grade_not_raw_holofoil_finish():
+    assert classify_image(
+        row(grading_company="PSA", grade="10", variant="Holofoil",
+            media_variant="PSA 10", media_language="Japanese", language="Japanese"),
+        StubR2(),
+    ) == "R2_BYTES_AND_DIMENSIONS_VERIFIED_VISUAL_UNREVIEWED"
+
+
+def test_graded_slab_wrong_company_or_grade_is_rejected():
+    assert classify_image(
+        row(grading_company="PSA", grade="10", variant="Holofoil", media_variant="ACE 10"),
+        StubR2(),
+    ) == "MEDIA_GRADE_VARIANT_MISMATCH"
