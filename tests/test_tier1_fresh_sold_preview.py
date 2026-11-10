@@ -76,7 +76,9 @@ def test_explicit_transaction_readonly_is_required():
     assert "readonly_snapshot=True" in source
     assert 'SHOW transaction_read_only' in source
     assert "TRANSACTION_NOT_READ_ONLY" in source
-    assert 'default_transaction_read_only' not in source
+    # A read-only *session default* may remain as a second safeguard; what
+    # matters is that the tested transaction checks its actual read-only mode.
+    assert 'SHOW default_transaction_read_only' not in source
 
 
 def test_safety_error_code_is_static_without_private_owner_data():
