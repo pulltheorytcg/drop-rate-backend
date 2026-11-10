@@ -30,9 +30,9 @@ def test_gap_summary_preserves_every_reference_and_reports_actionable_source_gap
     result = coverage_summary(rows)
     cards = result["by_kind"]["CARD"]
     assert cards["total"] == 38643
-    assert cards["priced"] == 16524
-    assert cards["missing"] == 22119
-    assert result["by_kind"]["SEALED"] == {"total": 426, "priced": 270, "missing": 156}
+    assert cards["priced"] == 12127
+    assert cards["missing"] == 26516
+    assert result["by_kind"]["SEALED"] == {"total": 426, "priced": 0, "missing": 426}
     assert result["by_status"]["SOURCE_ACCESS_REQUIRED"] == 14873
     assert result["missing_by_reason"][0] == {
         "status": "SOURCE_ACCESS_REQUIRED",
@@ -55,6 +55,10 @@ def test_unpriced_does_not_turn_into_free_cards_and_source_mappings_remain_gated
     assert "'NARUTO_BANDAI_LEGACY','NARUTO_KAYOU'" in COVERAGE_SQL
     assert "'SOURCE_ACCESS_REQUIRED'" in COVERAGE_SQL
     assert "now()-interval '7 days'" in COVERAGE_SQL
+    assert "now()-interval '14 days'" in COVERAGE_SQL
+    assert "physical_valuation_eligible" in COVERAGE_SQL
+    assert "reference_language" in COVERAGE_SQL
+    assert "MIXED_LANGUAGE_GUIDE" not in PRICED_REFERENCE_STATUSES
     assert "reference_identity'=jsonb_build_object(" in COVERAGE_SQL
     assert "tcg.inventory_items" not in COVERAGE_SQL
     assert "owner_id" not in COVERAGE_SQL

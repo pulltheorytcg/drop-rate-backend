@@ -89,7 +89,18 @@ COVERAGE_SQL = f'''with coverage as (
    case when {DIGITAL_REFERENCE_SQL} then 'NOT_APPLICABLE_DIGITAL'
         when p.market_value_minor>0 and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now())
           and p.quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'MIXED_LANGUAGE_GUIDE'
-        when p.market_value_minor>0 and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now()) then 'REFERENCE_AVAILABLE'
+        -- A GBP guide or provider check is not verified market value. Only
+        -- source-dated, physically eligible language-matched quotes qualify;
+        -- catalogue coverage is at least ONE quote, not all finish/grade variants.
+        when exists (
+          select 1 from jsonb_array_elements(coalesce(p.quotes,'[]'::jsonb)) q
+          where q->>'physical_valuation_eligible'='true'
+            and q->>'reference_language'=r.language
+            and (q->>'price_gbp_minor')~'^[0-9]+$'
+            and (q->>'price_gbp_minor')::bigint>0
+            and (q->>'observed_at')::timestamptz>=now()-interval '14 days'
+        ) then 'REFERENCE_AVAILABLE'
+        when p.market_value_minor>0 and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now()) then 'MIXED_LANGUAGE_GUIDE'
         when p.market_value_minor>0 and (p.expires_at is null or p.expires_at<=now()) then 'STALE_EVIDENCE'
         when b.market_value_minor>0 and (b.expires_at is null or b.expires_at<=now()) then 'STALE_EVIDENCE'
         when b.market_value_minor>0
@@ -155,14 +166,15 @@ from coverage group by kind,system_code,language,status order by kind,system_cod
 # happens to have scanned. Do not count USD context, stale prices or unresolved
 # mappings as verified GBP market values.
 # Explicitly track own validated model calculations; never report these as sold.
-PRICED_REFERENCE_STATUSES = frozenset({
-    "REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GUIDE",
-})
+# MIXED_LANGUAGE_GUIDE and asking estimates are not confirmed market values.
+# REFERENCE_AVAILABLE means at least one qualifying quote, not all variants.
+PRICED_REFERENCE_STATUSES = frozenset({"REFERENCE_AVAILABLE"})
 PROVISIONAL_REFERENCE_STATUSES = frozenset({"DROP_RATE_CALCULATED_VALUE"})
 PHYSICAL_CARD_COVERAGE_TARGET_BPS = 8900  # Current founder goal: 89%, exact integer threshold
 # Actions describe the needed evidence, not a guarantee that it can be bought
 # or that a source permits redistribution in a user-facing marketplace.
 UNPRICED_REFERENCE_ACTIONS = {
+    "MIXED_LANGUAGE_GUIDE": "Indicative or mixed-language guide only; obtain exact-print eligible GBP evidence, never promote RRP.",
     "NOT_APPLICABLE_DIGITAL": "Digital TCG Pocket reference; physical resale pricing does not apply.",
     "SOURCE_ACCESS_REQUIRED": "Obtain permitted exact-print GBP market data for this game and language.",
     "PROVIDER_FEED_REQUIRED": "Obtain an approved provider feed covering this game and product type.",
