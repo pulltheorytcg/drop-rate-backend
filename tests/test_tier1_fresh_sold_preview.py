@@ -68,3 +68,18 @@ def test_fixed_target_exact_identity_and_read_only_query():
     assert pilot.READ_SQL.strip().upper().startswith("SELECT ")
     assert "PUBLISHED" in pilot.READ_SQL and "market_value_minor IS NULL" in pilot.READ_SQL
     assert "--apply" not in open(pilot.__file__, encoding="utf-8").read()
+
+
+def test_explicit_transaction_readonly_is_required():
+    import inspect
+    source = inspect.getsource(pilot.run)
+    assert "readonly_snapshot=True" in source
+    assert 'SHOW transaction_read_only' in source
+    assert "TRANSACTION_NOT_READ_ONLY" in source
+    assert 'default_transaction_read_only' not in source
+
+
+def test_safety_error_code_is_static_without_private_owner_data():
+    exc = pilot.PilotSafetyError("TARGET_NO_LONGER_ELIGIBLE")
+    assert type(exc).__name__ == "PilotSafetyError"
+    assert str(exc) == "TARGET_NO_LONGER_ELIGIBLE"
