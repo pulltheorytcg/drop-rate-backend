@@ -212,10 +212,18 @@ def create_app() -> FastAPI:
         # downloading/building stays asynchronous and never blocks readiness.
         from . import catalogue_r2_live, catalogue_r2_market
         from . import r2_first_import, r2_first_service
+        from .database_capacity import operator_bulk_hold_requested
+        # A Pro capacity activation must not restart separate R2-first or eBay
+        # provider importers while read-only pricing/media review is pending.
+        # The daily loop stays alive for archive/backlog checks, but its
+        # catalogue/price/media write passes use the held capacity preflight.
+        bulk_held = operator_bulk_hold_requested()
+        if bulk_held:
+            logger.warning("CATALOGUE_OPERATOR_BULK_HOLD active; R2-first and eBay market jobs suppressed")
         if settings.catalogue_maintenance_actor_user_id and r2_first_service.enabled():
             maintenance_tasks.append(asyncio.create_task(r2_first_service.prewarm(
                 app.state.db_pool, UUID(settings.catalogue_maintenance_actor_user_id))))
-        if os.getenv('TCG_R2_FIRST_IMPORT_SOURCES', '').strip():
+        if not bulk_held and os.getenv('TCG_R2_FIRST_IMPORT_SOURCES', '').strip():
             if settings.catalogue_maintenance_actor_user_id:
                 maintenance_tasks.append(asyncio.create_task(r2_first_import.run_loop(
                     app.state.db_pool, settings.catalogue_maintenance_actor_user_id)))
@@ -250,7 +258,7 @@ def create_app() -> FastAPI:
                 maintenance_tasks.append(asyncio.create_task(run_loop(app.state.db_pool,settings,shopify=shopify,wakeup=wakeup)))
             elif enabled:
                 logger.error('Catalogue maintenance requires an authorised actor')
-        if settings.ebay_market_refresh_enabled:
+        if settings.ebay_market_refresh_enabled and not bulk_held:
             if not settings.trawl_api_key or not settings.ebay_market_refresh_actor_user_id:
                 logger.error("Live eBay market refresh enabled without required provider/actor configuration")
             else:
