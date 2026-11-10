@@ -63,3 +63,40 @@ def test_reject_non_integer_size_and_missing_write_mode():
 ])
 def test_original_free_thresholds_unchanged(size, allowed):
     assert capacity.assess_capacity(size, "off", plan="free").refresh_allowed is allowed
+
+
+def test_operator_bulk_hold_preserves_pro_limit_but_blocks_scheduled_refresh(monkeypatch):
+    monkeypatch.setenv(capacity.OPERATOR_BULK_HOLD_ENV, "true")
+    state = capacity.assess_capacity(428_133_523, "off", plan="pro")
+    assert state.database_limit_bytes == 8_000_000_000
+    assert state.remaining_bytes == 8_000_000_000 - 428_133_523
+    assert state.plan == "pro"
+    assert state.severity == "WARNING"
+    assert not state.refresh_allowed
+    assert state.reason == "BULK_REFRESH_DEFERRED_OPERATOR_HOLD"
+    assert capacity.operator_bulk_hold_requested() is True
+    monkeypatch.setenv(capacity.OPERATOR_BULK_HOLD_ENV, "false")
+    released = capacity.assess_capacity(428_133_523, "off", plan="pro")
+    assert released.reason == "WITHIN_SAFE_BULK_REFRESH_CAPACITY"
+    assert released.refresh_allowed
+
+
+def test_operator_bulk_hold_never_masks_readonly_or_urgent_warnings(monkeypatch):
+    monkeypatch.setenv(capacity.OPERATOR_BULK_HOLD_ENV, "1")
+    assert capacity.assess_capacity(1, "on", plan="pro").reason == "DATABASE_READ_ONLY"
+    assert capacity.assess_capacity(7_500_000_000, "off", plan="pro").reason == "DATABASE_CAPACITY_URGENT"
+    assert capacity.assess_capacity(7_000_000_000, "off", plan="pro").reason == "BULK_REFRESH_DEFERRED_CAPACITY"
+
+
+@pytest.mark.parametrize("raw", ["maybe", "enable", "definitely", "2"])
+def test_invalid_operator_bulk_hold_fails_closed(monkeypatch, raw):
+    monkeypatch.setenv(capacity.OPERATOR_BULK_HOLD_ENV, raw)
+    with pytest.raises(ValueError, match="Invalid catalogue bulk-hold setting"):
+        capacity.assess_capacity(428_133_523, "off", plan="pro")
+
+
+def test_hold_default_false_and_explicit_zero(monkeypatch):
+    monkeypatch.delenv(capacity.OPERATOR_BULK_HOLD_ENV, raising=False)
+    assert capacity.operator_bulk_hold_requested() is False
+    monkeypatch.setenv(capacity.OPERATOR_BULK_HOLD_ENV, "0")
+    assert capacity.operator_bulk_hold_requested() is False
