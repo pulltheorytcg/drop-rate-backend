@@ -16,9 +16,9 @@ New settings:
 
 ## How to verify Supabase backup without dashboard clicks
 
-Supabase Management API provides **GET** `/v1/projects/ozrxenrdladkooixutmm/database/backups` (requires `backups_read`, no write scope). Manual workflow `.github/workflows/supabase-backup-evidence.yml` invokes `tools/supabase_backup_inventory.py` with a protected `SUPABASE_ACCESS_TOKEN` GitHub Actions secret. It reports **only completed-backup count, latest completed timestamp and age**. Its failure path prints HTTP status/type, never an upstream body or a token. No auto-schedule, no automatic backup creation/restoration, no physical-DB writes and no Supabase credentials are committed.
+Supabase Management API provides **GET** `/v1/projects/ozrxenrdladkooixutmm/database/backups` (requires `backups_read`, no write scope). A one-time workflow on first merge to main (then manual on demand), `.github/workflows/supabase-backup-evidence.yml`, invokes `tools/supabase_backup_inventory.py` with a protected `SUPABASE_ACCESS_TOKEN` GitHub Actions secret. It reports **only completed-backup count, latest completed timestamp and age**. Its failure path prints HTTP status/type, never an upstream body or a token. No recurring schedule, no automatic backup creation/restoration, no physical-DB writes and no Supabase credentials are committed.
 
-A Pro entitlement alone is not accepted as proof of an actual completed backup. **This workflow has not yet run**. If the `SUPABASE_ACCESS_TOKEN` secret is missing, this fails closed; use a fine-grained token with `backups_read` only, kept in protected GitHub secrets. An OAuth-backed direct backup inventory tool was not exposed to this ChatGPT session.
+A Pro entitlement alone is not accepted as proof of an actual completed backup. **This workflow has not yet produced a completed-backup receipt**. If the `SUPABASE_ACCESS_TOKEN` secret is missing, this fails closed; use a fine-grained token with `backups_read` only, kept in protected GitHub secrets. An OAuth-backed direct backup inventory tool was not exposed to this ChatGPT session.
 
 ### Existing backup restoration policy
 
