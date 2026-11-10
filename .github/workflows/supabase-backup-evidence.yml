@@ -1,0 +1,25 @@
+name: Verify Supabase Pro backup inventory (read-only)
+
+# Manual only after approval. No schedule and no DB writes.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-supabase-backup:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify completed production backup timestamp without changing data
+        env:
+          # Requires a management API token with backups_read permission.
+          # Never echo or upload this value.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: python tools/supabase_backup_inventory.py
