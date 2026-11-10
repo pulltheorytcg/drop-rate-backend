@@ -14,6 +14,11 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 import asyncpg
+from fastapi import HTTPException
+
+class PilotSafetyError(RuntimeError):
+    """Safe machine-readable error. Never includes owner or credentials."""
+    pass
 
 from app.access_control import require_platform_admin
 from app.db import user_connection
@@ -94,26 +99,29 @@ async def run() -> dict:
     dsn = os.getenv("TCG_DATABASE_URL", "").strip()
     actor = os.getenv("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID", "").strip()
     if not dsn or not actor or not os.getenv("TCG_TRAWL_API_KEY", "").strip():
-        raise RuntimeError("Missing existing database, administrator or sold-provider references")
+        raise PilotSafetyError("MISSING_EXISTING_REFERENCE")
     actor_id = UUID(actor)
     pool = await asyncpg.create_pool(
         dsn=dsn, min_size=1, max_size=1, command_timeout=12,
         server_settings={"default_transaction_read_only": "on"},
     )
     try:
-        async with user_connection(pool, actor_id, "tier1-sold-preview-one") as conn:
+        async with user_connection(pool, actor_id, "tier1-sold-preview-one", readonly_snapshot=True) as conn:
             await require_platform_admin(conn)
-            readonly = await conn.fetchval("SHOW default_transaction_read_only")
+            # On transaction-pooler endpoints, session defaults may not reflect
+            # startup parameters. Always assert the actual in-flight, explicit
+            # READ ONLY transaction, never a global role or session default.
+            readonly = await conn.fetchval("SHOW transaction_read_only")
             if readonly != "on":
-                raise RuntimeError("Database is not in enforced read-only mode")
+                raise PilotSafetyError("TRANSACTION_NOT_READ_ONLY")
             raw = await conn.fetchrow(READ_SQL, TARGET_CODE)
             if raw is None:
-                raise RuntimeError("Target no longer approved/published/unpriced")
+                raise PilotSafetyError("TARGET_NO_LONGER_ELIGIBLE")
             target = dict(raw)
             if any(target.get(key) != value for key, value in IDENTITY.items()):
-                raise RuntimeError("Exact-card identity, language or condition changed")
+                raise PilotSafetyError("EXACT_IDENTITY_CHANGED")
             if target["store_price_minor"] != 100:
-                raise RuntimeError("Existing owner Store Price changed; stop for review")
+                raise PilotSafetyError("EXISTING_STORE_PRICE_CHANGED")
             # The physical item's owner is not printed. Its ID is fixed and not
             # derived from any other founder's unapproved stock.
             target = {key: target[key] for key in (*IDENTITY, "catalogue_id")}
@@ -136,6 +144,12 @@ def main() -> None:
         print("TIER1_SOLD_ONE_SHOT " + json.dumps({
             "status": "FAILED_CLOSED_NO_RETRY",
             "error_type": type(error).__name__,
+            "safe_error_code": (
+                str(error) if isinstance(error, PilotSafetyError)
+                else "PROVIDER_429_NO_RETRY" if isinstance(error, HTTPException) and error.status_code == 429
+                else "PROVIDER_OR_NETWORK_BLOCKED" if isinstance(error, HTTPException)
+                else "OTHER_FAIL_CLOSED"
+            ),
             "applied": False,
         }), flush=True)
         raise SystemExit(2)
