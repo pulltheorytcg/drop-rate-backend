@@ -408,11 +408,14 @@ async def _target_snapshot(connection, owner_id: UUID, inventory_id: UUID) -> di
     return dict(row)
 
 
-async def _fetch_comp_result(target: dict[str, Any]) -> dict[str, Any]:
+async def _fetch_comp_result(
+    target: dict[str, Any], *, provider_key: str | None = None
+) -> dict[str, Any]:
+    """Use explicit existing one-shot credential without loading unrelated API auth config."""
     from .live_market_refresh import query_for, select_comps, value_comps
     target = {"product_type":"CARD", **target}
     query = query_for(target)
-    api_key = get_settings().trawl_api_key
+    api_key = provider_key if provider_key is not None else get_settings().trawl_api_key
     if not api_key:
         raise HTTPException(
             status_code=409,
