@@ -42,10 +42,11 @@ for(const stronger of [{market_value_minor:900,market_value_source:'CARDMARKET_B
  {shared_price:{status:'CATALOGUE_GUIDE',market_value_minor:900}}]){
  const f=fixture(),row={...card,...stronger,uk_eu_market_estimate:estimate()};
  f.browser.rows=[row];f.browser.renderRows();
- assert.equal(f.browser.find('[data-price-key]').textContent,'Market value: £9.00');
+ const soldOnly=stronger.shared_price?.status==='AVAILABLE';
+ assert.equal(f.browser.find('[data-price-key]').textContent,soldOnly?'Market value: £9.00':'Value unavailable');
  assert.equal(f.browser.find('[data-uk-eu-estimate-key]'),null);
  f.browser.openProduct(row);
- assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value: £9.00');
+ assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,soldOnly?'Market value: £9.00':'Value unavailable');
  assert.doesNotMatch(f.browser.sheet.textContent,/£12.34|Drop Rate UK\/EU estimate/);
  f.finish();checks++;
 }
@@ -73,9 +74,9 @@ for(const patch of [{method:'unknown'},{currency:'USD'},{shipping_basis:'UNKNOWN
  assert.equal(ref.marketMinor({market_value_minor:900,catalogue_reference:{...model,expires_at:'2000-01-01T00:00:00Z'}}),null);
  for(const status of ['AVAILABLE','REFERENCE_ESTIMATE','CONDITION_REFERENCE']){
   const stronger={...item,reference_value:{status,market_value_minor:900,recommended_retail_minor:1000}};
-  assert.equal(ref.text(stronger,money),'Value: £9.00');
+  assert.equal(ref.text(stronger,money),status==='AVAILABLE'?'Value: £9.00':'Value unavailable');
   assert.equal(ref.label(stronger),'Market value');
-  assert.equal(ref.marketMinor(stronger),900);
+  assert.equal(ref.marketMinor(stronger),status==='AVAILABLE'?900:null);
  }
  assert.equal(ref.recommendedMinor({reference_value:{...model,status:'AVAILABLE'}}),null);
  assert.equal(ref.text({...item,catalogue_reference:{...model,expires_at:'2000-01-01T00:00:00Z'}},money),'Value unavailable');
