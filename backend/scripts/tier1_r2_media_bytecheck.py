@@ -187,7 +187,8 @@ def main() -> int:
         more_available=len(rows)==args.limit,
     )
     print(json.dumps(result, sort_keys=True))
-    return 0 if not result["more_available"] else 3
+    # A complete, bounded page is success; more_available is a cursor, not an error.
+    return 0
 
 
 if __name__ == "__main__":
