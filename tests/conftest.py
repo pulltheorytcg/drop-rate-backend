@@ -14,3 +14,6 @@ def isolated_r2_first_flags(monkeypatch):
     # Railway runs pytest with production env. Only the test process is clean;
     # the API process still honours the explicit live bulk hold.
     monkeypatch.delenv('DROP_RATE_CATALOGUE_BULK_HOLD', raising=False)
+    # Production is configured Pro; individual tests specify it explicitly.
+    # Protect old Free-plan regression tests from inherited Railway settings.
+    monkeypatch.delenv('DROP_RATE_SUPABASE_PLAN', raising=False)
