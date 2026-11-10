@@ -52,7 +52,9 @@ jobs:
               "https://api.github.com/repos/" + os.environ["GH_REPOSITORY"] +
               "/statuses/" + os.environ["GH_SHA"],
               data=json.dumps({"state":state,"context":"drop-rate-supabase-pro-backup",
-                               "description":desc[:140]}).encode(),
+                               "description":desc[:140],
+                               "target_url":"https://github.com/" + os.environ["GH_REPOSITORY"] +
+                                            "/actions/runs/" + os.environ["GITHUB_RUN_ID"]}).encode(),
               headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],
                        "Accept":"application/vnd.github+json",
                        "Content-Type":"application/json",
