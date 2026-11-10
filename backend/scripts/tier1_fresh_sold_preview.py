@@ -126,7 +126,10 @@ async def run() -> dict:
             # derived from any other founder's unapproved stock.
             target = {key: target[key] for key in (*IDENTITY, "catalogue_id")}
         # Provider I/O happens after closing the RLS-authorized DB lease.
-        result = await asyncio.wait_for(_fetch_comp_result(target), timeout=50)
+        result = await asyncio.wait_for(
+            _fetch_comp_result(target, provider_key=os.environ["TCG_TRAWL_API_KEY"]),
+            timeout=50,
+        )
         return safe_receipt(result)
     finally:
         await pool.close()
