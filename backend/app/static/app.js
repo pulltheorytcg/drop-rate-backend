@@ -15,6 +15,7 @@ const state = {
   providers: {google: false, apple: false},
 };
 const byId = (id) => document.getElementById(id);
+let mediaReviewRequestGeneration = 0;
 
 function errorMessage(data) {
   const detail = data.error_description || data.msg || data.detail || data.message;
@@ -118,6 +119,8 @@ function saveSession(session) {
   window.PullTheoryHubSession.save(session);
 }
 function clearSession() {
+  mediaReviewRequestGeneration += 1;
+  window.DropRateMediaReviewQueue?.clear();
   window.dropRateCatalogue?.destroy();
   window.dropRateCatalogue = null;
   window.dropRateScanner?.destroy();
@@ -1010,7 +1013,7 @@ async function loadInventory() {
   }
 }
 async function reloadDashboard(message = "") {
-  await Promise.all([loadReadiness(), loadBrandOptions(), loadInventory()]);
+  await Promise.all([loadReadiness(), loadBrandOptions(), loadInventory(), loadMediaActionRequired()]);
   if (message) showMessage("inventory-message", message, "success");
 }
 
@@ -1344,6 +1347,7 @@ byId("inventory-view-table").addEventListener("click", () => setInventoryView("t
 byId("previous-page").addEventListener("click", () => { state.offset = Math.max(0, state.offset - PAGE_SIZE); loadInventory(); });
 byId("next-page").addEventListener("click", () => { if (state.offset + PAGE_SIZE < state.total) { state.offset += PAGE_SIZE; loadInventory(); } });
 byId("refresh-button").addEventListener("click", () => reloadDashboard());
+byId("media-review-refresh").addEventListener("click", loadMediaActionRequired);
 byId("logout-button").addEventListener("click", logout);
 byId("editor-form").addEventListener("submit", saveEditor);
 byId("approve-button").addEventListener("click", approveEditingItem);
