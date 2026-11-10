@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/assets/account-experience.css?v=premium-navy-20261103">
   <link rel="stylesheet" href="/assets/hub-experience.css?v=premium-navy-20261103">
   <link rel="stylesheet" href="/assets/owner-collectibles.css?v=premium-navy-20261103">
+  <link rel="stylesheet" href="/assets/media-review-queue.css?v=tier1-20261110">
 </head>
 <body class="hub-restoring premium-hub">
   <div class="hub-loading" role="status"><span class="hub-loading-mark"><img src="/assets/brand-assets/storefront-logo.png" alt="Drop Rate"></span><strong>Opening Drop Rate…</strong></div>
@@ -109,6 +110,15 @@
         <section class="action-panel" aria-labelledby="action-heading">
           <div><p class="eyebrow">Stock audit</p><h2 id="action-heading">Action Required</h2><p class="muted">Work through missing details, then approve each verified item.</p></div>
           <div id="issue-buttons" class="issue-buttons"></div>
+        </section>
+
+        <section class="media-review-panel" aria-labelledby="media-review-title">
+          <p class="eyebrow">Owner action queue</p>
+          <h3 id="media-review-title">Artwork and listing reviews <span id="media-review-count" class="media-review-count">—</span></h3>
+          <p class="media-review-subtitle">Review exact card artwork, source rights and physical photographs before publication. These tasks do not approve or replace media automatically.</p>
+          <button id="media-review-refresh" class="media-review-refresh" type="button">Refresh review queue</button>
+          <p id="media-review-feedback" class="media-review-feedback" role="status"></p>
+          <div id="media-review-list" class="media-review-list" aria-label="Your open media review tasks"></div>
         </section>
 
         <section class="inventory-panel" aria-labelledby="lots-heading">
@@ -218,6 +228,7 @@
   <script src="/assets/inventory-groups.js?v=copy-quantities-v1" defer></script>
   <script src="/assets/book-community-artwork.js?v=1" defer></script>
   <script src="/assets/book-ebay-context.js?v=1" defer></script>
+  <script src="/assets/media-review-queue.js?v=tier1-20261110" defer></script>
   <script src="/assets/app.js?v=unified-founders-20261104" defer></script>
   <script src="/assets/purchase-lots.js" defer></script>
   <script src="/assets/inventory-state.js?v=copy-quantities-v2" defer></script>
