@@ -38,7 +38,9 @@ def completed_backups(payload: object) -> list[datetime]:
         raise ValueError("Supabase backup inventory response missing backups array")
     results = []
     for row in payload["backups"]:
-        if not isinstance(row, dict) or row.get("status") != "COMPLETED":
+        if not isinstance(row, dict):
+            raise ValueError("Invalid backup entry in provider inventory")
+        if row.get("status") != "COMPLETED":
             continue
         results.append(_timestamp(row.get("inserted_at")))
     return sorted(results, reverse=True)
