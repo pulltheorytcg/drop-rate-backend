@@ -115,7 +115,7 @@ WITH published AS (
 SELECT
   tier,game,set_label,sum(total)::bigint item_count,
   CASE WHEN tier='TIER_3_R2_PUBLICATION' THEN NULL::bigint
-    ELSE sum(total) FILTER(WHERE price_evidence_state LIKE 'FRESH%')::bigint END
+    ELSE coalesce(sum(total) FILTER(WHERE price_evidence_state LIKE 'FRESH%'),0)::bigint END
     AS fresh_price_evidence_count,
   CASE WHEN tier='TIER_3_R2_PUBLICATION' THEN NULL::bigint
     ELSE coalesce(sum(total) FILTER(WHERE price_evidence_state LIKE 'STALE%'),0)::bigint END
