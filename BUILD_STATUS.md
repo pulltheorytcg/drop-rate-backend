@@ -1,3 +1,10 @@
+## 10 November 2026 — Tier 1 UK sold one-shot finished, 429 fail-closed, service removed
+
+- **RESULT:** Single approved/published Charmander 011/094 Normal, English NM, one-page Trawl UK sold preview attempted from isolated Railway one-shot `c576f0df-be77-40b0-867e-0d0a0ee18799` after PR #1068 full CI. Provider returned **HTTP 429** (`PROVIDER_429_NO_RETRY`, `applied=false`). **Zero eligible new sold comparisons, zero new source writes, zero price changes. No automatic retry.**
+- **VERIFIED DATA:** Supabase inventory `INV-3B801C9CE17B48DEA1EE0DD8AB38EA25` remained version 21, approved, Market Value NULL, Store Price **£1**; 0 new market observations or pricing snapshots after the run began. Existing five September UK sold observations are historical and cannot be promoted as fresh price.
+- **CLEANUP:** Temporary service `6e207142-b925-4d88-96a5-b4d61e161d3d` deleted; service absent in Railway readback, 0 staged changes, no domains or volumes. Production live API `03abe695-4162-4b54-b1de-97c391e9b830` **SUCCESS**, /health/ready 200 at 22:21 UTC, Pro 8GB limit confirmed; operator hold `DROP_RATE_CATALOGUE_BULK_HOLD` still blocks catalogue and R2 reference refreshes.
+- **NEXT GATE:** Determine provider rate-credit reset/legitimate alternative **completed-sale** evidence before any new manual single-item pilot. Do not enable bulk refresh or use Cardmarket guides, eBay Browse active offers, historic September median, or Store Price as Market Value. Ten first-tier artwork reviews remain OPEN and not auto-approved. [Full receipt](docs/ops/TIER1_FRESH_UK_SOLD_ONE_SHOT_20261110.md).
+
 ## 10 November 2026 — Tier 1 sold-only price pilot pending isolated run (no price writes)
 
 - **READ-ONLY EVIDENCE:** Of 505 physical approved/published CARD/SEALED items, 160 had >=5 like-for-like historic UK sold records over 90 days but only 1 **unpriced** physical copy did. This English Near Mint Phantasmal Flames Charmander 011/094 has five Trawl-origin sold observations from **20–30 Sep 2026**, last ingested 9 Oct; the historical median **£1.43 is NOT a current/applicable Market Value**. The current Store Price remains £1.
