@@ -1,3 +1,10 @@
+## 10 November 2026 — Pro backup evidence and isolated Tier 1 R2 byte audit (staged, not deployed)
+
+- **VERIFIED:** Supabase Pro organisation `nqfcumedzjhmnjinmyit`, healthy project `ozrxenrdladkooixutmm`, 428,133,523-byte writable PostgreSQL, and read-only Management API workflow [42873462449](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/42873462449) (eight completed backups, latest 2026-11-10 07:19:02 UTC). No restore drill; this backup excludes R2.
+- **STAGED/NOT DEPLOYED:** Single-run Railway service `tier1-r2-readonly-audit-20261110` (`b046de51-ebb7-4edb-a691-56b5109da726`), to pin existing reviewed SHA `02859aac9734b8a7bd61196475b83376dfb8f112`, read up to 100 Tier 1 rows/actual R2 image bytes (hard 180-second timeout), save JSON result, then delete service. Never alter source archive one-shot, product media, prices or PostgreSQL.
+- **NOT ACTIVATED:** The live API and operations monitor still use default Free-plan capacity policy until the explicitly approved, safely isolated Pro activation is verified in the production logs; default Free guard is currently deferring catalogue refresh. Setting Pro must not trigger unapproved bulk processing.
+- **NOT REPAIRED:** A successful byte audit does not repair missing artwork or market prices; separately verified rights, exact identities, eligibility, dry-run INSERT/UPDATE/SKIP samples, and deployment/readback are required. Runbook: [Supabase Pro and R2 first-run](docs/ops/SUPABASE_PRO_R2_TIER1_FIRST_RUN_20261110.md).
+
 ## 9 November 2026 — Refresh inactive Magic D1 writer to 153,679 verified R2 records (in review)
 
 - Current R2 source is MTGJSON English 153,679 references (151,609 released) with immutable manifest SHA `e3bda5f54affe0055ec64d7ffb943cb5cae23df8108e74f29e250f7ec63e662a`. Its protected read-only R2 source audit returned SUCCESS against #1040 main. Previously the D1 follow-on writer expected 153,662 (17 stale).
