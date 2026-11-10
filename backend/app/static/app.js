@@ -15,6 +15,7 @@ const state = {
   providers: {google: false, apple: false},
 };
 const byId = (id) => document.getElementById(id);
+let mediaReviewRequestGeneration = 0;
 
 function errorMessage(data) {
   const detail = data.error_description || data.msg || data.detail || data.message;
@@ -118,6 +119,8 @@ function saveSession(session) {
   window.PullTheoryHubSession.save(session);
 }
 function clearSession() {
+  mediaReviewRequestGeneration += 1;
+  window.DropRateMediaReviewQueue?.clear();
   window.dropRateCatalogue?.destroy();
   window.dropRateCatalogue = null;
   window.dropRateScanner?.destroy();
@@ -959,6 +962,39 @@ async function loadReadiness() {
   renderReadiness(await apiRequest("/api/v1/inventory/readiness"));
 }
 
+// Read-only, RLS-scoped media tasks. Reviewers can locate stock but this does
+// not perform an approval, price change, provider fetch or Shopify write.
+function findMediaReviewStock(inventoryCode) {
+  if (typeof inventoryCode !== "string" || !/^INV-[A-Z0-9-]{12,80}$/.test(inventoryCode)) return;
+  state.search = inventoryCode;
+  state.status = "";
+  state.brand = "";
+  state.saleIntent = "";
+  state.issue = "";
+  state.offset = 0;
+  byId("search-input").value = inventoryCode;
+  byId("status-filter").value = "";
+  byId("brand-filter").value = "";
+  byId("sale-intent-filter").value = "";
+  if (state.readiness) renderReadiness(state.readiness);
+  activateSellerView("inventory", true);
+  loadInventory();
+}
+
+async function loadMediaActionRequired() {
+  if (!state.session?.access_token || !window.DropRateMediaReviewQueue) return;
+  const requestGeneration = ++mediaReviewRequestGeneration;
+  try {
+    const data = await apiRequest("/api/v1/action-required?category=MEDIA&status=OPEN&limit=50");
+    if (requestGeneration !== mediaReviewRequestGeneration || !state.session?.access_token) return;
+    window.DropRateMediaReviewQueue.render(data, findMediaReviewStock);
+  } catch (_error) {
+    if (requestGeneration !== mediaReviewRequestGeneration || !state.session?.access_token) return;
+    // A media queue error cannot block founder login, stock or sales.
+    window.DropRateMediaReviewQueue.showError();
+  }
+}
+
 async function loadBrandOptions() {
   const select = byId("brand-filter");
   const current = state.brand;
@@ -1010,7 +1046,7 @@ async function loadInventory() {
   }
 }
 async function reloadDashboard(message = "") {
-  await Promise.all([loadReadiness(), loadBrandOptions(), loadInventory()]);
+  await Promise.all([loadReadiness(), loadBrandOptions(), loadInventory(), loadMediaActionRequired()]);
   if (message) showMessage("inventory-message", message, "success");
 }
 
@@ -1344,6 +1380,7 @@ byId("inventory-view-table").addEventListener("click", () => setInventoryView("t
 byId("previous-page").addEventListener("click", () => { state.offset = Math.max(0, state.offset - PAGE_SIZE); loadInventory(); });
 byId("next-page").addEventListener("click", () => { if (state.offset + PAGE_SIZE < state.total) { state.offset += PAGE_SIZE; loadInventory(); } });
 byId("refresh-button").addEventListener("click", () => reloadDashboard());
+byId("media-review-refresh").addEventListener("click", loadMediaActionRequired);
 byId("logout-button").addEventListener("click", logout);
 byId("editor-form").addEventListener("submit", saveEditor);
 byId("approve-button").addEventListener("click", approveEditingItem);
