@@ -106,15 +106,15 @@ async def main():
                     return response.json()['summary']
                 for _ in range(2):
                     a,b=await overview(0),await overview(1)
-                    assert a['active_inventory_count']==99 and a['active_recommended_count']==6 and a['active_unrecommended_count']==93
-                    assert a['active_market_value_minor']==14035 and a['active_recommended_retail_minor']==14132
-                    assert a['recorded_asking_value_minor']==2000 and a['recorded_asking_count']==2 and a['recommendation_guide_count']==1
+                    assert a['active_inventory_count']==99 and a['active_recommended_count']==5 and a['active_unrecommended_count']==94
+                    assert a['active_market_value_minor']==14032 and a['active_recommended_retail_minor']==14032
+                    assert a['recorded_asking_value_minor']==2000 and a['recorded_asking_count']==2 and a['recommendation_guide_count']==0
                     assert a['active_recommended_retail_minor']==b['active_recommended_retail_minor'] and b['recorded_asking_value_minor']==3000
                 for n in range(2):
                     detail=await client.get(f'/api/v1/owner/inventory/{ids[n][0]}',headers=headers(n)); assert detail.status_code==200,detail.text
                     item=detail.json()['item']; assert item['recommended_retail_minor']==1200 and item['store_price_minor']==1000+n*500
                     response=await client.get('/api/v1/inventory/market-values',params=[('inventory_id',str(x)) for x in ids[n]],headers=headers(n)); assert response.status_code==200,response.text
-                    assert sum(x['recommended_retail_minor'] for x in response.json()['items'])==14132
+                    assert sum(x['recommended_retail_minor'] or 0 for x in response.json()['items'])==14032
                     channel_response=await client.get('/api/v1/owner/channels',params={'limit':100},headers=headers(n))
                     assert channel_response.status_code==200,channel_response.text
                     channel_data=channel_response.json()
@@ -138,15 +138,15 @@ async def main():
                 assert before==await state(),'Reading recommendations mutated stored data'
                 await snap(products[0],condition='Near Mint',market=1300,recommended=1300)
                 after_snapshot=await state()
-                assert (await overview(0))['active_recommended_retail_minor']==14332
-                assert (await overview(1))['active_recommended_retail_minor']==14332
+                assert (await overview(0))['active_recommended_retail_minor']==14232
+                assert (await overview(1))['active_recommended_retail_minor']==14232
                 channels=await client.get('/api/v1/owner/channels',headers=headers(1))
                 assert next(x for x in channels.json()['items'] if x['inventory_id']==str(ids[1][0]))['recommended_retail_minor']==1300
                 assert after_snapshot==await state()
                 await db.execute('update tcg.owner_memberships set active=false where user_id=$1',actors[1])
                 assert (await client.get('/api/v1/owner/overview',headers=headers(1))).status_code==403
                 assert (await client.get('/api/v1/owner/channels',headers=headers(1))).status_code==403
-        print('PASS: 99-copy partial summary, 6 shared recommendations including grade/seal/guide, independent asking prices, list/detail/overview/channels equality, shared artwork, denied consignor eBay controls, repeated GETs, new immutable snapshot, owner isolation and expiry/revocation. Real PostgreSQL and signed local-JWKS HTTP; no real provider or production login.')
+        print('PASS: 99-copy partial summary, 5 sold-evidence recommendations for raw/grade/sealed only, independent asking prices, list/detail/overview/channels equality, shared artwork, denied consignor eBay controls, repeated GETs, new immutable snapshot, owner isolation and expiry/revocation. Real PostgreSQL and signed local-JWKS HTTP; no real provider or production login.')
     finally:
         auth._jwk_client.cache_clear()
         if pool: await pool.close()
