@@ -15,70 +15,56 @@ window.DropRateReferenceValue = Object.freeze({
       && expires > now && expires <= observed + maxAge ? ref : null;
   },
   displayReference(item) {
-    const candidate = item?.reference_value;
-    const ref = ["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(candidate?.method) ? null : candidate;
-    if (["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE"].includes(ref?.status)) return ref;
-    const catalogue = item?.catalogue_reference;
-    if (["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(catalogue?.method)) return ref;
-    return catalogue || ref;
+    const source = item?.reference_value || item?.catalogue_reference;
+    if (!source) return { status: "UNAVAILABLE", market_value_minor: null };
+    // Only the backend's exact sold-evidence AVAILABLE outcome can supply a
+    // *current* physical Market Value. Guide, retail, historical and a
+    // condition-reference for an uninspected copy MUST stay non-monetary.
+    const guideMethods = new Set([
+      "CATALOGUE_CARDMARKET_V1", "DROP_RATE_UK_EU_MARKET_V1",
+      "DROP_RATE_COMPUTED_MARKET_V1"
+    ]);
+    if (source.status === "AVAILABLE" && !guideMethods.has(source.method)) return source;
+    return { ...source, market_value_minor: null, last_known_minor: null,
+      recommended_retail_minor: null, estimate_minor: null };
   },
   text(item, money) {
     const ref = this.displayReference(item);
-    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value =>
-      ["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(value?.method)))
-      return "Value unavailable";
-    if (!ref) return item?.market_value_minor == null ? "Value unavailable" : "Value: " + money(item.market_value_minor);
-    // Provisional asking/model evidence never supplies this monetary field.
-    if (["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
-      return "Value: " + money(ref.market_value_minor);
-    }
-    if (["CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
-      return "Value: " + money(ref.market_value_minor);
-    }
-    if (Number.isInteger(ref.last_known_minor) && ref.checked_at) {
-      const date = new Date(ref.checked_at);
-      if (!Number.isNaN(date.getTime())) return "Value: " + money(ref.last_known_minor);
-    }
-    return ({STALE: "Stale evidence — value unavailable", NEEDS_DETAILS: "Confirm details for value"})[ref.status] || "No exact market evidence";
+    const amount = ref.status === "AVAILABLE" ? ref.market_value_minor : null;
+    if (Number.isSafeInteger(amount) && amount > 0) return "Value: " + money(amount);
+    if (ref.status === "NEEDS_DETAILS") return "Confirm details for value";
+    if (ref.status === "STALE") return "Stale evidence — value unavailable";
+    return "Value unavailable";
   },
-  isHistorical(item) {
-    const ref = this.displayReference(item);
-    return ref != null && !["AVAILABLE", "REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE", "UK_EU_MARKET_ESTIMATE"].includes(ref.status)
-      && Number.isInteger(ref.last_known_minor) && Boolean(ref.checked_at);
+  isHistorical() {
+    // Historical values belong in a dated history view, never the current
+    // Market Value field or owner portfolio totals.
+    return false;
   },
   label() {
     return "Market value";
   },
   marketMinor(item) {
     const ref = this.displayReference(item);
-    if (ref && !["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE", "CATALOGUE_GUIDE", "UK_EU_MARKET_ESTIMATE"].includes(ref.status)) return null;
-    if (!ref && [item?.reference_value, item?.catalogue_reference].some(value =>
-      ["DROP_RATE_UK_EU_MARKET_V1","DROP_RATE_COMPUTED_MARKET_V1"].includes(value?.method))) return null;
-    const amount = ref ? ref.market_value_minor : item?.market_value_minor;
+    const amount = ref.status === "AVAILABLE" ? ref.market_value_minor : null;
     return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
   },
   compactText(item, money) {
-    // The exact observation date remains visible in details, not the mobile
-    // two-column grid. A visual historical label is added by the tile itself.
-    if (!this.isHistorical(item)) return this.text(item, money);
-    const ref = this.displayReference(item);
-    return "Value: " + money(ref.last_known_minor);
+    return this.text(item, money);
   },
-  recommendedMinor(item) {
-    const ref = item?.reference_value;
-    if (ref?.method === "DROP_RATE_UK_EU_MARKET_V1") return null;
-    return ref && ["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status)
-      && Number.isInteger(ref.recommended_retail_minor) && ref.recommended_retail_minor >= 100
-      ? ref.recommended_retail_minor : null;
+  recommendedMinor() {
+    // A retail or provider guide is not Market Value.
+    return null;
   },
-  recommendationText(item, money) {
-    const amount = this.recommendedMinor(item);
-    return amount == null ? "Recommendation unavailable"
-      : money(amount) + (item.reference_value.status === "REFERENCE_ESTIMATE" ? " · Guide estimate" : "");
+  recommendationText() {
+    return "Recommendation unavailable";
   },
   description(item) {
     const ref = this.displayReference(item);
-    if (!ref) return "";
+    // Current Market Value UI cannot market a guide/model or stale
+    // source as if it were an eligible sold-price valuation. The original
+    // reference record remains available to authorised source auditors.
+    if (!ref || ref.status !== "AVAILABLE") return "";
     if (this.ukEuEstimate(ref)) return [ref.reason || "Provisional estimate from eBay UK asking prices and Cardmarket guides.",
       "Item price only; postage excluded", "Evidence checked " + new Date(ref.observed_at).toLocaleDateString("en-GB")].join(" · ");
     const time = ref.checked_at ? new Date(ref.checked_at) : null;
