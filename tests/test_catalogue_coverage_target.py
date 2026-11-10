@@ -29,7 +29,8 @@ def test_historical_baseline_keeps_actual_counts_under_current_target():
     assert goal["target_percent"] == 89
     assert goal["by_game_language"][0]["eligible"] == 67060
     assert goal["by_game_language"][0]["missing"] == 45479
-    assert report["missing_by_reason"][0]["count"] == 13064
+    assert report["missing_by_reason"][0]["status"] == "MIXED_LANGUAGE_GUIDE"
+    assert report["missing_by_reason"][0]["count"] == 18862
 
 
 def test_exact_threshold_never_uses_rounded_percent_to_pass():
