@@ -46,7 +46,7 @@ def test_proposed_monitor_does_not_change_source_or_claim_r2_parity():
     assert "tcg_private.r2_first_catalogue_publications" in sql_lower
     assert "i.grading_company is not null and a.inventory_id = i.id" in sql_lower
     assert "coalesce(sum(total) filter(where price_evidence_state like 'fresh%'),0)" in sql_lower
-    assert "from tcg.reference_market_prices" in sql_lower
+    assert "join tcg.reference_market_prices" in sql_lower
     assert "from tcg.media_assets" in sql_lower
     for unsafe_sql in (
         "create table", "alter table", "create policy", "alter policy",
