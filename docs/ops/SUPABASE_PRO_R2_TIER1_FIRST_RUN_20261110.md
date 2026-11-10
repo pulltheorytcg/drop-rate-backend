@@ -33,3 +33,19 @@ F. Prepare read-only, bounded pricing INSERT/UPDATE/SKIP preview with 20 example
 
 ### Railway staged-only creation limitation
 The first staged service was cancelled *before any deploy* because Railway rejected a staged start-command update while the service existed only in a pending patch (error `Service Instance not found`). The replacement service above is staged as an **empty service only**. After merging the BUILD_STATUS entry, commit its empty creation (no source, no variables, no runnable workload), then stage the entire source+command+limits+credential references on the now-existing idle service, inspect the patch and commit precisely that isolated audit workload.
+
+## Verified first audit receipt — 10 November 2026
+
+**The one-shot job completed and its temporary service has been deleted.** Receipt was posted to [PR #1056 conversation](https://github.com/pulltheorytcg/drop-rate-backend/pull/1056) before cleanup. First attempt `950a4960-46e6-41cb-a41d-54fac74db405` failed on network-unreachable; enabling IPv6 egress solely for the isolated service fixed the connection. Successful deployment `bc923f69-c572-4b1a-89e3-819d4b8a37e9` completed at 18:41:54 UTC. **100 examined**, **90 R2 byte/SHA/size/pixel checks passed but visual identity remains unreviewed**; **5 no approved asset, 4 no mirror record, 1 too small**. 88 unique mirror keys examined; five physical items shared a key (not automatically an error). Audit cursor was returned with `more_available=true`; do not imply 505/505 coverage. No SQL or R2 writes.
+
+### Revised production activation: preserve archives and prior flags
+
+Do **not** disable the entire `TCG_CATALOGUE_DAILY_REFRESH_ENABLED` loop: that loop also runs archival and backlog checks. Instead use the reviewed **reversible operator hold** introduced in this PR:
+
+- Live API `6aa92310-153f-4fc9-9e22-dc338282605b`: stage `DROP_RATE_SUPABASE_PLAN=pro` and `DROP_RATE_CATALOGUE_BULK_HOLD=true` **together**. The capacity report then shows Pro's included 8 GB and headroom but returns `BULK_REFRESH_DEFERRED_OPERATOR_HOLD`, allowing zero new bulk price/image writes.
+- The same flag suppresses independent startup of `r2_first_import.run_loop` and `run_live_market_refresh` without resetting or losing their configured source lists. Normal Shopify/order work and daily archive/backlog checks remain configured. The mirror worker continues its existing lock/preflight but receives `refresh_allowed=false`.
+- Existing operations monitor `4307b725-08be-47fd-b85f-b8617a785d31` was updated with `DROP_RATE_SUPABASE_PLAN=pro` only; its scheduled log readback must still prove it uses the newly deployed code and reports the actual Pro limit.
+- An invalid bulk-hold setting fails closed; unset/false has the original semantics. At 7 GB pause and 7.5 GB urgent, capacity urgency still overrides manual hold. Do not remove operator hold until sources, provider rate limits, market-value rules and exact preview have passed review.
+- Live application health, monitor log lines, and new deployment IDs **remain required evidence**. A successful CI check alone does not mean these API settings have been activated.
+
+**Pricing preview:** [the read-only SELECT](../audits/2026-11-10_tier1_pro_sold_dryrun_select.sql) and [20-example report](../audits/2026-11-10_tier1_pro_sold_dryrun.md) verified 505 physical items, 98 with any source-constrained recent UK sold match, 33 with 3+, **0 INSERT / 0 UPDATE / 505 SKIP** under narrow recency/condition/grade rules. Old Trawl API sales are not an official Browse API sold feed. No price or artwork mutations.
