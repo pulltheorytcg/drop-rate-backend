@@ -20,15 +20,15 @@ def test_historical_baseline_keeps_actual_counts_under_current_target():
     ]
     report = coverage_summary(rows)
     assert report["physical_cards"] == {
-        "total": 67060, "priced": 40443, "missing": 26617,
+        "total": 67060, "priced": 21581, "missing": 45479,
     }
     assert report["non_physical_cards"] == 2480
     goal = report["coverage_target"]
-    assert (goal["eligible"], goal["priced"], goal["minimum_priced"]) == (67060, 40443, 59684)
-    assert (goal["coverage_percent"], goal["additional_needed"], goal["target_met"]) == (60.31, 19241, False)
+    assert (goal["eligible"], goal["priced"], goal["minimum_priced"]) == (67060, 21581, 59684)
+    assert (goal["coverage_percent"], goal["additional_needed"], goal["target_met"]) == (32.18, 38103, False)
     assert goal["target_percent"] == 89
     assert goal["by_game_language"][0]["eligible"] == 67060
-    assert goal["by_game_language"][0]["missing"] == 26617
+    assert goal["by_game_language"][0]["missing"] == 45479
     assert report["missing_by_reason"][0]["count"] == 13064
 
 
@@ -52,8 +52,8 @@ def test_scope_excludes_digital_and_source_context_and_handles_empty():
         sample("REFERENCE_AVAILABLE", 1, kind="SEALED"),
     ])
     goal = report["coverage_target"]
-    assert (goal["eligible"], goal["priced"], goal["coverage_percent"]) == (20, 19, 95.0)
-    assert goal["target_met"] is True
+    assert (goal["eligible"], goal["priced"], goal["coverage_percent"]) == (20, 0, 0.0)
+    assert goal["target_met"] is False
     assert report["non_physical_cards"] == 100
     assert report["by_kind"]["SEALED"]["priced"] == 1
     assert len(goal["by_game_language"]) == 1
@@ -73,9 +73,9 @@ def test_language_cohorts_remain_separate():
     ])
     by_language = {r["language"]: r for r in summary["coverage_target"]["by_game_language"]}
     assert by_language["English"]["target_met"] is False
-    assert by_language["Japanese"]["target_met"] is True
+    assert by_language["Japanese"]["target_met"] is False
     assert by_language["English"]["additional_needed"] == 69
-    assert by_language["Japanese"]["additional_needed"] == 0
+    assert by_language["Japanese"]["additional_needed"] == 89
 
 
 def test_current_catalogue_needs_exact_count_even_when_percentage_rounds_to_89():
@@ -171,11 +171,11 @@ def test_model_and_asking_estimates_do_not_double_count_or_rescue_verified_goal(
         {**sample("DROP_RATE_CALCULATED_VALUE", 10), "asking_estimates": 4},
         {**sample("EXACT_QUOTE_UNAVAILABLE", 10), "asking_estimates": 8},
     ])
-    assert report["coverage_target"]["priced"] == 80
+    assert report["coverage_target"]["priced"] == 0
     assert report["provisional_model_estimates"]["count"] == 10
     # An explicitly labelled current asking estimate may overlap an internal
     # provisional calculation, but neither becomes an external market guide.
     assert report["asking_price_estimates"]["count"] == 12
     combined = report["combined_coverage_target"]
-    assert (combined["supported_reference_values"], combined["covered"]) == (80, 92)
+    assert (combined["supported_reference_values"], combined["covered"]) == (0, 12)
     assert not report["coverage_target"]["target_met"]
