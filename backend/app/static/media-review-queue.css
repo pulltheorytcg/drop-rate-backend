@@ -51,7 +51,7 @@ body.premium-hub .media-review-stock-code {
 }
 body.premium-hub .media-review-find, body.premium-hub .media-review-expand {
   background: #1768d4; color: white; border: none; border-radius: 9px;
-  padding: 8px 12px; font: 700 .73rem inherit; cursor: pointer;
+  padding: 8px 12px; font: 700 .73rem/1.35 Inter, system-ui, sans-serif; cursor: pointer;
 }
 body.premium-hub .media-review-find:hover, body.premium-hub .media-review-expand:hover {
   background: #1053ae;
@@ -64,4 +64,14 @@ body.premium-hub .media-review-expand { justify-self: start; }
 @media (max-width: 650px) {
   body.premium-hub .media-review-item-heading { align-items: flex-start; }
   body.premium-hub .media-review-find { width: 100%; }
+}
+
+body.premium-hub .media-review-refresh {
+  margin-top: 6px; border: 1px solid #b6cbea; border-radius: 9px;
+  background: #eef5ff; color: #1554a8; padding: 8px 12px;
+  font: 700 .73rem/1.35 Inter, system-ui, sans-serif; cursor: pointer;
+}
+body.premium-hub .media-review-refresh:hover { background: #deebff; }
+body.premium-hub .media-review-refresh:focus-visible {
+  outline: 3px solid #ff9a52; outline-offset: 2px;
 }
