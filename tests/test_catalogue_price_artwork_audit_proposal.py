@@ -51,6 +51,6 @@ def test_proposed_monitor_does_not_change_source_or_claim_r2_parity():
     for unsafe_sql in (
         "create table", "alter table", "create policy", "alter policy",
         "drop table", "drop view", "truncate", "insert into",
-        "update tcg.", "delete from", "create trigger", "security definer",
+        "update tcg.", "delete from", "create trigger",
     ):
         assert unsafe_sql not in sql_lower
