@@ -75,11 +75,10 @@ async def main():
         before = await db.fetchval("select jsonb_agg(to_jsonb(s) order by id) from tcg.catalogue_market_snapshots s")
         actual = await result()
         assert actual['summary']['owned_item_count'] == 2
-        assert actual['summary']['comparable_product_count'] == 1
-        mover, = actual['movers']
-        assert mover['quantity'] == 2 and mover['change_pct'] == 20 and mover['current_value_minor'] == 1200
-        assert mover['comparison_kind'] == 'GUIDE_ESTIMATE'
-        assert (await result(actor_b, owner_b))['movers'][0]['quantity'] == 1
+        assert actual['summary']['comparable_product_count'] == 0
+        assert actual['summary']['status'] == 'NO_CURRENT_VALUES'
+        assert actual['movers'] == [], 'Cardmarket guides are not sold-price market movements'
+        assert (await result(actor_b, owner_b))['summary']['status'] == 'NO_CURRENT_VALUES'
         assert (await result(actor_a, owner_b))['summary']['status'] == 'EMPTY_COLLECTION'
         assert (await result(None, owner_a))['summary']['status'] == 'EMPTY_COLLECTION'
         assert before == await db.fetchval("select jsonb_agg(to_jsonb(s) order by id) from tcg.catalogue_market_snapshots s")
@@ -104,15 +103,15 @@ async def main():
             wrong = {**baseline, **change}
             await insert(wrong)
             checked_result = await result()
-            assert checked_result['summary']['status'] == 'WAITING_FOR_HISTORY', change
+            assert checked_result['summary']['status'] == 'NO_CURRENT_VALUES', change
             assert not checked_result['movers'], change
             await db.execute('delete from tcg.catalogue_market_snapshots where id=$1', baseline['id'])
 
-        for prior, expected_status, expected_change in ((1500, 'READY', -20), (1200, 'NO_CHANGE', None)):
+        for prior in (1500, 1200):
             await insert({**baseline, 'market_value_minor': prior})
             checked_result = await result()
-            assert checked_result['summary']['status'] == expected_status
-            assert ([r['change_pct'] for r in checked_result['movers']] or [None]) == [expected_change]
+            assert checked_result['summary']['status'] == 'NO_CURRENT_VALUES'
+            assert not checked_result['movers']
             await db.execute('delete from tcg.catalogue_market_snapshots where id=$1', baseline['id'])
 
         await insert(baseline)
@@ -153,7 +152,7 @@ async def main():
             await insert({**sold_baseline, **change})
             assert (await result())['summary']['status'] == 'WAITING_FOR_HISTORY', change
             await db.execute('delete from tcg.catalogue_market_snapshots where id=$1', baseline['id'])
-        print('PASS: exact bound PostgreSQL history query, real shared migrations, 18 cohort/time exclusions, guide and sold movement, rise/fall/unchanged, stale/mapping/identity rejection, owner RLS, grouped active copies and read-only snapshots')
+        print('PASS: exact bound PostgreSQL history query, real shared migrations, 18 cohort/time exclusions, guide exclusion and sold movement, rise/fall/unchanged, stale/mapping/identity rejection, owner RLS, grouped active copies and read-only snapshots')
     finally:
         await db.close()
 
