@@ -56,7 +56,12 @@ window.DropRateCatalogue = (() => {
     new Date(q.observed_at).toLocaleDateString("en-GB");
   const marketPrice = row => {
     const sales = regionalSales(row);
-    if (sales.length) return sales.length === 1 ? "Market value: "+money(sales[0].regional_sale.price_gbp_minor)+" · "+regionalLabel(sales[0]) : "Market values by finish and region";
+    if (sales.length === 1) return "Market value: "+money(sales[0].regional_sale.price_gbp_minor)+" · "+regionalLabel(sales[0]);
+    if (sales.length) {
+      const amounts=sales.map(quote=>quote.regional_sale.price_gbp_minor);
+      const low=Math.min(...amounts), high=Math.max(...amounts);
+      return "Market value: "+money(low)+(low===high?"":"–"+money(high))+" · regional sales";
+    }
     if (row.shared_price && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(row.shared_price.method))
       return window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:");
     if(unsupportedMarketSource(row))return "Value unavailable";
