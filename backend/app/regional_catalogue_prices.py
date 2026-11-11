@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 from .db import user_connection
 from .fx import EcbHistoricalFxProvider
-from .reference_market import MAX_AGE, READ_SQL, WRITE_SQL, _cache_is_current, _time, fetch_quotes, price_view
+from .reference_market import MAX_AGE, READ_SQL, WRITE_SQL, _cache_is_current, _time, fetch_quotes
 
 
 # Short-lived entries coalesce concurrent lookups. Positive observations also
@@ -79,12 +79,13 @@ async def regional_prices_for_reference(pool, user_id, request_id, key):
             raise HTTPException(503, "Regional price feed temporarily unavailable") from None
         rows = eligible_quotes(quotes, now)
         if rows:
-            view = price_view(key, quotes, now=now)
+            # Regional averages are catalogue context, never a sold-only Market Value.
+            # price_view() would otherwise promote Cardmarket trend (a guide) into
+            # the persisted market_value columns during a user-initiated lookup.
             async with user_connection(pool, user_id, request_id) as connection:
                 await connection.execute(WRITE_SQL, reference["provider"], reference["system_code"],
                                          reference["language"], reference["provider_id"], quotes,
-                                         view["market_value_minor"], view["market_value_high_minor"],
-                                         view["pricing_updated_at"], now, now + timedelta(days=1))
+                                         None, None, None, now, now + timedelta(days=1))
         _cache[identity] = (now + timedelta(minutes=30 if rows else 5), rows)
         _cache.move_to_end(identity)
         if len(_cache) > 512:
