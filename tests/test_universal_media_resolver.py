@@ -93,7 +93,7 @@ def test_ebay_never_promotes_wrong_owner_unapproved_or_untrusted_photo(bad):
     assert not decision["complete"]
     assert not decision["publishReady"]
     assert decision["imageUrls"] == []
-    assert decision["blockers"] == ["approved FRONT + BACK physical photos are required"]
+    assert decision["blockers"] == ["approved catalogue image or saved front scan required"]
 
 
 def test_ebay_requires_approved_photograph_of_the_exact_slab_not_raw_art():
