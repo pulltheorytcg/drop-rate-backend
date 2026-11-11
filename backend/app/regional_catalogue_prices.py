@@ -39,6 +39,21 @@ def eligible_quotes(rows, now):
     return result
 
 
+def _identity(row):
+    return tuple(row.get(k) for k in ("key", "set_id", "set_name", "name", "card_number", "language"))
+
+
+def attach_cached_regional_prices(rows):
+    """Return cached observations on catalogue pages without provider calls."""
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        if row.get("provider") == "TCGdex" and row.get("source_kind") == "REFERENCE":
+            cached = _cache.get(_identity(row))
+            if cached and cached[0] > now:
+                row["regional_quotes"] = eligible_quotes(cached[1], now)
+    return rows
+
+
 async def regional_prices_for_reference(pool, user_id, request_id, key):
     now = datetime.now(timezone.utc)
     async with user_connection(pool, user_id, request_id) as connection:
@@ -50,7 +65,7 @@ async def regional_prices_for_reference(pool, user_id, request_id, key):
         rows = eligible_quotes(reference.get("quotes") or [], now)
         if rows:
             return {"quotes": rows}
-    identity = tuple(reference[k] for k in ("key", "set_id", "set_name", "name", "card_number", "language"))
+    identity = _identity(reference)
     async with _locks[int(key[-2:], 16) % len(_locks)]:
         now = datetime.now(timezone.utc)
         cached = _cache.get(identity)
