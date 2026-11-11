@@ -380,7 +380,7 @@ async def _load_listing_plan(
         owner = await _owner(connection)
         item = await connection.fetchrow(
             """
-            select i.id, i.inventory_code, i.owner_id, i.acquisition_cost_minor,
+            select i.id, i.inventory_code, i.owner_id, i.catalogue_id, i.acquisition_cost_minor,
                    i.currency, i.condition, i.grading_company, i.grade,
                    i.certificate_number, i.language, i.storage_location_id,
                    i.store_price_minor, i.identity_confirmed, i.status, i.sale_intent,
