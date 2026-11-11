@@ -907,6 +907,20 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.calls.filter(x=>x.url?.endsWith('/intake')).length,0);
   f.finish();checks++;
  }
+ {
+  const quote={source:"TCGDEX_TCGPLAYER", variant_id:"normal", product_id:"662143", finish:"Normal",
+   observed_at:new Date().toISOString(),regional_sale:{region:"US",source_field:"marketPrice",price_gbp_minor:17,physical_valuation_eligible:false}};
+  const f=fixture(async()=>({quotes:[quote]}));
+  const row={...card, key:"r:"+"a".repeat(32),provider:"TCGdex",system_code:"POKEMON_TCG",source_kind:"REFERENCE"};
+  f.browser.openProduct(row); await tick();
+  assert.match(f.browser.sheet.textContent,/£0.17/);
+  assert.match(f.browser.sheet.textContent,/TCGplayer US/);
+  const count=f.calls.length;
+  f.browser.openProduct({...row,regional_quotes:[],market_value_source:"STORED_SNAPSHOT",market_value_minor:99});
+  assert.match(f.browser.sheet.textContent,/£0.99/);
+  assert.equal(count,f.calls.length);
+  f.finish();checks++;
+ }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
 
