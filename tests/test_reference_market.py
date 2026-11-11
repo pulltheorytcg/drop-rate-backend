@@ -444,3 +444,30 @@ async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex
     assert writes[0][1][5] - writes[0][1][4] == timedelta(hours=6)
     quote['reference_identity']['name']='Wrong card'
     assert (await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]['market_value_minor'] is None
+
+
+@pytest.mark.asyncio
+async def test_regional_sales_require_exact_printing_finish_and_fresh_sale_field():
+    from app.regional_catalogue_prices import eligible_quotes
+    payload = deepcopy(PAYLOAD)
+    variant = payload["variants_detailed"][0]
+    variant["thirdParty"]["tcgplayer"] = 123
+    variant["pricing"]["cardmarket"].update(avg7=.20, **{"avg7-holo": .71})
+    variant["pricing"]["tcgplayer"] = dict(unit="USD", updated=NOW.isoformat(),
+        normal=dict(productId=123, marketPrice=.40, highPrice=999))
+
+    class RegionalFX:
+        async def quote(self, *, base_currency, quote_currency, at):
+            return FxQuote(base_currency, quote_currency, Decimal(".75"), at, at, "ECB_EURO_REFERENCE_RATES")
+
+    reverse = deepcopy(variant)
+    reverse.update(type="reverse", variantId="exact-reverse")
+    payload["variants_detailed"].append(reverse)
+    rows = await market.tcgdex_quotes(payload, REFERENCE, RegionalFX(), now=NOW, regional_us=True)
+    values = {(r["finish"], r["regional_sale"]["region"]): r["regional_sale"]["price_gbp_minor"]
+              for r in eligible_quotes(rows, NOW)}
+    assert values == {("Normal", "EU"): 15, ("Reverse Holofoil", "EU"): 53, ("Normal", "US"): 30}
+    assert all(r["regional_sale"]["physical_valuation_eligible"] is False for r in rows)
+    assert eligible_quotes(rows, NOW+timedelta(days=8)) == []
+    assert eligible_quotes([{**rows[0], "regional_sale": {**rows[0]["regional_sale"], "source_field": "low"}}], NOW) == []
+    assert await market.tcgdex_quotes(payload, {**REFERENCE, "set_id": "wrong"}, RegionalFX(), now=NOW, regional_us=True) == []
