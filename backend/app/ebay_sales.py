@@ -417,11 +417,13 @@ async def _load_listing_plan(
         if row["storage_location_id"] is None:
             blockers.append("registered storage location is required")
         graded = bool(row["grade"] or row["grading_company"])
-        required_condition = "VERIFIED_GRADED" if graded else "VERIFIED_NEAR_MINT"
-        if row["condition_review_status"] != required_condition:
-            blockers.append("photo-backed condition verification is required")
+        # Scanned raw cards default to NM unless the seller recorded a
+        # different condition. Manual photo-backed review is not a separate
+        # eBay listing prerequisite.
+        if not graded and not row["condition"]:
+            row["condition"] = "Near Mint"
         if not graded and row["condition"] != "Near Mint":
-            blockers.append("raw-card eBay v1 requires Near Mint")
+            blockers.append("This eBay card adapter currently supports Near Mint raw cards")
         profile_key = "GRADED_CARD" if graded else "RAW_CARD"
         shipping_ready = await connection.fetchval(
             """
@@ -463,11 +465,31 @@ async def _load_listing_plan(
             inventory_id,
             graded,
         )
-        # The SQL remains restricted to this owner's approved first-party
-        # physical photos; the shared deterministic media resolver rechecks
-        # owner, inventory, capture context and channel-specific requirements.
+        # Approved exact-print catalogue images may be reused for eBay while
+        # their Shopify copy is processing. The resolver verifies identity,
+        # language, variant, rights and the source URL independently. The
+        # physical-media query above remains strictly owner-scoped.
+        canonical_media_rows = await connection.fetch(
+            """
+            select id,side,shopify_cdn_url,owner_id,inventory_id,scope,
+                   media_kind,source_type,rights_tier,capture_context,
+                   rights_status,approval_status,source_status,revoked_at,
+                   shopify_file_status,catalogue_id,media_language,media_variant,
+                   rights_basis,permission_evidence_url,public_source_url
+            from tcg.media_assets
+            where scope='CANONICAL_CARD' and catalogue_id=$1
+              and inventory_id is null and side='FRONT'
+              and rights_tier='STOREFRONT_ALLOWED'
+              and approval_status='APPROVED' and rights_status='VERIFIED'
+              and source_status='ACTIVE' and revoked_at is null
+            order by approved_at desc nulls last,created_at desc,id desc
+            limit 20
+            """,
+            row["catalogue_id"],
+        )
         media_decision = resolve_media(
-            row, [dict(media) for media in media_rows],
+            row, [dict(media) for media in canonical_media_rows]
+                 + [dict(media) for media in media_rows],
             channel="EBAY", purpose="LISTING",
         )
         blockers.extend(media_decision["blockers"])
