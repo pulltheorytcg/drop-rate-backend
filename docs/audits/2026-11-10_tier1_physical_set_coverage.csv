@@ -1,0 +1,69 @@
+game,product_type,set_name,language,tier1_physical,shopify_published,fresh_stored_inventory_value,stale_stored_inventory_value,missing_stored_inventory_value,approved_canonical_mirror_metadata,graded_physical,graded_inventory_mirror_metadata
+Dragon Ball Super,CARD,Beyond Generations,English,1,1,0,0,1,0,0,0
+Dragon Ball Super,CARD,Dawn of the Z-Legends,English,7,7,6,0,1,0,0,0
+Dragon Ball Super,CARD,Dawn of the Z-Legends Pre-Release Cards,English,5,5,0,0,5,5,0,0
+Dragon Ball Super,CARD,Perfect Combination,English,1,1,0,0,1,0,0,0
+Dragon Ball Super,CARD,Power Absorbed,English,1,1,1,0,0,0,0,0
+Dragon Ball Super,CARD,Prismatic Clash,English,1,1,1,0,0,0,0,0
+Dragon Ball Super,CARD,Supreme Rivalry,English,10,10,7,0,3,0,0,0
+Dragon Ball Super,CARD,Supreme Rivalry Pre-Release Cards,English,1,1,0,0,1,1,0,0
+Dragon Ball Super,CARD,Three Glorious Fighters,English,2,2,1,0,1,0,0,0
+Dragon Ball Super Fusion World,CARD,Tournament and Championship Promos,English,5,5,0,0,5,0,0,0
+Dragon Ball Super Fusion World,CARD,Wish For Shenron,English,1,1,0,0,1,0,0,0
+One Piece,CARD,500 Years in the Future,,18,18,16,0,2,17,0,0
+One Piece,CARD,A Fist of Divine Speed,,10,10,8,0,2,10,0,0
+One Piece,CARD,Adventure on Kami's Island,,37,37,32,1,4,37,0,0
+One Piece,CARD,Adventure on KAMI's Island,Japanese,1,1,0,0,1,1,0,0
+One Piece,CARD,Awakening of the New Era,,2,2,2,0,0,2,0,0
+One Piece,CARD,Awakening of the New Era,Japanese,1,1,0,0,1,1,0,0
+One Piece,CARD,Carrying On His Will,,13,13,11,1,1,13,0,0
+One Piece,CARD,Carrying On His Will,Japanese,4,4,0,0,4,4,0,0
+One Piece,CARD,Egghead Crisis,Japanese,27,27,0,0,27,27,0,0
+One Piece,CARD,Emperors in the New World,,4,4,2,0,2,3,0,0
+One Piece,CARD,Kingdoms of Intrigue,,1,1,1,0,0,1,0,0
+One Piece,CARD,Learn Together Deck Set,,1,1,0,0,1,1,0,0
+One Piece,CARD,Legacy of the Master,,2,2,2,0,0,2,0,0
+One Piece,CARD,One Piece Promotion Cards,,5,5,0,1,4,5,2,0
+One Piece,CARD,One Piece Promotion Cards,English,2,2,0,0,2,2,0,0
+One Piece,CARD,One Piece Promotion Cards,Japanese,1,1,0,0,1,0,0,0
+One Piece,CARD,One Piece Promotion Cards (JP),Japanese,3,3,1,0,2,2,1,0
+One Piece,CARD,Paramount War,,1,1,1,0,0,1,0,0
+One Piece,CARD,Paramount War,Japanese,1,1,0,0,1,1,0,0
+One Piece,CARD,Pillars of Strength,,3,3,1,0,2,3,0,0
+One Piece,CARD,PRB01 - One Piece Card the Best,Japanese,1,1,0,0,1,1,0,0
+One Piece,CARD,PRB02 - One Piece Card the Best Vol. 2,Japanese,9,9,0,0,9,8,0,0
+One Piece,CARD,Premium Booster -The Best- Vol. 2,,6,6,1,0,5,6,0,0
+One Piece,CARD,Romance Dawn,,1,1,1,0,0,0,0,0
+One Piece,CARD,Royal Blood,,6,6,2,0,4,6,0,0
+One Piece,CARD,Starter Deck 1: Straw Hat Crew,,2,2,2,0,0,2,0,0
+One Piece,CARD,Starter Deck 12: Zoro and Sanji,,2,2,2,0,0,2,0,0
+One Piece,CARD,Starter Deck 18: PURPLE Monkey.D.Luffy,,1,1,1,0,0,1,0,0
+One Piece,CARD,Starter Deck 22: Ace & Newgate,,2,2,0,0,2,2,0,0
+One Piece,CARD,Starter Deck 26: PURPLE/BLACK Monkey.D.Luffy,,3,3,3,0,0,3,0,0
+One Piece,CARD,Starter Deck 5: Film Edition,,2,2,0,0,2,2,0,0
+One Piece,CARD,Starter Deck EX: Luffy & Ace,,2,2,0,2,0,2,0,0
+One Piece,CARD,The Azure Sea's Seven,,7,7,7,0,0,7,0,0
+One Piece,CARD,The Azure Sea's Seven,Japanese,17,17,0,0,17,17,0,0
+One Piece,CARD,The Time of Battle,,3,3,3,0,0,3,0,0
+One Piece,CARD,The Time of Battle,Japanese,24,24,1,0,23,24,0,0
+One Piece,CARD,The World's Strongest Warriors,,31,31,28,1,2,28,0,0
+One Piece,CARD,The World's Strongest Warriors Release Event Cards,English,2,2,0,0,2,2,0,0
+One Piece,CARD,Two Legends,,2,2,2,0,0,2,0,0
+One Piece,CARD,Wings of the Captain,,6,6,4,0,2,6,0,0
+One Piece,SEALED,World's Strongest Warriors [OP-17],Japanese,2,1,2,0,0,2,0,0
+Pokemon,CARD,Base Set (Unlimited),,1,1,0,0,1,1,0,0
+Pokemon,CARD,Battle Partners,Japanese,1,1,0,0,1,1,1,0
+Pokemon,CARD,Crimson Haze,Japanese,1,1,1,0,0,1,1,0
+Pokemon,CARD,Darkness Ablaze,,1,1,1,0,0,1,1,0
+Pokemon,CARD,Future Flash,Japanese,1,1,0,0,1,1,0,0
+Pokemon,CARD,MEGA Dream ex,,3,3,0,1,2,0,2,0
+Pokemon,CARD,Mega Symphonia,,1,1,0,0,1,0,0,0
+Pokemon,CARD,Nihil Zero,,1,1,0,0,1,0,0,0
+Pokemon,CARD,Ninja Spinner,,5,5,0,0,5,4,0,0
+Pokemon,CARD,Obsidian Flames,,2,2,2,0,0,2,0,0
+Pokemon,CARD,Phantasmal Flames,,177,177,78,0,99,162,0,0
+Pokemon,CARD,Phantasmal Flames,English,1,1,0,0,1,1,0,0
+Pokemon,CARD,Ruler of the Black Flame,Japanese,2,2,0,0,2,2,0,0
+Pokemon,CARD,Shiny Treasure ex,Japanese,2,2,0,0,2,2,0,0
+Pokemon,CARD,Start Deck 100 Battle Collection,,2,2,0,0,2,0,0,0
+Pokemon,CARD,Terastal Festival ex,Japanese,1,1,0,0,1,1,0,0
