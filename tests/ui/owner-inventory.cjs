@@ -176,6 +176,10 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   }else{
    assert.equal(btn(f.w,'Sync to eBay'),undefined);
    assert.match(block.textContent,mode==='unknown-seller'?/active seller account/:/Complete the eBay checklist/);
+   if(mode==='photos-missing'){
+    assert.match(block.querySelector('.owner-item-channel-availability').textContent,/1 check remaining/);
+    assert.doesNotMatch(block.querySelector('.owner-item-channel-availability').textContent,/Not available yet/);
+   }
    assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
   }
   f.finish();checks++;

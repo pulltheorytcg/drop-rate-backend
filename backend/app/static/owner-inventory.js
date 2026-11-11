@@ -884,6 +884,7 @@ window.DropRateInventory = (() => {
     const ebay=channels.find(row=>row.code==="EBAY")||{};
     const ebayScopeBlocker=item.ebay_preparation?.scope_blocker;
     const ebayChecks=item.ebay_preparation?.checks;
+    const ebayMissingChecks=Array.isArray(ebayChecks) ? ebayChecks.filter(check=>check.complete!==true) : [];
     const ebayPrepared=Array.isArray(ebayChecks) && ebayChecks.length>0 &&
       ebayChecks.every(check=>check.complete===true);
     const ebayEligible=Boolean(ebay.connected && ebay.sync_enabled) &&
@@ -941,7 +942,9 @@ window.DropRateInventory = (() => {
       }else{
         const availability=el("span","owner-item-channel-availability",channel.code==="SHOPIFY"
           ? publishedOnShopify ? "Already live" : !item.shopify_sync_enabled ? "Publishing paused" : item.status === "INSPECTION" ? "In review" : "Preparation needed"
-          : "Not available yet");
+          : channel.code==="EBAY" && ebayReason==="Complete the eBay checklist" && ebayMissingChecks.length>0
+            ? `${ebayMissingChecks.length} ${ebayMissingChecks.length===1?"check":"checks"} remaining`
+            : "Not available yet");
         availability.setAttribute("aria-label",channel.code==="SHOPIFY" && publishedOnShopify
           ?"Already published on Shopify":"No publishing action available for "+channel.label);
         block.append(availability);
@@ -966,7 +969,7 @@ window.DropRateInventory = (() => {
         const count=Array.isArray(choice.selectedMedia)?choice.selectedMedia.length:0;
         const summary=code==="WHATNOT"?"Not connected — no publishing":
           choice.complete && count?(`Approved ${count===1?"image":"images"}: ${count} selected`):
-          code==="EBAY"?"Front and back photos required":
+          code==="EBAY"?"First-party front and back photos required; provider reference scans don't count":
           choice.blockers?.length?"Approved image still required":"No eligible image selected";
         list.append(el("li","",`${label}: ${summary}`));
       }
