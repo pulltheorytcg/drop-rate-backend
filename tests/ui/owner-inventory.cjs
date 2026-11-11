@@ -167,16 +167,21 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   await f.open();
   const block=f.w.document.querySelector('.owner-item-channel-ebay');
   assert.doesNotMatch(block.textContent,/Consignor sync isn't supported/);
-  if(mode==='ready'){
-   assert.match(block.textContent,/Ready for final checks/);
-   await click(f.w,'Sync to eBay');
-   const writes=f.calls.filter(call=>call.method==='POST');
-   assert.equal(writes.length,1);assert.equal(writes[0].url,`/api/v1/owner/inventory/${id}/channels/ebay/sync`);
-   assert.deepEqual(JSON.parse(writes[0].body),{version:3});
-  }else{
-   assert.equal(btn(f.w,'Sync to eBay'),undefined);
-   assert.match(block.textContent,mode==='unknown-seller'?/active seller account/:/Complete the eBay checklist/);
+  if(mode==='unknown-seller'){
+   assert.equal(btn(f.w,'List on eBay'),undefined);
+   assert.match(block.textContent,/active seller account/);
    assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+  }else{
+   assert.ok(btn(f.w,'List on eBay'));
+   assert.match(block.textContent,mode==='ready'?/Ready for final checks/:/Some listing details may need attention/);
+   if(mode==='ready'){
+    await click(f.w,'List on eBay');
+    const writes=f.calls.filter(call=>call.method==='POST');
+    assert.equal(writes.length,1);assert.equal(writes[0].url,`/api/v1/owner/inventory/${id}/channels/ebay/sync`);
+    assert.deepEqual(JSON.parse(writes[0].body),{version:3});
+   }else{
+    assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+   }
   }
   f.finish();checks++;
  }
@@ -476,7 +481,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
   assert.match(f.w.document.querySelector('.owner-item-quantity').textContent,/2/);
   assert.equal(f.w.document.querySelector('[aria-label="Choose inventory copy"]').options.length,2);
-  assert.equal(btn(f.w,'Sync to eBay'),undefined,'Unsupported eBay sealed publishing must not show a misleading action');
+  assert.equal(btn(f.w,'List on eBay'),undefined,'Unsupported eBay sealed publishing must not show a misleading action');
   assert.equal(f.w.document.querySelector('.owner-item-channel-ebay .owner-item-channel-availability').textContent,'Not available yet');
   assert.match(f.w.document.querySelector('.owner-item-channel-ebay').textContent,/Sealed packs aren't supported yet/);
   let opened=null;f.w.open=(url,target,options)=>{opened={url,target,options};};

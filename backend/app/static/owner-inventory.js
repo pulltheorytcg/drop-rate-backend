@@ -887,13 +887,13 @@ window.DropRateInventory = (() => {
     const ebayPrepared=Array.isArray(ebayChecks) && ebayChecks.length>0 &&
       ebayChecks.every(check=>check.complete===true);
     const ebayEligible=Boolean(ebay.connected && ebay.sync_enabled) &&
-      !ebayScopeBlocker && ebayPrepared && item.product_type==="CARD" && approvedForSale;
+      !ebayScopeBlocker && item.product_type==="CARD" && approvedForSale;
     const ebayReason=item.product_type!=="CARD"?(item.product_type === "COMIC" ? "Comics and manga aren't supported here yet" : item.product_type==="FIGURE"?"Figure publishing is not available yet":"Sealed packs aren't supported yet"):
       ebayScopeBlocker?ebayScopeBlocker:
       !ebay.connected?"eBay account not connected":
       !ebay.sync_enabled?"Seller publishing not enabled":
       !approvedForSale?"Approval required":
-      !ebayPrepared?"Complete the eBay checklist":"Ready for final checks";
+      !ebayPrepared?"Some listing details may need attention":"Ready for final checks";
     const cards=[
       {
         code:"SHOPIFY",label:"Shopify",state:publishedOnShopify?"Published":
@@ -909,7 +909,7 @@ window.DropRateInventory = (() => {
       },
       {
         code:"EBAY",label:"eBay",state:ebayReason,
-        action:ebayEligible?"Sync to eBay":null,
+        action:ebayEligible?"List on eBay":null,
         click:()=>run(async()=>{
           const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/ebay/sync`,
             {method:"POST",body:JSON.stringify({version:item.version})});
@@ -941,7 +941,7 @@ window.DropRateInventory = (() => {
       }else{
         const availability=el("span","owner-item-channel-availability",channel.code==="SHOPIFY"
           ? publishedOnShopify ? "Already live" : !item.shopify_sync_enabled ? "Publishing paused" : item.status === "INSPECTION" ? "In review" : "Preparation needed"
-          : "Not available yet");
+          : channel.code==="EBAY" && item.product_type==="CARD" ? "Check connection or inventory status" : "Not available yet");
         availability.setAttribute("aria-label",channel.code==="SHOPIFY" && publishedOnShopify
           ?"Already published on Shopify":"No publishing action available for "+channel.label);
         block.append(availability);
@@ -966,7 +966,7 @@ window.DropRateInventory = (() => {
         const count=Array.isArray(choice.selectedMedia)?choice.selectedMedia.length:0;
         const summary=code==="WHATNOT"?"Not connected — no publishing":
           choice.complete && count?(`Approved ${count===1?"image":"images"}: ${count} selected`):
-          code==="EBAY"?"Front and back photos required":
+          code==="EBAY"?"Add a front scan or approved catalogue image":
           choice.blockers?.length?"Approved image still required":"No eligible image selected";
         list.append(el("li","",`${label}: ${summary}`));
       }

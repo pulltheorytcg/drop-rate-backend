@@ -124,6 +124,19 @@ select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
      and m.rights_status='VERIFIED' and m.approval_status='APPROVED'
      and m.shopify_file_status='READY' and m.shopify_cdn_url is not null
      and m.source_status='ACTIVE' and m.revoked_at is null) as ebay_photos_ready,
+ exists(select 1 from tcg.media_assets m
+    where m.scope='CANONICAL_CARD' and m.catalogue_id=i.catalogue_id
+      and m.inventory_id is null and m.side='FRONT'
+      and m.media_kind='IMAGE' and m.rights_tier='STOREFRONT_ALLOWED'
+      and m.approval_status='APPROVED' and m.rights_status='VERIFIED'
+      and m.source_status='ACTIVE' and m.revoked_at is null
+      and (nullif(btrim(m.rights_basis),'') is not null
+           or nullif(btrim(m.permission_evidence_url),'') is not null)
+      and lower(btrim(coalesce(m.media_language,'')))=lower(btrim(coalesce(i.language,p.language,'')))
+      and lower(btrim(coalesce(m.media_variant,'')))=lower(btrim(coalesce(p.variant,'')))
+      and (m.shopify_cdn_url ~ '^https://cdn[.]shopify[.]com/'
+           or m.public_source_url ~ '^https://assets[.]tcgdex[.]net/[^# ]+$')
+ ) as ebay_catalogue_ready,
  exists(select 1 from tcg.shopify_shipping_profiles sp where sp.owner_id=i.owner_id
    and sp.active and sp.profile_key=case when coalesce(i.grade,'')<>'' or coalesce(i.grading_company,'')<>''
      then 'GRADED_CARD' else 'RAW_CARD' end) as ebay_shipping_ready,
