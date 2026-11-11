@@ -30,7 +30,7 @@ from .physical_state import CARD_CONDITIONS
 from .slab_evidence import slab_candidate_supported
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .reference_market import read_cached_reference_prices
-from .regional_catalogue_prices import regional_prices_for_reference
+from .regional_catalogue_prices import attach_cached_regional_prices, regional_prices_for_reference
 from .recognition_images import reference_image_bytes
 from .catalogue_artwork import reference_thumbnail, reference_version
 from .book_artwork import book_cover_reference
@@ -991,7 +991,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     # is deliberately server-side and separate from ordinary manual search.
     # A translated/abbreviated label with no verified alias remains unresolved.
     slab_search = bool(slab_number or slab_name or slab_set)
-    selected_rows = rows[:limit]
+    selected_rows = attach_cached_regional_prices([dict(row) for row in rows[:limit]])
     if slab_search:
         selected_rows = [row for row in selected_rows if slab_candidate_supported(
             row, card_name=slab_name, card_number=slab_number, set_name=slab_set)]
