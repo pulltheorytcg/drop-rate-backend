@@ -498,6 +498,9 @@ async def test_regional_detail_refresh_persists_one_reference_and_reuses_it(monk
     assert records.execute.await_count == 1
     sql, *args = records.execute.await_args.args
     assert sql == market.WRITE_SQL and args[3] == REFERENCE["provider_id"]
+    # A detail-open regional refresh must not persist the Cardmarket trend as
+    # a sold-only market value, even when a valid avg7 regional quote exists.
+    assert args[5:8] == [None, None, None]
     query.update(quotes=args[4], expires_at=args[-1])
     regional._cache.clear()
     assert (await regional.regional_prices_for_reference(None, uuid4(), "b", KEY))["quotes"] == [row]
