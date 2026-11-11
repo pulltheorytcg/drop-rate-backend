@@ -49,9 +49,9 @@ def ebay_preparation(item: Mapping) -> dict:
          "Record the grade, or Near Mint for the current raw-card eBay service"),
         ("price", "Selling price saved", (item.get("store_price_minor") or 0) >= 100, "Save a selling price below"),
         ("approval", "Approved for sale", item.get("status") == "APPROVED" and item.get("sale_intent") == "FOR_SALE", "Request listing review below"),
-        ("photos", "Front and back photos approved", bool(item.get("ebay_photos_ready")), "Drop Rate needs photos of this physical copy"),
+        ("photos", "Front and back photos approved", bool(item.get("ebay_photos_ready")), "Upload approved front and back photos of this exact physical copy; provider reference scans do not count"),
         ("condition_review", "Photo-backed condition verified",
-         item.get("condition_review_status") == ("VERIFIED_GRADED" if graded else "VERIFIED_NEAR_MINT"), "Drop Rate condition review"),
+         item.get("condition_review_status") == ("VERIFIED_GRADED" if graded else "VERIFIED_NEAR_MINT"), "Request a photo-backed condition review after the physical photos are approved"),
         ("intake", "Dispatch location recorded", bool(item.get("intake_ready")), "Drop Rate intake review"),
         ("shipping", "Shipping profile configured", bool(item.get("ebay_shipping_ready")), "Drop Rate shipping setup"),
     ]
