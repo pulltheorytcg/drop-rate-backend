@@ -1,0 +1,70 @@
+"""Exact regional sale aggregates for catalogue presentation only."""
+import asyncio
+from collections import OrderedDict
+from datetime import datetime, timedelta, timezone
+
+import httpx
+from fastapi import HTTPException
+
+from .db import user_connection
+from .fx import EcbHistoricalFxProvider
+from .reference_market import MAX_AGE, READ_SQL, _cache_is_current, _time, fetch_quotes
+
+
+# The database is checked first. A short bounded cache coalesces interactive
+# misses while catalogue maintenance is paused. Never write to physical stock.
+_cache = OrderedDict()
+_locks = [asyncio.Lock() for _ in range(4)]
+
+
+def eligible_quotes(rows, now):
+    result = []
+    for row in rows:
+        sale = row.get("regional_sale") or {}
+        if (sale.get("physical_valuation_eligible") is not False
+                or type(sale.get("price_gbp_minor")) is not int or sale["price_gbp_minor"] <= 0
+                or not row.get("variant_id") or not row.get("product_id")):
+            continue
+        pair = (row.get("source"), sale.get("region"), sale.get("source_field"))
+        if pair not in {("TCGDEX_CARDMARKET", "EU", "avg7"), ("TCGDEX_CARDMARKET", "EU", "avg7-holo"),
+                        ("TCGDEX_CARDMARKET_VARIANT", "EU", "avg7"), ("TCGDEX_CARDMARKET_VARIANT", "EU", "avg7-holo"),
+                        ("TCGDEX_TCGPLAYER", "US", "marketPrice")}:
+            continue
+        try:
+            observed = _time(row["observed_at"])
+        except (ValueError, TypeError, KeyError):
+            continue
+        if now - MAX_AGE <= observed <= now:
+            result.append(row)
+    return result
+
+
+async def regional_prices_for_reference(pool, user_id, request_id, key):
+    now = datetime.now(timezone.utc)
+    async with user_connection(pool, user_id, request_id) as connection:
+        records = await connection.fetch(READ_SQL, [key])
+    if not records:
+        raise HTTPException(404, "Unknown regional price reference")
+    reference = dict(records[0])
+    if _cache_is_current(reference.get("expires_at"), now):
+        rows = eligible_quotes(reference.get("quotes") or [], now)
+        if rows:
+            return {"quotes": rows}
+    identity = tuple(reference[k] for k in ("key", "set_id", "set_name", "name", "card_number", "language"))
+    async with _locks[int(key[-2:], 16) % len(_locks)]:
+        now = datetime.now(timezone.utc)
+        cached = _cache.get(identity)
+        if cached and cached[0] > now:
+            return {"quotes": eligible_quotes(cached[1], now)}
+        try:
+            async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
+                quotes = await asyncio.wait_for(fetch_quotes(client, reference, EcbHistoricalFxProvider(timeout_seconds=6),
+                                                             now=now), timeout=16)
+        except (httpx.HTTPError, ValueError, RuntimeError, TimeoutError):
+            raise HTTPException(503, "Regional price feed temporarily unavailable") from None
+        rows = eligible_quotes(quotes, now)
+        _cache[identity] = (now + timedelta(minutes=30 if rows else 5), rows)
+        _cache.move_to_end(identity)
+        if len(_cache) > 512:
+            _cache.popitem(last=False)
+        return {"quotes": rows}
