@@ -941,7 +941,7 @@ window.DropRateInventory = (() => {
       }else{
         const availability=el("span","owner-item-channel-availability",channel.code==="SHOPIFY"
           ? publishedOnShopify ? "Already live" : !item.shopify_sync_enabled ? "Publishing paused" : item.status === "INSPECTION" ? "In review" : "Preparation needed"
-          : channel.code==="EBAY" ? "Check connection or inventory status" : "Not available yet");
+          : channel.code==="EBAY" && item.product_type==="CARD" ? "Check connection or inventory status" : "Not available yet");
         availability.setAttribute("aria-label",channel.code==="SHOPIFY" && publishedOnShopify
           ?"Already published on Shopify":"No publishing action available for "+channel.label);
         block.append(availability);
