@@ -942,7 +942,7 @@ window.DropRateInventory = (() => {
       }else{
         const availability=el("span","owner-item-channel-availability",channel.code==="SHOPIFY"
           ? publishedOnShopify ? "Already live" : !item.shopify_sync_enabled ? "Publishing paused" : item.status === "INSPECTION" ? "In review" : "Preparation needed"
-          : channel.code==="EBAY" && ebayReason==="Complete the eBay checklist"
+          : channel.code==="EBAY" && ebayReason==="Complete the eBay checklist" && ebayMissingChecks.length>0
             ? `${ebayMissingChecks.length} ${ebayMissingChecks.length===1?"check":"checks"} remaining`
             : "Not available yet");
         availability.setAttribute("aria-label",channel.code==="SHOPIFY" && publishedOnShopify
