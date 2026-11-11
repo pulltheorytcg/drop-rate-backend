@@ -489,7 +489,7 @@ window.DropRateCatalogue = (() => {
           lookup.disabled=true;
           lookup.textContent="Checking regional sales…";
           try {
-            const reply=await this.client.request("/api/v1/catalogue-browser/regional-market-value?key="+encodeURIComponent(row.key));
+            const reply=await this.client.request("/api/v1/catalogue-browser/regional-market-value?key="+encodeURIComponent(row.key),{method:"POST"});
             row.regional_quotes=reply.quotes || [];
             if (!regionalSales(row).length) {lookup.textContent="No recent exact regional sales found";return;}
             this.renderMarketDetails(content,row);
