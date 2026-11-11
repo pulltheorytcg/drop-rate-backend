@@ -8,11 +8,11 @@ from fastapi import HTTPException
 
 from .db import user_connection
 from .fx import EcbHistoricalFxProvider
-from .reference_market import MAX_AGE, READ_SQL, _cache_is_current, _time, fetch_quotes
+from .reference_market import MAX_AGE, READ_SQL, WRITE_SQL, _cache_is_current, _time, fetch_quotes, price_view
 
 
-# The database is checked first. A short bounded cache coalesces interactive
-# misses while catalogue maintenance is paused. Never write to physical stock.
+# Short-lived entries coalesce concurrent lookups. Positive observations also
+# enter the existing catalogue cache for future requests and worker restarts.
 _cache = OrderedDict()
 _locks = [asyncio.Lock() for _ in range(4)]
 
@@ -78,6 +78,13 @@ async def regional_prices_for_reference(pool, user_id, request_id, key):
         except (httpx.HTTPError, ValueError, RuntimeError, TimeoutError):
             raise HTTPException(503, "Regional price feed temporarily unavailable") from None
         rows = eligible_quotes(quotes, now)
+        if rows:
+            view = price_view(key, quotes, now=now)
+            async with user_connection(pool, user_id, request_id) as connection:
+                await connection.execute(WRITE_SQL, reference["provider"], reference["system_code"],
+                                         reference["language"], reference["provider_id"], quotes,
+                                         view["market_value_minor"], view["market_value_high_minor"],
+                                         view["pricing_updated_at"], now, now + timedelta(days=1))
         _cache[identity] = (now + timedelta(minutes=30 if rows else 5), rows)
         _cache.move_to_end(identity)
         if len(_cache) > 512:
