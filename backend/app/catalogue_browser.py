@@ -1094,7 +1094,7 @@ class ReferencePriceRequest(BaseModel):
     keys: list[Annotated[str, Field(pattern=r"^r:[a-f0-9]{32}$")]] = Field(min_length=1, max_length=40)
 
 
-@router.get("/regional-market-value")
+@router.post("/regional-market-value")
 async def regional_market_value(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                                 access: Annotated[dict, Depends(browser_access)],
                                 key: Annotated[str, Query(pattern=r"^r:[a-f0-9]{32}$")]):
