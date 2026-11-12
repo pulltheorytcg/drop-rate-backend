@@ -60,3 +60,59 @@ Run: PYTHONPATH=backend pytest tests/test_ebay_signed_in_research.py -q
 Then full repository CI. Tests cover search URL, identity matching, GBP and UK guards, actual-price claims, Best Offer/active-listing exclusion, duplicates, condition, set, grade, printing, date-only recency and no-write behavior. Only a follow-up, human-reviewed PR could ingest independently verified transactions into existing append-only Supabase observation records. It must preserve source provenance, RLS, history, ownership, Store Price and existing pricing gates, with backup/rollback and live acceptance evidence.
 
 **At authoring:** no full CI pass, eBay browser readback, production write or Railway deployment has been claimed.
+
+## Follow-up: authenticated Seller Hub integration (still draft / NOT LIVE)
+
+The founder can now use the **Market evidence · Pilot** panel in Seller Hub
+(in this PR's code only). Enter the exact physical `INV-...` Inventory ID,
+then choose **Prepare exact-card search**. The backend checks the signed-in
+founder's current owner and the physical inventory status/confirmed canonical
+identity through the existing RLS owner access. Only the same owner's item can
+be researched. The API constructs the signed-in eBay UK sold-listing URL using
+the existing exact-card query builder; users open the link in their own eBay
+browser. For accepted Best Offers, actual paid amounts must be checked against
+Product Research manually, not assumed from sold-listing display.
+
+The review panel offers five fields per item-level sale with explicit human
+confirmation of UK location, completed transaction paid amount and exact
+printing. The backend validates the manually reviewed evidence and returns
+only exclusion counts and a candidate item-price median. **This candidate is
+not a public Market Value, no matter how plausible the output looks.**
+
+New code:
+- `backend/app/ebay_signed_in_research_api.py` exposes authenticated
+  `GET /api/v1/pricing/ebay-research/inventory/{inventory_code}/search`
+  and `POST .../preview` with a maximum of 100 transient rows and
+  64 KB of minimal fields.
+- `backend/app/static/ebay-research-panel.js` and CSS; the panel is
+  available inside the existing Seller Hub layout after release.
+- `backend/app/main.py` registers the routes behind existing
+  `require_platform_admin_request` and loads the panel script.
+- `tests/test_ebay_signed_in_research_api.py` tests owner isolation,
+  read-only database use, exact five-sale validation, no price writes, and
+  UI routing.
+
+Connections: the existing `_target_snapshot` is used only to **read and
+authorize** physical items; it is not used to apply prices. This path does
+not call `_price_one(apply=True)`, `_persist_comp`, Shopify, n8n or any
+new API provider. Requests use PostgreSQL read-only snapshot transactions,
+not admin service-role SQL. Credentials, account cookies, raw eBay pages,
+buyer/seller profiles and sale rows are not stored.
+
+Failure modes: owner missing/not authorized, status not eligible, invalid
+physical ID, unknown grade/condition, incomplete exact card number or
+language, duplicate listing IDs, dated/stale comparables, unproven accepted
+Best Offers, ambiguous item location, missing actual paid prices, large
+payloads or account switch during a pending response all fail closed.
+
+Production publication requires independently obtained/verified item-level
+source evidence, license/source-permission review, append-only Supabase
+history and **separate** safe, existing pricing read-path publication.
+Existing `apply` method updates Store Prices and is expressly NOT used.
+Before that later step, zero eligible new Market Values are expected.
+
+Additional verification gate: focused Python+JS tests, full Python/UI/
+PostgreSQL CI, signed-in founder UI in live deployment, no-write SQL
+readback, then genuine Product Research comparison on 1 Pokémon,
+1 One Piece and 1 graded card. No live browser or production deployment
+is claimed by this documentation.
