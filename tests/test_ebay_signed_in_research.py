@@ -36,6 +36,10 @@ def reviewed(item_id, *, price="5.00", days_ago=1, **overrides):
         "shipping_gbp": "0",
         "currency": "GBP",
         "item_country": "GB",
+        "set_name": "Phantasmal Flames",
+        "card_number": "021/094",
+        "variant": "Normal",
+        "language": "English",
         "condition_raw": "Near Mint",
     }
     row.update(overrides)
@@ -80,7 +84,8 @@ def test_preview_five_exact_sales_without_live_price_write():
     ({"title": "Pokemon Seel 021/094 bundle x2 Near Mint"}, "EXACT_PRINT_MISMATCH"),
     ({"price_gbp": "4.999"}, "INVALID_PRICE"),
     ({"price_gbp": "0"}, "INVALID_PRICE"),
-    ({"sold_at": "2026-11-11"}, "INVALID_OR_STALE_SOLD_DATE"),
+    ({"sold_at": "2026-11-11T11:00:00"}, "INVALID_OR_STALE_SOLD_DATE"),
+    ({"set_name": "Different Set"}, "EXACT_PRINT_MISMATCH"),
     ({"sold_at": "2025-01-01T00:00:00+00:00"}, "INVALID_OR_STALE_SOLD_DATE"),
 ])
 def test_invalid_or_unproven_comps_are_excluded(override, reason):
@@ -114,3 +119,12 @@ def test_rejects_unbounded_input_and_incomplete_canonical_identity():
         build_sold_search_url(target(card_number=""))
     with pytest.raises(ValueError):
         preview_product_research(target(grade="10"), [], now=NOW)
+
+
+def test_date_only_sales_from_product_research_are_review_only():
+    rows = [reviewed(1000 + i, sold_at="2026-11-11") for i in range(5)]
+    result = preview_product_research(target(), rows, now=NOW)
+    assert result["eligible_exact_count"] == 5
+    assert result["status"] == "REVIEW_REQUIRED"
+    assert result["candidate_median_item_price_minor"] == 500
+    assert result["candidate_is_market_value"] is False
