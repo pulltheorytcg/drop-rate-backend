@@ -8,7 +8,7 @@ matcher and five-sold median ONLY to produce a non-publishable candidate.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
@@ -58,16 +58,19 @@ def _minor(amount: object, *, allow_zero: bool = False) -> int | None:
     return int(value * 100)
 
 
-def _aware_sold_date(value: object) -> datetime | None:
-    if not isinstance(value, str) or "T" not in value:
+def _sold_day(value: object) -> date | None:
+    """Sale date only: never invent a precise transaction time."""
+    if not isinstance(value, str):
         return None
     try:
+        if len(value) == 10:
+            return date.fromisoformat(value)
         sold = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
     if sold.tzinfo is None or sold.utcoffset() is None:
         return None
-    return sold.astimezone(timezone.utc)
+    return sold.astimezone(timezone.utc).date()
 
 
 def preview_product_research(
@@ -79,8 +82,9 @@ def preview_product_research(
     """Preview without treating manually transcribed claims as verified data.
 
     Input rows deliberately use a small, typed contract: item_id, title,
-    sold_at (ISO timestamp with timezone), price_gbp, shipping_gbp (optional),
-    currency, item_country, source, sale_price_basis and condition_raw.
+    sold_at (ISO date or timezone-aware datetime), price_gbp,
+    shipping_gbp (optional), currency, item_country, source,
+    sale_price_basis, condition_raw and exact set/number/variant/language.
     The source must be EBAY_PRODUCT_RESEARCH and the basis ACTUAL_PAID_PRICE.
     Neither a sold-listing asking price nor an unknown Best Offer qualifies.
     """
@@ -119,8 +123,8 @@ def preview_product_research(
         if row.get("currency") != "GBP" or row.get("item_country") != "GB":
             rejected["NON_GB_OR_NON_GBP"] += 1
             continue
-        sold = _aware_sold_date(row.get("sold_at"))
-        if sold is None or sold > now + MAX_FUTURE_DRIFT or now - sold > MAX_AGE:
+        sold = _sold_day(row.get("sold_at"))
+        if sold is None or sold > (now + MAX_FUTURE_DRIFT).date() or (now.date() - sold).days > MAX_AGE.days:
             rejected["INVALID_OR_STALE_SOLD_DATE"] += 1
             continue
         price = _minor(row.get("price_gbp"))
@@ -129,9 +133,11 @@ def preview_product_research(
         if price is None or (shipping_value is not None and shipping is None):
             rejected["INVALID_PRICE"] += 1
             continue
-        if not _matches_comp(
-            {"title": row.get("title"), "condition_raw": row.get("condition_raw")}, target
-        ):
+        if (any(row.get(key) != target.get(key)
+                for key in ("set_name", "card_number", "variant", "language"))
+                or not _matches_comp(
+                    {"title": row.get("title"), "condition_raw": row.get("condition_raw")}, target
+                )):
             rejected["EXACT_PRINT_MISMATCH"] += 1
             continue
         eligible[item_id] = (sold, price)
@@ -139,7 +145,7 @@ def preview_product_research(
     # Existing strict eBay flow uses the newest five exact sale observations
     # and a median of item prices (never shipping-inclusive retail prices).
     newest = sorted(eligible.values(), key=lambda item: item[0], reverse=True)[:5]
-    recent_count = sum(now - date <= RECENT_AGE for date, _ in newest)
+    recent_count = sum((now.date() - sale_day).days <= RECENT_AGE.days for sale_day, _ in newest)
     candidate = sorted(price for _, price in newest)[2] if len(newest) == 5 and recent_count else None
     return {
         "mode": "SIGNED_IN_RESEARCH_ASSISTED_READ_ONLY",
