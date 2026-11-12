@@ -128,3 +128,47 @@ def test_date_only_sales_from_product_research_are_review_only():
     assert result["status"] == "REVIEW_REQUIRED"
     assert result["candidate_median_item_price_minor"] == 500
     assert result["candidate_is_market_value"] is False
+
+
+def test_real_printing_identity_one_piece_base_vs_parallel_synthetic_sales():
+    op = target(
+        game="One Piece", name="Monkey.D.Luffy",
+        set_name="Awakening of the New Era",
+        card_number="OP05-119", variant="Foil",
+    )
+    base_title = "One Piece Monkey D Luffy OP05-119 SEC English Near Mint"
+    rows = [
+        reviewed(2000 + i, title=base_title, set_name=op["set_name"],
+                 card_number=op["card_number"], variant="Foil",
+                 language="English", price_gbp="3.00")
+        for i in range(5)
+    ]
+    accepted = preview_product_research(op, rows, now=NOW)
+    assert accepted["eligible_exact_count"] == 5
+    assert accepted["candidate_is_market_value"] is False
+    rows[0]["title"] += " Manga Parallel"
+    rejected = preview_product_research(op, rows, now=NOW)
+    assert rejected["eligible_exact_count"] == 4
+    assert rejected["excluded_reasons"]["ONE_PIECE_PARALLEL_MISMATCH"] == 1
+    assert rejected["candidate_median_item_price_minor"] is None
+
+
+def test_real_printing_identity_graded_psa9_does_not_accept_psa95_synthetic_sales():
+    graded = target(
+        game="Pokemon", name="Charizard V",
+        set_name="Darkness Ablaze", card_number="019/189",
+        variant="Holofoil", condition=None, grading_company="PSA", grade="9",
+    )
+    rows = [
+        reviewed(3000 + i, title="Pokemon Charizard V 019/189 Holofoil PSA 9",
+                 set_name=graded["set_name"], card_number="019/189",
+                 variant="Holofoil", language="English", condition_raw=None)
+        for i in range(5)
+    ]
+    good = preview_product_research(graded, rows, now=NOW)
+    assert good["eligible_exact_count"] == 5
+    rows[0]["title"] = "Pokemon Charizard V 019/189 Holofoil PSA 9.5"
+    bad = preview_product_research(graded, rows, now=NOW)
+    assert bad["eligible_exact_count"] == 4
+    assert bad["excluded_reasons"]["EXACT_GRADE_MISMATCH"] == 1
+    assert bad["candidate_median_item_price_minor"] is None
