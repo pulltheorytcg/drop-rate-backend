@@ -195,6 +195,7 @@ async def add_asking_estimates(connection, rows, *, now=None):
                 row.pop(key,None)
         shared = row.get("shared_price") or {}
         if (row.get("source_kind") == "REFERENCE" and row.get("product_type") == "CARD"
+                and not row.get("grading_company") and not row.get("grade") and not row.get("seal_status")
                 and row.get("market_value_minor") is None
                 and not (shared.get("market_value_minor") is not None and shared.get("status") != "STALE")):
             pending.append(row)
