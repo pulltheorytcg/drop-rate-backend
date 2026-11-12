@@ -1,3 +1,9 @@
+## 12 November 2026 — Founder architecture decision and regional catalogue release corrections
+
+- **FOUNDER DECISION:** Cloudflare migration cancelled. Target stack is Railway/FastAPI and jobs, Supabase Pro (catalogue, inventory, ownership, pricing evidence, media metadata and permitted Supabase Storage artwork), GitHub and Shopify. Tracker #1010 and D1/R2/Worker cutovers are historical. Preserve legacy R2 assets/backups and trace current dependencies before any read switch; verify required records/images in Supabase with counts/checksums/rendering and rollback first.
+- Continue existing PR #1070 rather than another pricing integration. Replace its shared-price-cache writes with isolated catalogue context/history, durable cross-replica request reservations/leases and 429 backoff. Regional aggregates cannot become physical Market Value or outrank eligible UK sold evidence. Source display permissions and daily ceiling default closed; no provider calls or paid scrapers are activated.
+- Preserve DROP_RATE_CATALOGUE_BULK_HOLD and Pro capacity policy. Context/schema changes require CI and controlled release; live counts and signed-in proof remain separate gates. See docs/REGIONAL_CATALOGUE_SALES.md.
+
 ## 11 November 2026 — exact regional Pokémon price context PR #1070 reviewed; release held
 
 - **IN REVIEW / NOT DEPLOYED:** [PR #1070](https://github.com/pulltheorytcg/drop-rate-backend/pull/1070) adds bounded per-reference TCGdex Cardmarket EUR seven-day average and TCGplayer USD market context in GBP, with exact finish, dated FX, UK-priority UI and no physical/owner financial pricing authority. Existing no-paid-scraper decision stands. Previous head `f395fcc7a669d365b750a16c0beb5c32c887acb5` had 13 successful PR workflow runs; NEW head requires full CI re-verification.

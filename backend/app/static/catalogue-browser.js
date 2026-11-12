@@ -38,11 +38,11 @@ window.DropRateCatalogue = (() => {
      "SHARED_CATALOGUE_REFERENCE","TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)
     || ["REFERENCE_ESTIMATE","CATALOGUE_GUIDE","UK_EU_MARKET_ESTIMATE"].includes(row.shared_price?.status);
   const regionalSales = row => {
-    if (row.provider !== "TCGdex" || row.system_code !== "POKEMON_TCG" ||
+    if (row.regional_context_permission !== true || row.provider !== "TCGdex" || row.system_code !== "POKEMON_TCG" ||
         row.source_kind !== "REFERENCE" || row.shared_price?.status === "AVAILABLE" ||
         (row.shared_price?.market_value_minor > 0 && !unsupportedMarketSource(row)) ||
         (row.market_value_minor > 0 && !unsupportedMarketSource(row))) return [];
-    return (row.regional_quotes || row.market_quotes || []).filter(quote => {
+    return (row.regional_quotes || []).filter(quote => {
       const sale = quote.regional_sale, age = Date.now() - Date.parse(quote.observed_at);
       const accepted = (["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(quote.source) &&
         sale?.region === "EU" && ["avg7","avg7-holo"].includes(sale.source_field)) ||
@@ -56,11 +56,11 @@ window.DropRateCatalogue = (() => {
     new Date(q.observed_at).toLocaleDateString("en-GB");
   const marketPrice = row => {
     const sales = regionalSales(row);
-    if (sales.length === 1) return "Market value: "+money(sales[0].regional_sale.price_gbp_minor)+" · "+regionalLabel(sales[0]);
+    if (sales.length === 1) return "Regional context: "+money(sales[0].regional_sale.price_gbp_minor)+" · "+regionalLabel(sales[0]);
     if (sales.length) {
       const amounts=sales.map(quote=>quote.regional_sale.price_gbp_minor);
       const low=Math.min(...amounts), high=Math.max(...amounts);
-      return "Market value: "+money(low)+(low===high?"":"–"+money(high))+" · regional sales";
+      return "Regional context: "+money(low)+(low===high?"":"–"+money(high))+" · regional aggregates";
     }
     if (row.shared_price && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(row.shared_price.method))
       return window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:");
@@ -482,7 +482,7 @@ window.DropRateCatalogue = (() => {
         content.append(node("small","","Catalogue prices across conditions. Individual copies require matching condition or grade."));
         return;
       }
-      if (row.provider==="TCGdex" && row.system_code==="POKEMON_TCG" && row.source_kind==="REFERENCE" &&
+      if (row.regional_context_permission===true && row.provider==="TCGdex" && row.system_code==="POKEMON_TCG" && row.source_kind==="REFERENCE" &&
           /^r:[a-f0-9]{32}$/.test(row.key) && (row.market_value_minor==null || unsupportedMarketSource(row)) &&
           !["AVAILABLE","CONDITION_REFERENCE"].includes(row.shared_price?.status)) {
         const lookup=button("Check regional market values", async () => {
@@ -490,6 +490,7 @@ window.DropRateCatalogue = (() => {
           lookup.textContent="Checking regional sales…";
           try {
             const reply=await this.client.request("/api/v1/catalogue-browser/regional-market-value?key="+encodeURIComponent(row.key),{method:"POST"});
+            row.regional_context_permission=reply.commercial_display_permitted===true;
             row.regional_quotes=reply.quotes || [];
             if (!regionalSales(row).length) {lookup.textContent="No recent exact regional sales found";return;}
             this.renderMarketDetails(content,row);

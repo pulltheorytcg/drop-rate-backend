@@ -1,0 +1,8 @@
+{
+  "reviewed_at": "2026-11-12",
+  "sources": {
+    "TCGDEX_CARDMARKET": {"commercial_display": false, "reason": "TCGDEX_DERIVED_FEED_DISPLAY_RIGHTS_UNVERIFIED", "terms_url": "https://tcgdex.dev/markets-prices"},
+    "TCGDEX_CARDMARKET_VARIANT": {"commercial_display": false, "reason": "TCGDEX_DERIVED_FEED_DISPLAY_RIGHTS_UNVERIFIED", "terms_url": "https://tcgdex.dev/markets-prices"},
+    "TCGDEX_TCGPLAYER": {"commercial_display": false, "reason": "TCGPLAYER_COMMERCIAL_REDISTRIBUTION_RESTRICTED", "terms_url": "https://help.tcgplayer.com/hc/en-us/articles/360061115874-TCGplayer-API-Terms-Conditions"}
+  }
+}

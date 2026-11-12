@@ -448,7 +448,9 @@ async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex
 
 @pytest.mark.asyncio
 async def test_regional_sales_require_exact_printing_finish_and_fresh_sale_field():
-    from app.regional_catalogue_prices import eligible_quotes
+    from app.regional_catalogue_prices import eligible_quotes as raw_eligible
+    def eligible_quotes(rows,now):
+        return raw_eligible(rows,now,allowed_sources={market.SOURCE,market.VARIANT_SOURCE,market.SUPPORT_SOURCE})
     payload = deepcopy(PAYLOAD)
     variant = payload["variants_detailed"][0]
     variant["thirdParty"]["tcgplayer"] = 123
@@ -471,37 +473,3 @@ async def test_regional_sales_require_exact_printing_finish_and_fresh_sale_field
     assert eligible_quotes(rows, NOW+timedelta(days=8)) == []
     assert eligible_quotes([{**rows[0], "regional_sale": {**rows[0]["regional_sale"], "source_field": "low"}}], NOW) == []
     assert await market.tcgdex_quotes(payload, {**REFERENCE, "set_id": "wrong"}, RegionalFX(), now=NOW, regional_us=True) == []
-
-
-@pytest.mark.asyncio
-async def test_regional_detail_refresh_persists_one_reference_and_reuses_it(monkeypatch):
-    from unittest.mock import AsyncMock
-    from app import regional_catalogue_prices as regional
-
-    query = {**REFERENCE, "expires_at": None, "quotes": []}
-    records = AsyncMock()
-    records.fetch.side_effect = lambda *args: [dict(query)]
-
-    @asynccontextmanager
-    async def session(*args):
-        yield records
-
-    row = {"finish":"Normal", "variant_id":"exact-normal", "product_id":"857596",
-           "source":market.SOURCE, "price_gbp_minor":9, "observed_at":datetime.now(timezone.utc).isoformat(),
-           "regional_sale":{"region":"EU", "price_gbp_minor":12, "source_field":"avg7",
-                            "physical_valuation_eligible":False}}
-    fetch = AsyncMock(return_value=[row])
-    monkeypatch.setattr(regional, "user_connection", session)
-    monkeypatch.setattr(regional, "fetch_quotes", fetch)
-    monkeypatch.setattr(regional, "_cache", regional.OrderedDict())
-    assert (await regional.regional_prices_for_reference(None, uuid4(), "a", KEY))["quotes"] == [row]
-    assert records.execute.await_count == 1
-    sql, *args = records.execute.await_args.args
-    assert sql == market.WRITE_SQL and args[3] == REFERENCE["provider_id"]
-    # A detail-open regional refresh must not persist the Cardmarket trend as
-    # a sold-only market value, even when a valid avg7 regional quote exists.
-    assert args[5:8] == [None, None, None]
-    query.update(quotes=args[4], expires_at=args[-1])
-    regional._cache.clear()
-    assert (await regional.regional_prices_for_reference(None, uuid4(), "b", KEY))["quotes"] == [row]
-    assert fetch.await_count == records.execute.await_count == 1
