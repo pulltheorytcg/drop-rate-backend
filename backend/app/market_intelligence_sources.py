@@ -8,7 +8,8 @@ ownership, media publication and financial rules stay in their current modules.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from typing import Any, Mapping
 
@@ -210,6 +211,20 @@ def classify_candidate(
     if instant.utcoffset() is None or instant > datetime.now(timezone.utc):
         return {"status": "REJECTED_OBSERVATION_DATE", "publish": False}
     if kind == EvidenceKind.SOLD:
+        # A verified sold claim without a positive actual paid amount or actual
+        # sale date is incomplete even before the existing sold normalizer.
+        try:
+            paid = Decimal(str(candidate.get("price_gbp")))
+            paid_valid = paid.is_finite() and Decimal("0") < paid < Decimal("100000000")
+            paid_valid = paid_valid and paid.as_tuple().exponent >= -2
+        except InvalidOperation:
+            paid_valid = False
+        try:
+            sale_day = date.fromisoformat(str(candidate.get("sold_at")))
+        except ValueError:
+            sale_day = None
+        if not paid_valid or sale_day is None or sale_day > datetime.now(timezone.utc).date():
+            return {"status": "REJECTED_INCOMPLETE_SALE_EVIDENCE", "publish": False}
         if (candidate.get("currency") != "GBP"
                 or candidate.get("item_country") != "GB"
                 or candidate.get("sale_price_basis") != "ACTUAL_PAID_PRICE"
