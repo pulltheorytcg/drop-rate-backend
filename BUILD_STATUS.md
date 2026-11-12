@@ -1,3 +1,9 @@
+## 12 November 2026 — Signed-in eBay UK research preview (draft / not released)
+
+- **DRAFT ONLY:** Added a no-network, no-write, human-assisted eBay Product Research preview on branch `feat/ebay-signed-in-research-preview-20261112`. It generates exact-identity signed-in sold-search links, requires manually reviewed item-level actual GBP paid-price claims and exact printing/condition, rejects duplicates/stale/uncertain sales, and reports a median candidate only for separate review. The existing exact-card matching rules are reused; the preview can never publish Market Value or Store Price.
+- **ACCESS LIMITATION:** The ChatGPT connected-browser context was unavailable; the authorised `droprate_tcg` eBay account was not accessed and no live sold transactions were retrieved. This is not an automatic scraping integration or a proven provider connection.
+- **NO PROD IMPACT:** No Railway service, schedule, eBay credential, Supabase mutation, Shopify product/price, owner/settlement record, R2/Cloudflare change or new paid provider. Supabase Pro and bulk hold unchanged. Scoped unit tests added; CI, genuine eBay Product Research paid-price readback, source permissions and human review remain open release gates. See docs/EBAY_SIGNED_IN_RESEARCH_PILOT_20261112.md.
+
 ## 12 November 2026 — Signed-in founder/search proof and Scryfall locator correction
 
 - Search PR #1074 merged `6e1aef9b103040c5b0e167af18c925152554d724`; Railway deployment succeeded at 18:03:57 UTC. Full CI: 11,521 passed, 32 optional skipped. Actual signed-in search now renders the two Charmander 011/094 records; Normal and Reverse Holofoil detail both say Value unavailable. Founder stock lookup separately confirms English NM copies with £1 Store Prices, not Market Values. Catalogue detail language still Unknown: exact identity/dependency correction remains outstanding.
