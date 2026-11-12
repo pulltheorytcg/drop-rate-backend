@@ -1,4 +1,4 @@
-"""Asking estimates remain a separate, exact-identity, short-lived display tier."""
+"""Asking-derived reference Market Values retain exact identity and source basis."""
 import copy
 import json
 from datetime import datetime, timedelta, timezone
@@ -6,7 +6,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.reference_asking_display import (
-    ASKING_DISPLAY_SQL, add_asking_estimates, asking_estimate_view,
+    ASKING_DISPLAY_SQL, ASKING_MARKET_VALUE_SOURCE, ASKING_MARKET_VALUE_BASIS,
+    add_asking_estimates, asking_estimate_view, asking_market_value_fields,
 )
 
 NOW = datetime(2026, 10, 28, 12, tzinfo=timezone.utc)
@@ -105,8 +106,22 @@ async def test_fallback_is_page_bounded_and_preserves_all_legacy_values():
     connection = Connection([record()])
     result = await add_asking_estimates(connection, rows, now=NOW)
     assert rows == original
-    assert result[0]["asking_price_estimate"]["estimate_minor"] == 700
-    assert [{k: v for k, v in row.items() if k != "asking_price_estimate"} for row in result] == original
+    assert result[0]["market_value_minor"] == 700
+    assert result[0]["market_value_high_minor"] == 900
+    assert result[0]["market_value_source"] == ASKING_MARKET_VALUE_SOURCE
+    assert result[0]["market_value_basis"] == ASKING_MARKET_VALUE_BASIS
+    assert result[0]["market_value_confidence"] == "LOW"
+    assert result[0]["basis_condition"] == "Near Mint"
+    assert result[0]["market_value_evidence"] == {
+        "provider": "EBAY_OFFICIAL_BROWSE",
+        "method_version": "EBAY_UK_RAW_ASK_V1",
+        "currency": "GBP", "listing_count": 4, "independent_seller_count": 3,
+        "shipping_basis": "ITEM_PLUS_SHIPPING",
+        "basis_type": ASKING_MARKET_VALUE_BASIS, "completed_sales_used": 0,
+    }
+    assert "asking_price_estimate" not in result[0]
+    assert result[1:] == original[1:]
+    assert rows == original  # Read-only projection; never mutate source rows.
     assert [x["key"] for x in connection.calls[0][1]] == ["r:one"]
     assert "current_identity" in ASKING_DISPLAY_SQL
     assert "'finish',r.finish,'rarity',r.rarity" in ASKING_DISPLAY_SQL
@@ -126,3 +141,53 @@ async def test_expired_cache_does_not_restore_previous_asking_object():
     connection = Connection([record(expires_at=NOW)])
     result = await add_asking_estimates(connection, [product(asking_price_estimate={"estimate_minor": 700})], now=NOW)
     assert "asking_price_estimate" not in result[0]
+
+
+def test_asking_model_rejects_weak_or_corrupt_evidence():
+    assert asking_market_value_fields(None) is None
+    assert asking_market_value_fields({"status": "WRONG"}) is None
+    normal = asking_estimate_view(record(), now=NOW)
+    assert asking_market_value_fields({**normal, "seller_count": 2}) is None
+    assert asking_market_value_fields({**normal, "estimate_minor": 0}) is None
+    assert asking_market_value_fields({**normal, "estimate_high_minor": 600}) is None
+
+
+@pytest.mark.asyncio
+async def test_asking_market_value_is_never_applied_to_physical_or_sealed_products():
+    connection = Connection([record()])
+    rows = [
+        product(source_kind="INVENTORY", inventory_code="INV-PKM-123456"),
+        product(source_kind="SEALED_REFERENCE", product_type="SEALED"),
+        product(source_kind="REFERENCE", product_type="CARD", grading_company="PSA", grade="10"),
+    ]
+    # The canonical-identity row can't be a physical slab target.
+    # A graded physical inventory is rejected by source_kind regardless.
+    rows[2]["source_kind"] = "INVENTORY"
+    result = await add_asking_estimates(connection, rows, now=NOW)
+    assert result == rows
+    assert not connection.calls
+
+
+@pytest.mark.asyncio
+async def test_expired_asking_market_value_cannot_survive_rehydration():
+    connection = Connection([record(expires_at=NOW)])
+    old = product(market_value_minor=700, market_value_high_minor=900,
+                  market_value_source=ASKING_MARKET_VALUE_SOURCE,
+                  market_value_basis=ASKING_MARKET_VALUE_BASIS,
+                  pricing_updated_at=NOW-timedelta(days=1),
+                  basis_condition="Near Mint")
+    out = await add_asking_estimates(connection, [old], now=NOW)
+    assert out[0]["market_value_minor"] is None if "market_value_minor" in out[0] else True
+    assert "market_value_source" not in out[0]
+    assert "pricing_updated_at" not in out[0]
+
+
+@pytest.mark.asyncio
+async def test_five_independent_sellers_raise_confidence_but_not_sales_claim():
+    connection = Connection([record(listing_count=7,seller_count=5)])
+    result = await add_asking_estimates(connection, [product()], now=NOW)
+    value = result[0]
+    assert value["market_value_confidence"] == "MEDIUM"
+    assert value["market_value_evidence"]["completed_sales_used"] == 0
+    assert "store_price_minor" not in value
+    assert "recommended_retail_minor" not in value
