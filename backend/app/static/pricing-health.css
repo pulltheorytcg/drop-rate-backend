@@ -1,0 +1,24 @@
+.pricing-health-panel{margin:16px 0;border:1px solid rgba(104,152,210,.35);border-radius:16px;padding:18px;background:linear-gradient(150deg,rgba(13,48,101,.035),rgba(255,255,255,.015))}
+.pricing-health-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.pricing-health-heading h2{margin:4px 0;font-size:1.3rem}
+.pricing-health-banner{margin:16px 0 12px;padding:13px 15px;border-radius:11px;background:rgba(232,148,38,.10);border:1px solid rgba(232,148,38,.24);font-weight:700;font-size:.94rem}
+.pricing-health-banner[data-health-state="OPERATIONAL"]{background:rgba(38,158,106,.08);border-color:rgba(38,158,106,.27)}
+.pricing-health-banner[data-health-state="BLOCKED"]{background:rgba(200,87,70,.07);border-color:rgba(200,87,70,.27)}
+.pricing-health-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.pricing-health-stat{padding:13px;display:flex;flex-direction:column;gap:7px;border-radius:12px;border:1px solid rgba(100,142,197,.22);min-width:0}
+.pricing-health-stat strong{font-size:1.35rem;font-weight:780;line-height:1.2;font-variant-numeric:tabular-nums}
+.pricing-health-stat small{font-size:.72rem;color:var(--muted,#758398)}
+.pricing-health-subheading{font-size:1rem;margin:18px 0 9px}
+.pricing-health-sources{display:grid;gap:8px}
+.pricing-health-source{border:1px solid rgba(100,142,197,.18);border-radius:10px;display:flex;align-items:start;justify-content:space-between;gap:12px;padding:12px}
+.pricing-health-source>div{display:grid;gap:4px;min-width:0}
+.pricing-health-source strong{font-size:.88rem}
+.pricing-health-source small{font-size:.76rem;color:var(--muted,#758398);line-height:1.5;overflow-wrap:anywhere}
+.pricing-health-state{flex:none;font-size:.67rem;font-weight:750;max-width:45%;text-align:center;border-radius:99px;padding:6px 10px;background:rgba(232,148,38,.11);color:inherit}
+.pricing-health-state[data-health-state="VERIFICATION_BLOCKED"],.pricing-health-state[data-health-state="NO_RECENT_VERIFIED_EVIDENCE"]{background:rgba(200,87,70,.11)}
+.pricing-health-alerts{display:grid;gap:7px}
+.pricing-health-alert{font-size:.82rem;padding:9px 11px;border-radius:8px;margin:0;background:rgba(232,148,38,.07);border-left:3px solid rgba(232,148,38,.6)}
+.pricing-health-alert[data-severity="CRITICAL"]{border-left-color:rgba(200,87,70,.8)}
+.pricing-health-time{font-size:.72rem;margin:15px 0 0}
+@media(max-width:750px){.pricing-health-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:500px){.pricing-health-panel{padding:12px}.pricing-health-source{flex-direction:column}.pricing-health-state{max-width:100%}.pricing-health-metrics{gap:7px}.pricing-health-stat{padding:10px}}
