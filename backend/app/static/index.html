@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="/assets/hub-experience.css?v=premium-navy-20261103">
   <link rel="stylesheet" href="/assets/owner-collectibles.css?v=premium-navy-20261103">
   <link rel="stylesheet" href="/assets/media-review-queue.css?v=tier1-20261110">
+  <link rel="stylesheet" href="/assets/ebay-research-panel.css?v=research-20261112">
 </head>
 <body class="hub-restoring premium-hub">
   <div class="hub-loading" role="status"><span class="hub-loading-mark"><img src="/assets/brand-assets/storefront-logo.png" alt="Drop Rate"></span><strong>Opening Drop Rate…</strong></div>
@@ -119,6 +120,34 @@
           <button id="media-review-refresh" class="media-review-refresh" type="button">Refresh review queue</button>
           <p id="media-review-feedback" class="media-review-feedback" role="status"></p>
           <div id="media-review-list" class="media-review-list" aria-label="Your open media review tasks"></div>
+        </section>
+
+
+        <section class="inventory-panel ebay-research-panel" aria-labelledby="ebay-research-title">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Market evidence · Pilot</p>
+              <h2 id="ebay-research-title">eBay UK completed-sale research</h2>
+              <p class="muted">Review actual prices paid on eBay for one of your physical cards. This is a read-only pilot. It does not scrape your signed-in session or publish Market Values.</p>
+            </div>
+          </div>
+          <div class="ebay-research-controls">
+            <label for="ebay-research-code">Physical Inventory ID
+              <input id="ebay-research-code" type="text" maxlength="60" autocomplete="off" placeholder="INV-…">
+            </label>
+            <button id="ebay-research-lookup" type="button" class="primary-button compact">Prepare exact-card search</button>
+            <a id="ebay-research-open" class="ghost-button compact hidden" href="#" target="_blank" rel="noopener noreferrer">Open sold listings on eBay ↗</a>
+          </div>
+          <p id="ebay-research-identity" class="muted">No card selected.</p>
+          <p id="ebay-research-feedback" class="message panel-message" role="status" aria-live="polite"></p>
+          <details class="ebay-research-details">
+            <summary>Review five actual completed sales</summary>
+            <p class="muted">Use <a href="https://www.ebay.co.uk/sh/research" target="_blank" rel="noopener noreferrer">eBay Seller Hub Product Research</a> while signed into your own eBay account. For an accepted Best Offer, enter the actual paid price, not the original asking price. Only include matching UK items in GBP. These entries stay in your browser and request; they are not stored.</p>
+            <div id="ebay-research-rows" class="ebay-research-rows"></div>
+            <button id="ebay-research-preview" type="button" class="primary-button compact">Validate reviewed sales (no writes)</button>
+            <p id="ebay-research-result" class="ebay-research-result" aria-live="polite"></p>
+          </details>
+          <p class="muted ebay-research-disclaimer">Any candidate result is for founder review only. No changes to Market Value, Store Price, Shopify, ownership, or settlements.</p>
         </section>
 
         <section class="inventory-panel" aria-labelledby="lots-heading">
