@@ -163,3 +163,21 @@ def test_cli_magic_generates_a_hashed_review_not_an_image_publication(tmp_path, 
     assert len(report["source_sha256"]) == 64
     assert report["records"][0]["can_publish"] is False
     assert report["records"][0]["can_mirror"] is False
+
+
+@pytest.mark.parametrize('stamp',['1','1783944234','18446744073709551615'])
+def test_scryfall_numeric_cache_timestamp_preserves_exact_print_and_pending_rights(stamp):
+    value=source();url=value['printings'][0]['scryfall']['image_uris']['normal']+'?'+stamp
+    value['printings'][0]['scryfall']['image_uris']['normal']=url
+    row=pilot.preview_mtgjson(value,[reference()])[0]
+    assert row['candidate_image_url']==url
+    assert row['status']=='MTG_PRINT_ART_PENDING_FINISH_AND_RIGHTS_REVIEW'
+    assert not row['can_mirror'] and not row['can_publish'] and not row['printing_image_verified']
+
+
+@pytest.mark.parametrize('suffix',['?','?a=1','?123&redirect=https://evil.test','?123#fragment','?123?456','?'+('1'*21)])
+def test_scryfall_arbitrary_queries_and_fragments_remain_blocked(suffix):
+    value=source();value['printings'][0]['scryfall']['image_uris']['normal']+=suffix
+    row=pilot.preview_mtgjson(value,[reference()])[0]
+    assert row['candidate_image_url'] is None
+    assert row['status']=='UNTRUSTED_MTG_IMAGE_LOCATOR'

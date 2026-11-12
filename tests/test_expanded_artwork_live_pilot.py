@@ -194,3 +194,26 @@ async def test_duplicate_reference_and_oversized_pilot_rejected_before_network()
         await live.collect("YUGIOH", [ref, ref])
     with pytest.raises(live.ArtworkPreviewError, match="1–5"):
         await live.collect("YUGIOH", [ref] * 6)
+
+
+@pytest.mark.asyncio
+async def test_live_scryfall_timestamp_image_bytes_verified_without_publication():
+    source={**magic_source()['printings'][0]['scryfall'],'rarity':'rare'}
+    source['image_uris']=dict(source['image_uris'])
+    url=source['image_uris']['normal']+'?1783944234';source['image_uris']['normal']=url
+    image=Image.new('RGB',(488,681));buffer=io.BytesIO();image.save(buffer,'JPEG');payload=buffer.getvalue()
+    calls=[]
+    def handler(req):
+        calls.append(str(req.url))
+        if req.url.host=='api.scryfall.com':return httpx.Response(200,json=source)
+        assert str(req.url)==url
+        return httpx.Response(200,headers={'Content-Type':'image/jpeg'},content=payload)
+    async with client(handler) as http:
+        receipt=await live.collect('MAGIC_THE_GATHERING',[make_row(magic_ref())],client=http,verify_bytes=True)
+    record=receipt['records'][0]
+    assert receipt['candidate_count']==receipt['byte_verified_count']==1
+    assert record['image_sha256']==hashlib.sha256(payload).hexdigest()
+    assert record['status']=='MTG_IMAGE_CANDIDATE_PENDING_SOURCE_UUID_CROSSWALK_AND_RIGHTS'
+    assert not record['can_publish'] and not record['can_mirror'] and not record['printing_image_verified']
+    assert receipt['storage_writes']==receipt['database_writes']==0
+    assert calls[-1]==url
