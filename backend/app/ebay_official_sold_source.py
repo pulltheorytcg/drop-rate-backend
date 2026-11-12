@@ -272,5 +272,5 @@ def normalize_marketplace_insights(
     return {"observations": list(accepted.values()),
             "count": len(accepted), "rejected": dict(sorted(reasons.items())),
             "status": "CANDIDATES_REQUIRE_INDEPENDENT_REVIEW",
-            "has_verified_provider_access": True,
+            "partner_access_asserted_in_configuration": True,
             "can_publish_market_value": False}
