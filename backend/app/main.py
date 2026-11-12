@@ -62,6 +62,7 @@ from .marketplace_listings import router as marketplace_listings_router
 from .market_provider_probe import router as market_provider_probe_router
 from .market_smoke import router as market_smoke_router
 from .pricing import router as pricing_router
+from .pricing_health import router as pricing_health_router
 from .live_market_refresh import run_live_market_refresh
 from .payout_preferences import router as payout_preferences_router
 from .owner_login import router as owner_login_router
@@ -128,6 +129,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/shopify-settings.js?v=comic-photo-20261101" defer></script>',
         '<script src="/assets/media-condition.js?v=scan-review-20261103" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
+        '<script src="/assets/pricing-health-widget.js?v=monitor-20261112" defer></script>',
         '<script src="/assets/ebay-research-panel.js?v=review-only-20261112" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/reference-value-display.js?v=market-values-20261104" defer></script>',
@@ -504,6 +506,7 @@ def create_app() -> FastAPI:
     app.include_router(ebay_oauth_router)
     app.include_router(refunds_router)
     app.include_router(pricing_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(pricing_health_router)
     app.include_router(payout_preferences_router)
     app.include_router(owner_login_router)
     app.include_router(owner_portal_api_router)
