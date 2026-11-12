@@ -139,11 +139,11 @@ async def test_exact_approved_grader_raw_card_image_is_private_reference(monkeyp
         return [asset]
     monkeypatch.setattr(media, 'shared_media_assets', assets)
     result = (await media.add_shared_inventory_media(None, [item]))[0]
-    assert result['image_url'] == asset['shopify_cdn_url']
-    assert result['reference_image_status'] == 'GRADER_CERTIFICATE_RAW_REFERENCE'
-    assert result['card_image_capture_context'] == 'RAW_UNSLEEVED'
-    assert result['card_image_rights_tier'] == 'INTERNAL_REFERENCE_ONLY'
-    assert result['card_image_source_type'] == 'OFFICIAL_PROVIDER'
+    assert result['image_url'] is None
+    assert result['reference_image_status'] == 'SLAB_PHOTO_REQUIRED'
+    assert result['card_image_capture_context'] is None
+    assert result['card_image_rights_tier'] is None
+    assert result['card_image_source_type'] is None
     assert 'reference_image_url' not in result
 
 
@@ -162,30 +162,22 @@ async def test_reviewed_graded_card_uses_exact_canonical_art_only_privately(monk
         return [asset]
     monkeypatch.setattr(media, 'shared_media_assets', assets)
     result = (await media.add_shared_inventory_media(None, [item]))[0]
-    assert result['image_url'] == (asset['public_source_url'] if reviewed else None)
-    assert result['reference_image_status'] == (
-        'GRADED_CARD_ART_REFERENCE' if reviewed else 'SLAB_PHOTO_REQUIRED')
-    assert result['card_image_scope'] == ('CANONICAL_CARD' if reviewed else None)
+    assert result['image_url'] is None
+    assert result['reference_image_status'] == 'SLAB_PHOTO_REQUIRED'
+    assert result['card_image_scope'] is None
     assert 'reference_image_path' not in result
     assert 'reference_image_url' not in result
 
 
-def test_graded_fallback_selector_requires_exact_identity_review_and_never_public_sale_rights():
-    sql = media.MEDIA_SQL
-    for clause in (
-        "to_jsonb(i)->>'identity_confirmed'='true'",
-        "to_jsonb(i)->>'condition_review_status'='VERIFIED_GRADED'",
-        "to_jsonb(i)->>'condition_verified_by_user_id' is not null",
-        "to_jsonb(i)->>'status' in ('APPROVED','RESERVED','SOLD')",
-        "length(btrim(i.certificate_number))>=6",
-        "to_jsonb(p)->>'product_type'='CARD'",
-        "ma.capture_context in ('GRADED_SLAB','RAW_UNSLEEVED')",
-        "ma.capture_context='RAW_UNSLEEVED' and ma.rights_tier='INTERNAL_REFERENCE_ONLY'",
-        "and ma.source_type='OFFICIAL_PROVIDER'",
-        "ma.rights_tier='STOREFRONT_ALLOWED'",
-    ):
-        assert clause in sql
-    assert "or (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in sql
+def test_graded_selector_requires_copy_bound_slab_and_never_raw_or_canonical_fallback():
+    sql=media.MEDIA_SQL
+    assert "and ma.capture_context='GRADED_SLAB'" in sql
+    assert "ma.owner_id=i.owner_id" in sql
+    assert "position(btrim(i.certificate_number) in ma.provider_asset_id)>0" in sql
+    assert "ma.source_status='ACTIVE'" in sql
+    assert "ma.revoked_at is null" in sql
+    assert "VERIFIED_GRADED" not in sql
+    assert "RAW_UNSLEEVED" not in sql
 
 
 @pytest.mark.asyncio
@@ -210,9 +202,9 @@ async def test_certificate_reference_is_independent_of_other_items_in_page(monke
         return selected
     monkeypatch.setattr(media, 'shared_media_assets', assets)
     result = await media.add_shared_inventory_media(None, [first, second])
-    assert result[0]['image_url'] == reference['shopify_cdn_url']
-    assert result[0]['reference_image_status'] == 'GRADER_CERTIFICATE_RAW_REFERENCE'
-    assert result[0]['card_image_rights_tier'] == 'INTERNAL_REFERENCE_ONLY'
+    assert result[0]['image_url'] is None
+    assert result[0]['reference_image_status'] == 'SLAB_PHOTO_REQUIRED'
+    assert result[0]['card_image_rights_tier'] is None
     assert result[1]['image_url'] == slab['shopify_cdn_url']
     assert result[1]['reference_image_status'] == 'COPY_PHOTO'
 
@@ -238,4 +230,28 @@ async def test_other_items_valid_certificate_cannot_authorize_invalid_raw_photo(
     result = await media.add_shared_inventory_media(None, [first, second])
     assert result[0]['image_url'] is None
     assert result[0]['reference_image_status'] == 'SLAB_PHOTO_REQUIRED'
-    assert result[1]['reference_image_status'] == 'GRADER_CERTIFICATE_RAW_REFERENCE'
+    assert result[1]['reference_image_status'] == 'SLAB_PHOTO_REQUIRED'
+
+@pytest.mark.asyncio
+async def test_newer_raw_capture_cannot_hide_existing_approved_slab(monkeypatch):
+    item={'id':uuid4(),'grading_company':'PSA','grade':'10'}
+    slab={'inventory_id':item['id'],'scope':'INVENTORY_ITEM','capture_context':'GRADED_SLAB',
+          'approval_status':'APPROVED','source_type':'FOUNDER_UPLOAD','rights_tier':'FIRST_PARTY_CAPTURE',
+          'shopify_cdn_url':'https://cdn.shopify.com/actual-slab.jpg'}
+    raw={**slab,'capture_context':'RAW_UNSLEEVED','shopify_cdn_url':'https://cdn.shopify.com/raw.jpg'}
+    async def assets(*args):return [raw,slab]
+    monkeypatch.setattr(media,'shared_media_assets',assets)
+    result=(await media.add_shared_inventory_media(None,[item]))[0]
+    assert result['image_url']==slab['shopify_cdn_url']
+    assert result['card_image_capture_context']=='GRADED_SLAB'
+
+@pytest.mark.asyncio
+async def test_sealed_item_rejects_a_raw_card_photo_even_when_item_bound(monkeypatch):
+    item={'id':uuid4(),'product_type':'SEALED'}
+    raw={'inventory_id':item['id'],'scope':'INVENTORY_ITEM','capture_context':'RAW_UNSLEEVED',
+         'approval_status':'APPROVED','source_type':'FOUNDER_UPLOAD','rights_tier':'FIRST_PARTY_CAPTURE',
+         'shopify_cdn_url':'https://cdn.shopify.com/raw-card.jpg'}
+    async def assets(*args):return [raw]
+    monkeypatch.setattr(media,'shared_media_assets',assets)
+    result=(await media.add_shared_inventory_media(None,[item]))[0]
+    assert result['image_url'] is None
