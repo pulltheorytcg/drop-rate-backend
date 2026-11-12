@@ -52,3 +52,17 @@ Autonomous prices **must** be sold-backed and identity-verified, not filled with
 - Full Python, JS, Postgres, and existing pinned n8n CI before merge. No Cloudflare migration, no paid scraper subscription, no new DB changes.
 
 Rollback: remove/revert this PR; original pricing, price history, ownership, storefront and settlement modules remain untouched.
+
+
+## Catalogue-wide health (separate from owned stock)
+The founder health widget also reads the **existing** authenticated
+\`/api/v1/catalogue-browser/coverage\` result, at most every 10 minutes per
+visible founder session. The server already coalesces the expensive exact
+reference aggregation with a 120-second cache. The dashboard shows
+\`summary.physical_cards.priced / total\` as *catalogue reference pricing*,
+**clearly labelled guide-inclusive, not completed-sale proof**. No independent
+or competing source valuation query is introduced. On provider/coverage timeout,
+the instant physical-inventory and source-health panel remains usable.
+Reference coverage is not a count of owned physical inventory and does not
+indicate that each raw/graded/finish variant is valued. Never merge these
+totals or represent catalogue guide coverage as physical UK sold Market Values.
