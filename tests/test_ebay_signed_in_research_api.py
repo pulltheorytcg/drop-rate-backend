@@ -181,6 +181,10 @@ def test_seller_hub_includes_review_only_entry_point_not_apply_button():
     html = (ROOT / "backend/app/static/index.html").read_text()
     js = (ROOT / "backend/app/static/ebay-research-panel.js").read_text()
     main = (ROOT / "backend/app/main.py").read_text()
+    assert 'id="ebay-research-panel"' in html
+    dashboard_shell = (ROOT / "backend/app/static/dashboard-shell.js").read_text()
+    assert 'settings.append(ebayResearchPanel)' in dashboard_shell
+    assert '!node.id && node !== lots' in dashboard_shell
     assert 'id="ebay-research-lookup"' in html
     assert 'id="ebay-research-preview"' in html
     assert 'id="ebay-research-rows"' in html
