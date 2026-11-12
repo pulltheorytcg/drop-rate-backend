@@ -94,10 +94,14 @@ async def prepare_ebay_research(
         request.app.state.db_pool, user.user_id, request.state.request_id, inventory_code
     )
     canonical = _public_target(item)
+    try:
+        sold_search_url = build_sold_search_url(canonical)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Card identity needs review before eBay research") from exc
     return jsonable_encoder({
         "inventory_code": inventory_code,
         "target": canonical,
-        "sold_search_url": build_sold_search_url(canonical),
+        "sold_search_url": sold_search_url,
         "research_method": "SIGNED_IN_EBAY_PRODUCT_RESEARCH_HUMAN_REVIEW",
         "automated_evidence_available": False,
         "can_change_market_value": False,
@@ -117,7 +121,10 @@ async def preview_ebay_research(
     item = await _owned_target(
         request.app.state.db_pool, user.user_id, request.state.request_id, inventory_code
     )
-    result = preview_product_research(_public_target(item), body.sales)
+    try:
+        result = preview_product_research(_public_target(item), body.sales)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Reviewed eBay evidence is invalid") from exc
     return jsonable_encoder({
         "inventory_code": inventory_code,
         **result,
