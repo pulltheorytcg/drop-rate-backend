@@ -194,10 +194,10 @@
         access = event.detail?.allowed === true;
         if (!access) stop(); else start();
       });
-      document.addEventListener("owner-view-changed", tick);
+      document.addEventListener("owner-view-changed", start);
       window.addEventListener("hub-session-cleared", () => {access = false; stop();});
     } else {
-      document.addEventListener("seller-view-changed", tick);
+      document.addEventListener("seller-view-changed", start);
       document.addEventListener("hub-ready", start);
       window.addEventListener("hub-session-cleared", stop);
     }
