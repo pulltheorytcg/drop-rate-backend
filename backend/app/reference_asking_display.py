@@ -190,7 +190,8 @@ async def add_asking_estimates(connection, rows, *, now=None):
         if row.get("market_value_source") == ASKING_MARKET_VALUE_SOURCE:
             for key in ("market_value_minor","market_value_high_minor","market_value_source",
                         "market_value_basis","market_value_confidence","market_value_observed_at",
-                        "market_value_expires_at","market_value_evidence"):
+                        "market_value_expires_at","market_value_evidence",
+                        "pricing_updated_at","basis_condition"):
                 row.pop(key,None)
         shared = row.get("shared_price") or {}
         if (row.get("source_kind") == "REFERENCE" and row.get("product_type") == "CARD"
