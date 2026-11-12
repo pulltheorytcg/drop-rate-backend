@@ -73,14 +73,13 @@ def test_real_live_baseline_reports_blocked_not_false_green():
     assert result["sources"][1]["role"] == "GUIDE_ONLY"
     assert result["sources"][1]["stored_observations"] == 5238
     assert result["sources"][1]["status"] == "STALE_CONTEXT"
-    assert result["sources"][2]["role"] == "ASKING_ONLY"
+    assert result["sources"][2]["role"] == "ASKING_DERIVED_MARKET_VALUE"
     assert result["sources"][3]["status"] == "AUTOMATED_ACCESS_NOT_VERIFIED"
     assert result["automation"]["automatic_sold_value_publication_ready"] is False
     assert result["automation"]["unattended_product_research_verified"] is False
     assert {a["code"] for a in result["alerts"]} >= {
-        "NO_FRESH_QUALIFYING_UK_SOLD", "NO_QUALIFYING_UK_SOLD_HISTORY",
-        "LAST_EBAY_RUN_FAILED", "CARDMARKET_GUIDES_STALE",
-        "MARKET_INGESTION_DISABLED", "OPERATOR_BULK_HOLD",
+        "NO_CURRENT_ASKING_MARKET_VALUES", "CARDMARKET_GUIDES_STALE",
+        "OPERATOR_BULK_HOLD",
     }
     assert "password" not in str(result)
     assert "seller" not in str(result)
@@ -92,6 +91,7 @@ def test_fresh_unverified_legacy_sales_still_block_market_value():
                last_sale_or_guide_at=NOW-timedelta(hours=1)))
     assert result["overall_status"] == "BLOCKED"
     assert result["sources"][0]["new_observations_24h"] == 3000
+    assert result["sources"][2]["status"] == "NO_CURRENT_ASKING_EVIDENCE"
     assert result["sources"][0]["new_normalized_24h"] == 0
 
 
@@ -101,9 +101,9 @@ def test_normalized_arrivals_are_distinguished_without_auto_publication():
                  last_normalized_uk_sold_ingested_at=NOW-timedelta(hours=2)),
                  ingestion_enabled=True,bulk_hold=False)
     assert result["sources"][0]["status"] == "FRESH_EVIDENCE"
-    assert result["overall_status"] == "DEGRADED"
+    assert result["overall_status"] == "BLOCKED"
     assert result["automation"]["automatic_sold_value_publication_ready"] is False
-    assert all(a["code"]!="NO_FRESH_QUALIFYING_UK_SOLD" for a in result["alerts"])
+    assert any(a["code"]=="NO_CURRENT_ASKING_MARKET_VALUES" for a in result["alerts"])
 
 
 def test_legacy_normalized_history_is_not_fresh():
@@ -130,7 +130,8 @@ def test_query_sql_only_reads_real_source_data_and_metadata_revision():
     assert "provider_evidence" in health.SOURCES_SQL
     assert "source_country = 'GB'" in health.SOURCES_SQL
     assert "tcg.market_ingestion_runs" in health.RUNS_SQL
-    for sql in (health.INVENTORY_SQL,health.SOURCES_SQL,health.RUNS_SQL):
+    assert "tcg.reference_asking_prices" in health.ASKING_SQL
+    for sql in (health.INVENTORY_SQL,health.SOURCES_SQL,health.RUNS_SQL,health.ASKING_SQL):
         assert not any(term in sql.lower() for term in ("insert into","update tcg","delete from","create table"))
     assert "record" not in health._safe_run(run())
 
@@ -141,6 +142,9 @@ async def test_founder_endpoint_uses_readonly_snapshot_roster_and_no_writes(monk
     class Connection:
         async def fetchrow(self,sql,*args):
             calls.append(("fetchrow",sql,args))
+            if sql==health.ASKING_SQL:
+                return {"historical_cache_records":4,"fresh_candidate_records":4,
+                        "last_checked_at":NOW,"last_observed_at":NOW}
             assert sql==health.INVENTORY_SQL
             return inventory()
         async def fetch(self,sql,*args):
@@ -167,10 +171,11 @@ async def test_founder_endpoint_uses_readonly_snapshot_roster_and_no_writes(monk
     req=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),
                         state=SimpleNamespace(request_id="price-health-test"))
     response=await health.live_pricing_health(req,SimpleNamespace(user_id=USER))
-    assert response["overall_status"] == "BLOCKED"
+    assert response["overall_status"] == "DEGRADED"
+    assert response["automation"]["asking_market_value_display_available"] is True
     assert calls[0][0]=="readonly"
     assert calls[1][0]=="founder_auth"
-    assert len(calls)==5
+    assert len(calls)==6
 
 
 @pytest.mark.asyncio
@@ -191,3 +196,20 @@ async def test_nonfounder_forbidden_before_data_retrieval(monkeypatch):
         await health.live_pricing_health(req,SimpleNamespace(user_id=USER))
     assert err.value.status_code == 403
     assert calls==["checked"]
+
+
+def test_fresh_asking_evidence_not_conflated_with_sold_proof():
+    result = summary(asking={"historical_cache_records":14,
+                              "fresh_candidate_records":6,
+                              "last_observed_at":NOW-timedelta(minutes=10),
+                              "last_checked_at":NOW-timedelta(minutes=5)},
+                     bulk_hold=False)
+    assert result["overall_status"] == "DEGRADED"
+    assert result["sources"][2]["fresh_candidate_records"] == 6
+    assert result["sources"][2]["status"] == "FRESH_CANDIDATES"
+    assert result["automation"]["asking_market_value_model_enabled"] is True
+    assert result["automation"]["asking_market_value_display_available"] is True
+    assert result["automation"]["automatic_sold_value_publication_ready"] is False
+    assert result["automation"]["asking_acquisition_automatically_scheduled"] is False
+    assert all(a["code"] != "NO_CURRENT_ASKING_MARKET_VALUES" for a in result["alerts"])
+    assert "UK asking prices" not in str(result["sources"][0])
