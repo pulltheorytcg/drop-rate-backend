@@ -5,6 +5,7 @@ on:
       - 'backend/app/catalogue_maintenance.py'
       - 'backend/app/reference_sealed.py'
       - 'backend/app/reference_market.py'
+      - 'database/migrations/*reference_refresh_backoff.sql'
       - 'backend/app/sealed_market.py'
       - 'backend/app/one_piece_market.py'
       - 'backend/app/pokemon_catalogue_market.py'

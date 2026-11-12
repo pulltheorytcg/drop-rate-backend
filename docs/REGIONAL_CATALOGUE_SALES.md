@@ -17,3 +17,9 @@ Successful permitted context uses the additive Supabase regional context/history
 Links reviewed 12 November: https://tcgdex.dev/markets-prices ; https://help.tcgplayer.com/hc/en-us/articles/360061115874-TCGplayer-API-Terms-Conditions ; https://insight.cardmarket.com/en/Articles/the-state-of-cardmarket-2024 . Do not turn on the display gate merely because a response is HTTP 200.
 
 Rollback: revert the optional catalogue-context caller or keep the source permissions disabled and daily ceiling zero. New regional tables contain no financial authority; preserve their history. No destructive rollback, price rewrite, source-date extension, plan change or R2 asset deletion.
+
+## Failure expiry correction (12 November 2026)
+
+The physical/reference cache now keeps retry scheduling in a separate `retry_after` column. Failed or empty refreshes preserve existing quotes, checked/observed dates, expiry, amounts and revision. Expired evidence cannot regain eligibility through a retry delay. Apply the bounded additive `20261112121000_reference_refresh_backoff.sql` migration before deploying writers; reads tolerate the column being absent during schema-first rollout. Rollback may retain the unused nullable column. No existing evidence or inventory values are rewritten.
+
+Regression coverage includes expired evidence with recent observations, empty responses, retry suppression and a real PostgreSQL assertion that all evidence fields remain identical across repeated failures.
