@@ -128,7 +128,7 @@ def test_media_sql_enforces_exact_owner_first_party_rights_and_staff_approval():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('grader', ['PSA','ACE','BGS','CGC'])
-async def test_exact_approved_grader_raw_card_image_is_private_reference(monkeypatch, grader):
+async def test_exact_approved_grader_raw_card_image_cannot_replace_a_slab(monkeypatch, grader):
     item = dict(id=uuid4(), grading_company=grader, grade='9', certificate_number='62398872',
                 reference_image_url='should-clear', reference_image_path='/raw')
     asset = dict(inventory_id=item['id'], scope='INVENTORY_ITEM',
@@ -149,7 +149,7 @@ async def test_exact_approved_grader_raw_card_image_is_private_reference(monkeyp
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('reviewed', [True, False])
-async def test_reviewed_graded_card_uses_exact_canonical_art_only_privately(monkeypatch, reviewed):
+async def test_reviewed_graded_card_still_requires_a_copy_bound_slab(monkeypatch, reviewed):
     item = dict(id=uuid4(), grading_company='PSA', grade='9', certificate_number='62398872',
                 reference_image_url='old-unbound',
                 reference_image_path='/old', image_url='old-unbound')

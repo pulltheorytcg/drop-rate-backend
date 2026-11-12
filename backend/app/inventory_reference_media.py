@@ -44,7 +44,7 @@ where i.id=any($1::uuid[]) and ma.side='FRONT' and ma.media_kind='IMAGE'
       or (ma.scope='INVENTORY_ITEM' and ma.capture_context='SEALED_PRODUCT'))
  and (coalesce(nullif(btrim(i.grading_company),''),nullif(btrim(i.grade),''),nullif(btrim(i.certificate_number),'')) is null
    or (ma.scope='INVENTORY_ITEM' and ma.inventory_id=i.id and ma.owner_id=i.owner_id
-       and ma.capture_context='GRADED_SLAB')) 
+       and ma.capture_context='GRADED_SLAB'))
  and ma.source_status='ACTIVE' and ma.rights_status='VERIFIED'
  and ma.approval_status='APPROVED' and ma.revoked_at is null
  and coalesce(nullif(btrim(ma.shopify_cdn_url),''),nullif(btrim(ma.public_source_url),'')) is not null
