@@ -69,7 +69,7 @@ def test_real_live_baseline_reports_blocked_not_false_green():
     sold = result["sources"][0]
     assert sold["stored_observations"] == 1083
     assert sold["normalized_uk_sold_observations"] == 0
-    assert sold["status"] == "VERIFICATION_BLOCKED"
+    assert sold["status"] == "NOT_USED_BY_CURRENT_ASKING_MODEL"
     assert result["sources"][1]["role"] == "GUIDE_ONLY"
     assert result["sources"][1]["stored_observations"] == 5238
     assert result["sources"][1]["status"] == "STALE_CONTEXT"
@@ -100,7 +100,7 @@ def test_normalized_arrivals_are_distinguished_without_auto_publication():
                  normalized_uk_sold_ingested_24h=6,
                  last_normalized_uk_sold_ingested_at=NOW-timedelta(hours=2)),
                  ingestion_enabled=True,bulk_hold=False)
-    assert result["sources"][0]["status"] == "FRESH_EVIDENCE"
+    assert result["sources"][0]["status"] == "NOT_USED_BY_CURRENT_ASKING_MODEL"
     assert result["overall_status"] == "BLOCKED"
     assert result["automation"]["automatic_sold_value_publication_ready"] is False
     assert any(a["code"]=="NO_CURRENT_ASKING_MARKET_VALUES" for a in result["alerts"])
@@ -110,7 +110,7 @@ def test_legacy_normalized_history_is_not_fresh():
     result = summary(sold=history(normalized_uk_sold=7,
               normalized_uk_sold_ingested_24h=0,
               last_normalized_uk_sold_ingested_at=NOW-timedelta(days=3)))
-    assert result["sources"][0]["status"] == "NO_RECENT_VERIFIED_EVIDENCE"
+    assert result["sources"][0]["status"] == "NOT_USED_BY_CURRENT_ASKING_MODEL"
     assert result["overall_status"] == "BLOCKED"
 
 
