@@ -123,7 +123,7 @@
     } catch (error) {
       if (current(check)) report(error.message || "Inventory lookup failed.", "error");
     } finally {
-      if (current(check)) button.disabled = false;
+      button.disabled = false;
     }
   }
 
@@ -195,7 +195,7 @@
     } catch (error) {
       if (current(check)) report(error.message || "Research preview failed.", "error");
     } finally {
-      if (current(check)) button.disabled = false;
+      button.disabled = false;
     }
   }
 
