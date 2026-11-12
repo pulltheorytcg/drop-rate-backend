@@ -79,6 +79,20 @@ group by source, observation_type
 order by source, observation_type
 """
 
+ASKING_SQL = """
+select count(*)::integer as historical_cache_records,
+       count(*) filter (where
+           method_version = 'EBAY_UK_RAW_ASK_V1' and currency = 'GBP'
+           and listing_count >= 3 and seller_count >= 3
+           and observed_at >= now() - interval '3 days'
+           and observed_at <= now() and expires_at > now()
+           and expires_at <= observed_at + interval '3 days'
+       )::integer as fresh_candidate_records,
+       max(observed_at) as last_observed_at,
+       max(checked_at) as last_checked_at
+from tcg.reference_asking_prices
+"""
+
 RUNS_SQL = """
 select distinct on (source)
        source, status, trigger_type, completed_at,
@@ -125,6 +139,7 @@ def summarise_pricing_health(
     ebay_legacy_refresh_enabled: bool,
     catalogue_refresh_enabled: bool,
     bulk_hold: bool,
+    asking: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Interpret actual source state without turning guides/asks into sold values."""
     if now.tzinfo is None:
@@ -138,6 +153,9 @@ def summarise_pricing_health(
     runs_by_source = {str(r.get("source") or ""): _record(r) for r in runs}
     sold = rows.get(("EBAY", "SOLD"), {})
     guide = rows.get(("CARDMARKET", "PRICE_GUIDE"), {})
+    asking_data = _record(asking)
+    fresh_asking = _as_int(asking_data.get("fresh_candidate_records"))
+    historic_asking = _as_int(asking_data.get("historical_cache_records"))
     verified_total = _as_int(sold.get("normalized_uk_sold"))
     verified_new = _as_int(sold.get("normalized_uk_sold_ingested_24h"))
     old_sold_total = _as_int(sold.get("total_observations"))
@@ -148,11 +166,9 @@ def summarise_pricing_health(
     cardmarket_run = _safe_run(runs_by_source.get("CARDMARKET"))
     sources = [
         {
-            "source": "EBAY_UK_SOLD", "label": "eBay UK completed sales",
-            "role": "ACTUAL_SOLD_EVIDENCE",
-            "status": ("FRESH_EVIDENCE" if verified_new > 0 and sale_is_recent
-                       else "NO_RECENT_VERIFIED_EVIDENCE" if verified_total > 0
-                       else "VERIFICATION_BLOCKED"),
+            "source": "EBAY_UK_SOLD", "label": "Historical eBay completed sales",
+            "role": "HISTORICAL_NOT_REQUIRED",
+            "status": "NOT_USED_BY_CURRENT_ASKING_MODEL",
             "stored_observations": old_sold_total,
             "normalized_uk_sold_observations": verified_total,
             "new_normalized_24h": verified_new,
@@ -174,40 +190,38 @@ def summarise_pricing_health(
             "detail": "Guides cannot independently produce sold-backed Market Values.",
         },
         {
-            "source": "EBAY_BROWSE", "label": "eBay official Browse",
-            "role": "ASKING_ONLY",
-            "status": "CONTEXT_ONLY",
-            "stored_observations": None,
+            "source": "EBAY_BROWSE", "label": "eBay UK active listings",
+            "role": "ASKING_DERIVED_MARKET_VALUE",
+            "status": "FRESH_CANDIDATES" if fresh_asking > 0 else "NO_CURRENT_ASKING_EVIDENCE",
+            "stored_observations": historic_asking,
+            "fresh_candidate_records": fresh_asking,
+            "last_ingested_at": asking_data.get("last_checked_at"),
             "last_run": None,
-            "detail": "Active listing asking prices are not completed sale prices.",
+            "detail": ("Founder-selected valuation basis: median of live UK GBP delivered asks "
+                       "from three or more independent sellers, exact printing and NM raw condition. "
+                       "Cache candidates still require the full identity validation on display."),
         },
         {
-            "source": "EBAY_PRODUCT_RESEARCH", "label": "eBay Product Research",
-            "role": "HUMAN_RESEARCH",
-            "status": "AUTOMATED_ACCESS_NOT_VERIFIED",
+            "source": "EBAY_PRODUCT_RESEARCH", "label": "eBay sold research (unused)",
+            "role": "NOT_REQUIRED",
+            "status": "NOT_USED_BY_CURRENT_ASKING_MODEL",
             "stored_observations": None,
             "last_run": None,
-            "detail": "An authenticated browser session does not grant unattended data collection rights.",
+            "detail": "The asking-based Market Value model does not require Product Research.",
         },
     ]
     alerts: list[dict[str, str]] = []
-    if verified_new == 0:
+    if fresh_asking == 0:
         alerts.append({
-            "code": "NO_FRESH_QUALIFYING_UK_SOLD",
+            "code": "NO_CURRENT_ASKING_MARKET_VALUES",
             "severity": "CRITICAL",
-            "text": "No newly ingested qualifying UK completed-sale evidence in 24 hours.",
+            "text": "No fresh qualifying eBay UK asking-price caches available; reference backfill is needed.",
         })
-    if verified_total == 0:
+    if historic_asking and fresh_asking == 0:
         alerts.append({
-            "code": "NO_QUALIFYING_UK_SOLD_HISTORY",
+            "code": "ASKING_CACHES_EXPIRED",
             "severity": "WARNING",
-            "text": "Stored eBay sales are not marked as eligible normalized UK paid-price evidence.",
-        })
-    if ebay_run and ebay_run["status"] == "FAILED":
-        alerts.append({
-            "code": "LAST_EBAY_RUN_FAILED",
-            "severity": "WARNING",
-            "text": "The most recent recorded eBay market job failed.",
+            "text": "Historical asking-price caches have expired and need fresh comparable listings.",
         })
     if guide_total and not guide_is_recent:
         alerts.append({
@@ -221,26 +235,20 @@ def summarise_pricing_health(
             "severity": "WARNING",
             "text": "The operator bulk-refresh safety hold is active.",
         })
-    if not ingestion_enabled:
-        alerts.append({
-            "code": "MARKET_INGESTION_DISABLED",
-            "severity": "WARNING",
-            "text": "Automatic market ingestion is disabled pending permitted source access.",
-        })
     if stored < active:
         alerts.append({
             "code": "MARKET_VALUE_COVERAGE_INCOMPLETE",
             "severity": "INFO",
             "text": "Some active inventory has no stored Market Value.",
         })
-    overall = ("BLOCKED" if verified_new == 0 else
-               "DEGRADED" if bulk_hold or not ingestion_enabled or stored < active else
+    overall = ("BLOCKED" if fresh_asking == 0 else
+               "DEGRADED" if bulk_hold or stored < active else
                "OPERATIONAL")
     # Even a healthy DB count is not proof that source access is licensed.
     return {
         "checked_at": now,
         "overall_status": overall,
-        "overall_label": ("Sold-price evidence blocked" if overall == "BLOCKED"
+        "overall_label": ("Asking-price source needs acquisition" if overall == "BLOCKED"
                           else "Needs attention" if overall == "DEGRADED"
                           else "Evidence arriving"),
         "inventory": {
@@ -259,7 +267,10 @@ def summarise_pricing_health(
             "bulk_refresh_held": bool(bulk_hold),
             "unattended_product_research_verified": False,
             "automatic_sold_value_publication_ready": False,
-            "pricing_mode": "SAFE_MONITORING" if verified_new == 0 else "EVIDENCE_NEEDS_PUBLICATION_REVIEW",
+            "asking_market_value_model_enabled": True,
+            "asking_market_value_display_available": fresh_asking > 0,
+            "asking_acquisition_automatically_scheduled": False,
+            "pricing_mode": "CURRENT_UK_ASKING_LISTINGS",
         },
         "sources": sources,
         "alerts": alerts,
@@ -285,6 +296,7 @@ async def live_pricing_health(
             SOURCES_SQL, VERIFIED_UK_NORMALIZATION_REVISION
         )
         runs = await connection.fetch(RUNS_SQL)
+        asking = await connection.fetchrow(ASKING_SQL)
     settings = get_settings()
     return jsonable_encoder(summarise_pricing_health(
         _record(inventory), [_record(x) for x in observations], [_record(x) for x in runs],
@@ -293,4 +305,5 @@ async def live_pricing_health(
         ebay_legacy_refresh_enabled=settings.ebay_market_refresh_enabled,
         catalogue_refresh_enabled=settings.catalogue_daily_refresh_enabled,
         bulk_hold=operator_bulk_hold_requested(),
+        asking=_record(asking),
     ))
