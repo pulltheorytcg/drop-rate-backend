@@ -113,6 +113,7 @@ class ExactReference:
     card_number: str
     variant: str
     language: str
+    condition: str | None = None
     grading_company: str | None = None
     grade: str | None = None
     # A slab-specific photo is never a canonical reference artwork asset.
@@ -154,6 +155,8 @@ def plan_collection(reference: ExactReference) -> dict[str, Any]:
             "can_publish_artwork": False,
         })
     for source in _INFO_BY_GAME.get(reference.game_code, ()):
+        if source == "PUNK_RECORDS" and _clean(reference.language) != "japanese":
+            continue  # This first connector cohort is Japanese only.
         add(source, EvidenceKind.CARD_INFO, "Canonical identity review; no automatic remapping")
     for source in _ART_BY_GAME.get(reference.game_code, ()):
         if source == "PUNK_RECORDS" and _clean(reference.language) != "japanese":
@@ -219,10 +222,11 @@ def classify_candidate(
             or _clean(candidate.get("grade")) != _clean(reference.grade)
         ):
             return {"status": "REJECTED_GRADE_MISMATCH", "publish": False}
-        if not reference.grading_company and _clean(candidate.get("condition")) not in {
-            "near mint", "lightly played", "moderately played", "heavily played", "damaged"
-        }:
-            return {"status": "REJECTED_UNKNOWN_CONDITION", "publish": False}
+        if not reference.grading_company and (
+            not reference.condition
+            or _clean(candidate.get("condition")) != _clean(reference.condition)
+        ):
+            return {"status": "REJECTED_UNKNOWN_OR_MISMATCHED_CONDITION", "publish": False}
         # Existing sold normalization/pricing must still verify sale, price and
         # condition; this layer grants no authority to a transcribed claim.
         return {"status": "REVIEW_IN_EXISTING_SOLD_ENGINE", "publish": False}
