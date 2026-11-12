@@ -63,6 +63,7 @@ from .market_provider_probe import router as market_provider_probe_router
 from .market_smoke import router as market_smoke_router
 from .pricing import router as pricing_router
 from .pricing_health import router as pricing_health_router
+from .market_value_work_queue import router as market_value_work_queue_router
 from .live_market_refresh import run_live_market_refresh
 from .payout_preferences import router as payout_preferences_router
 from .owner_login import router as owner_login_router
@@ -507,6 +508,7 @@ def create_app() -> FastAPI:
     app.include_router(refunds_router)
     app.include_router(pricing_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(pricing_health_router)
+    app.include_router(market_value_work_queue_router)
     app.include_router(payout_preferences_router)
     app.include_router(owner_login_router)
     app.include_router(owner_portal_api_router)
