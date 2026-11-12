@@ -63,6 +63,8 @@
     metrics.id = "pricing-health-metrics";
     const sources = element("div", "pricing-health-sources");
     sources.id = "pricing-health-sources";
+    const backlog = element("div", "pricing-health-sources");
+    backlog.id = "pricing-health-backlog";
     const alerts = element("div", "pricing-health-alerts");
     alerts.id = "pricing-health-alerts";
     const updated = element("p", "muted pricing-health-time", "No live check completed yet.");
@@ -70,6 +72,7 @@
     panel.append(heading,
       element("p", "muted", "Live from Supabase Pro · Refreshes every 60 seconds while open. Stored values are not necessarily UK sold-price verified."),
       banner, metrics, element("h3", "pricing-health-subheading", "Source health"), sources,
+      element("h3", "pricing-health-subheading", "Catalogue valuation backlog"), backlog,
       element("h3", "pricing-health-subheading", "Action required"), alerts, updated);
     if (ownerMode()) {
       panel.hidden = true;
@@ -117,13 +120,17 @@
     try {
       // This is the existing source/printing-specific coverage calculation,
       // never a proxy based on the 617 owned physical inventory items.
-      const result = await apiRequest("/api/v1/catalogue-browser/coverage");
+      const [result, workQueue] = await Promise.all([
+        apiRequest("/api/v1/catalogue-browser/coverage"),
+        apiRequest("/api/v1/pricing/coverage-work-queue"),
+      ]);
       if (version !== catalogueGeneration || user !== currentUser() || !visible()) return;
       if (result?.summary?.physical_cards &&
           Number.isSafeInteger(result.summary.physical_cards.total) &&
           Number.isSafeInteger(result.summary.physical_cards.priced)) {
         catalogueCoverage = result;
       }
+      renderCoverageBacklog(workQueue);
     } catch (_) {
       // Source availability and live pricing health remain independently visible.
     } finally {
@@ -133,6 +140,44 @@
         if (old && visible()) old.replaceWith(catalogueMetric());
       }
     }
+  }
+
+  function renderCoverageBacklog(data) {
+    const target = document.getElementById("pricing-health-backlog");
+    if (!target || !data) return;
+    const rows = document.createDocumentFragment();
+    const legacy = data.legacy_sql || {};
+    const r2 = data.r2_first || {};
+    rows.append(sourceRow(
+      "Original SQL catalogue",
+      "GUIDE_INCLUSIVE_NOT_SOLD_VERIFIED",
+      count(legacy.references) + " card references · " +
+      count(legacy.missing_or_ineligible_reference_prices) +
+      " missing current eligible reference prices · " +
+      count(legacy.guide_inclusive_current_reference_prices) +
+      " with guides/quotes (NOT verified UK sold valuations)"
+    ));
+    rows.append(sourceRow(
+      "Newer catalogues (R2-first)",
+      "NOT_MEASURED",
+      count(r2.stored_references_including_other_collectibles) +
+      " published references (includes figures/sports) · " +
+      "Market Value coverage NOT MEASURED, not assumed zero"
+    ));
+    for (const item of (data.groups || []).slice(0, 7)) {
+      const status = item.market_value_coverage === "NOT_MEASURED"
+        ? "SOURCE_ACCESS_REQUIRED" : item.priority || "REVIEW";
+      const volume = item.reference_prices_missing == null
+        ? count(item.reference_count) + " stored references · Market Value unmeasured"
+        : count(item.reference_prices_missing) + " missing current reference prices";
+      rows.append(sourceRow(
+        String(item.game || "Card game") +
+          (item.language ? " · " + item.language : ""),
+        status,
+        volume + " · " + (item.next_action || "Check exact source evidence")
+      ));
+    }
+    target.replaceChildren(rows);
   }
 
   function render(data) {
@@ -196,7 +241,7 @@
     panel.hidden = ownerMode();
     document.getElementById("pricing-health-banner").textContent =
       "Sign in as an approved founder to view pricing health.";
-    for (const id of ["pricing-health-metrics","pricing-health-sources","pricing-health-alerts"]) {
+    for (const id of ["pricing-health-metrics","pricing-health-sources","pricing-health-backlog","pricing-health-alerts"]) {
       document.getElementById(id)?.replaceChildren();
     }
   }
