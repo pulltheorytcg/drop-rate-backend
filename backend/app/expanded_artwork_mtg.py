@@ -24,7 +24,7 @@ from .r2_first_sources import SourceError
 _SCRYFALL_FRONT = re.compile(
     r"https://cards\.scryfall\.io/(?:normal|large)/front/"
     r"([0-9a-f])/([0-9a-f])/([0-9a-f]{8}-[0-9a-f]{4}-"
-    r"[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jpg\Z"
+    r"[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jpg(?:\?[0-9]{1,20})?\Z"
 )
 _ALLOWED_FINISHES = frozenset({"foil", "nonfoil", "etched"})
 
