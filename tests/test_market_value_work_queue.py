@@ -49,15 +49,19 @@ def test_queue_reports_source_and_language_gaps_without_invented_r2_valuation():
     assert out["price_definition"]=="ACTUAL_UK_COMPLETED_SALES_ONLY"
     assert out["legacy_sql"]=={
         "references":30179,"guide_inclusive_current_reference_prices":11500,
-        "missing_or_ineligible_reference_prices":18679,"verified_uk_sold_coverage":None}
+        "missing_or_ineligible_reference_prices":18679,"verified_uk_sold_coverage":None,
+        "sealed_references":300,"sealed_current_reference_prices":0,
+        "sealed_missing_reference_prices":300}
     assert out["r2_first"]["stored_references_including_other_collectibles"]==192304
-    assert out["groups_count"] == 9
+    assert out["groups_count"] == 10
     assert out["total_stored_references"]==269599
     assert any(x["game"]=="Yu-Gi-Oh!" for x in out["groups"])
     assert any(x["game"]=="Disney Lorcana" for x in out["groups"])
     assert any(x["game"]=="Magic: The Gathering" for x in out["groups"])
     assert any(x["game"]=="Sports Cards" for x in out["groups"])
     assert any(x["game"]=="Figures" for x in out["groups"])
+    assert any(x["catalogue_tier"]=="SQL_SEALED" and x["reference_count"]==300
+               for x in out["groups"])
     assert any(x["game"]=="Riftbound" and x["catalogue_tier"]=="UNPUBLISHED" for x in out["groups"])
     for group in out["groups"]:
         assert group["market_value_must_be_sold_backed"] is True
@@ -88,11 +92,20 @@ def test_no_partitions_and_empty_catalogue_do_not_invent_coverage():
 @pytest.mark.asyncio
 async def test_founder_route_is_readonly_and_reuses_existing_coverage_cache(monkeypatch):
     events=[]
+    class Connection:
+        async def fetch(self,sql):
+            assert sql == work.CANONICAL_PRODUCT_SQL
+            events.append("canonical_counts")
+            return [
+              {"product_type":"COMIC","game":"Manga","product_count":805},
+              {"product_type":"COMIC","game":"Marvel Comics","product_count":138},
+              {"product_type":"FIGURE","game":"Figures","product_count":2},
+            ]
     @asynccontextmanager
     async def scoped(pool,user_id,request_id,*,readonly_snapshot=False):
         assert readonly_snapshot is True and user_id == ACTOR
         events.append("readonly")
-        yield object()
+        yield Connection()
     async def founder(conn):
         events.append("founder")
         return {"business_allowed":True}
@@ -106,8 +119,11 @@ async def test_founder_route_is_readonly_and_reuses_existing_coverage_cache(monk
     req=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),
         state=SimpleNamespace(request_id="market-queue-test"))
     result=await work.market_value_coverage_queue(req,SimpleNamespace(user_id=ACTOR))
-    assert result["groups_count"]==9
-    assert events==["readonly","founder","cached_coverage"]
+    assert result["groups_count"]==13
+    assert result["canonical_non_card_products"]["catalogue_rows"]==945
+    assert any(x["game"]=="Manga" for x in result["groups"])
+    assert any(x["game"]=="Marvel Comics" for x in result["groups"])
+    assert events==["readonly","founder","canonical_counts","cached_coverage"]
 
 
 @pytest.mark.asyncio
