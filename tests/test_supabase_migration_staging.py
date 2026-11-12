@@ -287,3 +287,14 @@ def test_pooler_setup_rejects_line_breaks_before_exporting_credentials(
         assert "Database password must not contain a newline" in result.stderr
         assert result.stdout == ""
         assert not env_file.exists()
+
+
+def test_database_only_migration_workflow_uses_explicit_authenticated_target() -> None:
+    workflow = WORKFLOW.read_text()
+    assert "supabase link --project-ref" not in workflow
+    assert "SUPABASE_ACCESS_TOKEN:" not in workflow
+    assert 'test -n "${SUPABASE_DB_PASSWORD}"' in workflow
+    assert 'supabase migration list --db-url "${SUPABASE_POOLER_URL}"' in workflow
+    assert 'supabase db push --dry-run --db-url "${SUPABASE_POOLER_URL}"' in workflow
+    assert 'supabase db push --db-url "${SUPABASE_POOLER_URL}"' in workflow
+    assert "environment: production" in workflow
