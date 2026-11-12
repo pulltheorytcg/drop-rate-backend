@@ -722,10 +722,16 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
                   or (r.number_key is null and lower(regexp_replace({legacy_number},'[^A-Za-z0-9]','','g'))={key})
                   {parallel})"""
         else:
-            terms = bind(q.strip().split())
-            text_match = f"""not exists (
-                select 1 from unnest({terms}::text[]) term where strpos(lower(concat_ws(' ',
-                e.name,e.set_name,e.card_number,e.game,e.variant,e.language,e.rarity)),lower(term))=0)"""
+            words = q.strip().split()
+            terms = bind(words)
+            # A correlated anti-join over unnest prevents PostgreSQL from
+            # pushing literal terms into the catalogue union before enrichment.
+            # Keep the same all-terms semantics with bound array subscripts.
+            searchable = "lower(concat_ws(' ',e.name,e.set_name,e.card_number,e.game,e.variant,e.language,e.rarity))"
+            text_match = "(" + " and ".join(
+                f"strpos({searchable},lower(({terms}::text[])[{index}]))>0"
+                for index in range(1, len(words)+1)
+            ) + ")"
             where.append(f"({number_match} or {text_match})")
         if sort in ("newest", "oldest", "name", "name_desc", "number"):
             exact_query = bind(q.strip().lower())

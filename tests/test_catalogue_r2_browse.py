@@ -215,7 +215,7 @@ def test_game_scoped_text_search_shortlists_all_exact_printings_without_prices()
     selected=json.loads(args[-1])
     assert {row['provider_id'] for row in selected}=={'OP15-001','OP15-001_p1'}
     assert all('market_value_minor' not in row and 'owner_id' not in row for row in selected)
-    assert 'where e.system_code=any($2::text[]) and (false or not exists (' in sql
+    assert 'where e.system_code=any($2::text[]) and (false or (strpos(' in sql
     assert 'tcg.reference_market_prices' in sql and 'tcg.inventory_items' in sql
     # Price overlays and SQL ordering remain authoritative after full shortlist.
     assert 'order by case when false then 0 when lower(e.name)=$4' in sql
@@ -337,3 +337,15 @@ def test_filtered_value_sort_applies_exact_set_and_provider_before_price_ranking
     _,args=indexed_value_sql(query,params,idx,filter_system=True)
     ids=args[len(params)+[name for name,_ in _STATIC_COLUMNS].index('provider_id')]
     assert sorted(ids)==['OP15-001','OP15-001_p1']
+
+
+def test_literal_shortlist_rejects_a_changed_complete_where_contract():
+    from uuid import uuid4
+    from app.catalogue_r2_browse import indexed_catalogue_query
+    idx=build_browse_index(fixture(),today=date(2026,10,30))
+    query,params=product_query(owner_id=uuid4(),q='Krieg',limit=9)
+    changed=query.replace('where (false or (strpos(', 'where (true or (strpos(',1)
+    with pytest.raises(ValueError):indexed_catalogue_query(changed,params,idx)
+    changed=query.replace(')>0)) order by', ')>0)) or true order by',1)
+    assert changed!=query
+    with pytest.raises(ValueError):indexed_catalogue_query(changed,params,idx)

@@ -555,7 +555,11 @@ def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidat
                                 and not any(c.isdigit() for c in t)
                                 for t in params[1])
           and isinstance(params[2],str) and params[2].isascii()
-          and "where (false or not exists (" in tail):
+          and "where (false or (strpos(" in tail):
+        from .catalogue_browser import product_query
+        if product_query(owner_id=params[0],q=' '.join(params[1]),
+                         limit=limit-1,offset=offset)!=(query,params):
+            raise ValueError("Unverified R2 literal search predicate")
         mode="SEARCH_TEXT"
         tokens=[term.lower() for term in params[1]]
         rows=[]
@@ -569,11 +573,11 @@ def indexed_catalogue_query(query, params, snapshot, *, owned=None, max_candidat
                     raise ValueError("Search result exceeds bounded R2 shortlist")
     elif (len(params) == 6 and isinstance(params[1], list)
           and isinstance(params[2], list)
-          and ' and (false or not exists (' in tail):
+          and ' and (false or (strpos(' in tail):
         mode='SEARCH_SYSTEM_TEXT'
         rows=_system_text_search_page(query,params,snapshot,
                                       max_candidates=max_candidates)
-    elif 6<=len(params)<=9 and ' and (false or not exists (' in tail:
+    elif 6<=len(params)<=9 and ' and (false or (strpos(' in tail:
         mode='SEARCH_CATEGORY_TEXT'
         rows=_category_text_search_page(query,params,snapshot,
                                         max_candidates=max_candidates)
