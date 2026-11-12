@@ -31,7 +31,18 @@ def _kind(system: str) -> str:
         "NARUTO_BANDAI_LEGACY": "Naruto Legacy",
     }.get(system, system)
 
-def build_market_coverage_work_queue(coverage: dict[str, Any]) -> dict[str, Any]:
+CANONICAL_PRODUCT_SQL = """
+select product_type,game,count(*)::integer as product_count
+from tcg.catalogue_products
+where product_type in ('COMIC','SEALED','FIGURE','COLLECTION')
+group by product_type,game
+order by product_count desc
+"""
+
+
+def build_market_coverage_work_queue(
+    coverage: dict[str, Any], *, canonical_counts: list[dict] | None = None,
+) -> dict[str, Any]:
     """Make an exhaustive and evidence-honest per-source backlog.
 
     SQL priced reference counts can include guides; they are never upgraded
@@ -43,20 +54,22 @@ def build_market_coverage_work_queue(coverage: dict[str, Any]) -> dict[str, Any]
     rows: list[dict[str, Any]] = []
     legacy_totals = Counter()
     for src in summary.get("by_game") or []:
-        if not isinstance(src, dict) or src.get("kind") != "CARD":
+        if not isinstance(src, dict) or src.get("kind") not in {"CARD", "SEALED"}:
             continue
         statuses = src.get("status_counts") or {}
         if not isinstance(statuses, dict):
             continue
-        digital = _count(statuses.get("NOT_APPLICABLE_DIGITAL"))
+        is_card = src["kind"] == "CARD"
+        digital = _count(statuses.get("NOT_APPLICABLE_DIGITAL")) if is_card else 0
         total = max(0, _count(src.get("total")) - digital)
         if not total:
             continue
         priced = min(total, _count(src.get("priced")))
         missing = total - priced
-        legacy_totals["tracked"] += total
-        legacy_totals["guide_inclusive_current"] += priced
-        legacy_totals["missing_reference_evidence"] += missing
+        prefix = "cards" if is_card else "sealed"
+        legacy_totals[prefix + "_tracked"] += total
+        legacy_totals[prefix + "_guide_inclusive_current"] += priced
+        legacy_totals[prefix + "_missing_reference_evidence"] += missing
         reason = sorted(
             ((code, _count(n)) for code, n in statuses.items()
              if code not in {"REFERENCE_AVAILABLE","NOT_APPLICABLE_DIGITAL"}
@@ -64,7 +77,8 @@ def build_market_coverage_work_queue(coverage: dict[str, Any]) -> dict[str, Any]
             key=lambda pair: (-pair[1], pair[0]),
         )
         rows.append({
-            "catalogue_tier": "SQL_LEGACY",
+            "catalogue_tier": "SQL_LEGACY" if is_card else "SQL_SEALED",
+            "product_type": "CARD" if is_card else "SEALED",
             "game": _kind(str(src.get("system_code") or "")),
             "system_code": src.get("system_code"),
             "language": src.get("language"),
@@ -113,6 +127,30 @@ def build_market_coverage_work_queue(coverage: dict[str, Any]) -> dict[str, Any]
             "next_action": "Verify exact source/printing, then obtain permitted UK paid sales; no RRP or asking-price fallback",
             "market_value_must_be_sold_backed": True,
         })
+    for src in canonical_counts or []:
+        if not isinstance(src, dict):
+            continue
+        product_type = str(src.get("product_type") or "")
+        game = str(src.get("game") or "")
+        count = _count(src.get("product_count"))
+        if product_type not in {"COMIC","SEALED","FIGURE","COLLECTION"} or not count:
+            continue
+        rows.append({
+            "catalogue_tier": "CANONICAL_PRODUCTS",
+            "product_type": product_type,
+            "game": game,
+            "system_code": None,
+            "language": None,
+            "reference_count": count,
+            "current_reference_prices": None,
+            "reference_prices_missing": None,
+            "market_value_coverage": "NOT_MEASURED",
+            "priority": "SOURCE_ACCESS_REQUIRED",
+            "largest_blocker": "EXACT_PRODUCT_SALE_EVIDENCE_REQUIRED",
+            "largest_blocker_count": None,
+            "next_action": "Use exact edition/issue/printing, then obtain approved actual paid-sale evidence",
+            "market_value_must_be_sold_backed": True,
+        })
     for source in context.get("unpublished_tcg_games") or []:
         if not isinstance(source, dict):
             continue
@@ -144,10 +182,18 @@ def build_market_coverage_work_queue(coverage: dict[str, Any]) -> dict[str, Any]
         "total_stored_references": context.get("stored_physical_tcg_references"),
         "reference_count_includes_unreleased_printings": True,
         "legacy_sql": {
-            "references": legacy_totals["tracked"],
-            "guide_inclusive_current_reference_prices": legacy_totals["guide_inclusive_current"],
-            "missing_or_ineligible_reference_prices": legacy_totals["missing_reference_evidence"],
+            "references": legacy_totals["cards_tracked"],
+            "guide_inclusive_current_reference_prices": legacy_totals["cards_guide_inclusive_current"],
+            "missing_or_ineligible_reference_prices": legacy_totals["cards_missing_reference_evidence"],
             "verified_uk_sold_coverage": None,
+            "sealed_references": legacy_totals["sealed_tracked"],
+            "sealed_current_reference_prices": legacy_totals["sealed_guide_inclusive_current"],
+            "sealed_missing_reference_prices": legacy_totals["sealed_missing_reference_evidence"],
+        },
+        "canonical_non_card_products": {
+            "catalogue_rows": sum(_count(x.get("product_count")) for x in (canonical_counts or [])
+                                   if isinstance(x, dict)),
+            "market_value_coverage": "NOT_MEASURED",
         },
         "r2_first": {
             "stored_references_including_other_collectibles": r2_totals["tracked"],
@@ -173,9 +219,10 @@ async def market_value_coverage_queue(
         readonly_snapshot=True,
     ) as connection:
         await require_business_founder(connection)
+        canonicals = [dict(row) for row in await connection.fetch(CANONICAL_PRODUCT_SQL)]
     # Reuses the existing coalesced (2-minute) SQL+R2 publication report.
     # No whole-catalogue R2 object hydration; no additional expensive scan.
     existing = await shared_price_coverage(
         request.app.state.db_pool,user.user_id,request.state.request_id
     )
-    return jsonable_encoder(build_market_coverage_work_queue(existing))
+    return jsonable_encoder(build_market_coverage_work_queue(existing,canonical_counts=canonicals))
