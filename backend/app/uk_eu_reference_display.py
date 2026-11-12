@@ -207,6 +207,10 @@ async def add_uk_eu_estimates(connection, rows, *, now=None):
                           and q.get("source") == "TCGDEX_CARDMARKET" and isinstance(q.get("finish"), str)}
         has_guide = any(cardmarket_model_guide(guide_reference, finish, now=now)
                         for finish in guide_finishes)
+        # The founder-selected asking market model now fills Market Value.
+        # Do not append a second guide-derived "estimate" to that same row.
+        if row.get("market_value_basis") == "CURRENT_UK_ACTIVE_ASKING_LISTINGS":
+            continue
         if (row.get("provider") == "TCGdex" and row.get("source_kind", "REFERENCE") == "REFERENCE"
                 and row.get("product_type", "CARD") == "CARD"
                 and not row.get("grading_company") and not row.get("grade") and not row.get("seal_status")
