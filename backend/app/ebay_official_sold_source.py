@@ -274,3 +274,83 @@ def normalize_marketplace_insights(
             "status": "CANDIDATES_REQUIRE_INDEPENDENT_REVIEW",
             "partner_access_asserted_in_configuration": True,
             "can_publish_market_value": False}
+
+
+
+def preview_verified_sold_market_value(
+    normalized: dict, *, target: dict[str, Any], as_of: datetime,
+) -> dict[str, Any]:
+    """Run existing v4 deterministic engine for five distinct sale candidates.
+
+    Never writes any price, and a provider candidate alone can *never*
+    authorise a public Market Value: external permission, actual amounts,
+    exact printing and business review are independent release gates.
+    """
+    from .pricing_engine import ComparableTarget, MarketObservation, PricingPolicy, calculate_price
+
+    rows = normalized.get("observations") if isinstance(normalized, dict) else None
+    if not isinstance(rows, list) or len(rows) < 5:
+        return {"status": "INSUFFICIENT_VERIFIED_SALES", "candidate_market_value_minor": None,
+                "verified_sale_count": len(rows) if isinstance(rows, list) else 0,
+                "persisted": False, "publishable": False}
+    if any(not isinstance(row, NormalizedMarketObservation)
+           or row.source != "EBAY"
+           or row.observation_type != "SOLD"
+           or row.source_country != "GB"
+           or row.currency != "GBP"
+           or row.metadata.get("access_method") != SOURCE_ACCESS
+           or row.metadata.get("provider_evidence", {}).get("normalization_revision") != NORMALIZATION_REVISION
+           or row.metadata.get("provider_evidence", {}).get("partner_approval_reference") is None
+           or row.catalogue_id != str(target.get("catalogue_id"))
+           for row in rows):
+        raise ValueError("Untrusted or mixed-source evidence cannot enter sold-price preview")
+    if len({row.source_record_key for row in rows}) != len(rows):
+        return {"status": "DUPLICATE_SALE_EVIDENCE", "candidate_market_value_minor": None,
+                "verified_sale_count": len({row.source_record_key for row in rows}),
+                "persisted": False, "publishable": False}
+    if (not isinstance(as_of, datetime) or as_of.utcoffset() is None
+            or max(row.observed_at for row in rows) < as_of - timedelta(days=7)):
+        return {"status": "STALE_SOLD_EVIDENCE", "candidate_market_value_minor": None,
+                "verified_sale_count": len(rows),
+                "persisted": False, "publishable": False}
+    physical = ComparableTarget(
+        condition=target.get("condition"),
+        grading_company=target.get("grading_company"),
+        grade=target.get("grade"),
+        language=target.get("language"),
+        seal_status=target.get("seal_status"),
+    )
+    observations = [
+        MarketObservation(
+            source=o.source, observation_type=o.observation_type,
+            observed_at=o.observed_at, price_gbp_minor=o.price_gbp_minor,
+            condition=o.condition, grading_company=o.grading_company,
+            grade=o.grade, language=o.language, seal_status=o.seal_status,
+            source_country=o.source_country, source_record_key=o.source_record_key,
+            sample_size=1, evidence_quality=o.evidence_quality,
+        ) for o in rows
+    ]
+    try:
+        result = calculate_price(
+            observations, target=physical, policy=PricingPolicy(),
+            current_store_price_minor=None, as_of=as_of)
+    except ValueError:
+        return {"status": "COMPARABILITY_BLOCKED", "candidate_market_value_minor": None,
+                "verified_sale_count": 0, "persisted": False, "publishable": False}
+    if result.sold_observation_count < 5:
+        return {"status": "INSUFFICIENT_POST_FILTER_SALES", "candidate_market_value_minor": None,
+                "verified_sale_count": result.sold_observation_count,
+                "persisted": False, "publishable": False}
+    return {
+        "status": "REVIEW_REQUIRED",
+        "candidate_market_value_minor": result.market_value_minor,
+        "verified_sale_count": result.sold_observation_count,
+        "algorithm_version": result.algorithm_version,
+        "confidence": result.confidence,
+        "volatility_pct": result.volatility_pct,
+        "block_reasons": list(result.block_reasons),
+        "persisted": False,
+        "publishable": False,
+        "store_price_changed": False,
+        "shopify_changed": False,
+    }
