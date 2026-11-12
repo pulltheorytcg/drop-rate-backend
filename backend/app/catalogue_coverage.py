@@ -101,6 +101,9 @@ COVERAGE_SQL = f'''with coverage as (
             and (q->>'observed_at')::timestamptz>=now()-interval '14 days'
         ) then 'REFERENCE_AVAILABLE'
         when p.market_value_minor>0 and (p.pricing_updated_at>=now()-interval '7 days' and p.expires_at>now()) then 'MIXED_LANGUAGE_GUIDE'
+        -- Founder-approved asking-based market model: exact UK Browse listings,
+        -- independent sellers and unchanged printing identity. Not sold proof.
+        when a.provider_id is not null then 'ASKING_BASED_MARKET_VALUE'
         when p.market_value_minor>0 and (p.expires_at is null or p.expires_at<=now()) then 'STALE_EVIDENCE'
         when b.market_value_minor>0 and (b.expires_at is null or b.expires_at<=now()) then 'STALE_EVIDENCE'
         when b.market_value_minor>0
@@ -168,7 +171,7 @@ from coverage group by kind,system_code,language,status order by kind,system_cod
 # Explicitly track own validated model calculations; never report these as sold.
 # MIXED_LANGUAGE_GUIDE and asking estimates are not confirmed market values.
 # REFERENCE_AVAILABLE means at least one qualifying quote, not all variants.
-PRICED_REFERENCE_STATUSES = frozenset({"REFERENCE_AVAILABLE"})
+PRICED_REFERENCE_STATUSES = frozenset({"REFERENCE_AVAILABLE", "ASKING_BASED_MARKET_VALUE"})
 PROVISIONAL_REFERENCE_STATUSES = frozenset({"DROP_RATE_CALCULATED_VALUE"})
 PHYSICAL_CARD_COVERAGE_TARGET_BPS = 8900  # Current founder goal: 89%, exact integer threshold
 # Actions describe the needed evidence, not a guarantee that it can be bought
@@ -198,6 +201,7 @@ def coverage_summary(rows):
     by_status = {}
     digital_cards = 0
     provisional_cards = 0
+    asking_backed_cards = 0
     asking_by_game = {}
     for row in rows:
         kind = row["kind"]
@@ -211,6 +215,8 @@ def coverage_summary(rows):
             digital_cards += count
         if kind == "CARD" and status in PROVISIONAL_REFERENCE_STATUSES:
             provisional_cards += count
+        if kind == "CARD" and status == "ASKING_BASED_MARKET_VALUE":
+            asking_backed_cards += count
         priced = count if status in PRICED_REFERENCE_STATUSES else 0
         asking_count = int(row.get("asking_estimates", 0))
         if asking_count < 0 or asking_count > count:
@@ -299,6 +305,15 @@ def coverage_summary(rows):
             "verified_coverage_eligible": False,
             "physical_valuation_eligible": False,
         },
+        "asking_based_market_values": {
+            "scope": "CANONICAL_PHYSICAL_REFERENCE_PRINTINGS_ONLY",
+            "count": asking_backed_cards,
+            "source": "EBAY_OFFICIAL_BROWSE",
+            "method_version": "DROP_RATE_UK_ASKING_MARKET_V1",
+            "basis": "CURRENT_UK_ACTIVE_ASKING_LISTINGS",
+            "verified_completed_sale_count": 0,
+            "physical_copy_price_published": False,
+        },
         "asking_price_estimates": {
             "scope": "OTHERWISE_UNPRICED_PHYSICAL_REFERENCE_CARDS",
             "count": asking_total,
@@ -340,9 +355,10 @@ def coverage_summary(rows):
             "priced_statuses": sorted(PRICED_REFERENCE_STATUSES),
             "by_game_language": target_by_game,
             "disclaimer": (
-                "This counts supported dated GBP reference values or explicitly labelled guides. "
-                "A guide is not an exact UK sold valuation; internal model estimates and "
-                "digital Pocket records are excluded."
+                "This counts dated GBP reference prices, including independent-seller asking-derived "
+                "Market Values when the exact UK listing evidence is live. Asking prices and guides "
+                "are not confirmed completed sales or grade-specific physical-copy valuations. "
+                "Digital Pocket records are excluded."
             ),
         },
         "by_game": [
