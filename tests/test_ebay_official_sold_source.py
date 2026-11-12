@@ -8,7 +8,7 @@ import pytest
 
 from app.ebay_official_sold_source import (
     MarketplaceInsightsApproval, OfficialMarketplaceInsightsClient,
-    NORMALIZATION_REVISION, normalize_marketplace_insights,
+    NORMALIZATION_REVISION, normalize_marketplace_insights, preview_verified_sold_market_value,
 )
 from app.ebay_official_client import EbayOfficialClient, EbayApiError
 from app.pricing_engine import ComparableTarget, MarketObservation, PricingPolicy, calculate_price
@@ -190,3 +190,37 @@ def test_incomplete_printing_or_page_does_not_guess():
     with pytest.raises(ValueError):
         normalize_marketplace_insights({"itemSales":[]},target=target(),approval=APPROVED,
            category_id="183454",now=NOW.replace(tzinfo=None))
+
+
+
+def test_preview_reuses_deterministic_engine_but_never_publishes_real_price():
+    normalized=transform([sale(i) for i in range(5)])
+    result=preview_verified_sold_market_value(normalized,target=target(),as_of=NOW)
+    assert result["status"] == "REVIEW_REQUIRED"
+    assert result["candidate_market_value_minor"] is not None
+    assert result["verified_sale_count"] == 5
+    assert result["algorithm_version"] == "drop-rate-market-v4"
+    assert result["persisted"] is False
+    assert result["publishable"] is False
+    assert result["store_price_changed"] is False
+    assert result["shopify_changed"] is False
+
+
+def test_preview_requires_five_distinct_and_recent_true_sale_rows():
+    fewer=transform([sale(i) for i in range(4)])
+    result=preview_verified_sold_market_value(fewer,target=target(),as_of=NOW)
+    assert result["status"] == "INSUFFICIENT_VERIFIED_SALES"
+    assert result["candidate_market_value_minor"] is None
+    old=transform([sale(i+30) for i in range(5)])
+    result=preview_verified_sold_market_value(old,target=target(),as_of=NOW)
+    assert result["status"] == "STALE_SOLD_EVIDENCE"
+    assert result["candidate_market_value_minor"] is None
+    valid=transform([sale(i) for i in range(5)])
+    duplicated={**valid,"observations":valid["observations"][:-1]+[valid["observations"][0]]}
+    result=preview_verified_sold_market_value(duplicated,target=target(),as_of=NOW)
+    assert result["status"] == "DUPLICATE_SALE_EVIDENCE"
+    assert result["candidate_market_value_minor"] is None
+    alien={**valid,"observations":[*valid["observations"]]}
+    alien["observations"][0].metadata["provider_evidence"]["normalization_revision"]="UNKNOWN_SOURCE"
+    with pytest.raises(ValueError):
+        preview_verified_sold_market_value(alien,target=target(),as_of=NOW)
