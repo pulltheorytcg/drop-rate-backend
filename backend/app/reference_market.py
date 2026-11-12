@@ -36,6 +36,7 @@ READ_SQL = """
 select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key,
        r.provider,r.system_code,r.language,r.provider_id,r.set_id,r.name,r.card_number,
        s.name as set_name,c.quotes,c.checked_at,c.expires_at,c.refresh_revision,
+       nullif(to_jsonb(c)->>'retry_after','')::timestamptz as retry_after,
        b.quotes as catalogue_quotes,b.expires_at as catalogue_expires_at
 from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
 left join tcg.reference_market_prices c using(provider,system_code,language,provider_id)
@@ -47,22 +48,22 @@ where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('En
 WRITE_SQL = """
 insert into tcg.reference_market_prices
  (provider,system_code,language,provider_id,quotes,market_value_minor,market_value_high_minor,
-  pricing_updated_at,checked_at,expires_at,refresh_revision)
-values($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,3)
+  pricing_updated_at,checked_at,expires_at,refresh_revision,retry_after)
+values($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,3,null)
 on conflict(provider,system_code,language,provider_id) do update
 set quotes=excluded.quotes,market_value_minor=excluded.market_value_minor,
     market_value_high_minor=excluded.market_value_high_minor,
     pricing_updated_at=excluded.pricing_updated_at,checked_at=excluded.checked_at,expires_at=excluded.expires_at,
-    refresh_revision=excluded.refresh_revision
+    refresh_revision=excluded.refresh_revision,retry_after=null
 where tcg.reference_market_prices.checked_at<=excluded.checked_at
 """
 FAILED_REFRESH_SQL = """
 insert into tcg.reference_market_prices
  (provider,system_code,language,provider_id,quotes,market_value_minor,market_value_high_minor,
-  pricing_updated_at,checked_at,expires_at,refresh_revision)
-values($1,$2,$3,$4,'[]'::jsonb,null,null,null,$5,$6,3)
+  pricing_updated_at,checked_at,expires_at,refresh_revision,retry_after)
+values($1,$2,$3,$4,'[]'::jsonb,null,null,null,$5,$6,3,$6)
 on conflict(provider,system_code,language,provider_id) do update
-set checked_at=excluded.checked_at,expires_at=excluded.expires_at
+set retry_after=excluded.retry_after
 where tcg.reference_market_prices.checked_at<=excluded.checked_at
 """
 
@@ -140,7 +141,16 @@ def ambiguous_ids(variants, marketplace):
     return {key for key,values in identities.items() if len(values)>1}
 
 
-async def tcgdex_quotes(payload: dict, reference: dict, fx, *, now: datetime, language="English") -> list[dict]:
+def regional_sale(original_minor, conversion, field, region):
+    amount = int((Decimal(original_minor) * conversion.rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    if amount <= 0:
+        raise ValueError("Regional amount below one penny")
+    return dict(original_minor=original_minor, price_gbp_minor=amount, source_field=field, region=region,
+                fx_rate_to_gbp=str(conversion.rate), fx_source=conversion.source,
+                fx_effective_at=conversion.effective_at.isoformat(), physical_valuation_eligible=False)
+
+
+async def tcgdex_quotes(payload: dict, reference: dict, fx, *, now: datetime, language="English", regional_us=False) -> list[dict]:
     # The request locale is part of identity, not inferred from translated names.
     if (reference.get("provider") != "TCGdex" or reference.get("system_code") != "POKEMON_TCG"
             or language not in LOCALES or reference.get("language") != language):
@@ -210,6 +220,14 @@ async def tcgdex_quotes(payload: dict, reference: dict, fx, *, now: datetime, la
                    "fx_rate_to_gbp": str(conversion.rate), "fx_source": conversion.source,
                    "fx_effective_at": conversion.effective_at.isoformat(),
                    "fx_retrieved_at": conversion.retrieved_at.isoformat()}
+            # Only the seven-day sale average can supply a regional catalogue value.
+            sales_field = field.replace("trend", "avg7")
+            if market.get(sales_field) and observed <= now:
+                try:
+                    sale_minor = _minor(market[sales_field])
+                    row["regional_sale"] = regional_sale(sale_minor, conversion, sales_field, "EU")
+                except (ValueError, InvalidOperation):
+                    pass
         except (ValueError, TypeError, InvalidOperation, AttributeError):
             continue
         # A broad printing with two different treatments of the same finish is
@@ -251,6 +269,12 @@ async def tcgdex_quotes(payload: dict, reference: dict, fx, *, now: datetime, la
                    "variant_label": ' · '.join(filter(None,(finish_label,treatment))),
                    "original_minor": _minor(price.get("marketPrice")), "observed_at": observed.isoformat(),
                    "valuation_role": "US_CONTEXT_ONLY", "reference_language": language}
+            if regional_us and observed <= now:
+                try:
+                    conversion = await fx.quote(base_currency="USD", quote_currency="GBP", at=observed)
+                    row["regional_sale"] = regional_sale(row["original_minor"], conversion, "marketPrice", "US")
+                except (ValueError, RuntimeError, httpx.HTTPError, InvalidOperation):
+                    pass
         except (ValueError, TypeError, InvalidOperation, AttributeError):
             continue
         if key in support and support[key] != row:
@@ -357,7 +381,7 @@ async def fetch_quotes(client, reference, fx, *, now):
     payload = json.loads(body)
     if not isinstance(payload, dict):
         raise ValueError("Invalid provider response")
-    return await tcgdex_quotes(payload, reference, fx, now=now, language=reference["language"])
+    return await tcgdex_quotes(payload, reference, fx, now=now, language=reference["language"], regional_us=True)
 
 
 async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *, fx_provider=None, force=False) -> list[dict]:
@@ -368,13 +392,12 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *
     async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
         async def refresh(reference):
             previous = reference.get("quotes") or []
-            checked, expires = reference.get("checked_at"), reference.get("expires_at")
-            # Failed or empty refreshes leave the evidence revision alone.
-            # Their retry interval also applies to old-revision entries.
-            retry_backoff = bool(checked and expires and checked <= now < expires <= checked + timedelta(hours=6))
-            current_revision = reference.get("refresh_revision", REVISION) == REVISION
-            if not force and expires and expires > now and (current_revision or retry_backoff):
-                return reference, price_view(reference["key"], previous, now=now), None
+            expires=reference.get("expires_at")
+            retry_after=reference.get("retry_after")
+            retry_backoff=_cache_is_current(retry_after,now)
+            current_revision=reference.get("refresh_revision",REVISION)==REVISION
+            if not force and (retry_backoff or (current_revision and _cache_is_current(expires,now))):
+                return reference,current_cached_price_view(reference,now=now),None
             try:
                 quotes = await asyncio.wait_for(fetch_quotes(client, reference, fx, now=now), timeout=15)
                 empty = not quotes
@@ -391,7 +414,7 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *
                 quotes = previous
                 expires = now + timedelta(minutes=5)
                 failed, empty = True, False
-            view = price_view(reference["key"], quotes, now=now)
+            view = current_cached_price_view(reference,now=now) if failed or empty else price_view(reference["key"], quotes, now=now)
             view['provider_refresh_failed'] = failed
             view['provider_refresh_empty'] = empty
             return reference, view, expires
@@ -412,7 +435,8 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *
     for reference,view,_ in results:
         identity = {key:reference[key] for key in ('name','set_id','card_number','set_name')}
         fallback = [q for q in reference.get('catalogue_quotes') or []
-                    if q.get('source')==CATALOGUE_SOURCE and q.get('reference_identity')==identity]
+                    if _cache_is_current(reference.get('catalogue_expires_at'),now)
+                    and q.get('source')==CATALOGUE_SOURCE and q.get('reference_identity')==identity]
         if view['market_value_minor'] is None and fallback:
             combined = price_view(reference['key'],fallback+view['market_quotes'],now=now)
             view.update(combined)

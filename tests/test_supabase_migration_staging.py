@@ -287,3 +287,20 @@ def test_pooler_setup_rejects_line_breaks_before_exporting_credentials(
         assert "Database password must not contain a newline" in result.stderr
         assert result.stdout == ""
         assert not env_file.exists()
+
+
+def test_database_only_migration_workflow_uses_explicit_authenticated_target() -> None:
+    workflow = WORKFLOW.read_text()
+    assert "supabase link --project-ref" not in workflow
+    assert "SUPABASE_ACCESS_TOKEN:" not in workflow
+    assert 'test -n "${SUPABASE_DB_PASSWORD}"' in workflow
+    assert 'supabase migration list --db-url "${SUPABASE_POOLER_URL}"' in workflow
+    assert 'supabase db push --dry-run --db-url "${SUPABASE_POOLER_URL}"' in workflow
+    assert 'supabase db push --db-url "${SUPABASE_POOLER_URL}"' in workflow
+    assert "environment: production" in workflow
+
+
+def test_verified_r2_registry_version_is_staged_without_replaying_existing_schema(tmp_path: Path) -> None:
+    module.stage(tmp_path)
+    assert not (tmp_path / "20261103222018_r2_first_catalogue_registry.sql").exists()
+    assert (tmp_path / "20261103224740_r2_first_catalogue_registry.sql").read_bytes() == (ROOT / "database/migrations/20261103222018_r2_first_catalogue_registry.sql").read_bytes()

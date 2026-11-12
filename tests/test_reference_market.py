@@ -133,7 +133,7 @@ async def test_cache_retry_and_provider_failure_preserve_recent_quote_without_ho
     monkeypatch.setattr(market,'user_connection',connection)
     monkeypatch.setattr(market,'fetch_quotes',failed)
     view=(await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]
-    assert view['market_value_minor']==7 and view['pricing_updated_at']==now
+    assert view['market_value_minor'] is None and view['pricing_updated_at'] is None
     assert len(writes)==1 and 'checked_at<=excluded.checked_at' in writes[0][0]
     assert writes[0][1][-1]-writes[0][1][-2] == timedelta(minutes=5)
     rows[0]['expires_at']=now+timedelta(hours=1)
@@ -166,15 +166,15 @@ async def test_failed_refresh_retains_complete_cache_but_never_returns_expired_q
     monkeypatch.setattr(market, 'fetch_quotes', failed)
     view = (await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY]))[0]
     assert view['provider_refresh_failed'] is True
-    assert view['market_value_minor'] == (10 if cached == 'mixed_age' else None)
-    assert view['market_quotes'] == (quotes[1:] if cached == 'mixed_age' else [])
+    assert view['market_value_minor'] is None
+    assert view['market_quotes'] == []
     assert quotes == previous
     assert len(writes) == 1 and writes[0][0] == market.FAILED_REFRESH_SQL
     identity = tuple(REFERENCE[key] for key in ('provider', 'system_code', 'language', 'provider_id'))
     assert writes[0][1][:4] == identity
     assert writes[0][1][-1]-writes[0][1][-2] == timedelta(minutes=5)
     # An initial failure's empty cache entry must back off like existing entries.
-    rows[0]['expires_at'] = writes[0][1][-1]
+    rows[0]['retry_after'] = writes[0][1][-1]
     await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY])
     assert len(writes) == 1
 
@@ -192,7 +192,7 @@ async def test_old_revision_failure_backs_off_without_marking_evidence_validated
         async def execute(self, sql, *args):
             assert sql == market.FAILED_REFRESH_SQL
             writes.append((sql, args))
-            row.update(checked_at=args[-2], expires_at=args[-1])
+            row.update(retry_after=args[-1])
     @asynccontextmanager
     async def connection(*args): yield Connection()
     async def failed(*args, **kwargs):
@@ -255,16 +255,15 @@ async def test_empty_refresh_keeps_original_evidence_and_only_updates_retry_meta
     monkeypatch.setattr(market, 'user_connection', connection)
     monkeypatch.setattr(market, 'fetch_quotes', no_quotes)
     view = (await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY]))[0]
-    assert view['market_value_minor'] == expected_value
+    assert view['market_value_minor'] is None
     assert view['provider_refresh_failed'] is False and view['provider_refresh_empty'] is True
     assert writes[0][0] == market.FAILED_REFRESH_SQL
     # The only write arguments after identity are retry timestamps: no new
     # quote/value/range/date is supplied, so a concurrent newer price is retained.
     assert len(writes[0][1]) == 6
     assert writes[0][1][-1]-writes[0][1][-2] == timedelta(hours=6)
-    if expected_value:
-        assert view['pricing_updated_at'] == datetime.fromisoformat(quote['observed_at'])
-        assert view['market_quotes'] == prior
+    assert view['pricing_updated_at'] is None
+    assert view['market_quotes']==[]
 
 
 @pytest.mark.asyncio
@@ -276,7 +275,7 @@ async def test_empty_refresh_backoff_also_protects_old_revision(monkeypatch):
     class Connection:
         async def fetch(self, sql, keys):
             return [{**REFERENCE, 'quotes': [quote], 'checked_at': now-timedelta(minutes=10),
-                     'expires_at': now+timedelta(hours=5,minutes=50), 'refresh_revision': 2}]
+                     'expires_at': now+timedelta(hours=5,minutes=50), 'retry_after':now+timedelta(hours=5,minutes=50), 'refresh_revision': 2}]
         async def execute(self, *args): writes.append(args)
     @asynccontextmanager
     async def connection(*args): yield Connection()
@@ -430,7 +429,7 @@ async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex
                reference_identity={key:REFERENCE[key] for key in ('name','set_id','card_number','set_name')})
     writes=[]
     class Connection:
-        async def fetch(self,*args):return [{**REFERENCE,'catalogue_quotes':[quote]}]
+        async def fetch(self,*args):return [{**REFERENCE,'catalogue_quotes':[quote],'catalogue_expires_at':now+timedelta(days=1)}]
         async def execute(self,sql,*args):writes.append((sql,args))
     @asynccontextmanager
     async def connection(*args):yield Connection()
@@ -444,3 +443,42 @@ async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex
     assert writes[0][1][5] - writes[0][1][4] == timedelta(hours=6)
     quote['reference_identity']['name']='Wrong card'
     assert (await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]['market_value_minor'] is None
+
+
+@pytest.mark.asyncio
+async def test_regional_sales_require_exact_printing_finish_and_fresh_sale_field():
+    from app.regional_catalogue_prices import eligible_quotes as raw_eligible
+    def eligible_quotes(rows,now):
+        return raw_eligible(rows,now,allowed_sources={market.SOURCE,market.VARIANT_SOURCE,market.SUPPORT_SOURCE})
+    payload = deepcopy(PAYLOAD)
+    variant = payload["variants_detailed"][0]
+    variant["thirdParty"]["tcgplayer"] = 123
+    variant["pricing"]["cardmarket"].update(avg7=.20, **{"avg7-holo": .71})
+    variant["pricing"]["tcgplayer"] = dict(unit="USD", updated=NOW.isoformat(),
+        normal=dict(productId=123, marketPrice=.40, highPrice=999))
+
+    class RegionalFX:
+        async def quote(self, *, base_currency, quote_currency, at):
+            return FxQuote(base_currency, quote_currency, Decimal(".75"), at, at, "ECB_EURO_REFERENCE_RATES")
+
+    reverse = deepcopy(variant)
+    reverse.update(type="reverse", variantId="exact-reverse")
+    payload["variants_detailed"].append(reverse)
+    rows = await market.tcgdex_quotes(payload, REFERENCE, RegionalFX(), now=NOW, regional_us=True)
+    values = {(r["finish"], r["regional_sale"]["region"]): r["regional_sale"]["price_gbp_minor"]
+              for r in eligible_quotes(rows, NOW)}
+    assert values == {("Normal", "EU"): 15, ("Reverse Holofoil", "EU"): 53, ("Normal", "US"): 30}
+    assert all(r["regional_sale"]["physical_valuation_eligible"] is False for r in rows)
+    assert eligible_quotes(rows, NOW+timedelta(days=8)) == []
+    assert eligible_quotes([{**rows[0], "regional_sale": {**rows[0]["regional_sale"], "source_field": "low"}}], NOW) == []
+    assert await market.tcgdex_quotes(payload, {**REFERENCE, "set_id": "wrong"}, RegionalFX(), now=NOW, regional_us=True) == []
+
+
+def test_expired_evidence_is_not_revived_by_independent_retry_metadata():
+    now=datetime.now(timezone.utc)
+    q=dict(source=market.SOURCE,price_gbp_minor=100,observed_at=(now-timedelta(hours=1)).isoformat(),finish='Normal')
+    reference=dict(REFERENCE,quotes=[q],expires_at=now-timedelta(seconds=1),retry_after=now+timedelta(hours=6))
+    assert market.current_cached_price_view(reference,now=now)['market_value_minor'] is None
+    assert 'set retry_after=excluded.retry_after' in market.FAILED_REFRESH_SQL
+    assert 'set checked_at=' not in market.FAILED_REFRESH_SQL
+    assert 'expires_at=excluded.expires_at' not in market.FAILED_REFRESH_SQL

@@ -59,6 +59,7 @@ async def main():
           grant usage on schema tcg to tcg_api;grant select,insert,update on all tables in schema tcg to tcg_api;
         ''')
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261008182234_reference_market_prices.sql').read_text())
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261112121000_reference_refresh_backoff.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009144903_catalogue_daily_maintenance.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009183154_catalogue_market_evidence.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261010120815_database_wide_reference_guides.sql').read_text())
@@ -154,9 +155,10 @@ async def main():
         await db.execute(FAILED_REFRESH_SQL, *retry_args)
         await db.execute(FAILED_REFRESH_SQL, *retry_args)
         retained = dict(await db.fetchrow(read_failure))
-        assert {k:v for k,v in retained.items() if k not in {'checked_at','expires_at'}} == {
-            k:v for k,v in original.items() if k not in {'checked_at','expires_at'}}, 'Outage erased original pricing evidence'
-        assert retained['checked_at'] == now and retained['expires_at'] == now+timedelta(minutes=5)
+        assert {k:v for k,v in retained.items() if k!='retry_after'} == {
+            k:v for k,v in original.items() if k!='retry_after'}, 'Outage erased original pricing evidence'
+        assert retained['checked_at']==original['checked_at'] and retained['expires_at']==original['expires_at']
+        assert retained['retry_after']==now+timedelta(minutes=5)
         assert await db.fetchval('select count(*) from tcg.reference_market_history') == history_count, 'Retry metadata created price history'
         from app.catalogue_price_history import add_reference_history
         pending = dict(zip(('provider','system_code','language','provider_id'), failure_identity),

@@ -37,7 +37,34 @@ window.DropRateCatalogue = (() => {
      "CARDMARKET_ESTIMATE","POKEWALLET_POKEMON_CARDMARKET_CATALOGUE",
      "SHARED_CATALOGUE_REFERENCE","TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)
     || ["REFERENCE_ESTIMATE","CATALOGUE_GUIDE","UK_EU_MARKET_ESTIMATE"].includes(row.shared_price?.status);
+  const regionalSales = row => {
+    if (row.regional_context_permission !== true || row.provider !== "TCGdex" || row.system_code !== "POKEMON_TCG" ||
+        row.source_kind !== "REFERENCE" || row.shared_price?.status === "AVAILABLE" ||
+        (row.shared_price?.market_value_minor > 0 && !unsupportedMarketSource(row)) ||
+        (row.market_value_minor > 0 && !unsupportedMarketSource(row))) return [];
+    return (row.regional_quotes || []).filter(quote => {
+      const sale = quote.regional_sale, age = Date.now() - Date.parse(quote.observed_at);
+      const accepted = (["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(quote.source) &&
+        sale?.region === "EU" && ["avg7","avg7-holo"].includes(sale.source_field)) ||
+        (quote.source === "TCGDEX_TCGPLAYER" && sale?.region === "US" && sale.source_field === "marketPrice");
+      const fx=Date.parse(sale?.fx_effective_at), observed=Date.parse(quote.observed_at);
+      const rate=Number(sale?.fx_rate_to_gbp);
+      return accepted && Number.isFinite(fx) && fx<=observed && fx>=observed-7*86400000 &&
+        Number.isFinite(rate) && rate>0 && sale.fx_source && sale.physical_valuation_eligible === false && Number.isSafeInteger(sale.price_gbp_minor) &&
+        sale.price_gbp_minor > 0 && quote.variant_id && quote.product_id && age >= 0 && age <= 7*86400000;
+    });
+  };
+  const regionalLabel = q => (q.variant_label || q.finish) + " · " +
+    (q.regional_sale.region === "EU" ? "Cardmarket EU" : "TCGplayer US") + " · " +
+    new Date(q.observed_at).toLocaleDateString("en-GB");
   const marketPrice = row => {
+    const sales = regionalSales(row);
+    if (sales.length === 1) return "Regional context: "+money(sales[0].regional_sale.price_gbp_minor)+" · "+regionalLabel(sales[0]);
+    if (sales.length) {
+      const amounts=sales.map(quote=>quote.regional_sale.price_gbp_minor);
+      const low=Math.min(...amounts), high=Math.max(...amounts);
+      return "Regional context: "+money(low)+(low===high?"":"–"+money(high))+" · regional aggregates";
+    }
     if (row.shared_price && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(row.shared_price.method))
       return window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:");
     if(unsupportedMarketSource(row))return "Value unavailable";
@@ -451,6 +478,35 @@ window.DropRateCatalogue = (() => {
     }
     renderMarketDetails(content,row) {
       content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
+      const sales = regionalSales(row);
+      if (sales.length) {
+        for (const quote of sales) content.append(node("p","dr-browse-reference-note",
+          money(quote.regional_sale.price_gbp_minor)+" · "+regionalLabel(quote)));
+        content.append(node("small","","Catalogue prices across conditions. Individual copies require matching condition or grade."));
+        return;
+      }
+      if (row.regional_context_permission===true && row.provider==="TCGdex" && row.system_code==="POKEMON_TCG" && row.source_kind==="REFERENCE" &&
+          /^r:[a-f0-9]{32}$/.test(row.key) && (row.market_value_minor==null || unsupportedMarketSource(row)) &&
+          !["AVAILABLE","CONDITION_REFERENCE"].includes(row.shared_price?.status)) {
+        const lookup=button("Check regional market values", async () => {
+          lookup.disabled=true;
+          lookup.textContent="Checking regional sales…";
+          try {
+            const reply=await this.client.request("/api/v1/catalogue-browser/regional-market-value?key="+encodeURIComponent(row.key),{method:"POST"});
+            row.regional_context_permission=reply.commercial_display_permitted===true;
+            row.regional_quotes=reply.quotes || [];
+            if (!regionalSales(row).length) {lookup.textContent="No recent exact regional sales found";return;}
+            this.renderMarketDetails(content,row);
+            const tile=this.find('[data-price-key="'+row.key+'"]');
+            if(tile)tile.textContent=marketPrice(row);
+          } catch (_) {lookup.disabled=false;lookup.textContent="Retry regional price check";}
+        });
+        content.append(lookup);
+        if (!row.regional_lookup_attempted) {
+          row.regional_lookup_attempted=true;
+          lookup.click();
+        }
+      }
       const history=historicalPrice(row);
       if(history){
         const checked=new Date(history.checked_at);
