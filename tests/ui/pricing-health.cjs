@@ -39,6 +39,9 @@ function fixture({founder = true, ownerMode = true} = {}) {
   };
   w.pricingHealthRequest = async url => {
     calls.push(url);
+    if (url === "/api/v1/catalogue-browser/coverage") return {
+      summary:{physical_cards:{total:67387,priced:45000,missing:22387}},
+    };
     if (url !== "/api/v1/pricing/health") throw Error("Unexpected route");
     return payload;
   };
@@ -77,6 +80,9 @@ function fixture({founder = true, ownerMode = true} = {}) {
       assert.equal(f.doc.querySelectorAll(".pricing-health-sources script").length,0,
         "Untrusted provider fields rendered as text only");
       assert.match(f.doc.getElementById("pricing-health-time").textContent,/Bulk hold: active/);
+      await wait();await wait();
+      assert.match(f.doc.getElementById("pricing-health-catalogue-metric").textContent,/45,000 \/ 67,387/,
+        "Catalogue-wide reference coverage is distinct from physical stock 617");
       f.doc.getElementById("pricing-health-refresh").click();
       await wait();
       assert.ok(f.calls.length>=2,"Founder can manually refresh health without repricing");
