@@ -37,7 +37,7 @@ async def main():
         assert len(tokens)==1 and sorted(r[2] or '' for r in claimed)==['','REFERENCE_BUSY']
         assert await admin.fetchval("select requests from tcg.reference_regional_provider_budget")==1
         now=datetime.now(timezone.utc)
-        row={'source':'TCGDEX_CARDMARKET','variant_id':'normal','product_id':'123','finish':'Normal','observed_at':now.isoformat(),
+        row={'source':'TCGDEX_CARDMARKET','original_currency':'EUR','variant_id':'normal','product_id':'123','finish':'Normal','observed_at':now.isoformat(),
             'physical_valuation_eligible':False,'valuation_role':'REGIONAL_CATALOGUE_CONTEXT_ONLY',
             'regional_sale':{'region':'EU','source_field':'avg7','price_gbp_minor':15,'original_minor':20,
                 'physical_valuation_eligible':False,'fx_source':'ECB','fx_rate_to_gbp':'.75','fx_effective_at':(now-timedelta(hours=1)).isoformat()}}

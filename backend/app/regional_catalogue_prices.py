@@ -2,7 +2,7 @@
 import asyncio
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from email.utils import parsedate_to_datetime
 import hashlib
 import json
@@ -30,7 +30,9 @@ def eligible_quotes(rows, now, *, allowed_sources=None):
     allowed=display_permissions() if allowed_sources is None else allowed_sources
     result=[]
     for row in rows:
+        if not isinstance(row,dict):continue
         sale=row.get('regional_sale') or {}
+        if not isinstance(sale,dict):continue
         if (row.get('source') not in allowed or sale.get('physical_valuation_eligible') is not False
             or type(sale.get('price_gbp_minor')) is not int or sale['price_gbp_minor']<=0
             or not row.get('variant_id') or not row.get('product_id')):continue
@@ -43,6 +45,9 @@ def eligible_quotes(rows, now, *, allowed_sources=None):
             fx_at=_time(sale['fx_effective_at'])
             rate=Decimal(sale['fx_rate_to_gbp'])
             if not rate.is_finite() or rate<=0 or not sale.get('fx_source'):continue
+            if type(sale.get('original_minor')) is not int or sale['original_minor']<=0:continue
+            if row.get('original_currency')!=('EUR' if sale['region']=='EU' else 'USD'):continue
+            if int((Decimal(sale['original_minor'])*rate).quantize(Decimal('1'),rounding=ROUND_HALF_UP))!=sale['price_gbp_minor']:continue
         except (ValueError,TypeError,KeyError,InvalidOperation):continue
         if now-MAX_AGE<=observed<=now and observed-timedelta(days=7)<=fx_at<=observed:
             result.append({**row,'physical_valuation_eligible':False,

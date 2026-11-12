@@ -11,7 +11,7 @@ KEY='r:'+'a'*32
 REF={'key':KEY,'provider':'TCGdex','system_code':'POKEMON_TCG','provider_id':'me02-011',
      'set_id':'me02','set_name':'Phantasmal Flames','name':'Charmander','card_number':'011','language':'English'}
 def quote():
-    return {'source':'TCGDEX_CARDMARKET','variant_id':'normal','product_id':'123','finish':'Normal',
+    return {'source':'TCGDEX_CARDMARKET','original_currency':'EUR','variant_id':'normal','product_id':'123','finish':'Normal',
         'observed_at':NOW.isoformat(),'price_gbp_minor':99,
         'regional_sale':{'source_field':'avg7','region':'EU','price_gbp_minor':15,'original_minor':20,
             'fx_rate_to_gbp':'.75','fx_source':'ECB','fx_effective_at':(NOW-timedelta(hours=1)).isoformat(),

@@ -47,7 +47,10 @@ window.DropRateCatalogue = (() => {
       const accepted = (["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(quote.source) &&
         sale?.region === "EU" && ["avg7","avg7-holo"].includes(sale.source_field)) ||
         (quote.source === "TCGDEX_TCGPLAYER" && sale?.region === "US" && sale.source_field === "marketPrice");
-      return accepted && sale.physical_valuation_eligible === false && Number.isSafeInteger(sale.price_gbp_minor) &&
+      const fx=Date.parse(sale?.fx_effective_at), observed=Date.parse(quote.observed_at);
+      const rate=Number(sale?.fx_rate_to_gbp);
+      return accepted && Number.isFinite(fx) && fx<=observed && fx>=observed-7*86400000 &&
+        Number.isFinite(rate) && rate>0 && sale.fx_source && sale.physical_valuation_eligible === false && Number.isSafeInteger(sale.price_gbp_minor) &&
         sale.price_gbp_minor > 0 && quote.variant_id && quote.product_id && age >= 0 && age <= 7*86400000;
     });
   };
