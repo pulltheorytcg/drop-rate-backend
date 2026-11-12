@@ -68,7 +68,7 @@
     const updated = element("p", "muted pricing-health-time", "No live check completed yet.");
     updated.id = "pricing-health-time";
     panel.append(heading,
-      element("p", "muted", "Live from Supabase Pro · Refreshes every 60 seconds while open. Stored values are not necessarily UK sold-price verified."),
+      element("p", "muted", "Live from Supabase Pro · Refreshes every 60 seconds while open. Market Value can be based on current UK asking prices, not completed sales."),
       banner, metrics, element("h3", "pricing-health-subheading", "Source health"), sources,
       element("h3", "pricing-health-subheading", "Action required"), alerts, updated);
     if (ownerMode()) {
@@ -140,15 +140,15 @@
     const banner = document.getElementById("pricing-health-banner");
     banner.dataset.healthState = data.overall_status || "UNKNOWN";
     banner.textContent = (data.overall_label || "Status unavailable") +
-      " · Market Value auto-publication: " +
-      (data.automation?.automatic_sold_value_publication_ready ? "eligible for separate review" : "held until sold evidence qualifies");
+      " · Asking-based Market Values: " +
+      (data.automation?.asking_market_value_display_available ? "current comparable cache available" : "awaiting live asking-price collection");
     const inv = data.inventory || {};
     document.getElementById("pricing-health-metrics").replaceChildren(
       metric("Active physical inventory", count(inv.active_items), "Items tracked"),
       metric("Stored Market Values", count(inv.stored_value_items),
         String(inv.stored_coverage_pct ?? 0) + "% of active items"),
       metric("Updated within 7 days", count(inv.updated_last_7d), "Not necessarily sold-verified"),
-      metric("Missing Market Values", count(inv.missing_value_items), "Needs eligible actual-sale evidence"),
+      metric("Missing Market Values", count(inv.missing_value_items), "Needs current comparable asking-price evidence"),
       catalogueMetric()
     );
     const rows = document.createDocumentFragment();
@@ -180,8 +180,9 @@
       "Last checked: " + time(data.checked_at) +
       " · Market ingestion: " + (automation.market_ingestion_enabled ? "enabled" : "disabled") +
       " · Bulk hold: " + (automation.bulk_refresh_held ? "active" : "inactive") +
-      " · Unattended Product Research: " +
-      (automation.unattended_product_research_verified ? "verified" : "not verified");
+      " · Valuation basis: current eBay UK asking prices" +
+      " · Asking collector scheduled: " +
+      (automation.asking_acquisition_automatically_scheduled ? "yes" : "no");
   }
 
   function stop() {
