@@ -27,7 +27,8 @@ def candidate(target=None, **kwargs):
         captured_at=(NOW - timedelta(minutes=5)).isoformat(),
         item_country="GB", currency="GBP",
         sale_price_basis="ACTUAL_PAID_PRICE",
-        sale_verified=True, condition=target.condition,
+        sale_verified=True, price_gbp="5.00", sold_at=(NOW - timedelta(days=1)).date().isoformat(),
+        condition=target.condition,
         grading_company=target.grading_company, grade=target.grade,
         image_byte_verified=True, printing_image_verified=True,
         rights_status="APPROVED",
@@ -138,3 +139,11 @@ def test_incomplete_ref_and_unknown_game_refused():
     with pytest.raises(ValueError): plan_collection(ref(card_number=""))
     with pytest.raises(ValueError): plan_collection(ref(game="Unknown Game"))
     with pytest.raises(ValueError): plan_collection(ref(grade="10"))
+
+def test_sold_amount_and_actual_sale_date_are_required():
+    assert classify_candidate(ref(),EvidenceKind.SOLD,"EBAY_PRODUCT_RESEARCH",
+                              candidate(price_gbp="0"))["status"]=="REJECTED_INCOMPLETE_SALE_EVIDENCE"
+    assert classify_candidate(ref(),EvidenceKind.SOLD,"EBAY_PRODUCT_RESEARCH",
+                              candidate(price_gbp="4.999"))["status"]=="REJECTED_INCOMPLETE_SALE_EVIDENCE"
+    assert classify_candidate(ref(),EvidenceKind.SOLD,"EBAY_PRODUCT_RESEARCH",
+                              candidate(sold_at=None))["status"]=="REJECTED_INCOMPLETE_SALE_EVIDENCE"
