@@ -61,8 +61,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(picture.querySelector('img').src,'https://cdn.shopify.com/certificate.png');
   f.finish();checks++;
  }
- // Reviewed graded inventory may show exact card artwork in private collection,
- // but it is never presented as an actual slab or verified certificate scan.
+ // Old raw/canonical fallback flags cannot supply a graded physical tile.
  {
   const f=fixture(),graded={...item,product_type:'CARD',seal_status:null,
    grading_company:'PSA',grade:'9',certificate_number:'62398872',
@@ -70,15 +69,16 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
    card_image_source_type:'LICENSED_PROVIDER',card_image_rights_tier:'STOREFRONT_ALLOWED',
    reference_image_status:'GRADED_CARD_ART_REFERENCE',
    image_url:'https://assets.tcgdex.net/en/swsh/swsh3/19/high.webp'};
+  const calls=[];f.w.fetch=async url=>{calls.push(url);return {ok:false,status:404};};
   const picture=f.w.DropRateInventory.image(graded,'owner-card-thumb');
-  f.w.document.body.append(picture);await tick();
-  assert.match(picture.querySelector('img').alt,/matching card artwork, not a slab photo/);
-  assert.match(picture.querySelector('img').src,/assets.tcgdex.net/);
+  f.w.document.body.append(picture);await tick();await tick();
+  assert.equal(picture.querySelector('img'),null);
+  assert.deepEqual(calls,[`/api/v1/inventory/${id}/image`]);
+  assert.match(picture.textContent,/Slab photo required/);
   f.run(`renderInventoryCards([${JSON.stringify(graded)}]);`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   assert.equal(tile.querySelector('.owner-card-image-wrap--graded')!==null,true);
-  assert.match(tile.querySelector('.owner-graded-reference-caption').textContent,/not slab photo/);
-  assert.equal(tile.querySelector('.owner-card-image-wrap--reference-only')!==null,true);
+  assert.equal(tile.querySelector('.owner-graded-reference-caption'),null);
   f.finish();checks++;
  }
  {
@@ -90,12 +90,14 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
    card_image_rights_tier:'INTERNAL_REFERENCE_ONLY',
    reference_image_status:'GRADER_CERTIFICATE_RAW_REFERENCE',
    image_url:'https://cdn.shopify.com/cert-raw.png'};
+  f.w.fetch=async()=>({ok:false,status:404});
   const picture=f.w.DropRateInventory.image(graded,'owner-card-thumb');
-  f.w.document.body.append(picture);await tick();
-  assert.match(picture.querySelector('img').alt,/certificate raw card reference image, not a slab photo/);
+  f.w.document.body.append(picture);await tick();await tick();
+  assert.equal(picture.querySelector('img'),null);
+  assert.match(picture.textContent,/Slab photo required/);
   f.run(`renderInventoryCards([${JSON.stringify(graded)}]);`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
-  assert.match(tile.querySelector('.owner-graded-reference-caption').textContent,/Certificate card image/);
+  assert.equal(tile.querySelector('.owner-graded-reference-caption'),null);
   f.finish();checks++;
  }
  {

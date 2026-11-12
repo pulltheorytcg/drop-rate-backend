@@ -40,7 +40,7 @@ async def main():
           create table tcg.owners(id uuid primary key, display_name text, owner_type text, founder_slot int, commission_bps int,active bool default true);
           create table tcg.owner_memberships(id uuid primary key default gen_random_uuid(),user_id uuid,owner_id uuid references tcg.owners,role text,active bool default true,created_at timestamptz default now());
           create function tcg.current_user_id() returns uuid language sql stable as $$select nullif(current_setting('tcg.user_id',true),'')::uuid$$;
-          create table tcg.catalogue_products(id uuid primary key, name text,language text,variant text);
+          create table tcg.catalogue_products(id uuid primary key, name text,language text,variant text,product_type text);
           create table tcg.inventory_items(id uuid primary key,owner_id uuid references tcg.owners,catalogue_id uuid references tcg.catalogue_products,language text,grading_company text,grade text,certificate_number text);
           create table tcg.audit_events(actor text,request_id text,action text,entity_type text,entity_id uuid,old_values jsonb,new_values jsonb);
           grant usage on schema tcg to tcg_api;
@@ -63,7 +63,7 @@ async def main():
             await db.execute("insert into tcg.owners values($1,$2,$3,$4,1000,true)",owner,f'Synthetic owner {n}','FOUNDER' if n==0 else 'CONSIGNOR',1 if n==0 else None)
             await db.execute("insert into tcg.owner_memberships(user_id,owner_id,role) values($1,$2,$3)",actor,owner,'PLATFORM_ADMIN' if n==0 else 'OWNER')
         for product, name in [(card,'Synthetic raw card'),(pack,'Synthetic pack')]:
-            await db.execute("insert into tcg.catalogue_products values($1,$2,'Japanese','Foil')",product,name)
+            await db.execute("insert into tcg.catalogue_products values($1,$2,'Japanese','Foil',$3)",product,name,'CARD' if product==card else 'BOOSTER_PACK')
         copies = {(n,p): uuid4() for n in range(3) for p in (card,pack)}
         for (n,p), item in copies.items():
             await db.execute("insert into tcg.inventory_items(id,owner_id,catalogue_id,language) values($1,$2,$3,'Japanese')",item,owners[n],p)

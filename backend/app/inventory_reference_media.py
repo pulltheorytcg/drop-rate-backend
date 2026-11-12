@@ -15,11 +15,7 @@ from uuid import UUID
 MEDIA_SQL = """
 select i.id as inventory_id,ma.id,ma.scope,ma.capture_context,ma.approval_status,ma.source_provider,
  ma.source_type,ma.rights_tier,ma.shopify_cdn_url,ma.public_source_url,ma.created_at,
- -- WHERE below gates canonical artwork to a staff-reviewed graded inventory
- -- item; this boolean records the server-approved choice without leaking the
- -- certificate or reviewer fields in owner Collection responses.
- (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-  and nullif(btrim(i.grading_company),'') is not null) as graded_card_art_allowed
+ false as graded_card_art_allowed
 from tcg.inventory_items i
 join tcg.catalogue_products p on p.id=i.catalogue_id
 join tcg.media_assets ma on (
@@ -30,7 +26,7 @@ join tcg.media_assets ma on (
      -- Private, authenticated owner collection display; never a Shopify/eBay licence.
      or (ma.rights_tier='INTERNAL_REFERENCE_ONLY'
        and ma.source_type='OFFICIAL_PROVIDER'
-       and ma.capture_context in ('GRADED_SLAB','RAW_UNSLEEVED')
+       and ma.capture_context='GRADED_SLAB'
        and upper(btrim(ma.source_provider))=upper(btrim(i.grading_company))
        and upper(btrim(i.grading_company)) in ('PSA','ACE','BGS','CGC')
        and length(btrim(i.certificate_number))>=6
@@ -44,30 +40,18 @@ join tcg.media_assets ma on (
    and lower(btrim(coalesce(ma.media_variant,'')))=lower(btrim(coalesce(p.variant,''))))
 )
 where i.id=any($1::uuid[]) and ma.side='FRONT' and ma.media_kind='IMAGE'
+ and (p.product_type is distinct from 'SEALED' or ma.scope='CANONICAL_PRODUCT'
+      or (ma.scope='INVENTORY_ITEM' and ma.capture_context='SEALED_PRODUCT'))
  and (coalesce(nullif(btrim(i.grading_company),''),nullif(btrim(i.grade),''),nullif(btrim(i.certificate_number),'')) is null
    or (ma.scope='INVENTORY_ITEM' and ma.inventory_id=i.id and ma.owner_id=i.owner_id
-       and (ma.capture_context='GRADED_SLAB'
-        or (ma.capture_context='RAW_UNSLEEVED' and ma.rights_tier='INTERNAL_REFERENCE_ONLY'
-            and ma.source_type='OFFICIAL_PROVIDER')))
-   -- Reviewed physical graded inventory may display exact canonical card art
-   -- when the provider has no matching photo. This is NOT a slab photograph
-   -- and never authorizes storefront/marketplace media or certificate claims.
-   or (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and ma.inventory_id is null
-       and to_jsonb(p)->>'product_type'='CARD'
-       and to_jsonb(i)->>'status' in ('APPROVED','RESERVED','SOLD')
-       and to_jsonb(i)->>'identity_confirmed'='true'
-       and to_jsonb(i)->>'condition_review_status'='VERIFIED_GRADED'
-       and to_jsonb(i)->>'condition_verified_by_user_id' is not null
-       and length(btrim(i.certificate_number))>=6
-       and upper(btrim(i.grading_company)) in ('PSA','ACE','BGS','CGC'))) 
+       and ma.capture_context='GRADED_SLAB'))
  and ma.source_status='ACTIVE' and ma.rights_status='VERIFIED'
  and ma.approval_status='APPROVED' and ma.revoked_at is null
  and coalesce(nullif(btrim(ma.shopify_cdn_url),''),nullif(btrim(ma.public_source_url),'')) is not null
 order by i.id,case when ma.scope='INVENTORY_ITEM' and ma.rights_tier='FIRST_PARTY_CAPTURE' then 0
  when ma.scope='INVENTORY_ITEM' and ma.rights_tier='INTERNAL_REFERENCE_ONLY'
   and ma.capture_context='GRADED_SLAB' then 1
- when ma.scope='INVENTORY_ITEM' and ma.rights_tier='INTERNAL_REFERENCE_ONLY'
-  and ma.capture_context='RAW_UNSLEEVED' then 2 else 3 end,
+ else 3 end,
  case when ma.approval_status='APPROVED' then 0 else 1 end,
  case when nullif(btrim(ma.shopify_cdn_url),'') is not null then 0 else 1 end,
  ma.created_at desc,ma.id
@@ -102,7 +86,7 @@ def _is_private_certificate_reference(item, asset):
     """Check this selected asset only; owner/certificate binding remains in MEDIA_SQL."""
     return (is_graded_item(item)
             and asset.get('scope') == 'INVENTORY_ITEM'
-            and asset.get('capture_context') in {'GRADED_SLAB', 'RAW_UNSLEEVED'}
+            and asset.get('capture_context') == 'GRADED_SLAB'
             and asset.get('rights_tier') == 'INTERNAL_REFERENCE_ONLY'
             and asset.get('source_type') == 'OFFICIAL_PROVIDER'
             and asset.get('approval_status') == 'APPROVED'
@@ -122,6 +106,12 @@ async def add_shared_inventory_media(connection, items):
         item = by_item.get(identity)
         if item is None:
             continue
+        # Reject stale raw/canonical flags before choosing a best candidate.
+        if is_graded_item(item) and (asset.get('scope') != 'INVENTORY_ITEM'
+                                    or asset.get('capture_context') != 'GRADED_SLAB'):
+            continue
+        if item.get('product_type') == 'SEALED' and asset.get('scope') == 'INVENTORY_ITEM' and asset.get('capture_context') != 'SEALED_PRODUCT':
+            continue
         physical = (asset.get('scope') == 'INVENTORY_ITEM'
             and asset.get('rights_tier') == 'FIRST_PARTY_CAPTURE'
             and asset.get('source_type') in ('FOUNDER_UPLOAD', 'CONSIGNOR_UPLOAD')
@@ -138,13 +128,7 @@ async def add_shared_inventory_media(connection, items):
         if graded:
             item.pop('reference_image_url', None)
             item.pop('reference_image_path', None)
-            if asset and asset.get('scope') == 'INVENTORY_ITEM':
-                if asset.get('capture_context') != 'GRADED_SLAB' and not (
-                    asset.get('capture_context') == 'RAW_UNSLEEVED'
-                    and _is_private_certificate_reference(item, asset)):
-                    asset = None
-            elif asset and (asset.get('scope') not in {'CANONICAL_CARD','CANONICAL_PRODUCT'}
-                            or asset.get('graded_card_art_allowed') is not True):
+            if asset and (asset.get('scope') != 'INVENTORY_ITEM' or asset.get('capture_context') != 'GRADED_SLAB'):
                 asset = None
         url = (asset.get('shopify_cdn_url') or asset.get('public_source_url')) if asset else None
         item['image_url'] = url

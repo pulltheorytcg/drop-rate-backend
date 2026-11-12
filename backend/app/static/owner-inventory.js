@@ -54,15 +54,11 @@ window.DropRateInventory = (() => {
   const price = minor => minor == null ? "Value unavailable" : formatMoney(minor);
 
   function slabMediaKind(item) {
-    if (item.card_image_scope === "CANONICAL_CARD" || item.card_image_scope === "CANONICAL_PRODUCT") {
-      // This is the exact printing's approved artwork, not the owner's slab.
-      return item.reference_image_status === "GRADED_CARD_ART_REFERENCE" ? "CARD_ART_REFERENCE" : "";
-    }
     if (item.card_image_scope !== "INVENTORY_ITEM") return "";
     if (item.card_image_capture_context === "GRADED_SLAB" &&
         item.card_image_rights_tier === "FIRST_PARTY_CAPTURE" &&
         ["FOUNDER_UPLOAD","CONSIGNOR_UPLOAD"].includes(item.card_image_source_type)) return "PHYSICAL_PHOTO";
-    if (["GRADED_SLAB","RAW_UNSLEEVED"].includes(item.card_image_capture_context) &&
+    if (item.card_image_capture_context === "GRADED_SLAB" &&
         item.card_image_rights_tier === "INTERNAL_REFERENCE_ONLY" &&
         item.card_image_source_type === "OFFICIAL_PROVIDER" &&
         ["PSA","ACE","BGS","CGC"].includes(String(item.card_image_source_provider || "").toUpperCase()) &&
