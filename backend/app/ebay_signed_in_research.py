@@ -12,7 +12,8 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
-from .ebay_sold_pricing import _matches_comp, _query_for_target
+from .ebay_sold_pricing import _matches_comp, _query_for_target, _normalise_text, _contains_term
+from .ebay_official_adapter import _grade_matches
 
 REQUIRED_TARGET = ("game", "name", "set_name", "card_number", "variant", "language")
 MAX_ROWS = 100
@@ -133,10 +134,29 @@ def preview_product_research(
         if price is None or (shipping_value is not None and shipping is None):
             rejected["INVALID_PRICE"] += 1
             continue
+        # Strengthen the older shared token matcher with the official
+        # eBay adapter's exact decimal-grade binding. PSA 9 is NOT PSA 9.5.
+        title = row.get("title")
+        if target.get("grading_company") and (
+                not isinstance(title, str)
+                or not _grade_matches(title, target["grading_company"], target["grade"])):
+            rejected["EXACT_GRADE_MISMATCH"] += 1
+            continue
+        # An ordinary One Piece Foil may not inherit the sale of a parallel,
+        # manga or alternate-art printing with the same base card number.
+        if (_normalise_text(target["game"]) == "one piece"
+                and _normalise_text(target["variant"]) == "foil"
+                and not any(_contains_term(_normalise_text(target["name"]), marker)
+                            for marker in ("parallel", "sp", "manga", "alt art", "alternate art"))
+                and isinstance(title, str)
+                and any(_contains_term(_normalise_text(title), marker)
+                        for marker in ("parallel", "sp", "manga", "alt art", "alternate art"))):
+            rejected["ONE_PIECE_PARALLEL_MISMATCH"] += 1
+            continue
         if (any(row.get(key) != target.get(key)
                 for key in ("set_name", "card_number", "variant", "language"))
                 or not _matches_comp(
-                    {"title": row.get("title"), "condition_raw": row.get("condition_raw")}, target
+                    {"title": title, "condition_raw": row.get("condition_raw")}, target
                 )):
             rejected["EXACT_PRINT_MISMATCH"] += 1
             continue
