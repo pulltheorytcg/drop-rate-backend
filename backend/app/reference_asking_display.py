@@ -1,4 +1,9 @@
-"""Display-only current asking estimates; never physical market-value authority."""
+"""Exact current UK asking prices as founder-selected catalogue Market Value basis.
+
+The user has chosen asking-price-derived Market Values instead of sold-only
+values. Physical item prices and financials remain separate: no SQL write,
+no Shopify updates, no sale claim and no grade/condition inference.
+"""
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -6,6 +11,8 @@ from .reference_applicability import DIGITAL_REFERENCE_SQL
 
 ASKING_METHOD_VERSION = "EBAY_UK_RAW_ASK_V1"
 ASKING_SOURCE = "EBAY_OFFICIAL_BROWSE"
+ASKING_MARKET_VALUE_SOURCE = "DROP_RATE_UK_ASKING_MARKET_V1"
+ASKING_MARKET_VALUE_BASIS = "CURRENT_UK_ACTIVE_ASKING_LISTINGS"
 ASKING_MAX_AGE = timedelta(days=3)
 ASKING_FINISHES = frozenset({"Normal", "Holo", "Reverse Holo", "Foil", "Parallel", "Alt Art", "Manga"})
 MATCHING_EVIDENCE_KEYS = ("provider_variant", "variant_title_terms", "set_title_terms", "set_name")
@@ -129,13 +136,62 @@ def asking_estimate_view(record, *, now):
     }
 
 
+def asking_market_value_fields(view):
+    """Project the already-validated robust three-seller median into catalogue MV.
+
+    This does not reprice from one seller or create any new statistics: the
+    existing independent seller, exact printing, GBP, NM condition, shipped
+    price and expiry checks remain mandatory. Retail/store prices are not
+    calculated or changed here. If the cache is expired no value is emitted.
+    """
+    if not isinstance(view, dict) or view.get("status") != "ASKING_PRICE_ESTIMATE":
+        return None
+    price, high, sellers = view.get("estimate_minor"), view.get("estimate_high_minor"), view.get("seller_count")
+    if (type(price) is not int or price <= 0 or type(high) is not int or high < price
+            or type(sellers) is not int or sellers < 3):
+        return None
+    return {
+        "market_value_minor": price,
+        "market_value_high_minor": high,
+        "market_value_source": ASKING_MARKET_VALUE_SOURCE,
+        "market_value_basis": ASKING_MARKET_VALUE_BASIS,
+        "market_value_confidence": "MEDIUM" if sellers >= 5 else "LOW",
+        "market_value_observed_at": view["observed_at"],
+        "market_value_expires_at": view["expires_at"],
+        "pricing_updated_at": view["observed_at"],
+        "basis_condition": view["condition"],
+        "market_value_evidence": {
+            "provider": view["source"],
+            "method_version": view["method_version"],
+            "currency": "GBP",
+            "listing_count": view["listing_count"],
+            "independent_seller_count": sellers,
+            "shipping_basis": view["shipping_basis"],
+            "basis_type": ASKING_MARKET_VALUE_BASIS,
+            "completed_sales_used": 0,
+        },
+    }
+
+
 async def add_asking_estimates(connection, rows, *, now=None):
-    """One page-bounded fallback query, leaving all market-value fields unchanged."""
+    """Bounded verified-cache read with an asking-derived Market Value fallback.
+
+    Never updates inventory, product/store retail prices or other persisted
+    values. A canonical reference row is the only eligible fallback; owned
+    physical items, grade-specific slabs and missing proof remain unchanged.
+    """
     now = now or datetime.now(timezone.utc)
     items = [dict(row) for row in rows]
     pending = []
     for row in items:
         row.pop("asking_price_estimate", None)
+        # Never inherit a previously calculated asking basis from an outdated
+        # response if this function is invoked twice on the same in-memory row.
+        if row.get("market_value_source") == ASKING_MARKET_VALUE_SOURCE:
+            for key in ("market_value_minor","market_value_high_minor","market_value_source",
+                        "market_value_basis","market_value_confidence","market_value_observed_at",
+                        "market_value_expires_at","market_value_evidence"):
+                row.pop(key,None)
         shared = row.get("shared_price") or {}
         if (row.get("source_kind") == "REFERENCE" and row.get("product_type") == "CARD"
                 and row.get("market_value_minor") is None
@@ -152,5 +208,11 @@ async def add_asking_estimates(connection, rows, *, now=None):
             estimates[record["key"]] = value
     for row in pending:
         if row["key"] in estimates:
-            row["asking_price_estimate"] = estimates[row["key"]]
+            derived = asking_market_value_fields(estimates[row["key"]])
+            if derived:
+                row.update(derived)
+            else:
+                # Keep explanatory context if the cache is valid but cannot
+                # satisfy the chosen model's reliability gates.
+                row["asking_price_estimate"] = estimates[row["key"]]
     return items
