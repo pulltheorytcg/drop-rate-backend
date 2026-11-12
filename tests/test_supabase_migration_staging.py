@@ -298,3 +298,9 @@ def test_database_only_migration_workflow_uses_explicit_authenticated_target() -
     assert 'supabase db push --dry-run --db-url "${SUPABASE_POOLER_URL}"' in workflow
     assert 'supabase db push --db-url "${SUPABASE_POOLER_URL}"' in workflow
     assert "environment: production" in workflow
+
+
+def test_verified_r2_registry_version_is_staged_without_replaying_existing_schema(tmp_path: Path) -> None:
+    module.stage(tmp_path)
+    assert not (tmp_path / "20261103222018_r2_first_catalogue_registry.sql").exists()
+    assert (tmp_path / "20261103224740_r2_first_catalogue_registry.sql").read_bytes() == (ROOT / "database/migrations/20261103222018_r2_first_catalogue_registry.sql").read_bytes()

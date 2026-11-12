@@ -23,3 +23,7 @@ Rollback: revert the optional catalogue-context caller or keep the source permis
 The physical/reference cache now keeps retry scheduling in a separate `retry_after` column. Failed or empty refreshes preserve existing quotes, checked/observed dates, expiry, amounts and revision. Expired evidence cannot regain eligibility through a retry delay. Apply the bounded additive `20261112121000_reference_refresh_backoff.sql` migration before deploying writers; reads tolerate the column being absent during schema-first rollout. Rollback may retain the unused nullable column. No existing evidence or inventory values are rewritten.
 
 Regression coverage includes expired evidence with recent observations, empty responses, retry suppression and a real PostgreSQL assertion that all evidence fields remain identical across repeated failures.
+
+### Verified production history alignment
+
+Read-only Supabase SQL inspection on 12 November found `r2_first_catalogue_registry` already applied as version `20261103224740`, one statement, MD5 `c770dde3e36cea2ebde092c6e714b29f`. This exactly matches the canonical `20261103222018_r2_first_catalogue_registry.sql` file bytes. The staging manifest maps this filename to the existing applied version; no production history rows are deleted/repaired and its DDL must not be replayed. The dry-run gate previously correctly stopped on this mismatch.
