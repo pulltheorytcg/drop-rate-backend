@@ -71,6 +71,7 @@ from .owner_fulfillment import router as owner_fulfillment_router
 from .owner_onboarding import router as owner_onboarding_router
 from .imported_benchmark_pricing import router as imported_benchmark_pricing_router
 from .ebay_sold_pricing import router as ebay_sold_pricing_router
+from .ebay_signed_in_research_api import router as ebay_research_router
 from .pricing_preview import router as pricing_preview_router
 from .recognition import router as recognition_router
 from .recognition_vision import close_shared_vision_http_client
@@ -127,6 +128,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/shopify-settings.js?v=comic-photo-20261101" defer></script>',
         '<script src="/assets/media-condition.js?v=scan-review-20261103" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
+        '<script src="/assets/ebay-research-panel.js?v=review-only-20261112" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/reference-value-display.js?v=market-values-20261104" defer></script>',
         '<script src="/assets/market-value-column.js?v=grouped-reference-v5" defer></script>',
@@ -510,6 +512,7 @@ def create_app() -> FastAPI:
     app.include_router(owner_onboarding_router)
     app.include_router(imported_benchmark_pricing_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(ebay_sold_pricing_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(ebay_research_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(pricing_preview_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(market_ingestion_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(market_mappings_router, dependencies=[Depends(require_platform_admin_request)])

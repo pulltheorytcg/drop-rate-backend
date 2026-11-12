@@ -819,6 +819,10 @@ function populateSellerViews() {
     </div>
     <div id="pricing-output-list" class="allocation-list"><p class="muted">No pricing calculations loaded yet.</p></div>`;
   settings.append(pricingCard);
+  // Explicitly move the research pilot to Settings; never let the generic
+  // inventory-panel selector mistake it for the actual stock grid.
+  const ebayResearchPanel = byId("ebay-research-panel");
+  if (ebayResearchPanel) settings.append(ebayResearchPanel);
 
   const ebayCard = document.createElement("section");
   ebayCard.id = "ebay-seller-connection-panel";
