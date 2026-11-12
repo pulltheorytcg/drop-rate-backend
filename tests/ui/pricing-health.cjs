@@ -42,6 +42,19 @@ function fixture({founder = true, ownerMode = true} = {}) {
     if (url === "/api/v1/catalogue-browser/coverage") return {
       summary:{physical_cards:{total:67387,priced:45000,missing:22387}},
     };
+    if (url === "/api/v1/pricing/coverage-work-queue") return {
+      legacy_sql:{references:69867,guide_inclusive_current_reference_prices:45000,
+        missing_or_ineligible_reference_prices:24867},
+      r2_first:{stored_references_including_other_collectibles:200000},
+      groups:[
+        {game:"Pokémon",language:"English",reference_prices_missing:12000,
+          market_value_coverage:"UK_SOLD_NOT_MEASURED",priority:"HIGH",
+          next_action:"Check completed sales"},
+        {game:"Yu-Gi-Oh!",language:"English",reference_count:14000,
+          reference_prices_missing:null,market_value_coverage:"NOT_MEASURED",
+          priority:"SOURCE_ACCESS_REQUIRED",next_action:"Source access needed"}
+      ]
+    };
     if (url !== "/api/v1/pricing/health") throw Error("Unexpected route");
     return payload;
   };
@@ -83,6 +96,11 @@ function fixture({founder = true, ownerMode = true} = {}) {
       await wait();await wait();
       assert.match(f.doc.getElementById("pricing-health-catalogue-metric").textContent,/45,000 \/ 67,387/,
         "Catalogue-wide reference coverage is distinct from physical stock 617");
+      assert.match(f.doc.getElementById("pricing-health-backlog").textContent,/Pokémon/);
+      assert.match(f.doc.getElementById("pricing-health-backlog").textContent,/Yu-Gi-Oh!/);
+      assert.match(f.doc.getElementById("pricing-health-backlog").textContent,/NOT MEASURED/);
+      assert.ok(f.calls.includes("/api/v1/pricing/coverage-work-queue"),
+        "Founder sees per-game backlog from the existing catalogue report");
       f.doc.getElementById("pricing-health-refresh").click();
       await wait();
       assert.ok(f.calls.length>=2,"Founder can manually refresh health without repricing");
