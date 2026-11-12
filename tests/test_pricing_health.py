@@ -74,7 +74,7 @@ def test_real_live_baseline_reports_blocked_not_false_green():
     assert result["sources"][1]["stored_observations"] == 5238
     assert result["sources"][1]["status"] == "STALE_CONTEXT"
     assert result["sources"][2]["role"] == "ASKING_DERIVED_MARKET_VALUE"
-    assert result["sources"][3]["status"] == "AUTOMATED_ACCESS_NOT_VERIFIED"
+    assert result["sources"][3]["status"] == "NOT_USED_BY_CURRENT_ASKING_MODEL"
     assert result["automation"]["automatic_sold_value_publication_ready"] is False
     assert result["automation"]["unattended_product_research_verified"] is False
     assert {a["code"] for a in result["alerts"]} >= {
