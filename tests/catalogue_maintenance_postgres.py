@@ -99,6 +99,27 @@ async def main():
         sets=await db.fetch(SETS_SQL,owner,['POKEMON_TCG'],'Unknown','',41,0)
         assert len(sets)==1 and 'image_url' not in sets[0] and sets[0]['indexed_count']==1
         assert (await db.fetch(GAMES_SQL,owner))[0]['products']==1
+        # Compare the new literal predicates with the original all-terms
+        # contract on real PostgreSQL, including Unicode and SQL metacharacters.
+        await db.execute('begin')
+        await db.execute("insert into tcg.reference_sets(provider,system_code,language,set_id,name) values('Test','POKEMON_TCG','English','literal','Literal Test Set')")
+        for number,name,rarity in [('011/094','Charmander','Normal'),('012/094',"Farfetch'd %_",'Foil'),('013/094','Évoli','Rare')]:
+            await db.execute("insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,rarity) values('Test','POKEMON_TCG','English',$1,'literal',$2,$1,$3)",number,name,rarity)
+        import re
+        for search in ['Charmander 011/094','charMANDER Normal',"Farfetch'd %_",'Évoli Rare','no such card',"% OR true --",'011/094']:
+            for order in ['newest','name','value_desc']:
+                query,args=product_query(owner_id=owner,q=search,category='TCG',product_type='CARD',sort=order)
+                term_index=next(i for i,v in enumerate(args,1) if v==search.split())
+                parameter=f'${term_index}'
+                haystack="lower(concat_ws(' ',e.name,e.set_name,e.card_number,e.game,e.variant,e.language,e.rarity))"
+                new_predicate='('+' and '.join(f"strpos({haystack},lower(({parameter}::text[])[{i}]))>0" for i in range(1,len(search.split())+1))+')'
+                assert new_predicate in query
+                original=f"not exists (select 1 from unnest({parameter}::text[]) term where strpos({haystack},lower(term))=0)"
+                before=await db.fetch(query.replace(new_predicate,original),*args)
+                after=await db.fetch(query,*args)
+                assert before==after, 'Literal search changed identities, order, values or ownership'
+                if search=='Charmander 011/094':assert len(after)==1 and after[0]['name']=='Charmander'
+        await db.execute('rollback')
         from app.sealed_market import WRITE_SQL
         from app.catalogue_coverage import COVERAGE_SQL
         from datetime import datetime,timedelta,timezone
