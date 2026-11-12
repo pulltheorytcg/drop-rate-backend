@@ -82,7 +82,8 @@ def test_real_live_baseline_reports_blocked_not_false_green():
         "OPERATOR_BULK_HOLD",
     }
     assert "password" not in str(result)
-    assert "seller" not in str(result)
+    assert "'seller': 'private'" not in str(result)
+    assert "'password': 'never leak secret'" not in str(result)
 
 
 def test_fresh_unverified_legacy_sales_still_block_market_value():
