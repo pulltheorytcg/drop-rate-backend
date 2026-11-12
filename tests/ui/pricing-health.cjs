@@ -47,6 +47,7 @@ function fixture({founder = true, ownerMode = true} = {}) {
     "var apiRequest=window.pricingHealthRequest;",ctx);
   vm.runInContext(client,ctx,{filename:"pricing-health-widget.js"});
   if (ownerMode) {
+    doc.getElementById("owner-portal-view").classList.remove("hidden");
     doc.getElementById("owner-view-settings").classList.remove("hidden");
     doc.dispatchEvent(new w.CustomEvent("hub:access-verified",
       {detail:{access:{business_allowed:founder}}}));
