@@ -3,6 +3,10 @@
 (() => {
   const POLL_MS = 60000;
   let panel = null, timer = null, generation = 0, busy = false, access = false;
+  // Reuse the existing expensive, globally cached reference-coverage endpoint.
+  // At most one request every ten minutes per visible founder session.
+  let catalogueCoverage = null, catalogueLastCheck = 0;
+  let catalogueBusy = false, catalogueGeneration = 0;
 
   function element(tag, cls, text) {
     const result = document.createElement(tag);
@@ -92,6 +96,45 @@
     return row;
   }
 
+  function catalogueMetric() {
+    const current = catalogueCoverage?.summary?.physical_cards;
+    const card = metric(
+      "Catalogue price references",
+      current ? count(current.priced) + " / " + count(current.total) :
+        catalogueBusy ? "Checking…" : "Not checked",
+      "Guide-inclusive reference coverage · not exact sold Market Values"
+    );
+    card.id = "pricing-health-catalogue-metric";
+    return card;
+  }
+
+  async function refreshCatalogueCoverage() {
+    if (!visible() || catalogueBusy ||
+        (catalogueLastCheck && Date.now() - catalogueLastCheck < 600000)) return;
+    const user = currentUser(), version = ++catalogueGeneration;
+    catalogueBusy = true;
+    catalogueLastCheck = Date.now();
+    try {
+      // This is the existing source/printing-specific coverage calculation,
+      // never a proxy based on the 617 owned physical inventory items.
+      const result = await apiRequest("/api/v1/catalogue-browser/coverage");
+      if (version !== catalogueGeneration || user !== currentUser() || !visible()) return;
+      if (result?.summary?.physical_cards &&
+          Number.isSafeInteger(result.summary.physical_cards.total) &&
+          Number.isSafeInteger(result.summary.physical_cards.priced)) {
+        catalogueCoverage = result;
+      }
+    } catch (_) {
+      // Source availability and live pricing health remain independently visible.
+    } finally {
+      if (version === catalogueGeneration) {
+        catalogueBusy = false;
+        const old = document.getElementById("pricing-health-catalogue-metric");
+        if (old && visible()) old.replaceWith(catalogueMetric());
+      }
+    }
+  }
+
   function render(data) {
     if (!panel) return;
     const banner = document.getElementById("pricing-health-banner");
@@ -105,7 +148,8 @@
       metric("Stored Market Values", count(inv.stored_value_items),
         String(inv.stored_coverage_pct ?? 0) + "% of active items"),
       metric("Updated within 7 days", count(inv.updated_last_7d), "Not necessarily sold-verified"),
-      metric("Missing Market Values", count(inv.missing_value_items), "Needs eligible actual-sale evidence")
+      metric("Missing Market Values", count(inv.missing_value_items), "Needs eligible actual-sale evidence"),
+      catalogueMetric()
     );
     const rows = document.createDocumentFragment();
     for (const item of data.sources || []) {
@@ -142,6 +186,10 @@
 
   function stop() {
     generation += 1;
+    catalogueGeneration += 1;
+    catalogueCoverage = null;
+    catalogueLastCheck = 0;
+    catalogueBusy = false;
     if (timer !== null) { window.clearInterval(timer); timer = null; }
     busy = false;
     if (!panel) return;
@@ -163,6 +211,7 @@
       const data = await apiRequest("/api/v1/pricing/health");
       if (generation !== version || user !== currentUser() || !visible()) return;
       render(data);
+      void refreshCatalogueCoverage();
     } catch (error) {
       if (generation !== version || user !== currentUser() || !visible()) return;
       const banner = document.getElementById("pricing-health-banner");
