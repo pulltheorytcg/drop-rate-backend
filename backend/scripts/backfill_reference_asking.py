@@ -22,7 +22,7 @@ from uuid import UUID, uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.db import create_pool
 from app.ebay_official_client import EbayOfficialClient
-from app.reference_asking_backfill import GAMES, MAX_DAILY, acquisition_scope, backfill_reference_asking
+from app.reference_asking_backfill import GAMES, MAX_DAILY, ONE_CALL_DAILY_LIMIT, acquisition_scope, backfill_reference_asking
 from app.settings import get_settings
 
 
@@ -36,6 +36,10 @@ def arguments(argv=None):
     parser.add_argument("--max-queries", type=int, default=25,
                         help="Maximum total Browse requests: searches plus item details (1..2000, default 25); not a card count")
     parser.add_argument("--resume-run", type=UUID)
+    parser.add_argument("--one-call", action="store_true",
+                        help="One official Browse search per eligible raw reference, zero detail requests; only fully evidenced summary comparables may update separate asking cache")
+    parser.add_argument("--auto-continue", action="store_true",
+                        help="Automatically continue the previous one-call run cursor across days; avoids repeating previously inspected references")
     parser.add_argument("--system-code", choices=sorted(GAMES))
     parser.add_argument("--language", choices=("English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese"))
     parser.add_argument("--multi-query", action="store_true",
@@ -47,8 +51,13 @@ def arguments(argv=None):
                         help="Exact reference identity as a JSON array; repeat up to 25 times")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
-    if not 1 <= args.max_queries <= MAX_DAILY:
-        parser.error(f"--max-queries must be 1..{MAX_DAILY}")
+    allowed = ONE_CALL_DAILY_LIMIT if args.one_call else MAX_DAILY
+    if not 1 <= args.max_queries <= allowed:
+        parser.error(f"--max-queries must be 1..{allowed}")
+    if args.one_call and args.multi_query:
+        parser.error("--one-call and --multi-query cannot be combined")
+    if args.auto_continue and (not args.run or not args.one_call or args.resume_run is not None):
+        parser.error("--auto-continue requires --one-call and cannot combine with --resume-run")
     if (args.apply or args.resume_run) and not args.run:
         parser.error("--apply and --resume-run require explicit --run")
     try:
@@ -95,7 +104,7 @@ async def run_cli(args):
             max_queries=args.max_queries, resume_run=args.resume_run, system_code=args.system_code,
             language=args.language, include_priced=args.include_priced, reference_keys=args.reference_key,
             postcode=settings.ebay_origin_postcode, checkpoint=checkpoint,
-            multi_query=args.multi_query)
+            multi_query=args.multi_query, one_call=args.one_call, auto_continue=args.auto_continue)
     except Exception as exc:
         report = {"status": "FAILED", "run_id": str(args.resume_run or uuid4()),
                   "stop_reason": getattr(exc, "code", "BACKFILL_START_FAILED"), "error_class": type(exc).__name__}
