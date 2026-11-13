@@ -40,6 +40,10 @@ KEYS = ("provider", "system_code", "language", "provider_id")
 IDENTITY = ("name", "set_id", "card_number", "set_name", "finish", "rarity")
 CONTEXT = "CONFIGURED_SHOP_POSTCODE_BENCHMARK"
 MAX_DAILY = 2000
+# Dedicated one-search-per-reference mode has a separate, explicit upper cap.
+# Provider-reported remaining calls and HEADROOM below remain authoritative.
+ONE_CALL_DAILY_LIMIT = 5000
+ONE_CALL_STRATEGY = "ONE_CALL_SEARCH_V1"
 HEADROOM = 500
 MAX_SCAN = 20000
 QUOTA_REFRESH_REQUESTS = 100
@@ -613,7 +617,8 @@ class SqlBackfillStore:
         updated.update(cursor=cursor_for(reference), pending=cursor_for(reference))
         async with self.transaction():
             daily = await self.connection.fetchval("select coalesce(sum(requests),0)::integer from tcg.reference_asking_runs where budget_day=(clock_timestamp() at time zone 'UTC')::date")
-            if daily >= MAX_DAILY:
+            cap = ONE_CALL_DAILY_LIMIT if report.get("discovery_strategy") == ONE_CALL_STRATEGY else MAX_DAILY
+            if daily >= cap:
                 raise BackfillStop("DAILY_BROWSE_BUDGET_EXHAUSTED")
             await self.capacity()
             used = await self.connection.fetchval("select tcg.reserve_reference_asking_request($1)", UUID(report["run_id"]))
@@ -670,7 +675,7 @@ class SqlBackfillStore:
 
 async def execute_backfill(store, client, report, *, quota_reader=read_browse_quota,
                            checkpoint=lambda report: None, clock=utcnow, sleep=asyncio.sleep,
-                           monotonic=time.monotonic, multi_query=False):
+                           monotonic=time.monotonic, multi_query=False, one_call=False):
     """Orchestration separated from SQL so failure/commit ordering is testable.
 
     The opt-in Lovable-derived plan discovers more eBay summaries, but every
@@ -679,11 +684,16 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
     """
     windows, session_used, next_request, scanned = [], 0, 0.0, 0
     quota_baseline = 0
-    deadline = monotonic() + MAX_RUN_SECONDS
+    deadline = monotonic() + (4 * 60 * 60 if one_call else MAX_RUN_SECONDS)
+    scan_limit = 100_000 if one_call else MAX_SCAN
     detail_cache = {}
     begin_funnel(report)
     for key in ("search_requests", "detail_requests", "details_observed", "detail_cache_hits"):
         report["stats"].setdefault(key, 0)
+    if one_call:
+        report["discovery_strategy"] = ONE_CALL_STRATEGY
+        report["stats"].setdefault("summary_only_ready", 0)
+        report["stats"].setdefault("summary_only_rejected", 0)
     if multi_query:
         report["discovery_strategy"] = "LOVABLE_MULTI_QUERY_RAILWAY_V2_EFFICIENT"
         report["stats"].setdefault("search_variants_used", 0)
@@ -725,13 +735,13 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
         windows = report["quota"]["windows"]
         await store.checkpoint(report)
         checkpoint(report)
-        while session_used < report["max_queries"] and scanned < MAX_SCAN and monotonic() < deadline:
-            rows = await store.candidates(report.get("cursor"), report["scope"], min(100, MAX_SCAN-scanned))
+        while session_used < report["max_queries"] and scanned < scan_limit and monotonic() < deadline:
+            rows = await store.candidates(report.get("cursor"), report["scope"], min(100, scan_limit-scanned))
             if not rows:
                 report["status"] = "COMPLETE"
                 break
             for reference in rows:
-                if session_used >= report["max_queries"] or scanned >= MAX_SCAN or monotonic() >= deadline:
+                if session_used >= report["max_queries"] or scanned >= scan_limit or monotonic() >= deadline:
                     break
                 scanned += 1
                 report["stats"]["scanned"] += 1
@@ -743,6 +753,51 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                 if reason:
                     report["cursor"] = cursor_for(reference)
                     _bump(report, reason)
+                    continue
+                if one_call:
+                    # Exactly one quota-reserved Browse search per distinct
+                    # eligible canonical reference: no getItem, no retries.
+                    # The unchanged estimator may accept *only* complete,
+                    # explicit identity/condition/shipping evidence available
+                    # in the official summary. Its audit retains
+                    # acquisition=SEARCH_SUMMARY and never invents sold data.
+                    performed, payload = await request(
+                        reference,
+                        lambda: client.search_items(
+                            query=query, limit=40,
+                            item_location_country="GB", fixed_price_only=True),
+                        "search_requests",
+                    )
+                    if not performed:
+                        break
+                    observed = clock()
+                    summaries = payload.get("itemSummaries", []) if isinstance(payload, dict) else None
+                    if not isinstance(summaries, list) or len(summaries) > 40:
+                        raise BackfillStop("INVALID_BROWSE_SUMMARIES")
+                    report["stats"]["collected"] += 1
+                    report["stats"]["summaries_seen"] += len(summaries)
+                    report["funnel"]["searches_returning_listings"] += bool(summaries)
+                    report["funnel"]["candidates_discovered"] += len(summaries)
+                    estimate = estimate_reference_asking_price(
+                        reference, summaries, observed_at=observed, now=clock())
+                    outcomes = report["funnel"]["reference_outcomes"]
+                    status = estimate["status"]
+                    outcomes[status] = outcomes.get(status, 0) + 1
+                    report["funnel"]["summary_rows_evaluated"] = (
+                        report["funnel"].get("summary_rows_evaluated", 0) + len(summaries))
+                    if status == "READY":
+                        report["stats"]["matched"] += 1
+                        report["stats"]["summary_only_ready"] += 1
+                        report["funnel"]["estimates_generated"] += 1
+                    else:
+                        report["stats"]["summary_only_rejected"] += 1
+                        _bump(report, status)
+                    for code, count in estimate.get("rejection_counts", {}).items():
+                        _bump(report, "SUMMARY_" + code, count)
+                    # Persist a durable cursor/receipt after every search, even
+                    # when no card can be priced from summary evidence.
+                    report = await store.result(report, reference, estimate)
+                    checkpoint(report)
                     continue
                 if multi_query:
                     # Port of Lovable's diverse retrieval; no calls originate from
@@ -880,7 +935,7 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
             break
         if report["status"] == "RUNNING":
             reason = ("REQUEST_LIMIT" if session_used >= report["max_queries"] else
-                      "SCAN_LIMIT" if scanned >= MAX_SCAN else "TIME_LIMIT")
+                      "SCAN_LIMIT" if scanned >= scan_limit else "TIME_LIMIT")
             report.update(status="INCOMPLETE", stop_reason=reason)
     except BackfillStop as exc:
         report.update(status="STOPPED", stop_reason=exc.code)
@@ -902,11 +957,15 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
                                     resume_run=None, run_id=None, system_code=None, language=None,
                                     include_priced=False, reference_keys=None,
                                     postcode=None, checkpoint=lambda report: None, clock=utcnow,
-                                    quota_reader=read_browse_quota, multi_query=False):
-    if type(multi_query) is not bool:
-        raise ValueError("multi_query must be a boolean")
-    if type(max_queries) is not int or not 1 <= max_queries <= MAX_DAILY or (apply and not run):
-        raise ValueError(f"Use 1..{MAX_DAILY} queries and explicit --run with --apply")
+                                    quota_reader=read_browse_quota, multi_query=False,
+                                    one_call=False, auto_continue=False):
+    if type(multi_query) is not bool or type(one_call) is not bool or type(auto_continue) is not bool:
+        raise ValueError("search modes and auto_continue must be booleans")
+    if (multi_query and one_call) or (auto_continue and not one_call):
+        raise ValueError("ONE_CALL_MODE_CONFLICT")
+    max_allowed = ONE_CALL_DAILY_LIMIT if one_call else MAX_DAILY
+    if type(max_queries) is not int or not 1 <= max_queries <= max_allowed or (apply and not run):
+        raise ValueError(f"Use 1..{max_allowed} queries and explicit --run with --apply")
     scope = acquisition_scope(system_code=system_code, language=language,
                               include_priced=include_priced, reference_keys=reference_keys)
     actor = UUID(str(actor))
@@ -944,6 +1003,21 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
             return report
         if client is None:
             raise BackfillStop("OFFICIAL_EBAY_CLIENT_REQUIRED")
+        if auto_continue:
+            # Continue at last inspected reference across days without
+            # repeatedly spending the daily budget on the same failures.
+            # A COMPLETE previous run exhausted the eligible catalogue;
+            # start a fresh full pass only then.
+            async with store.transaction(readonly=True):
+                previous = await connection.fetchrow("""
+                    select id,status from tcg.reference_asking_runs
+                    where actor_user_id=$1
+                      and report->>'discovery_strategy'=$2
+                      and report->'scope'=$3::jsonb
+                    order by started_at desc limit 1
+                """, actor, ONE_CALL_STRATEGY, json.dumps(scope))
+            if previous and previous["status"] != "COMPLETE":
+                resume_run = previous["id"]
         digest = benchmark_digest(postcode)
         locked = await connection.fetchval("select pg_try_advisory_lock(hashtextextended($1,0))", LOCK_NAME)
         if not locked:
@@ -951,13 +1025,16 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
         try:
             report = await store.open_run(run_id, resume_run, apply=apply, scope=scope, digest=digest, limit=max_queries)
             checkpoint(report)
-            desired_strategy = ("LOVABLE_MULTI_QUERY_RAILWAY_V2_EFFICIENT" if multi_query else "LEGACY_SINGLE_QUERY")
+            desired_strategy = (ONE_CALL_STRATEGY if one_call else
+                                "LOVABLE_MULTI_QUERY_RAILWAY_V2_EFFICIENT" if multi_query else
+                                "LEGACY_SINGLE_QUERY")
             saved_strategy = report.get("discovery_strategy", "LEGACY_SINGLE_QUERY")
             if resume_run and saved_strategy != desired_strategy:
                 raise BackfillStop("DISCOVERY_STRATEGY_MISMATCH")
             report["discovery_strategy"] = desired_strategy
             return await execute_backfill(store, client, report, quota_reader=quota_reader,
-                                          checkpoint=checkpoint, clock=clock, multi_query=multi_query)
+                                          checkpoint=checkpoint, clock=clock,
+                                          multi_query=multi_query, one_call=one_call)
         finally:
             await connection.fetchval("select pg_advisory_unlock(hashtextextended($1,0))", LOCK_NAME)
 
