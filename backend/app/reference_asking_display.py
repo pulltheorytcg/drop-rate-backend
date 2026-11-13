@@ -173,6 +173,33 @@ def asking_market_value_fields(view):
     }
 
 
+_EXPIRED_GUIDE_SOURCES = frozenset({
+    "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "TCGDEX_TCGPLAYER",
+    "CARDMARKET_BULK", "CARDMARKET_BULK_SINGLES", "CARDMARKET_CATALOGUE",
+    "POKEWALLET_POKEMON_CARDMARKET_CATALOGUE",
+    "TCGCSV_TCGPLAYER_CATALOGUE", "DROP_RATE_COMPUTED_MARKET_V1",
+})
+
+
+def expired_reference_guide(row, now):
+    """Expired legacy *catalogue* guides may not block current asking evidence.
+
+    A null/non-expiring or unknown source is deliberately not treated as an
+    expired guide. Current stored-sale/shared prices and physical inventory
+    cannot be replaced by this reference-only display projection.
+    """
+    if row.get("market_value_source") not in _EXPIRED_GUIDE_SOURCES:
+        return False
+    timestamp = row.get("pricing_updated_at")
+    try:
+        checked = _time(timestamp)
+        if checked.utcoffset() is None:
+            return False
+        return checked < now - timedelta(days=7)
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 async def add_asking_estimates(connection, rows, *, now=None):
     """Bounded verified-cache read with an asking-derived Market Value fallback.
 
@@ -196,7 +223,7 @@ async def add_asking_estimates(connection, rows, *, now=None):
         shared = row.get("shared_price") or {}
         if (row.get("source_kind") == "REFERENCE" and row.get("product_type") == "CARD"
                 and not row.get("grading_company") and not row.get("grade") and not row.get("seal_status")
-                and row.get("market_value_minor") is None
+                and (row.get("market_value_minor") is None or expired_reference_guide(row, now))
                 and not (shared.get("market_value_minor") is not None and shared.get("status") != "STALE")):
             pending.append(row)
     if not pending:
