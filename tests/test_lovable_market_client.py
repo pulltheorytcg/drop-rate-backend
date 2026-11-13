@@ -157,3 +157,34 @@ def test_reference_source_validation_and_grade_pair():
                               language="English",provider_id="abc",grade="9")
     with pytest.raises(ValidationError):
         LovablePreviewRequest(source_kind="catalogue")
+
+
+@pytest.mark.asyncio
+async def test_health_probe_uses_no_ebay_calls_and_confirms_server_key():
+    async def respond(req):
+        assert str(req.url).endswith("/api/v1/market/health")
+        assert req.headers["x-api-key"] == SECRET
+        return httpx.Response(200, json={
+            "status": "ok", "read_only": True, "market_value_authority": "DROP_RATE_RAILWAY",
+            "ebay_configured": True,
+        })
+    result = await LovableMarketClient(
+        PUBLISHED_URL, SECRET, transport=httpx.MockTransport(respond)
+    ).health()
+    assert result["lovable_status"] == "CONNECTED"
+    assert result["ebay_credentials_configured"] is True
+    assert result["no_browse_calls_used"] is True
+
+
+@pytest.mark.asyncio
+async def test_health_fails_if_service_claims_valuation_authority():
+    client = LovableMarketClient(
+        PUBLISHED_URL, SECRET, transport=httpx.MockTransport(
+            lambda req: httpx.Response(200, json={
+                "read_only": True, "market_value_authority": "LOVABLE",
+            })
+        )
+    )
+    with pytest.raises(LovableMarketError) as exc:
+        await client.health()
+    assert exc.value.code == "LOVABLE_HEALTH_INVALID"
