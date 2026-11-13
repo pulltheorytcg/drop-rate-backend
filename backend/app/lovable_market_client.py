@@ -79,7 +79,9 @@ def safe_candidates(data: Any) -> dict[str, Any]:
     """Fail closed on unexpected evidence semantics; never invent Market Value."""
     if not isinstance(data, dict) or not isinstance(data.get("candidates"), list):
         raise LovableMarketError("LOVABLE_RESPONSE_INVALID")
-    if (data.get("market_value_gbp") is not None
+    if (data.get("marketplace") != "EBAY_GB"
+            or data.get("currency") != "GBP"
+            or data.get("market_value_gbp") is not None
             or data.get("market_value_eligible") is not False
             or data.get("actual_paid_price_verified") is not False
             or data.get("observation_type") != "ACTIVE"
