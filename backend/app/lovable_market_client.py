@@ -163,6 +163,35 @@ class LovableMarketClient:
             os.getenv("LOVABLE_MARKET_API_KEY", ""),
         )
 
+    async def health(self) -> dict[str, Any]:
+        """Authenticated config check. Does NOT search eBay or consume Browse quota."""
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(10.0, connect=5.0),
+                transport=self.transport, follow_redirects=False, trust_env=False,
+            ) as client:
+                response = await client.get(
+                    HEALTH_URL,
+                    headers={"x-api-key": self.api_key, "accept": "application/json"},
+                )
+        except httpx.RequestError as exc:
+            raise LovableMarketError("LOVABLE_UNAVAILABLE", retryable=True) from exc
+        if response.status_code in (401, 403):
+            raise LovableMarketError("LOVABLE_AUTH_REJECTED", status=503)
+        if response.status_code != 200 or len(response.content) > 4096:
+            raise LovableMarketError("LOVABLE_HEALTH_FAILED")
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise LovableMarketError("LOVABLE_INVALID_JSON") from exc
+        if (not isinstance(data, dict) or data.get("read_only") is not True
+                or data.get("market_value_authority") != "DROP_RATE_RAILWAY"):
+            raise LovableMarketError("LOVABLE_HEALTH_INVALID")
+        return {"lovable_status": "CONNECTED",
+                "ebay_credentials_configured": data.get("ebay_configured") is True,
+                "read_only": True, "no_browse_calls_used": True,
+                "market_value_authority": "DROP_RATE_RAILWAY"}
+
     async def search(self, lookup: Mapping[str, Any]) -> dict[str, Any]:
         clean = clean_lookup(lookup)
         try:
