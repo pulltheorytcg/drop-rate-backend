@@ -685,7 +685,7 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
     for key in ("search_requests", "detail_requests", "details_observed", "detail_cache_hits"):
         report["stats"].setdefault(key, 0)
     if multi_query:
-        report["discovery_strategy"] = "LOVABLE_MULTI_QUERY_RAILWAY_V1"
+        report["discovery_strategy"] = "LOVABLE_MULTI_QUERY_RAILWAY_V2_EFFICIENT"
         report["stats"].setdefault("search_variants_used", 0)
         report["stats"].setdefault("distinct_summaries", 0)
 
@@ -852,6 +852,18 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                     # Reusing a response never renews its evidence lifetime.
                     observed = min(observed, acquired)
                     details.append(detail)
+                    # Do not spend more getItem calls once the unchanged
+                    # estimator confirms a READY value from >=3 fully fetched
+                    # independent sellers. This is the *same* condition used
+                    # for persistence, not summary plausibility.
+                    if multi_query and len(details) >= 3:
+                        interim = estimate_reference_asking_price(
+                            reference, details, observed_at=observed, now=clock())
+                        if interim["status"] == "READY":
+                            report["stats"]["detail_calls_avoided_after_ready"] = (
+                                report["stats"].get("detail_calls_avoided_after_ready", 0)
+                                + len(selected_ids) - len(details))
+                            break
                 estimate = estimate_reference_asking_price(reference, details, observed_at=observed, now=clock())
                 record_estimate(report, estimate)
                 if estimate["status"] == "READY":
@@ -939,7 +951,7 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
         try:
             report = await store.open_run(run_id, resume_run, apply=apply, scope=scope, digest=digest, limit=max_queries)
             checkpoint(report)
-            desired_strategy = ("LOVABLE_MULTI_QUERY_RAILWAY_V1" if multi_query else "LEGACY_SINGLE_QUERY")
+            desired_strategy = ("LOVABLE_MULTI_QUERY_RAILWAY_V2_EFFICIENT" if multi_query else "LEGACY_SINGLE_QUERY")
             saved_strategy = report.get("discovery_strategy", "LEGACY_SINGLE_QUERY")
             if resume_run and saved_strategy != desired_strategy:
                 raise BackfillStop("DISCOVERY_STRATEGY_MISMATCH")
