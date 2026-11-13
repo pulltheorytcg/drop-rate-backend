@@ -38,6 +38,8 @@ def arguments(argv=None):
     parser.add_argument("--resume-run", type=UUID)
     parser.add_argument("--system-code", choices=sorted(GAMES))
     parser.add_argument("--language", choices=("English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese"))
+    parser.add_argument("--multi-query", action="store_true",
+                        help="Opt into Lovable-derived multiple canonical searches, with one quota reservation per Browse request; deterministic match and asking-only evidence unchanged")
     parser.add_argument("--include-priced", action="store_true",
                         help="Also collect Browse evidence for guide-priced references; retain current asking evidence")
     parser.add_argument("--reference-key", action="append", type=json.loads, default=None,
@@ -92,7 +94,8 @@ async def run_cli(args):
         report = await backfill_reference_asking(pool, actor, client, run=args.run, apply=args.apply,
             max_queries=args.max_queries, resume_run=args.resume_run, system_code=args.system_code,
             language=args.language, include_priced=args.include_priced, reference_keys=args.reference_key,
-            postcode=settings.ebay_origin_postcode, checkpoint=checkpoint)
+            postcode=settings.ebay_origin_postcode, checkpoint=checkpoint,
+            multi_query=args.multi_query)
     except Exception as exc:
         report = {"status": "FAILED", "run_id": str(args.resume_run or uuid4()),
                   "stop_reason": getattr(exc, "code", "BACKFILL_START_FAILED"), "error_class": type(exc).__name__}

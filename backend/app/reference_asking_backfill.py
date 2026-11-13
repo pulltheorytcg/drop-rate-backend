@@ -23,6 +23,10 @@ from .database_capacity import check_database_capacity
 from .ebay_official_client import EbayApiError
 from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_asking_funnel import begin_funnel, record_estimate
+from .reference_multi_query_search import (
+    EARLY_STOP_PLAUSIBLE, MAX_CANDIDATE_SUMMARIES, MAX_DETAILS_PER_REFERENCE,
+    build_reference_search_plan,
+)
 from .reference_asking_display import asking_cache_join, matching_reference_evidence, reference_number_alias as _number_alias
 from .reference_asking_estimator import (
     _GRADE_RE, _MULTI_RE, _aspects, _number_matches, _text,
@@ -666,8 +670,13 @@ class SqlBackfillStore:
 
 async def execute_backfill(store, client, report, *, quota_reader=read_browse_quota,
                            checkpoint=lambda report: None, clock=utcnow, sleep=asyncio.sleep,
-                           monotonic=time.monotonic):
-    """Orchestration separated from SQL so failure/commit ordering is testable."""
+                           monotonic=time.monotonic, multi_query=False):
+    """Orchestration separated from SQL so failure/commit ordering is testable.
+
+    The opt-in Lovable-derived plan discovers more eBay summaries, but every
+    Browse call still uses the existing durable quota reservation, and all
+    final matches use the unchanged deterministic estimator.
+    """
     windows, session_used, next_request, scanned = [], 0, 0.0, 0
     quota_baseline = 0
     deadline = monotonic() + MAX_RUN_SECONDS
@@ -675,8 +684,12 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
     begin_funnel(report)
     for key in ("search_requests", "detail_requests", "details_observed", "detail_cache_hits"):
         report["stats"].setdefault(key, 0)
+    if multi_query:
+        report["discovery_strategy"] = "LOVABLE_MULTI_QUERY_RAILWAY_V1"
+        report["stats"].setdefault("search_variants_used", 0)
+        report["stats"].setdefault("distinct_summaries", 0)
 
-    async def request(reference, operation, kind):
+    async def request(reference, operation, kind, *, first_search=True):
         """One shared reservation/rate/deadline path for *every* Browse GET."""
         nonlocal report, session_used, next_request, windows, quota_baseline
         if session_used >= report["max_queries"] or monotonic() >= deadline:
@@ -699,7 +712,7 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
         # interrupted GET still consumes the slot and retains the card cursor.
         updated = deepcopy(report)
         updated["stats"][kind] += 1
-        if kind == "search_requests":
+        if kind == "search_requests" and first_search:
             updated["funnel"]["references_searched"] += 1
         report = await store.reserve(updated, reference)
         checkpoint(report)
@@ -731,25 +744,77 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                     report["cursor"] = cursor_for(reference)
                     _bump(report, reason)
                     continue
-                performed, payload = await request(reference, lambda: client.search_items(
-                    query=query, limit=100, item_location_country="GB", fixed_price_only=True), "search_requests")
-                if not performed:
-                    break
-                observed = clock()
-                summaries = payload.get("itemSummaries", []) if isinstance(payload, dict) else None
-                if not isinstance(summaries, list) or len(summaries) > 100:
-                    raise BackfillStop("INVALID_BROWSE_SUMMARIES")
+                if multi_query:
+                    # Port of Lovable's diverse retrieval; no calls originate from
+                    # Lovable itself. Each search and detail consumes one durable
+                    # Railway reservation. Summary rows never prove identity.
+                    queries = build_reference_search_plan(reference)
+                    if not queries:
+                        report["cursor"] = cursor_for(reference)
+                        _bump(report, "MULTI_QUERY_IDENTITY_REQUIRED")
+                        continue
+                    summaries = []
+                    seen_ids = set()
+                    observed = clock()
+                    performed_searches = 0
+                    for query_variant in queries:
+                        performed, payload = await request(
+                            reference,
+                            lambda q=query_variant: client.search_items(
+                                query=q, limit=40, item_location_country="GB",
+                                fixed_price_only=True),
+                            "search_requests", first_search=performed_searches == 0,
+                        )
+                        if not performed:
+                            break
+                        performed_searches += 1
+                        results = payload.get("itemSummaries", []) if isinstance(payload, dict) else None
+                        if not isinstance(results, list) or len(results) > 40:
+                            raise BackfillStop("INVALID_BROWSE_SUMMARIES")
+                        report["stats"]["summaries_seen"] += len(results)
+                        report["funnel"]["searches_returning_listings"] += bool(results)
+                        report["funnel"]["candidates_discovered"] += len(results)
+                        observed = min(observed, clock())
+                        for row in results:
+                            if not isinstance(row, dict):
+                                continue
+                            item_id = row.get("itemId")
+                            if not isinstance(item_id, str) or item_id in seen_ids:
+                                continue
+                            seen_ids.add(item_id)
+                            if len(summaries) < MAX_CANDIDATE_SUMMARIES:
+                                summaries.append(row)
+                        if len(item_detail_candidates(
+                            reference, summaries, limit=MAX_DETAILS_PER_REFERENCE
+                        )) >= EARLY_STOP_PLAUSIBLE:
+                            break
+                    if not performed_searches:
+                        break
+                    report["stats"]["search_variants_used"] += performed_searches
+                    report["stats"]["distinct_summaries"] += len(summaries)
+                    detail_limit = MAX_DETAILS_PER_REFERENCE
+                else:
+                    performed, payload = await request(reference, lambda: client.search_items(
+                        query=query, limit=100, item_location_country="GB",
+                        fixed_price_only=True), "search_requests")
+                    if not performed:
+                        break
+                    observed = clock()
+                    summaries = payload.get("itemSummaries", []) if isinstance(payload, dict) else None
+                    if not isinstance(summaries, list) or len(summaries) > 100:
+                        raise BackfillStop("INVALID_BROWSE_SUMMARIES")
+                    report["stats"]["summaries_seen"] += len(summaries)
+                    report["funnel"]["searches_returning_listings"] += bool(summaries)
+                    report["funnel"]["candidates_discovered"] += len(summaries)
+                    detail_limit = MAX_ITEM_DETAILS_PER_CARD
                 report["stats"]["collected"] += 1
-                report["stats"]["summaries_seen"] += len(summaries)
-                report["funnel"]["searches_returning_listings"] += bool(summaries)
-                report["funnel"]["candidates_discovered"] += len(summaries)
                 # Search fields are discovery/diagnostics only. Missing item
                 # aspects are retrieved through getItem before any acceptance.
                 diagnostic = estimate_reference_asking_price(reference, summaries, observed_at=observed, now=observed)
                 for code, count in diagnostic["rejection_counts"].items():
                     _bump(report, "SUMMARY_" + code, count)
                 details = []
-                selected_ids = item_detail_candidates(reference, summaries)
+                selected_ids = item_detail_candidates(reference, summaries, limit=detail_limit)
                 report["funnel"]["selected_detail_candidates"] += len(selected_ids)
                 for item_id in selected_ids:
                     if item_id in detail_cache:
@@ -810,7 +875,9 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
                                     resume_run=None, run_id=None, system_code=None, language=None,
                                     include_priced=False, reference_keys=None,
                                     postcode=None, checkpoint=lambda report: None, clock=utcnow,
-                                    quota_reader=read_browse_quota):
+                                    quota_reader=read_browse_quota, multi_query=False):
+    if type(multi_query) is not bool:
+        raise ValueError("multi_query must be a boolean")
     if type(max_queries) is not int or not 1 <= max_queries <= MAX_DAILY or (apply and not run):
         raise ValueError(f"Use 1..{MAX_DAILY} queries and explicit --run with --apply")
     scope = acquisition_scope(system_code=system_code, language=language,
@@ -857,7 +924,13 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
         try:
             report = await store.open_run(run_id, resume_run, apply=apply, scope=scope, digest=digest, limit=max_queries)
             checkpoint(report)
-            return await execute_backfill(store, client, report, quota_reader=quota_reader, checkpoint=checkpoint, clock=clock)
+            desired_strategy = ("LOVABLE_MULTI_QUERY_RAILWAY_V1" if multi_query else "LEGACY_SINGLE_QUERY")
+            saved_strategy = report.get("discovery_strategy", "LEGACY_SINGLE_QUERY")
+            if resume_run and saved_strategy != desired_strategy:
+                raise BackfillStop("DISCOVERY_STRATEGY_MISMATCH")
+            report["discovery_strategy"] = desired_strategy
+            return await execute_backfill(store, client, report, quota_reader=quota_reader,
+                                          checkpoint=checkpoint, clock=clock, multi_query=multi_query)
         finally:
             await connection.fetchval("select pg_advisory_unlock(hashtextextended($1,0))", LOCK_NAME)
 
