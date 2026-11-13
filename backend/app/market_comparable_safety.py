@@ -21,7 +21,7 @@ def _token(pattern: str) -> re.Pattern[str]:
 # do not mean the same treatment across franchises.
 _SHARED = {
     "ALT_ART": [r"alt(?:ernat(?:e|ive))?\s+art", r"parallel\s+art"],
-    "REVERSE_HOLO": [r"reverse[\s-]*(?:holo|foil)"],
+    "REVERSE_HOLO": [r"reverse[\s-]*(?:holo(?:foil)?|foil)"],
     "PROMO": [r"promo(?:tional)?"],
     "FIRST_EDITION": [r"1st[\s-]*edition", r"first[\s-]*edition"],
     "STAMPED": [r"stamp(?:ed)?"],
@@ -61,7 +61,7 @@ _GAME = {
         "SHOWCASE": [r"showcase"],
         "BORDERLESS": [r"borderless"],
         "EXTENDED_ART": [r"extended[\s-]*art"],
-        "ETCHED_FOIL": [r"etched[\s-]*foil"],
+        "ETCHED_FOIL": [r"etched[\s-]*foil", r"foil[\s-]*etched", r"etched"],
         "SERIALIZED": [r"seriali[sz]ed"],
     },
     "riftbound": {"ALTERNATE_ART": [r"alternate[\s-]*art"]},
