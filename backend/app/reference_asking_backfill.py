@@ -780,6 +780,12 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                     report["funnel"]["candidates_discovered"] += len(summaries)
                     estimate = estimate_reference_asking_price(
                         reference, summaries, observed_at=observed, now=clock())
+                    # Exact title/condition/grade evidence is a prerequisite,
+                    # but expensive cards still require human review when
+                    # based only on the one-call listing summaries.
+                    if (estimate["status"] == "READY"
+                            and (estimate.get("estimate_minor") or 0) >= 15_000):
+                        estimate["status"] = "HIGH_VALUE_SUMMARY_REVIEW"
                     outcomes = report["funnel"]["reference_outcomes"]
                     status = estimate["status"]
                     outcomes[status] = outcomes.get(status, 0) + 1
@@ -961,7 +967,7 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
                                     one_call=False, auto_continue=False):
     if type(multi_query) is not bool or type(one_call) is not bool or type(auto_continue) is not bool:
         raise ValueError("search modes and auto_continue must be booleans")
-    if (multi_query and one_call) or (auto_continue and not one_call):
+    if (multi_query and one_call) or (auto_continue and (not one_call or not run or resume_run is not None)):
         raise ValueError("ONE_CALL_MODE_CONFLICT")
     max_allowed = ONE_CALL_DAILY_LIMIT if one_call else MAX_DAILY
     if type(max_queries) is not int or not 1 <= max_queries <= max_allowed or (apply and not run):
