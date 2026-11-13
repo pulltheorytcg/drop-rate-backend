@@ -219,3 +219,66 @@ def test_retry_after_date_is_bounded_and_invalid_values_do_not_escape():
     assert _retry_after(response) == 86400
     response.headers = {"Retry-After": "not-a-date"}
     assert _retry_after(response) is None
+
+
+
+@pytest.mark.asyncio
+async def test_get_items_batch_requests_up_to_twenty_discovered_rest_ids(monkeypatch):
+    client = EbayOfficialClient(client_id="id", client_secret="secret", marketplace_id="EBAY_GB")
+    ids = [f"v1|{100000000000+i}|0" for i in range(20)]
+    calls = []
+
+    async def fake_get(path, *, params):
+        calls.append((path, params))
+        return {"items": [{"itemId": item_id} for item_id in ids]}
+
+    monkeypatch.setattr(client, "_browse_get", fake_get)
+    result = await client.get_items(ids)
+    assert len(result["items"]) == 20
+    assert calls == [("/buy/browse/v1/item", {
+        "item_ids": ",".join(ids), "fieldgroups": "PRODUCT",
+    })]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ids", [
+    [], ["v1|12|0"]*21, ["bad"], ["v1|10|0", "v1|10|0"],
+    ["https://ebay.com/item?id=123"], ["v1|0|0"], [123],
+])
+async def test_get_items_never_calls_provider_for_invalid_ids(ids, monkeypatch):
+    client = EbayOfficialClient(client_id="id", client_secret="secret")
+    async def forbidden(*args, **kwargs):
+        raise AssertionError("invalid item IDs must fail before any HTTP")
+    monkeypatch.setattr(client, "_browse_get", forbidden)
+    with pytest.raises(ValueError):
+        await client.get_items(ids)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [
+    {},
+    {"items": [{"itemId": "v1|999|0"}]},
+    {"items": [{"itemId": "v1|10|0"}, {"itemId": "v1|10|0"}]},
+    {"items": "bad"},
+    {"items": [{"itemId": "v1|10|0"}], "errors": "malformed"},
+])
+async def test_get_items_rejects_untrusted_or_mismatched_batch_response(body, monkeypatch):
+    client = EbayOfficialClient(client_id="id", client_secret="secret")
+    async def fake_get(path, *, params):
+        return body
+    monkeypatch.setattr(client, "_browse_get", fake_get)
+    with pytest.raises(EbayApiError):
+        await client.get_items(["v1|10|0"])
+
+
+@pytest.mark.asyncio
+async def test_get_items_partial_response_is_not_falsely_filled(monkeypatch):
+    client = EbayOfficialClient(client_id="id", client_secret="secret")
+    async def fake_get(path, *, params):
+        return {"items": [{"itemId": "v1|10|0"}],
+                "errors": [{"errorId": 11012, "message": "Invalid other item"}]}
+    monkeypatch.setattr(client, "_browse_get", fake_get)
+    result = await client.get_items(["v1|10|0", "v1|11|0"])
+    assert len(result["items"]) == 1
+    assert result["items"][0]["itemId"] == "v1|10|0"
+    assert result["errors"] != []
