@@ -44,7 +44,7 @@ def listing(i, price="100.00", *, title=None):
     }
 
 
-def quota(_client):
+async def quota(_client):
     return {
         "rateLimits": [{
             "apiContext": "buy", "apiName": "browse", "resources": [{
