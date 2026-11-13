@@ -5,6 +5,7 @@ provider release label, never guessed by the seller, AI or an unknown source.
 """
 from datetime import datetime, timezone
 
+from app.reference_multi_query_search import build_reference_search_plan
 from app.reference_asking_estimator import (
     _matches, _number_matches, _reference_spec,
     estimate_reference_asking_price, reference_asking_eligibility,
@@ -102,3 +103,11 @@ def test_no_automatic_unverified_parallel_or_alt_art_price():
         evidence={}, reference_group_count=2,
     )
     assert reference_asking_eligibility(ref) == "UNRESOLVED_PARALLEL_IDENTITY"
+
+
+def test_multi_query_prefers_verified_romance_dawn_alias_not_marketing_label():
+    plan = build_reference_search_plan(one_piece())
+    assert len(plan) >= 2
+    assert any("ROMANCE DAWN" in query for query in plan)
+    assert all("BOOSTER PACK" not in query for query in plan)
+    assert any("OP01-006" in query for query in plan)
