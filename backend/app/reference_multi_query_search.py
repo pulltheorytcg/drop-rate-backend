@@ -23,10 +23,10 @@ GAME_NAMES = {
 
 # Query diversity does not prove listing identity. Every returned item needs
 # eBay getItem followed by the existing deterministic exact-match validator.
-MAX_QUERIES_PER_REFERENCE = 4
-MAX_CANDIDATE_SUMMARIES = 160
-MAX_DETAILS_PER_REFERENCE = 12
-EARLY_STOP_PLAUSIBLE = 5  # exact-identity, distinct-seller summaries; not loosely plausible rows
+MAX_QUERIES_PER_REFERENCE = 2  # one primary and at most one canonical fallback
+MAX_CANDIDATE_SUMMARIES = 80  # 40 per search, de-duplicated
+MAX_DETAILS_PER_REFERENCE = 5  # verified items only; stop as soon as 3 independent sellers qualify
+EARLY_STOP_PLAUSIBLE = 3  # independent exact-looking summary sellers; getItem still required
 
 
 def build_reference_search_plan(reference: Mapping[str, object]) -> tuple[str, ...]:
@@ -87,8 +87,7 @@ def build_reference_search_plan(reference: Mapping[str, object]) -> tuple[str, .
     add(game, name, number)
     # Second query deliberately omits canonical product name, as in Lovable.
     # The unchanged _matches() still insists on exact title/structured identity.
-    add(number, terms, game)
-    add(name, terms, variant or code)
-    add(name, number, variant or short_language)
-    add(name, number)
+    # A special printing must carry its variant in the fallback, otherwise
+    # omit the marketing-heavy product name and search exact printed code/set.
+    add(number, terms, variant or game)
     return tuple(plan[:MAX_QUERIES_PER_REFERENCE])
