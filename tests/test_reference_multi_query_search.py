@@ -290,7 +290,10 @@ def test_all_candidates_checked_if_first_three_do_not_satisfy_comparables():
     assert store.results
     # Whether this set has enough matches must always be decided by the
     # original estimator, not by the search summaries.
-    assert store.results[0]["basis"] == "ASKING_PRICE_ESTIMATE" or store.results[0]["status"] != "READY"
+    assert store.results[0]["status"] != "READY" or (
+        store.results[0]["basis"] == "ASKING_PRICE_ESTIMATE"
+        and store.results[0]["physical_valuation_eligible"] is False
+    )
     assert state["database_price_writes"] == 0
 
 
