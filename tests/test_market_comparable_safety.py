@@ -163,3 +163,37 @@ def test_prioritise_unpriced_then_oldest_and_deduplicate_physical_copies():
     selected = prioritize_refresh_items(items, limit=2)
     assert [v["pricing_identity"] for v in selected] == ["x", "y"]
     assert selected[0]["market_value_minor"] is None
+
+
+def test_comics_issue_variant_and_grade_cannot_cross_identify():
+    from app.market_comparable_safety import review_noncard_identity
+    requested = {"issue_number": "300", "variant": "Cover A", "printing": "First", "grading_company": "CGC", "grade": "9.8"}
+    assert review_noncard_identity("comic", requested, "Amazing Spider-Man #301 CGC 9.8 Cover A").status == "REJECTED"
+    assert review_noncard_identity("comic", requested, "Amazing Spider-Man #300 CGC 9.6 Cover A").status == "REJECTED"
+    assert review_noncard_identity("comic", requested, "Amazing Spider-Man #300 CGC 9.8 Cover B").status == "REJECTED"
+    assert review_noncard_identity("comic", requested, "Amazing Spider-Man #300 CGC 9.8 Facsimile").status == "REJECTED"
+
+
+def test_manga_individual_volume_is_not_other_volume_or_omnibus():
+    from app.market_comparable_safety import review_noncard_identity
+    requested = {"volume": "12"}
+    assert review_noncard_identity("manga", requested, "Naruto Vol 13 Paperback").status == "REJECTED"
+    assert review_noncard_identity("manga", requested, "Naruto Vol 12 Omnibus").status == "REJECTED"
+    assert review_noncard_identity("manga", requested, "Naruto Vol 12 Paperback").status == "REVIEW_REQUIRED"
+
+
+def test_funko_chase_exclusive_box_damage_and_product_numbers():
+    from app.market_comparable_safety import review_noncard_identity
+    base = {"product_number": "98", "variant": "Common", "box_condition": "Mint", "product_type": "Pop"}
+    assert review_noncard_identity("funko", base, "Funko Pop Luffy #99").status == "REJECTED"
+    assert review_noncard_identity("funko", base, "Funko Pop Luffy #98 Chase").status == "REJECTED"
+    assert review_noncard_identity("funko", base, "Funko Pop Luffy #98 Damaged Box").status == "REJECTED"
+    assert review_noncard_identity("funko", base, "Funko Soda Luffy #98").status == "REJECTED"
+    assert review_noncard_identity("funko", base, "Funko Pop Luffy #98").status == "REVIEW_REQUIRED"
+
+
+def test_unknown_sealed_product_type_must_never_confirm_identity():
+    from app.market_comparable_safety import review_noncard_identity
+    actual = review_noncard_identity("sealed", {"product_type": "BOOSTER_CASE"}, "Factory sealed booster case")
+    assert actual.status == "REVIEW_REQUIRED"
+    assert "REVIEW_UNKNOWN_SEALED_TYPE" in actual.missing
