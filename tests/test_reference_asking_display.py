@@ -191,3 +191,77 @@ async def test_five_independent_sellers_raise_confidence_but_not_sales_claim():
     assert value["market_value_evidence"]["completed_sales_used"] == 0
     assert "store_price_minor" not in value
     assert "recommended_retail_minor" not in value
+
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("legacy_minor", "asking_minor", "provider", "reference_id"), [
+    (12, 249, "TCGdex", "sv03.5-004"),
+    (56, 207, "Bandai Official", "OP17-103"),
+])
+async def test_current_verified_asking_supersedes_expired_legacy_guide(
+        legacy_minor, asking_minor, provider, reference_id):
+    """Regression: stale guide kept market_value_minor non-null and blocked cache.
+
+    This affects production Charmander 151 and Katakuri OP17-103. The database
+    guide value is not rewritten; this is solely the catalogue response view.
+    """
+    row = product(
+        provider=provider, provider_id=reference_id,
+        market_value_minor=legacy_minor, market_value_high_minor=legacy_minor,
+        market_value_source="TCGDEX_TCGPLAYER",
+        pricing_updated_at=NOW - timedelta(days=16),
+        basis_condition="Raw · Cardmarket mixed-language guide",
+    )
+    previous = copy.deepcopy(row)
+    connection = Connection([record(estimate_minor=asking_minor,
+                                    estimate_high_minor=asking_minor + 100)])
+    result = await add_asking_estimates(connection, [row], now=NOW)
+    assert row == previous
+    assert len(connection.calls) == 1
+    assert len(connection.calls[0][1]) == 1
+    assert result[0]["market_value_minor"] == asking_minor
+    assert result[0]["market_value_high_minor"] == asking_minor + 100
+    assert result[0]["market_value_source"] == ASKING_MARKET_VALUE_SOURCE
+    assert result[0]["market_value_basis"] == ASKING_MARKET_VALUE_BASIS
+    assert result[0]["market_value_evidence"]["completed_sales_used"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("overrides", [
+    {"pricing_updated_at": NOW - timedelta(days=3)},
+    {"market_value_source": "STORED_SNAPSHOT"},
+    {"market_value_source": "SHARED_BOOK_SOLD"},
+    {"market_value_source": "SHARED_CATALOGUE_REFERENCE"},
+    {"market_value_source": "UNRECOGNISED"},
+    {"pricing_updated_at": None},
+    {"pricing_updated_at": "bad"},
+    {"pricing_updated_at": (NOW - timedelta(days=16)).replace(tzinfo=None)},
+    {"source_kind": "INVENTORY"},
+    {"product_type": "SEALED"},
+    {"grading_company": "PSA", "grade": "10"},
+    {"shared_price": {"status": "AVAILABLE", "market_value_minor": 980}},
+])
+async def test_expired_guide_fallback_never_replaces_current_or_unrelated_values(overrides):
+    row = product(
+        market_value_minor=56,
+        market_value_source="TCGDEX_TCGPLAYER",
+        pricing_updated_at=NOW - timedelta(days=16),
+        **overrides,
+    )
+    connection = Connection([record(estimate_minor=207)])
+    result = await add_asking_estimates(connection, [row], now=NOW)
+    assert result == [row]
+    assert connection.calls == []
+
+
+@pytest.mark.asyncio
+async def test_expired_guide_without_valid_asking_does_not_invent_price():
+    row = product(
+        market_value_minor=56, market_value_source="TCGDEX_TCGPLAYER",
+        pricing_updated_at=NOW - timedelta(days=16),
+    )
+    connection = Connection([record(current_identity={**IDENTITY, "card_number": "OTHER"})])
+    result = await add_asking_estimates(connection, [row], now=NOW)
+    assert result == [row]
+    assert len(connection.calls) == 1
