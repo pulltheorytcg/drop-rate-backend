@@ -53,7 +53,7 @@ def listing(i, *, number="OP01-006", aspect_number="006",
 def test_one_piece_provider_label_supplies_only_its_own_short_set_alias():
     spec, reason = _reference_spec(one_piece())
     assert reason is None
-    assert ("Romance Dawn",) in spec["set_alternatives"]
+    assert ("ROMANCE DAWN",) in spec["set_alternatives"]
     assert spec["set_alias_source"] == "CANONICAL_PROVIDER_SET_LABEL"
     assert _matches(listing(1), one_piece(), spec) is None
 
@@ -92,7 +92,7 @@ def test_mismatched_canonical_code_never_auto_derives_a_short_set_name():
     ref = one_piece(set_name="BOOSTER PACK -ROMANCE DAWN- [OP-02]")
     spec, reason = _reference_spec(ref)
     assert reason is None
-    assert ("Romance Dawn",) not in spec["set_alternatives"]
+    assert ("ROMANCE DAWN",) not in spec["set_alternatives"]
     assert spec["set_alias_source"] is None
 
 
