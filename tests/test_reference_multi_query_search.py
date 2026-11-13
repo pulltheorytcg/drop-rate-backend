@@ -95,9 +95,10 @@ class Store:
 
 
 class Client:
-    def __init__(self, store, second_rows):
+    def __init__(self, store, second_rows, first_rows=None):
         self.store = store
         self.second_rows = second_rows
+        self.first_rows = first_rows
         self.queries = []
         self.details = []
 
@@ -108,6 +109,8 @@ class Client:
         assert kwargs["fixed_price_only"] is True
         assert kwargs["item_location_country"] == "GB"
         self.store.events.append(("search", len(self.queries)))
+        if len(self.queries) == 1 and self.first_rows is not None:
+            return {"itemSummaries": self.first_rows}
         if len(self.queries) in (2, 3):
             return {"itemSummaries": self.second_rows}
         return {"itemSummaries": []}
@@ -116,7 +119,8 @@ class Client:
         assert self.store.events[-1][0] == "reserve"
         self.details.append(item_id)
         self.store.events.append(("detail", item_id))
-        return next(row for row in self.second_rows if row["itemId"] == item_id)
+        return next(row for row in (self.first_rows or []) + self.second_rows
+                    if row["itemId"] == item_id)
 
 
 def report(limit=25):
@@ -136,9 +140,9 @@ async def no_sleep(_seconds):
     return None
 
 
-def run(ref, rows, *, max_queries=25):
+def run(ref, rows, *, max_queries=25, first_rows=None):
     store = Store(ref)
-    client = Client(store, rows)
+    client = Client(store, rows, first_rows=first_rows)
     state = asyncio.run(backfill.execute_backfill(
         store, client, report(max_queries),
         quota_reader=quota, clock=lambda: NOW,
@@ -222,3 +226,29 @@ def test_low_global_budget_preserves_request_reservation_and_does_not_fake_match
     assert state["stop_reason"] == "REQUEST_LIMIT"
     assert state["stats"]["written"] == 0
     assert state["stats"]["detail_requests"] == 0
+
+
+def test_ambiguous_first_query_cannot_suppress_next_three_searches():
+    wrong_set = [
+        listing(i, "105", title="Pokemon Charizard 4/102 Some Other Set English Holo Near Mint Ungraded")
+        for i in range(10, 22)
+    ]
+    valid = [listing(101, "100"), listing(102, "110"), listing(103, "120")]
+    state, store, client = run(reference(), valid, first_rows=wrong_set)
+    assert len(client.queries) >= 2
+    assert state["funnel"]["references_searched"] == 1
+    assert state["stats"]["search_variants_used"] >= 2
+    assert state["stats"]["distinct_summaries"] == 15
+    assert state["stats"]["matched"] == 1
+    assert store.results[0]["status"] == "READY"
+    assert store.results[0]["physical_valuation_eligible"] is False
+
+
+def test_five_exact_distinct_summary_sellers_allow_early_stop_without_valuing_summaries():
+    exact = [listing(i, "100") for i in range(201, 206)]
+    state, store, client = run(reference(), [], first_rows=exact)
+    assert len(client.queries) == 1
+    assert len(client.details) == 5
+    assert store.results[0]["status"] == "READY"
+    assert store.results[0]["basis"] == "ASKING_PRICE_ESTIMATE"
+    assert store.results[0]["physical_valuation_eligible"] is False

@@ -24,7 +24,7 @@ GAME_NAMES = {
 MAX_QUERIES_PER_REFERENCE = 4
 MAX_CANDIDATE_SUMMARIES = 160
 MAX_DETAILS_PER_REFERENCE = 12
-EARLY_STOP_PLAUSIBLE = 10
+EARLY_STOP_PLAUSIBLE = 5  # exact-identity, distinct-seller summaries; not loosely plausible rows
 
 
 def build_reference_search_plan(reference: Mapping[str, object]) -> tuple[str, ...]:
