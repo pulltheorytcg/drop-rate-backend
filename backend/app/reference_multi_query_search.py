@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 
+from .reference_asking_estimator import _reference_spec
+
 GAME_NAMES = {
     "POKEMON_TCG": "Pokemon",
     "ONE_PIECE_CARD_GAME": "One Piece",
@@ -44,6 +46,14 @@ def build_reference_search_plan(reference: Mapping[str, object]) -> tuple[str, .
         terms = next((v for v in terms if isinstance(v, str) and v.strip()), None)
     if not isinstance(terms, str) or not terms.strip():
         terms = set_name if isinstance(set_name, str) and set_name.strip() else None
+    # Prefer the same already-verified canonical short release alias used by
+    # FastAPI's deterministic matcher. Do not independently guess an eBay
+    # abbreviation or trust a provider-internal numeric database set ID.
+    spec, reason = _reference_spec(reference)
+    if reason is None and spec.get("set_alias_source"):
+        alternatives = spec.get("set_alternatives", ())
+        if len(alternatives) > 1 and len(alternatives[-1]) == 1:
+            terms = alternatives[-1][0]
     # The catalogue's internal set_id (for example sv03.5) is not necessarily
     # an eBay-printed set code. Use the code already printed on numbered cards.
     prefix = number.split("-", 1)[0] if "-" in number else ""
