@@ -278,3 +278,130 @@ def asking_price_diagnostics(
         "outlier_method": "seller-median-centred MAD with 40pct minimum guard",
         "review_required": True,
     }
+
+
+@dataclass(frozen=True)
+class CollectibleReview:
+    """Discovery guardrail, NOT proof of an exact product or a paid sale."""
+    status: str
+    conflicting: tuple[str, ...]
+    missing: tuple[str, ...]
+
+
+def _contains_identifier(title: str, identifier: str) -> bool:
+    return bool(re.search(r"(?<![A-Za-z0-9])" + re.escape(identifier) + r"(?![A-Za-z0-9])", title, re.I))
+
+
+def review_noncard_identity(category: str, expected: Mapping[str, Any], title: str) -> CollectibleReview:
+    """Conservative title checks for comics, manga, Funko, figures and sealed.
+
+    No title-only result may be labelled EXACT_MATCH; eBay item specifics and
+    product condition still need independent validation before use.
+    """
+    category = str(category).strip().casefold()
+    title = str(title or "")
+    conflicts: list[str] = []
+    missing: list[str] = []
+    low = title.casefold()
+    if _token(r"replica|counterfeit|proxy|empty[\s-]*box|box[\s-]*only|fake").search(title):
+        conflicts.append("UNSAFE_PRODUCT")
+
+    if category in {"comic", "comics"}:
+        if _token(r"facsimile|trade[\s-]*paperback|omnibus|collected[\s-]*edition|lot|bundle").search(title):
+            conflicts.append("NOT_SINGLE_ORIGINAL_ISSUE")
+        issue = str(expected.get("issue_number") or "").strip().lstrip("#")
+        found = re.search(r"(?<![A-Za-z0-9])#\s*(\d+[A-Za-z]?)\b", title)
+        if issue:
+            if found and found.group(1).casefold() != issue.casefold():
+                conflicts.append("ISSUE_NUMBER_MISMATCH")
+            elif not found:
+                missing.append("ISSUE_NUMBER_UNVERIFIED")
+        else:
+            missing.append("ISSUE_NUMBER_REQUIRED")
+        cover = str(expected.get("variant") or "").strip()
+        match = re.search(r"\bcover[\s-]*([A-Z])\b", title, re.I)
+        if cover:
+            wanted = re.search(r"\bcover[\s-]*([A-Z])\b", cover, re.I)
+            if wanted and match and wanted.group(1).lower() != match.group(1).lower():
+                conflicts.append("COVER_VARIANT_MISMATCH")
+            elif wanted and not match:
+                missing.append("COVER_VARIANT_UNVERIFIED")
+        elif match and match.group(1).upper() != "A":
+            missing.append("COVER_VARIANT_NOT_SPECIFIED")
+        printing = str(expected.get("printing") or "")
+        visible_print = re.search(r"\b(1st|2nd|3rd|first|second|third)\s+print(?:ing)?\b", title, re.I)
+        if printing and visible_print:
+            equivalent = {"1st": "first", "2nd": "second", "3rd": "third"}
+            wanted = equivalent.get(printing.split()[0].casefold(), printing.split()[0].casefold())
+            listed = equivalent.get(visible_print.group(1).casefold(), visible_print.group(1).casefold())
+            if wanted != listed:
+                conflicts.append("PRINTING_MISMATCH")
+        if expected.get("grading_company") and expected.get("grade"):
+            company = str(expected["grading_company"])
+            grade = str(expected["grade"])
+            if not re.search(r"(?<![A-Za-z0-9])" + re.escape(company) + r"\s*" + re.escape(grade) + r"(?![\d.])", title, re.I):
+                missing.append("GRADE_UNVERIFIED")
+            for found_grade in re.finditer(r"\b(?:CGC|CBCS|PGX)\s*(\d+(?:\.\d+)?)\b", title, re.I):
+                if Decimal(found_grade.group(1)) != Decimal(grade):
+                    conflicts.append("GRADE_MISMATCH")
+
+    elif category == "manga":
+        if _token(r"omnibus|box[\s-]*set|complete[\s-]*set|bundle|lot").search(title) and not expected.get("omnibus"):
+            conflicts.append("MANGA_SINGLE_VS_SET")
+        volume = str(expected.get("volume") or "").strip()
+        visible = re.search(r"\bvol(?:ume)?\.?\s*(\d+)\b", title, re.I)
+        if volume:
+            if visible and str(int(visible.group(1))) != str(int(volume)) if volume.isdigit() else False:
+                conflicts.append("VOLUME_MISMATCH")
+            elif not visible:
+                missing.append("VOLUME_UNVERIFIED")
+        isbn = re.sub(r"[^0-9X]", "", str(expected.get("isbn") or ""), flags=re.I).upper()
+        if isbn:
+            if not _contains_identifier(re.sub(r"[-\s]", "", title), isbn):
+                visible_isbn = re.findall(r"\b(?:97[89]\d{10}|\d{9}[\dX])\b", re.sub(r"[-\s]", "", title), re.I)
+                if visible_isbn:
+                    conflicts.append("ISBN_MISMATCH")
+                else:
+                    missing.append("ISBN_UNVERIFIED")
+
+    elif category in {"funko", "figure", "figures"}:
+        if _token(r"box[\s-]*only|empty[\s-]*box|lot|bundle").search(title):
+            conflicts.append("FUNKO_NOT_SINGLE_COMPLETE_PRODUCT")
+        number = str(expected.get("product_number") or "").strip().lstrip("#")
+        found = re.search(r"(?<![A-Za-z0-9])#\s*(\d{1,5})\b", title)
+        if number:
+            if found and found.group(1).lstrip("0") != number.lstrip("0"):
+                conflicts.append("PRODUCT_NUMBER_MISMATCH")
+            elif not found:
+                missing.append("PRODUCT_NUMBER_UNVERIFIED")
+        else:
+            missing.append("PRODUCT_NUMBER_REQUIRED")
+        for treatment in ("chase", "exclusive", "limited", "signed", "autographed"):
+            listed = bool(_token(treatment).search(title))
+            requested = bool(_token(treatment).search(" ".join(str(expected.get(k) or "") for k in ("variant", "edition", "signature_status"))))
+            if listed and not requested:
+                conflicts.append(treatment.upper() + "_UNREQUESTED")
+            elif requested and not listed:
+                missing.append(treatment.upper() + "_UNVERIFIED")
+        if _token(r"damaged[\s-]*box|no[\s-]*box|out[\s-]*of[\s-]*box").search(title) and str(expected.get("box_condition") or "").casefold() in {"mint", "new", "new in box"}:
+            conflicts.append("BOX_CONDITION_MISMATCH")
+        if category == "funko":
+            wanted_line = str(expected.get("product_type") or "Pop")
+            if _token(r"funko[\s-]*soda").search(title) and _token(r"pop").search(wanted_line):
+                conflicts.append("FUNKO_SODA_VS_POP")
+
+    elif category in {"sealed", "sealed_tcg"}:
+        result = verify_sealed_product(expected_type=str(expected.get("product_type") or ""), title=title)
+        if result.startswith("REJECTED"):
+            conflicts.append(result)
+        elif result.startswith("REVIEW"):
+            missing.append(result)
+    else:
+        missing.append("CATEGORY_NOT_SUPPORTED")
+
+    # A title is search context, not verified structured print/condition proof.
+    return CollectibleReview(
+        status="REJECTED" if conflicts else "REVIEW_REQUIRED",
+        conflicting=tuple(dict.fromkeys(conflicts)),
+        missing=tuple(dict.fromkeys(missing)),
+    )
