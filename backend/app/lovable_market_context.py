@@ -145,7 +145,10 @@ async def lovable_context(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
     """On-demand, read-only candidate evidence. All public values stay untouched."""
-    client = LovableMarketClient.from_environment()
+    try:
+        client = LovableMarketClient.from_environment()
+    except LovableMarketError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.code) from exc
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         await _owner(connection)
         identity = await fetch_catalogue_identity(connection, payload)
