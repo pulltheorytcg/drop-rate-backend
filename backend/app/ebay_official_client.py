@@ -224,6 +224,47 @@ class EbayOfficialClient:
             params={"fieldgroups": fieldgroups},
         )
 
+    async def get_items(
+        self, item_ids: list[str] | tuple[str, ...], *, fieldgroups: str = "PRODUCT",
+    ) -> dict[str, Any]:
+        """One official bulk getItems request for up to 20 discovered listings.
+
+        This uses eBay's separately metered getItems allowance. Callers must
+        reserve and audit that allowance BEFORE invoking this method; a
+        search-query reservation does not confer permission to batch details.
+        No caller-supplied URLs, retries, or assumed seller/card identity.
+        """
+        if not isinstance(item_ids, (list, tuple)) or not 1 <= len(item_ids) <= 20:
+            raise ValueError("Batch getItems requires 1..20 item IDs")
+        if (any(not isinstance(item_id, str) or not re.fullmatch(
+                r"v1\|[1-9][0-9]{0,19}\|(?:0|[1-9][0-9]{0,19})", item_id
+            ) for item_id in item_ids)
+                or len(set(item_ids)) != len(item_ids)):
+            raise ValueError("Batch getItems requires distinct valid eBay REST item IDs")
+        if fieldgroups not in {"PRODUCT", "COMPACT"}:
+            raise ValueError("Unsupported eBay batch field group")
+        payload = await self._browse_get("/buy/browse/v1/item", params={
+            "item_ids": ",".join(item_ids), "fieldgroups": fieldgroups,
+        })
+        items = payload.get("items")
+        if not isinstance(items, list):
+            raise EbayApiError("eBay batch item details are unavailable")
+        if len(items) > len(item_ids) or any(not isinstance(item, dict) for item in items):
+            raise EbayApiError("eBay batch returned an invalid item list")
+        requested = set(item_ids)
+        observed: set[str] = set()
+        for item in items:
+            item_id = item.get("itemId")
+            if not isinstance(item_id, str) or item_id not in requested or item_id in observed:
+                raise EbayApiError("eBay batch returned mismatched or duplicate item IDs")
+            observed.add(item_id)
+        # Partial success is not evidence of a listing absent from response.
+        # If eBay includes a errors list, callers must inspect those errors
+        # before deciding whether any other item remains eligible.
+        if payload.get("errors") is not None and not isinstance(payload["errors"], list):
+            raise EbayApiError("eBay batch returned malformed error details")
+        return payload
+
     async def _browse_get(self, path: str, *, params: dict[str, str | int]) -> dict[str, Any]:
         token = await self.application_token()
         # The optional caller budget counts actual Browse attempts, including
