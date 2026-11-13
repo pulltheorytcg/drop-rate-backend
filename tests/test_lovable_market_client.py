@@ -19,6 +19,8 @@ LOOKUP = dict(category="tcg", game="Pokemon", name="Charizard",
 
 def response_payload():
     return {
+        "marketplace": "EBAY_GB",
+        "currency": "GBP",
         "market_value_gbp": None,
         "market_value_eligible": False,
         "actual_paid_price_verified": False,
@@ -45,7 +47,6 @@ async def test_mocked_lovable_candidate_bridge_has_no_market_value_or_writes():
     async def respond(req):
         assert str(req.url) == PUBLISHED_URL
         assert req.headers["x-api-key"] == SECRET
-        assert req.json if False else True
         assert req.content.find(b'"Charizard"') > -1
         return httpx.Response(200, json=response_payload())
 
