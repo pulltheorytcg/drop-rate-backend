@@ -93,7 +93,8 @@ def test_one_piece_manga_and_parallel_cannot_be_flattened_into_base_card():
     yes = evaluate_treatment(game="One Piece", requested_name="Luffy (Manga)",
         requested_variant="Manga Rare", requested_rarity="SEC",
         listing_title="One Piece Luffy OP05-119 Manga Rare")
-    assert yes.status == "NO_TREATMENT_CONFLICT"
+    assert yes.status == "REVIEW_REQUIRED"  # Seller omits SEC; manga identity alone does not prove rarity.
+    assert "SECRET_RARE" in yes.missing_evidence
 
 
 def test_secret_rare_abbreviation_is_game_scoped():
