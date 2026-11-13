@@ -56,7 +56,7 @@ def arguments(argv=None):
         parser.error(f"--max-queries must be 1..{allowed}")
     if args.one_call and args.multi_query:
         parser.error("--one-call and --multi-query cannot be combined")
-    if args.auto_continue and (not args.one_call or args.resume_run is not None):
+    if args.auto_continue and (not args.run or not args.one_call or args.resume_run is not None):
         parser.error("--auto-continue requires --one-call and cannot combine with --resume-run")
     if (args.apply or args.resume_run) and not args.run:
         parser.error("--apply and --resume-run require explicit --run")
