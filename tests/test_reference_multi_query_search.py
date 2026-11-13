@@ -307,3 +307,70 @@ def test_special_printing_remains_in_second_query_after_cap_reduction():
     assert "OP05-119" in plan[1]
     assert "Alt Art" in plan[1]
     assert "Awakening of the New Era" in plan[1]
+
+
+
+def run_one_call(ref, rows, *, max_queries=1):
+    """A single official search summary, with no getItem, owns the whole card."""
+    store = Store(ref)
+    client = Client(store, [], first_rows=rows)
+    state = asyncio.run(backfill.execute_backfill(
+        store, client, report(max_queries),
+        quota_reader=quota, clock=lambda: NOW,
+        monotonic=lambda: 0.0, sleep=no_sleep, one_call=True,
+    ))
+    return state, store, client
+
+
+def test_one_call_searches_once_and_never_gets_item():
+    rows = [listing(400, "95"), listing(401, "100"), listing(402, "105")]
+    state, store, client = run_one_call(reference(), rows)
+    assert len(client.queries) == 1
+    assert len(client.details) == 0
+    assert state["requests"] == 1 == len(store.reservations)
+    assert state["stats"]["search_requests"] == 1
+    assert state["stats"]["detail_requests"] == 0
+    assert state["discovery_strategy"] == backfill.ONE_CALL_STRATEGY
+    assert state["funnel"]["references_searched"] == 1
+    assert state["funnel"]["summary_rows_evaluated"] == 3
+    assert store.results[0]["physical_valuation_eligible"] is False
+    if store.results[0]["status"] == "READY":
+        assert store.results[0]["basis"] == "ASKING_PRICE_ESTIMATE"
+        assert store.results[0]["seller_count"] >= 3
+        assert all(c["listing_evidence"]["acquisition"] == "SEARCH_SUMMARY"
+                   for c in store.results[0]["comparables"])
+
+
+def test_one_call_never_prices_conflicting_grade_or_language():
+    rows = [
+        listing(410, "100", title="Pokemon Charizard 4/102 Base Set Japanese Near Mint"),
+        listing(411, "100", title="Pokemon Charizard 4/102 Base Set English PSA 10"),
+        listing(412, "100", title="Pokemon Charizard 4/102 Base Set English Reverse Holo"),
+    ]
+    state, store, client = run_one_call(reference(), rows)
+    assert len(client.queries) == 1
+    assert len(client.details) == 0
+    assert store.results[0]["status"] != "READY"
+    assert state["stats"]["matched"] == state["stats"]["written"] == 0
+
+
+def test_one_call_high_value_summary_requires_human_review():
+    rows = [listing(420, "200"), listing(421, "205"), listing(422, "210")]
+    state, store, client = run_one_call(reference(), rows)
+    assert len(client.queries) == 1
+    assert len(client.details) == 0
+    assert store.results[0]["status"] == "HIGH_VALUE_SUMMARY_REVIEW"
+    assert state["stats"]["matched"] == state["stats"]["written"] == 0
+
+
+def test_one_call_cli_supports_5000_but_legacy_mode_keeps_2000_cap():
+    selected = arguments(["--from-settings", "--run", "--one-call",
+                          "--auto-continue", "--apply", "--max-queries", "5000"])
+    assert selected.one_call is True and selected.auto_continue is True
+    assert selected.apply is True and selected.max_queries == 5000
+    with pytest.raises(SystemExit):
+        arguments(["--from-settings", "--run", "--multi-query", "--max-queries", "5000"])
+    with pytest.raises(SystemExit):
+        arguments(["--from-settings", "--run", "--one-call", "--multi-query"])
+    with pytest.raises(SystemExit):
+        arguments(["--from-settings", "--one-call", "--auto-continue"])
