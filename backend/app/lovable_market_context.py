@@ -138,6 +138,15 @@ async def fetch_catalogue_identity(connection, payload: LovablePreviewRequest) -
     return dict(row)
 
 
+@router.get("/lovable-health")
+async def lovable_health() -> dict:
+    """Owner/admin check without consuming a single eBay Browse request."""
+    try:
+        return await LovableMarketClient.from_environment().health()
+    except LovableMarketError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.code) from exc
+
+
 @router.post("/lovable-context")
 async def lovable_context(
     payload: LovablePreviewRequest,
