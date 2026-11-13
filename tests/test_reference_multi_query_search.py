@@ -158,7 +158,7 @@ def test_lovable_plan_searches_alternate_anchors_and_alt_printing():
         set_name="Awakening of the New Era", finish="Alt Art",
         language="Japanese",
     ))
-    assert 2 <= len(plan) <= 4
+    assert len(plan) == 2
     assert any("OP05-119" in q for q in plan)
     assert any("Awakening of the New Era" in q for q in plan)
     assert any("Alt Art" in q for q in plan)
@@ -172,7 +172,9 @@ def test_invalid_or_unknown_reference_never_creates_broad_unbounded_query():
     assert build_reference_search_plan(reference(system_code="UNSUPPORTED")) == ()
     assert build_reference_search_plan(reference(card_number="")) == ()
     assert 1 <= MAX_DETAILS_PER_REFERENCE <= 24
-    assert MAX_CANDIDATE_SUMMARIES <= 160
+    assert MAX_CANDIDATE_SUMMARIES <= 80
+    assert MAX_DETAILS_PER_REFERENCE == 5
+    assert len(build_reference_search_plan(reference())) <= 2
     assert EARLY_STOP_PLAUSIBLE <= MAX_DETAILS_PER_REFERENCE
 
 
@@ -244,11 +246,61 @@ def test_ambiguous_first_query_cannot_suppress_next_three_searches():
     assert store.results[0]["physical_valuation_eligible"] is False
 
 
-def test_five_exact_distinct_summary_sellers_allow_early_stop_without_valuing_summaries():
+def test_exact_sellers_allow_early_stop_without_overfetching_details():
     exact = [listing(i, "100") for i in range(201, 206)]
     state, store, client = run(reference(), [], first_rows=exact)
     assert len(client.queries) == 1
-    assert len(client.details) == 5
+    assert len(client.details) == 3
+    assert state["requests"] == 4  # one search plus three full item details
+    assert state["stats"]["detail_calls_avoided_after_ready"] == 2
     assert store.results[0]["status"] == "READY"
     assert store.results[0]["basis"] == "ASKING_PRICE_ESTIMATE"
     assert store.results[0]["physical_valuation_eligible"] is False
+
+
+
+def test_second_search_uses_five_calls_for_three_confirmed_sellers():
+    rows = [listing(21, "95"), listing(22, "100"), listing(23, "105")]
+    state, store, client = run(reference(), rows)
+    assert len(client.queries) == 2
+    assert len(client.details) == 3
+    assert state["requests"] == 5
+    assert state["stats"]["detail_requests"] == 3
+    assert state["stats"]["search_requests"] == 2
+    assert store.results[0]["status"] == "READY"
+    assert store.results[0]["physical_valuation_eligible"] is False
+
+
+def test_all_candidates_checked_if_first_three_do_not_satisfy_comparables():
+    # Three apparent matches are not proof: after getItem, the second one is
+    # actually Japanese and the fourth is a graded slab. Nothing is invented
+    # when fewer than three genuinely comparable sellers survive.
+    rows = [
+        listing(31, "95"),
+        listing(32, "100", title="Pokemon Charizard 4/102 Base Set Japanese Holo Near Mint"),
+        listing(33, "105"),
+        listing(34, "110", title="Pokemon Charizard 4/102 Base Set English PSA 10"),
+        listing(35, "115"),
+    ]
+    state, store, client = run(reference(), rows)
+    assert len(client.queries) <= 2
+    assert len(client.details) <= 5
+    assert state["requests"] <= 7
+    assert state["requests"] == state["stats"]["search_requests"] + state["stats"]["detail_requests"]
+    assert store.results
+    # Whether this set has enough matches must always be decided by the
+    # original estimator, not by the search summaries.
+    assert store.results[0]["basis"] == "ASKING_PRICE_ESTIMATE" or store.results[0]["status"] != "READY"
+    assert state["database_price_writes"] == 0
+
+
+def test_special_printing_remains_in_second_query_after_cap_reduction():
+    plan = build_reference_search_plan(reference(
+        system_code="ONE_PIECE_CARD_GAME",
+        name="Monkey D. Luffy", card_number="OP05-119",
+        set_name="Awakening of the New Era", finish="Alt Art",
+    ))
+    assert len(plan) == 2
+    assert "OP05-119" in plan[1]
+    assert "Alt Art" in plan[1]
+    assert "Awakening of the New Era" in plan[1]
