@@ -60,6 +60,7 @@ from .market_discovery import router as market_discovery_router
 from .market_mappings import router as market_mappings_router
 from .marketplace_listings import router as marketplace_listings_router
 from .market_provider_probe import router as market_provider_probe_router
+from .lovable_market_context import router as lovable_market_context_router
 from .market_smoke import router as market_smoke_router
 from .pricing import router as pricing_router
 from .pricing_health import router as pricing_health_router
@@ -522,6 +523,7 @@ def create_app() -> FastAPI:
     app.include_router(marketplace_listings_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(market_discovery_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(market_provider_probe_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(lovable_market_context_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(market_smoke_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(imports_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(import_enrichment_router, dependencies=[Depends(require_platform_admin_request)])
