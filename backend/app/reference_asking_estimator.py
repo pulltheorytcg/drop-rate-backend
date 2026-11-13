@@ -221,6 +221,29 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
     set_alternatives = (set_terms,)
     set_conflicts: tuple[str, ...] = ()
     set_alias_source = None
+    # Verified formatting used by the One Piece catalogue: its official
+    # release label carries the actual set title plus the bracketed printed
+    # collector prefix, e.g. BOOSTER PACK -ROMANCE DAWN- [OP-01].
+    # Only derive an alternative from the SAME canonical record when the
+    # bracketed code exactly equals the prefix on the physical card. This
+    # is set-name normalization, never a permissive set-prefix-only match.
+    if (game == "ONE_PIECE_CARD_GAME"
+            and reference["provider"] in {"Punk Records", "Bandai Official"}
+            and "set_title_terms" not in evidence
+            and isinstance(set_name, str)):
+        label = re.fullmatch(
+            r"(?:BOOSTER PACK\s*-\s*)?(?P<title>.+?)\s*"
+            r"\[(?P<code>(?:OP|ST|EB|PRB|FB|FS)\s*-\s*\d{1,3})\]",
+            set_name, re.I,
+        )
+        printed = re.match(r"^((?:OP|ST|EB|PRB|FB|FS)\d{1,3})-", reference["card_number"], re.I)
+        if label and printed:
+            label_code = re.sub(r"[^A-Z0-9]", "", label.group("code").upper())
+            if label_code == printed.group(1).upper():
+                short = label.group("title").strip(" -")
+                if 3 <= len(short) <= 90 and _text(short) != _text(set_name):
+                    set_alternatives += ((short,),)
+                    set_alias_source = "CANONICAL_PROVIDER_SET_LABEL"
     # Explicit curated terms take precedence, including a deliberately empty
     # field. Only the complete known canonical identity enables an alias.
     if ("set_title_terms" not in evidence
@@ -293,7 +316,21 @@ def _number_matches(title: str, aspect: str, expected: str) -> bool:
     if any(number != canonical and not ("/" not in canonical and number.split("/", 1)[0] == canonical) for number in seen):
         return False
     if aspect and _text(aspect) != _text(expected):
-        return False
+        # Some eBay item details contain only the numeric collector suffix
+        # ("006") although their title prints the complete OP01-006.
+        # Accept that redundant suffix ONLY when the title independently
+        # proves the full exact canonical collector number. A different code
+        # or number in the title remains an outright mismatch above.
+        full = re.fullmatch(
+            r"((?:OP|ST|EB|PRB|FB|FS)\d{1,3})-(\d{1,4})", expected, re.I
+        )
+        shortened = re.fullmatch(r"0*(\d{1,4})", aspect.strip())
+        full_in_title = bool(re.search(
+            r"(?<![A-Z0-9])" + re.escape(expected) + r"(?![A-Z0-9])", title, re.I
+        ))
+        if not (full and shortened and full_in_title
+                and int(shortened.group(1)) == int(full.group(2))):
+            return False
     pattern = re.escape(expected).replace(r"\ ", r"\s*")
     return bool(aspect or re.search(r"(?<![\w])" + pattern + r"(?![\w])", title, re.I))
 
