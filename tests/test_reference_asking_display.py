@@ -243,12 +243,12 @@ async def test_current_verified_asking_supersedes_expired_legacy_guide(
     {"shared_price": {"status": "AVAILABLE", "market_value_minor": 980}},
 ])
 async def test_expired_guide_fallback_never_replaces_current_or_unrelated_values(overrides):
-    row = product(
-        market_value_minor=56,
-        market_value_source="TCGDEX_TCGPLAYER",
-        pricing_updated_at=NOW - timedelta(days=16),
+    row = product(**{
+        "market_value_minor": 56,
+        "market_value_source": "TCGDEX_TCGPLAYER",
+        "pricing_updated_at": NOW - timedelta(days=16),
         **overrides,
-    )
+    })
     connection = Connection([record(estimate_minor=207)])
     result = await add_asking_estimates(connection, [row], now=NOW)
     assert result == [row]
