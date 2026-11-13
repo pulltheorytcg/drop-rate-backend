@@ -55,6 +55,7 @@ from .competitive_intelligence_api import router as competitive_intelligence_rou
 from .competitive_intelligence_automation import router as competitive_intelligence_automation_router
 from .collectible_identity import router as collectible_identity_router
 from .market_adapter_config import configure_market_adapters
+from .base44_ebay_browse import router as base44_ebay_browse_router
 from .market_ingestion import router as market_ingestion_router
 from .market_discovery import router as market_discovery_router
 from .market_mappings import router as market_mappings_router
@@ -523,6 +524,7 @@ def create_app() -> FastAPI:
     app.include_router(market_discovery_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(market_provider_probe_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(market_smoke_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(base44_ebay_browse_router)
     app.include_router(imports_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(import_enrichment_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(import_review_router, dependencies=[Depends(require_platform_admin_request)])
