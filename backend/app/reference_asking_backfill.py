@@ -784,9 +784,24 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                             seen_ids.add(item_id)
                             if len(summaries) < MAX_CANDIDATE_SUMMARIES:
                                 summaries.append(row)
-                        if len(item_detail_candidates(
-                            reference, summaries, limit=MAX_DETAILS_PER_REFERENCE
-                        )) >= EARLY_STOP_PLAUSIBLE:
+                        # Summary plausibility is insufficient: the first 40
+                        # listings may all be wrong-set/graded/Japanese cards.
+                        # Stop early only when >=5 independent sellers have
+                        # already passed the existing *full* identity+condition
+                        # matcher on their discovery summaries. Even then, the
+                        # saved estimate still requires independently fetched
+                        # getItem details and three post-outlier sellers.
+                        spec, spec_reason = _reference_spec(reference)
+                        exact_sellers = set()
+                        if spec_reason is None:
+                            for candidate in summaries:
+                                if _matches(candidate, reference, spec) is not None:
+                                    continue
+                                seller = candidate.get("seller")
+                                name = seller.get("username") if isinstance(seller, dict) else None
+                                if isinstance(name, str) and name.strip():
+                                    exact_sellers.add(name.strip().casefold())
+                        if len(exact_sellers) >= EARLY_STOP_PLAUSIBLE:
                             break
                     if not performed_searches:
                         break
