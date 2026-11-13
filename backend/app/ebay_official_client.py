@@ -237,7 +237,7 @@ class EbayOfficialClient:
         if not isinstance(item_ids, (list, tuple)) or not 1 <= len(item_ids) <= 20:
             raise ValueError("Batch getItems requires 1..20 item IDs")
         if (any(not isinstance(item_id, str) or not re.fullmatch(
-                r"v1\\|[1-9][0-9]{0,19}\\|(?:0|[1-9][0-9]{0,19})", item_id
+                r"v1\|[1-9][0-9]{0,19}\|(?:0|[1-9][0-9]{0,19})", item_id
             ) for item_id in item_ids)
                 or len(set(item_ids)) != len(item_ids)):
             raise ValueError("Batch getItems requires distinct valid eBay REST item IDs")
