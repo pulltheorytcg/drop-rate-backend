@@ -95,7 +95,7 @@ _GAME_ALIASES = {
 
 
 def normal_game(game: object) -> str:
-    g = " ".join(str(game or "").casefold().replace("-", " ").split())
+    g = " ".join(re.sub(r"[^\w\s]", " ", str(game or "").casefold()).split())
     return _GAME_ALIASES.get(g, g)
 
 
