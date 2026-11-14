@@ -48,8 +48,10 @@ async def test_source_preflight_invokes_existing_engine_in_dry_run_only():
     )
     assert calls == [{
         "dry_run": True, "expansion_limit": 1,
-        "previous_cursor": "POKEMON_TCG:dp4",
+        "previous_cursor": "POKEMON_TCG:dp4", "pricing_only": True,
     }]
+    assert result["next_cursor"] == "POKEMON_TCG:dp5"
+    assert result["selection"] == "MISSING_PRICES_ONLY"
     assert result["mode"] == "DRY_RUN"
     assert result["requests"] == 5
     assert result["eligible_quotes"] == 2
