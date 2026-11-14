@@ -188,6 +188,24 @@ async def run(pool=None, actor=None, *, apply=False, max_rows=MAX_ROWS, max_seco
               "apply":apply,"requested":len(rows),"eligible":0,"verified":0,
               "updated":0,"rejected":{},"writes":False}
     if sample_only:
+        # Check real raster bytes for one exact source card per set without
+        # querying the customer's database or inventing replacement art.
+        async with httpx.AsyncClient(follow_redirects=False,
+                                     limits=httpx.Limits(max_connections=2)) as client:
+            for sid, snap in snapshot.items():
+                test = next((row for row in snap["cards"].values()
+                             if safe_image_base(row.get("image"),sid,str(row.get("localId")))),None)
+                if not test:
+                    report["sets"][sid]["sample_image"] = "NO_DECLARED_SOURCE"
+                    continue
+                verified, error = await verify_image(client, {
+                    "provider_id":test["id"], "set_id":sid,
+                    "local_id":test["localId"],"image_base":test["image"]
+                })
+                report["sets"][sid]["sample_image"] = (
+                    "IMAGE_BYTES_VERIFIED" if verified else error or "INVALID_IMAGE"
+                )
+        report["status"]="READ_ONLY_SOURCE_CHECK"
         return report
     candidates = [c for row in rows if (c:=exact_candidate(row,snapshot))]
     report["eligible"] = len(candidates)
