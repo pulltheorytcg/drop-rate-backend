@@ -80,6 +80,31 @@ def test_reverse_holo_matches_own_source_column_and_no_active_asking():
     assert c["finish"] == "Reverse Holofoil"
 
 
+def test_official_attack_bracket_suffix_requires_direct_product_id():
+    links, products, guides = fixtures()
+    products["products"][0]["name"] = "Card 0 [Move One | Move Two]"
+    report = run(links, products, guides)
+    assert report["candidate_count"] == 1
+    assert report["exact_variant_candidate_count"] == 1
+
+
+def test_bracket_suffix_cannot_loosen_number_only_cardtrader_mapping():
+    links, products, guides = fixtures()
+    products["products"][0]["name"] = "Card 0 [Move One | Move Two]"
+    links[0].update(source="CARDMARKET_CATALOGUE", finish="Printing guide",
+                    variant_id=None,
+                    match_basis="CARDTRADER_EXPLICIT_NUMBER_AND_SINGLETON_CARDMARKET_ID")
+    assert run(links, products, guides)["candidate_count"] == 0
+
+
+def test_character_name_prefix_does_not_match_different_printing():
+    links, products, guides = fixtures()
+    products["products"][0]["name"] = "Card 0 V [Different printing]"
+    result = run(links, products, guides)
+    assert result["candidate_count"] == 0
+    assert result["rejections"]["NAME_MISMATCH"] == 1
+
+
 def test_product_name_only_never_creates_printing_mapping():
     l, p, g = fixtures()
     l[0]["cardmarket_id"] = "unknown"
