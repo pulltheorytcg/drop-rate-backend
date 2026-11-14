@@ -3,6 +3,7 @@ name: One-shot Cardmarket full crosswalk and isolated logical restore proof
 on:
   push:
     branches:
+      - main
       - feat/cardmarket-public-bulk-readonly-audit-20261114
     paths:
       - backend/scripts/ci_cardmarket_full_readonly.py
