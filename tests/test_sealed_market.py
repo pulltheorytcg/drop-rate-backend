@@ -166,3 +166,13 @@ async def test_unmatched_sealed_reference_is_never_cleared(monkeypatch):
     report=await market.refresh_sealed_prices(None,'actor')
     assert report['checked']==1 and report['priced']==0 and report['unmatched']==1
     assert writes==[]
+
+
+@pytest.mark.asyncio
+async def test_postgres_text_jsonb_source_id_is_read_safely():
+    import json
+    with_json=dict(REFERENCE,evidence=json.dumps(REFERENCE['evidence']))
+    q=await market.quote_for(with_json,PRODUCTS,PRICES,NOW,FX(),game_name='Pokémon')
+    assert q['product_id']=='12' and q['price_gbp_minor']==8000
+    for value in ('not json', json.dumps([1,2]), json.dumps({'cardmarket_product_id':None})):
+        assert await market.quote_for(dict(REFERENCE,evidence=value),PRODUCTS,PRICES,NOW,FX(),game_name='Pokémon') is None
