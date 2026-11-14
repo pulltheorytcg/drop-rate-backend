@@ -304,3 +304,20 @@ def test_verified_r2_registry_version_is_staged_without_replaying_existing_schem
     module.stage(tmp_path)
     assert not (tmp_path / "20261103222018_r2_first_catalogue_registry.sql").exists()
     assert (tmp_path / "20261103224740_r2_first_catalogue_registry.sql").read_bytes() == (ROOT / "database/migrations/20261103222018_r2_first_catalogue_registry.sql").read_bytes()
+
+
+def test_verified_cardtrader_history_is_not_replayed(tmp_path: Path) -> None:
+    # Production read-only history, 2026-11-14: one 849-byte statement with
+    # identical source MD5 a1edd2313e3342293cc5addcca32e154. No remote history edit.
+    import hashlib
+
+    source = ROOT / "database/migrations/20261114100000_cardtrader_source_preflight_job.sql"
+    assert hashlib.md5(source.read_bytes()).hexdigest() == "a1edd2313e3342293cc5addcca32e154"
+    module.stage(tmp_path)
+    assert not (tmp_path / source.name).exists()
+    assert (tmp_path / "20261114101405_cardtrader_source_preflight_job.sql").read_bytes() == source.read_bytes()
+    for filename in (
+        "20261114120000_advisor_owner_rls_initplans.sql",
+        "20261114121000_advisor_foreign_key_indexes.sql",
+    ):
+        assert (tmp_path / filename).read_bytes() == (ROOT / "database/migrations" / filename).read_bytes()
