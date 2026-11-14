@@ -30,13 +30,22 @@ def safe_receipt(report):
         raise ValueError("Preflight may not reprice Shopify")
     # Never accidentally record seller/token/raw-provider data on any path.
     allowed = {
-        "event", "status", "source", "evidence_kind", "mode", "requested_expansions",
+        "event", "status", "source", "evidence_kind", "mode", "selection",
+        "next_cursor", "requested_expansions",
         "requests", "expansions", "canonical_references_examined", "exact_printings",
         "eligible_quotes", "provider_failures", "failure_class", "bulk_writer_hold_preserved",
         "cursor_moved", "by_release", "inventory_writes",
         "store_price_writes", "catalogue_price_writes", "error_class",
     }
     cleaned = {key: value for key, value in report.items() if key in allowed}
+    next_cursor = cleaned.get("next_cursor")
+    if next_cursor is not None and (
+        not isinstance(next_cursor, str) or not 0 < len(next_cursor) <= 128
+        or not next_cursor.isprintable()
+    ):
+        raise ValueError("Invalid source preflight cursor")
+    if cleaned.get("selection") not in (None, "MISSING_PRICES_ONLY"):
+        raise ValueError("Unknown source selection mode")
     # Belt-and-braces: enforce allowed nested fields at the persistence boundary
     # even if a future preflight refactor forgets its own privacy filter.
     releases = cleaned.get("by_release", [])
