@@ -39,6 +39,11 @@ def compact_preflight_report(report: Mapping) -> dict:
         "exact_printings": int(report.get("exact_printings", 0)),
         "eligible_quotes": int(report.get("eligible_quotes", 0)),
         "provider_failures": int(report.get("provider_failures", 0)),
+        "failure_class": (
+            report.get("reason") if report.get("reason") in {
+                "CardTraderApiError", "ValueError", "TypeError", "KeyError", "RuntimeError"
+            } else None
+        ),
         "inventory_writes": 0,
         "store_price_writes": 0,
         "catalogue_price_writes": 0,
@@ -50,10 +55,24 @@ def compact_preflight_report(report: Mapping) -> dict:
         safe["by_release"].append({
             "release": str(release_id)[:64],
             "references": int(row.get("references", 0)),
+            "missing_before": int(row.get("missing_before", 0)),
             "exact_printings": int(row.get("matched", 0)),
+            "blueprints_with_offers": int(row.get("blueprints_with_offers", 0)),
+            "candidate_source_offers": int(row.get("candidate_source_offers", 0)),
             "three_seller_candidates": int(row.get("with_three_matching_sellers", 0)),
             "qualified_quotes": int(row.get("quotes", 0)),
             "provider_failed": bool(row.get("error_type")),
+            "failure_class": (
+                row.get("error_type") if row.get("error_type") in {
+                    "CardTraderApiError", "ValueError", "TypeError", "KeyError", "RuntimeError"
+                } else None
+            ),
+            "http_status": (
+                row.get("http_status")
+                if type(row.get("http_status")) is int
+                and 400 <= row["http_status"] <= 599
+                else None
+            ),
         })
     return safe
 
