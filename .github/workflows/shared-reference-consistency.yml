@@ -93,9 +93,9 @@ jobs:
       options: --ipc=host
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
+      # The Playwright image supplies its own SSL-enabled Python; setup-python
+      # in a container selects a toolcache interpreter lacking ssl support.
+      - run: python -c 'import ssl; print(ssl.OPENSSL_VERSION)'
       - run: python -m pip install playwright==1.57.0
       - name: Actual founder/seller display and recommendation controls, synthetic API responses
         run: |
