@@ -1,3 +1,24 @@
+def test_readonly_and_rollout_share_identical_original_variant_aware_digest():
+    import hashlib
+    import json
+    examples = [
+        {"language":"English","provider_id":"sv-001","cardmarket_id":6789,
+         "variant_id":"normal-1","source_field":"avg7"},
+        {"language":"English","provider_id":"sv-001","cardmarket_id":6789,
+         "variant_id":"reverse-1","source_field":"avg7-holo"},
+        {"language":"Japanese","provider_id":"sv-002","cardmarket_id":9876,
+         "variant_id":None,"source_field":"avg7"},
+    ]
+    expected_records = [(x["language"], x["provider_id"], x["cardmarket_id"],
+                         x["variant_id"], x["source_field"]) for x in examples]
+    approved_v1 = hashlib.sha256(json.dumps(
+        sorted(expected_records), separators=(",", ":")).encode()).hexdigest()
+    assert bulk.approved_full_source_digest(examples) == approved_v1
+    changed = [dict(x) for x in examples]
+    changed[0]["variant_id"] = "some-other-variant"
+    assert bulk.approved_full_source_digest(changed) != approved_v1
+
+
 """Batch-only full Cardmarket rollout safeguards; no provider or DB access."""
 import pytest
 from unittest.mock import AsyncMock
