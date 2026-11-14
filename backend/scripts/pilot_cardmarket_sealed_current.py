@@ -98,7 +98,16 @@ async def run() -> dict:
     matched=with_floor=0
     examples=[]
     for row in refs:
-        source_id=str((row["evidence"] or {}).get("cardmarket_product_id") or "")
+        evidence=row["evidence"]
+        if isinstance(evidence,str):
+            try:evidence=json.loads(evidence)
+            except ValueError:
+                failures["BAD_STORED_EVIDENCE"]+=1
+                continue
+        if not isinstance(evidence,dict):
+            failures["BAD_STORED_EVIDENCE"]+=1
+            continue
+        source_id=str(evidence.get("cardmarket_product_id") or "")
         product=pmap.get(source_id)
         if product is None:
             failures["NO_PRODUCT"]+=1
