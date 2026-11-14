@@ -6,6 +6,7 @@ exact physical-stock prices, identity approval or a seller's asking price.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -16,6 +17,7 @@ import httpx
 from .db import user_connection
 from .fx import EcbHistoricalFxProvider
 from .reference_market import MAX_AGE, _minor, _time
+from .cardmarket_guide_signals import offer_floor_context
 from .reference_sealed import category_type
 
 SOURCE = 'CARDMARKET_BULK'
@@ -25,6 +27,10 @@ GAMES = {'POKEMON_TCG': (6, 'Pokémon'), 'ONE_PIECE_CARD_GAME': (18, 'One Piece'
          'DRAGON_BALL_SUPER_MASTERS': (13, 'Dragon Ball Super'),
          'DRAGON_BALL_SUPER_FUSION_WORLD': (13, 'Dragon Ball Super')}
 BASE = 'https://downloads.s3.cardmarket.com/productCatalog/'
+HISTORY_SQL = '''insert into tcg.reference_regional_price_history
+ (reference_key,identity_sha256,quotes_sha256,quotes)
+ values($1,$2,$3,$4::jsonb)
+ on conflict do nothing'''
 WRITE_SQL = '''insert into tcg.reference_sealed_market_prices
  (provider,system_code,language,provider_id,quotes,market_value_minor,market_value_high_minor,
   pricing_updated_at,checked_at,expires_at)
@@ -60,9 +66,17 @@ async def download(client, path, *, rows_key, now):
 
 
 async def quote_for(reference, products, prices, observed, fx, *, game_name):
-    product_id=str((reference.get('evidence') or {}).get('cardmarket_product_id') or '')
+    # asyncpg may return JSONB as text unless a codec was registered.
+    # A JSON representation is not itself a product-ID mapping.
+    evidence=reference.get('evidence')
+    if isinstance(evidence,str):
+        try:evidence=json.loads(evidence)
+        except (TypeError,ValueError):return None
+    if not isinstance(evidence,dict):return None
+    product_id=str(evidence.get('cardmarket_product_id') or '')
     product=products.get(product_id);price=prices.get(product_id)
-    if not product or not price:return None
+    if (not product or not price or str(product.get('idProduct'))!=product_id
+            or str(price.get('idProduct'))!=product_id):return None
     # These are the exact labels in Cardmarket's public non-singles export;
     # CardTrader calls a Pokémon display a booster box.
     packaging_type={('Pokémon','Pokémon Display'):'BOOSTER_BOX',
@@ -79,10 +93,14 @@ async def quote_for(reference, products, prices, observed, fx, *, game_name):
         gbp=int((Decimal(original)*conversion.rate).quantize(Decimal('1'),rounding=ROUND_HALF_UP))
         if gbp<=0:return None
     except (ValueError,TypeError,InvalidOperation):return None
+    floor=offer_floor_context(price,conversion,observed=observed)
     return {'source':SOURCE,'product_id':product_id,'source_field':'trend','original_currency':'EUR',
             'original_minor':original,'price_gbp_minor':gbp,'observed_at':observed.isoformat(),
             'finish':'Sealed product guide','valuation_role':'MIXED_LANGUAGE_REFERENCE',
             'physical_language_confirmed':False,'condition_specific':False,
+            'market_scope':'CARDMARKET_EU_AGGREGATED_GUIDE_NOT_RETAIL_RRP',
+            'physical_valuation_eligible':False,
+            'offer_floor_context':floor,
             'fx_rate_to_gbp':str(conversion.rate),'fx_source':conversion.source,
             'fx_effective_at':conversion.effective_at.isoformat(),'fx_retrieved_at':conversion.retrieved_at.isoformat()}
 
@@ -114,18 +132,39 @@ async def refresh_sealed_prices(pool, actor):
                             and (s.release_date is null or s.release_date<=current_date)''',system)
                     # Compute outside transactions; one FX download is reused.
                     values=[]
+                    history=[]
+                    priced_count=0
+                    # Never replace a historically verified quote with [] just
+                    # because this daily feed omitted a product or the FX
+                    # provider is temporarily unavailable.
                     for record in rows:
                         reference=dict(record)
                         quote=await quote_for(reference,products,prices,observed,fx,game_name=game_name)
-                        value=quote['price_gbp_minor'] if quote else None
+                        if quote is None:
+                            continue
+                        identity_fields=[
+                            reference['provider'],system,reference['language'],
+                            reference['provider_id'],reference['name'],
+                            reference['set_id'],reference['product_type'],
+                            str(quote['product_id']),
+                        ]
+                        identity_json=json.dumps(identity_fields,ensure_ascii=False,separators=(',',':'))
+                        identity_sha=hashlib.sha256(identity_json.encode()).hexdigest()
+                        key='s:'+hashlib.md5(chr(31).join(identity_fields[:4]).encode()).hexdigest()
+                        quote_json=json.dumps([quote],ensure_ascii=False,sort_keys=True,separators=(',',':'))
+                        quote_sha=hashlib.sha256(quote_json.encode()).hexdigest()
+                        history.append((key,identity_sha,quote_sha,quote_json))
+                        value=quote['price_gbp_minor']
                         values.append((reference['provider'],system,reference['language'],reference['provider_id'],
-                                       [quote] if quote else [],value,value,observed if quote else None,
-                                       now,now+timedelta(days=1)))
+                            [quote],value,value,observed,now,now+timedelta(days=1)))
+                    # Preserve old quotes and dates for unmatched references,
+                    # and put append-only provenance beside every new result.
                     for offset in range(0,len(values),100):
                         async with user_connection(pool,actor,str(uuid4())) as connection:
+                            await connection.executemany(HISTORY_SQL,history[offset:offset+100])
                             await connection.executemany(WRITE_SQL,values[offset:offset+100])
                     priced=sum(v[5] is not None for v in values)
-                    report['checked']+=len(values);report['priced']+=priced;report['unmatched']+=len(values)-priced
+                    report['checked']+=len(rows);report['priced']+=priced;report['unmatched']+=len(rows)-priced
                     report['sources'][system]={'observed_at':observed.isoformat(),'checked':len(values),'priced':priced}
                 except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
                     # Do not erase a cached guide on a provider/FX outage.

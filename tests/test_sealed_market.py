@@ -81,17 +81,17 @@ async def test_dragon_ball_bulk_packaging_never_prices_a_case_as_a_single_box(ca
 @pytest.mark.parametrize('outage',[False,True])
 async def test_daily_dragon_ball_sealed_refresh_shares_exports_and_preserves_quotes_on_outage(monkeypatch,outage):
     from app import catalogue_maintenance
-    downloads=[];writes=[];receipts=[]
+    downloads=[];writes=[];history=[];receipts=[]
     class DailyFX(FX):
         def __init__(self,**kwargs):pass
     class Connection:
         async def fetch(self,sql,system):
             assert 'tcg.reference_sealed_products' in sql and 'release_date<=current_date' in sql
             if not system.startswith('DRAGON_BALL'):return []
-            return [dict(REFERENCE,provider='CardTrader',system_code=system,language='Unknown',provider_id=system)]
+            return [dict(REFERENCE,provider='CardTrader',system_code=system,language='Unknown',provider_id=system, name='Test Booster Box',set_id='Test Set')]
         async def executemany(self,sql,values):
-            assert sql==market.WRITE_SQL
-            writes.extend(values)
+            assert sql in (market.HISTORY_SQL,market.WRITE_SQL)
+            (history if sql==market.HISTORY_SQL else writes).extend(values)
     @asynccontextmanager
     async def connection(*args):yield Connection()
     async def download(client,path,**kwargs):
@@ -106,12 +106,73 @@ async def test_daily_dragon_ball_sealed_refresh_shares_exports_and_preserves_quo
     monkeypatch.setattr(catalogue_maintenance,'receipt',receipt)
     report=await market.refresh_sealed_prices(None,'actor')
     if outage:
-        assert not writes and report['provider_failures']==2
+        assert not writes and not history and report['provider_failures']==2
         assert receipts[-1][3]=='INCOMPLETE'
     else:
         assert report['priced']==2 and report['provider_failures']==0
         assert {v[1] for v in writes}=={'DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD'}
         assert all(v[5]==8000 and v[4][0]['valuation_role']=='MIXED_LANGUAGE_REFERENCE' for v in writes)
+        assert len(history)==2 and all(row[0].startswith('s:') and len(row[1])==64 and len(row[2])==64 for row in history)
         assert downloads.count('productList/products_nonsingles_13.json')==1
         assert downloads.count('priceGuide/price_guide_13.json')==1
         assert receipts[-1][3]=='COMPLETE'
+
+
+
+@pytest.mark.asyncio
+async def test_sealed_guide_keeps_minimum_offer_separate_from_market_trend():
+    price={'12':dict(PRICES['12'],low='75.00')}
+    q=await market.quote_for(REFERENCE,PRODUCTS,price,NOW,FX(),game_name='Pokémon')
+    assert q['price_gbp_minor']==8000
+    assert q['source_field']=='trend'
+    floor=q['offer_floor_context']
+    assert floor['price_gbp_minor']==6000
+    assert floor['quote_type']=='LOWEST_ACTIVE_ASKING'
+    assert floor['physical_valuation_eligible'] is False
+    assert floor['valuation_role']=='ASKING_CONTEXT_ONLY_NOT_RETAIL_RRP'
+    assert floor['sold_price'] is False
+    assert q['market_scope']=='CARDMARKET_EU_AGGREGATED_GUIDE_NOT_RETAIL_RRP'
+
+
+@pytest.mark.asyncio
+async def test_sealed_guide_cannot_transfer_price_between_product_ids():
+    bad={'12':dict(PRICES['12'],idProduct=13,low='1')}
+    assert await market.quote_for(REFERENCE,PRODUCTS,bad,NOW,FX(),game_name='Pokémon') is None
+    assert await market.quote_for(REFERENCE,{'12':dict(PRODUCTS['12'],idProduct=13)},PRICES,NOW,FX(),game_name='Pokémon') is None
+
+
+@pytest.mark.asyncio
+async def test_unmatched_sealed_reference_is_never_cleared(monkeypatch):
+    from app import catalogue_maintenance
+    writes=[]
+    class FakeFX(FX):
+        def __init__(self,**kwargs):pass
+    class Connection:
+        async def fetch(self,sql,system):
+            return [dict(REFERENCE,provider='CardTrader',system_code=system,
+                         provider_id='12',name='Booster',set_id='s1',
+                         language='Unknown')] if system=='POKEMON_TCG' else []
+        async def executemany(self,*args):
+            writes.append(args)
+    @asynccontextmanager
+    async def connection(*args):yield Connection()
+    async def bad_guide(client,path,**kw):
+        return ({'12':PRODUCTS['12']} if kw['rows_key']=='products' else {}),NOW
+    async def receipt(*args):return 'run'
+    monkeypatch.setattr(market,'user_connection',connection)
+    monkeypatch.setattr(market,'download',bad_guide)
+    monkeypatch.setattr(market,'EcbHistoricalFxProvider',FakeFX)
+    monkeypatch.setattr(catalogue_maintenance,'receipt',receipt)
+    report=await market.refresh_sealed_prices(None,'actor')
+    assert report['checked']==1 and report['priced']==0 and report['unmatched']==1
+    assert writes==[]
+
+
+@pytest.mark.asyncio
+async def test_postgres_text_jsonb_source_id_is_read_safely():
+    import json
+    with_json=dict(REFERENCE,evidence=json.dumps(REFERENCE['evidence']))
+    q=await market.quote_for(with_json,PRODUCTS,PRICES,NOW,FX(),game_name='Pokémon')
+    assert q['product_id']=='12' and q['price_gbp_minor']==8000
+    for value in ('not json', json.dumps([1,2]), json.dumps({'cardmarket_product_id':None})):
+        assert await market.quote_for(dict(REFERENCE,evidence=value),PRODUCTS,PRICES,NOW,FX(),game_name='Pokémon') is None

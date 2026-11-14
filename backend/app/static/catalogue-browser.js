@@ -533,6 +533,19 @@ window.DropRateCatalogue = (() => {
         const productId=quote.product_id||quote.source_product_id;
         const quoteEvidence=[productId?source+" #"+productId:"",quote.observed_at?new Date(quote.observed_at).toLocaleDateString("en-GB"):""].filter(Boolean).join(" · ");
         evidence.append(node("p","dr-browse-reference-note",(quote.variant_label||quote.finish||(computed?"Drop Rate estimate":source+" guide"))+": "+label+(quoteEvidence?" · "+quoteEvidence:"")));
+        // Sealed Cardmarket low is one active asking offer, not a retail RRP,
+        // independently sold price, condition-filtered quote or our Market Value.
+        const floor=quote.source==="CARDMARKET_BULK" ? quote.offer_floor_context : null;
+        const age=floor ? Date.now()-Date.parse(floor.observed_at) : NaN;
+        if(floor?.source_field==="low" && floor.quote_type==="LOWEST_ACTIVE_ASKING" &&
+           floor.physical_valuation_eligible===false && Number.isSafeInteger(floor.price_gbp_minor) &&
+           floor.price_gbp_minor>0 && Number.isFinite(age) && age>=0 && age<=3*86400000){
+          evidence.append(node("p","dr-browse-reference-note",
+            "Lowest Cardmarket asking price: "+money(floor.price_gbp_minor)+
+            " · EU offer floor, across unspecified languages and conditions · "+
+            new Date(floor.observed_at).toLocaleDateString("en-GB")+
+            " · not retail RRP or a confirmed sale"));
+        }
       }
       if(["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)){
         evidence.append(node("p","dr-browse-reference-note","Cardmarket reference via TCGdex, converted from EUR. This is separate from your collection’s eBay UK sold-market valuation."));
