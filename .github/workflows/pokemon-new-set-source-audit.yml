@@ -1,0 +1,27 @@
+name: Pokémon newest official artwork evidence (read-only)
+on:
+  push:
+    branches: [fix/pokemon-newest-source-artwork-20261114]
+    paths:
+      - backend/app/pokemon_new_set_artwork.py
+      - backend/scripts/repair_new_pokemon_set_artwork.py
+      - tests/test_pokemon_new_set_artwork.py
+      - .github/workflows/pokemon-new-set-source-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  provider-image-source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: '3.12'}
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Bounded official set manifest and image-byte check; no secrets, no writes
+        env: {PYTHONPATH: backend}
+        run: python backend/scripts/repair_new_pokemon_set_artwork.py --source-only --max-seconds 60
+      - name: Exact-printing and immutable-price safety regression
+        env: {PYTHONPATH: backend}
+        run: python -m pytest -q tests/test_pokemon_new_set_artwork.py
