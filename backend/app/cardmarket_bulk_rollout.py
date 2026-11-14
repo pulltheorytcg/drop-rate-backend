@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import json
 
-from .cardmarket_bulk_persistence import persist_cardmarket_context
+from .cardmarket_bulk_vector_writer import persist_cardmarket_context_vector
 from .cardmarket_public_pilot import PilotError
 
 MAX_FULL_REFERENCE_COUNT = 10_000
@@ -36,7 +36,7 @@ async def apply_verified_remaining(
     batches = 0
     for index in range(start_index, len(prepared), batch_size):
         count = min(batch_size, len(prepared) - index)
-        receipt = await persist_cardmarket_context(
+        receipt = await persist_cardmarket_context_vector(
             pool, actor, prepared,
             request_id=request_id,
             max_references=count, start_index=index,
