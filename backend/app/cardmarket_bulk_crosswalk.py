@@ -33,6 +33,28 @@ def _text(value: object) -> str:
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
 
+def _product_name_matches(link: Mapping[str, Any], product: Mapping[str, Any]) -> bool:
+    """Cardmarket may append verified attack labels in brackets.
+
+    Never match bare character names on their own. We require a trusted,
+    direct TCGdex marketplace product ID and all other set/variant gates.
+    Number-only reference guides do not receive this exception.
+    """
+    name = _text(product.get("name"))
+    expected = _text(link.get("name"))
+    if not name or not expected:
+        return False
+    if name == expected:
+        return True
+    return (
+        link.get("source") in SOURCE_DIRECT
+        and name.startswith(expected + " [")
+        and name.endswith("]")
+        and len(name) > len(expected) + 3
+        and name.count(" [") == 1
+    )
+
+
 def _number(value: str) -> str:
     # Cardmarket's optional collector number is generally a set-local part.
     # Do not force formats or infer missing number data from product names.
@@ -156,7 +178,7 @@ def match_pokemon_bulk(*, links: list[dict], products_export: dict,
             continue
         product = products_by_id.get(id_product)
         if (not product or _text(product.get("categoryName")) not in CATEGORIES
-                or _text(product.get("name")) != _text(item["name"])):
+                or not _product_name_matches(item, product)):
             continue
         expansion = _id(product.get("idExpansion"))
         if expansion is None:
@@ -187,7 +209,7 @@ def match_pokemon_bulk(*, links: list[dict], products_export: dict,
         if _text(product.get("categoryName")) not in CATEGORIES:
             rejected["WRONG_CATEGORY"] += 1
             continue
-        if _text(product.get("name")) != _text(item["name"]):
+        if not _product_name_matches(item, product):
             rejected["NAME_MISMATCH"] += 1
             continue
         number = product.get("number")
