@@ -258,6 +258,7 @@ def match_pokemon_bulk(*, links: list[dict], products_export: dict,
         candidates.append({
             "provider": item["provider"], "system_code": item["system_code"],
             "provider_id": item["provider_id"], "language": item["language"],
+            "set_id": item.get("set_id"), "name": item["name"],
             "cardmarket_id": id_product, "finish": item["finish"],
             "variant_id": item.get("variant_id") if exact_variant else None,
             "source_field": selected, "source_link": item["source"],
