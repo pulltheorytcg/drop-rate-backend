@@ -66,7 +66,14 @@ async def download(client, path, *, rows_key, now):
 
 
 async def quote_for(reference, products, prices, observed, fx, *, game_name):
-    product_id=str((reference.get('evidence') or {}).get('cardmarket_product_id') or '')
+    # asyncpg may return JSONB as text unless a codec was registered.
+    # A JSON representation is not itself a product-ID mapping.
+    evidence=reference.get('evidence')
+    if isinstance(evidence,str):
+        try:evidence=json.loads(evidence)
+        except (TypeError,ValueError):return None
+    if not isinstance(evidence,dict):return None
+    product_id=str(evidence.get('cardmarket_product_id') or '')
     product=products.get(product_id);price=prices.get(product_id)
     if (not product or not price or str(product.get('idProduct'))!=product_id
             or str(price.get('idProduct'))!=product_id):return None
@@ -139,7 +146,7 @@ async def refresh_sealed_prices(pool, actor):
                             reference['provider'],system,reference['language'],
                             reference['provider_id'],reference['name'],
                             reference['set_id'],reference['product_type'],
-                            str((reference.get('evidence') or {}).get('cardmarket_product_id') or ''),
+                            str(quote['product_id']),
                         ]
                         identity_json=json.dumps(identity_fields,ensure_ascii=False,separators=(',',':'))
                         identity_sha=hashlib.sha256(identity_json.encode()).hexdigest()
