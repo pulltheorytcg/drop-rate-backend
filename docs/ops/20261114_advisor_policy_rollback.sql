@@ -1,6 +1,7 @@
 -- Manual, reviewed rollback only. Never part of forward migration staging.
 -- Restores all four exact original policies; leaves additive indexes in place.
 begin;
+set local search_path = pg_catalog;
 set local lock_timeout = '2s';
 set local statement_timeout = '30s';
 set local idle_in_transaction_session_timeout = '10s';

@@ -3,6 +3,7 @@
 -- Missing/changed policies abort the entire migration; reapplication is safe.
 -- Rollback: docs/ops/20261114_advisor_policy_rollback.sql (same guarded scope).
 begin;
+set local search_path = pg_catalog;
 set local lock_timeout = '2s';
 set local statement_timeout = '30s';
 set local idle_in_transaction_session_timeout = '10s';

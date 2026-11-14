@@ -4,6 +4,7 @@
 -- than silently holding writes; use a separately reviewed concurrent build then.
 -- Same-name incompatible/invalid indexes are errors, not IF NOT EXISTS success.
 begin;
+set local search_path = pg_catalog;
 set local lock_timeout = '2s';
 set local statement_timeout = '30s';
 set local idle_in_transaction_session_timeout = '10s';
