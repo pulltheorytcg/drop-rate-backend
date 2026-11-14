@@ -41,6 +41,36 @@ def select_samples(manifest: dict, *, max_details: int = MAX_DETAIL_REQUESTS) ->
     return [cards[i] for i in picks]
 
 
+def release_listing_evidence(manifest: dict, singles_export: dict,
+                             nonsingles_export: dict, *, now: datetime) -> dict:
+    """Diagnostic named-release presence; never a source-ID price match."""
+    if not isinstance(manifest,dict) or manifest.get("id") != SET_ID:
+        raise PilotError("Unexpected set identity")
+    name = manifest.get("name")
+    if not isinstance(name,str) or not name.strip():
+        raise PilotError("Unexpected set name")
+    token = "".join(ch for ch in name.casefold() if ch.isalnum())
+    if len(token) < 6:
+        raise PilotError("Unusable official set-title token")
+    singles,_ = _rows(singles_export,"products",now=now)
+    other,_ = _rows(nonsingles_export,"products",now=now)
+    result = {}
+    for kind,source in (("single",singles),("non_single",other)):
+        hits=[]
+        for row in source:
+            source_name=row.get("name")
+            if (not isinstance(source_name,str) or
+                    token not in "".join(ch for ch in source_name.casefold() if ch.isalnum())):
+                continue
+            hits.append({"id":_id(row.get("idProduct")),"name":source_name,
+                         "expansion":_id(row.get("idExpansion")),
+                         "category":row.get("categoryName")})
+        result[kind+"_release_title_mentions"]=len(hits)
+        result[kind+"_release_title_examples"]=hits[:8]
+    result["release_title_is_not_printing_match"]=True
+    return result
+
+
 def detail_evidence(manifest: dict, detailed_cards: list[dict],
                     products_export: dict, guide_export: dict, *,
                     now: datetime) -> dict[str, Any]:
