@@ -10,7 +10,7 @@ import json
 
 import httpx
 
-from app.new_pokemon_price_source import select_samples, detail_evidence, SET_ID
+from app.new_pokemon_price_source import select_samples, detail_evidence, release_listing_evidence, SET_ID
 from app.reference_feeds import ReferenceFeeds
 from scripts.audit_cardmarket_bulk_feed import _read_source, _HOST
 
@@ -34,9 +34,11 @@ async def run() -> dict:
     ) as client:
         products, p_hash = await _read_source(client,_HOST+"productList/products_singles_6.json")
         guides, g_hash = await _read_source(client,_HOST+"priceGuide/price_guide_6.json")
+        packaging, n_hash = await _read_source(client,_HOST+"productList/products_nonsingles_6.json")
     receipt = detail_evidence(manifest,details,products,guides,now=datetime.now(timezone.utc))
-    receipt["source_sha256"] = {"products":p_hash["sha256"],"guide":g_hash["sha256"]}
-    receipt["requests"] = {"tcgdex":len(details)+1,"cardmarket":2}
+    receipt["release_presence"] = release_listing_evidence(manifest,products,packaging,now=datetime.now(timezone.utc))
+    receipt["source_sha256"] = {"products":p_hash["sha256"],"guide":g_hash["sha256"],"non_singles":n_hash["sha256"]}
+    receipt["requests"] = {"tcgdex":len(details)+1,"cardmarket":3}
     return receipt
 
 
