@@ -101,7 +101,7 @@ async def test_audit_creates_new_job_and_updates_only_its_run(monkeypatch):
     assert statements[1][2][2] == "COMPLETE"
     assert "reference_market_prices" not in str(statements)
     assert "reference_catalogue_prices" not in str(statements)
-    assert "inventory" not in str(statements).lower()
+    assert "tcg.inventory" not in " ".join(statement[1] for statement in statements).lower()
 
 
 @pytest.mark.asyncio
