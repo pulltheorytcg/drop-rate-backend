@@ -59,6 +59,12 @@ file. The existing history-aware staging manifest now maps that timestamp. This
 does not edit remote history or replay the CardTrader migration. It prevents
 unrelated already-applied DDL from appearing pending during this release.
 
+The first preview run `43604146804` failed before any database connection: the
+GitHub runner's default Python 3.14 could not build the pinned backend dependency
+(PyO3 supported at most 3.13). The migration workflow now explicitly selects the
+same Python 3.12 runtime used by backend CI. Dependency pins and database
+credentials are unchanged; a successful replacement preview remains mandatory.
+
 ## Release and evidence gates
 
 1. Run migration-layout/staging tests and the disposable PostgreSQL regression

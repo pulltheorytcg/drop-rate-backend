@@ -91,6 +91,9 @@ def test_history_manifest_has_no_duplicate_names_or_versions() -> None:
 
 def test_production_workflow_uses_history_aware_staging() -> None:
     workflow = WORKFLOW.read_text()
+    # The runner default moved to 3.14; pinned backend wheels require 3.12.
+    assert "uses: actions/setup-python@v7" in workflow
+    assert 'python-version: "3.12"' in workflow
     assert "scripts/stage_supabase_migrations.py" in workflow
     assert "cp database/migrations/*.sql" not in workflow
     assert "supabase db push --dry-run" in workflow
