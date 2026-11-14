@@ -25,6 +25,7 @@ from app.access_control import require_platform_admin
 from app.cardmarket_bulk_crosswalk import MAX_LINKS, match_pokemon_bulk
 from app.cardmarket_bulk_context import prepare_cardmarket_context
 from app.cardmarket_bulk_persistence import persist_cardmarket_context
+from app.cardmarket_approved_remainder import apply_approved_remainder
 from app.fx import EcbHistoricalFxProvider
 from app.cardmarket_public_pilot import PilotError
 from app.db import user_connection
@@ -90,8 +91,12 @@ async def _fetch_links() -> list[dict]:
 
 
 async def run(*, apply: bool = False, max_references: int = 100,
-              start_index: int = 0) -> dict:
+              start_index: int = 0, end_index: int | None = None) -> dict:
     if not 1 <= max_references <= 500 or start_index < 0:
+        raise PilotError("Invalid bounded import range")
+    if end_index is not None and (not apply or max_references != 500):
+        raise PilotError("Verified remainder needs --apply and 500-reference chunks")
+    if end_index is not None and end_index <= start_index:
         raise PilotError("Invalid bounded import range")
     if apply and os.getenv("DROP_RATE_CARDMARKET_BULK_APPLY_CONFIRMED") != "YES":
         raise PilotError("Existing restore verification and explicit apply gate required")
@@ -121,6 +126,9 @@ async def run(*, apply: bool = False, max_references: int = 100,
         guide_at=guide_at, now=datetime.now(timezone.utc),
         product_sha256=catalogue_receipt["sha256"],
         guide_sha256=guide_receipt["sha256"])
+    # Only the exact, previously audited source snapshot is eligible for
+    # a full catch-up. This candidate list never leaves the private worker.
+    source_candidates = report["candidates"]
     # Never print source EUR guide amounts or unpublished private crosswalks.
     canonical = sorted({
         (c["language"], c["provider_id"], c["cardmarket_id"],
@@ -140,9 +148,20 @@ async def run(*, apply: bool = False, max_references: int = 100,
             server_settings={"statement_timeout": "25000",
                              "application_name": "cardmarket-region-bulk-bounded"})
         try:
-            report["apply_receipt"] = await persist_cardmarket_context(
-                pool, actor, prepared["prepared"], request_id="cardmarket-approved-bulk",
-                max_references=max_references, start_index=start_index)
+            if end_index is not None:
+                report["apply_receipt"] = await apply_approved_remainder(
+                    pool, actor, candidates=source_candidates, prepared=prepared,
+                    product_sha256=catalogue_receipt["sha256"],
+                    guide_sha256=guide_receipt["sha256"],
+                    start_index=start_index, end_index=end_index,
+                    progress=lambda receipt: print(
+                        "CARDMARKET_APPROVED_CHUNK " +
+                        json.dumps(receipt,sort_keys=True), flush=True),
+                )
+            else:
+                report["apply_receipt"] = await persist_cardmarket_context(
+                    pool, actor, prepared["prepared"], request_id="cardmarket-approved-bulk",
+                    max_references=max_references, start_index=start_index)
         finally:
             await pool.close()
     else:
@@ -166,11 +185,12 @@ def main() -> None:
     mode.add_argument("--apply", action="store_true")
     parser.add_argument("--max-references", type=int, default=100)
     parser.add_argument("--start-index", type=int, default=0)
+    parser.add_argument("--end-index", type=int)
     args = parser.parse_args()
     try:
         report = asyncio.run(run(
             apply=args.apply, max_references=args.max_references,
-            start_index=args.start_index))
+            start_index=args.start_index, end_index=args.end_index))
     except (PilotError, ValueError, asyncpg.PostgresError, httpx.HTTPError) as exc:
         print(json.dumps({"status": "FAILED_CLOSED",
                           "error_type": type(exc).__name__,
