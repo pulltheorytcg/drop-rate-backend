@@ -44,7 +44,7 @@ window.DropRateCatalogue = (() => {
         (row.market_value_minor > 0 && !unsupportedMarketSource(row))) return [];
     return (row.regional_quotes || []).filter(quote => {
       const sale = quote.regional_sale, age = Date.now() - Date.parse(quote.observed_at);
-      const accepted = (["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(quote.source) &&
+      const accepted = (["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT","CARDMARKET_PUBLIC_BULK"].includes(quote.source) &&
         sale?.region === "EU" && ["avg7","avg7-holo"].includes(sale.source_field)) ||
         (quote.source === "TCGDEX_TCGPLAYER" && sale?.region === "US" && sale.source_field === "marketPrice");
       const fx=Date.parse(sale?.fx_effective_at), observed=Date.parse(quote.observed_at);
@@ -59,11 +59,14 @@ window.DropRateCatalogue = (() => {
     new Date(q.observed_at).toLocaleDateString("en-GB");
   const marketPrice = row => {
     const sales = regionalSales(row);
-    if (sales.length === 1) return "Regional context: "+money(sales[0].regional_sale.price_gbp_minor)+" · "+regionalLabel(sales[0]);
-    if (sales.length) {
-      const amounts=sales.map(quote=>quote.regional_sale.price_gbp_minor);
+    const approvedBulk = sales.filter(q => q.source === "CARDMARKET_PUBLIC_BULK");
+    const selectedSales = approvedBulk.length ? approvedBulk : sales;
+    const contextLabel = approvedBulk.length ? "Market value (Cardmarket EU 7-day sales average): " : "Regional context: ";
+    if (selectedSales.length === 1) return contextLabel+money(selectedSales[0].regional_sale.price_gbp_minor)+" · "+regionalLabel(selectedSales[0]);
+    if (selectedSales.length) {
+      const amounts=selectedSales.map(quote=>quote.regional_sale.price_gbp_minor);
       const low=Math.min(...amounts), high=Math.max(...amounts);
-      return "Regional context: "+money(low)+(low===high?"":"–"+money(high))+" · regional aggregates";
+      return contextLabel+money(low)+(low===high?"":"–"+money(high))+" · by finish; EU aggregate";
     }
     if (row.shared_price && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(row.shared_price.method))
       return window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:");
