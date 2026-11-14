@@ -37,6 +37,25 @@ def safe_receipt(report):
         "store_price_writes", "catalogue_price_writes", "error_class",
     }
     cleaned = {key: value for key, value in report.items() if key in allowed}
+    # Belt-and-braces: enforce allowed nested fields at the persistence boundary
+    # even if a future preflight refactor forgets its own privacy filter.
+    releases = cleaned.get("by_release", [])
+    if not isinstance(releases, list) or len(releases) > 2:
+        raise ValueError("Invalid release receipt list")
+    allowed_release = {
+        "release", "references", "exact_printings", "three_seller_candidates",
+        "qualified_quotes", "provider_failed",
+    }
+    cleaned["by_release"] = [
+        {key: value for key, value in row.items() if key in allowed_release}
+        for row in releases if isinstance(row, dict)
+    ]
+    for metric in ("requests", "expansions", "canonical_references_examined",
+                   "exact_printings", "eligible_quotes", "provider_failures"):
+        if metric in cleaned and (type(cleaned[metric]) is not int or cleaned[metric] < 0):
+            raise ValueError("Invalid preflight metric")
+    if cleaned.get("expansions", 0) > 2 or cleaned.get("requests", 0) > 7:
+        raise ValueError("Provider preflight exceeded the two-expansion budget")
     if len(json.dumps(cleaned, ensure_ascii=False).encode()) > 8_000:
         raise ValueError("Source preflight receipt too large")
     return cleaned
