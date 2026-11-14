@@ -1,0 +1,52 @@
+name: Supabase advisor security regression
+
+on:
+  pull_request:
+    paths:
+      - 'database/migrations/20261114120000_advisor_owner_rls_initplans.sql'
+      - 'database/migrations/20261114121000_advisor_foreign_key_indexes.sql'
+      - 'database/migrations/20260925154423_media_assets_registry.sql'
+      - 'database/migrations/20260928211713_import_enrichment_action_queue.sql'
+      - 'docs/ops/20261114_advisor_policy_rollback.sql'
+      - 'tests/supabase_advisor_postgres.py'
+      - '.github/workflows/supabase-advisor.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'database/migrations/20261114120000_advisor_owner_rls_initplans.sql'
+      - 'database/migrations/20261114121000_advisor_foreign_key_indexes.sql'
+      - 'docs/ops/20261114_advisor_policy_rollback.sql'
+      - 'tests/supabase_advisor_postgres.py'
+      - '.github/workflows/supabase-advisor.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-advisor-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-advisor-only
+          POSTGRES_DB: advisor_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install the repository-pinned PostgreSQL driver only
+        run: python -m pip install asyncpg==0.30.0
+      - name: Real RLS equivalence, FK indexes, drift rejection, lock timeout and rollback
+        env:
+          SUPABASE_ADVISOR_TEST_DSN: postgresql://postgres:disposable-advisor-only@127.0.0.1:5432/advisor_test
+        run: python tests/supabase_advisor_postgres.py

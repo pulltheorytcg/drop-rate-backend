@@ -33,6 +33,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Use the tested backend Python runtime
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
