@@ -1,0 +1,28 @@
+name: Cardmarket public feed compatibility (read only)
+
+on:
+  pull_request:
+    paths:
+      - backend/app/cardmarket_bulk_feed_audit.py
+      - backend/scripts/audit_cardmarket_bulk_feed.py
+      - .github/workflows/cardmarket-public-feeds.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pokemon-public-download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned project test dependencies
+        run: python -m pip install --requirement requirements-dev.txt
+      - name: Read-only official Pokemon singles and guide audit
+        env:
+          PYTHONPATH: backend
+        run: python backend/scripts/audit_cardmarket_bulk_feed.py --game pokemon --kind singles --read-only
