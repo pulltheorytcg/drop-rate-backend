@@ -21,6 +21,7 @@ import asyncpg
 import httpx
 
 from app.cardmarket_bulk_crosswalk import match_pokemon_bulk, MAX_LINKS
+from app.cardmarket_bulk_rollout import approved_full_source_digest
 from app.cardmarket_bulk_context import prepare_cardmarket_context
 from app.fx import EcbHistoricalFxProvider
 from scripts.audit_cardmarket_bulk_feed import _HOST, _read_source
@@ -73,12 +74,7 @@ async def run() -> dict:
         product_sha256=p_receipt["sha256"],guide_sha256=g_receipt["sha256"])
     by_language=Counter(c["language"] for c in match["candidates"])
     by_source=Counter(c["source_link"] for c in match["candidates"])
-    crosswalk=[(c["language"],c["provider_id"],c["cardmarket_id"],c["variant_id"],
-                c["source_field"]) for c in match["candidates"]]
-    # Some trusted provider bridges have no variant ID. Sort encoded records,
-    # not mixed None/string tuple fields, for a stable hash without TypeError.
-    canonical = sorted(json.dumps(row,separators=(",",":")) for row in crosswalk)
-    digest=hashlib.sha256("\\n".join(canonical).encode()).hexdigest()
+    digest = approved_full_source_digest(match["candidates"])
     return {
         "status":"READ_ONLY_FULL_REFERENCE_AUDIT_COMPLETE",
         "official_product_sha256":p_receipt["sha256"],
