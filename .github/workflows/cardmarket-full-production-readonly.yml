@@ -1,0 +1,113 @@
+name: One-shot Cardmarket full crosswalk and isolated logical restore proof
+
+on:
+  push:
+    branches:
+      - feat/cardmarket-public-bulk-readonly-audit-20261114
+    paths:
+      - backend/scripts/ci_cardmarket_full_readonly.py
+      - .github/workflows/cardmarket-full-production-readonly.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cardmarket-one-shot-readonly-source
+  cancel-in-progress: false
+
+jobs:
+  full-reference-crosswalk:
+    if: github.repository == 'pulltheorytcg/drop-rate-backend'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 12
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install pinned backend runtime
+        run: python -m pip install -r requirements-dev.txt
+      - name: Exact crosswalk and source-qualified EUR/GBP preview, READ ONLY
+        env:
+          PYTHONPATH: backend
+        run: python backend/scripts/ci_cardmarket_full_readonly.py
+
+  critical-reference-restore:
+    if: github.repository == 'pulltheorytcg/drop-rate-backend'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    services:
+      scratch-postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-restore-20261114-only
+          POSTGRES_DB: restore_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Confirm protected secret, source is fixed production project
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_DB_PASSWORD}" || { echo "Protected DB backup credential not configured"; exit 2; }
+          mkdir -p "${RUNNER_TEMP}/cardmarket-restore"
+      - name: Produce a consistent PostgreSQL 17 logical archive for relevant live source tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
+          docker run --rm --network host -e PGPASSWORD \
+            -v "${RUNNER_TEMP}/cardmarket-restore:/backup" postgres:17.6 \
+            pg_dump --host=aws-0-eu-west-2.pooler.supabase.com --port=5432 \
+            --username=postgres.ozrxenrdladkooixutmm --dbname=postgres \
+            --sslmode=require \
+            --format=custom --no-owner --no-privileges \
+            --file=/backup/references.dump \
+            --table=tcg.reference_sets --table=tcg.reference_cards \
+            --table=tcg.reference_market_prices --table=tcg.reference_catalogue_prices \
+            --table=tcg.reference_regional_price_context \
+            --table=tcg.reference_regional_price_history
+          test -s "${RUNNER_TEMP}/cardmarket-restore/references.dump"
+          sha256sum "${RUNNER_TEMP}/cardmarket-restore/references.dump" | cut -d' ' -f1
+          unset PGPASSWORD
+      - name: Restore archive into disposable PostgreSQL 17 and verify nonempty references
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGPASSWORD="disposable-restore-20261114-only"
+          docker run --rm --network host -e PGPASSWORD postgres:17.6 \
+            psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U postgres -d restore_test \
+            -c 'create schema tcg'
+          docker run --rm --network host -e PGPASSWORD \
+            -v "${RUNNER_TEMP}/cardmarket-restore:/backup:ro" postgres:17.6 \
+            pg_restore --host=127.0.0.1 --port=5432 --username=postgres --dbname=restore_test \
+            --no-owner --no-privileges --exit-on-error --section=pre-data \
+            /backup/references.dump
+          docker run --rm --network host -e PGPASSWORD \
+            -v "${RUNNER_TEMP}/cardmarket-restore:/backup:ro" postgres:17.6 \
+            pg_restore --host=127.0.0.1 --port=5432 --username=postgres --dbname=restore_test \
+            --no-owner --no-privileges --exit-on-error --section=data \
+            /backup/references.dump
+          docker run --rm --network host -e PGPASSWORD postgres:17.6 \
+            psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d restore_test \
+            -c "do \$\$ begin if (select count(*) from tcg.reference_cards)<1000 or (select count(*) from tcg.reference_market_prices)<1000 then raise exception 'Incomplete critical-reference restore'; end if; end \$\$;"
+          docker run --rm --network host -e PGPASSWORD postgres:17.6 \
+            psql -X -At -h 127.0.0.1 -U postgres -d restore_test \
+            -c "select 'RESTORE_VERIFIED_REFERENCE_ROWS', (select count(*) from tcg.reference_cards), 'MARKET_ROWS', (select count(*) from tcg.reference_market_prices), 'CATALOGUE_ROWS', (select count(*) from tcg.reference_catalogue_prices), 'REGIONAL_ROWS', (select count(*) from tcg.reference_regional_price_context)"
+          unset PGPASSWORD
+      - name: Remove sensitive disposable archive; never upload it
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/cardmarket-restore/references.dump"
