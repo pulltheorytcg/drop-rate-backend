@@ -94,3 +94,31 @@ def test_cli_has_no_apply_option():
         arguments(["--apply"])
     with pytest.raises(SystemExit):
         arguments(["--max-expansions", "10"])
+
+
+
+def test_source_preflight_exposes_safe_provider_failure_and_offer_scarcity():
+    incomplete = report(
+        provider_failures=1, reason="CardTraderApiError",
+        by_release={
+            "POKEMON_TCG:dp5": {
+                "references": 80, "missing_before": 42,
+                "matched": 24, "blueprints_with_offers": 2,
+                "candidate_source_offers": 6,
+                "with_three_matching_sellers": 0, "quotes": 0,
+                "error_type": "CardTraderApiError", "http_status": 403,
+                "error_detail": "PRIVATE_RAW_UPSTREAM_TOKEN",
+                "seller_username": "PRIVATE_SELLER",
+            }
+        },
+    )
+    safe = compact_preflight_report(incomplete)
+    assert safe["failure_class"] == "CardTraderApiError"
+    first = safe["by_release"][0]
+    assert first["references"] == 80
+    assert first["missing_before"] == 42
+    assert first["blueprints_with_offers"] == 2
+    assert first["candidate_source_offers"] == 6
+    assert first["http_status"] == 403
+    assert first["failure_class"] == "CardTraderApiError"
+    assert "PRIVATE" not in str(safe)

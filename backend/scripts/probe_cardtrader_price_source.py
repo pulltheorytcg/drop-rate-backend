@@ -23,6 +23,7 @@ from app.database_capacity import CAPACITY_SQL, PRO_REFRESH_PAUSE_BYTES, assess_
 from app.db import create_pool, user_connection
 from app.fx import EcbHistoricalFxProvider
 from app.pricing_source_preflight import MAX_PREFLIGHT_EXPANSIONS, preview_cardtrader_expansions
+from app.pricing_source_receipts import begin_preflight_receipt, complete_preflight_receipt
 from app.settings import get_settings
 
 
@@ -62,13 +63,35 @@ async def run(args):
                 order by started_at desc limit 1
             """)
         cursor = previous["cursor"] if previous else None
-        report = await preview_cardtrader_expansions(
-            pool, actor, EcbHistoricalFxProvider(timeout_seconds=6),
-            CardTraderClient(api_token=settings.cardtrader_api_token, timeout_seconds=20),
-            expansion_limit=args.max_expansions, previous_cursor=cursor,
-        )
-        report["status"] = "COMPLETE" if report["provider_failures"] == 0 else "INCOMPLETE"
-        report["bulk_writer_hold_preserved"] = True
+        # A distinct audit job leaves a durable, independent outcome even when
+        # Railway's short-lived container stdout is unavailable. No catalogue
+        # or financial records are modified. Never register this as the legacy
+        # CARDTRADER_EXPANSION_GUIDES job: its cursor feeds the live price writer.
+        receipt_id = uuid4()
+        await begin_preflight_receipt(pool, actor, receipt_id,
+                                      expansion_limit=args.max_expansions)
+        try:
+            report = await preview_cardtrader_expansions(
+                pool, actor, EcbHistoricalFxProvider(timeout_seconds=6),
+                CardTraderClient(api_token=settings.cardtrader_api_token, timeout_seconds=20),
+                expansion_limit=args.max_expansions, previous_cursor=cursor,
+            )
+            report["status"] = "COMPLETE" if report["provider_failures"] == 0 else "INCOMPLETE"
+            report["bulk_writer_hold_preserved"] = True
+        except Exception as exc:
+            # Only the exception CLASS is safe; raw upstream errors and
+            # seller/credential-bearing URLs never enter the audit ledger.
+            report = {"event": "DROP_RATE_PRICING_SOURCE_PREFLIGHT",
+                      "source": "CARDTRADER_EXPANSION_ASKING",
+                      "evidence_kind": "ACTIVE_ASKING_NOT_SOLD",
+                      "mode": "DRY_RUN", "status": "FAILED",
+                      "error_class": type(exc).__name__,
+                      "requested_expansions": args.max_expansions,
+                      "bulk_writer_hold_preserved": True,
+                      "inventory_writes": 0, "store_price_writes": 0,
+                      "catalogue_price_writes": 0}
+        await complete_preflight_receipt(pool, actor, receipt_id, report)
+        report["receipt_id"] = str(receipt_id)
         return report
     finally:
         await pool.close()
