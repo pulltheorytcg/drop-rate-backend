@@ -6,6 +6,8 @@ on:
       - backend/app/cardmarket_bulk_feed_audit.py
       - backend/scripts/audit_cardmarket_bulk_feed.py
       - .github/workflows/cardmarket-public-feeds.yml
+      - backend/app/cardmarket_bulk_crosswalk.py
+      - tests/fixtures/cardmarket_fusion_strike_source_links_20261114.json
   workflow_dispatch:
 
 permissions:
@@ -25,4 +27,4 @@ jobs:
       - name: Read-only official Pokemon singles and guide audit
         env:
           PYTHONPATH: backend
-        run: python backend/scripts/audit_cardmarket_bulk_feed.py --game pokemon --kind singles --read-only
+        run: python backend/scripts/audit_cardmarket_bulk_feed.py --game pokemon --kind singles --read-only --canary-file tests/fixtures/cardmarket_fusion_strike_source_links_20261114.json
