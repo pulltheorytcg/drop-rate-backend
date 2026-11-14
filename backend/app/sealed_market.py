@@ -157,7 +157,7 @@ async def refresh_sealed_prices(pool, actor):
                             await connection.executemany(HISTORY_SQL,history[offset:offset+100])
                             await connection.executemany(WRITE_SQL,values[offset:offset+100])
                     priced=sum(v[5] is not None for v in values)
-                    report['checked']+=len(values);report['priced']+=priced;report['unmatched']+=len(values)-priced
+                    report['checked']+=len(rows);report['priced']+=priced;report['unmatched']+=len(rows)-priced
                     report['sources'][system]={'observed_at':observed.isoformat(),'checked':len(values),'priced':priced}
                 except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
                     # Do not erase a cached guide on a provider/FX outage.
