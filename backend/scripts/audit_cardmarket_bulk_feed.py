@@ -13,6 +13,9 @@ import argparse
 import asyncio
 import hashlib
 import json
+from pathlib import Path
+
+from app.cardmarket_bulk_crosswalk import match_pokemon_bulk
 
 import httpx
 
@@ -52,7 +55,7 @@ async def _read_source(client: httpx.AsyncClient, url: str) -> tuple[dict, dict]
     return payload, {"sha256": digest.hexdigest(), "bytes": length}
 
 
-async def run(game: str, kind: str) -> dict:
+async def run(game: str, kind: str, *, canary_file: Path | None = None) -> dict:
     if game not in GAME_IDS or kind not in PRODUCT_KINDS:
         raise PilotError("Unsupported Cardmarket feed")
     game_id = GAME_IDS[game]
@@ -72,6 +75,27 @@ async def run(game: str, kind: str) -> dict:
         "catalogue": products_hash, "price_guide": guide_hash
     }
     result["provider_requests"] = 2
+    if canary_file is not None:
+        # Only the checked-in, public-canonical sample is accepted. Never
+        # export real inventory, owners, or commercial source quotes into CI.
+        expected = Path(__file__).resolve().parents[2] / (
+            "tests/fixtures/cardmarket_fusion_strike_source_links_20261114.json"
+        )
+        if game != "pokemon" or kind != "singles" or canary_file.resolve() != expected:
+            raise PilotError("Unapproved canary input")
+        if not canary_file.is_file() or canary_file.stat().st_size > 60_000:
+            raise PilotError("Missing or oversized canary")
+        payload = json.loads(canary_file.read_text(encoding="utf-8"))
+        if payload.get("schema") != "drop-rate-cardmarket-public-canary-v1":
+            raise PilotError("Invalid canary schema")
+        matched = match_pokemon_bulk(
+            links=payload["links"], products_export=products,
+            price_export=guides, now=datetime.now(timezone.utc))
+        # The source guides include monetary fields but this receipt never
+        # prints candidate values or implies they are UK Market Values.
+        result["verified_canary"] = {
+            k: v for k, v in matched.items() if k != "candidates"
+        }
     return result
 
 
@@ -80,8 +104,9 @@ def main() -> None:
     parser.add_argument("--game", choices=tuple(GAME_IDS), required=True)
     parser.add_argument("--kind", choices=PRODUCT_KINDS, required=True)
     parser.add_argument("--read-only", action="store_true", required=True)
+    parser.add_argument("--canary-file", type=Path, default=None)
     args = parser.parse_args()
-    print(json.dumps(asyncio.run(run(args.game, args.kind)), sort_keys=True))
+    print(json.dumps(asyncio.run(run(args.game, args.kind, canary_file=args.canary_file)), sort_keys=True))
 
 
 if __name__ == "__main__":
