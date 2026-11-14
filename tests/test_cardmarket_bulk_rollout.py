@@ -77,3 +77,34 @@ async def test_duplicate_keys_fail_before_write(monkeypatch):
         await bulk.apply_verified_remaining(
             None,None,rows,start_index=100,batch_size=20,request_id="test")
     writer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_full_script_requires_separate_approval_before_network_or_db(monkeypatch):
+    from scripts import pilot_cardmarket_live_crosswalk as script
+    network=AsyncMock(side_effect=AssertionError("No source access before approval"))
+    monkeypatch.setattr(script,"_fetch_links",network)
+    monkeypatch.setenv("DROP_RATE_CARDMARKET_BULK_APPLY_CONFIRMED","YES")
+    monkeypatch.delenv("DROP_RATE_CARDMARKET_FULL_BATCH_CONFIRMED",raising=False)
+    with pytest.raises(PilotError,match="full-source approval"):
+        await script.run(
+            apply=True,full_remaining=True,start_index=100,max_references=500,
+            expected_products_sha="a"*64,expected_guide_sha="b"*64,
+            expected_crosswalk_sha="c"*64,expected_reference_count=8907)
+    network.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_full_script_rejects_missing_sha_before_network(monkeypatch):
+    from scripts import pilot_cardmarket_live_crosswalk as script
+    network=AsyncMock(side_effect=AssertionError("No source access before digest"))
+    monkeypatch.setattr(script,"_fetch_links",network)
+    monkeypatch.setenv("DROP_RATE_CARDMARKET_BULK_APPLY_CONFIRMED","YES")
+    monkeypatch.setenv("DROP_RATE_CARDMARKET_FULL_BATCH_CONFIRMED","YES")
+    with pytest.raises(PilotError,match="full-source approval"):
+        await script.run(
+            apply=True,full_remaining=True,start_index=100,max_references=500,
+            expected_products_sha="not-the-approved-sha",
+            expected_guide_sha="b"*64,
+            expected_crosswalk_sha="c"*64,expected_reference_count=8907)
+    network.assert_not_awaited()
