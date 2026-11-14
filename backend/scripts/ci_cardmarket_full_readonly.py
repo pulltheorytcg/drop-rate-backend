@@ -11,6 +11,8 @@ import asyncio
 import hashlib
 import json
 import os
+import traceback
+from pathlib import Path
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -73,7 +75,10 @@ async def run() -> dict:
     by_source=Counter(c["source_link"] for c in match["candidates"])
     crosswalk=[(c["language"],c["provider_id"],c["cardmarket_id"],c["variant_id"],
                 c["source_field"]) for c in match["candidates"]]
-    digest=hashlib.sha256(json.dumps(sorted(crosswalk),separators=(",",":")).encode()).hexdigest()
+    # Some trusted provider bridges have no variant ID. Sort encoded records,
+    # not mixed None/string tuple fields, for a stable hash without TypeError.
+    canonical = sorted(json.dumps(row,separators=(",",":")) for row in crosswalk)
+    digest=hashlib.sha256("\\n".join(canonical).encode()).hexdigest()
     return {
         "status":"READ_ONLY_FULL_REFERENCE_AUDIT_COMPLETE",
         "official_product_sha256":p_receipt["sha256"],
@@ -104,7 +109,18 @@ if __name__=="__main__":
     try:
         report=asyncio.run(run())
     except Exception as exc:
+        # Show only static source filename / function / line for debugging.
+        # Never print live SQL rows, exception strings, prices, or secrets.
+        approved = {"ci_cardmarket_full_readonly.py", "cardmarket_bulk_crosswalk.py",
+                    "cardmarket_bulk_context.py", "pilot_cardmarket_live_crosswalk.py",
+                    "audit_cardmarket_bulk_feed.py"}
+        frames = [
+            {"module":Path(f.filename).name, "function":f.name, "line":f.lineno}
+            for f in traceback.extract_tb(exc.__traceback__)
+            if Path(f.filename).name in approved
+        ]
         print(json.dumps({"status":"FAILED_CLOSED","error_type":type(exc).__name__,
+                          "safe_frames":frames[-4:],
                           "database_writes":0,"shopify_writes":0}),flush=True)
         raise SystemExit(2) from None
     print("CARDMARKET_FULL_READONLY_RECEIPT "+json.dumps(report,sort_keys=True),flush=True)
