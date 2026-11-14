@@ -1,7 +1,7 @@
 """Regression tests for the read-only me06 source probe."""
 from datetime import datetime, timezone
 import pytest
-from app.new_pokemon_price_source import select_samples, detail_evidence
+from app.new_pokemon_price_source import select_samples, detail_evidence, release_listing_evidence
 from app.cardmarket_public_pilot import PilotError
 
 
@@ -90,3 +90,24 @@ def test_duplicate_market_product_identity_fails_closed():
     products["products"].append(products["products"][0].copy())
     with pytest.raises(PilotError):
         detail_evidence(manifest(),details(),products,guides,now=datetime.now(timezone.utc))
+
+
+def test_official_release_presence_is_only_diagnostic():
+    products,_=sources()
+    products["products"].append({"idProduct":481002,"name":"Delta Reign Card",
+                                 "categoryName":"Pokemon Single","idExpansion":456})
+    nonsingles={"createdAt":datetime.now(timezone.utc).isoformat(),
+                "products":[{"idProduct":987654,"name":"Mega Evolution Delta Reign Booster Box",
+                             "idExpansion":456,"categoryName":"Pokemon Booster Boxes"}]}
+    result=release_listing_evidence(manifest(),products,nonsingles,now=datetime.now(timezone.utc))
+    assert result["single_release_title_mentions"]==1
+    assert result["non_single_release_title_mentions"]==1
+    assert result["release_title_is_not_printing_match"] is True
+    assert "price" not in str(result).lower()
+
+
+def test_release_presence_requires_true_set_identity():
+    products,_=sources()
+    with pytest.raises(PilotError):
+        release_listing_evidence({"id":"me05","name":"Delta Reign"},products,products,
+                                 now=datetime.now(timezone.utc))
