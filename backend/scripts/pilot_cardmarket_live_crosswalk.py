@@ -25,7 +25,7 @@ from app.access_control import require_platform_admin
 from app.cardmarket_bulk_crosswalk import MAX_LINKS, match_pokemon_bulk
 from app.cardmarket_bulk_context import prepare_cardmarket_context
 from app.cardmarket_bulk_persistence import persist_cardmarket_context
-from app.cardmarket_bulk_rollout import apply_verified_remaining
+from app.cardmarket_bulk_rollout import apply_verified_remaining, approved_full_source_digest
 from app.fx import EcbHistoricalFxProvider
 from app.cardmarket_public_pilot import PilotError
 from app.db import user_connection
@@ -140,14 +140,7 @@ async def run(*, apply: bool = False, max_references: int = 100,
     # the exact same five-field crosswalk SHA used by the independently
     # completed production read-only GitHub job #43607783746. That is the
     # operator-approved receipt for full rollout (including variant IDs).
-    full_crosswalk_rows = [
-        (c["language"], c["provider_id"], c["cardmarket_id"],
-         c.get("variant_id"), c["source_field"])
-        for c in report["candidates"]
-    ]
-    full_crosswalk_sha = hashlib.sha256(
-        json.dumps(sorted(full_crosswalk_rows),separators=(",",":")).encode()
-    ).hexdigest()
+    full_crosswalk_sha = approved_full_source_digest(report["candidates"])
     # Never print source EUR guide amounts or unpublished private crosswalks.
     canonical = sorted({
         (c["language"], c["provider_id"], c["cardmarket_id"],
