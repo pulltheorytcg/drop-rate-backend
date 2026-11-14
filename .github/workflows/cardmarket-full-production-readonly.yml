@@ -71,11 +71,10 @@ jobs:
           set -euo pipefail
           export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
           export PGSSLMODE=require
-          docker run --rm --network host -e PGPASSWORD \
+          docker run --rm --network host -e PGPASSWORD -e PGSSLMODE \
             -v "${RUNNER_TEMP}/cardmarket-restore:/backup" postgres:17.6 \
             pg_dump --host=aws-0-eu-west-2.pooler.supabase.com --port=5432 \
             --username=postgres.ozrxenrdladkooixutmm --dbname=postgres \
-            --sslmode=require \
             --format=custom --no-owner --no-privileges \
             --file=/backup/references.dump \
             --table=tcg.reference_sets --table=tcg.reference_cards \
