@@ -18,7 +18,7 @@ async def test_resumes_after_verified_100_with_capped_batches(monkeypatch):
         return {"applied":max_references,"unchanged":0,"blocked":0,
                 "physical_market_value_writes":0,"store_price_writes":0,
                 "shopify_writes":0}
-    monkeypatch.setattr(bulk,"persist_cardmarket_context",persist)
+    monkeypatch.setattr(bulk,"persist_cardmarket_context_vector",persist)
     progress=[]
     result=await bulk.apply_verified_remaining(
         None,None,prepared(),start_index=100,batch_size=500,
@@ -35,7 +35,7 @@ async def test_idempotent_replay_can_reuse_existing_unchanged_values(monkeypatch
         return {"applied":0,"unchanged":kwargs["max_references"],"blocked":0,
                 "physical_market_value_writes":0,"store_price_writes":0,
                 "shopify_writes":0}
-    monkeypatch.setattr(bulk,"persist_cardmarket_context",persist)
+    monkeypatch.setattr(bulk,"persist_cardmarket_context_vector",persist)
     result=await bulk.apply_verified_remaining(
         None,None,prepared(103),start_index=100,batch_size=500,request_id="test")
     assert result["applied"]==0 and result["unchanged"]==3
@@ -46,7 +46,7 @@ async def test_any_blocked_batch_stops_before_next(monkeypatch):
     writer=AsyncMock(return_value={
         "applied":499,"unchanged":0,"blocked":1,
         "physical_market_value_writes":0,"store_price_writes":0,"shopify_writes":0})
-    monkeypatch.setattr(bulk,"persist_cardmarket_context",writer)
+    monkeypatch.setattr(bulk,"persist_cardmarket_context_vector",writer)
     with pytest.raises(PilotError,match="reconcile"):
         await bulk.apply_verified_remaining(
             None,None,prepared(),start_index=100,batch_size=500,request_id="test")
@@ -60,7 +60,7 @@ async def test_any_blocked_batch_stops_before_next(monkeypatch):
 @pytest.mark.asyncio
 async def test_invalid_scope_fails_before_any_database_call(monkeypatch,start,size,n):
     writer=AsyncMock(side_effect=AssertionError("Database write forbidden"))
-    monkeypatch.setattr(bulk,"persist_cardmarket_context",writer)
+    monkeypatch.setattr(bulk,"persist_cardmarket_context_vector",writer)
     with pytest.raises(PilotError):
         await bulk.apply_verified_remaining(
             None,None,prepared(n),start_index=start,batch_size=size,request_id="test")
@@ -72,7 +72,7 @@ async def test_duplicate_keys_fail_before_write(monkeypatch):
     rows=prepared(120)
     rows[101]["reference_key"]=rows[100]["reference_key"]
     writer=AsyncMock(side_effect=AssertionError("Database write forbidden"))
-    monkeypatch.setattr(bulk,"persist_cardmarket_context",writer)
+    monkeypatch.setattr(bulk,"persist_cardmarket_context_vector",writer)
     with pytest.raises(PilotError,match="Duplicate"):
         await bulk.apply_verified_remaining(
             None,None,rows,start_index=100,batch_size=20,request_id="test")
