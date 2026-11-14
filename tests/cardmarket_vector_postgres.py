@@ -85,10 +85,6 @@ async def run():
             start_index=100,max_references=50)
         assert replay["unchanged"]==50 and replay["applied"]==0
         assert await admin.fetchval("select count(*) from tcg.reference_regional_price_history")==50
-        await admin.execute(
-            "update tcg.reference_regional_price_context set identity_sha256=$1 where reference_key=$2",
-            "f"*64, rows[150]["reference_key"]
-        ) if False else None
         async with user_connection(pool,actor,"no-history-update") as conn:
             try:
                 await conn.execute("update tcg.reference_regional_price_history set quotes='[]'")
