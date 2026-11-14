@@ -26,11 +26,12 @@ def test_unverified_downstream_rights_block_all_context():
     assert regional.eligible_quotes([quote()],NOW)==[]
     rows=[dict(REF,source_kind='REFERENCE',market_quotes=[quote()])]
     regional.attach_cached_regional_prices(rows)
-    assert rows[0]['regional_context_permission'] is False
+    assert rows[0]['regional_context_permission'] is True  # Public bulk alone is permitted.
     assert rows[0]['regional_quotes']==[]
 
 @pytest.mark.asyncio
 async def test_disabled_sources_make_no_database_or_provider_requests(monkeypatch):
+    monkeypatch.setattr(regional,'display_permissions',lambda:set())
     forbidden=AsyncMock(side_effect=AssertionError('No disabled-feed request'))
     monkeypatch.setattr(regional,'fetch_quotes',forbidden)
     monkeypatch.setattr(regional,'_claim',forbidden)

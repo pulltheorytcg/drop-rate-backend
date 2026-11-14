@@ -39,7 +39,8 @@ def eligible_quotes(rows, now, *, allowed_sources=None):
         pair=(row.get('source'),sale.get('region'),sale.get('source_field'))
         if pair not in {('TCGDEX_CARDMARKET','EU','avg7'),('TCGDEX_CARDMARKET','EU','avg7-holo'),
             ('TCGDEX_CARDMARKET_VARIANT','EU','avg7'),('TCGDEX_CARDMARKET_VARIANT','EU','avg7-holo'),
-            ('TCGDEX_TCGPLAYER','US','marketPrice')}:continue
+            ('TCGDEX_TCGPLAYER','US','marketPrice'),
+            ('CARDMARKET_PUBLIC_BULK','EU','avg7'),('CARDMARKET_PUBLIC_BULK','EU','avg7-holo')}:continue
         try:
             observed=_time(row['observed_at'])
             fx_at=_time(sale['fx_effective_at'])
@@ -68,9 +69,49 @@ def attach_cached_regional_prices(rows):
     for row in rows:
         if row.get('provider')=='TCGdex' and row.get('source_kind')=='REFERENCE':
             row['regional_context_permission']=bool(display_permissions())
-            row['regional_quotes']=[]
+            stored=row.get('regional_quotes') or []
             cached=_cache.get(_identity(row))
-            if cached and cached[0]>now:row['regional_quotes']=eligible_quotes(cached[1],now)
+            live=eligible_quotes(cached[1],now) if cached and cached[0]>now else []
+            # Persisted first-party Cardmarket source evidence takes priority;
+            # the per-replica short cache may supply other independent sources.
+            row['regional_quotes']=stored+[
+                q for q in live if (q.get('source'),q.get('product_id'),q.get('variant_id'))
+                not in {(p.get('source'),p.get('product_id'),p.get('variant_id')) for p in stored}
+            ]
+    return rows
+
+
+async def attach_persisted_cardmarket_prices(connection, rows):
+    """Bounded source-labelled regional quotes for already-selected reference rows.
+
+    All SQL executes inside the caller's authenticated RLS transaction.
+    No browsing-triggered provider requests, sales, or price-cache writes.
+    """
+    now=datetime.now(timezone.utc)
+    keys=[row['key'] for row in rows if row.get('provider')=='TCGdex'
+          and row.get('system_code')=='POKEMON_TCG' and row.get('source_kind')=='REFERENCE'
+          and isinstance(row.get('key'),str) and row['key'].startswith('r:')]
+    if not keys or 'CARDMARKET_PUBLIC_BULK' not in display_permissions():
+        return rows
+    records=await connection.fetch(
+        'select reference_key,identity_sha256,quotes,expires_at '
+        'from tcg.reference_regional_price_context '
+        'where reference_key=any($1::text[]) and expires_at>now()', keys)
+    bykey={r['reference_key']:r for r in records}
+    for row in rows:
+        item=bykey.get(row.get('key'))
+        if not item or item['identity_sha256']!=_identity_hash(row):
+            continue
+        quote_data=item['quotes']
+        if isinstance(quote_data,str):
+            try:quote_data=json.loads(quote_data)
+            except ValueError:continue
+        if not isinstance(quote_data,list):
+            continue
+        matched=eligible_quotes(quote_data,now,allowed_sources={'CARDMARKET_PUBLIC_BULK'})
+        if matched:
+            row['regional_context_permission']=True
+            row['regional_quotes']=matched
     return rows
 
 
@@ -146,6 +187,25 @@ async def regional_prices_for_reference(pool,user_id,request_id,key):
         records=await c.fetch(READ_SQL,[key])
     if not records:raise HTTPException(404,'Unknown regional price reference')
     reference=dict(records[0])
+    # Cardmarket's first-party public download is independent of the
+    # TCGdex-derived providers, whose commercial-display rights remain closed.
+    # Never start an unrelated TCGdex HTTP refresh when only public bulk
+    # catalogue data is authorised.
+    if display_permissions()=={'CARDMARKET_PUBLIC_BULK'}:
+        async with user_connection(pool,user_id,request_id) as c:
+            cached=await c.fetchrow(
+                'select identity_sha256,quotes,expires_at from '
+                'tcg.reference_regional_price_context where reference_key=$1',
+                reference['key'])
+        now=datetime.now(timezone.utc)
+        if (cached and cached['identity_sha256']==_identity_hash(reference)
+                and cached['expires_at'] and cached['expires_at']>now):
+            quotes=eligible_quotes(cached['quotes'],now)
+            if quotes:
+                return {'quotes':quotes,'status':'BULK_SOURCE_CACHED',
+                        'commercial_display_permitted':True}
+        return {'quotes':[],'status':'BULK_SOURCE_NOT_IMPORTED',
+                'commercial_display_permitted':True}
     try:rows,token,reason=await _claim(pool,user_id,request_id,reference)
     except asyncpg.PostgresError:
         raise HTTPException(503,'Regional context cache is not ready') from None

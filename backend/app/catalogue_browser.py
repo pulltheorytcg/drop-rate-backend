@@ -30,7 +30,7 @@ from .physical_state import CARD_CONDITIONS
 from .slab_evidence import slab_candidate_supported
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .reference_market import read_cached_reference_prices
-from .regional_catalogue_prices import attach_cached_regional_prices, regional_prices_for_reference
+from .regional_catalogue_prices import attach_cached_regional_prices, attach_persisted_cardmarket_prices, regional_prices_for_reference
 from .recognition_images import reference_image_bytes
 from .catalogue_artwork import reference_thumbnail, reference_version
 from .book_artwork import book_cover_reference
@@ -988,6 +988,9 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         rows = await add_uk_eu_estimates(connection, rows)
         rows = await with_book_details(connection, rows)
         rows = await with_collectible_details(connection, rows)
+        # A bounded read of already ingested direct public Cardmarket context.
+        # No UK sale/physical Market Value, shared cache or value-sort mutation.
+        rows = await attach_persisted_cardmarket_prices(connection, [dict(row) for row in rows])
         if mixed_reference_keys:
             merged = _sort_explicit_reference_rows([*rows, *r2_key_page["items"]], sort=sort, q=q)
             merged_total = len(merged)
