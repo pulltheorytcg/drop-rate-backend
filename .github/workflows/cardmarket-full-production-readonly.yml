@@ -69,6 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
+          export PGSSLMODE=require
           docker run --rm --network host -e PGPASSWORD \
             -v "${RUNNER_TEMP}/cardmarket-restore:/backup" postgres:17.6 \
             pg_dump --host=aws-0-eu-west-2.pooler.supabase.com --port=5432 \
