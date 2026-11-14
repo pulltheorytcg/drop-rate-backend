@@ -21,7 +21,7 @@ from .cardmarket_public_pilot import PilotError, _id, _rows
 SOURCE_DIRECT = frozenset(("TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT"))
 SOURCE_NUMBER = "CARDMARKET_CATALOGUE"
 DIRECT_FIELDS = {"trend": "avg7", "trend-holo": "avg7-holo"}
-CATEGORY = "pokemon single"
+CATEGORIES = frozenset(("pokemon single", "pokémon single"))
 SCHEMA = "drop-rate-cardmarket-pokemon-existing-crosswalk-v1"
 MAX_LINKS = 120_000
 MIN_ANCHOR_NAMES = 8
@@ -155,7 +155,7 @@ def match_pokemon_bulk(*, links: list[dict], products_export: dict,
         if id_product in collisions | slot_collisions or item["source"] not in SOURCE_DIRECT:
             continue
         product = products_by_id.get(id_product)
-        if (not product or _text(product.get("categoryName")) != CATEGORY
+        if (not product or _text(product.get("categoryName")) not in CATEGORIES
                 or _text(product.get("name")) != _text(item["name"])):
             continue
         expansion = _id(product.get("idExpansion"))
@@ -184,7 +184,7 @@ def match_pokemon_bulk(*, links: list[dict], products_export: dict,
         if not product:
             rejected["PRODUCT_NOT_FOUND"] += 1
             continue
-        if _text(product.get("categoryName")) != CATEGORY:
+        if _text(product.get("categoryName")) not in CATEGORIES:
             rejected["WRONG_CATEGORY"] += 1
             continue
         if _text(product.get("name")) != _text(item["name"]):
