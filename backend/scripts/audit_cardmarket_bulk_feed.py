@@ -89,10 +89,21 @@ async def run(game: str, kind: str, *, canary_file: Path | None = None) -> dict:
         if payload.get("schema") != "drop-rate-cardmarket-public-canary-v1":
             raise PilotError("Invalid canary schema")
         ids = {int(link["cardmarket_id"]) for link in payload["links"]}
-        result["canary_product_categories"] = sorted({
-            str(product.get("categoryName")) for product in products["products"]
+        matched_products = {
+            product.get("idProduct"): product for product in products["products"]
             if product.get("idProduct") in ids
+        }
+        result["canary_product_categories"] = sorted({
+            str(product.get("categoryName")) for product in matched_products.values()
         })
+        result["canary_identity_examples"] = [
+            {"reference_name": link["name"],
+             "product_name": matched_products[int(link["cardmarket_id"])].get("name"),
+             "product_expansion_id": matched_products[int(link["cardmarket_id"])].get("idExpansion"),
+             "product_number": matched_products[int(link["cardmarket_id"])].get("number")}
+            for link in payload["links"]
+            if int(link["cardmarket_id"]) in matched_products
+        ][:4]
         matched = match_pokemon_bulk(
             links=payload["links"], products_export=products,
             price_export=guides, now=datetime.now(timezone.utc))
