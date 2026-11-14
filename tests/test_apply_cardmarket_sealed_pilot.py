@@ -46,7 +46,7 @@ async def test_apply_is_explicitly_denied_without_gate(monkeypatch):
         await run(apply=True,expected_product_sha="a"*64,expected_guide_sha="b"*64)
 
 
-def test_hard_capped_ten_and_canonical_proof():
-    assert MAX_REFERENCES==10
+def test_hard_capped_fifty_and_canonical_proof():
+    assert MAX_REFERENCES==50
     assert canonical("Pokémon 6-Booster BOX")=="pokémon6boosterbox"
     assert not exact_source_name({"name":"Charizard"},{"name":"Charizard V"})

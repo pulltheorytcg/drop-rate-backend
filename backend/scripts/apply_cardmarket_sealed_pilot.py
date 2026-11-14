@@ -2,7 +2,7 @@
 
 Default --read-only. --apply additionally needs the existing production
 maintenance actor, explicit feature confirmation, source digest agreement and
-a 10-reference cap. Writes only append-only reference price history and the
+a 50-reference cap. Writes only append-only reference price history and the
 existing sealed *reference* guide cache, not physical inventory or Shopify.
 
 PYTHONPATH=backend python backend/scripts/apply_cardmarket_sealed_pilot.py --read-only
@@ -29,8 +29,8 @@ from app.fx import EcbHistoricalFxProvider
 from app.sealed_market import quote_for, WRITE_SQL, HISTORY_SQL
 from scripts.audit_cardmarket_bulk_feed import _HOST, _read_source
 
-MAX_REFERENCES=10
-PREVIEW_ROWS=75
+MAX_REFERENCES=50
+PREVIEW_ROWS=100
 SQL = """
 select r.*
 from tcg.reference_sealed_products r
@@ -41,7 +41,7 @@ where r.provider='CardTrader' and r.system_code='POKEMON_TCG'
 and r.evidence->>'cardmarket_product_id' is not null
 and p.market_value_minor>0 and p.expires_at<now()
 and (s.release_date is null or s.release_date<=current_date)
-order by r.provider_id asc limit 75
+order by r.provider_id asc limit 100
 """
 
 
@@ -189,16 +189,16 @@ async def run(*, apply=False, expected_product_sha=None,expected_guide_sha=None)
     if not apply:
         return result
     if len(matched)!=MAX_REFERENCES:
-        raise PilotError("Fewer than 10 unambiguous source/packaging/name candidates")
+        raise PilotError("Fewer than 50 unambiguous source/packaging/name candidates")
     # A second, WRITE-authorized actor connection is only opened after all
     # independent source and identity tests pass. No physical-item SQL here.
     pool=await asyncpg.create_pool(
         dsn=dsn,min_size=1,max_size=1,command_timeout=45,
         server_settings={"statement_timeout":"40000",
-                         "application_name":"sealed-source-pinned-10-apply"},
+                         "application_name":"sealed-source-pinned-50-apply"},
     )
     try:
-        async with user_connection(pool,actor,"sealed-market-10-reviewed") as conn:
+        async with user_connection(pool,actor,"sealed-market-50-reviewed") as conn:
             await require_platform_admin(conn)
             if await conn.fetchval("show transaction_read_only")!="off":
                 raise PilotError("Controlled source write transaction is read-only")
@@ -228,7 +228,7 @@ async def run(*, apply=False, expected_product_sha=None,expected_guide_sha=None)
                     reference["provider"],reference["system_code"],
                     reference["language"],reference["provider_id"],new_quote_json,
                     value,value,at,now,now+timedelta(hours=24))
-            # All ten writes and their history commit atomically.
+            # All fifty writes and their history commit atomically.
             fresh=await conn.fetchval(
                 """select count(*) from tcg.reference_sealed_market_prices
                    where provider='CardTrader' and system_code='POKEMON_TCG'
@@ -238,7 +238,7 @@ async def run(*, apply=False, expected_product_sha=None,expected_guide_sha=None)
                 [x[0]["provider_id"] for x in matched],now)
             if fresh!=MAX_REFERENCES:
                 raise PilotError("Readback mismatch; transaction rolled back")
-        result["status"]="VERIFIED_TEN_SEALED_REFERENCE_GUIDES_APPLIED"
+        result["status"]="VERIFIED_FIFTY_SEALED_REFERENCE_GUIDES_APPLIED"
         result["writes"]=MAX_REFERENCES
         result["physical_item_writes"]=0
         return result
