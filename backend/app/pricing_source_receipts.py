@@ -43,8 +43,10 @@ def safe_receipt(report):
     if not isinstance(releases, list) or len(releases) > 2:
         raise ValueError("Invalid release receipt list")
     allowed_release = {
-        "release", "references", "exact_printings", "three_seller_candidates",
-        "qualified_quotes", "provider_failed",
+        "release", "references", "missing_before", "exact_printings",
+        "blueprints_with_offers", "candidate_source_offers",
+        "three_seller_candidates", "qualified_quotes", "provider_failed",
+        "failure_class", "http_status",
     }
     cleaned["by_release"] = [
         {key: value for key, value in row.items() if key in allowed_release}
