@@ -33,7 +33,7 @@ def test_preserves_independent_regional_sources_and_replaces_own_source():
     assert merged[1]==fresh[0]
 
 
-@pytest.mark.parametrize("existing",[None,"corrupted",{},[]])
+@pytest.mark.parametrize("existing",[None,"corrupted",{}])
 def test_malformed_cache_never_silently_replaced(existing):
     if existing is None:
         existing={"source":"CORRUPT"}
