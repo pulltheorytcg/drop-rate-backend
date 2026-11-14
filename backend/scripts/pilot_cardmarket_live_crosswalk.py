@@ -136,6 +136,18 @@ async def run(*, apply: bool = False, max_references: int = 100,
         guide_at=guide_at, now=datetime.now(timezone.utc),
         product_sha256=catalogue_receipt["sha256"],
         guide_sha256=guide_receipt["sha256"])
+    # Preserve the original restricted report digest below, but also compute
+    # the exact same five-field crosswalk SHA used by the independently
+    # completed production read-only GitHub job #43607783746. That is the
+    # operator-approved receipt for full rollout (including variant IDs).
+    full_crosswalk_rows = [
+        (c["language"], c["provider_id"], c["cardmarket_id"],
+         c.get("variant_id"), c["source_field"])
+        for c in report["candidates"]
+    ]
+    full_crosswalk_sha = hashlib.sha256(
+        json.dumps(sorted(full_crosswalk_rows),separators=(",",":")).encode()
+    ).hexdigest()
     # Never print source EUR guide amounts or unpublished private crosswalks.
     canonical = sorted({
         (c["language"], c["provider_id"], c["cardmarket_id"],
@@ -150,10 +162,11 @@ async def run(*, apply: bool = False, max_references: int = 100,
     report["candidate_crosswalk_sha256"] = hashlib.sha256(
         json.dumps(canonical, separators=(",", ":"), ensure_ascii=False).encode()
     ).hexdigest()
+    report["full_source_crosswalk_sha256"] = full_crosswalk_sha
     if full_remaining and (
         catalogue_receipt["sha256"] != expected_products_sha
         or guide_receipt["sha256"] != expected_guide_sha
-        or report["candidate_crosswalk_sha256"] != expected_crosswalk_sha
+        or report["full_source_crosswalk_sha256"] != expected_crosswalk_sha
         or prepared["regional_reference_count"] != expected_reference_count
     ):
         raise PilotError("Exact approved product, guide or canonical crosswalk changed")
