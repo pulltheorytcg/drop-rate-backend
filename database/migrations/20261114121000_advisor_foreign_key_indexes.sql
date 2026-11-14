@@ -36,7 +36,7 @@ begin
         end if;
         -- This lock also prevents a competing index/table DDL change between
         -- the catalog checks and CREATE. Locks are held only until this commit.
-        execute format('lock table tcg.%I in share mode',target.table_name);
+        execute format('lock table tcg.%I in share row exclusive mode',target.table_name);
         if pg_relation_size(table_oid) > 67108864 then
             raise exception 'Advisor index requires separate large-table review: %',target.table_name;
         end if;
@@ -58,6 +58,8 @@ begin
                   and not i.indisunique and i.indnkeyatts=1 and i.indnatts=1
                   and i.indkey[0]=column_number and i.indpred is null
                   and i.indexprs is null and am.amname='btree'
+                  and i.indcollation[0]=(select attcollation from pg_attribute where attrelid=table_oid and attnum=column_number)
+                  and exists (select 1 from pg_opclass op where op.oid=i.indclass[0] and op.opcdefault)
             ) then
                 raise exception 'Advisor index name conflicts with different/invalid definition: %',target.index_name;
             end if;
@@ -69,6 +71,8 @@ begin
             where i.indrelid=table_oid and i.indisvalid and i.indisready and i.indislive
               and i.indkey[0]=column_number and i.indpred is null
               and i.indexprs is null and am.amname='btree'
+                  and i.indcollation[0]=(select attcollation from pg_attribute where attrelid=table_oid and attnum=column_number)
+                  and exists (select 1 from pg_opclass op where op.oid=i.indclass[0] and op.opcdefault)
         ) then
             execute format('create index %I on tcg.%I (%I)',
                 target.index_name,target.table_name,target.column_name);

@@ -9,12 +9,18 @@ set local idle_in_transaction_session_timeout = '10s';
 lock table tcg.action_required_items, tcg.import_enrichment_items, tcg.media_assets
     in share row exclusive mode;
 
+-- Exact PostgreSQL 17 deparse preserves whitespace inside SQL literals too.
+-- Never normalize all whitespace: a changed actor-setting key must fail closed.
 do $guard$
 declare
     target record;
     actual record;
-    old_owner text := $old$(owner_id IN ( SELECT om.owner_id FROM tcg.owner_memberships om WHERE ((om.user_id = (NULLIF(current_setting('tcg.user_id'::text, true), ''::text))::uuid) AND om.active)))$old$;
-    new_owner text := $new$(owner_id IN ( SELECT om.owner_id FROM tcg.owner_memberships om WHERE ((om.user_id = ( SELECT (NULLIF(current_setting('tcg.user_id'::text, true), ''::text))::uuid AS "nullif")) AND om.active)))$new$;
+    old_owner text := $old$(owner_id IN ( SELECT om.owner_id
+   FROM tcg.owner_memberships om
+  WHERE ((om.user_id = (NULLIF(current_setting('tcg.user_id'::text, true), ''::text))::uuid) AND om.active)))$old$;
+    new_owner text := $new$(owner_id IN ( SELECT om.owner_id
+   FROM tcg.owner_memberships om
+  WHERE ((om.user_id = ( SELECT (NULLIF(current_setting('tcg.user_id'::text, true), ''::text))::uuid AS "nullif")) AND om.active)))$new$;
     old_qual text;
     new_qual text;
 begin
@@ -30,8 +36,8 @@ begin
     ) as x(table_name,policy_name,command)
     loop
         select p.*, c.relrowsecurity, c.relforcerowsecurity,
-               regexp_replace(pg_get_expr(p.polqual,p.polrelid),'[[:space:]]','','g') as qual,
-               regexp_replace(pg_get_expr(p.polwithcheck,p.polrelid),'[[:space:]]','','g') as check_expr
+               pg_get_expr(p.polqual,p.polrelid) as qual,
+               pg_get_expr(p.polwithcheck,p.polrelid) as check_expr
           into actual from pg_policy p join pg_class c on c.oid=p.polrelid
           where p.polrelid=to_regclass('tcg.'||target.table_name)
             and p.polname=target.policy_name;
@@ -44,8 +50,6 @@ begin
             old_qual := '((scope = ''CANONICAL_CARD''::text) OR '||old_owner||')';
             new_qual := '((scope = ''CANONICAL_CARD''::text) OR '||new_owner||')';
         end if;
-        old_qual := regexp_replace(old_qual,'[[:space:]]','','g');
-        new_qual := regexp_replace(new_qual,'[[:space:]]','','g');
         if actual.polcmd::text <> target.command or not actual.polpermissive
            or actual.polroles <> array['tcg_api'::regrole::oid]
            or not actual.relrowsecurity or not actual.relforcerowsecurity

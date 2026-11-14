@@ -331,6 +331,29 @@ async def main() -> None:
         await db.execute(original_policy("readable_assets"))
         assert await policies(db) == original_policies
 
+        # Whitespace inside a quoted SQL literal is semantic, not formatting.
+        # A guard that strips every whitespace character accidentally accepts
+        # these different GUC keys, NULLIF sentinels, or canonical scope values.
+        literal_drifts = (
+            ("own_action_required_access", "'tcg.user_id'", "'tcg.user_id '"),
+            ("own_action_required_access", ",''", ",' '"),
+            ("readable_assets", "'CANONICAL_CARD'", "'CANONICAL_CARD '"),
+        )
+        for policy, old_literal, changed_literal in literal_drifts:
+            table = POLICIES[policy][0]
+            original = original_policy(policy)
+            changed = original.replace(old_literal,changed_literal)
+            assert changed != original
+            await db.execute(f"drop policy {policy} on tcg.{table}")
+            await db.execute(changed)
+            drifted = await policies(db)
+            for migration in (POLICY_MIGRATION,ROLLBACK):
+                await must_fail(db,migration)
+                assert await policies(db) == drifted, "Literal drift must fail without policy changes"
+            await db.execute(f"drop policy {policy} on tcg.{table}")
+            await db.execute(original)
+            assert await policies(db) == original_policies
+
         # A held conflicting lock proves the real server enforces migration's
         # lock timeout. The fixture connection keeps it until the assertion ends.
         lock_db = await asyncpg.connect(dsn)
@@ -355,6 +378,18 @@ async def main() -> None:
         await plan_proof(dsn)
         await apply(db,POLICY_MIGRATION)
         assert await policies(db) == updated, "Policy reapplication must be idempotent"
+
+        # CREATE INDEX takes SHARE. Its lock must conflict with our guard/build
+        # lock so parallel DDL cannot race the equivalent-index preflight.
+        lock_db = await asyncpg.connect(dsn)
+        await lock_db.execute("begin; lock table tcg.action_required_items in share mode")
+        started = time.monotonic()
+        try:
+            assert await must_fail(db,INDEX_MIGRATION) == "55P03"
+            assert 1.0 <= time.monotonic()-started < 8.0
+        finally:
+            await lock_db.execute("rollback"); await lock_db.close(); lock_db=None
+        assert await index_snapshot(db) == original_indexes
 
         # Conflict at the last target proves that the first eleven creations
         # roll back together; testing only the first target cannot prove that.
