@@ -28,7 +28,7 @@ from scripts.audit_cardmarket_bulk_feed import _HOST, _read_source
 # This query reads only existing canonical reference and source evidence.
 # It never joins physical inventory or owner data and cannot update a price.
 SOURCE_LINKS_SQL = """
-select r.provider,r.system_code,r.language,r.provider_id,r.name,s.name set_name,
+select r.provider,r.system_code,r.language,r.provider_id,r.name,r.set_id,s.name set_name,
        r.card_number,q.data->>'product_id' as cardmarket_id,
        q.data->>'source' as source,q.data->>'finish' as finish,
        q.data->>'variant_id' as variant_id,
