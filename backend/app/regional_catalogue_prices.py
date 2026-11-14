@@ -39,7 +39,8 @@ def eligible_quotes(rows, now, *, allowed_sources=None):
         pair=(row.get('source'),sale.get('region'),sale.get('source_field'))
         if pair not in {('TCGDEX_CARDMARKET','EU','avg7'),('TCGDEX_CARDMARKET','EU','avg7-holo'),
             ('TCGDEX_CARDMARKET_VARIANT','EU','avg7'),('TCGDEX_CARDMARKET_VARIANT','EU','avg7-holo'),
-            ('TCGDEX_TCGPLAYER','US','marketPrice')}:continue
+            ('TCGDEX_TCGPLAYER','US','marketPrice'),
+            ('CARDMARKET_PUBLIC_BULK','EU','avg7'),('CARDMARKET_PUBLIC_BULK','EU','avg7-holo')}:continue
         try:
             observed=_time(row['observed_at'])
             fx_at=_time(sale['fx_effective_at'])
@@ -146,6 +147,25 @@ async def regional_prices_for_reference(pool,user_id,request_id,key):
         records=await c.fetch(READ_SQL,[key])
     if not records:raise HTTPException(404,'Unknown regional price reference')
     reference=dict(records[0])
+    # Cardmarket's first-party public download is independent of the
+    # TCGdex-derived providers, whose commercial-display rights remain closed.
+    # Never start an unrelated TCGdex HTTP refresh when only public bulk
+    # catalogue data is authorised.
+    if display_permissions()=={'CARDMARKET_PUBLIC_BULK'}:
+        async with user_connection(pool,user_id,request_id) as c:
+            cached=await c.fetchrow(
+                'select identity_sha256,quotes,expires_at from '
+                'tcg.reference_regional_price_context where reference_key=$1',
+                reference['key'])
+        now=datetime.now(timezone.utc)
+        if (cached and cached['identity_sha256']==_identity_hash(reference)
+                and cached['expires_at'] and cached['expires_at']>now):
+            quotes=eligible_quotes(cached['quotes'],now)
+            if quotes:
+                return {'quotes':quotes,'status':'BULK_SOURCE_CACHED',
+                        'commercial_display_permitted':True}
+        return {'quotes':[],'status':'BULK_SOURCE_NOT_IMPORTED',
+                'commercial_display_permitted':True}
     try:rows,token,reason=await _claim(pool,user_id,request_id,reference)
     except asyncpg.PostgresError:
         raise HTTPException(503,'Regional context cache is not ready') from None
