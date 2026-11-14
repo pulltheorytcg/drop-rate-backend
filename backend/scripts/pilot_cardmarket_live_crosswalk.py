@@ -25,6 +25,7 @@ from app.access_control import require_platform_admin
 from app.cardmarket_bulk_crosswalk import MAX_LINKS, match_pokemon_bulk
 from app.cardmarket_bulk_context import prepare_cardmarket_context
 from app.cardmarket_bulk_persistence import persist_cardmarket_context
+from app.cardmarket_bulk_rollout import apply_verified_remaining
 from app.fx import EcbHistoricalFxProvider
 from app.cardmarket_public_pilot import PilotError
 from app.db import user_connection
@@ -90,11 +91,25 @@ async def _fetch_links() -> list[dict]:
 
 
 async def run(*, apply: bool = False, max_references: int = 100,
-              start_index: int = 0) -> dict:
+              start_index: int = 0, full_remaining: bool = False,
+              expected_products_sha: str | None = None,
+              expected_guide_sha: str | None = None,
+              expected_crosswalk_sha: str | None = None,
+              expected_reference_count: int | None = None) -> dict:
     if not 1 <= max_references <= 500 or start_index < 0:
         raise PilotError("Invalid bounded import range")
     if apply and os.getenv("DROP_RATE_CARDMARKET_BULK_APPLY_CONFIRMED") != "YES":
         raise PilotError("Existing restore verification and explicit apply gate required")
+    if full_remaining and (
+        not apply or start_index < 100
+        or os.getenv("DROP_RATE_CARDMARKET_FULL_BATCH_CONFIRMED") != "YES"
+        or not all(isinstance(v,str) and len(v)==64 and
+                   all(c in "0123456789abcdef" for c in v)
+                   for v in (expected_products_sha,expected_guide_sha,expected_crosswalk_sha))
+        or type(expected_reference_count) is not int
+        or not 100 < expected_reference_count <= 10000
+    ):
+        raise PilotError("Verified pilot and exact full-source approval required")
     links = await _fetch_links()
     timeout = httpx.Timeout(90.0, connect=15.0, pool=15.0)
     async with httpx.AsyncClient(
@@ -132,6 +147,16 @@ async def run(*, apply: bool = False, max_references: int = 100,
     report["preparation_rejections"] = prepared["rejections"]
     report["fx_source"] = fx.source
     report["fx_effective_at"] = fx.effective_at.isoformat()
+    report["candidate_crosswalk_sha256"] = hashlib.sha256(
+        json.dumps(canonical, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+    if full_remaining and (
+        catalogue_receipt["sha256"] != expected_products_sha
+        or guide_receipt["sha256"] != expected_guide_sha
+        or report["candidate_crosswalk_sha256"] != expected_crosswalk_sha
+        or prepared["regional_reference_count"] != expected_reference_count
+    ):
+        raise PilotError("Exact approved product, guide or canonical crosswalk changed")
     if apply:
         dsn = os.getenv("TCG_DATABASE_URL", "").strip()
         actor = UUID(os.environ["TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID"].strip())
@@ -140,17 +165,56 @@ async def run(*, apply: bool = False, max_references: int = 100,
             server_settings={"statement_timeout": "25000",
                              "application_name": "cardmarket-region-bulk-bounded"})
         try:
-            report["apply_receipt"] = await persist_cardmarket_context(
-                pool, actor, prepared["prepared"], request_id="cardmarket-approved-bulk",
-                max_references=max_references, start_index=start_index)
+            if full_remaining:
+                # Read back the first 100 already applied canonical keys and
+                # their exact source receipts inside an authenticated RLS snapshot.
+                seed = prepared["prepared"][:100]
+                async with user_connection(
+                    pool, actor, "cardmarket-first-100-verified", readonly_snapshot=True
+                ) as conn:
+                    await require_platform_admin(conn)
+                    if await conn.fetchval("show transaction_read_only") != "on":
+                        raise PilotError("Pilot seed verification is not READ ONLY")
+                    count = await conn.fetchval(
+                        """
+                        with seed(reference_key,identity_sha256) as (
+                          select * from unnest($1::text[],$2::text[])
+                        )
+                        select count(*) from seed
+                        join tcg.reference_regional_price_context c
+                          using(reference_key,identity_sha256)
+                        where c.expires_at > now()
+                          and exists (
+                            select 1 from jsonb_array_elements(c.quotes) q
+                            where q->>'source'='CARDMARKET_PUBLIC_BULK'
+                              and q->>'source_product_sha256'=$3
+                              and q->>'source_guide_sha256'=$4
+                          )
+                        """,
+                        [r["reference_key"] for r in seed],
+                        [r["identity_sha256"] for r in seed],
+                        expected_products_sha, expected_guide_sha,
+                    )
+                    if count != 100:
+                        raise PilotError("The pilot 100 source-identity seed no longer matches")
+                report["apply_receipt"] = await apply_verified_remaining(
+                    pool, actor, prepared["prepared"],
+                    start_index=start_index, batch_size=max_references,
+                    request_id="cardmarket-verified-full-rollout",
+                    log_progress=lambda row: print(
+                        "CARDMARKET_ROLLOUT_PROGRESS " + json.dumps(row,sort_keys=True),
+                        flush=True),
+                )
+                report["status"] = "FULL_REGIONAL_CONTEXT_ROLLOUT_COMPLETE"
+            else:
+                report["apply_receipt"] = await persist_cardmarket_context(
+                    pool, actor, prepared["prepared"], request_id="cardmarket-approved-bulk",
+                    max_references=max_references, start_index=start_index)
         finally:
             await pool.close()
     else:
         report["status"] = "REVIEW_ONLY_PREPARED_NOT_APPLIED"
         report["apply_receipt"] = None
-    report["candidate_crosswalk_sha256"] = hashlib.sha256(
-        json.dumps(canonical, separators=(",", ":"), ensure_ascii=False).encode()
-    ).hexdigest()
     report["official_source_receipts"] = {
         "products": catalogue_receipt, "guide": guide_receipt
     }
@@ -166,11 +230,21 @@ def main() -> None:
     mode.add_argument("--apply", action="store_true")
     parser.add_argument("--max-references", type=int, default=100)
     parser.add_argument("--start-index", type=int, default=0)
+    parser.add_argument("--full-remaining", action="store_true",
+                        help="Resume only after the verified first-100 pilot")
+    parser.add_argument("--expected-products-sha")
+    parser.add_argument("--expected-guide-sha")
+    parser.add_argument("--expected-crosswalk-sha")
+    parser.add_argument("--expected-reference-count", type=int)
     args = parser.parse_args()
     try:
         report = asyncio.run(run(
             apply=args.apply, max_references=args.max_references,
-            start_index=args.start_index))
+            start_index=args.start_index, full_remaining=args.full_remaining,
+            expected_products_sha=args.expected_products_sha,
+            expected_guide_sha=args.expected_guide_sha,
+            expected_crosswalk_sha=args.expected_crosswalk_sha,
+            expected_reference_count=args.expected_reference_count))
     except (PilotError, ValueError, asyncpg.PostgresError, httpx.HTTPError) as exc:
         print(json.dumps({"status": "FAILED_CLOSED",
                           "error_type": type(exc).__name__,
