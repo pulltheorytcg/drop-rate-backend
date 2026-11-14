@@ -166,9 +166,9 @@ async def run(*, apply: bool = False, max_references: int = 100,
                              "application_name": "cardmarket-region-bulk-bounded"})
         try:
             if full_remaining:
-                # Read back the first 100 already applied canonical keys and
-                # their exact source receipts inside an authenticated RLS snapshot.
-                seed = prepared["prepared"][:100]
+                # Verify the entire already-imported prefix (100 or more)
+                # against the exact pinned source receipts. Never skip gaps.
+                seed = prepared["prepared"][:start_index]
                 async with user_connection(
                     pool, actor, "cardmarket-first-100-verified", readonly_snapshot=True
                 ) as conn:
@@ -195,8 +195,8 @@ async def run(*, apply: bool = False, max_references: int = 100,
                         [r["identity_sha256"] for r in seed],
                         expected_products_sha, expected_guide_sha,
                     )
-                    if count != 100:
-                        raise PilotError("The pilot 100 source-identity seed no longer matches")
+                    if count != start_index:
+                        raise PilotError("Imported prefix source IDs or history no longer match")
                 report["apply_receipt"] = await apply_verified_remaining(
                     pool, actor, prepared["prepared"],
                     start_index=start_index, batch_size=max_references,
