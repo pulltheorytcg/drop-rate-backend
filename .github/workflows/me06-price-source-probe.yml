@@ -1,0 +1,27 @@
+name: Pokémon Delta Reign exact-source pricing probe
+on:
+  push:
+    branches: [fix/me06-cardmarket-exact-source-probe-20261114]
+    paths:
+      - backend/app/new_pokemon_price_source.py
+      - backend/scripts/probe_me06_cardmarket_sources.py
+      - tests/test_new_pokemon_price_source.py
+      - .github/workflows/me06-price-source-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only-provider-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Strict provider identity and no-price-write tests
+        env: {PYTHONPATH: backend}
+        run: python -m pytest -q tests/test_new_pokemon_price_source.py
+      - name: Official TCGdex + Cardmarket bounded source receipt
+        env: {PYTHONPATH: backend}
+        run: python -u backend/scripts/probe_me06_cardmarket_sources.py
