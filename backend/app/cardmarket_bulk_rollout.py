@@ -8,6 +8,7 @@ physical inventory, Store Price, settlement or UK sold-price changes.
 from __future__ import annotations
 
 from collections.abc import Callable
+import hashlib
 import json
 
 from .cardmarket_bulk_persistence import persist_cardmarket_context
@@ -16,6 +17,22 @@ from .cardmarket_public_pilot import PilotError
 MAX_FULL_REFERENCE_COUNT = 10_000
 MIN_VERIFIED_PILOT = 100
 MAX_BATCH_SIZE = 500
+
+def approved_full_source_digest(candidates: list[dict]) -> str:
+    """Match the protected full-source audit, including variant ID and repeats.
+
+    A digest of a different tuple or a deduplicated set is not the approved
+    source receipt and must never authorize mass reference writes.
+    """
+    records = [
+        (c["language"], c["provider_id"], c["cardmarket_id"],
+         c.get("variant_id"), c["source_field"])
+        for c in candidates
+    ]
+    return hashlib.sha256(
+        json.dumps(sorted(records), separators=(",", ":")).encode()
+    ).hexdigest()
+
 
 
 async def apply_verified_remaining(
