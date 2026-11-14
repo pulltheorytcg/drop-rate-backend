@@ -56,12 +56,31 @@ async def run(args):
                     or row["database_bytes"] >= PRO_REFRESH_PAUSE_BYTES):
                 return {"event": "DROP_RATE_PRICING_SOURCE_PREFLIGHT",
                         "status": "BLOCKED", "reason": "PRO_CAPACITY_PREFLIGHT_NOT_SATISFIED"}
+            # Advance the read-only pricing-source probe independently.
+            # Older preflight receipts before PR #1094 recorded their last
+            # release in by_release but no next_cursor. Never reuse these
+            # diagnostic rows as the pricing writer's actual apply cursor.
             previous = await connection.fetchrow("""
-                select report->>'cursor' as cursor
+                select coalesce(
+                    report->>'next_cursor',
+                    (select item->>'release'
+                       from jsonb_array_elements(
+                         case when jsonb_typeof(report->'by_release')='array'
+                              then report->'by_release' else '[]'::jsonb end
+                       ) with ordinality as details(item,position)
+                      order by position desc limit 1)
+                ) as cursor
                 from tcg.catalogue_job_runs
-                where job='CARDTRADER_EXPANSION_GUIDES' and status='COMPLETE'
+                where job='CARDTRADER_SOURCE_PREFLIGHT' and status='COMPLETE'
                 order by started_at desc limit 1
             """)
+            if not previous or not previous["cursor"]:
+                previous = await connection.fetchrow("""
+                    select report->>'cursor' as cursor
+                    from tcg.catalogue_job_runs
+                    where job='CARDTRADER_EXPANSION_GUIDES' and status='COMPLETE'
+                    order by started_at desc limit 1
+                """)
         cursor = previous["cursor"] if previous else None
         # A distinct audit job leaves a durable, independent outcome even when
         # Railway's short-lived container stdout is unavailable. No catalogue

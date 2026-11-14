@@ -33,6 +33,14 @@ def compact_preflight_report(report: Mapping) -> dict:
         "source": "CARDTRADER_EXPANSION_ASKING",
         "evidence_kind": "ACTIVE_ASKING_NOT_SOLD",
         "mode": "DRY_RUN",
+        "selection": "MISSING_PRICES_ONLY",
+        "next_cursor": (
+            report.get("cursor")
+            if isinstance(report.get("cursor"), str)
+            and 0 < len(report["cursor"]) <= 128
+            and report["cursor"].isprintable()
+            else None
+        ),
         "requests": int(report.get("provider_calls", 0)),
         "expansions": int(report.get("sets_checked", 0)),
         "canonical_references_examined": int(report.get("references_examined", 0)),
@@ -91,6 +99,7 @@ async def preview_cardtrader_expansions(pool, actor, fx, client, *,
         pool, actor, fx, client, dry_run=True,
         expansion_limit=expansion_limit,
         previous_cursor=previous_cursor,
+        pricing_only=True,
     )
     result = compact_preflight_report(report)
     result["requested_expansions"] = expansion_limit
