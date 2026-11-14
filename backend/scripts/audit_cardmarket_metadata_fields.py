@@ -34,7 +34,7 @@ def field_coverage(export: dict, *, game: str, now: datetime) -> dict:
     images=0
     for record in products:
         ident=record.get("idProduct")
-        if not isinstance(ident,int) or ident<=0 or ident in identities:
+        if type(ident) is not int or ident<=0 or ident in identities:
             raise PilotError("Invalid or ambiguous first-party product ID")
         identities.add(ident)
         for key in IDENTITY_COLUMNS:
