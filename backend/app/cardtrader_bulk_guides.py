@@ -356,7 +356,8 @@ async def asking_guide(ref, blueprint_id, expansion_id, rows, fx_provider, obser
     return quote, gbp_minor
 
 
-def selected_releases(refs, games, categories, expansions, *, previous_cursor=None, limit=15):
+def selected_releases(refs, games, categories, expansions, *, previous_cursor=None,
+                      limit=15, pricing_only=False):
     game_ids = {}
     for system, labels in {
         "DRAGON_BALL_SUPER_MASTERS": {"dragon ball super", "dragon ball super masters"},
@@ -370,7 +371,10 @@ def selected_releases(refs, games, categories, expansions, *, previous_cursor=No
         grouped[(ref["system_code"], ref["set_id"])].append(ref)
     candidates = []
     for (system, set_id), group in grouped.items():
-        if system not in game_ids or not any(missing(r) or missing_artwork(r) for r in group):
+        if system not in game_ids or not any(
+            missing(r) if pricing_only else (missing(r) or missing_artwork(r))
+            for r in group
+        ):
             continue
         if system == "DRAGON_BALL_SUPER_MASTERS":
             from .dragon_ball_market import MASTERS, release_identity
@@ -390,7 +394,12 @@ def selected_releases(refs, games, categories, expansions, *, previous_cursor=No
         if not category_ids:
             continue
         candidates.append((f"{system}:{set_id}", group, possible[0], category_ids))
-    candidates.sort(key=lambda entry: (-sum(missing(r) or missing_artwork(r) for r in entry[1]), entry[0]))
+    candidates.sort(key=lambda entry: (
+        -sum(
+            missing(r) if pricing_only else (missing(r) or missing_artwork(r))
+            for r in entry[1]
+        ), entry[0]
+    ))
     if previous_cursor:
         index = next((i + 1 for i, row in enumerate(candidates)
                       if row[0] == previous_cursor), 0)
@@ -400,7 +409,10 @@ def selected_releases(refs, games, categories, expansions, *, previous_cursor=No
 
 async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, *,
                                               dry_run=True, expansion_limit=15,
-                                              previous_cursor=None, previous_artwork_cursors=None):
+                                              previous_cursor=None, previous_artwork_cursors=None,
+                                              pricing_only=False):
+    if pricing_only and not dry_run:
+        raise ValueError("Price-focused source preflight must remain dry-run")
     if not 1 <= expansion_limit <= MAX_SETS_PER_RUN:
         raise ValueError("invalid CardTrader expansion batch size")
     observed = datetime.now(timezone.utc)
@@ -410,7 +422,8 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
               "exact_printings": 0, "eligible_quotes": 0, "writes_attempted": 0,
               "writes_applied": 0, "inventory_writes": 0, "store_price_writes": 0,
               "by_release": {}, "failed_release_ids": [], "request_limit": expansion_limit,
-              "quote_type": "ACTIVE_ASKING_NOT_SOLD", "scope": "CATALOGUE_ONLY"}
+              "quote_type": "ACTIVE_ASKING_NOT_SOLD", "scope": "CATALOGUE_ONLY",
+              "pricing_only": bool(pricing_only)}
     report.update(artwork_probes=0, artwork_verified=0, artwork_written=0)
     report['artwork_cursors'] = dict(previous_artwork_cursors or {})
     async with user_connection(pool, actor, str(uuid4())) as connection:
@@ -425,7 +438,7 @@ async def refresh_cardtrader_expansion_guides(pool, actor, fx_provider, client, 
         categories = await client.list_categories()
         selected, all_releases = selected_releases(
             refs, games, categories, expansions, previous_cursor=previous_cursor,
-            limit=expansion_limit)
+            limit=expansion_limit, pricing_only=pricing_only)
         report["available_releases"] = all_releases
         for index, (cursor, group, expansion, category_ids) in enumerate(selected):
             report["cursor"] = cursor
