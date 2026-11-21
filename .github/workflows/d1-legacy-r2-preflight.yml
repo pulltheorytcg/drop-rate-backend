@@ -121,22 +121,33 @@ jobs:
                   digest=got[relation].get("source_sha256")
                   if not isinstance(digest,str) or not re.fullmatch(r"[0-9a-f]{64}",digest):
                       raise SystemExit("Missing audited original R2 relation SHA")
-                  receipt=json.dumps({
-                      "state":"success",
-                      "context":"drop-rate-r2-original-"+relation+"-sha256",
-                      "description":digest,
-                  }).encode()
-                  req=urllib.request.Request(
-                      "https://api.github.com/repos/"+os.environ["SOURCE_REPOSITORY"]
-                      +"/statuses/"+os.environ["SOURCE_COMMIT"],
-                      data=receipt,method="POST",headers={
-                          "Authorization":"Bearer "+os.environ["GITHUB_STATUS_TOKEN"],
-                          "Content-Type":"application/json",
-                          "Accept":"application/vnd.github+json",
-                      })
-                  with urllib.request.urlopen(req,timeout=20) as response:
-                      if response.status!=201:
-                          raise SystemExit("Original R2 SHA receipt not published")
+                  # Some GitHub connectors return only status context/state,
+                  # dropping the description entirely. Keep the original
+                  # context for existing consumers, and publish the **same**
+                  # validated SHA in a compact, machine-readable context.
+                  # Every context is <= 110 bytes and contains no source row.
+                  for context, summary in (
+                      ("drop-rate-r2-original-"+relation+"-sha256",digest),
+                      ("dr-r2sha-"+relation+"-"+digest,
+                       "Verified original R2 SHA256; NO D1 import"),
+                  ):
+                      if len(context)>110:
+                          raise SystemExit("Invalid SHA receipt context")
+                      receipt=json.dumps({
+                          "state":"success","context":context,
+                          "description":summary,
+                      }).encode()
+                      req=urllib.request.Request(
+                          "https://api.github.com/repos/"+os.environ["SOURCE_REPOSITORY"]
+                          +"/statuses/"+os.environ["SOURCE_COMMIT"],
+                          data=receipt,method="POST",headers={
+                              "Authorization":"Bearer "+os.environ["GITHUB_STATUS_TOKEN"],
+                              "Content-Type":"application/json",
+                              "Accept":"application/vnd.github+json",
+                          })
+                      with urllib.request.urlopen(req,timeout=20) as response:
+                          if response.status!=201:
+                              raise SystemExit("Original R2 SHA receipt not published")
           payload=json.dumps({
              "state":state,"context":"drop-rate-legacy-r2-source-parity",
              "description":description,

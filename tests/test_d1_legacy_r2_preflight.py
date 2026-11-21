@@ -189,7 +189,9 @@ def test_protected_original_r2_sha_receipts_have_real_source_and_no_write_gate()
     assert 'if state=="success":' in workflow
     assert 'got[relation].get("source_sha256")' in workflow
     assert 're.fullmatch(r"[0-9a-f]{64}",digest)' in workflow
-    assert '"context":"drop-rate-r2-original-"+relation+"-sha256"' in workflow
+    assert '("drop-rate-r2-original-"+relation+"-sha256",digest)' in workflow
+    assert '"dr-r2sha-"+relation+"-"+digest' in workflow
+    assert "if len(context)>110:" in workflow
     assert "for relation in sorted(counts):" in workflow
     assert 'data.get("verified_game_language_counts")==expected_family_language' in workflow
     assert 'data.get("r2_parts_verified")==161' in workflow

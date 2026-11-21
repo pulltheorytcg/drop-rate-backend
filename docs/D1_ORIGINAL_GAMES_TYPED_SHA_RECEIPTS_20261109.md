@@ -17,3 +17,8 @@ Any malformed digest, different source generation/count/manifest, missing part, 
 
 ## Tests / safety
 Existing R2 preflight and exporter synthetic tests and full backend CI remain mandatory. New offline assertion checks that per-relation publication is gated on the full R2 proof and no D1 credentials can reach the source-preflight job. Verify actual main commit statuses: all five SHA receipts must be present, successful, and bound to the exact same reviewed source proof as the aggregate. Only then open a **separate reviewed import repin** PR with the matching SHAs; maintain exact GitHub run+commit approvals, rollback, D1 capacity limits and Supabase as production authority until full migrated parity. Do not infer an imported row from a source checksum.
+
+## 9 November connector readback compatibility
+
+The protected main run from #1042 successfully posted all five fixed-name per-relation statuses, but the connected GitHub status reader returns **context, state and target URL only**, discarding `description`, where the actual 64-character digests were held. To avoid making up or trusting unobservable digests, the protected read-only job now additionally posts `dr-r2sha-<relation>-<64-hex-digest>` status contexts *after* the exact same full 161-part and game/language verification. Original status names remain published for compatibility. Contexts are bounded to 110 characters and contain only owner-free SHA256 digests, never source payloads, owner IDs, market observations or secrets. A future import repin must read five successful SHA-bearing statuses from the **same** verified main commit plus the aggregate source-parity success status.
+
