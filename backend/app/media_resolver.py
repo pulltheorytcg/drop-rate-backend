@@ -498,6 +498,73 @@ def _ebay_physical_candidates(
     return _latest_by_side(ready)
 
 
+def _ebay_catalogue_url(asset: Mapping[str, Any]) -> str | None:
+    """Return only an HTTPS image from a known first-party catalogue host.
+
+    Shopify-hosted approved media is preferred. The exact TCGdex source may
+    be used while its Shopify copy is processing. Never proxy arbitrary URLs.
+    """
+    shopify = _channel_image_url(asset.get("shopify_cdn_url"))
+    if shopify:
+        return shopify
+    candidate = _text(asset.get("public_source_url"))
+    if not candidate:
+        return None
+    try:
+        parsed = urlsplit(candidate)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "assets.tcgdex.net"
+            or parsed.port not in (None, 443)
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.fragment
+            or not parsed.path.startswith("/")
+        ):
+            return None
+    except ValueError:
+        return None
+    return candidate
+
+
+def _ebay_canonical_front(
+    item: Mapping[str, Any], assets: list[Mapping[str, Any]]
+) -> tuple[Mapping[str, Any], str] | None:
+    """Exact-print, internally approved canonical card art for a sale listing.
+
+    Provider certificate images marked INTERNAL_REFERENCE_ONLY are excluded.
+    This intentionally does not require the independent Shopify media sync
+    to finish before eBay can use an approved TCGdex source image.
+    """
+    if _text(item.get("product_type")) != "CARD":
+        return None
+    catalogue_id = _text(item.get("catalogue_id"))
+    language = _language(item.get("language") or item.get("catalogue_language"))
+    variant = _norm(item.get("variant"))
+    if not catalogue_id or not language:
+        return None
+    for asset in assets:
+        if (
+            _text(asset.get("scope")) != "CANONICAL_CARD"
+            or _text(asset.get("catalogue_id")) != catalogue_id
+            or _text(asset.get("side")) != "FRONT"
+            or _text(asset.get("media_kind")) != "IMAGE"
+            or _text(asset.get("rights_tier")) != STOREFRONT_ALLOWED
+            or _text(asset.get("approval_status")) != "APPROVED"
+            or _text(asset.get("rights_status")) != "VERIFIED"
+            or _text(asset.get("source_status")) != "ACTIVE"
+            or asset.get("revoked_at")
+            or _language(asset.get("media_language")) != language
+            or _norm(asset.get("media_variant")) != variant
+            or not (_text(asset.get("rights_basis")) or _text(asset.get("permission_evidence_url")))
+        ):
+            continue
+        url = _ebay_catalogue_url(asset)
+        if url:
+            return asset, url
+    return None
+
+
 def resolve_media(
     item: Mapping[str, Any],
     assets: list[Mapping[str, Any]],
@@ -510,7 +577,7 @@ def resolve_media(
 
     DROP_RATE: signed-in own-item display; use existing approved media.
     SHOPIFY: approved owned-copy photo first, then permitted exact catalogue art.
-    EBAY: GB used-card contract remains exact FIRST_PARTY_CAPTURE FRONT+BACK.
+    EBAY: use approved exact catalogue card art first, then an owned front scan.
     WHATNOT: preview the decision, but never claim the channel can publish.
 
     This function does NOT retrieve source images, approve rights, upload bytes,
@@ -525,26 +592,43 @@ def resolve_media(
         raise ValueError("Unsupported media purpose")
 
     if channel == "EBAY":
+        # One good image is sufficient for Drop Rate's seller experience:
+        # prefer exact approved catalogue art; otherwise reuse the user's
+        # original scanned front. A real physical back is optional.
         by_side = _ebay_physical_candidates(item, assets)
-        blockers = [
-            "approved FRONT + BACK physical photos are required"
-        ] if not all(side in by_side for side in ("FRONT", "BACK")) else []
-        selected = [by_side[side] for side in ("FRONT", "BACK") if side in by_side]
-        image_urls = [_channel_image_url(asset.get("shopify_cdn_url"))
-                      for asset in selected]
+        canonical = _ebay_canonical_front(item, assets)
+        selected: list[Mapping[str, Any]] = []
+        image_urls: list[str] = []
+        if canonical is not None:
+            selected.append(canonical[0])
+            image_urls.append(canonical[1])
+        if front := by_side.get("FRONT"):
+            url = _channel_image_url(front.get("shopify_cdn_url"))
+            if url and url not in image_urls:
+                selected.append(front)
+                image_urls.append(url)
+        if back := by_side.get("BACK"):
+            url = _channel_image_url(back.get("shopify_cdn_url"))
+            if url and url not in image_urls and image_urls:
+                selected.append(back)
+                image_urls.append(url)
+        blockers = [] if image_urls else ["approved catalogue image or saved front scan required"]
+        source = "CANONICAL_STOREFRONT" if canonical else FIRST_PARTY_CAPTURE if image_urls else "NONE"
         result = {
             "complete": not blockers,
             "blockers": blockers,
-            "resolutionSource": FIRST_PARTY_CAPTURE if not blockers else "NONE",
-            "rightsTier": FIRST_PARTY_CAPTURE if not blockers else None,
-            "selectedMedia": [_selected_summary(asset) for asset in selected] if not blockers else [],
+            "resolutionSource": source,
+            "rightsTier": STOREFRONT_ALLOWED if canonical else FIRST_PARTY_CAPTURE if image_urls else None,
+            "selectedMedia": [_selected_summary(asset) for asset in selected],
             "shopifyFileIds": [],
-            "imageUrls": image_urls if not blockers else [],
-            "physicalPhotosRequired": True,
-            "requiredSides": ["FRONT", "BACK"],
+            "imageUrls": image_urls,
+            "physicalPhotosRequired": False,
+            "requiredSides": ["FRONT"],
             "selectionReason": (
-                "eBay UK listing uses approved photographs of the actual physical item."
-                if not blockers else "eBay physical front and back photo review required."
+                "Exact approved catalogue artwork selected; seller scan is retained as the physical-copy reference."
+                if canonical else
+                "Saved front scan selected; a second front photo and back photo are optional."
+                if image_urls else "Add a front scan or select approved exact catalogue artwork."
             ),
         }
     else:

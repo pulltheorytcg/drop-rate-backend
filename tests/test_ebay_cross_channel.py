@@ -263,10 +263,10 @@ def test_single_item_publish_is_fail_closed_and_never_bulk_publishes() -> None:
     assert "TCG_EBAY_PUBLISH_ENABLED" in source
     assert "identity must be confirmed" in source
     assert "resolve_media(" in source
-    assert "approved FRONT + BACK physical photos are required" in (
+    assert "approved catalogue image or saved front scan required" in (
         ROOT / "backend" / "app" / "media_resolver.py"
     ).read_text()
-    assert "photo-backed condition verification is required" in source
+    assert 'if not graded and not row["condition"]:' in source
     assert "shipping profile is required" in source
     assert "inventory changed while ebay was publishing" in source.casefold()
 

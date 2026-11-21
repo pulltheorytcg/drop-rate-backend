@@ -42,7 +42,7 @@ def request():
 @pytest.mark.parametrize('cost',[None,0,800])
 async def test_ebay_readiness_preserves_nullable_cost_and_photo_requirement(monkeypatch,cost):
     owner,inventory,actor=uuid4(),uuid4(),uuid4()
-    row=dict(id=inventory,owner_id=owner,inventory_code='INV-SYNTHETIC',acquisition_cost_minor=cost,
+    row=dict(id=inventory,owner_id=owner,catalogue_id=uuid4(),inventory_code='INV-SYNTHETIC',acquisition_cost_minor=cost,
         product_type='CARD',status='APPROVED',sale_intent='FOR_SALE',identity_confirmed=True,
         language='English',store_price_minor=2000,storage_location_id=uuid4(),version=3,
         grading_company=None,grade=None,condition='Near Mint',condition_review_status='VERIFIED_NEAR_MINT')
@@ -55,7 +55,11 @@ async def test_ebay_readiness_preserves_nullable_cost_and_photo_requirement(monk
         async def fetchval(self,sql,*params):
             assert 'tcg.shopify_shipping_profiles' in sql;return True
         async def fetch(self,sql,*params):
-            assert 'tcg.media_assets' in sql and params==(owner,inventory,False)
+            assert 'tcg.media_assets' in sql
+            if "scope='CANONICAL_CARD'" in sql:
+                assert params==(row['catalogue_id'],)
+                return []
+            assert params==(owner,inventory,False)
             assert "rights_tier='FIRST_PARTY_CAPTURE'" in sql
             assert "capture_context='GRADED_SLAB'" in sql
             return [dict(
@@ -77,11 +81,14 @@ async def test_ebay_readiness_preserves_nullable_cost_and_photo_requirement(monk
     settings=SimpleNamespace(ebay_price_markup_bps=0)
     plan=await ebay_sales._load_listing_plan(request(),SimpleNamespace(user_id=actor),inventory,3,settings)
     assert plan['item']['acquisition_cost_minor']==cost and plan['already_live'] is True
-    photos.pop()
+    photos.pop()  # A saved front scan is now enough without the back.
+    still_ready=await ebay_sales._load_listing_plan(request(),SimpleNamespace(user_id=actor),inventory,3,settings)
+    assert still_ready['already_live'] is True
+    photos.pop()  # No approved catalogue or first-party scan remains.
     with pytest.raises(HTTPException) as error:
         await ebay_sales._load_listing_plan(request(),SimpleNamespace(user_id=actor),inventory,3,settings)
     assert error.value.status_code==409
-    assert error.value.detail['blockers']==['approved FRONT + BACK physical photos are required']
+    assert error.value.detail['blockers']==['approved catalogue image or saved front scan required']
 
 
 @pytest.mark.asyncio

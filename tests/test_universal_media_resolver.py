@@ -93,7 +93,7 @@ def test_ebay_never_promotes_wrong_owner_unapproved_or_untrusted_photo(bad):
     assert not decision["complete"]
     assert not decision["publishReady"]
     assert decision["imageUrls"] == []
-    assert decision["blockers"] == ["approved FRONT + BACK physical photos are required"]
+    assert decision["blockers"] == ["approved catalogue image or saved front scan required"]
 
 
 def test_ebay_requires_approved_photograph_of_the_exact_slab_not_raw_art():
@@ -191,3 +191,67 @@ def test_first_party_photograph_cannot_become_reusable_catalogue_media():
     photo = physical()
     photo.update(scope='CANONICAL_CARD', inventory_id=None, catalogue_id='catalogue-1')
     assert not resolve_media(owned_item(), [photo], channel='SHOPIFY')['complete']
+
+
+def test_ebay_uses_exact_approved_tcgdex_art_before_saved_front_scan():
+    artwork = _asset()
+    artwork.update(
+        source_provider="TCGdex",
+        public_source_url="https://assets.tcgdex.net/en/swsh/swsh1/001/high.webp",
+        shopify_cdn_url=None,
+        shopify_file_status="PROCESSING",
+    )
+    scan = physical()
+    result = resolve_media(owned_item(), [artwork, scan], channel="EBAY")
+    assert result["complete"] and result["publishReady"]
+    assert result["resolutionSource"] == "CANONICAL_STOREFRONT"
+    assert result["imageUrls"] == [
+        artwork["public_source_url"], scan["shopify_cdn_url"]
+    ]
+    assert result["requiredSides"] == ["FRONT"]
+    assert result["physicalPhotosRequired"] is False
+
+
+def test_ebay_saved_front_scan_needs_no_back_photo():
+    scan = physical()
+    result = resolve_media(owned_item(), [scan], channel="EBAY")
+    assert result["complete"]
+    assert result["imageUrls"] == [scan["shopify_cdn_url"]]
+
+
+@pytest.mark.parametrize("bad", [
+    {"catalogue_id": "someone-elses-card"},
+    {"media_variant": "Wrong variant"},
+    {"media_language": "Japanese"},
+    {"rights_tier": INTERNAL_REFERENCE_ONLY},
+    {"approval_status": "PENDING"},
+    {"rights_status": "PENDING"},
+    {"public_source_url": "https://assets.tcgdex.net.evil.test/stock.webp"},
+    {"public_source_url": "https://assets.tcgdex.net@evil.test/stock.webp"},
+    {"public_source_url": "http://assets.tcgdex.net/stock.webp"},
+])
+def test_ebay_never_substitutes_unmatched_unapproved_or_untrusted_catalogue_art(bad):
+    artwork = _asset()
+    artwork.update(
+        public_source_url="https://assets.tcgdex.net/en/cards/card.webp",
+        shopify_cdn_url=None, shopify_file_status="PROCESSING",
+    )
+    artwork.update(bad)
+    result = resolve_media(owned_item(), [artwork], channel="EBAY")
+    assert not result["complete"]
+    assert not result["imageUrls"]
+
+
+def test_graded_ebay_can_list_exact_catalogue_art_without_claiming_slab_photo():
+    artwork = _asset()
+    artwork.update(
+        public_source_url="https://assets.tcgdex.net/en/cards/card.webp",
+        shopify_cdn_url=None, shopify_file_status="PROCESSING",
+    )
+    result = resolve_media(
+        owned_item(grading_company="PSA", grade="10", condition=None),
+        [artwork], channel="EBAY"
+    )
+    assert result["complete"]
+    assert result["imageUrls"] == [artwork["public_source_url"]]
+    assert result["selectedMedia"][0]["scope"] == "CANONICAL_CARD"
