@@ -1,0 +1,40 @@
+name: Owner RLS identity InitPlan contract
+
+on:
+  pull_request:
+    paths:
+      - 'database/migrations/*optimize_owner_identity_rls_initplan.sql'
+      - 'database/migrations/20260925154423_media_assets_registry.sql'
+      - 'database/migrations/20260928211713_import_enrichment_action_queue.sql'
+      - 'tests/owner_rls_initplan_postgres.py'
+      - '.github/workflows/owner-rls-initplan.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-rls-only
+          POSTGRES_DB: owner_rls_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d owner_rls_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install asyncpg==0.30.0
+      - name: Apply original and optimized policies; check owner isolation
+        run: python tests/owner_rls_initplan_postgres.py
+        env:
+          OWNER_RLS_TEST_DSN: postgresql://postgres:disposable-rls-only@127.0.0.1:5432/owner_rls_test
