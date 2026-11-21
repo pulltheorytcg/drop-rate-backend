@@ -229,3 +229,19 @@ async def test_partial_rls_visibility_archives_only_complete_tables(rows,monkeyp
     assert "owner_memberships" not in output["source_counts"]
     assert len(store.objects)==11     # 10 complete R2 files plus restricted manifest
     assert output["customer_data_imported_to_d1"] is False
+
+
+def test_private_archive_heartbeat_contains_only_fixed_stage_table_and_count(capsys):
+    arc._progress("SOURCE_READY","owners",6)
+    out=capsys.readouterr().out
+    assert out=="DROP_RATE_PRIVATE_MIGRATION stage=SOURCE_READY table=owners rows=6\\n"
+    assert "password" not in out.lower()
+    assert "http" not in out.lower()
+    for stage,table,rows in (
+        ("unexpected","owners",6),
+        ("SOURCE_READY","auth.users",6),
+        ("SOURCE_READY","owners",-1),
+        ("SOURCE_READY","owners",arc.MAX_ROWS_PER_TABLE+1),
+    ):
+        with pytest.raises(ObjectStorageError):
+            arc._progress(stage,table,rows)

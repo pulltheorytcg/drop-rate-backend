@@ -23,6 +23,23 @@ from .object_storage import ObjectStorageError, configured_object_storage, sha25
 
 
 SCHEMA = "drop-rate-cloudflare-private-operational-source-v1"
+
+
+def _progress(stage: str, table: str, rows: int) -> None:
+    """Public-safe checkpoint only: fixed stage, approved table and row count.
+
+    NEVER output a row value, owner ID, price, R2 key, token or object URL.
+    """
+    if stage not in {"SOURCE_READY", "RLS_TABLE_BLOCKED", "TYPED_VERIFY_START",
+                     "TYPED_VERIFY_PROGRESS", "TYPED_VERIFY_DONE",
+                     "R2_TABLE_VERIFIED", "R2_MANIFEST_VERIFIED"}:
+        raise ObjectStorageError("Unexpected private migration progress stage")
+    if table not in TABLE_PKS and table != "ALL":
+        raise ObjectStorageError("Unexpected private migration progress table")
+    if type(rows) is not int or not 0 <= rows <= MAX_ROWS_PER_TABLE:
+        raise ObjectStorageError("Unexpected private migration progress count")
+    print(f"DROP_RATE_PRIVATE_MIGRATION stage={stage} table={table} rows={rows}",flush=True)
+
 # ONLY tables whose credentials / provider tokens are absent by schema review.
 # Use a separate reviewed transfer for auth sessions, OAuth, Stripe, eBay
 # credential tables, and any future unknown relation.
@@ -220,6 +237,8 @@ async def verify_typed_roundtrip(pool, actor: UUID, downloaded: Path, proof: dic
                 digest.update(raw)
                 rows += 1
                 raw_bytes += len(raw)
+                if rows % 5000 == 0:
+                    _progress("TYPED_VERIFY_PROGRESS",name,rows)
                 if rows > MAX_ROWS_PER_TABLE or raw_bytes > MAX_RAW_BYTES_PER_TABLE:
                     raise ObjectStorageError("Source archive exceeds safe bounds")
                 if batch and (len(batch) >= BATCH_ROWS
@@ -259,6 +278,7 @@ async def backup_operational_sources(pool, actor: UUID, *, upload: bool = False,
                     # Never archive an incomplete table as if it were whole.
                     visible = await conn.fetchval(f'select count(*) from tcg."{name}"')
                     if type(visible) is not int or visible < MIN_ROWS[name]:
+                        _progress("RLS_TABLE_BLOCKED",name,visible if type(visible) is int else 0)
                         blocked.append({
                             "table": name, "visible_rows": visible,
                             "minimum_source_rows": MIN_ROWS[name],
@@ -267,6 +287,7 @@ async def backup_operational_sources(pool, actor: UUID, *, upload: bool = False,
                         continue
                     proof = await export_table(conn, name, root / (name + ".ndjson.gz"))
                     results.append(proof)
+                    _progress("SOURCE_READY",name,proof["rows"])
         if not results:
             raise ObjectStorageError("No complete approved source tables are visible")
         # Only after the consistent SQL snapshot has closed do we write to R2.
@@ -288,8 +309,12 @@ async def backup_operational_sources(pool, actor: UUID, *, upload: bool = False,
                     expected_sha256=proof["gzip_sha256"],
                     expected_size=proof["gzip_bytes"])
                 proof["archive_object"] = receipt
+            _progress("TYPED_VERIFY_START",name,proof["rows"])
             await verify_typed_roundtrip(pool, actor, source, proof)
             proof["typed_roundtrip_verified"] = True
+            _progress("TYPED_VERIFY_DONE",name,proof["rows"])
+            if upload:
+                _progress("R2_TABLE_VERIFIED",name,proof["rows"])
         checkpoint = {
             "schema": SCHEMA, "created_at": datetime.now(timezone.utc).isoformat(),
             "relations": results, "relation_count": len(results),
@@ -318,6 +343,7 @@ async def backup_operational_sources(pool, actor: UUID, *, upload: bool = False,
             if returned.read_bytes() != payload:
                 raise ObjectStorageError("R2 checkpoint manifest readback differs")
             checkpoint["manifest_object"] = proof
+            _progress("R2_MANIFEST_VERIFIED","ALL",len(results))
     # Report only source row COUNTS and integrity digests, not any customer row.
     return {
         "status": ("PRIVATE_OPERATIONAL_R2_SOURCE_RESTORE_PROVEN" if not blocked
