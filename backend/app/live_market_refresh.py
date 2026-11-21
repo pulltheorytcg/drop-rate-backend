@@ -143,6 +143,20 @@ def exact_card_match(row, target):
     company, grade = target["grading_company"], target["grade"]
     if company and not re.search(rf"\b{re.escape(company)}\s*(?:gem\s*mint\s*|mint\s*)?{re.escape(grade)}(?![\d.])", title, re.I):
         return False
+    # Additional game-scoped checks for print treatments (SIR/SAR, secret,
+    # manga, QCR, enchanted, etched, etc). Conflicting treatment rejects;
+    # missing marketing words alone remain review signals rather than forcing
+    # a false negative on eBay's abbreviated card titles.
+    from .market_comparable_safety import evaluate_treatment
+    variant_check = evaluate_treatment(
+        game=str(target.get("game") or ""),
+        requested_name=str(target.get("name") or ""),
+        requested_variant=str(target.get("variant") or ""),
+        requested_rarity=str(target.get("rarity") or ""),
+        listing_title=title,
+    )
+    if variant_check.conflicts:
+        return False
     name = _normalise_text(target["name"])
     special_groups = (("parallel", "alt art", "alternate art", "aa"), ("manga",), ("sp",),
                       ("treasure",), ("film red",), ("25th",), ("3rd anniversary",), ("stamped",), ("winner",))

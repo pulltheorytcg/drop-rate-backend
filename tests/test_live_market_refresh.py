@@ -167,3 +167,28 @@ async def test_group_revalidates_identity_after_network_and_never_prices_changed
     assert result['updated']==(0 if changed else 1)
     assert len(saved)==(0 if changed else 1)
     assert records[0]['metadata']['skipped_changed']==int(changed)
+
+
+def test_rare_and_alt_art_treatments_reject_conflicting_seller_titles():
+    base = target()
+    listing = "Seel 021/094 Phantasmal Flames NM"
+    assert market.exact_card_match(sold(title=listing), base)
+    for suffix in ("Secret Rare", "Special Illustration Rare", "Reverse Holo", "Alt Art"):
+        assert not market.exact_card_match(sold(title=f"{listing} {suffix}"), base)
+
+
+def test_one_piece_manga_parallel_listing_never_matches_ordinary_secret_rare():
+    base = target(game="One Piece",name="Sabo",card_number="OP07-118",set_name="500 Years in the Future",
+                  variant="Foil",rarity="SEC")
+    assert market.exact_card_match(sold(title="Sabo OP07-118 English NM"),base)
+    assert not market.exact_card_match(sold(title="Sabo OP07-118 English NM Manga Rare"),base)
+
+
+def test_exact_variant_not_derived_from_price_or_title_search_query():
+    from app.market_comparable_safety import evaluate_treatment
+    result = evaluate_treatment(
+        game="Pokemon",requested_name="Seel",requested_variant="Special Illustration Rare",
+        requested_rarity="SIR",listing_title="Seel 021/094 Phantasmal Flames NM",
+    )
+    assert result.status == "REVIEW_REQUIRED"
+    assert "SPECIAL_ILLUSTRATION_RARE" in result.missing_evidence
