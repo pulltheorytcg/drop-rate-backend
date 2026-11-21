@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'backend/app/regional_catalogue_prices.py'
+      - 'backend/app/cardmarket_bulk_vector_writer.py'
+      - 'backend/app/cardmarket_bulk_rollout.py'
+      - 'tests/test_cardmarket_bulk_vector_writer.py'
+      - 'tests/cardmarket_vector_postgres.py'
       - 'backend/data/regional_price_display_permissions.json'
       - 'database/migrations/20261112120000_regional_catalogue_context.sql'
       - 'tests/test_regional_catalogue_prices.py'
@@ -34,8 +38,14 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements-dev.txt
-      - run: PYTHONPATH=backend pytest -q tests/test_reference_market.py tests/test_regional_catalogue_prices.py
+      - run: PYTHONPATH=backend pytest -q tests/test_reference_market.py tests/test_regional_catalogue_prices.py tests/test_cardmarket_bulk_vector_writer.py tests/test_cardmarket_bulk_rollout.py
       - name: Concurrent replica budget, isolated persistence, backoff and RLS on real PostgreSQL
         run: PYTHONPATH=backend python tests/regional_context_postgres.py
         env:
           REGIONAL_CONTEXT_TEST_DSN: postgresql://postgres:disposable-context-only@127.0.0.1:5432/regional_context_test
+      - name: Real vector batch RLS, immutable history and idempotency on PostgreSQL
+        run: |
+          PGPASSWORD=disposable-context-only psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE cardmarket_vector_test'
+          PYTHONPATH=backend python tests/cardmarket_vector_postgres.py
+        env:
+          CARDMARKET_VECTOR_TEST_DSN: postgresql://postgres:disposable-context-only@127.0.0.1:5432/cardmarket_vector_test
