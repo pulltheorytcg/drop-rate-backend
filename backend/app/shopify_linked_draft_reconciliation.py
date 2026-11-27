@@ -628,7 +628,9 @@ async def run_linked_draft_reconciliation(
             settings.shopify_linked_draft_reconciliation_limit,
         )
 
-    concurrency = max(1, min(4, settings.db_pool_max))
+    # DR-OPS-1: sized from the background-job pool, leaving one connection for
+    # the other job loops (the API pool is separate and never used here).
+    concurrency = max(1, min(4, settings.db_job_pool_max - 1))
     semaphore = asyncio.Semaphore(concurrency)
 
     async def _reconcile_row(row: asyncpg.Record) -> dict[str, Any]:

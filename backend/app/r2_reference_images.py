@@ -22,6 +22,7 @@ from .r2_media import optimized_media_bytes
 from .recognition_images import reference_image_bytes, reference_display_min_dimension
 from .access_control import require_platform_admin
 from .db import user_connection
+from .job_database import lock_session
 from .database_capacity import check_database_capacity
 
 logger = logging.getLogger(__name__)
@@ -209,14 +210,16 @@ async def run_reference_mirror_loop(pool: Any, actor) -> None:
     while worker_enabled():
         delay=30
         try:
-            async with pool.acquire() as lock:
+            async with lock_session(pool) as lock:
                 acquired=await lock.fetchval('select pg_try_advisory_lock($1)',MIRROR_WORKER_LOCK)
                 if acquired:
                     try:
                         # R2 holds the bytes, but each image still commits a small
                         # exact-printing receipt in Postgres. Check before any
                         # provider download or object upload, on every batch.
-                        capacity=await check_database_capacity(lock)
+                        # DR-OPS-1: a short lease, not the advisory-lock session.
+                        async with pool.acquire() as connection:
+                            capacity=await check_database_capacity(connection)
                         if not capacity.refresh_allowed:
                             logger.warning('CATALOGUE_R2_REFERENCE_MEDIA_DEFERRED %s',
                                            json.dumps(capacity.report(),sort_keys=True))

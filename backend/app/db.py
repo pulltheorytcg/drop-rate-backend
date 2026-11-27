@@ -80,24 +80,45 @@ async def _init_connection(connection: Connection) -> None:
         )
 
 
-async def create_pool(settings: Settings) -> Pool:
+def server_settings(application_name: str) -> dict[str, str]:
+    """Session settings shared by the API pool, job pool and job lock session."""
+
+    return {
+        "application_name": application_name,
+        "search_path": "pg_catalog,tcg",
+        "statement_timeout": "15000",
+        "idle_in_transaction_session_timeout": "10000",
+    }
+
+
+async def create_pool(
+    settings: Settings,
+    *,
+    min_size: int | None = None,
+    max_size: int | None = None,
+    application_name: str | None = None,
+    context: str = "api_pool",
+) -> Pool:
+    """Create an asyncpg pool; the defaults are the API request pool.
+
+    Background jobs must not use the API pool (DR-OPS-1): they receive a
+    ``job_database.JobDatabase`` built with the overrides here.
+    """
+
     return await retry_database_connection(
         lambda: asyncpg.create_pool(
             dsn=settings.database_url,
-            min_size=settings.db_pool_min,
-            max_size=settings.db_pool_max,
+            min_size=settings.db_pool_min if min_size is None else min_size,
+            max_size=settings.db_pool_max if max_size is None else max_size,
             timeout=15,
             command_timeout=15,
             max_inactive_connection_lifetime=300,
             init=_init_connection,
-            server_settings={
-                "application_name": f"drop-rate-api:{settings.environment}",
-                "search_path": "pg_catalog,tcg",
-                "statement_timeout": "15000",
-                "idle_in_transaction_session_timeout": "10000",
-            },
+            server_settings=server_settings(
+                application_name or f"drop-rate-api:{settings.environment}"
+            ),
         ),
-        context="api_pool",
+        context=context,
     )
 
 
