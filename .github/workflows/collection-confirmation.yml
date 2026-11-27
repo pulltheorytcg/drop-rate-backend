@@ -46,7 +46,7 @@ permissions:
   contents: read
 jobs:
   postgres-admission:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 7
     services:
       postgres:
@@ -71,7 +71,7 @@ jobs:
         env:
           COLLECTION_TEST_DSN: postgresql://postgres:disposable-collection-only@127.0.0.1:5432/collection_intake_test
   browser-confirmation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 7
     container:
       image: mcr.microsoft.com/playwright/python:v1.57.0-noble
@@ -100,7 +100,7 @@ jobs:
           path: /tmp/collection-confirmation
   production-readback:
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7

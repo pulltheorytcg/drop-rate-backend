@@ -17,7 +17,7 @@ permissions:
   contents: read
 jobs:
   postgres:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 8
     services:
       postgres:
@@ -46,7 +46,7 @@ jobs:
       - name: Production physical-state guard, legacy preview, graded import and re-export regression
         run: PYTHONPATH=backend python tests/owner_import_physical_state_postgres.py
   mobile-layout:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 8
     container:
       image: mcr.microsoft.com/playwright/python:v1.57.0-noble

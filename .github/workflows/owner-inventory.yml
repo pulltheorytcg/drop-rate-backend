@@ -26,7 +26,7 @@ permissions:
   contents: read
 jobs:
   postgres:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 5
     services:
       postgres:
@@ -53,7 +53,7 @@ jobs:
         env:
           INVENTORY_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/inventory_test
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 8
     strategy:
       matrix:
