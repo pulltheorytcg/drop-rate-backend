@@ -110,9 +110,12 @@ window.DropRateCatalogue = (() => {
       ? (row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Value pending":"Value unavailable")
       : "Market value: "+money(row.market_value_minor);
   };
+  // A dated last-known amount is shown only when no current value is (rule 4).
+  const hasCurrentValue = row =>
+    Boolean(ukSold(row) || askingEstimate(row) || regionalSales(row).length || euGuide(row));
   const historicalPrice = row =>
     row.shared_price && window.DropRateReferenceValue?.isHistorical({reference_value:row.shared_price})
-      ? row.shared_price : null;
+      && !hasCurrentValue(row) ? row.shared_price : null;
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", oldest:"Oldest first", name:"Name A–Z", name_desc:"Name Z–A",

@@ -42,11 +42,17 @@ for(const stronger of [{market_value_minor:900,market_value_source:'CARDMARKET_B
  {shared_price:{status:'CATALOGUE_GUIDE',market_value_minor:900}}]){
  const f=fixture(),row={...card,...stronger,uk_eu_market_estimate:estimate()};
  f.browser.rows=[row];f.browser.renderRows();
- const soldOnly=stronger.shared_price?.status==='AVAILABLE';
- assert.equal(f.browser.find('[data-price-key]').textContent,soldOnly?'Market value: £9.00':'Value unavailable');
+ // Pricing rules (27 Nov 2026): UK sold (incl. the near-mint UK sold
+ // reference) first; a Cardmarket EU guide is a labelled estimate; an
+ // unlabelled catalogue guide (no Cardmarket method) and the internal UK/EU
+ // model never supply an amount.
+ const expected=stronger.shared_price?.status==='AVAILABLE'?'Market value: £9.00'
+  :stronger.shared_price?.status==='CONDITION_REFERENCE'?'Market value (UK sold, near mint): £9.00'
+  :stronger.market_value_source==='CARDMARKET_BULK_SINGLES'?'Estimate: £9.00 · Cardmarket EU guide':'Value unavailable';
+ assert.equal(f.browser.find('[data-price-key]').textContent,expected);
  assert.equal(f.browser.find('[data-uk-eu-estimate-key]'),null);
  f.browser.openProduct(row);
- assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,soldOnly?'Market value: £9.00':'Value unavailable');
+ assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,expected);
  assert.doesNotMatch(f.browser.sheet.textContent,/£12.34|Drop Rate UK\/EU estimate/);
  f.finish();checks++;
 }

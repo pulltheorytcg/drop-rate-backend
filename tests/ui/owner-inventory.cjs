@@ -400,21 +400,18 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   const prices=tile.querySelector('.owner-card-prices');
-  assert.doesNotMatch(prices.textContent,/£8.66/);
-  assert.ok(!prices.textContent.includes("Last known")&&!prices.textContent.includes("08/10/2026"));
-  assert.equal(prices.querySelector('.owner-card-historical-label'),null);
+  // Pricing rule 4 (27 Nov 2026): one compact dated "Last known £X · date"
+  // line — never a bare current amount.
+  assert.match(prices.textContent,/Last known £8\.66 · 08\/10\/2026/);
+  assert.doesNotMatch(prices.textContent.replace('Last known £8.66',''),/£8\.66/);
   const tableMarket=f.w.document.querySelector('#owner-inventory-body tr td:nth-child(3)');
   assert.ok(tableMarket,'List view must retain a separate market value column');
-  assert.doesNotMatch(tableMarket.textContent,/£8.66/);
-  assert.ok(!tableMarket.textContent.includes("Last known")&&!tableMarket.textContent.includes("08/10/2026"));
-  assert.equal(tableMarket.querySelector('.owner-table-historical-label'),null);
+  assert.match(tableMarket.textContent,/Last known £8\.66 · 08\/10\/2026/);
+  assert.doesNotMatch(tableMarket.textContent.replace('Last known £8.66',''),/£8\.66/);
   assert.equal(tile.querySelector('.owner-inventory-details'),null);
   tile.querySelector('.owner-card-open-overlay').click();await tick();
-  assert.ok(!f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent.includes("Last known 08/10/2026"));
-   const history=f.w.document.querySelector('.owner-item-historical-label');
-   assert.equal(history,null);
-   assert.equal(history,null);
-   assert.equal(f.w.document.querySelector('.owner-market-source'),null);
+  assert.match(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent,/Last known £8\.66 · 08\/10\/2026/);
+  assert.match(f.w.document.querySelector('.owner-market-source').textContent,/No current value: evidence has expired/);
   f.finish();checks++;
  }
  // A stale near-mint comparison for an unfinished copy keeps its history badge.

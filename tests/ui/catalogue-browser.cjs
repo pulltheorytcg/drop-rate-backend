@@ -88,15 +88,17 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.browser.sheet.textContent,/provisional estimate or active listing/);
   assert.doesNotMatch(f.browser.sheet.textContent,/undefined:|Cardmarket #/);f.finish();
  }
- // Current asking evidence stays in provenance, never displayed as Market Value.
+ // Pricing rule 2 (27 Nov 2026): with no UK sold value, a current UK asking
+ // median is the browse value — labelled, never stored as Market Value.
+ const askingText=/^UK asking median: £12\.34–£14\.00 · 3 sellers · /;
  {
   const row={...card,asking_price_estimate:askingFixture()},f=fixture(async()=>({items:[row],has_more:false}));
   await f.browser.open();f.browser.pickGame(games[0]);await tick();
-  assert.equal(f.browser.find('[data-price-key]').textContent,'Value unavailable');
+  assert.match(f.browser.find('[data-price-key]').textContent,askingText);
   f.browser.openProduct(row);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value unavailable');
+  assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,askingText);
   assert.match(f.browser.sheet.textContent,/provisional estimate or active listing/);
-  assert.doesNotMatch(f.browser.sheet.textContent,/£12\.34|Market value: £12\.34/);
+  assert.doesNotMatch(f.browser.sheet.textContent,/Market value: £12\.34/);
   assert.equal(row.market_value_minor,null);
   f.finish();checks++;
  }
@@ -119,16 +121,20 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   }
   f.finish();checks++;
  }
- // Existing supported prices win; fresh asking evidence may replace dated history only in presentation.
+ // Rule 2 order: UK asks rank above Cardmarket guides; fresh asking evidence
+ // replaces dated history in presentation.
  {
   const f=fixture(),estimate=askingFixture();
-  for(const stronger of [
+  for(const weaker of [
    {market_value_minor:900,market_value_source:'CARDMARKET_BULK_SINGLES'},
-   {shared_price:{status:'CATALOGUE_GUIDE',market_value_minor:900,label:'Catalogue guide'}}]){
-   f.browser.openProduct({...card,...stronger,asking_price_estimate:estimate});
-   assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value unavailable');
+   {shared_price:{status:'CATALOGUE_GUIDE',method:'CARDMARKET_CATALOGUE_GUIDE',market_value_minor:900,label:'Catalogue guide'}}]){
+   f.browser.openProduct({...card,...weaker,asking_price_estimate:estimate});
+   assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,askingText);
    assert.doesNotMatch(f.browser.sheet.textContent,/Asking-price estimate|eBay current listings/);
   }
+  // Without UK asks, the Cardmarket guide is the labelled estimate.
+  f.browser.openProduct({...card,market_value_minor:900,market_value_source:'CARDMARKET_BULK_SINGLES'});
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Estimate: £9.00 · Cardmarket EU guide');
   const history={status:'STALE',market_value_minor:null,last_known_minor:800,checked_at:'2026-01-01T00:00:00Z'};
   const row={...card,shared_price:history,asking_price_estimate:estimate};
   f.browser.openProduct(row);
@@ -147,9 +153,9 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
    return {items:[row],has_more:false};
   });
   await f.browser.open();f.browser.pickGame(games[0]);await tick();f.browser.openProduct(row);
-  const label=outcome==='stored-current-price'?'Market value: £9.00':'Value pending';
-  assert.equal(f.browser.find('[data-price-key]').textContent,label);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,label);
+  const label=outcome==='stored-current-price'?/^Market value: £9\.00$/:askingText;
+  assert.match(f.browser.find('[data-price-key]').textContent,label);
+  assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,label);
   assert.equal(row.asking_price_estimate,estimate);
   assert.equal(f.calls.filter(call=>call.url.endsWith('/market-values')).length,0);
   f.finish();checks++;
@@ -267,9 +273,10 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   if(view==='search')f.browser.filters.q='OP11-101';
   else {f.browser.filters.system_code=card.system_code;f.browser.set={set_id:'OP11',provider:'Punk Records',system_code:card.system_code};}
   await f.browser.load();
-  assert.equal(f.browser.find('[data-price-key]').textContent,'Value unavailable');
+  // Pricing rule 2: a UK sold near-mint reference is the first browse value.
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Market value (UK sold, near mint): £1.32');
   f.browser.openProduct(ref);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value unavailable');
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Market value (UK sold, near mint): £1.32');
   assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0,'Shared price is in the first response, no second fetch');
   assert.equal(ref.catalogue_id,null,'Displaying a value must not create an intake mapping');
   f.finish();checks++;
@@ -400,12 +407,11 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0);
   assert.equal(ref.market_value_minor,null);
   assert.equal(ref.shared_price,history);
-  assert.doesNotMatch(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/£8\.00/);
-  assert.doesNotMatch(f.browser.find('[data-price-key]').textContent,/£8\.00/);
-  const historyLabel=f.browser.sheet.querySelector('.dr-browse-historical-label');
-  assert.equal(historyLabel,null);
-  assert.equal(historyLabel,null);
-  assert.equal(f.browser.find('.dr-browse-historical-label'),null);
+  // Pricing rule 4: only a dated "Last known" amount, never a current value.
+  assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/^Last known £8\.00 · /);
+  assert.match(f.browser.find('[data-price-key]').textContent,/^Last known £8\.00 · /);
+  assert.doesNotMatch(f.browser.find('[data-price-key]').textContent,/Market value|Estimate/);
+  assert.match(f.browser.sheet.querySelector('.dr-browse-historical-label').textContent,/Historical value/);
   f.finish();checks++;
  }
  {
