@@ -323,7 +323,11 @@ async def refresh_pass(pool, settings):
                       and s.algorithm_version='drop-rate-market-v4'
                       and s.inventory_id=i.id and s.owner_id=i.owner_id and s.catalogue_id=i.catalogue_id
                       and (((s.evidence->>'method'='LIVE_EBAY_MARKET_V1' or s.sold_observation_count>=5)
-                        and s.evidence->'sources' @> '[{"source":"EBAY"}]'::jsonb)
+                        and s.evidence->'sources' @> '[{"source":"EBAY"}]'::jsonb
+                        -- Owner rule 4 (27 Nov 2026): a sold value whose newest
+                        -- sale is past the 90-day window is no longer current.
+                        -- The snapshot stays as dated history.
+                        and s.newest_observation_at>=now()-interval '90 days')
                       or (s.evidence->>'method'='CARDMARKET_GUIDE_V1' and s.sold_observation_count=0
                         and s.confidence<=0.60 and not s.auto_publish_eligible
                         and i.identity_confirmed and i.grading_company is null and i.grade is null

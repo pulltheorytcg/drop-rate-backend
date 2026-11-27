@@ -20,6 +20,10 @@ SOLD = "CATALOGUE_EBAY_V4"
 GUIDE = "CATALOGUE_CARDMARKET_V1"
 MAX_AGE = timedelta(days=7)
 SALE_AGE = timedelta(days=90)
+# Pricing rules: docs/PRICING_RULES.md (owner decisions, 27 Nov 2026).
+ESTIMATE_LABEL = "Estimate · Cardmarket EU guide"
+ESTIMATE_REASON = ("Cardmarket EU guide converted to GBP, used because there are fewer than five "
+                   "recent exact UK sales. Not a sale price or a valuation of this copy's condition.")
 
 # DISTINCT ON bounds the returned history to one result per physical basis and
 # method. A new calculation cannot revive old evidence or a changed identity.
@@ -164,21 +168,23 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
     estimate = selected["method"] == GUIDE
     basis = f"{language} · " + (f"{item.get('grading_company')} {item.get('grade')}" if company else item.get("condition") or item.get("seal_status") or "Raw reference")
     result.update(snapshot_id=str(selected["snapshot_id"]), checked_at=checked, method=selected["method"], basis=basis,
-                  algorithm_version=selected["algorithm_version"], label="Drop Rate guide estimate" if estimate else "Drop Rate market value")
+                  algorithm_version=selected["algorithm_version"],
+                  label=ESTIMATE_LABEL if estimate else "Drop Rate market value")
     if not fresh:
-        # Historical guide prices are never a last-known physical Market Value.
-        # A verified, exact-profile sold snapshot can remain dated history, but
-        # may never fill the current monetary field.
+        # Owner rule 4 (27 Nov 2026): an expired value is never current Market
+        # Value and never counts in totals, but its last amount is shown with
+        # its date ("Last known £X · date") instead of a blank.
         result.update(status="STALE",
-                      last_known_minor=None if estimate else selected["market_value_minor"],
+                      last_known_minor=selected["market_value_minor"],
                       reason="Last recorded evidence is stale; no current Market Value is available.")
     elif estimate:
-        # Cardmarket guides are not sold transactions. Preserve a diagnostic
-        # source status/method without returning ANY value or retail amount to
-        # inventory, founder totals, and downstream UI compatibility fields.
-        result.update(status="REFERENCE_ESTIMATE",market_value_minor=None,
+        # Owner rule 1 (27 Nov 2026): UK sold first; otherwise a clearly
+        # labelled Cardmarket EU guide estimate. Eligibility above already
+        # limits it to raw Near Mint/unknown-condition cards — never a slab,
+        # worn copy or sealed product. No retail recommendation is derived.
+        result.update(status="REFERENCE_ESTIMATE",market_value_minor=selected["market_value_minor"],
                       recommended_retail_minor=None,
-                      reason="Cardmarket guide retained as source-only evidence; no verified sold Market Value for this copy.")
+                      reason=ESTIMATE_REASON)
     else:
         # Only the independent exact-profile UK sold evidence can populate
         # Market Value. Never substitute ask/guide/retail or an owner store price.
@@ -247,10 +253,14 @@ async def reference_portfolio(connection, owner_ids, *, statuses=("DRAFT", "INSP
 
 
 def reference_totals(items):
+    """Totals include labelled guide estimates (owner rule 1) and report them separately."""
     valued = [item for item in items if item.get('market_value_minor') is not None]
+    estimates = [item for item in valued
+                 if (item.get('reference_value') or {}).get('status') == 'REFERENCE_ESTIMATE']
     return {"count": len(items), "valued_count": len(valued), "unvalued_count": len(items)-len(valued),
             "total_minor": sum(item['market_value_minor'] for item in valued) if valued else None,
-            "estimate_count": sum(item['reference_value']['status']=='REFERENCE_ESTIMATE' for item in valued)}
+            "estimate_count": len(estimates),
+            "estimate_total_minor": sum(item['market_value_minor'] for item in estimates) if estimates else None}
 
 
 def recommended_totals(items):

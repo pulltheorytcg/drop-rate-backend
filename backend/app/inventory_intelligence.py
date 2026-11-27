@@ -86,6 +86,7 @@ async def inventory_intelligence(
             "active_inventory_count": len(shared),
             "market_valued_item_count": refs["valued_count"],
             "guide_estimate_count": refs["estimate_count"],
+            "guide_estimate_value_minor": refs["estimate_total_minor"],
             "store_priced_item_count": len(asking),
             "inventory_market_value_minor": refs["total_minor"],
             "inventory_store_value_minor": sum(asking),

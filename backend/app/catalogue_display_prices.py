@@ -101,10 +101,11 @@ def shared_prices(products, references, snapshots, *, now):
             if value['status'] == 'AVAILABLE':
                 value = dict(value, status='CONDITION_REFERENCE', label='Near-mint reference',
                              reason='Shared near-mint market reference for this exact printing.')
-            # A Cardmarket/model catalogue GUIDE is retained in its original
-            # source quote, not promoted into a browse Market Value or sorting
-            # key. Only exact-profile SOLD references may contribute money.
-            if value.get('status') in {'REFERENCE_ESTIMATE', 'CATALOGUE_GUIDE'}:
+            # Owner rule 2 (27 Nov 2026): a Cardmarket EU guide may show in
+            # browse as a labelled estimate (after UK sold and UK asking
+            # evidence). The Drop Rate internal model never supplies money.
+            if (value.get('status') in {'REFERENCE_ESTIMATE', 'CATALOGUE_GUIDE'}
+                    and value.get('method') not in {'CATALOGUE_CARDMARKET_V1', 'CARDMARKET_CATALOGUE_GUIDE'}):
                 value = dict(value, market_value_minor=None,
                              market_value_high_minor=None,
                              last_known_minor=None)

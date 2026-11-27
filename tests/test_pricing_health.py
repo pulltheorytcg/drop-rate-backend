@@ -69,17 +69,19 @@ def test_real_live_baseline_reports_blocked_not_false_green():
     sold = result["sources"][0]
     assert sold["stored_observations"] == 1083
     assert sold["normalized_uk_sold_observations"] == 0
-    assert sold["status"] == "NOT_USED_BY_CURRENT_ASKING_MODEL"
-    assert result["sources"][1]["role"] == "GUIDE_ONLY"
+    assert sold["status"] == "NO_RECENT_SALES"
+    assert sold["role"] == "PRIMARY_MARKET_VALUE"
+    assert result["sources"][1]["role"] == "LABELLED_ESTIMATE_FALLBACK"
     assert result["sources"][1]["stored_observations"] == 5238
-    assert result["sources"][1]["status"] == "STALE_CONTEXT"
-    assert result["sources"][2]["role"] == "ASKING_DERIVED_MARKET_VALUE"
-    assert result["sources"][3]["status"] == "NOT_USED_BY_CURRENT_ASKING_MODEL"
+    assert result["sources"][1]["status"] == "STALE"
+    assert result["sources"][2]["role"] == "BROWSE_ASKING_MEDIAN"
+    assert result["sources"][3]["status"] == "NOT_USED"
+    assert result["automation"]["pricing_mode"] == "UK_SOLD_THEN_CARDMARKET_ESTIMATE"
     assert result["automation"]["automatic_sold_value_publication_ready"] is False
     assert result["automation"]["unattended_product_research_verified"] is False
     assert {a["code"] for a in result["alerts"]} >= {
-        "NO_CURRENT_ASKING_MARKET_VALUES", "CARDMARKET_GUIDES_STALE",
-        "OPERATOR_BULK_HOLD",
+        "NO_CURRENT_PRICE_EVIDENCE", "NO_CURRENT_ASKING_MARKET_VALUES",
+        "CARDMARKET_GUIDES_STALE", "OPERATOR_BULK_HOLD",
     }
     assert "password" not in str(result)
     assert "'seller': 'private'" not in str(result)
@@ -101,8 +103,9 @@ def test_normalized_arrivals_are_distinguished_without_auto_publication():
                  normalized_uk_sold_ingested_24h=6,
                  last_normalized_uk_sold_ingested_at=NOW-timedelta(hours=2)),
                  ingestion_enabled=True,bulk_hold=False)
-    assert result["sources"][0]["status"] == "NOT_USED_BY_CURRENT_ASKING_MODEL"
-    assert result["overall_status"] == "BLOCKED"
+    # Current verified UK sales are the primary Market Value source.
+    assert result["sources"][0]["status"] == "CURRENT"
+    assert result["overall_status"] == "DEGRADED"
     assert result["automation"]["automatic_sold_value_publication_ready"] is False
     assert any(a["code"]=="NO_CURRENT_ASKING_MARKET_VALUES" for a in result["alerts"])
 
@@ -111,7 +114,7 @@ def test_legacy_normalized_history_is_not_fresh():
     result = summary(sold=history(normalized_uk_sold=7,
               normalized_uk_sold_ingested_24h=0,
               last_normalized_uk_sold_ingested_at=NOW-timedelta(days=3)))
-    assert result["sources"][0]["status"] == "NOT_USED_BY_CURRENT_ASKING_MODEL"
+    assert result["sources"][0]["status"] == "NO_RECENT_SALES"
     assert result["overall_status"] == "BLOCKED"
 
 
@@ -173,7 +176,7 @@ async def test_founder_endpoint_uses_readonly_snapshot_roster_and_no_writes(monk
                         state=SimpleNamespace(request_id="price-health-test"))
     response=await health.live_pricing_health(req,SimpleNamespace(user_id=USER))
     assert response["overall_status"] == "DEGRADED"
-    assert response["automation"]["asking_market_value_display_available"] is True
+    assert response["automation"]["asking_browse_display_available"] is True
     assert calls[0][0]=="readonly"
     assert calls[1][0]=="founder_auth"
     assert len(calls)==6
@@ -208,8 +211,8 @@ def test_fresh_asking_evidence_not_conflated_with_sold_proof():
     assert result["overall_status"] == "DEGRADED"
     assert result["sources"][2]["fresh_candidate_records"] == 6
     assert result["sources"][2]["status"] == "FRESH_CANDIDATES"
-    assert result["automation"]["asking_market_value_model_enabled"] is True
-    assert result["automation"]["asking_market_value_display_available"] is True
+    assert result["automation"]["asking_market_value_model_enabled"] is False
+    assert result["automation"]["asking_browse_display_available"] is True
     assert result["automation"]["automatic_sold_value_publication_ready"] is False
     assert result["automation"]["asking_acquisition_automatically_scheduled"] is False
     assert all(a["code"] != "NO_CURRENT_ASKING_MARKET_VALUES" for a in result["alerts"])

@@ -14,7 +14,8 @@ for (const status of ["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE", 
   const original = JSON.stringify(item);
   assert.equal(values.label(item), "Market value");
   // Deliberately hostile legacy API fixture: every status carries the SAME
-  // guide price, but only an explicit AVAILABLE source may ever display it.
+  // price, but without an explicit Cardmarket EU guide method only an
+  // AVAILABLE source may display it (owner rule 1 labels EU guides only).
   if (status === "AVAILABLE") {
     assert.equal(values.text(item, money), "Value: GBP 12.00");
     assert.equal(values.marketMinor(item), 1200);
@@ -58,6 +59,22 @@ checks++;
 const internalModel = {status:"CATALOGUE_GUIDE", method:"DROP_RATE_COMPUTED_MARKET_V1",market_value_minor:700};
 assert.equal(values.marketMinor({catalogue_reference: internalModel}), null);
 assert.equal(values.text({catalogue_reference: internalModel}, money), "Value unavailable");
+checks++;
+// Owner rule 1 (27 Nov 2026): a Cardmarket EU guide is a labelled estimate.
+const guide = {status:"REFERENCE_ESTIMATE", method:"CATALOGUE_CARDMARKET_V1", market_value_minor:1200,
+  recommended_retail_minor:9900, label:"Estimate · Cardmarket EU guide", reason:"r", basis:"Raw"};
+assert.equal(values.text({reference_value: guide}, money), "Estimate: GBP 12.00 · Cardmarket EU guide");
+assert.equal(values.marketMinor({reference_value: guide}), 1200, "Snapshot estimates count in totals");
+assert.equal(values.displayReference({reference_value: guide}).recommended_retail_minor, null);
+const range = {status:"CATALOGUE_GUIDE", method:"CARDMARKET_CATALOGUE_GUIDE", market_value_minor:500, market_value_high_minor:900};
+assert.equal(values.text({catalogue_reference: range}, money), "Estimate: GBP 5.00–GBP 9.00 · Cardmarket EU guide");
+assert.equal(values.marketMinor({catalogue_reference: range}), null, "Catalogue-wide ranges are display-only");
+checks++;
+// Owner rule 4: expired values show a dated last-known amount, never a current one.
+const stale = {status:"STALE", market_value_minor:null, last_known_minor:1500, checked_at:"2026-11-01T10:00:00Z"};
+assert.equal(values.marketMinor({reference_value: stale}), null);
+assert.match(values.text({reference_value: stale}, money), /^Last known GBP 15\.00 · /);
+assert.equal(values.isHistorical({reference_value: stale}), true);
 checks++;
 console.log(checks + " market-value source selection checks passed");
 

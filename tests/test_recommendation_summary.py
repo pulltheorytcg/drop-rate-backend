@@ -60,7 +60,9 @@ async def test_reads_replace_legacy_cache_in_response_only_and_do_not_call_a_wri
                              basis_condition=None, input_sale_count='0', oldest_sale_at=None)]
     items = [row(id=uuid4(), owner_id='A', store_price_minor=1000), row(id=uuid4(), owner_id='B', store_price_minor=2000)]
     result = await add_shared_reference_values(Connection(), items, now=NOW)
-    assert all(i['market_value_minor'] is None and i['recommended_retail_minor'] is None for i in result)
+    # Owner rule 1: a labelled guide estimate may fill Market Value, but never
+    # a retail recommendation, and never changes the owner's Store Price.
+    assert all(i['market_value_minor'] == 3 and i['recommended_retail_minor'] is None for i in result)
     assert [i['store_price_minor'] for i in result] == [1000, 2000]
     assert result[0]['reference_value']['status'] == 'REFERENCE_ESTIMATE'
     totals = recommended_totals(result)

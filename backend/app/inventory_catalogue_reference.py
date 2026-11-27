@@ -420,6 +420,9 @@ def catalogue_guide(product, rows, language, *, now):
     all_finishes = any(v[2]['source'] == 'CARDMARKET_CATALOGUE' for v in eligible)
     pokewallet = any(v[2]['source'] == POKEWALLET_POKEMON_SOURCE for v in eligible)
     return {'status': 'CATALOGUE_GUIDE', 'currency': 'GBP',
+            # Every eligible quote above is a Cardmarket EUR guide converted at
+            # the ECB rate (owner rule 1/2: a labelled EU guide estimate).
+            'method': 'CARDMARKET_CATALOGUE_GUIDE',
             'market_value_minor': min(v[0] for v in eligible),
             'market_value_high_minor': max(v[0] for v in eligible),
             'checked_at': min(v[1] for v in eligible), 'basis': language + ' · Raw catalogue reference',

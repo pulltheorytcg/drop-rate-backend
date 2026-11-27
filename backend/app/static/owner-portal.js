@@ -1102,11 +1102,15 @@ async function loadOwnerOverview() {
   byId("owner-market-value").textContent = marketUnavailable
     ? "Unavailable" : formatMoney(summary.active_market_value_minor);
   byId("owner-market-value").classList.toggle("owner-value-unavailable", marketUnavailable);
+  const estimates = Number(summary.guide_estimate_count || 0);
+  const estimateNote = estimates
+    ? ` · of which estimates ${formatMoney(summary.guide_estimate_value_minor || 0)} (${estimates} Cardmarket EU guide)`
+    : "";
   byId("owner-market-value-note").textContent = activeCount === 0
     ? "Add stock to see sourced market valuations"
-    : marketIncomplete
+    : (marketIncomplete
       ? `${valued} of ${activeCount} valued · ${unvalued} awaiting eligible prices`
-      : `${valued} of ${activeCount} valued from current evidence`;
+      : `${valued} of ${activeCount} valued from current evidence`) + estimateNote;
 
   // Saved Store Prices represent real owner-entered asking prices. Never
   // replace that headline with £1 automatic floor-priced recommendations.

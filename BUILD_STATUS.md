@@ -1,3 +1,24 @@
+## 27 November 2026 — Owner pricing rules applied (PR, NOT DEPLOYED)
+
+- **OWNER DECISIONS** (27 Nov): see [pricing rules](docs/PRICING_RULES.md).
+  1. Stock Market Value is UK sold, otherwise a labelled Cardmarket EU guide estimate (raw NM only).
+  2. Browse shows UK sold, then the UK asking median, then the Cardmarket EU estimate.
+  3. US prices never feed a UK value.
+  4. Expired values show "Last known £X · date" and are never totalled.
+
+  Store Price is unchanged and always owner-set.
+- **Code:**
+  - The resolver returns the guide value as `REFERENCE_ESTIMATE` with an estimate label and no retail recommendation.
+  - Totals add `estimate_total_minor`, shown in the UI as "of which estimates".
+  - STALE values keep `last_known_minor` for guides too.
+  - Browse aliases keep Cardmarket guide money; the internal model is still excluded.
+  - The front-end gate and browse `marketPrice` follow the rule order.
+  - US sources are removed from the daily-model peers.
+  - The live refresh clears stored eBay values whose newest sale is over 90 days old.
+  - The pricing health page describes the new rules.
+- **Tests:** tests that encoded the previous "guides never a value" policy are updated to the new rules. New `tests/test_pricing_rules.py`, plus new cases in the resolver and front-end contract tests. Node UI checks run in CI only, because Node is not installed on the workstation.
+- **Not done:** UK asking prices still have no scheduled collection, so browse step 2 is rarely available. `/pricing/inventory` still reads the stored column.
+
 ## 14 November 2026 — Cardmarket source-qualified EU market-reference pilot LIVE; full matching and restore verified
 
 - **Merged/deployed** PR #1095 at main `563e22a0852faaed5d79162021d58dd39328cd12`, repair PR #1097 at `8e7bdfa87638f0f27a1d9de78aabf2820ff199c9`. Railway live API deployment `b7eb03e0-32bc-441a-98b6-9c2b2c5ef121` SUCCESS, `/health/ready` HTTP 200, existing Pro bulk hold remains active.
