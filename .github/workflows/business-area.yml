@@ -18,7 +18,7 @@ permissions:
   contents: read
 jobs:
   postgres-auth:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 8
     services:
       postgres:
@@ -44,7 +44,7 @@ jobs:
         env:
           BUSINESS_TEST_DSN: postgresql://postgres:disposable-business-only@127.0.0.1:5432/business_area_test
   browser-layout:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v7
