@@ -83,6 +83,11 @@ window.DropRateReferenceValue = Object.freeze({
     return counted && Number.isSafeInteger(amount) && amount > 0 ? amount : null;
   },
   compactText(item, money) {
+    // Small tiles and list cells show only the last-known amount; callers add
+    // a "Historical value" tag, and the date stays in the item details.
+    const ref = this.displayReference(item);
+    if (ref.status === "STALE" && Number.isSafeInteger(ref.last_known_minor) && ref.last_known_minor > 0)
+      return money(ref.last_known_minor);
     return this.text(item, money);
   },
   recommendedMinor() {

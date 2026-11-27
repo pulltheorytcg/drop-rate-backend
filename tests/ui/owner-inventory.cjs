@@ -400,14 +400,17 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   const prices=tile.querySelector('.owner-card-prices');
-  // Pricing rule 4 (27 Nov 2026): one compact dated "Last known £X · date"
-  // line — never a bare current amount.
-  assert.match(prices.textContent,/Last known £8\.66 · 08\/10\/2026/);
-  assert.doesNotMatch(prices.textContent.replace('Last known £8.66',''),/£8\.66/);
+  // Pricing rule 4 (27 Nov 2026): tiles and list cells show the last-known
+  // amount with a "Historical value" tag and no date; the dated
+  // "Last known £X · date" line lives in the item sheet.
+  assert.match(prices.textContent,/£8\.66Historical value/);
+  assert.ok(!prices.textContent.includes("Last known")&&!prices.textContent.includes("08/10/2026"));
+  assert.equal(prices.querySelector('.owner-card-historical-label').textContent,'Historical value');
   const tableMarket=f.w.document.querySelector('#owner-inventory-body tr td:nth-child(3)');
   assert.ok(tableMarket,'List view must retain a separate market value column');
-  assert.match(tableMarket.textContent,/Last known £8\.66 · 08\/10\/2026/);
-  assert.doesNotMatch(tableMarket.textContent.replace('Last known £8.66',''),/£8\.66/);
+  assert.match(tableMarket.textContent,/£8\.66Historical value/);
+  assert.ok(!tableMarket.textContent.includes("Last known")&&!tableMarket.textContent.includes("08/10/2026"));
+  assert.ok(tableMarket.querySelector('.owner-list-value').classList.contains('is-unavailable'),'A historical amount is not styled as a current value');
   assert.equal(tile.querySelector('.owner-inventory-details'),null);
   tile.querySelector('.owner-card-open-overlay').click();await tick();
   assert.match(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent,/Last known £8\.66 · 08\/10\/2026/);
