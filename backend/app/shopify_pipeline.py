@@ -438,7 +438,9 @@ def _test_sync_missing(
                 and review_status != "VERIFIED_NEAR_MINT"
             ):
                 missing.append("photo-backed Near Mint verification")
-        if not (item["language"] or item["catalogue_language"]):
+        # "Unknown" is a placeholder, not a language: it must not reach a
+        # storefront title or tag as if it were verified.
+        if str(item["language"] or item["catalogue_language"] or "").strip().casefold() in {"", "unknown"}:
             missing.append("card language")
     elif item["product_type"] == "COMIC":
         # A comic is not sealed TCG stock. Its issue and edition must be

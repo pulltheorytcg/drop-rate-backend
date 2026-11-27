@@ -123,6 +123,7 @@ async def _resolve_one(
                     card_number=str(row.get("card_number") or ""),
                     variant=str(row.get("variant") or ""),
                     name=str(row.get("name") or ""),
+                    set_name=str(row.get("set_name") or ""),
                 )
         except (TcgDexApiError, PunkRecordsError) as exc:
             result = {

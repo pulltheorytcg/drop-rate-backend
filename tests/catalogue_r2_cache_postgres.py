@@ -73,7 +73,7 @@ create table tcg.reference_sealed_market_prices(provider text,system_code text,l
 create table tcg.media_assets(id uuid primary key,catalogue_id uuid,owner_id uuid,
  scope text,side text,media_kind text,approval_status text,rights_status text,rights_tier text,
  source_status text,revoked_at timestamptz,approved_at timestamptz,created_at timestamptz default now(),
- shopify_cdn_url text,public_source_url text);
+ shopify_cdn_url text,public_source_url text,media_language text,media_variant text);
 create table tcg.media_object_mirrors(media_asset_id uuid,source_url text,object_key text);
 create table tcg.reference_image_mirrors(provider text,system_code text,language text,provider_id text,
  source_url text,object_key text,status text);
@@ -243,9 +243,9 @@ async def seed(db):
         await db.execute('insert into tcg.inventory_items values($1,$2,$3,$4,87654321,76543210,65432109,$5)',
                          UUID(f'50000000-0000-0000-0000-{index+1:012d}'),owner,CANONICAL,status,PRIVATE)
     await db.execute("""insert into tcg.media_assets(id,catalogue_id,owner_id,scope,side,media_kind,approval_status,
-      rights_status,rights_tier,source_status,approved_at,public_source_url)
+      rights_status,rights_tier,source_status,approved_at,public_source_url,media_language,media_variant)
       values($1,$2,$3,'CANONICAL_CARD','FRONT','IMAGE','APPROVED','VERIFIED','STOREFRONT_ALLOWED','ACTIVE',now(),
-      'https://fixture.invalid/approved.webp')""",MEDIA,CANONICAL,OWNER_A)
+      'https://fixture.invalid/approved.webp','English','Normal')""",MEDIA,CANONICAL,OWNER_A)
     await db.execute("insert into tcg.media_object_mirrors values($1,'https://fixture.invalid/approved.webp','drop-rate/media/fixture.webp')",MEDIA)
     await db.execute("""insert into tcg.reference_sealed_products values
       ('TCGdex','POKEMON_TCG','English','box-fixture','cache-fixture','Fixture Box','BOOSTER_BOX',

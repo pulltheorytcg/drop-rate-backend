@@ -33,6 +33,16 @@ def _text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
 
 
+# Catalogue placeholders mean "not known yet". They are never product facts,
+# so storefront copy omits them instead of printing "Rarity: Unknown".
+_PLACEHOLDERS = {"unknown", "n/a", "na", "none", "null", "-", "?"}
+
+
+def _known(value: object) -> str:
+    text = _text(value)
+    return "" if text.casefold() in _PLACEHOLDERS else text
+
+
 class _DescriptionParser(HTMLParser):
     """Compare HTML content without Shopify's entity/indentation rewrites."""
 
@@ -77,7 +87,7 @@ def _trim(value: str, limit: int) -> str:
 
 
 def _language(item: Mapping[str, Any]) -> str:
-    return clean_language(item.get("language") or item.get("catalogue_language")) or ""
+    return _known(clean_language(item.get("language") or item.get("catalogue_language")))
 
 
 def _storefront_brand(game: object) -> str:
@@ -158,7 +168,7 @@ def product_description_html(item: Mapping[str, Any]) -> str:
             ("Card number", _text(item.get("card_number"))),
             ("Language", _language(item)),
             ("Condition", _condition_label(item)),
-            ("Rarity", _text(item.get("rarity"))),
+            ("Rarity", _known(item.get("rarity"))),
             ("Variant", _text(item.get("variant"))),
             ("Inventory ID", _text(item.get("inventory_code"))),
         ]
@@ -303,8 +313,8 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
         f"Language:{language}" if language else "",
         f"Condition:{condition}" if condition and not sealed else "",
         (
-            f"Rarity:{_text(item.get('rarity'))}"
-            if _text(item.get("rarity")) and not sealed
+            f"Rarity:{_known(item.get('rarity'))}"
+            if _known(item.get("rarity")) and not sealed
             else ""
         ),
         (

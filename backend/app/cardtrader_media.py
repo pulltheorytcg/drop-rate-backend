@@ -401,6 +401,17 @@ def resolve_blueprint(
 
     expansion = expansion_matches[0]
     expansion_id = int(expansion["id"])
+    # CardTrader blueprint images are per card, not per language, and are the
+    # English printing. A listing's language property proves the *listing*, not
+    # the image (CLAUDE.md §9: no English art as Japanese exact-print proof).
+    # Only a Japanese-specific expansion may supply Japanese art.
+    if language_code != "en" and not re.search(
+        r"\b(?:japanese|jp|jpn)\b", _norm(expansion.get("name"))
+    ):
+        return {
+            "resolved": False,
+            "reason": "CardTrader blueprint art is not language-specific for this printing",
+        }
     local_name = _name_key(local.get("name"), local.get("card_number"))
     local_pre_release = _is_pre_release_set(local.get("set_name"))
     local_promo_version = _promo_version_hint(local.get("name"))

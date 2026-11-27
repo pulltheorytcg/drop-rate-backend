@@ -231,14 +231,23 @@ def resolve_exact_card(
             continue
         if local_name and _compact(row.get("name")) != local_name:
             continue
-        if game_slug == "pokemon" and local_set:
+        if local_set:
             provider_set = row.get("set")
             provider_set_name = (
                 _compact(provider_set.get("name"))
                 if isinstance(provider_set, Mapping)
                 else ""
             )
-            if provider_set_name and provider_set_name != local_set:
+            if game_slug == "pokemon":
+                if provider_set_name and provider_set_name != local_set:
+                    continue
+            # One Piece / Dragon Ball reprints share collector numbers across
+            # sets (e.g. PRB/ST reprints). Provider set names are formatted
+            # differently ("Romance Dawn" vs "Romance Dawn [OP-01]"), so require
+            # containment rather than equality, and never accept a different set.
+            elif provider_set_name and not (
+                provider_set_name in local_set or local_set in provider_set_name
+            ):
                 continue
         if expected_line:
             game_data = row.get("gameData")

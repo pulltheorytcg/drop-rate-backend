@@ -221,6 +221,7 @@ def test_dragon_ball_masters_and_fusion_world_are_line_isolated() -> None:
             game="dragon-ball-super",
             language="en",
             line="masters",
+            set_name="Example",
         ),
         provider(
             card_id="db_fusion",
@@ -229,6 +230,7 @@ def test_dragon_ball_masters_and_fusion_world_are_line_isolated() -> None:
             game="dragon-ball-super",
             language="en",
             line="fusion-world",
+            set_name="Example",
         ),
     ]
 

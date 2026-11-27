@@ -18,6 +18,40 @@
   - The pricing health page describes the new rules.
 - **Tests:** tests that encoded the previous "guides never a value" policy are updated to the new rules. New `tests/test_pricing_rules.py`, plus new cases in the resolver and front-end contract tests. Node UI checks run in CI only, because Node is not installed on the workstation.
 - **Not done:** UK asking prices still have no scheduled collection, so browse step 2 is rarely available. `/pricing/inventory` still reads the stored column.
+## 27 November 2026 — Stop wrong output: art, placeholders, release dates, CSP, 500 logging (PR, NOT DEPLOYED)
+
+- **Context:** these come from a read-only app audit on 27 Nov. Every change only blocks bad output; none changes which price wins, price authority, Store Prices, ownership or RLS.
+- **Artwork (CLAUDE.md §9):**
+  - Japanese One Piece art from Punk Records now refuses promo, stamped, pre-release, winner, SP and event printings, which were previously matched by base number only.
+  - CardTrader blueprint art (English) is refused for Japanese copies unless the expansion itself is Japanese.
+  - TCGGraph now requires a matching set for One Piece and Dragon Ball too, so a reprint can't take another set's art.
+  - Catalogue browse art must match the product's variant, and never a definitely different language. A product with no language set is unchanged: 301 of the 427 approved images rely on that.
+  - Two blank languages no longer count as a match in inventory art.
+- **Product info:**
+  - Reference set refreshes no longer erase known release dates.
+  - "Unknown" rarity and language are left out of Shopify descriptions and tags.
+  - Unknown language now blocks card publication. A read-only check on 27 Nov found 0 live inventory with unknown language and 5 live listings with Unknown rarity.
+- **Ops:**
+  - The CSP now allows `www.pokemon-card.com` and `cards.tcggraph.io`. Direct loads of Japanese Pokémon art had been blocked once before falling back to the proxy.
+  - Unhandled 500s now log the request ID, path, type, SQLSTATE and code location. Exception text is not logged.
+- **Deliberately not changed** (owner decisions or by design):
+  - Browse shows a low–high range across finishes. That is by design, not a bug.
+  - Guide finish fallbacks stay: they are disclosed, and apply to holo-only printings.
+  - Old eBay value cleanup belongs in the pricing-precedence PR.
+  - The licensed-provider rights labels are a documented legal basis, and approval remains manual.
+  - Unknown-language sealed reference art in the owner view stays.
+- **Tests:** new `tests/test_stop_wrong_output.py`; release-date persistence was added to the real-PostgreSQL `reference_artwork_postgres.py`. The local full suite shows no new failures against `main`, apart from one TCGGraph fixture that used mismatched set names and has been fixed.
+## 27 November 2026 — DR-OPS-1 refresh jobs isolated from the API connection pool (PR, NOT DEPLOYED)
+
+- **INCIDENT:** On 27 Nov, with `DROP_RATE_CATALOGUE_BULK_HOLD=false` on `drop-rate-api-live` (`4e12782c`), startup refresh jobs held all 5 `tcg_api` API-pool connections from 19:05:45 UTC. All DB-backed routes hung: heartbeat and receipt returned 499 after 15 s, `prepare-enrichment-worklist` after 180 s. Restoring the hold at 19:33 recovered the app.
+- **FIX IN REVIEW:**
+  - Every startup background task now receives `app.state.job_db`. That is a separate job pool (`TCG_DB_JOB_POOL_MAX`, default 4) plus one advisory-lock session, with bounded acquires (`TCG_DB_JOB_ACQUIRE_TIMEOUT_SECONDS`, default 30).
+  - Job lock sites use `lock_session(pool)`, so a long pass no longer pins a pooled connection.
+  - Linked-draft concurrency is capped from the job pool.
+  - Lock keys, receipts, bulk hold, capacity guard, pricing, RLS, Store Prices, Shopify and ownership are unchanged. No new Railway service.
+  - Connections per API replica go from 5 to at most 10. A read-only check showed `max_connections=60` and no `tcg_api` role limit.
+- **TESTS:** New real-PostgreSQL CI check `job-pool-isolation`, which proves a 1 s API acquire while the real `daily_pass` and a saturated job pool run with the hold off, plus a negative control. New unit tests in `tests/test_job_database.py`. The full local pytest suite was run on Windows; CI results are on the PR.
+- **NOT DONE:** Not merged or deployed. The production hold stays `true` until merge and deploy. Then one bounded batch with the hold lifted must show heartbeats every 5 minutes and a signed-in catalogue request succeeding. See [background-job database pool](docs/BACKGROUND_JOB_DATABASE_POOL.md). Rollback: `DROP_RATE_CATALOGUE_BULK_HOLD=true`.
 
 ## 14 November 2026 — Cardmarket source-qualified EU market-reference pilot LIVE; full matching and restore verified
 

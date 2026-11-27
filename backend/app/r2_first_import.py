@@ -19,6 +19,7 @@ from fastapi import HTTPException
 from . import r2_first_catalogue as codec, r2_first_service as service
 from .access_control import require_platform_admin
 from .db import user_connection, DATABASE_WRITE_READY_SQL
+from .job_database import lock_session
 from .r2_first_sources import fetch_source, source_descriptor, SourcePermissionError
 
 log = logging.getLogger(__name__)
@@ -181,7 +182,7 @@ async def run_once(pool, actor):
     # A dedicated session-level advisory lock prevents overlapping deployments
     # from downloading/importing the same source. No open SQL transaction spans
     # HTTP/R2 work. A dropped session releases its lock; CAS still protects writes.
-    async with pool.acquire() as lock_connection:
+    async with lock_session(pool) as lock_connection:
         acquired = await lock_connection.fetchval("select pg_try_advisory_lock(847220121)")
         if not acquired:
             return [{"status": "ALREADY_RUNNING"}]
@@ -213,7 +214,7 @@ async def run_selected(pool, actor, source: str):
     """
     if source not in APPROVED_METADATA_SOURCES or source not in configured_sources():
         return {"status": "DISABLED", "source": source, "metadata_only": True}
-    async with pool.acquire() as lock_connection:
+    async with lock_session(pool) as lock_connection:
         acquired = await lock_connection.fetchval("select pg_try_advisory_lock(847220121)")
         if not acquired:
             return {"status": "ALREADY_RUNNING", "source": source, "metadata_only": True}

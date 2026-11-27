@@ -20,6 +20,7 @@ from .access_control import require_platform_admin
 from .catalogue_r2_cache import _read_with_budget
 from .catalogue_r2_live import manifest_digest
 from .db import user_connection
+from .job_database import lock_session
 from .object_storage import ObjectStorageError, configured_object_storage
 
 log = logging.getLogger(__name__)
@@ -226,7 +227,7 @@ async def publish(pool, actor, *, storage=None):
     storage = storage if storage is not None else configured_object_storage()
     if storage is None:
         raise ObjectStorageError('Private R2 is not configured')
-    async with pool.acquire() as lock:
+    async with lock_session(pool) as lock:
         if not await lock.fetchval('select pg_try_advisory_lock($1)', LOCK_ID):
             return {'status': 'LOCKED'}
         try:

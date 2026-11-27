@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from app.job_database import lock_session
 from app.tcgcsv_market import JOB as TCGCSV_JOB
 
 NOW = datetime(2026, 10, 26, 21, 10, tzinfo=timezone.utc)
@@ -46,7 +47,9 @@ def scheduler(*, allowed=True, recent=False, bulk_error=False, sources=(), hourl
                            ZoneInfo=ZoneInfo, UUID=UUID, uuid4=uuid4, json=json,
                            log=logging.getLogger(__name__), SOURCES=sources, SOURCE_REVISIONS={},
                            CATALOGUE_VALUE_REVISION=1, CARDMARKET_VALUE_REVISION=1,
-                           SEALED_MARKET_REVISION=1, TCGCSV_JOB=TCGCSV_JOB)
+                           SEALED_MARKET_REVISION=1, TCGCSV_JOB=TCGCSV_JOB,
+                           # DR-OPS-1: a plain pool keeps the pooled lock connection.
+                           lock_session=lock_session)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), 'exec'), module.__dict__)
     events = []
     jobs = []
