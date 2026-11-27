@@ -329,12 +329,19 @@ MEDIA_SQL = """
  select coalesce(m.shopify_cdn_url,m.public_source_url) as url,
         mirror.object_key as r2_object_key
  from tcg.media_assets m
+ join tcg.catalogue_products media_product on media_product.id=m.catalogue_id
  left join tcg.media_object_mirrors mirror
    on mirror.media_asset_id=m.id and mirror.source_url=m.public_source_url
  where m.catalogue_id=page.catalogue_id
  and m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and m.side='FRONT' and m.media_kind='IMAGE'
  and m.approval_status='APPROVED' and m.rights_status='VERIFIED'
  and m.rights_tier='STOREFRONT_ALLOWED' and m.source_status='ACTIVE' and m.revoked_at is null
+ -- Same exact-printing guard as media_resolver: never show another finish's or
+ -- a definitely different language's art. A product without a recorded
+ -- language (the copy's language lives on inventory) is not a mismatch.
+ and lower(btrim(coalesce(m.media_variant,'')))=lower(btrim(coalesce(media_product.variant,'')))
+ and (nullif(btrim(media_product.language),'') is null
+      or lower(btrim(coalesce(m.media_language,'')))=lower(btrim(media_product.language)))
  order by m.approved_at desc nulls last,m.created_at desc,m.id limit 1
 """
 # Reference-cache rows are never approved store media. Join only the exact
@@ -450,6 +457,9 @@ from selected p left join lateral (
     and m.media_kind='IMAGE' and m.approval_status='APPROVED'
     and m.rights_status='VERIFIED' and m.rights_tier='STOREFRONT_ALLOWED'
     and m.source_status='ACTIVE' and m.revoked_at is null
+    and lower(btrim(coalesce(m.media_variant,'')))=lower(btrim(coalesce(p.variant,'')))
+    and (nullif(btrim(p.language),'') is null
+         or lower(btrim(coalesce(m.media_language,'')))=lower(btrim(p.language)))
   order by m.approved_at desc nulls last,m.created_at desc,m.id limit 1
 ) media on true
 """

@@ -106,7 +106,10 @@ async def save_reference_set(connection, record, cards):
                 release_date,declared_card_count,source_url)
             values($1,$2,$3,$4,$5,$6::text::date,$7,$8)
             on conflict(provider,system_code,language,set_id) do update set
-                name=excluded.name,release_date=excluded.release_date,
+                name=excluded.name,
+                -- Feeds without dates (Punk, Bandai Masters/Fusion, Naruto) must
+                -- not erase a date already known from another refresh.
+                release_date=coalesce(excluded.release_date,tcg.reference_sets.release_date),
                 declared_card_count=excluded.declared_card_count,
                 source_url=excluded.source_url,refreshed_at=clock_timestamp()
         """, record['provider'],record['system_code'],record['language'],record['set_id'],

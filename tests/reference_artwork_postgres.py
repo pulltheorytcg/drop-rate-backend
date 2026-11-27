@@ -52,6 +52,12 @@ async def main():
         await save_reference_set(db,record,[changed_card])
         assert await db.fetchval("select image_url from tcg.reference_cards where language='Japanese'and provider_id='OP12-058_p1'")is None
         assert not await db.fetchval("select evidence ? 'image_reference' from tcg.reference_cards where language='Japanese'and provider_id='OP12-058_p1'")
+        # A dateless refresh keeps a known release date; a dated one updates it.
+        await save_reference_set(db,dict(record,release_date='2025-08-22'),[])
+        await save_reference_set(db,record,[])
+        assert str(await db.fetchval("select release_date from tcg.reference_sets where language='Japanese'and set_id='550112'"))=='2025-08-22'
+        await save_reference_set(db,dict(record,release_date='2025-08-29'),[])
+        assert str(await db.fetchval("select release_date from tcg.reference_sets where language='Japanese'and set_id='550112'"))=='2025-08-29'
     finally:await db.close()
     print('PASS: exact artwork, unchanged identities, replay/race protection, language/parallel isolation and sparse sync')
 

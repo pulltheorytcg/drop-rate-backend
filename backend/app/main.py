@@ -152,6 +152,27 @@ def _dashboard_html() -> str:
     return html
 
 
+def _log_unhandled(request: Request, request_id: str, exc: BaseException, *, sqlstate: str | None = None) -> None:
+    """Leave a trace for every 500 without logging messages, SQL or secrets.
+
+    Exception text can contain query parameters or provider payloads, so only
+    the type, SQLSTATE and terminal code location are recorded (the same
+    approach as the catalogue worker's safe error location).
+    """
+    trace = exc.__traceback__
+    while trace is not None and trace.tb_next is not None:
+        trace = trace.tb_next
+    location = (
+        f"{Path(trace.tb_frame.f_code.co_filename).name}:"
+        f"{trace.tb_frame.f_code.co_name}:{trace.tb_lineno}"
+        if trace else "unknown"
+    )
+    logger.error(
+        "UNHANDLED_REQUEST_ERROR request_id=%s method=%s path=%s type=%s sqlstate=%s location=%s",
+        request_id, request.method, request.url.path, type(exc).__name__, sqlstate or "-", location,
+    )
+
+
 def _database_error_response(exc: asyncpg.PostgresError, request_id: str) -> JSONResponse:
     """Translate known database guard failures without exposing SQL/provider details."""
 
@@ -378,6 +399,8 @@ def create_app() -> FastAPI:
                 response = await call_next(request)
             except asyncpg.PostgresError as exc:
                 response = _database_error_response(exc, request_id)
+                if response.status_code >= 500:
+                    _log_unhandled(request, request_id, exc, sqlstate=exc.sqlstate)
             except ShopifyApiError as exc:
                 response = JSONResponse(
                     status_code=502,
@@ -387,7 +410,8 @@ def create_app() -> FastAPI:
                         "request_id": request_id,
                     },
                 )
-            except Exception:
+            except Exception as exc:
+                _log_unhandled(request, request_id, exc)
                 response = JSONResponse(
                     status_code=500,
                     content={"detail": "Internal server error", "request_id": request_id},
@@ -407,7 +431,7 @@ def create_app() -> FastAPI:
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; style-src 'self'; "
-            f"img-src 'self' data: blob: https://assets.tcgdex.net https://covers.openlibrary.org https://archive.org/download/ https://*.us.archive.org/view_archive.php https://i.ebayimg.com https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net{r2_img_origin}; "
+            f"img-src 'self' data: blob: https://assets.tcgdex.net https://www.pokemon-card.com https://cards.tcggraph.io https://covers.openlibrary.org https://archive.org/download/ https://*.us.archive.org/view_archive.php https://i.ebayimg.com https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net{r2_img_origin}; "
             f"connect-src 'self' {settings.supabase_url}; "
             "font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )

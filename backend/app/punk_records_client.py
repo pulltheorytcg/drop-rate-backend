@@ -86,6 +86,21 @@ def _explicit_alt_art(name: object) -> bool:
     return any(marker in normalized for marker in markers)
 
 
+# Printings that share a base card number but are physically different
+# (CLAUDE.md §9: never substitute base art for promo/stamped/event treatments).
+# Punk Records lookups are by base number, so any of these markers in the
+# catalogue name or set fails closed until an explicit provider mapping exists.
+_SPECIAL_TREATMENT = re.compile(
+    r"\b(?:promo(?:tion)?|pre-?release|winner|finalist|champion(?:ship)?|judge|"
+    r"stamp(?:ed)?|sp|special|serial|gold|event|tournament|flagship|"
+    r"treasure\s+cup|anniversary|premium|textured|signed|signature)\b"
+)
+
+
+def _special_treatment(*values: object) -> bool:
+    return any(_SPECIAL_TREATMENT.search(_norm(value)) for value in values)
+
+
 def _trusted_image_url(value: object) -> str | None:
     image_url = str(value or "").strip()
     parsed = urlparse(image_url)
@@ -140,6 +155,7 @@ class PunkRecordsClient:
         card_number: str,
         variant: str,
         name: str | None = None,
+        set_name: str | None = None,
     ) -> dict[str, Any]:
         base_id = str(card_number or "").strip().upper()
         if not base_id:
@@ -149,6 +165,11 @@ class PunkRecordsClient:
             return {
                 "resolved": False,
                 "reason": "One Piece alternate-art card requires explicit provider suffix mapping",
+            }
+        if _special_treatment(name, variant, set_name):
+            return {
+                "resolved": False,
+                "reason": "One Piece promo/stamped/event printing requires explicit provider mapping",
             }
         if not _base_variant(variant):
             return {
