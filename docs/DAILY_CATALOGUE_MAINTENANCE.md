@@ -12,6 +12,8 @@ The API checks the durable receipts every five minutes. Each source has its own
 receipt; a complete source is skipped until the next day. Interrupted/incomplete
 sources wait one hour before retrying. Session advisory locks prevent overlap
 between replicas/deployments. External calls are outside database transactions.
+All startup background jobs use a separate job pool and advisory-lock session,
+never the API request pool; see [background-job database pool](BACKGROUND_JOB_DATABASE_POOL.md).
 An explicit importer revision change starts a new attempt, preserving previous
 receipts; revision 2 corrects CardTrader's live game-prefixed category labels; revision 4
 handles current `card_market_ids` arrays. Only a single unambiguous product ID

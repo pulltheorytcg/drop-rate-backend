@@ -239,7 +239,8 @@ def test_worker_drains_only_drafts_with_bounded_concurrency():
     assert "and sil.sync_state='DRAFT'" in source
     assert "sil.sync_state in ('DRAFT','PUBLISHED')" not in source
     assert "asyncio.Semaphore(concurrency)" in source
-    assert "concurrency = max(1, min(4, settings.db_pool_max))" in source
+    assert "concurrency = max(1, min(4, settings.db_job_pool_max - 1))" in source
+    assert "settings.db_pool_max" not in source
     assert "await asyncio.gather" in source
 
 def test_worker_is_opt_in_and_dry_run_by_default():

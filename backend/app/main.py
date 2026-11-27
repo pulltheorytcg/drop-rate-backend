@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import DATABASE_WRITE_READY_SQL, create_pool
+from .job_database import JobDatabase
 from .seller_channel_sync import router as seller_channel_sync_router
 from .seller_hub_launch import router as seller_hub_launch_router
 from .seller_hub_shopify_sync import run_shopify_waitlist_sync
@@ -229,6 +230,10 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.db_pool = await create_pool(settings)
+        # DR-OPS-1: every background task below receives this separate pool and
+        # advisory-lock session. app.state.db_pool serves API requests only, so
+        # refresh jobs can never again hold the connections routes need.
+        app.state.job_db = job_db = await JobDatabase.open(settings)
         bootstrap_task: asyncio.Task | None = None
         linked_draft_task: asyncio.Task | None = None
         market_task: asyncio.Task | None = None
@@ -248,47 +253,47 @@ def create_app() -> FastAPI:
             logger.warning("CATALOGUE_OPERATOR_BULK_HOLD active; R2-first and eBay market jobs suppressed")
         if settings.catalogue_maintenance_actor_user_id and r2_first_service.enabled():
             maintenance_tasks.append(asyncio.create_task(r2_first_service.prewarm(
-                app.state.db_pool, UUID(settings.catalogue_maintenance_actor_user_id))))
+                job_db, UUID(settings.catalogue_maintenance_actor_user_id))))
         if not bulk_held and os.getenv('TCG_R2_FIRST_IMPORT_SOURCES', '').strip():
             if settings.catalogue_maintenance_actor_user_id:
                 maintenance_tasks.append(asyncio.create_task(r2_first_import.run_loop(
-                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id)))
+                    job_db, settings.catalogue_maintenance_actor_user_id)))
             else:
                 logger.error('R2-first catalogue import requires an authorised actor')
         if settings.catalogue_maintenance_actor_user_id and catalogue_r2_live.enabled('DELIVERY'):
             maintenance_tasks.append(asyncio.create_task(
                 catalogue_r2_live.prewarm(
-                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id,
+                    job_db, settings.catalogue_maintenance_actor_user_id,
                 )
             ))
         if settings.catalogue_maintenance_actor_user_id and catalogue_r2_market.enabled('DELIVERY'):
             maintenance_tasks.append(asyncio.create_task(
                 catalogue_r2_market.prewarm(
-                    app.state.db_pool, settings.catalogue_maintenance_actor_user_id,
+                    job_db, settings.catalogue_maintenance_actor_user_id,
                 )
             ))
         if settings.shopify_waitlist_sync_enabled:
             maintenance_tasks.append(asyncio.create_task(
-                run_shopify_waitlist_sync(app.state.db_pool, settings)
+                run_shopify_waitlist_sync(job_db, settings)
             ))
         from .r2_reference_images import worker_enabled, run_reference_mirror_loop
         if worker_enabled() and settings.catalogue_maintenance_actor_user_id:
             maintenance_tasks.append(asyncio.create_task(run_reference_mirror_loop(
-                app.state.db_pool, settings.catalogue_maintenance_actor_user_id)))
+                job_db, settings.catalogue_maintenance_actor_user_id)))
         app.state.shopify_sync_wakeup = None
         from .catalogue_maintenance import run_loop
         for enabled,shopify in ((settings.catalogue_daily_refresh_enabled,False),(settings.shopify_auto_sync_enabled,True)):
             if enabled and settings.catalogue_maintenance_actor_user_id:
                 wakeup = asyncio.Event() if shopify else None
                 if shopify:app.state.shopify_sync_wakeup = wakeup
-                maintenance_tasks.append(asyncio.create_task(run_loop(app.state.db_pool,settings,shopify=shopify,wakeup=wakeup)))
+                maintenance_tasks.append(asyncio.create_task(run_loop(job_db,settings,shopify=shopify,wakeup=wakeup)))
             elif enabled:
                 logger.error('Catalogue maintenance requires an authorised actor')
         if settings.ebay_market_refresh_enabled and not bulk_held:
             if not settings.trawl_api_key or not settings.ebay_market_refresh_actor_user_id:
                 logger.error("Live eBay market refresh enabled without required provider/actor configuration")
             else:
-                market_task = asyncio.create_task(run_live_market_refresh(app.state.db_pool, settings))
+                market_task = asyncio.create_task(run_live_market_refresh(job_db, settings))
         shopify_config_complete = all(
             (
                 settings.shopify_shop_domain,
@@ -306,7 +311,7 @@ def create_app() -> FastAPI:
         )
         if settings.shopify_catalogue_bootstrap_enabled:
             bootstrap_task = asyncio.create_task(
-                run_shopify_catalogue_bootstrap(app.state.db_pool, settings)
+                run_shopify_catalogue_bootstrap(job_db, settings)
             )
 
             def _bootstrap_done(task: asyncio.Task) -> None:
@@ -328,7 +333,7 @@ def create_app() -> FastAPI:
 
         if settings.shopify_linked_draft_reconciliation_enabled:
             linked_draft_task = asyncio.create_task(
-                run_linked_draft_reconciliation(app.state.db_pool, settings)
+                run_linked_draft_reconciliation(job_db, settings)
             )
 
             def _linked_draft_done(task: asyncio.Task) -> None:
@@ -366,6 +371,7 @@ def create_app() -> FastAPI:
             await close_artwork_tasks()
             await close_reference_http_client()
             await r2_first_service.close()
+            await job_db.close()
             await app.state.db_pool.close()
 
     app = FastAPI(

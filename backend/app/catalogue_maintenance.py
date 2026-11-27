@@ -29,6 +29,7 @@ from .drop_rate_daily_model import (
     run_daily_reference_model,
 )
 from .db import user_connection
+from .job_database import lock_session
 from .fx import EcbHistoricalFxProvider
 from .database_capacity import check_database_capacity
 from .archive_backlog import archive_check_window, check_archive_backlog
@@ -375,7 +376,7 @@ def coverage_lags_pricing(latest):
 
 async def daily_pass(pool,settings):
     actor=UUID(settings.catalogue_maintenance_actor_user_id)
-    async with pool.acquire() as lock:
+    async with lock_session(pool) as lock:
         if not await lock.fetchval('select pg_try_advisory_lock($1)',847220092):return
         try:
             async with user_connection(pool,actor,str(uuid4())) as connection:
@@ -619,7 +620,7 @@ async def shopify_pass(pool,settings):
     if not settings.shopify_publish_enabled or not settings.shopify_seller_sync_enabled:
         log.warning('Automatic Shopify sync paused: publication or seller sync is disabled');return
     actor=UUID(settings.catalogue_maintenance_actor_user_id)
-    async with pool.acquire() as lock:
+    async with lock_session(pool) as lock:
         if not await lock.fetchval('select pg_try_advisory_lock($1)',847220093):return
         try:
             async with user_connection(pool,actor,str(uuid4())) as connection:

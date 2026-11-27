@@ -19,6 +19,7 @@ from uuid import UUID, uuid4
 
 from .access_control import require_platform_admin
 from .db import user_connection
+from .job_database import lock_session
 from .ebay_sold_pricing import TrawlApiError, TrawlEbaySoldClient, _matches_comp, _persist_comp, _sold_at, select_five_newest_comps
 from .ebay_sealed_pricing import _sealed_query, _select_five_sold
 from .ebay_uk_parse_adapter import _normalise_text, _contains_term
@@ -306,7 +307,7 @@ async def refresh_pass(pool, settings):
     actor = UUID(settings.ebay_market_refresh_actor_user_id)
     # A session advisory lock prevents duplicate provider use across app replicas.
     # There is no open transaction during HTTP; the lock connection is released in finally.
-    async with pool.acquire() as lock_connection:
+    async with lock_session(pool) as lock_connection:
         if not await lock_connection.fetchval("select pg_try_advisory_lock($1)", LOCK):
             return {"status":"ALREADY_RUNNING"}
         try:

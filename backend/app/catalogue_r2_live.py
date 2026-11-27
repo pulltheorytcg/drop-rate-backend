@@ -22,6 +22,7 @@ import asyncpg
 
 from .access_control import require_platform_admin
 from .db import user_connection
+from .job_database import lock_session
 from .object_storage import ObjectStorageError, configured_object_storage
 from .catalogue_r2_index import SharedReferenceIndex
 from .catalogue_r2_navigation import build_navigation, owned_navigation
@@ -573,7 +574,7 @@ async def publish(pool, actor, *, storage=None):
     if storage is None:
         raise ObjectStorageError('Private R2 storage is not configured')
     # Avoid duplicate publishers across overlapping Railway releases.
-    async with pool.acquire() as lock:
+    async with lock_session(pool) as lock:
         if not await lock.fetchval('select pg_try_advisory_lock($1)',LOCK_ID):
             return {'status':'LOCKED'}
         try:

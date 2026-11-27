@@ -103,6 +103,10 @@ class Settings:
     ebay_client_id: str | None
     ebay_client_secret: str | None
     ebay_marketplace_id: str
+    # DR-OPS-1: background jobs use their own pool plus one advisory-lock
+    # session. Server connections per replica = db_pool_max + db_job_pool_max + 1.
+    db_job_pool_max: int = 4
+    db_job_acquire_timeout_seconds: float = 30.0
     public_app_url: str | None = None
     resend_api_key: str | None = None
     seller_invite_from_email: str | None = None
@@ -228,6 +232,10 @@ class Settings:
             environment=os.getenv("TCG_ENVIRONMENT", "development").strip(),
             db_pool_min=pool_min,
             db_pool_max=pool_max,
+            db_job_pool_max=_bounded_int("TCG_DB_JOB_POOL_MAX", 4, minimum=1, maximum=8),
+            db_job_acquire_timeout_seconds=float(
+                _bounded_int("TCG_DB_JOB_ACQUIRE_TIMEOUT_SECONDS", 30, minimum=1, maximum=300)
+            ),
             public_app_url=_https_endpoint("TCG_PUBLIC_APP_URL"),
             resend_api_key=_optional("TCG_RESEND_API_KEY"),
             seller_invite_from_email=_optional("TCG_SELLER_INVITE_FROM_EMAIL"),

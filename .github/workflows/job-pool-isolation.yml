@@ -1,0 +1,46 @@
+name: Job pool isolation
+on:
+  pull_request:
+    paths:
+      - 'backend/app/job_database.py'
+      - 'backend/app/db.py'
+      - 'backend/app/main.py'
+      - 'backend/app/settings.py'
+      - 'backend/app/catalogue_maintenance.py'
+      - 'backend/app/catalogue_r2_live.py'
+      - 'backend/app/catalogue_r2_market.py'
+      - 'backend/app/live_market_refresh.py'
+      - 'backend/app/r2_first_import.py'
+      - 'backend/app/r2_reference_images.py'
+      - 'backend/app/reference_history_archive.py'
+      - 'backend/app/shopify_linked_draft_reconciliation.py'
+      - 'backend/app/database_capacity.py'
+      - 'tests/*job_pool*'
+      - 'tests/test_job_database.py'
+      - '.github/workflows/job-pool-isolation.yml'
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: job_pool_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --requirement requirements.txt
+      - run: PYTHONPATH=backend timeout 120 python tests/job_pool_isolation_postgres.py
+        env:
+          JOB_POOL_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/job_pool_test
