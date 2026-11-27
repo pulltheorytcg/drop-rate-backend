@@ -58,8 +58,9 @@ def main():
                                 reason:'Last recorded guide; not a current value.',physical_valuation_eligible:false};
                                 scanner.renderDetails();''')
                             identity=page.locator('.dr-scan-detail-identity').inner_text()
-                            assert '£12.50' not in identity
-                            assert 'unavailable' in identity.lower()
+                            # Pricing rule 4: only a dated "Last known" amount, never totalled.
+                            assert 'Last known £12.50 · ' in identity
+                            assert '£12.50' not in identity.replace('Last known £12.50','')
                             assert page.evaluate('scanner.totals().value') is None
                         confirm=page.locator('[data-details-save]')
                         assert confirm.inner_text()=='Add to collection'

@@ -74,6 +74,8 @@ def main():
      page.evaluate('DropRateInventory.open(item)');page.wait_for_selector('.owner-item-values strong')
      seller=page.locator('.owner-item-values strong').inner_text().strip();assert founder.removeprefix('Value: ')==seller,(status,founder,seller)
      if status=='AVAILABLE':assert '£99.00' == seller
+     # Pricing rule 4: expired evidence is a dated "Last known" amount only.
+     elif status=='STALE':assert seller.startswith('Last known £99.00 · '),(status,seller)
      else:assert '£' not in seller,(status,seller)
      assert all(call['method']=='GET' for call in page.evaluate('calls'))
      assert not errors,errors

@@ -114,8 +114,11 @@ def _eligible(item: dict, now: datetime) -> bool:
     reference = item.get("reference_value") or {}
     checked = _time(reference.get("checked_at"))
     value = reference.get("market_value_minor")
-    return (reference.get("status") in {"AVAILABLE", "REFERENCE_ESTIMATE"}
-            and reference.get("method") in {SOLD, GUIDE}
+    # Weekly movers stay UK-sold only. Cardmarket guide estimates may fill
+    # Market Value (pricing rule 1) but their week-on-week drift is not shown
+    # as a market movement.
+    return (reference.get("status") == "AVAILABLE"
+            and reference.get("method") == SOLD
             and type(value) is int and 0 < value <= 2**63-1
             and item.get("market_value_minor") == value
             and checked is not None and now-MAX_AGE <= checked <= now

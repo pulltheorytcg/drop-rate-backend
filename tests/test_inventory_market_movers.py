@@ -19,7 +19,7 @@ def item(number=1, **changes):
                status="DRAFT", name="Physical copy", product_type="CARD", language="English",
                catalogue_language="English", condition="Near Mint", grading_company=None,
                grade=None, seal_status=None, market_value_minor=1200,
-               reference_value=dict(status="REFERENCE_ESTIMATE", method=GUIDE,
+               reference_value=dict(status="AVAILABLE", method=SOLD,
                    snapshot_id=str(SNAPSHOT), market_value_minor=1200, checked_at=CURRENT))
     row.update(changes)
     return row
@@ -27,7 +27,7 @@ def item(number=1, **changes):
 
 def comparison(**changes):
     row = dict(current_snapshot_id=SNAPSHOT, catalogue_id=CATALOGUE, current_value_minor=1200,
-               current_at=CURRENT, current_recorded_at=CURRENT+timedelta(minutes=10), method=GUIDE,
+               current_at=CURRENT, current_recorded_at=CURRENT+timedelta(minutes=10), method=SOLD,
                baseline_snapshot_id=UUID(int=102), baseline_value_minor=1000,
                baseline_at=CURRENT-timedelta(days=7),
                baseline_recorded_at=CURRENT-timedelta(days=7)+timedelta(minutes=10))
@@ -61,14 +61,14 @@ async def test_same_owned_profile_counts_copies_once_without_private_fields_or_m
     assert result["summary"]["status"] == "READY"
     row, = result["movers"]
     assert row["quantity"] == 2 and row["change_minor"] == 200 and row["change_pct"] == 20
-    assert row["comparison_kind"] == "GUIDE_ESTIMATE" and row["comparison_days"] == 7
+    assert row["comparison_kind"] == "SOLD_MARKET" and row["comparison_days"] == 7
     assert row["baseline_at"] == CURRENT-timedelta(days=7)
     assert "owner_id" not in row
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("changes", [
-    {"catalogue_id": UUID(int=999)}, {"method": SOLD}, {"current_value_minor": 999},
+    {"catalogue_id": UUID(int=999)}, {"method": GUIDE}, {"current_value_minor": 999},
     {"current_at": CURRENT-timedelta(hours=1)}, {"baseline_value_minor": 0},
     {"baseline_value_minor": -1}, {"baseline_value_minor": None},
     {"baseline_at": CURRENT-timedelta(days=5)}, {"baseline_at": CURRENT-timedelta(days=9)},
@@ -82,7 +82,7 @@ async def test_wrong_or_backfilled_comparison_fails_closed(changes):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("status", ["STALE", "NEEDS_DETAILS", "UNAVAILABLE", "CONDITION_REFERENCE"])
+@pytest.mark.parametrize("status", ["STALE", "NEEDS_DETAILS", "UNAVAILABLE", "CONDITION_REFERENCE", "REFERENCE_ESTIMATE"])
 async def test_stale_and_catalogue_only_comparisons_are_not_current_values(status):
     copy = item()
     copy["reference_value"]["status"] = status
@@ -148,3 +148,14 @@ def test_percentage_rounding_is_deterministic_and_bounds_bigint_money():
 async def test_invalid_window_is_rejected(window):
     with pytest.raises(ValueError):
         await shared_weekly_movers(Connection(), [], window_days=window, now=NOW)
+
+
+@pytest.mark.asyncio
+async def test_guide_estimates_are_market_value_but_not_weekly_movers():
+    # Pricing rule 1 lets a labelled Cardmarket estimate fill Market Value;
+    # its week-on-week drift is not shown as a market movement.
+    copy = item(reference_value=dict(status="REFERENCE_ESTIMATE", method=GUIDE,
+        snapshot_id=str(SNAPSHOT), market_value_minor=1200, checked_at=CURRENT))
+    conn = Connection([comparison(method=GUIDE)])
+    result = await shared_weekly_movers(conn, [copy], now=NOW)
+    assert result["summary"]["status"] == "NO_CURRENT_VALUES" and result["movers"] == [] and not conn.calls

@@ -214,11 +214,12 @@ async def main():
    async with user_connection(pool,actors[n],'immediate-browse') as c:
     prices=await read_shared_prices(c,[browse_row])
     shown=with_shared_price(browse_row,prices)
-    # Cardmarket reference remains in source/owner diagnostic metadata, but
-    # the public catalogue search and sort have NO current sold Market Value.
-    assert shown['market_value_minor'] is None
-    assert shown.get('market_value_high_minor') is None
-    assert shown.get('shared_price') is None
+    # Pricing rule 2 (27 Nov 2026): with no UK sold or asking evidence, browse
+    # shows the Cardmarket EU guide as a labelled estimate range.
+    assert shown['market_value_minor']==85 and shown.get('market_value_high_minor')==170
+    assert shown['shared_price']['status']=='CATALOGUE_GUIDE'
+    assert shown['shared_price']['method']=='CARDMARKET_CATALOGUE_GUIDE'
+    assert shown['shared_price']['recommended_retail_minor'] is None
     assert shown['catalogue_id'] is None and shown['owned_quantity']==0
   assert before==await state(),'Search pricing changed stock, shared prices or ownership'
   # The new page-scoped historical query executes as the restricted app role,
