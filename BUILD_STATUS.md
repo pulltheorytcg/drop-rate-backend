@@ -1,10 +1,32 @@
-## 27 November 2026 — Owner pricing rules applied (PR, NOT DEPLOYED)
+## 27 November 2026 — Pool fix, wrong-output fixes and pricing rules LIVE; bulk hold lifted and verified
+
+- **Merged and deployed to `drop-rate-api-live`** (each Railway predeploy passed, `/health/ready` 200 after each):
+  - PR #1114 `c1d23ca`: Playwright workflows pinned to `ubuntu-24.04`. Workflow files only; Railway skipped the deploy.
+  - PR #1111 `d2a8693` (DR-OPS-1 job pool): deployment `a95f3df5`, 11,846 predeploy tests passed.
+  - PR #1112 `60eda06` (stop wrong output): deployment `b1299264`, 11,867 passed.
+  - PR #1113 `8088a4a` (owner pricing rules): deployment `352bb9b9`, 11,880 passed.
+- **Hold lifted:** `DROP_RATE_CATALOGUE_BULK_HOLD=false` since deployment `2636a8fb`, live 23:29:22 UTC. The owner chose to keep it lifted after the test.
+- **DR-OPS-1 production acceptance (23:29–23:55 UTC, refresh jobs running):**
+  - n8n heartbeats every 5 minutes, all HTTP 200: 23:30:34 (75 ms), 23:35:34 (162 ms), 23:40:34 (569 ms), 23:45:34 (35 ms), 23:50:34 (263 ms). On the 27 Nov incident the same route returned 499 after 15 s.
+  - `prepare-enrichment-worklist`: eleven calls, all 200, slowest 4.7 s (499 after 180 s in the incident).
+  - `/health/ready` (API pool): 43–137 ms throughout, against a 55 ms baseline.
+  - `pg_stat_activity`: `drop-rate-api`, `drop-rate-jobs` and `drop-rate-jobs:…:locks` sessions stayed separate; the API pool never had more than one connection in use. No 5xx, timeouts or `UNHANDLED_REQUEST_ERROR` lines.
+- **Refresh results by 23:55 UTC:** ten price and guide jobs complete; five catalogue sources synced (about 66,000 records); sealed prices 3,965 checked and 2,774 priced; `REFERENCE_PRICES` still running with 27,799 prices re-checked and 15,360 current (0 before).
+- **NOT VERIFIED:** a signed-in catalogue request during the run. None reached the server, and the test was run without an owner login.
+- **Observations to follow up:**
+  - The test was bounded by time, not by `TCG_CATALOGUE_PRICE_REFRESH_LIMIT`; the limit was left unchanged.
+  - Database size grew from 457 MB to 529 MB in 26 minutes from new price history. The Pro guard pauses refreshes at 7 GB.
+  - `one_piece_official`, `naruto_kayou` and `naruto_bandai` returned no records (INCOMPLETE); cause not investigated.
+  - The live eBay refresh paused itself on a Trawl 429 with no calls spent.
+- **Rollback:** set `DROP_RATE_CATALOGUE_BULK_HOLD=true` on `drop-rate-api-live`.
+
+## 27 November 2026 — Owner pricing rules applied (PR #1113, LIVE `8088a4a`)
 
 - **OWNER DECISIONS** (27 Nov): see [pricing rules](docs/PRICING_RULES.md).
   1. Stock Market Value is UK sold, otherwise a labelled Cardmarket EU guide estimate (raw NM only).
   2. Browse shows UK sold, then the UK asking median, then the Cardmarket EU estimate.
   3. US prices never feed a UK value.
-  4. Expired values show "Last known £X · date" and are never totalled.
+  4. Expired values show "Last known £X · date" and are never totalled. Small tiles and list rows show the amount with a "Historical value" tag and no date; the dated line is in the item sheet.
 
   Store Price is unchanged and always owner-set.
 - **Code:**
@@ -16,9 +38,10 @@
   - US sources are removed from the daily-model peers.
   - The live refresh clears stored eBay values whose newest sale is over 90 days old.
   - The pricing health page describes the new rules.
-- **Tests:** tests that encoded the previous "guides never a value" policy are updated to the new rules. New `tests/test_pricing_rules.py`, plus new cases in the resolver and front-end contract tests. Node UI checks run in CI only, because Node is not installed on the workstation.
+- **Tests:** tests that encoded the previous "guides never a value" policy are updated to the new rules, including the PostgreSQL and browser checks. New `tests/test_pricing_rules.py`, plus new cases in the resolver and front-end contract tests. Weekly movers stay UK-sold only.
 - **Not done:** UK asking prices still have no scheduled collection, so browse step 2 is rarely available. `/pricing/inventory` still reads the stored column.
-## 27 November 2026 — Stop wrong output: art, placeholders, release dates, CSP, 500 logging (PR, NOT DEPLOYED)
+
+## 27 November 2026 — Stop wrong output: art, placeholders, release dates, CSP, 500 logging (PR #1112, LIVE `60eda06`)
 
 - **Context:** these come from a read-only app audit on 27 Nov. Every change only blocks bad output; none changes which price wins, price authority, Store Prices, ownership or RLS.
 - **Artwork (CLAUDE.md §9):**
@@ -41,17 +64,18 @@
   - The licensed-provider rights labels are a documented legal basis, and approval remains manual.
   - Unknown-language sealed reference art in the owner view stays.
 - **Tests:** new `tests/test_stop_wrong_output.py`; release-date persistence was added to the real-PostgreSQL `reference_artwork_postgres.py`. The local full suite shows no new failures against `main`, apart from one TCGGraph fixture that used mismatched set names and has been fixed.
-## 27 November 2026 — DR-OPS-1 refresh jobs isolated from the API connection pool (PR, NOT DEPLOYED)
+
+## 27 November 2026 — DR-OPS-1 refresh jobs isolated from the API connection pool (PR #1111, LIVE `d2a8693`)
 
 - **INCIDENT:** On 27 Nov, with `DROP_RATE_CATALOGUE_BULK_HOLD=false` on `drop-rate-api-live` (`4e12782c`), startup refresh jobs held all 5 `tcg_api` API-pool connections from 19:05:45 UTC. All DB-backed routes hung: heartbeat and receipt returned 499 after 15 s, `prepare-enrichment-worklist` after 180 s. Restoring the hold at 19:33 recovered the app.
-- **FIX IN REVIEW:**
+- **FIX:**
   - Every startup background task now receives `app.state.job_db`. That is a separate job pool (`TCG_DB_JOB_POOL_MAX`, default 4) plus one advisory-lock session, with bounded acquires (`TCG_DB_JOB_ACQUIRE_TIMEOUT_SECONDS`, default 30).
   - Job lock sites use `lock_session(pool)`, so a long pass no longer pins a pooled connection.
   - Linked-draft concurrency is capped from the job pool.
   - Lock keys, receipts, bulk hold, capacity guard, pricing, RLS, Store Prices, Shopify and ownership are unchanged. No new Railway service.
   - Connections per API replica go from 5 to at most 10. A read-only check showed `max_connections=60` and no `tcg_api` role limit.
 - **TESTS:** New real-PostgreSQL CI check `job-pool-isolation`, which proves a 1 s API acquire while the real `daily_pass` and a saturated job pool run with the hold off, plus a negative control. New unit tests in `tests/test_job_database.py`. The full local pytest suite was run on Windows; CI results are on the PR.
-- **NOT DONE:** Not merged or deployed. The production hold stays `true` until merge and deploy. Then one bounded batch with the hold lifted must show heartbeats every 5 minutes and a signed-in catalogue request succeeding. See [background-job database pool](docs/BACKGROUND_JOB_DATABASE_POOL.md). Rollback: `DROP_RATE_CATALOGUE_BULK_HOLD=true`.
+- **STATUS:** Merged, deployed and verified in production with the hold lifted; see the entry at the top. Design: [background-job database pool](docs/BACKGROUND_JOB_DATABASE_POOL.md). Rollback: `DROP_RATE_CATALOGUE_BULK_HOLD=true`.
 
 ## 14 November 2026 — Cardmarket source-qualified EU market-reference pilot LIVE; full matching and restore verified
 
