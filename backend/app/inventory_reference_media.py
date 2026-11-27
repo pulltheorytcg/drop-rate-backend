@@ -36,6 +36,8 @@ join tcg.media_assets ma on (
  or (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and ma.inventory_id is null
    and ma.catalogue_id=i.catalogue_id and ma.approval_status='APPROVED'
    and ma.rights_tier='STOREFRONT_ALLOWED'
+   -- Two blank languages are not a match (same rule as media_resolver).
+   and nullif(btrim(coalesce(i.language,p.language,'')),'') is not null
    and lower(btrim(coalesce(ma.media_language,'')))=lower(btrim(coalesce(i.language,p.language,'')))
    and lower(btrim(coalesce(ma.media_variant,'')))=lower(btrim(coalesce(p.variant,''))))
 )

@@ -49,7 +49,8 @@ async def main():
             last_synced_at timestamptz,reserved_order_reference text,reserved_line_reference text);
           create table tcg.audit_events(actor text,request_id text,action text,entity_type text,entity_id uuid,old_values jsonb,new_values jsonb);
           create table tcg.media_assets(catalogue_id uuid,shopify_cdn_url text,public_source_url text,scope text,side text,media_kind text,
-            approval_status text,rights_status text,rights_tier text,source_status text,revoked_at timestamptz,approved_at timestamptz,created_at timestamptz,id uuid);
+            approval_status text,rights_status text,rights_tier text,source_status text,revoked_at timestamptz,approved_at timestamptz,created_at timestamptz,id uuid,
+            media_language text,media_variant text);
           -- Minimal R2 metadata fixture for the live catalogue join. The
           -- production migration adds its foreign key, rights RLS and audit
           -- trigger against the full (non-fixture) media_assets schema.
