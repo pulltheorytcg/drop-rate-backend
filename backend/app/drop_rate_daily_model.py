@@ -129,6 +129,12 @@ def _printing(ref: dict) -> Printing:
                     ref["provider_id"], ref["language"], "STANDARD", rarity)
 
 
+def _us_source(source: str) -> bool:
+    """Owner rule (27 Nov 2026): US prices never influence a UK value."""
+    upper = source.strip().upper()
+    return "TCGPLAYER" in upper or upper.startswith("TCGCSV")
+
+
 def _peer(record: dict, now: datetime) -> PeerGuide | None:
     for amount, at, source in (
         (record["detail_minor"],record["detail_at"],record["detail_source"]),
@@ -137,7 +143,7 @@ def _peer(record: dict, now: datetime) -> PeerGuide | None:
         if (type(amount) is int and amount>0 and isinstance(at,datetime)
                 and at.tzinfo is not None and now-timedelta(days=7)<=at<=now
                 and isinstance(source,str) and bool(source.strip())
-                and not source.startswith("DROP_RATE_")):
+                and not source.startswith("DROP_RATE_") and not _us_source(source)):
             try:
                 return PeerGuide(_printing(record),amount,at,source)
             except ValueError:

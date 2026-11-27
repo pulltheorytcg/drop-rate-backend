@@ -166,9 +166,10 @@ def summarise_pricing_health(
     cardmarket_run = _safe_run(runs_by_source.get("CARDMARKET"))
     sources = [
         {
-            "source": "EBAY_UK_SOLD", "label": "Historical eBay completed sales",
-            "role": "HISTORICAL_NOT_REQUIRED",
-            "status": "NOT_USED_BY_CURRENT_ASKING_MODEL",
+            # Owner pricing rules (27 Nov 2026), docs/PRICING_RULES.md.
+            "source": "EBAY_UK_SOLD", "label": "eBay UK sold prices",
+            "role": "PRIMARY_MARKET_VALUE",
+            "status": "CURRENT" if sale_is_recent else "NO_RECENT_SALES",
             "stored_observations": old_sold_total,
             "normalized_uk_sold_observations": verified_total,
             "new_normalized_24h": verified_new,
@@ -180,42 +181,50 @@ def summarise_pricing_health(
                        "and approved provenance. Legacy unverified records do not qualify."),
         },
         {
-            "source": "CARDMARKET_GUIDE", "label": "Cardmarket price guides",
-            "role": "GUIDE_ONLY",
-            "status": "CONTEXT_ONLY" if guide_is_recent else "STALE_CONTEXT",
+            "source": "CARDMARKET_GUIDE", "label": "Cardmarket EU price guides",
+            "role": "LABELLED_ESTIMATE_FALLBACK",
+            "status": "CURRENT" if guide_is_recent else "STALE",
             "stored_observations": guide_total,
             "new_observations_24h": _as_int(guide.get("ingested_24h")),
             "last_ingested_at": guide.get("last_ingested_at"),
             "last_run": cardmarket_run,
-            "detail": "Guides cannot independently produce sold-backed Market Values.",
+            "detail": ("Labelled estimate when fewer than five recent exact UK sales exist; raw "
+                       "Near Mint cards only. Never a sold price or a retail recommendation."),
         },
         {
             "source": "EBAY_BROWSE", "label": "eBay UK active listings",
-            "role": "ASKING_DERIVED_MARKET_VALUE",
+            "role": "BROWSE_ASKING_MEDIAN",
             "status": "FRESH_CANDIDATES" if fresh_asking > 0 else "NO_CURRENT_ASKING_EVIDENCE",
             "stored_observations": historic_asking,
             "fresh_candidate_records": fresh_asking,
             "last_ingested_at": asking_data.get("last_checked_at"),
             "last_run": None,
-            "detail": ("Founder-selected valuation basis: median of live UK GBP delivered asks "
-                       "from three or more independent sellers, exact printing and NM raw condition. "
-                       "Cache candidates still require the full identity validation on display."),
+            "detail": ("Catalogue browse: median of live UK GBP delivered asks from three or more "
+                       "independent sellers, exact printing and NM raw condition, shown after UK sold "
+                       "prices and before Cardmarket guides. Not used for stock Market Value."),
         },
         {
             "source": "EBAY_PRODUCT_RESEARCH", "label": "eBay sold research (unused)",
             "role": "NOT_REQUIRED",
-            "status": "NOT_USED_BY_CURRENT_ASKING_MODEL",
+            "status": "NOT_USED",
             "stored_observations": None,
             "last_run": None,
-            "detail": "The asking-based Market Value model does not require Product Research.",
+            "detail": "Product Research is not part of the current pricing rules.",
         },
     ]
     alerts: list[dict[str, str]] = []
+    any_current = sale_is_recent or guide_is_recent or fresh_asking > 0
+    if not any_current:
+        alerts.append({
+            "code": "NO_CURRENT_PRICE_EVIDENCE",
+            "severity": "CRITICAL",
+            "text": "No current UK sold prices, UK asking prices or Cardmarket guides are arriving.",
+        })
     if fresh_asking == 0:
         alerts.append({
             "code": "NO_CURRENT_ASKING_MARKET_VALUES",
-            "severity": "CRITICAL",
-            "text": "No fresh qualifying eBay UK asking-price caches available; reference backfill is needed.",
+            "severity": "WARNING",
+            "text": "No fresh eBay UK asking-price caches; catalogue browse falls back to Cardmarket guides.",
         })
     if historic_asking and fresh_asking == 0:
         alerts.append({
@@ -241,14 +250,14 @@ def summarise_pricing_health(
             "severity": "INFO",
             "text": "Some active inventory has no stored Market Value.",
         })
-    overall = ("BLOCKED" if fresh_asking == 0 else
-               "DEGRADED" if bulk_hold or stored < active else
+    overall = ("BLOCKED" if not any_current else
+               "DEGRADED" if bulk_hold or stored < active or fresh_asking == 0 else
                "OPERATIONAL")
     # Even a healthy DB count is not proof that source access is licensed.
     return {
         "checked_at": now,
         "overall_status": overall,
-        "overall_label": ("Asking-price source needs acquisition" if overall == "BLOCKED"
+        "overall_label": ("No current price evidence" if overall == "BLOCKED"
                           else "Needs attention" if overall == "DEGRADED"
                           else "Evidence arriving"),
         "inventory": {
@@ -267,10 +276,10 @@ def summarise_pricing_health(
             "bulk_refresh_held": bool(bulk_hold),
             "unattended_product_research_verified": False,
             "automatic_sold_value_publication_ready": False,
-            "asking_market_value_model_enabled": True,
-            "asking_market_value_display_available": fresh_asking > 0,
+            "asking_market_value_model_enabled": False,
+            "asking_browse_display_available": fresh_asking > 0,
             "asking_acquisition_automatically_scheduled": False,
-            "pricing_mode": "CURRENT_UK_ASKING_LISTINGS",
+            "pricing_mode": "UK_SOLD_THEN_CARDMARKET_ESTIMATE",
         },
         "sources": sources,
         "alerts": alerts,

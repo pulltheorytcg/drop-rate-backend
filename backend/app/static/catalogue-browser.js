@@ -5,16 +5,39 @@ window.DropRateCatalogue = (() => {
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
   const ukEuEstimate = row => window.DropRateReferenceValue?.ukEuEstimate(row.uk_eu_market_estimate) || null;
-  const currentValue = row => !unsupportedMarketSource(row) && (
-    (Number.isSafeInteger(row.market_value_minor) && row.market_value_minor > 0) ||
-    (row.shared_price?.status === "AVAILABLE"
-      && Number.isSafeInteger(row.shared_price.market_value_minor)
-      && row.shared_price.market_value_minor > 0));
+  // Owner pricing rule 2 (27 Nov 2026), docs/PRICING_RULES.md — browse value order:
+  //   1. UK sold evidence  2. UK asking median (3+ sellers)
+  //   3. Cardmarket EU (7-day sales context, else guide) as a labelled estimate
+  //   4. unavailable. Internal models and US prices never supply a value.
+  const EU_GUIDE_SOURCES = ["CARDMARKET_GUIDE_V1","CARDMARKET_BULK_SINGLES","CARDMARKET_BULK",
+    "CARDMARKET_CATALOGUE","CARDMARKET_ESTIMATE","POKEWALLET_POKEMON_CARDMARKET_CATALOGUE",
+    "TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"];
+  const ukSold = row => {
+    const shared = row.shared_price, ref = window.DropRateReferenceValue;
+    if (shared && ["AVAILABLE","CONDITION_REFERENCE"].includes(shared.status) && !ref?.isEuGuide(shared)
+        && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(shared.method)
+        && Number.isSafeInteger(shared.market_value_minor) && shared.market_value_minor > 0)
+      return {amount: shared.market_value_minor,
+        label: shared.status === "CONDITION_REFERENCE" ? "Market value (UK sold, near mint): " : "Market value: "};
+    if (!unsupportedMarketSource(row) && Number.isSafeInteger(row.market_value_minor) && row.market_value_minor > 0)
+      return {amount: row.market_value_minor, label: "Market value: "};
+    return null;
+  };
+  const euGuide = row => {
+    const shared = row.shared_price, ref = window.DropRateReferenceValue;
+    if (shared && ref?.isEuGuide(shared) && Number.isSafeInteger(shared.market_value_minor) && shared.market_value_minor > 0)
+      return ref.estimateText(shared, money);
+    if (EU_GUIDE_SOURCES.includes(row.market_value_source) && Number.isSafeInteger(row.market_value_minor) && row.market_value_minor > 0) {
+      const high = row.market_value_high_minor;
+      return "Estimate: " + money(row.market_value_minor) +
+        (Number.isSafeInteger(high) && high > row.market_value_minor ? "–" + money(high) : "") + " · Cardmarket EU guide";
+    }
+    return null;
+  };
   const askingEstimate = row => {
-    // Asking evidence is a separate fallback, never a physical market value.
-    const estimate=row.asking_price_estimate, shared=row.shared_price, now=Date.now(), maxAge=3*24*60*60*1000;
-    if(row.product_type!=="CARD" || row.market_value_minor!=null ||
-      (["AVAILABLE","REFERENCE_ESTIMATE","CATALOGUE_GUIDE","CONDITION_REFERENCE"].includes(shared?.status) && Number.isInteger(shared.market_value_minor) && shared.market_value_minor>0))return null;
+    // UK asking evidence ranks after UK sold evidence and before EU guides.
+    const estimate=row.asking_price_estimate, now=Date.now(), maxAge=3*24*60*60*1000;
+    if(row.product_type!=="CARD" || ukSold(row))return null;
     if(!estimate || estimate.status!=="ASKING_PRICE_ESTIMATE" || estimate.source!=="EBAY_OFFICIAL_BROWSE" ||
       estimate.method_version!=="EBAY_UK_RAW_ASK_V1" || estimate.currency!=="GBP" || estimate.shipping_basis!=="ITEM_PLUS_SHIPPING" ||
       estimate.shipping_context!=="CONFIGURED_SHOP_POSTCODE_BENCHMARK" ||
@@ -58,16 +81,28 @@ window.DropRateCatalogue = (() => {
     (q.regional_sale.region === "EU" ? "Cardmarket EU" : "TCGplayer US") + " · " +
     new Date(q.observed_at).toLocaleDateString("en-GB");
   const marketPrice = row => {
+    // 1. UK sold evidence.
+    const sold = ukSold(row);
+    if (sold) return sold.label + money(sold.amount);
+    // 2. UK asking median from three or more independent sellers.
+    const asking = askingEstimate(row);
+    if (asking) return "UK asking median: " + money(asking.estimate_minor) +
+      (asking.estimate_high_minor > asking.estimate_minor ? "–" + money(asking.estimate_high_minor) : "") +
+      " · " + asking.seller_count + " sellers · " + new Date(asking.observed_at).toLocaleDateString("en-GB");
+    // 3. Cardmarket EU: 7-day sales context, otherwise the labelled guide.
     const sales = regionalSales(row);
     const approvedBulk = sales.filter(q => q.source === "CARDMARKET_PUBLIC_BULK");
     const selectedSales = approvedBulk.length ? approvedBulk : sales;
-    const contextLabel = approvedBulk.length ? "Market value (Cardmarket EU 7-day sales average): " : "Regional context: ";
+    const contextLabel = approvedBulk.length ? "Estimate (Cardmarket EU 7-day sales average): " : "Regional context: ";
     if (selectedSales.length === 1) return contextLabel+money(selectedSales[0].regional_sale.price_gbp_minor)+" · "+regionalLabel(selectedSales[0]);
     if (selectedSales.length) {
       const amounts=selectedSales.map(quote=>quote.regional_sale.price_gbp_minor);
       const low=Math.min(...amounts), high=Math.max(...amounts);
       return contextLabel+money(low)+(low===high?"":"–"+money(high))+" · by finish; EU aggregate";
     }
+    const guide = euGuide(row);
+    if (guide) return guide;
+    // 4. Nothing current: a dated last-known amount, else unavailable.
     if (row.shared_price && !["DROP_RATE_COMPUTED_MARKET_V1","DROP_RATE_UK_EU_MARKET_V1"].includes(row.shared_price.method))
       return window.DropRateReferenceValue.text({reference_value:row.shared_price}, money).replace(/^Value:/, "Market value:");
     if(unsupportedMarketSource(row))return "Value unavailable";
@@ -75,9 +110,12 @@ window.DropRateCatalogue = (() => {
       ? (row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Value pending":"Value unavailable")
       : "Market value: "+money(row.market_value_minor);
   };
+  // A dated last-known amount is shown only when no current value is (rule 4).
+  const hasCurrentValue = row =>
+    Boolean(ukSold(row) || askingEstimate(row) || regionalSales(row).length || euGuide(row));
   const historicalPrice = row =>
     row.shared_price && window.DropRateReferenceValue?.isHistorical({reference_value:row.shared_price})
-      ? row.shared_price : null;
+      && !hasCurrentValue(row) ? row.shared_price : null;
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", oldest:"Oldest first", name:"Name A–Z", name_desc:"Name Z–A",

@@ -107,7 +107,9 @@ function fixture(){
   assert.equal(rows[1].querySelector('td:last-child').textContent,'—','A personal copy must not expose an irrelevant asking price');
   assert.equal(rows[1].querySelector('.owner-list-quantity').textContent,'×3');
   assert.match(rows[1].querySelector('.owner-list-copy-details').textContent,/English · Near Mint/);
-  assert.doesNotMatch(rows[1].querySelector('.owner-collection-market-cell').textContent,/£8.66|Historical value/);
+  // Pricing rule 4: the last-known amount tagged "Historical value"; no date in the list.
+  assert.match(rows[1].querySelector('.owner-collection-market-cell').textContent,/^£8\.66Historical value/);
+  assert.doesNotMatch(rows[1].querySelector('.owner-collection-market-cell').textContent,/Last known|08\/10\/2026/);
   assert.equal(rows[1].querySelector('img[src="x"]'),null);
   let opened;f.w.DropRateInventory.open=(copy,options)=>opened={copy,options};
   f.run('state.inventory.selling=true');rows[0].querySelector('.owner-inventory-open').click();

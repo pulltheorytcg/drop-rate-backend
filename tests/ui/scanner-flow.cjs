@@ -869,16 +869,19 @@ async function matched(scanner, quantity = 1) {
     const s=f.scanner,item=await matched(s);s.openDetails(item);s.openSearch();
     const input=s.details.querySelector('.dr-scan-search-input');input.value='Historical';
     s.refreshSearch(true);await tick();
-    assert.doesNotMatch(s.details.querySelector('.dr-scan-search-result').textContent,/£12\.50/);
+    // Owner rule 4 (27 Nov 2026): an expired value is shown only as a dated
+    // "Last known £X · date" — never a bare current amount, never totalled.
+    const bareAmount = /(?<!Last known )£12\.50/;
+    assert.match(s.details.querySelector('.dr-scan-search-result').textContent,/Last known £12\.50 · /);
+    assert.doesNotMatch(s.details.querySelector('.dr-scan-search-result').textContent,bareAmount);
     s.details.querySelector('.dr-scan-search-result').click();
-    assert.doesNotMatch(s.details.querySelector('.dr-scan-detail-identity').textContent,/£12\.50/);
-    assert.match(s.details.textContent,/Stale evidence — value unavailable/);
+    assert.doesNotMatch(s.details.querySelector('.dr-scan-detail-identity').textContent,bareAmount);
     s.chooseGrader('PSA');
     assert.doesNotMatch(s.details.textContent,/£12\.50|Last known/,'A raw historical guide is not a slab value');
     s.chooseGrader('');await s.confirmDetails();s.showReview();
     assert.equal(item.status,'added');
-    assert.doesNotMatch(s.review.querySelector('.dr-scan-card-value').textContent,/£12\.50/);
-    assert.doesNotMatch(s.find('.dr-scan-strip').textContent,/£12\.50/);
+    assert.match(s.review.querySelector('.dr-scan-card-value').textContent,/^Last known £12\.50 · /);
+    assert.doesNotMatch(s.find('.dr-scan-strip').textContent,bareAmount);
     assert.equal(s.totals().value,null);assert.equal(s.totals().unknown,1);
     const intake=f.calls.find(call=>call.headers?.['Idempotency-Key']);
     assert.ok(intake);assert.doesNotMatch(intake.body,/last_known|shared_price|market_value/);

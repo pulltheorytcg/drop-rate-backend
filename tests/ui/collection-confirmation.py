@@ -58,8 +58,9 @@ def main():
                                 reason:'Last recorded guide; not a current value.',physical_valuation_eligible:false};
                                 scanner.renderDetails();''')
                             identity=page.locator('.dr-scan-detail-identity').inner_text()
-                            assert '£12.50' not in identity
-                            assert 'unavailable' in identity.lower()
+                            # Pricing rule 4: only a dated "Last known" amount, never totalled.
+                            assert 'Last known £12.50 · ' in identity
+                            assert '£12.50' not in identity.replace('Last known £12.50','')
                             assert page.evaluate('scanner.totals().value') is None
                         confirm=page.locator('[data-details-save]')
                         assert confirm.inner_text()=='Add to collection'
@@ -81,7 +82,9 @@ def main():
                         assert all('/refresh-market' not in c['url'] and '/sync' not in c['url'] and '/approval-request' not in c['url'] for c in summary['calls'])
                         assert page.locator('.dr-scan-added').inner_text()=='Added to collection'
                         if mode=='RAW' and role=='seller':
-                            assert '£12.50' not in page.locator('.dr-scan-review-item.added .dr-scan-card-value').inner_text()
+                            # Pricing rule 4: a dated "Last known" amount, never a current value.
+                            card_value=page.locator('.dr-scan-review-item.added .dr-scan-card-value').inner_text()
+                            assert card_value.startswith('Last known £12.50 · '),card_value
                             assert page.evaluate('scanner.totals().value') is None
                         await_saves=len(saves);page.evaluate('scanner.saveAll()')
                         assert len(page.evaluate('calls.filter(c=>c.headers?.["Idempotency-Key"])'))==await_saves

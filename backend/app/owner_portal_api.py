@@ -353,6 +353,7 @@ async def owner_overview(
         summary.update(recommended_totals(shared))
         summary.update(active_market_value_minor=refs["total_minor"], active_valued_count=refs["valued_count"],
                        active_unvalued_count=refs["unvalued_count"], guide_estimate_count=refs["estimate_count"],
+                       guide_estimate_value_minor=refs["estimate_total_minor"],
                        valuation_basis="SHARED_CATALOGUE_V1")
 
     return jsonable_encoder(

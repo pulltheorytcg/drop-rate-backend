@@ -400,21 +400,21 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   const prices=tile.querySelector('.owner-card-prices');
-  assert.doesNotMatch(prices.textContent,/£8.66/);
+  // Pricing rule 4 (27 Nov 2026): tiles and list cells show the last-known
+  // amount with a "Historical value" tag and no date; the dated
+  // "Last known £X · date" line lives in the item sheet.
+  assert.match(prices.textContent,/£8\.66Historical value/);
   assert.ok(!prices.textContent.includes("Last known")&&!prices.textContent.includes("08/10/2026"));
-  assert.equal(prices.querySelector('.owner-card-historical-label'),null);
+  assert.equal(prices.querySelector('.owner-card-historical-label').textContent,'Historical value');
   const tableMarket=f.w.document.querySelector('#owner-inventory-body tr td:nth-child(3)');
   assert.ok(tableMarket,'List view must retain a separate market value column');
-  assert.doesNotMatch(tableMarket.textContent,/£8.66/);
+  assert.match(tableMarket.textContent,/£8\.66Historical value/);
   assert.ok(!tableMarket.textContent.includes("Last known")&&!tableMarket.textContent.includes("08/10/2026"));
-  assert.equal(tableMarket.querySelector('.owner-table-historical-label'),null);
+  assert.ok(tableMarket.querySelector('.owner-list-value').classList.contains('is-unavailable'),'A historical amount is not styled as a current value');
   assert.equal(tile.querySelector('.owner-inventory-details'),null);
   tile.querySelector('.owner-card-open-overlay').click();await tick();
-  assert.ok(!f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent.includes("Last known 08/10/2026"));
-   const history=f.w.document.querySelector('.owner-item-historical-label');
-   assert.equal(history,null);
-   assert.equal(history,null);
-   assert.equal(f.w.document.querySelector('.owner-market-source'),null);
+  assert.match(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent,/Last known £8\.66 · 08\/10\/2026/);
+  assert.match(f.w.document.querySelector('.owner-market-source').textContent,/No current value: evidence has expired/);
   f.finish();checks++;
  }
  // A stale near-mint comparison for an unfinished copy keeps its history badge.

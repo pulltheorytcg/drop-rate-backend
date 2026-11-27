@@ -140,8 +140,8 @@
     const banner = document.getElementById("pricing-health-banner");
     banner.dataset.healthState = data.overall_status || "UNKNOWN";
     banner.textContent = (data.overall_label || "Status unavailable") +
-      " · Asking-based Market Values: " +
-      (data.automation?.asking_market_value_display_available ? "current comparable cache available" : "awaiting live asking-price collection");
+      " · Market Value: UK sold, else labelled Cardmarket estimate · Browse UK asks: " +
+      (data.automation?.asking_browse_display_available ? "current" : "none current");
     const inv = data.inventory || {};
     document.getElementById("pricing-health-metrics").replaceChildren(
       metric("Active physical inventory", count(inv.active_items), "Items tracked"),

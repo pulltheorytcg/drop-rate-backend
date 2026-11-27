@@ -107,7 +107,10 @@ async def main():
                 for _ in range(2):
                     a,b=await overview(0),await overview(1)
                     assert a['active_inventory_count']==99 and a['active_recommended_count']==5 and a['active_unrecommended_count']==94
-                    assert a['active_market_value_minor']==14032 and a['active_recommended_retail_minor']==14032
+                    # Pricing rule 1: the raw NM guide copy (3p) counts in Market Value
+                    # as a labelled estimate; it never becomes a retail recommendation.
+                    assert a['active_market_value_minor']==14035 and a['active_recommended_retail_minor']==14032
+                    assert a['guide_estimate_count']==1 and a['guide_estimate_value_minor']==3
                     assert a['recorded_asking_value_minor']==2000 and a['recorded_asking_count']==2 and a['recommendation_guide_count']==0
                     assert a['active_recommended_retail_minor']==b['active_recommended_retail_minor'] and b['recorded_asking_value_minor']==3000
                 for n in range(2):

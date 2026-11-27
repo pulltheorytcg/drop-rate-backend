@@ -67,12 +67,16 @@ def test_sealed_never_inherits_card_value():
     assert result['market_value_minor']==866
 
 def test_guide_is_labelled_and_never_substituted_for_a_slab_or_worn_card():
+    # Owner rule 1 (27 Nov 2026): UK sold first, else a labelled Cardmarket
+    # EU guide estimate for raw NM/unknown-condition cards. No retail figure.
     guide=snapshot(method=GUIDE,basis_condition=None,input_sale_count='0',oldest_sale_at=None)
     for condition in ('Near Mint',None):
         raw=item();raw['condition']=condition
         value=resolve_reference_value(raw,[guide],now=NOW)
         assert value['status']=='REFERENCE_ESTIMATE'
-        assert value['market_value_minor'] is None and value['recommended_retail_minor'] is None
+        assert value['market_value_minor']==1200 and value['recommended_retail_minor'] is None
+        assert value['label']=='Estimate · Cardmarket EU guide'
+        assert 'fewer than five recent exact UK sales' in value['reason']
     for changes in ({'condition':'Damaged'},{'condition':None,'grade':'10','grading_company':'PSA'},{'condition':None,'product_type':'SEALED','seal_status':'SEALED'}):
         raw=item();raw.update(changes);assert resolve_reference_value(raw,[guide],now=NOW)['market_value_minor'] is None
     assert resolve_reference_value(item(),[guide,snapshot(market_value_minor=777)],now=NOW)['market_value_minor']==777
@@ -98,7 +102,25 @@ def test_reference_totals_and_groups_do_not_promote_unknowns():
         row=item();row['market_value_minor']=value;row['reference_value']={'status':'AVAILABLE' if value else 'UNAVAILABLE'};data.append(row)
     result=reference_totals(data);assert result['valued_count']==2 and result['unvalued_count']==1 and result['total_minor']==2400
     assert reference_totals([data[2]])['total_minor'] is None
+    assert result['estimate_count']==0 and result['estimate_total_minor'] is None
     groups=reference_top_groups(data);assert len(groups)==1 and groups[0]['holding_value_minor']==2400 and groups[0]['quantity']==2
+
+
+def test_totals_include_labelled_estimates_and_report_them_separately():
+    sold=item(market_value_minor=1200,reference_value={'status':'AVAILABLE'})
+    guide=item(market_value_minor=500,reference_value={'status':'REFERENCE_ESTIMATE'})
+    stale=item(market_value_minor=None,reference_value={'status':'STALE','last_known_minor':900})
+    result=reference_totals([sold,guide,stale])
+    assert result['total_minor']==1700 and result['valued_count']==2 and result['unvalued_count']==1
+    assert result['estimate_count']==1 and result['estimate_total_minor']==500
+
+
+def test_expired_guide_shows_last_known_but_no_current_value():
+    old=snapshot(method=GUIDE,basis_condition=None,input_sale_count='0',oldest_sale_at=None,
+                 evidence_checked_at=NOW-timedelta(days=8))
+    result=resolve_reference_value(item(),[old],now=NOW)
+    assert result['status']=='STALE' and result['market_value_minor'] is None
+    assert result['last_known_minor']==1200
 
 
 @pytest.mark.asyncio

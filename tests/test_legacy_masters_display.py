@@ -161,7 +161,9 @@ async def test_owner_and_catalogue_paths_share_guide_without_copy_money_changes(
     assert item["catalogue_reference"]["market_value_minor"]==3
     assert item["market_value_minor"] is None and item["store_price_minor"]==100
     prices=await read_shared_prices(Connection(),[{"card_number":"BT13-029"}],now=NOW)
-    # Market Value and its search/sort index are sold-only; a legacy
-    # Cardmarket catalogue guide remains available for separate research.
-    assert "c:"+str(product["id"]) not in prices
-    assert reference_key(row) not in prices
+    # Owner rule 2 (27 Nov 2026): the Cardmarket catalogue guide shows in
+    # browse as a labelled EU estimate; the owner's copy money is unchanged.
+    shared=prices["c:"+str(product["id"])]["shared_price"]
+    assert shared["status"]=="CATALOGUE_GUIDE" and shared["method"]=="CARDMARKET_CATALOGUE_GUIDE"
+    assert shared["recommended_retail_minor"] is None and shared["physical_valuation_eligible"] is False
+    assert item["market_value_minor"] is None and item["store_price_minor"]==100
