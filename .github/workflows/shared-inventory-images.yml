@@ -19,7 +19,7 @@ permissions:
   contents: read
 jobs:
   postgres-images:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 6
     services:
       postgres:
@@ -45,7 +45,7 @@ jobs:
         env:
           MEDIA_TEST_DSN: postgresql://postgres:disposable-media-only@127.0.0.1:5432/media_test
   browser-images:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 6
     steps:
       - uses: actions/checkout@v7
@@ -62,7 +62,7 @@ jobs:
           path: /tmp/shared-image-layout
   production-readback:
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright browsers do not support ubuntu-latest (26.04) yet
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
