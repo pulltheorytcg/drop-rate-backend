@@ -1,3 +1,15 @@
+## 27 November 2026 — DR-OPS-1 refresh jobs isolated from the API connection pool (PR, NOT DEPLOYED)
+
+- **INCIDENT:** On 27 Nov, with `DROP_RATE_CATALOGUE_BULK_HOLD=false` on `drop-rate-api-live` (`4e12782c`), startup refresh jobs held all 5 `tcg_api` API-pool connections from 19:05:45 UTC. All DB-backed routes hung: heartbeat and receipt returned 499 after 15 s, `prepare-enrichment-worklist` after 180 s. Restoring the hold at 19:33 recovered the app.
+- **FIX IN REVIEW:**
+  - Every startup background task now receives `app.state.job_db`. That is a separate job pool (`TCG_DB_JOB_POOL_MAX`, default 4) plus one advisory-lock session, with bounded acquires (`TCG_DB_JOB_ACQUIRE_TIMEOUT_SECONDS`, default 30).
+  - Job lock sites use `lock_session(pool)`, so a long pass no longer pins a pooled connection.
+  - Linked-draft concurrency is capped from the job pool.
+  - Lock keys, receipts, bulk hold, capacity guard, pricing, RLS, Store Prices, Shopify and ownership are unchanged. No new Railway service.
+  - Connections per API replica go from 5 to at most 10. A read-only check showed `max_connections=60` and no `tcg_api` role limit.
+- **TESTS:** New real-PostgreSQL CI check `job-pool-isolation`, which proves a 1 s API acquire while the real `daily_pass` and a saturated job pool run with the hold off, plus a negative control. New unit tests in `tests/test_job_database.py`. The full local pytest suite was run on Windows; CI results are on the PR.
+- **NOT DONE:** Not merged or deployed. The production hold stays `true` until merge and deploy. Then one bounded batch with the hold lifted must show heartbeats every 5 minutes and a signed-in catalogue request succeeding. See [background-job database pool](docs/BACKGROUND_JOB_DATABASE_POOL.md). Rollback: `DROP_RATE_CATALOGUE_BULK_HOLD=true`.
+
 ## 14 November 2026 — Cardmarket source-qualified EU market-reference pilot LIVE; full matching and restore verified
 
 - **Merged/deployed** PR #1095 at main `563e22a0852faaed5d79162021d58dd39328cd12`, repair PR #1097 at `8e7bdfa87638f0f27a1d9de78aabf2820ff199c9`. Railway live API deployment `b7eb03e0-32bc-441a-98b6-9c2b2c5ef121` SUCCESS, `/health/ready` HTTP 200, existing Pro bulk hold remains active.

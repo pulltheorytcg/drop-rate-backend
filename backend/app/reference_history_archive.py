@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
 from .access_control import require_platform_admin
+from .job_database import lock_session
 from .object_storage import ObjectStorageError, configured_object_storage, sha256_file
 
 ARCHIVE_LOCK = 847220092
@@ -210,7 +211,7 @@ async def archive_reference_history(pool, actor: UUID, *, cleanup=False,
     if store is None:
         return {'status': 'DISABLED', 'rows_archived': 0, 'bytes_reclaimed': 0}
     # Shared with bulk pricing; short transactions never span storage requests.
-    async with pool.acquire(timeout=15) as lock:
+    async with lock_session(pool, timeout=15) as lock:
         if not await lock.fetchval('select pg_try_advisory_lock($1)', ARCHIVE_LOCK):
             return {'status': 'BUSY', 'rows_archived': 0, 'bytes_reclaimed': 0}
         try:
