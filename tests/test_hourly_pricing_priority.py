@@ -29,7 +29,7 @@ class Clock(datetime):
 
 
 def scheduler(*, allowed=True, recent=False, bulk_error=False, sources=(), hourly_reports=None,
-              prior_jobs=()):
+              prior_jobs=(), asking_error=False):
     """Compile source bodies, not a test copy of the ordering implementation."""
     path = Path(__file__).parents[1] / 'backend/app/catalogue_maintenance.py'
     source = ast.parse(path.read_text(encoding='utf-8'))
@@ -115,6 +115,11 @@ def scheduler(*, allowed=True, recent=False, bulk_error=False, sources=(), hourl
         if bulk_error:
             raise RuntimeError('bulk provider failed')
 
+    async def asking(pool, actor, settings, *, now):
+        events.append(('ebay_asking', {'now':now}))
+        if asking_error:
+            raise RuntimeError('eBay collector failed')
+
     async def receipt(pool, actor, job, status, report):
         events.append(('receipt', {'job':job, 'status':status, 'report':report}))
         jobs[:] = [prior for prior in jobs if prior['job'] != job]
@@ -130,6 +135,7 @@ def scheduler(*, allowed=True, recent=False, bulk_error=False, sources=(), hourl
         refresh_pokewallet_dragon_ball=record('dragon_ball'),
         refresh_pokewallet_pokemon=record('pokemon'), receipt=receipt, warm_prices=bulk,
         sync_source=metadata, refresh_exports=record('tcgcsv'),
+        scheduled_asking_pass=asking,
         asyncio=SimpleNamespace(wait_for=wait_for, TimeoutError=TimeoutError))
     settings = SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()),
         catalogue_price_refresh_limit=40, cardtrader_api_token='test', pokewallet_api_key='fixture',
@@ -166,6 +172,23 @@ def test_hourly_quotes_and_receipts_run_before_bulk_with_unchanged_budget():
     assert all(data['status']=='COMPLETE' for _,data in receipts)
     assert names[-1] == 'unlock'
     assert names.count('coverage') >= 3
+
+
+def test_ebay_asking_collection_runs_once_before_bulk_under_the_capacity_guard():
+    module, pool, settings, events = scheduler()
+    complete(module.daily_pass(pool, settings))
+    names = [name for name, _ in events]
+    assert names.count('ebay_asking') == 1
+    assert names.index('capacity') < names.index('ebay_asking') < names.index('bulk')
+    assert dict(events)['ebay_asking']['now'] == NOW
+
+
+def test_ebay_asking_failure_does_not_stop_the_feeds_that_follow():
+    module, pool, settings, events = scheduler(asking_error=True)
+    complete(module.daily_pass(pool, settings))
+    names = [name for name, _ in events]
+    assert names.index('ebay_asking') < names.index('bulk')
+    assert 'cardmarket_values' in names and names[-1] == 'unlock'
 
 
 def test_long_bulk_failure_does_not_prevent_earlier_hourly_quotes_and_unlocks():

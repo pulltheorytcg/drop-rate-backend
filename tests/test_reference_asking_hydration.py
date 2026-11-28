@@ -126,6 +126,7 @@ def test_full_detail_rejection_replaces_an_earlier_summary_only_sample():
 def test_full_detail_examples_retain_different_reasons_from_the_same_card():
     state, ref = report(25), reference()
     missing_language = worker.bounded_item_detail(detail(1, localizedAspects=[
+        {"name": "Language", "value": "Japanese"},
         {"name": "Finish", "value": "Normal"}]), summary(1)["itemId"])
     missing_finish = worker.bounded_item_detail(detail(2, localizedAspects=[
         {"name": "Language", "value": "English"}]), summary(2)["itemId"])
@@ -253,9 +254,20 @@ def test_detail_cache_does_not_retain_description_or_unrelated_seller_data():
     assert worker.bounded_item_detail(payload, summary(2)["itemId"]) is None
 
 
-def test_retrieval_without_language_keeps_final_language_requirement():
+def test_retrieval_without_language_accepts_an_english_reference():
     store = RecordingStore([reference()])
     details = {summary(i)["itemId"]: detail(i, localizedAspects=[{"name": "Finish", "value": "Normal"}])
+               for i in range(1, 4)}
+    client = DetailClient(store, details=details)
+    state, _ = execute(store, client)
+    assert state["stats"]["matched"] == 1
+    assert "LANGUAGE_MISMATCH_OR_UNKNOWN" not in store.estimates[0]["rejection_counts"]
+
+
+def test_retrieval_naming_another_language_keeps_the_language_requirement():
+    store = RecordingStore([reference()])
+    details = {summary(i)["itemId"]: detail(i, localizedAspects=[
+        {"name": "Language", "value": "Japanese"}, {"name": "Finish", "value": "Normal"}])
                for i in range(1, 4)}
     client = DetailClient(store, details=details)
     state, _ = execute(store, client)

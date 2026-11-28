@@ -167,6 +167,9 @@ class Settings:
     book_ebay_context_enabled: bool = False
     book_ebay_context_daily_call_limit: int = 500
     book_ebay_context_probe_isbn: str | None = None
+    # Hourly UK asking-price collection for stock and high-value catalogue
+    # cards. On by default; it still needs the eBay application and postcode.
+    ebay_asking_schedule_enabled: bool = True
     shopify_shop_domain: str | None = None
     shopify_client_id: str | None = None
     shopify_client_secret: str | None = None
@@ -320,6 +323,7 @@ class Settings:
                 "TCG_BOOK_EBAY_CONTEXT_DAILY_CALL_LIMIT", 500, minimum=1, maximum=4000
             ),
             book_ebay_context_probe_isbn=_optional("TCG_BOOK_EBAY_CONTEXT_PROBE_ISBN"),
+            ebay_asking_schedule_enabled=_boolean("TCG_EBAY_ASKING_SCHEDULE_ENABLED", True),
             shopify_shop_domain=_shopify_domain("TCG_SHOPIFY_SHOP_DOMAIN"),
             shopify_client_id=_optional("TCG_SHOPIFY_CLIENT_ID"),
             shopify_client_secret=_optional("TCG_SHOPIFY_CLIENT_SECRET"),

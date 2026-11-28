@@ -164,13 +164,141 @@ def test_explicit_non_holo_remains_a_valid_normal_finish():
 @pytest.mark.parametrize("replacement", [
     ("Charizard", "Charmeleon"), ("4/102", "44/102"), ("4/102", "4/130"),
     ("Base Set", "Base Set 2"), ("Pokemon", "One Piece"), ("English", "Japanese"),
-    ("English", ""), ("Holo", "Reverse Holo"),
+    ("Holo", "Reverse Holo"),
 ])
 def test_exact_identity_required(replacement):
     bad = row(1)
     bad["title"] = bad["title"].replace(*replacement)
     result = estimate([bad, row(2), row(3)])
     assert result["status"] == "INSUFFICIENT_COMPARABLES"
+
+
+def unstated_language_rows(extra=""):
+    return [row(i, str(100 + i), title=f"Pokemon Charizard 4/102 Base Set Holo Near Mint{extra}")
+            for i in range(1, 4)]
+
+
+def test_english_reference_accepts_a_uk_listing_that_names_no_language():
+    # UK sellers rarely write "English" on an English card.
+    result = estimate(unstated_language_rows())
+    assert result["status"] == "READY"
+    assert result["funnel"]["missing_language_evidence"] == 0
+
+
+def test_japanese_reference_still_requires_the_language_to_be_named():
+    result = estimate(unstated_language_rows(), reference(language="Japanese"))
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["rejection_counts"]["LANGUAGE_MISMATCH_OR_UNKNOWN"] == 3
+    assert result["funnel"]["missing_language_evidence"] == 3
+
+
+@pytest.mark.parametrize("code", ["sv2a", "s12a", "SM12a", "s8b"])
+def test_japanese_release_code_blocks_the_english_default(code):
+    result = estimate(unstated_language_rows(" " + code))
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["rejection_counts"]["LANGUAGE_MISMATCH_OR_UNKNOWN"] == 3
+
+
+@pytest.mark.parametrize("language", ["Japanese", "German", "FR"])
+def test_another_language_in_a_specific_overrides_the_english_default(language):
+    rows = unstated_language_rows()
+    rows[0]["localizedAspects"] = [{"name": "Language", "value": language}]
+    result = estimate(rows)
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["rejection_counts"]["LANGUAGE_MISMATCH_OR_UNKNOWN"] == 1
+
+
+def test_unrelated_specifics_do_not_invent_a_bundle_grade_or_condition():
+    # Joined specifics used to read as "2023 card" (a bundle), and a specific
+    # worded "Good" or "Excellent" as the card's condition.
+    aspects = [{"name": "Year Manufactured", "value": "2023"}, {"name": "Material", "value": "Card Stock"},
+               {"name": "Character", "value": "Ace"}, {"name": "Features", "value": "Good Value"},
+               {"name": "Professional Grader", "value": "Not Specified"},
+               {"name": "Graded", "value": "No"}, {"name": "Grade", "value": "Does not apply"},
+               {"name": "Certification Number", "value": "N/A"}]
+    rows = [row(i, str(100 + i), localizedAspects=aspects) for i in range(1, 4)]
+    assert estimate(rows)["status"] == "READY"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("Professional Grader", "Professional Sports Authenticator (PSA)"),
+    ("Grader", "ACE"), ("Grade", "9.5"), ("Graded", "Yes")])
+def test_a_real_grading_specific_still_rejects(field, value):
+    bad = row(1, localizedAspects=[{"name": field, "value": value}])
+    result = estimate([bad, row(2), row(3)])
+    assert result["rejection_counts"]["GRADED_OR_SLAB"] == 1
+
+
+def test_bundle_wording_in_the_title_still_rejects():
+    bad = row(1, title=row(1)["title"] + " 2 cards")
+    assert estimate([bad, row(2), row(3)])["rejection_counts"]["MULTI_ITEM_OR_NON_PHYSICAL"] == 1
+
+
+@pytest.mark.parametrize("aspect", ["010/025", "10 / 25", "10/025"])
+def test_padded_collector_number_specific_is_the_same_number(aspect):
+    ref = reference(name="Cyndaquil", card_number="10/25", set_name="McDonald's Collection 2021",
+                    set_id="2021swsh", provider_id="2021swsh-10")
+    rows = [row(i, str(100 + i), title="Cyndaquil 10/25 McDonald's Collection 2021 Holo Near Mint Pokemon Card",
+                localizedAspects=[{"name": "Card Number", "value": aspect}]) for i in range(1, 4)]
+    assert estimate(rows, ref)["status"] == "READY"
+
+
+def test_a_different_collector_number_specific_still_rejects():
+    bad = row(1, localizedAspects=[{"name": "Card Number", "value": "015"}])
+    assert estimate([bad, row(2), row(3)])["rejection_counts"]["CARD_NUMBER_MISMATCH"] == 1
+
+
+def set_151(**changes):
+    return reference(name="Pikachu", card_number="025/165", set_name="151", set_id="sv03.5",
+                     provider_id="sv03.5-025", finish="Reverse Holo", rarity="Common", **changes)
+
+
+def rows_151(set_value):
+    return [row(i, str(100 + i), title="Pokemon TCG Pikachu 025/165 Reverse Holo EN NM",
+                localizedAspects=[{"name": "Set", "value": set_value}]) for i in range(1, 4)]
+
+
+@pytest.mark.parametrize("set_value", ["151", "SV: Scarlet & Violet 151", "Scarlet & Violet—151"])
+def test_set_specific_that_contains_the_release_is_accepted(set_value):
+    assert estimate(rows_151(set_value), set_151())["status"] == "READY"
+
+
+@pytest.mark.parametrize("set_value", ["Paldea Evolved", "Scarlet & Violet", "Celebrations"])
+def test_set_specific_naming_another_release_still_rejects(set_value):
+    result = estimate(rows_151(set_value), set_151())
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["rejection_counts"]["SET_MISMATCH"] == 3
+
+
+def one_piece(**changes):
+    return reference(provider="Punk Records", system_code="ONE_PIECE_CARD_GAME", provider_id="OP16-064",
+                     set_id="OP16", set_name="The Time of Battle [OP-16]", name="Koby",
+                     card_number="OP16-064", finish=None, rarity="R", **changes)
+
+
+def one_piece_rows(aspects=()):
+    return [row(i, str(100 + i), title="Bandai One Piece Card Game Koby OP16-064 R Foil EN Mint",
+                localizedAspects=list(aspects)) for i in range(1, 4)]
+
+
+def test_release_coded_number_names_the_release_when_no_set_is_given():
+    result = estimate(one_piece_rows(), one_piece())
+    assert result["status"] == "READY"
+    assert result["selected_finish"] == "Foil"
+
+
+def test_release_coded_number_does_not_forgive_a_conflicting_set_specific():
+    result = estimate(one_piece_rows([{"name": "Set", "value": "OP12 Legacy of the Master"}]), one_piece())
+    assert result["rejection_counts"]["SET_MISMATCH"] == 3
+
+
+def test_masters_prefix_alone_still_never_names_the_release():
+    ref = reference(provider="Bandai Official", system_code="DRAGON_BALL_SUPER_MASTERS",
+                    provider_id="BT21-102", set_id="428021", set_name="Z04 Booster -WILD RESURGENCE-",
+                    name="Son Goku", card_number="BT21-102", finish=None, rarity="R")
+    rows = [row(i, str(100 + i), title="Dragon Ball Super Card Game Son Goku BT21-102 R Foil English Mint")
+            for i in range(1, 4)]
+    assert estimate(rows, ref)["rejection_counts"]["SET_MISMATCH"] == 3
 
 
 def test_multiple_card_identifiers_reject_a_disguised_bundle():
