@@ -45,6 +45,12 @@ async def main():
       create table tcg.reference_sets(provider text,system_code text,language text,set_id text,name text,release_date date);
       create table tcg.reference_market_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
       create table tcg.reference_catalogue_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
+      -- Stock values read the UK asking-average cache; empty in this fixture.
+      alter table tcg.reference_cards add column finish text;
+      create table tcg.reference_asking_prices(provider text,system_code text,language text,provider_id text,
+        snapshot_id uuid,reference_identity jsonb,estimate_minor bigint,estimate_high_minor bigint,currency text,
+        listing_count int,seller_count int,observed_at timestamptz,checked_at timestamptz,expires_at timestamptz,
+        method_version text,evidence jsonb);
       create table tcg.provider_catalogue_mappings(catalogue_id uuid,source_provider text,provider_language text,match_status text,system_code text,provider_id text,provider_entity_type text,provider_variant_key text,verification_basis text,confidence numeric,metadata jsonb);
       create table tcg.market_source_mappings(catalogue_id uuid,source text,match_status text);
       create table tcg.pricing_snapshots(id uuid primary key default gen_random_uuid(),inventory_id uuid,catalogue_id uuid,owner_id uuid,

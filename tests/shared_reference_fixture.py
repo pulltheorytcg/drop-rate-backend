@@ -22,6 +22,13 @@ async def install_reference_schema(db):
       alter table tcg.reference_cards add column if not exists image_url text,
         add column if not exists source_url text,add column if not exists evidence jsonb;
       create table if not exists tcg.reference_sealed_products(provider text,system_code text,language text,provider_id text,set_id text,name text,product_type text,image_url text);
+      -- Stock values read the UK asking-average cache (28 Nov 2026). Empty
+      -- here: a fixture without asking rows keeps its previous values.
+      alter table tcg.reference_cards add column if not exists finish text;
+      create table if not exists tcg.reference_asking_prices(provider text,system_code text,language text,
+        provider_id text,snapshot_id uuid,reference_identity jsonb,estimate_minor bigint,estimate_high_minor bigint,
+        currency text,listing_count int,seller_count int,observed_at timestamptz,checked_at timestamptz,
+        expires_at timestamptz,method_version text,evidence jsonb);
       -- The display-only catalogue fallback reads the optional exact-system
       -- profile, including when this fixture has no matching profile rows.
       create table if not exists tcg.catalogue_product_profiles(
@@ -40,6 +47,7 @@ async def install_reference_schema(db):
         end if;
       end$$;
       grant select on tcg.reference_sets,tcg.reference_cards,tcg.reference_market_prices,tcg.reference_catalogue_prices,tcg.reference_sealed_products,
+        tcg.reference_asking_prices,
         tcg.catalogue_product_profiles,tcg.provider_catalogue_mappings,tcg.market_source_mappings to tcg_api;
     ''')
     for name in ('20261009184349_independent_catalogue_valuations.sql',
