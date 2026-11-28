@@ -1,3 +1,23 @@
+## 28 November 2026 — Three catalogue sources that failed every run now load (PR #1120)
+
+- **Found:** `one_piece_official`, `naruto_kayou` and `naruto_bandai` ended INCOMPLETE with 0 records on every run. The receipt held only `{"reason": "ReferenceFeedError"}`, so the cause was not visible. Each was reproduced read-only against the live sites.
+
+  | Source | Failing since | Cause | Effect |
+  |---|---|---|---|
+  | `one_piece_official` | 3 failed runs since 1 Nov; last success 8 Nov | The checklist count now reads "159 Results"; the importer required lower-case "results". | OP-18 "The Dominance of God" (English, released 20 Nov, 159 cards) never reached the catalogue. |
+  | `naruto_kayou` | 30 Oct, 68 runs | The site moved `/archive/kayou/…` to `/kayou/…` and answers the old path with HTTP 308. Feeds never follow redirects. | Stored cards frozen at 29 Oct (2,679). |
+  | `naruto_bandai` | 30 Oct, 68 runs | Same move: `/archive/classic-ccg/…` to `/naruto-ccg/…`. | Stored cards frozen at 29 Oct (4,487). |
+- **Fix:**
+  - One Piece: the count label is read in any letter case. The number must still equal the cards read from the page.
+  - Naruto: the two reviewed paths are updated, including page links. Redirects are still refused. If page links exist but not under the reviewed path, the import now stops instead of reporting the first 150 cards as a complete checklist.
+  - A failed run records the importer's own message in `report.failures[].detail` (160 characters at most). Only `ReferenceFeedError` text is recorded: it is fixed text written in the importers. Other errors still record the type only.
+  - `SOURCE_REVISIONS`: `one_piece_official` 2→3, both Naruto sources 1→2, so they are due on the next pass.
+- **Verified read-only against the live sites with the fixed importers (no database writes):** One Piece 4 sets, 679 cards (OP-15 196, OP-16 155, OP-17 169, OP-18 159). Naruto Kayou 43 sets, 2,679 cards over 18 pages. Naruto Bandai legacy 38 sets, 4,487 cards over 30 pages. The Naruto set and card counts equal what is stored, so those cards update in place.
+- **What the first run changes in production:** adds the OP-18 set and its 159 cards. Re-points about 7,200 Naruto cards at the new page addresses (`source_url`); their identities and artwork addresses are unchanged. Both changes move the catalogue publication behind once, which is what PR #1118 covers.
+- **Tests:** letter-case and strictness cases for the One Piece count; Naruto feed end to end at the new addresses, moved page links, repeated page and missing identity; failure-reason recording and its limits.
+- **Not changed:** no pricing rule, RLS, schema or migration. No other source.
+- **Rollback:** revert the PR. Imported reference rows stay; nothing is deleted.
+
 ## 28 November 2026 — Browse keeps the last published card list while a republish is pending (PR #1118, LIVE `53da239`)
 
 - **Live:** merged as `53da239`, Railway deployment `f54b97b0` succeeded at 01:02 UTC, `/health/ready` 200 (83 ms). All 16 CI checks passed, including the real-PostgreSQL R2 catalogue parity job with the new cases.

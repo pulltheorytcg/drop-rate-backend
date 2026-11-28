@@ -123,8 +123,19 @@ def bandai_cards(content, *, fusion, url, set_id):
     return cards
 
 
-def archive_page(content, family):
-    """Read the public rendered card-list props, never evaluate page scripts."""
+# narutocardgame.gg moved its checklists out of /archive/ on 30 Oct 2026
+# (/archive/kayou -> /kayou, /archive/classic-ccg -> /naruto-ccg) and answers
+# the old addresses with a permanent redirect. Feeds never follow redirects, so
+# the reviewed paths are named here.
+NARUTO_ARCHIVE_PATHS = {True: 'kayou', False: 'naruto-ccg'}
+
+
+def archive_page(content, path):
+    """Read the public rendered card-list props, never evaluate page scripts.
+
+    ``path`` is the checklist's site path (see NARUTO_ARCHIVE_PATHS). Returns
+    the page's cards and the highest page number linked under that path.
+    """
     arrays=[]
     for match in re.finditer(r'self\.__next_f\.push\((.*?)\)</script>',content):
         try:
@@ -140,7 +151,11 @@ def archive_page(content, family):
             continue
     if len(arrays)!=1 or not arrays[0]:
         raise ReferenceFeedError('Naruto checklist response has no unique card list')
-    pages=[int(p) for p in re.findall(r'href="/archive/'+re.escape(family)+r'/cards/page/(\d+)"',content)]
+    pages=[int(p) for p in re.findall(r'href="/'+re.escape(path)+r'/cards/page/(\d+)"',content)]
+    if not pages and re.search(r'href="[^"]*/cards/page/\d+"',content):
+        # Page links exist but not under the reviewed path. Reading only this
+        # page would report a 150-card checklist as complete.
+        raise ReferenceFeedError('Naruto checklist page links have moved')
     return arrays[0],max(pages,default=1)
 
 
@@ -171,15 +186,15 @@ async def bandai_feed(feeds, *, fusion):
 
 
 async def naruto_feed(feeds, *, kayou):
-    family='kayou' if kayou else 'classic-ccg'
-    base=f'https://narutocardgame.gg/archive/{family}'
+    path=NARUTO_ARCHIVE_PATHS[bool(kayou)]
+    base=f'https://narutocardgame.gg/{path}'
     first=await feeds.get_text(f'{base}/cards')
-    first_cards,pages=archive_page(first,family)
+    first_cards,pages=archive_page(first,path)
     if pages>100: raise ReferenceFeedError('Naruto page limit exceeded')
     groups=defaultdict(dict)
     seen_pages=set()
     for page in range(1,pages+1):
-        rows=first_cards if page==1 else archive_page(await feeds.get_text(f'{base}/cards/page/{page}'),family)[0]
+        rows=first_cards if page==1 else archive_page(await feeds.get_text(f'{base}/cards/page/{page}'),path)[0]
         fingerprint=tuple(row['slug'] for row in rows)
         if fingerprint in seen_pages: raise ReferenceFeedError('Repeated Naruto page')
         seen_pages.add(fingerprint)

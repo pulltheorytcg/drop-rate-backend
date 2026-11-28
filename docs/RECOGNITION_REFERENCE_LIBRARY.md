@@ -29,8 +29,13 @@ Sources:
 - https://www.dbs-cardgame.com/us-en/cardlist/
 - https://www.dbs-cardgame.com/fw/en/cardlist/
 - https://www.dbs-cardgame.com/fw/jp/cardlist/
-- https://narutocardgame.gg/archive/kayou/cards
-- https://narutocardgame.gg/archive/classic-ccg/cards
+- https://narutocardgame.gg/kayou/cards
+- https://narutocardgame.gg/naruto-ccg/cards
+
+The Naruto site moved these two checklists out of `/archive/` on 30 Oct 2026.
+Feeds never follow redirects, so both sources failed on every run until the
+paths were updated on 28 Nov 2026. A failed run now records the importer's own
+reason in `tcg.reference_sync_runs.report.failures[].detail`.
 
 ## Recognition contract
 
