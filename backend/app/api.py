@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import time
+from collections import OrderedDict
 from typing import Annotated
 from urllib.parse import urljoin, urlparse
 from uuid import UUID, uuid4
@@ -205,7 +207,52 @@ def _inventory_image_redirect_target(current_url: str, location: str) -> str | N
     return target if _inventory_image_source_allowed(target) else None
 
 
+# Fetched image bytes by source URL. The route authorises the item and picks
+# the URL before this cache is consulted, so it never decides who may see an
+# image; it only stops re-downloading the same Shopify file on every tile
+# (0.4 to 1.9 s each on the owner inventory page, 28 Nov 2026).
+_INVENTORY_IMAGE_CACHE: "OrderedDict[str, tuple[float, bytes, str]]" = OrderedDict()
+INVENTORY_IMAGE_CACHE_TTL = 3600.0
+INVENTORY_IMAGE_CACHE_MAX_BYTES = 48 * 1024 * 1024
+# Browsers may keep an owner's own image briefly; an approval change shows
+# within this window.
+INVENTORY_IMAGE_BROWSER_CACHE = "private, max-age=300"
+
+
+def _cached_inventory_image(url: str) -> tuple[bytes, str] | None:
+    entry = _INVENTORY_IMAGE_CACHE.get(url)
+    if entry is None:
+        return None
+    if entry[0] < time.monotonic():
+        _INVENTORY_IMAGE_CACHE.pop(url, None)
+        return None
+    _INVENTORY_IMAGE_CACHE.move_to_end(url)
+    return entry[1], entry[2]
+
+
+def _remember_inventory_image(url: str, content: bytes, content_type: str) -> None:
+    _INVENTORY_IMAGE_CACHE[url] = (time.monotonic() + INVENTORY_IMAGE_CACHE_TTL, content, content_type)
+    _INVENTORY_IMAGE_CACHE.move_to_end(url)
+    total = sum(len(entry[1]) for entry in _INVENTORY_IMAGE_CACHE.values())
+    while total > INVENTORY_IMAGE_CACHE_MAX_BYTES and _INVENTORY_IMAGE_CACHE:
+        _, removed = _INVENTORY_IMAGE_CACHE.popitem(last=False)
+        total -= len(removed[1])
+
+
 async def _fetch_inventory_image(
+    client: httpx.AsyncClient,
+    url: str,
+) -> tuple[bytes, str] | None:
+    cached = _cached_inventory_image(url) if _inventory_image_source_allowed(url) else None
+    if cached is not None:
+        return cached
+    fetched = await _download_inventory_image(client, url)
+    if fetched is not None:
+        _remember_inventory_image(url, *fetched)
+    return fetched
+
+
+async def _download_inventory_image(
     client: httpx.AsyncClient,
     url: str,
 ) -> tuple[bytes, str] | None:
@@ -594,7 +641,7 @@ async def inventory_card_image(
                     "X-Drop-Rate-Media-Id": str(asset["id"]),
                     "X-Drop-Rate-Media-Provider": str(asset["source_provider"] or ""),
                     "X-Drop-Rate-Media-Scope": str(asset["scope"]),
-                    "Cache-Control": "private, no-store", "Vary": "Authorization",
+                    "Cache-Control": INVENTORY_IMAGE_BROWSER_CACHE, "Vary": "Authorization",
                     "X-Content-Type-Options": "nosniff",
                 })
             urls: list[str] = []
@@ -619,7 +666,7 @@ async def inventory_card_image(
                         "X-Drop-Rate-Media-Id": str(asset["id"]),
                         "X-Drop-Rate-Media-Provider": str(asset["source_provider"] or ""),
                         "X-Drop-Rate-Media-Scope": str(asset["scope"]),
-                        "Cache-Control": "private, no-store",
+                        "Cache-Control": INVENTORY_IMAGE_BROWSER_CACHE,
                         "Vary": "Authorization",
                         "X-Content-Type-Options": "nosniff",
                     },

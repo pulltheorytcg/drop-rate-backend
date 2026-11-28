@@ -162,7 +162,8 @@ async def test_inventory_uses_exact_verified_mirror_before_provider(delivery):
     response = await delivery.call()
     assert response.body == WEBP and response.media_type == 'image/webp'
     assert delivery.source_requests == [] and len(delivery.client.reads) == 1
-    assert response.headers['cache-control'] == 'private, no-store'
+    # The owner's own browser may keep it for five minutes; no shared cache may.
+    assert response.headers['cache-control'] == 'private, max-age=300'
     assert response.headers['vary'] == 'Authorization'
     assert response.headers['x-drop-rate-media-id'] == str(delivery.assets[0]['id'])
 

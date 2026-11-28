@@ -144,6 +144,47 @@ async def test_inventory_image_fetch_streams_valid_bounded_payload() -> None:
     assert result == (b"abcdef", "image/webp")
 
 
+@pytest.mark.asyncio
+async def test_inventory_image_bytes_are_reused_for_the_same_source(monkeypatch) -> None:
+    import app.api as api
+    monkeypatch.setattr(api, "_INVENTORY_IMAGE_CACHE", api.OrderedDict())
+    client = _FakeClient([
+        _FakeResponse(200, headers={"content-type": "image/webp", "content-length": "3"}, chunks=[b"abc"]),
+    ])
+    url = "https://cdn.shopify.com/s/files/1/card.webp"
+    assert await _fetch_inventory_image(client, url) == (b"abc", "image/webp")  # type: ignore[arg-type]
+    assert await _fetch_inventory_image(client, url) == (b"abc", "image/webp")  # type: ignore[arg-type]
+    assert client.calls == [url]
+
+
+@pytest.mark.asyncio
+async def test_inventory_image_cache_expires_skips_failures_and_is_bounded(monkeypatch) -> None:
+    import app.api as api
+    monkeypatch.setattr(api, "_INVENTORY_IMAGE_CACHE", api.OrderedDict())
+    url = "https://cdn.shopify.com/s/files/1/card.webp"
+    failing = _FakeClient([_FakeResponse(404)])
+    assert await _fetch_inventory_image(failing, url) is None  # type: ignore[arg-type]
+    assert url not in api._INVENTORY_IMAGE_CACHE
+    api._remember_inventory_image(url, b"old", "image/webp")
+    now = api.time.monotonic()
+    monkeypatch.setattr(api.time, "monotonic", lambda: now + api.INVENTORY_IMAGE_CACHE_TTL + 1)
+    assert api._cached_inventory_image(url) is None
+    monkeypatch.setattr(api, "INVENTORY_IMAGE_CACHE_MAX_BYTES", 5)
+    api._remember_inventory_image("https://cdn.shopify.com/a.webp", b"aaa", "image/webp")
+    api._remember_inventory_image("https://cdn.shopify.com/b.webp", b"bbb", "image/webp")
+    assert list(api._INVENTORY_IMAGE_CACHE) == ["https://cdn.shopify.com/b.webp"]
+
+
+@pytest.mark.asyncio
+async def test_a_cached_image_is_never_served_for_an_untrusted_host(monkeypatch) -> None:
+    import app.api as api
+    monkeypatch.setattr(api, "_INVENTORY_IMAGE_CACHE", api.OrderedDict())
+    api._INVENTORY_IMAGE_CACHE["https://evil.example/card.png"] = (api.time.monotonic() + 60, b"x", "image/png")
+    client = _FakeClient([])
+    assert await _fetch_inventory_image(client, "https://evil.example/card.png") is None  # type: ignore[arg-type]
+    assert client.calls == []
+
+
 def test_recognition_reference_redirect_must_stay_on_trusted_host() -> None:
     current = "https://assets.tcgdex.net/card.png"
     assert _trusted_reference_url(current)
