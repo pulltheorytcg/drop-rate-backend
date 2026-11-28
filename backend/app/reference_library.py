@@ -122,7 +122,13 @@ async def save_reference_set(connection, record, cards):
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
             on conflict(provider,system_code,language,provider_id) do update set
                 set_id=excluded.set_id,name=excluded.name,card_number=excluded.card_number,
-                number_key=excluded.number_key,finish=excluded.finish,rarity=excluded.rarity,
+                number_key=excluded.number_key,finish=excluded.finish,
+                -- TCGdex set lists carry no rarity; the per-card price refresh
+                -- fills it. Keep it while the card's identity is unchanged.
+                rarity=case when excluded.rarity is null and tcg.reference_cards.set_id=excluded.set_id
+                  and tcg.reference_cards.name=excluded.name
+                  and tcg.reference_cards.card_number=excluded.card_number
+                  then tcg.reference_cards.rarity else excluded.rarity end,
                 image_url=case when tcg.reference_cards.set_id=excluded.set_id and tcg.reference_cards.name=excluded.name
                   and tcg.reference_cards.card_number=excluded.card_number
                   and tcg.reference_cards.source_url=excluded.source_url
