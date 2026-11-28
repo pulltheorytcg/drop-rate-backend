@@ -571,6 +571,11 @@ async def fetch(connection, query, params, snapshot, *, shared_keys=(), **scope)
     return await connection.fetch(query,*params)
 
 
+# catalogue_browser.product_query adds this to the reference CTE for a complete
+# printed collector number ("OP15-024", "BT21-079").
+COLLECTOR_NUMBER_FILTER = " and (r.number_key="
+
+
 async def fetch_snapshot(connection, query, params, snapshot, **scope):
     """Bound JSON joins without leaking planner settings to other SQL.
 
@@ -582,10 +587,13 @@ async def fetch_snapshot(connection, query, params, snapshot, **scope):
     """
     async with connection.transaction():
         from .catalogue_browser import REFERENCE_VALUES_CTE
-        if REFERENCE_VALUES_CTE in query:
+        if REFERENCE_VALUES_CTE in query or COLLECTOR_NUMBER_FILTER in query:
             # Complete value ranking remains the live SQL authority. Sending
             # all 70k identities as one parameter message stalls the production
             # connection; ordinary bounded pages still use R2 inputs/prices.
+            # A collector-number search is already bounded to an index lookup
+            # in the live SQL; the snapshot would replace that with all 70k
+            # cards (33 s and a timeout for "OP15-024" on 28 Nov 2026).
             return await connection.fetch(query,*params)
         previous=await connection.fetchrow("select current_setting('enable_nestloop') as nestloop,current_setting('enable_mergejoin') as mergejoin,current_setting('jit') as jit")
         await connection.execute('set local enable_nestloop=off; set local enable_mergejoin=off; set local jit=off')
