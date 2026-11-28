@@ -557,6 +557,15 @@ async def daily_pass(pool,settings):
                 await scheduled_asking_pass(pool,actor,settings,now=now)
             except Exception as exc:
                 log.error('EBAY_ASKING_SCHEDULE_FAILED %s',type(exc).__name__)
+            # Read-only, once per process: how CardTrader names One Piece
+            # parallels, for an exact Cardmarket bridge. No writes.
+            if getattr(settings,'cardtrader_api_token',None):
+                try:
+                    from .one_piece_cardtrader_probe import probe_once
+                    await probe_once(CardTraderClient(api_token=settings.cardtrader_api_token,
+                                                      timeout_seconds=20))
+                except Exception as exc:
+                    log.error('ONE_PIECE_CARDTRADER_PROBE_FAILED %s',type(exc).__name__)
             # Official expansion-level marketplace API: one read for all
             # blueprints in a set, without the 2,000-call eBay Browse bottleneck.
             # This is opt-in and starts as a dry run. It never writes inventory,
