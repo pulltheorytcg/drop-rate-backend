@@ -1035,7 +1035,9 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     )
     if total_ms >= 1500:
         # Never log q, provider IDs, physical inventory, owner/user ID, or keys.
-        logger.info(
+        # Warning level: production does not emit info lines, so a slow page
+        # would otherwise leave no record of which stage took the time.
+        logger.warning(
             'CATALOGUE_PRODUCTS_TIMING total_ms=%s pool_ms=%s shared_ms=%s '
             'index_ms=%s sql_ms=%s enrich_ms=%s serialize_ms=%s '
             'sort=%s system=%s product_type=%s r2_ready=%s set_cache=%s rows=%s',

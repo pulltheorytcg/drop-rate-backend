@@ -34,7 +34,7 @@ def test_products_telemetry_is_slow_only_and_never_logs_private_search_inputs():
     tree = ast.parse(source)
     calls = [
         node for node in ast.walk(tree) if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute) and node.func.attr == "info"
+        and isinstance(node.func, ast.Attribute) and node.func.attr == "warning"
         and node.args and isinstance(node.args[0], ast.Constant)
         and isinstance(node.args[0].value, str)
         and node.args[0].value.startswith("CATALOGUE_PRODUCTS_TIMING")

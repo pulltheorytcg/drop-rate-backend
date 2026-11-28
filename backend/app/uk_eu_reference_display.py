@@ -28,7 +28,7 @@ FINISHES = {"normal": "Normal", "holo": "Holo", "holofoil": "Holo",
 # The shared query already validates current reference identity, exact matching
 # evidence, seller counts, age, expiry and the three-day cache contract.
 MODEL_DISPLAY_SQL = ASKING_DISPLAY_SQL.replace(
-    "select w.key,a.*,", "select w.key,a.*,a.snapshot_id as source_snapshot_id,r.evidence as reference_evidence,"
+    "select r.key,a.*,", "select r.key,a.*,a.snapshot_id as source_snapshot_id,r.evidence as reference_evidence,"
     "coalesce(m.quotes,'[]'::jsonb) as market_quotes,"
     "coalesce(b.quotes,'[]'::jsonb) as catalogue_quotes,"
 ).replace(
