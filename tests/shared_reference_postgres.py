@@ -136,7 +136,9 @@ async def main():
       image=await client.get(f'/api/v1/inventory/{raw[n]}/image',headers=headers(n));assert image.status_code==200,image.text
       assert image.content==PNG and image.headers['x-drop-rate-media-id']==str(media)
      assert (await client.get(f'/api/v1/inventory/{raw[0]}/image',headers=headers(1))).status_code==404
-  assert outbound==['https://www.onepiece-cardgame.com/shared.png']*2
+  # Both owners see the shared picture; the server downloads it once and
+  # reuses the bytes. The refused request fetched nothing.
+  assert outbound==['https://www.onepiece-cardgame.com/shared.png']
   assert before==await state(),'GET changed stock, price, history, image approval or listing'
   # Pending canonical pictures are not an uploader-only default anymore.
   await db.execute("update tcg.media_assets set approval_status='PENDING' where id=$1",media)

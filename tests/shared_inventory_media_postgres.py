@@ -120,14 +120,19 @@ async def main():
                         response=await client.get(path,headers=headers(n));assert response.status_code==200,response.text
                         expected=physical if n==0 and product==card else card_media if product==card else pack_media
                         assert response.headers['x-drop-rate-media-id']==str(expected)
-                        assert response.content==PNG and 'no-store' in response.headers['cache-control']
+                        # Only the requester's own browser may keep it, briefly.
+                        assert response.content==PNG and response.headers['cache-control']=='private, max-age=300'
+                        assert response.headers['vary']=='Authorization'
                 for n in (1,2):
                     assert (await client.get(f'/api/v1/inventory/{copies[0,card]}/image',headers=headers(n))).status_code==404
                 path=f'/api/v1/inventory/{copies[1,card]}/image'
                 assert (await client.get(path)).status_code==401
                 assert (await client.get(path,headers=headers(1,True))).status_code==401
                 assert not any('wrong-' in u or '/dead.' in u for u in outbound)
-                assert len(outbound)==6, 'Denied requests must not fetch anything'
+                # Each distinct source is downloaded once and then reused; denied
+                # requests fetch nothing.
+                assert len(outbound)==len(set(outbound)), 'A source was downloaded twice'
+                assert len(set(outbound))<=6, 'Denied requests must not fetch anything'
         for t,rows in before.items():assert rows==await db.fetch(f'select * from tcg.{t} order by id')
         assert audit_before==await db.fetch('select * from tcg.audit_events')
         # Exact owned slab only; catalogue art and another owner's slab cannot
