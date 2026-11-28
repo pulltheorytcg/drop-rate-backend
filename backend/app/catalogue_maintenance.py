@@ -385,6 +385,23 @@ def coverage_lags_pricing(latest):
     )
 
 
+def guide_values_lag_prices(latest):
+    """Stock guide values were last applied before price evidence was last rewritten.
+
+    A bulk price run rewrites each card's Cardmarket quote. The live-market pass
+    then clears any stock value whose recorded quote is no longer the stored
+    one, and the values return only when refresh_cardmarket_values runs at the
+    end of that same price run. A run cut short (a deploy restarts the worker)
+    never reaches that step, and its retry waits out the one-hour backoff.
+
+    On 28 Nov 2026 this left 66 One Piece and 16 Dragon Ball items without a
+    Market Value from 01:02 UTC although the evidence for them was current.
+    Re-applying needs no provider call: it reads stored quotes only.
+    """
+    prices=latest.get('REFERENCE_PRICES');values=latest.get('CARDMARKET_VALUES')
+    return prices is not None and (values is None or values['started_at']<prices['started_at'])
+
+
 async def daily_pass(pool,settings):
     actor=UUID(settings.catalogue_maintenance_actor_user_id)
     async with lock_session(pool) as lock:
@@ -595,8 +612,10 @@ async def daily_pass(pool,settings):
                     log.error('TCGCSV_DAILY_IMPORT_TIMEOUT')
             if weekly_price_due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
                 await refresh_catalogue_values(pool,actor)
+            guide_values_applied=False
             if weekly_price_due(latest.get('CARDMARKET_VALUES'),now,revision=CARDMARKET_VALUE_REVISION):
                 await refresh_cardmarket_values(pool,actor)
+                guide_values_applied=True
             for source in SOURCES:
                 if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
                     await sync_source(pool,actor,source,settings)
@@ -618,6 +637,12 @@ async def daily_pass(pool,settings):
                 if await run_one_piece_base_recovery(pool,actor)=='COMPLETE':
                     await record_coverage(pool,actor)
                     coverage_recorded=True
+            if (not weekly_due and not guide_values_applied
+                    and guide_values_lag_prices(latest)):
+                # The last price run did not reach its closing guide step
+                # (interrupted, or still backing off). Restore stock guide
+                # values from the stored quotes now; no provider is called.
+                await refresh_cardmarket_values(pool,actor)
             if (not coverage_recorded and
                 (sealed_refreshed or due(latest.get('CATALOGUE_COVERAGE'),now)
                   or coverage_lags_pricing(latest))):

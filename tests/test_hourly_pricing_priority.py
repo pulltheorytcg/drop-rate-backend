@@ -28,12 +28,14 @@ class Clock(datetime):
         return NOW
 
 
-def scheduler(*, allowed=True, recent=False, bulk_error=False, sources=(), hourly_reports=None):
+def scheduler(*, allowed=True, recent=False, bulk_error=False, sources=(), hourly_reports=None,
+              prior_jobs=()):
     """Compile source bodies, not a test copy of the ordering implementation."""
     path = Path(__file__).parents[1] / 'backend/app/catalogue_maintenance.py'
     source = ast.parse(path.read_text(encoding='utf-8'))
     functions = {'daily_pass', 'daily_slot', 'hourly_slot', 'weekly_price_slot',
-                 'weekly_price_due', 'due', 'coverage_lags_pricing', 'unapplied_trial_cursor'}
+                 'weekly_price_due', 'due', 'coverage_lags_pricing', 'unapplied_trial_cursor',
+                 'guide_values_lag_prices'}
     constants = {'POKEWALLET_JOB_REVISION', 'POKEWALLET_DBS_JOB_REVISION',
                  'POKEWALLET_POKEMON_JOB_REVISION', 'ONE_PIECE_HOURLY_REQUEST_BUDGET',
                  'DBS_HOURLY_REQUEST_BUDGET', 'POKEMON_HOURLY_REQUEST_BUDGET',
@@ -59,6 +61,7 @@ def scheduler(*, allowed=True, recent=False, bulk_error=False, sources=(), hourl
                                ('POKEWALLET_POKEMON_PRICES', module.POKEWALLET_POKEMON_JOB_REVISION)]:
             jobs.append(dict(job=name, status='COMPLETE', started_at=NOW,
                              report={'importer_revision':revision * 10 + 1, 'cursor':'old'}))
+    jobs.extend(dict(job) for job in prior_jobs)
 
     class Connection:
         async def fetchval(self, sql, *args):
@@ -258,6 +261,111 @@ def test_incomplete_hour_waits_for_next_slot_and_resumes_its_saved_cursor(provid
     assert len(calls) == 1
     assert calls[0]['previous_cursor'] == 'preserved-cursor'
     assert len([name for name,_ in events if name in HOURLY_JOBS]) == 3
+
+
+def price_run(module, *, minutes_ago, status='INCOMPLETE', **report):
+    return dict(job='REFERENCE_PRICES', status=status, started_at=NOW - timedelta(minutes=minutes_ago),
+                report={'importer_revision':module.REFERENCE_JOB_REVISION, 'provider_failures':0, **report})
+
+
+def guide_run(*, minutes_ago):
+    return dict(job='CARDMARKET_VALUES', status='COMPLETE',
+                started_at=NOW - timedelta(minutes=minutes_ago), report={'importer_revision':1})
+
+
+def revision_of():
+    module, _, _, _ = scheduler()
+    return module
+
+
+def test_interrupted_price_run_restores_stock_guide_values_on_the_next_pass():
+    # 28 Nov 2026: a deploy cut a price run short after it had rewritten the
+    # quotes. Stock values were cleared and stayed blank through the one-hour
+    # backoff. The next pass must re-apply them, without re-running the bulk job.
+    reference = revision_of()
+    module, pool, settings, events = scheduler(recent=True, prior_jobs=[
+        price_run(reference, minutes_ago=10, reason='INTERRUPTED'), guide_run(minutes_ago=70)])
+    complete(module.daily_pass(pool, settings))
+    names = [name for name,_ in events]
+    assert names.count('cardmarket_values') == 1
+    assert 'bulk' not in names, 'the interrupted run keeps its one-hour backoff'
+    assert not set(HOURLY_JOBS).intersection(names), 'no provider quota is spent'
+    assert names[-1] == 'unlock'
+
+
+@pytest.mark.parametrize('report', [
+    {'reason':'PROVIDER_UNAVAILABLE', 'provider_failures':40},
+    {'reason':'ValueError'},
+])
+def test_backing_off_price_run_also_restores_stock_guide_values(report):
+    reference = revision_of()
+    module, pool, settings, events = scheduler(recent=True, prior_jobs=[
+        price_run(reference, minutes_ago=20, **report), guide_run(minutes_ago=90)])
+    complete(module.daily_pass(pool, settings))
+    names = [name for name,_ in events]
+    assert names.count('cardmarket_values') == 1 and 'bulk' not in names
+
+
+def test_guide_values_applied_after_the_last_price_run_are_not_reapplied_every_pass():
+    reference = revision_of()
+    module, pool, settings, events = scheduler(recent=True, prior_jobs=[
+        price_run(reference, minutes_ago=30, reason='INTERRUPTED'), guide_run(minutes_ago=5)])
+    complete(module.daily_pass(pool, settings))
+    names = [name for name,_ in events]
+    assert 'cardmarket_values' not in names and 'bulk' not in names
+
+
+def test_due_price_run_applies_guide_values_once_in_its_own_closing_step():
+    # The bulk run is due: its own closing step applies the values. The
+    # catch-up must not add a second run in the same pass.
+    reference = revision_of()
+    module, pool, settings, events = scheduler(recent=True, prior_jobs=[
+        price_run(reference, minutes_ago=90, reason='INTERRUPTED'), guide_run(minutes_ago=120)])
+    complete(module.daily_pass(pool, settings))
+    names = [name for name,_ in events]
+    assert names.count('bulk') == 1 and names.count('cardmarket_values') == 1
+    assert names.index('bulk') < names.index('cardmarket_values')
+
+
+def test_first_guide_run_of_the_week_is_not_repeated_by_the_catch_up():
+    # No guide receipt yet: the weekly step applies values early in the pass.
+    reference = revision_of()
+    module, pool, settings, events = scheduler(recent=True, prior_jobs=[
+        price_run(reference, minutes_ago=10, reason='INTERRUPTED')])
+    complete(module.daily_pass(pool, settings))
+    names = [name for name,_ in events]
+    assert names.count('cardmarket_values') == 1 and 'bulk' not in names
+
+
+def test_capacity_guard_also_prevents_the_guide_catch_up():
+    reference = revision_of()
+    module, pool, settings, events = scheduler(allowed=False, prior_jobs=[
+        price_run(reference, minutes_ago=10, reason='INTERRUPTED'), guide_run(minutes_ago=70)])
+    complete(module.daily_pass(pool, settings))
+    assert [name for name,_ in events] == ['lock','admin','capacity','unlock']
+
+
+def test_guide_lag_compares_only_the_two_latest_receipts():
+    module = revision_of()
+    lag = module.guide_values_lag_prices
+    prices = {'started_at':NOW}
+    assert lag({'REFERENCE_PRICES':prices}) is True
+    assert lag({'REFERENCE_PRICES':prices, 'CARDMARKET_VALUES':{'started_at':NOW - timedelta(seconds=1)}}) is True
+    assert lag({'REFERENCE_PRICES':prices, 'CARDMARKET_VALUES':{'started_at':NOW}}) is False
+    assert lag({'REFERENCE_PRICES':prices, 'CARDMARKET_VALUES':{'started_at':NOW + timedelta(seconds=1)}}) is False
+    # Nothing has rewritten evidence yet: there is nothing to catch up on.
+    assert lag({}) is False
+    assert lag({'CARDMARKET_VALUES':{'started_at':NOW}}) is False
+
+
+def test_interruption_backoff_itself_is_unchanged():
+    # The one-hour wait after an interrupted bulk run protects provider quotas
+    # across a burst of deploys. Only the provider-free guide step catches up.
+    module = revision_of()
+    run = price_run(module, minutes_ago=10, reason='INTERRUPTED', more_due_at_start=True)
+    assert module.due(run, NOW, revision=module.REFERENCE_JOB_REVISION) is False
+    assert module.due(dict(run, started_at=NOW - timedelta(minutes=61)), NOW,
+                      revision=module.REFERENCE_JOB_REVISION) is True
 
 
 def test_lower_operator_request_limits_remain_below_hourly_caps():
