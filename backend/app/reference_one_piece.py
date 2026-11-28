@@ -145,7 +145,10 @@ async def official_feed(feeds):
     for record in records:
         content = await feeds.get_text(record['source_url'])
         counts = [node.text() for node in Document(content).root.all('div', 'countCol')]
-        if len(counts) != 1 or not re.fullmatch(r'\d{1,4} results', counts[0]):
+        # The site changed "159 results" to "159 Results" in November 2026 and
+        # this stopped every run. Accept either case; the number itself must
+        # still equal the cards read from the page (official_cards checks it).
+        if len(counts) != 1 or not re.fullmatch(r'\d{1,4} results', counts[0], re.IGNORECASE):
             raise ReferenceFeedError('Official checklist result count is missing')
         record['declared_card_count'] = int(counts[0].split()[0])
         if not 1 <= record['declared_card_count'] <= 2000:

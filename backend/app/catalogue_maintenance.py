@@ -38,7 +38,7 @@ from .catalogue_source_archives import archive_reviewed_openlibrary_sources
 from .catalogue_r2_cache import warm_reference_snapshots
 from . import catalogue_r2_live
 from . import catalogue_r2_market
-from .reference_feeds import ReferenceFeeds
+from .reference_feeds import ReferenceFeeds, ReferenceFeedError
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
 from .one_piece_market import refresh_one_piece_prices
@@ -59,7 +59,11 @@ from .shopify_graded_photo_audit import audit_published_graded_media
 
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
-SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
+# A changed revision makes a source due on the next pass instead of waiting
+# out its failure backoff. 28 Nov 2026: one_piece_official 2->3 ("Results"
+# count label) and both Naruto sources 1->2 (site paths moved).
+SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':3,'punk':2,
+                  'naruto_kayou':2,'naruto_bandai':2}
 REFERENCE_JOB_REVISION=25
 ONE_PIECE_BASE_RECOVERY_JOB='ONE_PIECE_OFFICIAL_BASE_GUIDES'
 POKEWALLET_JOB_REVISION=11  # Run verified Cardmarket release-code matcher once on deploy.
@@ -257,7 +261,14 @@ async def sync_source(pool,actor,source,settings):
     except asyncio.CancelledError:
         feed.failures.append({'reason':'INTERRUPTED'});raise
     except Exception as exc:
-        feed.failures.append({'reason':type(exc).__name__})
+        failure={'reason':type(exc).__name__}
+        if type(exc) is ReferenceFeedError:
+            # These messages are fixed text written in the importers (plus an
+            # HTTP status or a release code), never a provider response, URL
+            # or credential. Without them three sources failed for a month
+            # with nothing recorded but the error type.
+            failure['detail']=str(exc)[:160]
+        feed.failures.append(failure)
     finally:
         await feed.close()
         async with user_connection(pool,actor,str(uuid4())) as connection:

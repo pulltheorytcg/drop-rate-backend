@@ -84,8 +84,80 @@ def test_missing_card_lists_fail_instead_of_reporting_complete():
 def test_archive_decodes_data_without_executing_scripts():
     rows=[{'slug':'n001','name':'Naruto','cardNumber':'N001','setSlug':'set-one'}]
     body='1:["$",{"cards":'+json.dumps(rows)+'}]'
-    page='<script>self.__next_f.push('+json.dumps([1,body])+')</script><a href="/archive/classic-ccg/cards/page/30">Last</a>'
-    assert archive_page(page,'classic-ccg')==(rows,30)
+    page='<script>self.__next_f.push('+json.dumps([1,body])+')</script><a href="/naruto-ccg/cards/page/30">Last</a>'
+    assert archive_page(page,'naruto-ccg')==(rows,30)
+
+
+def _naruto_page(rows,links=()):
+    body='1:["$",{"cards":'+json.dumps(rows)+'}]'
+    return ('<script>self.__next_f.push('+json.dumps([1,body])+')</script>'
+            +''.join(f'<a href="{link}">page</a>' for link in links))
+
+
+def test_archive_page_links_under_another_path_stop_the_import():
+    rows=[{'slug':'n001','name':'Naruto','cardNumber':'N001','setSlug':'set-one'}]
+    # No page links at all is a genuine single-page checklist.
+    assert archive_page(_naruto_page(rows),'kayou')==(rows,1)
+    # Links that exist but sit elsewhere (the pre-October /archive/ layout, or a
+    # future move) must not be read as "one page": that would report the first
+    # 150 cards as the complete checklist.
+    for link in ('/archive/kayou/cards/page/18','/kayou-cards/cards/page/2',
+                 'https://narutocardgame.gg/elsewhere/cards/page/3'):
+        with pytest.raises(ReferenceFeedError,match='page links have moved'):
+            archive_page(_naruto_page(rows,[link]),'kayou')
+    # The other checklist's links do not count as this one's pages either.
+    with pytest.raises(ReferenceFeedError,match='page links have moved'):
+        archive_page(_naruto_page(rows,['/naruto-ccg/cards/page/30']),'kayou')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('kayou,path,system',[
+    (True,'kayou','NARUTO_KAYOU'),(False,'naruto-ccg','NARUTO_BANDAI_LEGACY')])
+async def test_naruto_feed_reads_every_page_at_the_moved_addresses(kayou,path,system):
+    from app.reference_public import naruto_feed
+    base=f'https://narutocardgame.gg/{path}'
+    def row(n,set_slug):
+        return {'slug':f'c{n:03}','name':f'Card {n}','cardNumber':f'N{n:03}','setSlug':set_slug,
+                'rarity':'R','imageUrl':f'/images/{"kayou" if kayou else "classic"}/c{n:03}.jpg'}
+    links=[f'/{path}/cards/page/2',f'/{path}/cards/page/3']
+    pages={f'{base}/cards':_naruto_page([row(1,'set-a'),row(2,'set-a')],links),
+           f'{base}/cards/page/2':_naruto_page([row(3,'set-a'),row(4,'set-b')],links),
+           f'{base}/cards/page/3':_naruto_page([row(5,'set-b')],links)}
+    class Feeds:
+        def __init__(self):self.urls=[]
+        async def get_text(self,url):
+            self.urls.append(url)
+            return pages[url]
+    feeds=Feeds()
+    result=[item async for item in naruto_feed(feeds,kayou=kayou)]
+    # Exactly the three new addresses; never the redirecting /archive/ ones.
+    assert feeds.urls==list(pages) and not any('/archive/' in url for url in feeds.urls)
+    assert [(r['set_id'],r['system_code'],r['language'],len(cards)) for r,cards in result]==[
+        ('set-a',system,'Unknown',3),('set-b',system,'Unknown',2)]
+    assert all(r['source_url']==f'{base}/cards' for r,_ in result)
+    first=result[0][1][0]
+    # Identity and artwork address are what they were before the move, so
+    # existing cards update in place and stored images still match.
+    assert first['provider_id']=='set-a:c001' and first['card_number']=='N001'
+    assert first['image_url']==f'https://narutocardgame.gg/images/{"kayou" if kayou else "classic"}/c001.jpg'
+    assert first['source_url']==f'{base}/cards/c001'
+    assert first['evidence']['language_unverified'] is True
+
+
+@pytest.mark.asyncio
+async def test_naruto_feed_stops_on_a_repeated_page_or_missing_identity():
+    from app.reference_public import naruto_feed
+    base='https://narutocardgame.gg/kayou'
+    good={'slug':'c001','name':'Card','cardNumber':'N001','setSlug':'set-a'}
+    links=['/kayou/cards/page/2']
+    class Feeds:
+        def __init__(self,second):self.second=second
+        async def get_text(self,url):
+            return _naruto_page([good],links) if url==base+'/cards' else self.second
+    with pytest.raises(ReferenceFeedError,match='Repeated Naruto page'):
+        [item async for item in naruto_feed(Feeds(_naruto_page([good],links)),kayou=True)]
+    with pytest.raises(ReferenceFeedError,match='lacks required identity'):
+        [item async for item in naruto_feed(Feeds(_naruto_page([dict(good,slug='c002',setSlug='')],links)),kayou=True)]
 
 
 @pytest.mark.parametrize('game,number,name,language',[

@@ -174,6 +174,44 @@ async def test_partial_failure_receipt_counts_only_committed_discoveries(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_importer_failure_reason_is_recorded_and_bounded(monkeypatch):
+    """Three sources failed for a month with only 'ReferenceFeedError' on record."""
+    from app.reference_feeds import ReferenceFeedError
+    saved = record('saved')
+
+    def stops(message):
+        def feed_records():
+            yield batch(saved)
+            raise ReferenceFeedError(message)
+        return feed_records()
+
+    result,state = await run_sync(monkeypatch, stops('Reference source returned HTTP 308'))
+    assert result == {'status':'INCOMPLETE', 'sets':1, 'records':1}
+    assert state.final['report']['failures'] == [
+        {'reason':'ReferenceFeedError', 'detail':'Reference source returned HTTP 308'}]
+    # Bounded, so an unexpectedly long message cannot bloat the receipt.
+    result,state = await run_sync(monkeypatch, stops('x' * 500))
+    assert state.final['report']['failures'] == [{'reason':'ReferenceFeedError', 'detail':'x' * 160}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('error', [
+    RuntimeError('provider body: secret-token'), ValueError('https://example.test/?key=secret'),
+    type('ProviderError', (Exception,), {})('raw upstream text')])
+async def test_other_errors_never_record_their_message(monkeypatch, error):
+    # Only the importers' own fixed messages are recorded. Any other error may
+    # carry a URL, a provider response or a credential.
+    def feed_records():
+        yield batch(record('saved'))
+        raise error
+
+    result,state = await run_sync(monkeypatch, feed_records())
+    assert result['status'] == 'INCOMPLETE'
+    assert state.final['report']['failures'] == [{'reason':type(error).__name__}]
+    assert 'secret' not in json.dumps(state.final['report'])
+
+
+@pytest.mark.asyncio
 async def test_discovery_total_is_complete_while_samples_are_bounded(monkeypatch):
     releases = [record(f'set-{index:02}') for index in range(35)]
     result,state = await run_sync(monkeypatch, [batch(row) for row in releases])
