@@ -134,7 +134,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/pricing-health-widget.js?v=monitor-20261112" defer></script>',
         '<script src="/assets/ebay-research-panel.js?v=review-only-20261112" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
-        '<script src="/assets/reference-value-display.js?v=market-values-20261104" defer></script>',
+        '<script src="/assets/reference-value-display.js?v=asking-average-20261128" defer></script>',
         '<script src="/assets/market-value-column.js?v=grouped-reference-v5" defer></script>',
         '<script src="/assets/founder-workspace.js" defer></script>',
         '<script src="/assets/founder-accounts.js?v=unified-founders-20261104" defer></script>',

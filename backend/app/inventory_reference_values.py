@@ -36,6 +36,7 @@ select distinct on(s.catalogue_id,s.basis_condition,s.basis_language,s.grading_c
  s.evidence->>'input_sale_count' as input_sale_count,
  s.evidence->'comps' as comps,
  s.evidence->>'book_identity_digest' as book_identity_digest,
+ s.evidence->'reference' as guide_reference,
  case when s.evidence->>'method'='CATALOGUE_CARDMARKET_V1'
       then tcg.cardmarket_reference_current(s.evidence) else true end as reference_current
 from tcg.catalogue_market_snapshots s
@@ -228,8 +229,113 @@ async def add_shared_reference_values(connection, items: list[dict], *, now: dat
                     label='Near-mint reference', physical_valuation_eligible=False,
                     recommended_retail_minor=None,
                     reason='Shared near-mint reference. Record this copy’s condition before valuing it.')
+    await add_asking_values(connection, items, by_catalogue, now=now)
     from .inventory_catalogue_reference import add_catalogue_references
     await add_catalogue_references(connection, items, now=now)
+    return items
+
+
+ASKING = "UK_ASKING_AVERAGE_V1"
+ASKING_LABEL = "UK asking average"
+# Stock finish names and the finish recorded on asking evidence.
+_STOCK_FINISH = {"normal": "Normal", "foil": "Foil", "holofoil": "Holo", "holo": "Holo",
+                 "reverse holofoil": "Reverse Holo", "reverse holo": "Reverse Holo"}
+_REFERENCE_KEYS = ("provider", "system_code", "reference_language", "provider_id")
+
+
+def _asking_candidate(item, snapshots, *, now):
+    """The exact reference card a current Cardmarket estimate already identified.
+
+    Owner rule (28 Nov 2026): a raw copy's value is the UK asking average,
+    checked against Cardmarket, ahead of the guide and sold values. Only a
+    copy that may carry the guide (raw, Near Mint or unrecorded condition) can
+    use it, and only through the reference card that the guide's own matching
+    chose, so a parallel or alternate art is never given the base card's ask.
+    """
+    company, grade = _text(item.get("grading_company")), _text(item.get("grade"))
+    language = clean_language(item.get("language")) or clean_language(item.get("catalogue_language"))
+    finish = _STOCK_FINISH.get(_text(item.get("variant")))
+    if (item.get("product_type") != "CARD" or company or grade or _text(item.get("seal_status"))
+            or _condition(item.get("condition")) not in {"", "near mint"} or not language or not finish):
+        return None
+    for row in snapshots:
+        reference = row.get("guide_reference")
+        if isinstance(reference, str):
+            import json
+            reference = json.loads(reference)
+        checked = _time(row.get("evidence_checked_at"))
+        if (row.get("method") == GUIDE and row.get("reference_current")
+                and str(row.get("catalogue_id")) == str(item.get("catalogue_id"))
+                and clean_language(row.get("basis_language")) == language
+                and type(row.get("market_value_minor")) is int and row["market_value_minor"] > 0
+                and checked is not None and now - MAX_AGE <= checked <= now
+                and isinstance(reference, dict)
+                and all(isinstance(reference.get(key), str) and reference[key] for key in _REFERENCE_KEYS)):
+            return {"reference": reference, "finish": finish, "guide_minor": row["market_value_minor"]}
+    return None
+
+
+def asking_reference_value(item, candidate, view, *, now):
+    """A labelled estimate from an agreeing asking average, or None."""
+    from .reference_asking_display import CARDMARKET_CHECK_FLOOR_MINOR, CARDMARKET_CHECK_RATIO
+    amount, guide = view.get("estimate_minor"), candidate["guide_minor"]
+    if (view.get("finish") != candidate["finish"] or type(amount) is not int or amount <= 0
+            or view.get("expires_at") is None or view["expires_at"] <= now):
+        return None
+    high, low = max(amount, guide), min(amount, guide)
+    if high - low > CARDMARKET_CHECK_FLOOR_MINOR and high > CARDMARKET_CHECK_RATIO * low:
+        return None  # Held: it disagrees with Cardmarket; the guide stays.
+    language = clean_language(item.get("language")) or clean_language(item.get("catalogue_language"))
+    sellers = view.get("seller_count")
+    return {"version": "SHARED_CATALOGUE_V1", "status": "REFERENCE_ESTIMATE", "currency": "GBP",
+            "market_value_minor": amount, "recommended_retail_minor": None, "last_known_minor": None,
+            "snapshot_id": None, "checked_at": view["observed_at"], "method": ASKING,
+            "basis": f"{language} · Near Mint · {candidate['finish']}", "label": ASKING_LABEL,
+            "seller_count": sellers, "expires_at": view["expires_at"],
+            "cardmarket_check": {"status": "AGREES", "cardmarket_minor": guide},
+            "reason": (f"Middle of current UK eBay asking prices from {sellers} independent sellers, "
+                       "delivered, checked against the Cardmarket guide. Not a sale price or a "
+                       "valuation of this copy's condition.")}
+
+
+async def add_asking_values(connection, items, by_catalogue, *, now):
+    """Read-only: replace the shown value with an agreeing asking average."""
+    from .reference_asking_display import ASKING_DISPLAY_SQL, asking_estimate_view
+    import hashlib
+    import json
+    candidates = {}
+    for index, item in enumerate(items):
+        candidate = _asking_candidate(item, by_catalogue.get(str(item.get("catalogue_id")), []), now=now)
+        if candidate:
+            candidates[index] = candidate
+    if not candidates:
+        return items
+    keys = {}
+    for candidate in candidates.values():
+        reference = candidate["reference"]
+        identity = tuple(reference[key] for key in _REFERENCE_KEYS)
+        candidate["key"] = "r:" + hashlib.md5("\x1f".join(identity).encode()).hexdigest()
+        keys[candidate["key"]] = dict(zip(("key", "provider", "system_code", "language", "provider_id"),
+                                          (candidate["key"], *identity)))
+    views = {}
+    key_list = list(keys.values())
+    for start in range(0, len(key_list), 100):
+        for record in await connection.fetch(ASKING_DISPLAY_SQL, json.dumps(key_list[start:start + 100]), now):
+            view = asking_estimate_view(dict(record), now=now)
+            if view:
+                views[record["key"]] = view
+    for index, candidate in candidates.items():
+        view = views.get(candidate["key"])
+        value = asking_reference_value(items[index], candidate, view, now=now) if view else None
+        if value:
+            item = items[index]
+            item["reference_value"] = value
+            item["market_value_minor"] = value["market_value_minor"]
+            item["recommended_retail_minor"] = None
+            item["pricing_updated_at"] = value["checked_at"]
+            item["pricing_method"] = ASKING
+            item["pricing_limitation"] = value["reason"]
+            item.pop("catalogue_reference", None)
     return items
 
 

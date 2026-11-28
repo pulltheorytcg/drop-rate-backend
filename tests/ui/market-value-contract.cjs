@@ -28,6 +28,18 @@ for (const status of ["AVAILABLE", "REFERENCE_ESTIMATE", "CONDITION_REFERENCE", 
   assert.equal(JSON.stringify(item), original);
   checks++;
 }
+// Owner rule (28 Nov 2026): the UK asking average, checked against Cardmarket,
+// is a labelled estimate that counts in totals.
+{
+  const item = {reference_value: {status: "REFERENCE_ESTIMATE", method: "UK_ASKING_AVERAGE_V1",
+    market_value_minor: 160, seller_count: 6, label: "UK asking average", basis: "English · Near Mint · Foil",
+    reason: "Middle of current UK eBay asking prices", checked_at: "2026-11-28T11:00:00Z"}};
+  assert.equal(values.text(item, money), "UK asking average: GBP 1.60 · 6 sellers");
+  assert.equal(values.marketMinor(item), 160);
+  assert.match(values.description(item), /^UK asking average · English · Near Mint · Foil · Middle of current UK eBay asking prices · Listings checked/);
+  assert.equal(values.recommendedMinor(item), null);
+  checks++;
+}
 for (const status of ["STALE", "UNAVAILABLE", "NEEDS_DETAILS"]) {
   assert.equal(values.marketMinor({market_value_minor: 1200, reference_value: {status, market_value_minor: 1200}}), null);
   checks++;
