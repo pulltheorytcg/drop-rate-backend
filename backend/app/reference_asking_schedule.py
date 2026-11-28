@@ -34,6 +34,7 @@ from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_asking_backfill import (
     BackfillStop, MAX_DAILY, MAX_TARGET_REFERENCES, backfill_reference_asking,
 )
+from .reference_asking_estimator import _aspects, estimate_reference_asking_price
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ TARGETS_PER_RUN = MAX_TARGET_REFERENCES
 MAX_QUERIES_PER_RUN = TARGETS_PER_RUN * 7
 ATTEMPT_MEMORY = timedelta(days=3)
 RUN_TIMEOUT_SECONDS = 600
+RUN_EVERY_MINUTES = 15
 DAILY_HEADROOM = 10
 # How many of the highest guide values are considered beyond stock each hour,
 # and how many candidates are checked against the catalogue per run.
@@ -138,11 +140,16 @@ def schedule_enabled(settings):
 
 
 def schedule_due(last_started, now, used_today):
-    """One bounded run per UTC hour while today's allowance has room."""
+    """One bounded run per quarter hour while today's allowance has room.
+
+    A run spends about 40 to 175 Browse calls on 25 cards. Hourly runs left
+    half of the 2,000-call day unused and took a day to pass over stock.
+    """
     if used_today >= MAX_DAILY - DAILY_HEADROOM:
         return False
-    hour = now.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
-    return last_started is None or last_started < hour
+    now = now.astimezone(timezone.utc)
+    slot = now.replace(minute=now.minute - now.minute % RUN_EVERY_MINUTES, second=0, microsecond=0)
+    return last_started is None or last_started < slot
 
 
 def _key(row):
@@ -186,6 +193,33 @@ def run_summary(report, targets, held):
             "written": stats.get("written"), "rejections": report.get("rejections")}
 
 
+LOGGED_ASPECTS = ("set", "language", "card number", "finish", "card condition", "features", "rarity")
+
+
+def log_listing_outcomes(reference, details, estimate, observed):
+    """One log line per listing read, and one per card: what was decided.
+
+    This is how the matching rules are tuned from real listings. It logs the
+    public title, price and a few item specifics; never the seller.
+    """
+    card = "/".join(str(reference.get(name)) for name in ("system_code", "language", "provider_id"))
+    for row in details:
+        single = estimate_reference_asking_price(reference, [row], observed_at=observed, now=observed)
+        aspects = _aspects(row)
+        price = row.get("price") if isinstance(row.get("price"), dict) else {}
+        log.warning("EBAY_ASKING_LISTING %s", json.dumps({
+            "card": card, "decision": next(iter(single["rejection_counts"]), "ACCEPTED"),
+            "title": str(row.get("title", ""))[:110], "price": price.get("value"),
+            "specifics": {name: aspects[name][:60] for name in LOGGED_ASPECTS if name in aspects},
+        }, ensure_ascii=False, sort_keys=True))
+    log.warning("EBAY_ASKING_CARD %s", json.dumps({
+        "card": card, "name": reference.get("name"), "number": reference.get("card_number"),
+        "set": reference.get("set_name"), "status": estimate.get("status"),
+        "listings_read": len(details), "sellers": estimate.get("seller_count"),
+        "estimate_minor": estimate.get("estimate_minor"),
+    }, ensure_ascii=False, sort_keys=True))
+
+
 async def choose_targets(connection, now):
     stock = await connection.fetch(STOCK_SQL)
     guide = await connection.fetch(TOP_GUIDE_SQL, SYSTEMS, LANGUAGES, CATALOGUE_POOL)
@@ -222,7 +256,8 @@ async def scheduled_asking_pass(pool, actor, settings, *, now=None, client=None,
         report = await asyncio.wait_for(collect(
             pool, actor, client, run=True, apply=True, max_queries=MAX_QUERIES_PER_RUN,
             include_priced=True, reference_keys=targets,
-            postcode=settings.ebay_origin_postcode), timeout=RUN_TIMEOUT_SECONDS)
+            postcode=settings.ebay_origin_postcode, observe=log_listing_outcomes),
+            timeout=RUN_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
         log.error("EBAY_ASKING_SCHEDULE_TIMEOUT targets=%s", len(targets))
         return {"status": "TIMEOUT", "targets": len(targets), "stock_targets": held}

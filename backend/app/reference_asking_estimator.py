@@ -64,6 +64,11 @@ _SPECIAL_MARKERS = {
     "vstar": ("vstar",), "radiant": ("radiant",), "shining": ("shining",),
     "mega": ("mega",), "shiny": ("shiny",), "tera": ("tera",),
 }
+# Artwork descriptions sellers add to a numbered card. They do not name a
+# separate printing of the same collector number, so they need not agree.
+# Every other marker (ex, VMAX, first edition, shadowless, stamped, reprint,
+# promo, the ball patterns, alt art, parallel, manga) still matches exactly.
+_DESCRIPTIVE_MARKERS = frozenset({"full art", "special art"})
 _GRADE_RE = re.compile(r"\b(?:psa|bgs|cgc|sgc|beckett|ars|ksa|mnt|ags|hga|gma|pgx|pca)(?:\s*\d+(?:\.\d+)?)?\b|\b(?:graded|slab(?:bed)?|grading)\b|\b(?:tag|ace|grade|gem\s+mint|pristine)\s*(?:\d+(?:\.\d+)?|grading)\b", re.I)
 _MULTI_RE = re.compile(r"\b(?:bundle|bundles|lot|lots|playset|pair|replica|proxy|proxies|custom|fake|reproduction|digital|oversized|jumbo|pick|choose|mystery)\b|\b(?:x\s*(?:[2-9]|[1-9]\d+)|(?:[2-9]|[1-9]\d+)\s*x|(?:[2-9]|[1-9]\d+|two|three|four|five|six|seven|eight|nine|ten)\s+(?:cards?|copies)|set\s+of\s+(?:[2-9]|[1-9]\d+|two|three|four))\b", re.I)
 _CARD_CODES = re.compile(r"(?<![A-Z0-9])(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|P|E|SB)\d{0,3}\s*-\s*\d{1,4}(?![A-Z0-9])", re.I)
@@ -347,6 +352,11 @@ def _number_matches(title: str, aspect: str, expected: str) -> bool:
     # naming a different number still rejects the listing below.
     if aspect and _number_parts(aspect) == _number_parts(expected):
         return True
+    # Sellers often type only the part before the slash ("014" for 014/94).
+    # That agrees with the card once the title prints the complete number.
+    if (aspect and "/" in expected and _title_number(title, expected)
+            and _number_parts(aspect) == _number_parts(expected.split("/", 1)[0])):
+        return True
     if aspect and _text(aspect) != _text(expected):
         # Some eBay item details contain only the numeric collector suffix
         # ("006") although their title prints the complete OP01-006.
@@ -492,7 +502,9 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     allowed_codes = {m.group().casefold() for m in _SET_CODES.finditer(" ".join((*spec["set_terms"], reference["card_number"])))}
     if any(m.group().casefold() not in allowed_codes for m in _SET_CODES.finditer(str(raw_title))):
         return "SET_MISMATCH"
-    if _variant_markers(all_text) != spec["markers"]:
+    # "Full Art" and "Special Art" describe the numbered card's artwork and
+    # sellers add them freely; the name and number checks above bind the card.
+    if (_variant_markers(all_text) - _DESCRIPTIVE_MARKERS) != (spec["markers"] - _DESCRIPTIVE_MARKERS):
         return "VARIANT_MISMATCH"
     if any(_explicitly_denies(all_text, _SPECIAL_MARKERS[marker]) for marker in spec["markers"]):
         return "VARIANT_MISMATCH"

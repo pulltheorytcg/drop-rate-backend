@@ -675,7 +675,8 @@ class SqlBackfillStore:
 
 async def execute_backfill(store, client, report, *, quota_reader=read_browse_quota,
                            checkpoint=lambda report: None, clock=utcnow, sleep=asyncio.sleep,
-                           monotonic=time.monotonic, multi_query=False, one_call=False):
+                           monotonic=time.monotonic, multi_query=False, one_call=False,
+                           observe=None):
     """Orchestration separated from SQL so failure/commit ordering is testable.
 
     The opt-in Lovable-derived plan discovers more eBay summaries, but every
@@ -926,6 +927,10 @@ async def execute_backfill(store, client, report, *, quota_reader=read_browse_qu
                                 + len(selected_ids) - len(details))
                             break
                 estimate = estimate_reference_asking_price(reference, details, observed_at=observed, now=clock())
+                if observe is not None:
+                    # Diagnostics only: the caller sees what was read and
+                    # decided. It cannot change the estimate or the receipt.
+                    observe(reference, tuple(details), estimate, observed)
                 record_estimate(report, estimate)
                 if estimate["status"] == "READY":
                     report["stats"]["matched"] += 1
@@ -964,7 +969,7 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
                                     include_priced=False, reference_keys=None,
                                     postcode=None, checkpoint=lambda report: None, clock=utcnow,
                                     quota_reader=read_browse_quota, multi_query=False,
-                                    one_call=False, auto_continue=False):
+                                    one_call=False, auto_continue=False, observe=None):
     if type(multi_query) is not bool or type(one_call) is not bool or type(auto_continue) is not bool:
         raise ValueError("search modes and auto_continue must be booleans")
     if (multi_query and one_call) or (auto_continue and (not one_call or not run or resume_run is not None)):
@@ -1040,7 +1045,8 @@ async def backfill_reference_asking(pool, actor, client=None, *, run=False, appl
             report["discovery_strategy"] = desired_strategy
             return await execute_backfill(store, client, report, quota_reader=quota_reader,
                                           checkpoint=checkpoint, clock=clock,
-                                          multi_query=multi_query, one_call=one_call)
+                                          multi_query=multi_query, one_call=one_call,
+                                          observe=observe)
         finally:
             await connection.fetchval("select pg_advisory_unlock(hashtextextended($1,0))", LOCK_NAME)
 

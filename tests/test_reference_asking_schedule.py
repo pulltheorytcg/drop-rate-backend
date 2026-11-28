@@ -36,12 +36,14 @@ def test_schedule_needs_the_uk_application_postcode_and_actor(change):
     assert schedule.schedule_enabled(settings(**change)) is False
 
 
-def test_one_run_per_utc_hour_and_none_once_todays_allowance_is_spent():
-    hour = NOW.replace(minute=0)
+def test_one_run_per_quarter_hour_and_none_once_todays_allowance_is_spent():
+    slot = NOW.replace(minute=15)  # NOW is 09:20
     assert schedule.schedule_due(None, NOW, 0) is True
-    assert schedule.schedule_due(hour - timedelta(seconds=1), NOW, 0) is True
-    assert schedule.schedule_due(hour, NOW, 0) is False
-    assert schedule.schedule_due(NOW - timedelta(minutes=5), NOW, 0) is False
+    assert schedule.schedule_due(slot - timedelta(seconds=1), NOW, 0) is True
+    assert schedule.schedule_due(slot, NOW, 0) is False
+    assert schedule.schedule_due(NOW - timedelta(minutes=4), NOW, 0) is False
+    assert schedule.schedule_due(NOW - timedelta(minutes=6), NOW, 0) is True
+    assert schedule.schedule_due(NOW.replace(minute=59), NOW.replace(hour=10, minute=0), 0) is True
     assert schedule.schedule_due(None, NOW, MAX_DAILY - schedule.DAILY_HEADROOM) is False
     assert schedule.schedule_due(None, NOW, MAX_DAILY - schedule.DAILY_HEADROOM - 1) is True
 
@@ -150,6 +152,7 @@ def test_pass_asks_about_stock_first_with_the_collectors_write_and_scope_options
     assert call["actor"] == ACTOR and call["client"] == "client"
     assert call["run"] is True and call["apply"] is True and call["include_priced"] is True
     assert call["max_queries"] == schedule.MAX_QUERIES_PER_RUN and call["postcode"] == "AB1 2CD"
+    assert call["observe"] is schedule.log_listing_outcomes
     assert [target[3] for target in call["reference_keys"]] == ["card-001", "card-002", "card-009"]
     assert result == {"status": "COMPLETE", "stop_reason": None, "run_id": "run", "targets": 3,
                       "stock_targets": 2, "requests": 9, "searched": 3, "priced": 2, "written": 2,
@@ -157,7 +160,7 @@ def test_pass_asks_about_stock_first_with_the_collectors_write_and_scope_options
 
 
 @pytest.mark.parametrize("connection", [
-    Connection(last_started=NOW - timedelta(minutes=10), stock=[key(1)]),
+    Connection(last_started=NOW - timedelta(minutes=4), stock=[key(1)]),
     Connection(used_today=MAX_DAILY, stock=[key(1)]),
     Connection(),
     Connection(stock=[key(1)], busy=[key(1)]),
@@ -201,6 +204,37 @@ def test_a_slow_collector_is_cut_off(wired, monkeypatch):
     result = run(schedule.scheduled_asking_pass("pool", ACTOR, settings(), now=NOW, client="client",
                                                 collect=slow))
     assert result == {"status": "TIMEOUT", "targets": 1, "stock_targets": 1}
+
+
+def test_listing_outcomes_are_logged_without_the_seller(caplog):
+    reference = {"provider": "TCGdex", "system_code": "POKEMON_TCG", "language": "English",
+                 "provider_id": "base1-4", "set_id": "base1", "set_name": "Base Set", "name": "Charizard",
+                 "card_number": "4/102", "finish": "Holo", "rarity": "Rare", "evidence": {},
+                 "reference_group_count": 1}
+
+    def listing(index, title):
+        return {"itemId": f"v1|{100000000000 + index}|0", "seller": {"username": f"secret-seller-{index}"},
+                "title": title, "price": {"currency": "GBP", "value": "100.00"},
+                "buyingOptions": ["FIXED_PRICE"], "itemLocation": {"country": "GB"},
+                "shippingOptions": [{"shippingCost": {"currency": "GBP", "value": "0.00"}}],
+                "condition": "Near Mint or Better",
+                "localizedAspects": [{"name": "Set", "value": "Base Set"}]}
+
+    details = (listing(1, "Pokemon Charizard 4/102 Base Set Holo Near Mint"),
+               listing(2, "Pokemon Charizard 4/102 Base Set Holo Near Mint PSA 9"))
+    estimate = schedule.estimate_reference_asking_price(reference, list(details), observed_at=NOW, now=NOW)
+    with caplog.at_level("WARNING", logger=schedule.log.name):
+        schedule.log_listing_outcomes(reference, details, estimate, NOW)
+    lines = [record.getMessage() for record in caplog.records]
+    assert len(lines) == 3
+    first, second = (json.loads(line.split(" ", 1)[1]) for line in lines[:2])
+    assert first["decision"] == "ACCEPTED" and second["decision"] == "GRADED_OR_SLAB"
+    assert first["card"] == "POKEMON_TCG/English/base1-4" and first["price"] == "100.00"
+    assert first["specifics"] == {"set": "base set"}
+    card = json.loads(lines[2].split(" ", 1)[1])
+    assert lines[2].startswith("EBAY_ASKING_CARD ")
+    assert card["status"] == "INSUFFICIENT_COMPARABLES" and card["listings_read"] == 2
+    assert "secret-seller" not in "".join(lines)
 
 
 def test_selection_sql_reads_only_and_keeps_the_collectors_cursor_order():
