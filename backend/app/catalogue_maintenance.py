@@ -41,6 +41,7 @@ from . import catalogue_r2_market
 from .reference_feeds import ReferenceFeeds, ReferenceFeedError
 from .reference_library import save_reference_set
 from .reference_applicability import DIGITAL_REFERENCE_SQL
+from .reference_asking_schedule import scheduled_asking_pass
 from .reference_market import REVISION, refresh_reference_prices
 from .one_piece_market import refresh_one_piece_prices
 from .pokewallet_one_piece_market import refresh_pokewallet_one_piece
@@ -549,6 +550,13 @@ async def daily_pass(pool,settings):
                     if result['writes_attempted']:
                         await record_coverage(pool,actor)
                         coverage_recorded=True
+            # UK eBay asking prices, stock first. One bounded run per UTC hour
+            # inside this lock; the collector keeps its own quota ledger and
+            # daily cap. A failure here must not stop the feeds that follow.
+            try:
+                await scheduled_asking_pass(pool,actor,settings,now=now)
+            except Exception as exc:
+                log.error('EBAY_ASKING_SCHEDULE_FAILED %s',type(exc).__name__)
             # Official expansion-level marketplace API: one read for all
             # blueprints in a set, without the 2,000-call eBay Browse bottleneck.
             # This is opt-in and starts as a dry run. It never writes inventory,

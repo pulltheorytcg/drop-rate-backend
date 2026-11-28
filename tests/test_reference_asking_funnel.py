@@ -112,13 +112,15 @@ def test_persistence_count_commits_atomically_and_does_not_survive_failure(sql_d
             assert updated["funnel"]["estimates_persisted"] == 1
 
 
-def test_missing_language_and_conflicting_language_are_distinct_without_inference():
+def test_unstated_language_is_accepted_for_english_and_a_conflict_is_still_counted():
+    # An English reference accepts a UK listing that names no language; a
+    # listing naming another language remains a counted conflict.
     unknown = row(1); unknown['title'] = unknown['title'].replace('English ', '')
     conflicting = row(2); conflicting['title'] = conflicting['title'].replace('English', 'Japanese')
     value = result([unknown, conflicting])
-    assert value['funnel']['missing_language_evidence'] == 1
+    assert value['funnel']['missing_language_evidence'] == 0
     assert value['funnel']['conflicting_language_evidence'] == 1
-    assert value['funnel']['identity_and_condition_accepted'] == 0
+    assert value['funnel']['identity_and_condition_accepted'] == 1
 
 
 def test_controlled_exact_reference_worker_funnel_preserves_no_write_mode():

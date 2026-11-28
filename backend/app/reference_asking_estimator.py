@@ -69,6 +69,18 @@ _MULTI_RE = re.compile(r"\b(?:bundle|bundles|lot|lots|playset|pair|replica|proxy
 _CARD_CODES = re.compile(r"(?<![A-Z0-9])(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|P|E|SB)\d{0,3}\s*-\s*\d{1,4}(?![A-Z0-9])", re.I)
 _SET_CODES = re.compile(r"\b(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|SB)\d{1,3}\b", re.I)
 _FRACTIONS = re.compile(r"(?<![A-Z0-9])(?:[A-Z]{0,3}\d{1,4})\s*/\s*(?:[A-Z]{0,3}\d{1,4})(?![A-Z0-9])", re.I)
+_GRADE_ASPECTS = ("professional grader", "grading company", "grader", "grade",
+                  "certification number", "graded")
+# How sellers fill a grading specific on a raw card. Anything else in those
+# fields (a company, a grade, a certificate number) still means a slab.
+_NOT_GRADED_VALUES = (None, "", "no", "none", "n a", "na", "ungraded", "not graded", "non graded",
+                      "not professionally graded", "not specified", "does not apply", "raw")
+# The printed number of these games starts with its release code, so the
+# complete number in a title proves the release without the marketing name.
+_RELEASE_CODED_NUMBER = re.compile(r"(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|SB)\d{1,3}-\d{1,4}", re.I)
+# Japanese Pokemon release codes (sv2a, s12a, sm12a). A UK title carrying one
+# is a Japanese card even when the seller never writes the language.
+_JAPANESE_RELEASE_CODE = re.compile(r"\b(?:sv|sm|s)\d{1,2}[a-z]{1,2}\b")
 
 # Reviewed aliases for the importer labels of these exact English Masters
 # releases. Bandai's category pages identify each release by its shorter name:
@@ -309,12 +321,32 @@ def _shipping(row: Mapping[str, Any]) -> int | None:
     return min(amounts)
 
 
+def _number_parts(value: str) -> tuple[str, ...]:
+    """Collector-number groups without separators or zero padding.
+
+    Sellers type the same printed number as 10/25, 010/025 or OP16 064. The
+    groups, in order, are the identity; padding and punctuation are not.
+    """
+    return tuple(re.sub(r"^0+(?=\d)", "", part) for part in _text(value).split())
+
+
+def _title_number(title: str, expected: str) -> bool:
+    """True when the title prints the complete canonical collector number."""
+    pattern = re.escape(expected).replace(r"\ ", r"\s*")
+    return bool(re.search(r"(?<![\w])" + pattern + r"(?![\w])", title, re.I))
+
+
 def _number_matches(title: str, aspect: str, expected: str) -> bool:
     compact = lambda v: re.sub(r"\s+", "", v).casefold()
     canonical = compact(expected)
     seen = {compact(m.group()) for pattern in (_CARD_CODES, _FRACTIONS) for m in pattern.finditer(title)}
     if any(number != canonical and not ("/" not in canonical and number.split("/", 1)[0] == canonical) for number in seen):
         return False
+    # The same printed number, typed with different padding or punctuation
+    # ("010/025" for 10/25, "OP16 064" for OP16-064), is agreement. A specific
+    # naming a different number still rejects the listing below.
+    if aspect and _number_parts(aspect) == _number_parts(expected):
+        return True
     if aspect and _text(aspect) != _text(expected):
         # Some eBay item details contain only the numeric collector suffix
         # ("006") although their title prints the complete OP01-006.
@@ -387,12 +419,18 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
         return "MISSING_TITLE"
     aspects = _aspects(row)
     all_text = " ".join((title, _text(row.get("condition")), " ".join(aspects.values())))
-    grade_text = re.sub(r"\bnot(?:\s+professionally)?\s+graded\b", "", all_text)
+    # Unrelated item specifics joined into one string invent evidence: a year
+    # followed by "Card Stock" reads as "2023 card", and a card named Ace reads
+    # as a grading company. Grading, bundle and condition evidence is therefore
+    # taken from the title, eBay's condition and the specifics that state it.
+    stated_text = " ".join((title, _text(row.get("condition")),
+                            *(aspects.get(k, "") for k in _GRADE_ASPECTS)))
+    grade_text = re.sub(r"\b(?:not(?:\s+professionally)?|non)\s+graded\b", "", stated_text)
     if _GRADE_RE.search(grade_text) or str(row.get("conditionId")) == "2750":
         return "GRADED_OR_SLAB"
-    if any(aspects.get(k) not in (None, "", "no", "ungraded", "not graded", "not professionally graded") for k in ("professional grader", "grade", "certification number", "graded")):
+    if any(aspects.get(k) not in _NOT_GRADED_VALUES for k in _GRADE_ASPECTS):
         return "GRADED_OR_SLAB"
-    if _MULTI_RE.search(all_text):
+    if _MULTI_RE.search(title):
         return "MULTI_ITEM_OR_NON_PHYSICAL"
     game_text = " ".join((title, aspects.get("game", "")))
     if not _matches_game(game_text, reference, spec):
@@ -403,11 +441,18 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
         return "GAME_MISMATCH"
     if spec["game"] == "DRAGON_BALL_SUPER_FUSION_WORLD" and _phrase(game_text, "masters"):
         return "GAME_MISMATCH"
-    # Do not infer English from a UK seller or from the absence of Japanese.
     language_text = " ".join((title, aspects.get("language", "")))
     found_languages = {lang for lang, aliases in _LANGUAGES.items() if any(_phrase(language_text, alias) for alias in aliases)}
-    if found_languages != {spec["language"]} or _explicitly_denies(language_text, _LANGUAGES[spec["language"]]):
+    if (found_languages - {spec["language"]}
+            or _explicitly_denies(language_text, _LANGUAGES[spec["language"]])):
         return "LANGUAGE_MISMATCH_OR_UNKNOWN"
+    if not found_languages:
+        # UK sellers rarely write "English" on an English card. With no
+        # language named anywhere and no Japanese release code in the title,
+        # an English reference accepts the listing. Every other language must
+        # still be named: a UK seller is no evidence of Japanese.
+        if spec["language"] != "english" or _JAPANESE_RELEASE_CODE.search(title):
+            return "LANGUAGE_MISMATCH_OR_UNKNOWN"
     if not all(token in title.split() for token in _text(reference["name"]).split()) or _explicitly_denies(title, (reference["name"],)):
         return "NAME_MISMATCH"
     if not _number_matches(str(raw_title), aspects.get("card number", ""), reference["card_number"]):
@@ -415,7 +460,16 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     set_text = " ".join((title, aspects.get("set", "")))
     set_options = spec["set_alternatives"]
     all_set_terms = tuple(term for option in set_options for term in option)
-    if (not any(all(_phrase(set_text, term) for term in option) for option in set_options)
+    # One Piece and Fusion World print the release code in the collector
+    # number, so the complete number in a title (OP16-064) names the release
+    # when the listing gives no set at all. Masters is excluded: its prefix
+    # does not identify the product a card was released in.
+    number_names_set = bool(
+        spec["game"] in {"ONE_PIECE_CARD_GAME", "DRAGON_BALL_SUPER_FUSION_WORLD"}
+        and not aspects.get("set")
+        and _RELEASE_CODED_NUMBER.fullmatch(reference["card_number"])
+        and _title_number(str(raw_title), reference["card_number"]))
+    if (not (number_names_set or any(all(_phrase(set_text, term) for term in option) for option in set_options))
             or _explicitly_denies(set_text, all_set_terms)
             or any(_phrase(set_text, term) for term in spec["set_conflicts"])):
         return "SET_MISMATCH"
@@ -423,8 +477,18 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     for base, expanded in (("base set", "base set 2"), ("team rocket", "team rocket returns")):
         if any(_text(term) == base for term in spec["set_terms"]) and _phrase(set_text, expanded):
             return "SET_MISMATCH"
-    if aspects.get("set") and not any(all(_text(term) == aspects["set"] for term in option) for option in set_options):
-        return "SET_MISMATCH"
+    if aspects.get("set"):
+        if spec["game"] == "DRAGON_BALL_SUPER_MASTERS":
+            # Reviewed Masters aliases are whole release names; a longer or
+            # different specific is another product.
+            named = any(all(_text(term) == aspects["set"] for term in option) for option in set_options)
+        else:
+            # Sellers write "SV: Scarlet & Violet 151" for 151, so the
+            # specific must contain the release, not equal it. A specific
+            # naming some other release still rejects the listing.
+            named = any(all(_phrase(aspects["set"], term) for term in option) for option in set_options)
+        if not named:
+            return "SET_MISMATCH"
     allowed_codes = {m.group().casefold() for m in _SET_CODES.finditer(" ".join((*spec["set_terms"], reference["card_number"])))}
     if any(m.group().casefold() not in allowed_codes for m in _SET_CODES.finditer(str(raw_title))):
         return "SET_MISMATCH"
@@ -436,7 +500,9 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
         return "VARIANT_PROOF_MISSING"
     if _listing_finish(row, spec) is None:
         return "FINISH_MISMATCH_OR_UNKNOWN"
-    if not _condition_matches(all_text):
+    condition_text = " ".join((title, _text(row.get("condition")),
+                               aspects.get("card condition", ""), aspects.get("condition", "")))
+    if not _condition_matches(condition_text):
         return "CONDITION_OUTSIDE_NM_MINT"
     return None
 
