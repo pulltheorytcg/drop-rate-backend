@@ -40,6 +40,7 @@ from . import catalogue_r2_live
 from . import catalogue_r2_market
 from .reference_feeds import ReferenceFeeds, ReferenceFeedError
 from .reference_library import save_reference_set
+from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_market import REVISION, refresh_reference_prices
 from .one_piece_market import refresh_one_piece_prices
 from .pokewallet_one_piece_market import refresh_pokewallet_one_piece
@@ -280,6 +281,33 @@ async def sync_source(pool,actor,source,settings):
     return {'status':status,'sets':sets,'records':cards}
 
 
+# The per-card Pokemon price queue ($1 limit, $2 weekly slot, $3 revision).
+#
+# Until 28 Nov 2026 it was ordered by checked_at alone and ignored retry_after.
+# A card with no quote at the source, or whose request failed, keeps its old
+# checked_at (FAILED_REFRESH_SQL only moves retry_after), so those cards sat at
+# the front of every run. That night each run re-requested about 4,100 cards
+# with no quote, then reached 69 cards of the digital TCG Pocket set B1 whose
+# requests all fail, and stopped as PROVIDER_UNAVAILABLE. 15,825 English cards
+# behind them were never reached.
+#
+# - Digital Pocket releases have no market and are not queued.
+# - A card is not re-requested before its own retry_after.
+# - Cards already tried without a result go after every card not yet tried, so
+#   they can end a run but can no longer hide the cards behind them.
+PRICE_WARM_QUEUE_SQL=f'''select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key
+  from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
+  left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
+  where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('English','Japanese')
+    and (s.release_date is null or s.release_date<=current_date)
+    and not {DIGITAL_REFERENCE_SQL}
+    and (p.retry_after is null or p.retry_after<=now())
+    and (p.checked_at is null or p.checked_at<$2 or p.refresh_revision<$3
+         or (p.expires_at<=now() and p.expires_at<=p.checked_at+interval '5 minutes'))
+  order by (p.retry_after is not null),p.retry_after,
+    p.checked_at nulls first,s.release_date desc nulls last,r.provider_id limit $1'''
+
+
 async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
     run_id=await receipt(pool,actor,'REFERENCE_PRICES','RUNNING',{})
     checked=priced=failed=us_only=0;status='INCOMPLETE';report={'importer_revision':REFERENCE_JOB_REVISION}
@@ -300,14 +328,7 @@ async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
         else:
             report['dragon_ball']=await refresh_dragon_ball_prices(pool,actor,fx)
         async with user_connection(pool,actor,str(uuid4())) as connection:
-            rows=await connection.fetch('''select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key
-              from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
-              left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
-              where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('English','Japanese')
-                and (s.release_date is null or s.release_date<=current_date)
-                and (p.checked_at is null or p.checked_at<$2 or p.refresh_revision<$3
-                     or (p.expires_at<=now() and p.expires_at<=p.checked_at+interval '5 minutes'))
-              order by p.checked_at nulls first,s.release_date desc nulls last,r.provider_id limit $1''',
+            rows=await connection.fetch(PRICE_WARM_QUEUE_SQL,
               limit+1,weekly_price_slot(datetime.now(timezone.utc)),REVISION)
         for start in range(0,min(len(rows),limit),40):
             keys=[r['key'] for r in rows[start:min(start+40,limit)]]
