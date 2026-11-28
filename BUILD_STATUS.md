@@ -1,4 +1,18 @@
-## 28 November 2026 — Catalogue page speed: two price lookups bounded to the page (PR #1116)
+## 28 November 2026 — Catalogue page speed: two price lookups bounded to the page (PR #1116, LIVE `baf8861`)
+
+- **Live:** merged as `baf8861`, Railway deployment `f2fd6aaa` succeeded at 00:32 UTC, `/health/ready` 200. All 20 CI checks passed, including the real-PostgreSQL asking-price contract.
+- **Measured after deploy** (signed-in consignor, hold lifted, R2 index current, same requests as before):
+
+  | Page | Before | After |
+  |---|---|---|
+  | Pokémon, first page | 5.9 s | 0.69 s |
+  | Pokémon, second page | 6.8 s | 0.52 s |
+  | One Piece | 7.3 s | 0.52 s |
+  | Dragon Ball Fusion World | 3.8 s | 0.54 s |
+  | Dragon Ball Masters | 2.4 s | 0.79 s |
+  | Games list | 4.3 s (during a republish) | 1.1 s |
+
+  Value labels on the pages are unchanged ("Estimate: £0.08 · Cardmarket EU guide", "Value unavailable"). No `UNHANDLED_REQUEST_ERROR` and no `CATALOGUE_PRODUCTS_TIMING` line (logged only at 1.5 s or more) since the deploy.
 
 - **Problem (measured in production, hold lifted, index current):** `/api/v1/catalogue-browser/products` took 5.9–6.8 s for a Pokémon page, 7.3 s for One Piece, 3.8 s for Fusion World. A `pg_stat_statements` diff of one 6.8 s Pokémon page:
   - asking-price lookup (`ASKING_DISPLAY_SQL`): **5,529 ms**, returning no rows. `tcg.reference_asking_prices` holds 2 rows.
