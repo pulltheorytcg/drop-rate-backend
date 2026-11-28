@@ -118,22 +118,93 @@ async def test_fallback_is_page_bounded_and_preserves_all_legacy_values():
         "currency": "GBP", "listing_count": 4, "independent_seller_count": 3,
         "shipping_basis": "ITEM_PLUS_SHIPPING",
         "basis_type": ASKING_MARKET_VALUE_BASIS, "completed_sales_used": 0,
+        "cardmarket_check": {"status": "NO_CARDMARKET_PRICE"},
     }
     assert "asking_price_estimate" not in result[0]
     assert result[1:] == original[1:]
     assert rows == original  # Read-only projection; never mutate source rows.
-    assert [x["key"] for x in connection.calls[0][1]] == ["r:one"]
+    # Every raw reference card on the page is asked about in one bounded read;
+    # sealed and canonical rows never are.
+    assert [x["key"] for x in connection.calls[0][1]] == ["r:one", "r:priced", "r:guide"]
+    assert len(connection.calls) == 1
     assert "current_identity" in ASKING_DISPLAY_SQL
     assert "'finish',r.finish,'rarity',r.rarity" in ASKING_DISPLAY_SQL
 
 
 @pytest.mark.asyncio
-async def test_no_request_when_all_products_have_stronger_reference_values():
+async def test_a_priced_card_without_asking_evidence_keeps_its_value():
     connection = Connection([])
     row = product(market_value_minor=1200, asking_price_estimate={"estimate_minor": 700})
     result = await add_asking_estimates(connection, [row], now=NOW)
-    assert connection.calls == []
+    assert len(connection.calls) == 1
+    assert result[0]["market_value_minor"] == 1200
+    assert "market_value_source" not in result[0] or result[0]["market_value_source"] != ASKING_MARKET_VALUE_SOURCE
     assert "asking_price_estimate" not in result[0]
+
+
+def guide_row(guide_minor, **changes):
+    return product(**{"market_value_minor": guide_minor, "market_value_high_minor": guide_minor,
+                      "market_value_source": "TCGDEX_CARDMARKET",
+                      "pricing_updated_at": NOW - timedelta(days=1), **changes})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("guide_minor,asking_minor", [
+    (4000, 4000), (4000, 4400), (4000, 7900), (4000, 2100), (56, 207), (100, 399), (500, 250)])
+async def test_asking_average_that_agrees_with_cardmarket_is_the_value(guide_minor, asking_minor):
+    # Owner rule (28 Nov 2026): asking average first, checked against Cardmarket.
+    connection = Connection([record(estimate_minor=asking_minor, estimate_high_minor=asking_minor + 100)])
+    result = await add_asking_estimates(connection, [guide_row(guide_minor)], now=NOW)
+    assert result[0]["market_value_minor"] == asking_minor
+    assert result[0]["market_value_source"] == ASKING_MARKET_VALUE_SOURCE
+    assert result[0]["market_value_evidence"]["cardmarket_check"] == {
+        "status": "AGREES", "asking_minor": asking_minor, "cardmarket_minor": guide_minor,
+        "cardmarket_source": "TCGDEX_CARDMARKET"}
+    assert "asking_price_estimate" not in result[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("guide_minor,asking_minor", [(4000, 20000), (4000, 8001), (4000, 1900), (100, 401)])
+async def test_asking_average_that_disagrees_with_cardmarket_is_held(guide_minor, asking_minor):
+    row = guide_row(guide_minor)
+    connection = Connection([record(estimate_minor=asking_minor, estimate_high_minor=asking_minor + 100)])
+    result = await add_asking_estimates(connection, [row], now=NOW)
+    # The Cardmarket guide stays the value; the asking average is flagged context.
+    assert {key: result[0][key] for key in row} == row
+    held = result[0]["asking_price_estimate"]
+    assert held["estimate_minor"] == asking_minor
+    assert held["cardmarket_check"] == {
+        "status": "DISAGREES", "asking_minor": asking_minor, "cardmarket_minor": guide_minor,
+        "cardmarket_source": "TCGDEX_CARDMARKET"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("changes", [
+    {"market_value_source": "TCGDEX_TCGPLAYER"},  # US prices are never the comparison
+    {"market_value_source": "STORED_SNAPSHOT"},
+    {"market_value_source": "UNRECOGNISED"},
+    {"pricing_updated_at": NOW - timedelta(days=8)},  # an expired guide checks nothing
+    {"market_value_minor": None, "market_value_source": None},
+    {"shared_price": {"status": "AVAILABLE", "market_value_minor": 980}, "market_value_source": "STORED_SNAPSHOT"},
+])
+async def test_asking_average_comes_first_when_there_is_no_current_cardmarket_price(changes):
+    connection = Connection([record(estimate_minor=20000, estimate_high_minor=20100)])
+    result = await add_asking_estimates(connection, [guide_row(4000, **changes)], now=NOW)
+    assert result[0]["market_value_minor"] == 20000
+    assert result[0]["market_value_source"] == ASKING_MARKET_VALUE_SOURCE
+    assert result[0]["market_value_evidence"]["cardmarket_check"] == {"status": "NO_CARDMARKET_PRICE"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", [
+    "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "CARDMARKET_BULK", "CARDMARKET_BULK_SINGLES",
+    "CARDMARKET_CATALOGUE", "POKEWALLET_CARDMARKET_CATALOGUE", "POKEWALLET_DBS_CARDMARKET_CATALOGUE",
+    "POKEWALLET_POKEMON_CARDMARKET_CATALOGUE"])
+async def test_every_cardmarket_source_is_used_for_the_check(source):
+    connection = Connection([record(estimate_minor=20000, estimate_high_minor=20100)])
+    result = await add_asking_estimates(connection, [guide_row(4000, market_value_source=source)], now=NOW)
+    assert result[0]["asking_price_estimate"]["cardmarket_check"]["cardmarket_source"] == source
+    assert result[0]["market_value_source"] == source
 
 
 @pytest.mark.asyncio
@@ -229,20 +300,14 @@ async def test_current_verified_asking_supersedes_expired_legacy_guide(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("overrides", [
-    {"pricing_updated_at": NOW - timedelta(days=3)},
-    {"market_value_source": "STORED_SNAPSHOT"},
-    {"market_value_source": "SHARED_BOOK_SOLD"},
-    {"market_value_source": "SHARED_CATALOGUE_REFERENCE"},
-    {"market_value_source": "UNRECOGNISED"},
-    {"pricing_updated_at": None},
-    {"pricing_updated_at": "bad"},
-    {"pricing_updated_at": (NOW - timedelta(days=16)).replace(tzinfo=None)},
     {"source_kind": "INVENTORY"},
+    {"source_kind": "CATALOGUE"},
     {"product_type": "SEALED"},
+    {"product_type": "COMIC"},
     {"grading_company": "PSA", "grade": "10"},
-    {"shared_price": {"status": "AVAILABLE", "market_value_minor": 980}},
+    {"seal_status": "SEALED"},
 ])
-async def test_expired_guide_fallback_never_replaces_current_or_unrelated_values(overrides):
+async def test_asking_average_never_touches_stock_sealed_graded_or_non_card_rows(overrides):
     row = product(**{
         "market_value_minor": 56,
         "market_value_source": "TCGDEX_TCGPLAYER",

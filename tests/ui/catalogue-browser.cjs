@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=market-values-20261105'), 'Seller Hub must load the current grouped discovery and saved-reference script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=asking-first-20261128'), 'Seller Hub must load the current asking-first catalogue script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=groups-20261104'), 'Seller Hub must load the current grouped discovery styles');
 assert.ok(ownerShell.includes('/assets/owner-collectibles.js?v=metadata-20261104'), 'Seller Hub must load editable metadata-reference intake');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
@@ -87,6 +87,26 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.browser.openProduct(row);assert.doesNotMatch(f.browser.sheet.textContent,/Market value: £0.03/);
   assert.match(f.browser.sheet.textContent,/provisional estimate or active listing/);
   assert.doesNotMatch(f.browser.sheet.textContent,/undefined:|Cardmarket #/);f.finish();
+ }
+ // Owner rule (28 Nov 2026): the backend's checked UK asking average is the
+ // first value and is labelled as an asking average, never "Market value".
+ {
+  const row={...card,source_kind:'REFERENCE',market_value_minor:1360,market_value_source:'DROP_RATE_UK_ASKING_MARKET_V1',
+   market_value_evidence:{independent_seller_count:5,cardmarket_check:{status:'AGREES'}},
+   shared_price:{status:'AVAILABLE',market_value_minor:900,method:'CATALOGUE_EBAY_V4'}};
+  const f=fixture(async()=>({items:[row],has_more:false}));
+  await f.browser.open();f.browser.pickGame(games[0]);await tick();
+  assert.equal(f.browser.find('[data-price-key]').textContent,'UK asking average: £13.60 · 5 sellers · checked against Cardmarket');
+  assert.doesNotMatch(f.browser.find('[data-price-key]').textContent,/Market value/);
+  f.finish();checks++;
+ }
+ // A held asking average (disagrees with Cardmarket) is never the value.
+ {
+  const held={...askingFixture(),cardmarket_check:{status:'DISAGREES',asking_minor:1234,cardmarket_minor:400}};
+  const row={...card,asking_price_estimate:held},f=fixture(async()=>({items:[row],has_more:false}));
+  await f.browser.open();f.browser.pickGame(games[0]);await tick();
+  assert.doesNotMatch(f.browser.find('[data-price-key]').textContent,/£12\.34/);
+  f.finish();checks++;
  }
  // Pricing rule 2 (27 Nov 2026): with no UK sold value, a current UK asking
  // median is the browse value — labelled, never stored as Market Value.
