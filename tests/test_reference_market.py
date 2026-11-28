@@ -111,6 +111,42 @@ async def test_fetch_uses_fixed_host_and_encoded_master_id():
     assert seen == ['https://api.tcgdex.net/v2/en/cards/me02-021']
 
 
+@pytest.mark.parametrize('rarity,expected', [('Illustration rare','Illustration rare'), ('  Common ','Common'),
+                                             ('None',None), ('',None), (None,None), (7,None), ('x'*41,None)])
+def test_provider_rarity_is_read_only_from_the_exact_card(rarity, expected):
+    assert market.provider_rarity({**PAYLOAD,'rarity':rarity}, REFERENCE) == expected
+
+
+@pytest.mark.parametrize('field,value', [('id','me02-022'), ('name','Dewgong'), ('set',{'id':'sv01'})])
+def test_provider_rarity_from_another_card_is_ignored(field, value):
+    assert market.provider_rarity({**PAYLOAD,'rarity':'Rare',field:value}, REFERENCE) is None
+
+
+@pytest.mark.asyncio
+async def test_a_missing_rarity_is_filled_once_and_an_existing_one_is_kept(monkeypatch):
+    payload = {**PAYLOAD, 'rarity': 'Illustration rare'}
+    real_client = httpx.AsyncClient
+    for existing, expected_writes in ((None, 1), ('Common', 0)):
+        rows = [{**REFERENCE, 'rarity': existing, 'quotes': [], 'expires_at': None}]
+        writes = []
+        class Connection:
+            async def fetch(self, sql, keys): return rows
+            async def execute(self, sql, *args): writes.append((sql, args))
+        @asynccontextmanager
+        async def connection(pool, user, request): yield Connection()
+        async def handler(request): return httpx.Response(200, json=payload)
+        monkeypatch.setattr(market, 'user_connection', connection)
+        monkeypatch.setattr(market.httpx, 'AsyncClient',
+                            lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs))
+        await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY], fx_provider=FX(), force=True)
+        rarity_writes = [args for sql, args in writes if sql is market.RARITY_SQL]
+        assert len(rarity_writes) == expected_writes
+        if expected_writes:
+            assert rarity_writes[0] == ('TCGdex', 'POKEMON_TCG', 'English', 'me02-021',
+                                        'Illustration rare', 'me02', 'Seel')
+    assert 'rarity is null' in market.RARITY_SQL
+
+
 @pytest.mark.asyncio
 async def test_cache_retry_and_provider_failure_preserve_recent_quote_without_holding_db(monkeypatch):
     now=datetime.now(timezone.utc); quote=(await market.tcgdex_quotes(PAYLOAD,REFERENCE,FX(),now=NOW))[0]

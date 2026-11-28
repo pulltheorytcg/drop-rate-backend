@@ -34,7 +34,7 @@ _requests = asyncio.Semaphore(6)
 
 READ_SQL = """
 select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key,
-       r.provider,r.system_code,r.language,r.provider_id,r.set_id,r.name,r.card_number,
+       r.provider,r.system_code,r.language,r.provider_id,r.set_id,r.name,r.card_number,r.rarity,
        s.name as set_name,c.quotes,c.checked_at,c.expires_at,c.refresh_revision,
        nullif(to_jsonb(c)->>'retry_after','')::timestamptz as retry_after,
        b.quotes as catalogue_quotes,b.expires_at as catalogue_expires_at
@@ -381,7 +381,32 @@ async def fetch_quotes(client, reference, fx, *, now):
     payload = json.loads(body)
     if not isinstance(payload, dict):
         raise ValueError("Invalid provider response")
-    return await tcgdex_quotes(payload, reference, fx, now=now, language=reference["language"], regional_us=True)
+    quotes = await tcgdex_quotes(payload, reference, fx, now=now, language=reference["language"], regional_us=True)
+    # The set checklist has no rarity; this exact card's own record does.
+    reference["provider_rarity"] = provider_rarity(payload, reference)
+    return quotes
+
+
+def provider_rarity(payload, reference):
+    """TCGdex rarity for exactly this card, or None.
+
+    Only the card the request named, by ID, set, name and number, may supply a
+    rarity. "None" and over-long values are not rarities.
+    """
+    card_set = payload.get("set") or {}
+    rarity = payload.get("rarity")
+    if (payload.get("id") != reference["provider_id"] or card_set.get("id") != reference["set_id"]
+            or _text(payload.get("name")) != _text(reference["name"])
+            or not isinstance(rarity, str) or not 1 <= len(rarity.strip()) <= 40
+            or rarity.strip().casefold() in {"none", "unknown"}):
+        return None
+    return rarity.strip()
+
+
+# Fill a missing rarity only; never change one already recorded.
+RARITY_SQL = """update tcg.reference_cards set rarity=$5
+ where (provider,system_code,language,provider_id)=($1,$2,$3,$4) and rarity is null
+   and set_id=$6 and name=$7"""
 
 
 async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *, fx_provider=None, force=False) -> list[dict]:
@@ -431,6 +456,9 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *
                 else:
                     await connection.execute(WRITE_SQL, *identity, view["market_quotes"], view["market_value_minor"],
                         view["market_value_high_minor"], view["pricing_updated_at"], now, expires)
+                if reference.get("provider_rarity") and not reference.get("rarity"):
+                    await connection.execute(RARITY_SQL, *identity, reference["provider_rarity"],
+                                             reference["set_id"], reference["name"])
     output = []
     for reference,view,_ in results:
         identity = {key:reference[key] for key in ('name','set_id','card_number','set_name')}
