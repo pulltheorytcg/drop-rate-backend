@@ -207,6 +207,11 @@ async def check(db):
                         if sort in ('value_desc','value_asc') and query.startswith(SOURCE_CTE):
                             actual=[dict(r) for r in await live.fetch_snapshot(db,query,args,snapshot)]
                             assert original==actual,(actor,options,sort,original,actual)
+                        # A collector-number search keeps its indexed live SQL.
+                        if options.get('q')=='BT1-001':
+                            assert live.COLLECTOR_NUMBER_FILTER in query
+                            actual=[dict(r) for r in await live.fetch_snapshot(db,query,args,snapshot)]
+                            assert original==actual,(actor,options,sort,original,actual)
                         if options.get('provider'):
                             sql,params=snapshot.sql(query,args,systems=[options['system_code']],language=options['language'],provider=options['provider'],set_id=options['set_id'])
                             assert original==[dict(r) for r in await db.fetch(sql,*params)]
