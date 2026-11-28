@@ -64,10 +64,20 @@ jobs:
                       code,_,headers=get(path);denied[path]=code
                       if code!=401:raise AssertionError('Anonymous Business API was not denied')
                       if headers.get('Cache-Control')!='no-store':raise AssertionError('Missing private cache protection')
+                  # Since #891 (4 Nov 2026) founders work inside the Seller Hub, so
+                  # /owner deliberately loads the same founder bundle as /app. The
+                  # old "seller shell must not load it" assertion failed every
+                  # release from then on. A script tag is never a permission: the
+                  # anonymous-denial checks above are what protect founder data.
+                  # Here, require the Seller Hub to be on the same reviewed bundle.
+                  owner_entries=re.findall(r'(/assets/founder-accounts\.js\?v=[A-Za-z0-9._-]+)',Path('backend/app/static/owner.html').read_text())
+                  if owner_entries!=entries:raise AssertionError('Seller Hub source does not use the single reviewed Business bundle')
                   code,body,_=get('/owner')
-                  if code!=200 or b'founder-accounts.js' in body:raise AssertionError('Seller shell changed or loads founder module')
-                  Path('business-readback.json').write_text(json.dumps({'checked_at':datetime.now(timezone.utc).isoformat(),'asset_sha256':actual,'expected_entry':entries[0],'anonymous_api_status':denied,'readiness':200,'normal_seller_login_tested':False,'mutations':0},indent=2))
-                  print('PASS: exact production static assets; ready database; anonymous Business APIs denied; ordinary seller shell excludes founder module. No signed-in account or transaction tested.')
+                  if code!=200:raise ValueError('Seller Hub not ready')
+                  if expected_entry not in body:raise ValueError('Seller Hub not at expected release')
+                  if body.count(b'founder-accounts.js')!=1:raise AssertionError('Seller Hub loads the Business bundle more than once or at another version')
+                  Path('business-readback.json').write_text(json.dumps({'checked_at':datetime.now(timezone.utc).isoformat(),'asset_sha256':actual,'expected_entry':entries[0],'anonymous_api_status':denied,'readiness':200,'seller_hub_uses_reviewed_bundle':True,'normal_seller_login_tested':False,'mutations':0},indent=2))
+                  print('PASS: exact production static assets; ready database; anonymous Business APIs denied; Seller Hub and app load the single reviewed Business bundle. No signed-in account or transaction tested.')
                   verified=True;break
               except AssertionError:
                   raise
