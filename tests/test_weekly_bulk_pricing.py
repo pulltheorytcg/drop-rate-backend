@@ -64,11 +64,15 @@ def test_interrupted_and_first_time_work_are_not_abandoned():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("monday", [False,True])
-async def test_railway_loop_only_runs_market_price_jobs_once_weekly_and_keeps_daily_source_separate(monkeypatch,monday):
-    now=(datetime(2026,10,19,2,5,tzinfo=timezone.utc)
-         if monday else datetime(2026,10,16,10,tzinfo=timezone.utc))
+@pytest.mark.parametrize("case", ["same_day", "next_day", "monday"])
+async def test_railway_loop_runs_cardmarket_daily_and_other_value_jobs_weekly(monkeypatch,case):
+    # Owner decision (28 Nov 2026): Cardmarket and reference prices daily at
+    # 03:00 UK; the other value jobs keep their Monday slot.
+    now={"same_day":datetime(2026,10,16,10,tzinfo=timezone.utc),
+         "next_day":datetime(2026,10,16,10,tzinfo=timezone.utc),
+         "monday":datetime(2026,10,19,2,5,tzinfo=timezone.utc)}[case]
     last=datetime(2026,10,15,2,30,tzinfo=timezone.utc)
+    reference_last=(datetime(2026,10,16,2,30,tzinfo=timezone.utc) if case=="same_day" else last)
     events=[]
 
     class FrozenDatetime(datetime):
@@ -105,8 +109,12 @@ async def test_railway_loop_only_runs_market_price_jobs_once_weekly_and_keeps_da
                 "CARDMARKET_VALUES":jobs.CARDMARKET_VALUE_REVISION,
                 "CATALOGUE_COVERAGE":1,
             }
+            # Its closing guide step ran after it, as it does in production.
+            started={"CATALOGUE_COVERAGE":now,"REFERENCE_PRICES":reference_last,
+                     "CARDMARKET_VALUES":(reference_last+timedelta(minutes=5)
+                                          if case=="same_day" else last)}
             return [
-                {"job":job,"started_at":(last if job!="CATALOGUE_COVERAGE" else now),
+                {"job":job,"started_at":started.get(job,last),
                  "status":"COMPLETE","report":{"importer_revision":revision}}
                 for job,revision in revisions.items()
             ]
@@ -137,8 +145,10 @@ async def test_railway_loop_only_runs_market_price_jobs_once_weekly_and_keeps_da
 
     await jobs.daily_pass(Pool(),SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()), catalogue_price_refresh_limit=20000))
     assert events[0]=="capacity" and events[-1]=="unlock"
-    if not monday:
-        assert events==["capacity","unlock"],"A Friday loop must not rewrite bulk price history"
+    if case=="same_day":
+        assert events==["capacity","unlock"],"One completed daily run must not repeat the same day"
+    elif case=="next_day":
+        assert events==["capacity","coverage","reference","cardmarket","coverage","unlock"]
     else:
         assert events==["capacity","catalogue","cardmarket","sealed","coverage",
                         "reference","cardmarket","coverage","unlock"]

@@ -651,7 +651,10 @@ async def daily_pass(pool,settings):
             if weekly_price_due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
                 await refresh_sealed_prices(pool,actor)
                 sealed_refreshed=True
-            weekly_due=weekly_price_due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION)
+            # Owner decision (28 Nov 2026): Cardmarket is downloaded daily, at
+            # 03:00 UK time. The guides it writes expire after one day, so a
+            # weekly run left them missing for six days whenever it completed.
+            weekly_due=due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION)
             if weekly_due:
                 # Record the complete database scope before a potentially long
                 # first fill; the final receipt then reflects its progress.
