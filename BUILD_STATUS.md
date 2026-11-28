@@ -1,4 +1,55 @@
-## 28 November 2026 — Three catalogue sources that failed every run now load (PR #1120)
+## 28 November 2026 — Stock guide values are restored after an interrupted price run (PR #1122)
+
+- **Found:** in the founder account, 66 One Piece and 16 Dragon Ball items had no Market Value although current, qualifying Cardmarket evidence existed for every one of them.
+  - 00:00 UTC: `CARDMARKET_VALUES` applied guide values to 245 items (163 Pokémon, 66 One Piece, 16 Dragon Ball).
+  - 00:54: the next `REFERENCE_PRICES` run rewrote the One Piece and Dragon Ball quotes in its bulk stages.
+  - 01:02:37: the live-market pass cleared the 82 values, because `tcg.cardmarket_reference_current` requires the recorded quote to still be the stored one.
+  - 01:02:43: the deploy of PR #1118 interrupted the run before its closing `refresh_cardmarket_values` step. The retry then waited out the one-hour backoff.
+- **Fix:** `daily_pass` re-applies stock guide values when the latest `REFERENCE_PRICES` receipt is newer than the latest `CARDMARKET_VALUES` receipt and the price run is not due in this pass. It reads stored quotes only; no provider is called. The one-hour backoff after an interrupted bulk run is unchanged, because it protects provider quotas across a burst of deploys.
+- **Not changed:** the clearing rule, every eligibility rule, and the valuation rules. Values still disappear for the length of a price run (about 15 minutes) between the quote rewrite and the closing step.
+- **Why the rest of the stock has no guide value** (read-only analysis of the 142 unvalued English One Piece, Dragon Ball and Fusion World items; nothing changed):
+
+  | Reason | Items |
+  |---|---|
+  | Eligible, cleared by the interruption above | 82 |
+  | Two or three equally exact reference printings (needs a printing choice) | 18 |
+  | Set name differs from every reference with that number (pre-release, premium booster, parallel) | 15 |
+  | Reference is a promo, starter or tournament release, which the rule excludes | 13 |
+  | Card name differs from the reference | 6 |
+  | No reference card with that number | 4 |
+  | Quote exists only for the other finish | 2 |
+  | "Normal" recorded for an always-foil rarity | 1 |
+  | Reference has no quote at all | 1 |
+
+  The 93 Japanese One Piece items are outside the rule: stock guides use English references only.
+- **Tests:** eight new scheduling cases run the real `daily_pass` body (interrupted run, backing-off run, already applied, due run, first run of the week, capacity guard, receipt comparison, unchanged backoff).
+
+## 28 November 2026 — Overnight service check: Railway, Supabase, GitHub, Shopify
+
+- **Railway `drop-rate-api-live`:** 3,731 requests in 24 h, no 5xx. Memory 1.3 GB of 8 GB. `drop-rate-n8n-e840` redeploys on every merge to `main`, including docs-only ones.
+- **Supabase:** 452 MB. API, job and lock sessions separate, all idle between runs. Image mirror 66,614 verified, 4 retrying. Advisors, none changed:
+  - security: leaked-password protection is off (an Auth dashboard setting); nine tables have RLS enabled and no policy, which denies the API role by design;
+  - performance: four RLS policies re-evaluate `current_setting()` per row, nine tables have overlapping permissive policies, 103 indexes are unused, one foreign key is unindexed.
+- **GitHub:** `Business production readback` failed on every release since 10 Nov. Cause: since #891 the Seller Hub deliberately loads the founder bundle, and the check still forbade it. Fixed in PR #1121 (workflow only); the founder APIs still return 401 with `no-store` to anonymous requests. Two cancelled D1 workflow files (`d1-followon-r2-shadow.yml`, `d1-legacy-r2-shadow.yml`) do not parse; they last ran on 11 Nov and are left for the D1 clean-up.
+- **Shopify:** 506 items for sale, 506 published links, 166 sync runs in 7 days with no failure. Eight graded items still lack slab photos (issue #959).
+- **Catalogue coverage at 01:35 UTC** (reference cards; live = priced within 7 days and not expired):
+
+  | Catalogue | Cards | With image | Live price |
+  |---|---|---|---|
+  | Pokémon English | 23,912 | 98% | 67% |
+  | Pokémon Japanese | 13,156 | 78% | 73% |
+  | Dragon Ball Masters | 9,255 | 100% | 56% |
+  | One Piece English | 4,686 | 100% | 47% |
+  | One Piece Japanese | 4,480 | 100% | 34% |
+  | Fusion World English | 4,366 | 100% | 30% |
+  | Fusion World Japanese | 3,231 | 100% | 13% |
+  | Naruto (both) | 7,166 | 100% | 0% (no price source) |
+- **Held for the owner** (not changed unattended): Supabase RLS policy tuning and unused-index removal; the leaked-password setting; a price source for Naruto and Fusion World Japanese FB06–FB11; whether Japanese One Piece stock may use the non-English regional guide; an artwork source for 2,894 Japanese Pokémon cards.
+
+## 28 November 2026 — Three catalogue sources that failed every run now load (PR #1120, LIVE `22a92c3`)
+
+- **Live:** merged as `22a92c3`, Railway deployment `40fb7e17` succeeded at 01:31 UTC. The first pass ran all three sources to COMPLETE: `one_piece_official` 4 sets and 679 cards, `naruto_kayou` 43 sets and 2,679 cards, `naruto_bandai` 38 sets and 4,487 cards. OP-18 is in the catalogue with 159 cards, all with images, and shows in the app.
+- **PR #1118 verified in production by the same event:** the import moved the catalogue publication 7,846 generations behind. `CATALOGUE_R2_LIVE_LAST_PUBLISHED_SERVED published_generation=123004 generations_behind=7846` was logged at 01:34:12 UTC and the publication was current again at 01:34:16.
 
 - **Found:** `one_piece_official`, `naruto_kayou` and `naruto_bandai` ended INCOMPLETE with 0 records on every run. The receipt held only `{"reason": "ReferenceFeedError"}`, so the cause was not visible. Each was reproduced read-only against the live sites.
 
