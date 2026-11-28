@@ -5,10 +5,21 @@ window.DropRateCatalogue = (() => {
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
   const ukEuEstimate = row => window.DropRateReferenceValue?.ukEuEstimate(row.uk_eu_market_estimate) || null;
-  // Owner pricing rule 2 (27 Nov 2026), docs/PRICING_RULES.md — browse value order:
-  //   1. UK sold evidence  2. UK asking median (3+ sellers)
-  //   3. Cardmarket EU (7-day sales context, else guide) as a labelled estimate
-  //   4. unavailable. Internal models and US prices never supply a value.
+  // Owner pricing rules (28 Nov 2026), docs/PRICING_RULES.md — browse value order:
+  //   1. UK asking average (3+ sellers), unless it disagrees with Cardmarket
+  //   2. Cardmarket EU (7-day sales context, else guide) as a labelled estimate
+  //   3. UK sold evidence  4. unavailable.
+  // Internal models and US prices never supply a value.
+  const askingAverage = row => {
+    // The backend has already validated the evidence and made the Cardmarket
+    // comparison; a held (disagreeing) average never arrives as the value.
+    if (row.market_value_source !== "DROP_RATE_UK_ASKING_MARKET_V1" || row.product_type !== "CARD" ||
+        !Number.isSafeInteger(row.market_value_minor) || row.market_value_minor <= 0) return null;
+    const evidence = row.market_value_evidence || {}, sellers = evidence.independent_seller_count;
+    return "UK asking average: " + money(row.market_value_minor) +
+      (Number.isSafeInteger(sellers) && sellers >= 3 ? " · " + sellers + " sellers" : "") +
+      (evidence.cardmarket_check?.status === "AGREES" ? " · checked against Cardmarket" : "");
+  };
   const EU_GUIDE_SOURCES = ["CARDMARKET_GUIDE_V1","CARDMARKET_BULK_SINGLES","CARDMARKET_BULK",
     "CARDMARKET_CATALOGUE","CARDMARKET_ESTIMATE","POKEWALLET_POKEMON_CARDMARKET_CATALOGUE",
     "TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"];
@@ -38,6 +49,8 @@ window.DropRateCatalogue = (() => {
     // UK asking evidence ranks after UK sold evidence and before EU guides.
     const estimate=row.asking_price_estimate, now=Date.now(), maxAge=3*24*60*60*1000;
     if(row.product_type!=="CARD" || ukSold(row))return null;
+    // Held by the Cardmarket comparison: context for the detail sheet only.
+    if(estimate?.cardmarket_check?.status==="DISAGREES")return null;
     if(!estimate || estimate.status!=="ASKING_PRICE_ESTIMATE" || estimate.source!=="EBAY_OFFICIAL_BROWSE" ||
       estimate.method_version!=="EBAY_UK_RAW_ASK_V1" || estimate.currency!=="GBP" || estimate.shipping_basis!=="ITEM_PLUS_SHIPPING" ||
       estimate.shipping_context!=="CONFIGURED_SHOP_POSTCODE_BENCHMARK" ||
@@ -81,6 +94,9 @@ window.DropRateCatalogue = (() => {
     (q.regional_sale.region === "EU" ? "Cardmarket EU" : "TCGplayer US") + " · " +
     new Date(q.observed_at).toLocaleDateString("en-GB");
   const marketPrice = row => {
+    // First: the UK asking average, already checked against Cardmarket.
+    const average = askingAverage(row);
+    if (average) return average;
     // 1. UK sold evidence.
     const sold = ukSold(row);
     if (sold) return sold.label + money(sold.amount);

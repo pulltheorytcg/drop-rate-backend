@@ -222,11 +222,45 @@ def expired_reference_guide(row, now):
         return False
 
 
+CARDMARKET_SOURCES = frozenset({
+    "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "CARDMARKET_BULK",
+    "CARDMARKET_BULK_SINGLES", "CARDMARKET_CATALOGUE", "POKEWALLET_CARDMARKET_CATALOGUE",
+    "POKEWALLET_DBS_CARDMARKET_CATALOGUE", "POKEWALLET_POKEMON_CARDMARKET_CATALOGUE",
+})
+# The two prices disagree when one is more than double the other and they are
+# more than GBP 3 apart. The asking average includes postage and Cardmarket
+# does not, so a 50p card asked at GBP 2 delivered is not a disagreement.
+CARDMARKET_CHECK_RATIO = 2
+CARDMARKET_CHECK_FLOOR_MINOR = 300
+
+
+def cardmarket_check(asking_minor, row, now):
+    """Compare a UK asking average with the row's current Cardmarket guide.
+
+    Owner rule (28 Nov 2026): the asking average is checked against
+    Cardmarket. Agreement lets the asking average stand as the value; a large
+    disagreement holds it and the Cardmarket guide stays the shown value.
+    """
+    guide = row.get("market_value_minor")
+    if (row.get("market_value_source") not in CARDMARKET_SOURCES
+            or type(guide) is not int or guide <= 0 or expired_reference_guide(row, now)):
+        return {"status": "NO_CARDMARKET_PRICE"}
+    high, low = max(asking_minor, guide), min(asking_minor, guide)
+    disagrees = high - low > CARDMARKET_CHECK_FLOOR_MINOR and high > CARDMARKET_CHECK_RATIO * low
+    return {"status": "DISAGREES" if disagrees else "AGREES", "asking_minor": asking_minor,
+            "cardmarket_minor": guide, "cardmarket_source": row["market_value_source"]}
+
+
 async def add_asking_estimates(connection, rows, *, now=None):
-    """Bounded verified-cache read with an asking-derived Market Value fallback.
+    """Bounded verified-cache read that puts the UK asking average first.
+
+    Owner rule (28 Nov 2026): a current UK asking average is the first value
+    for a raw catalogue card, ahead of a Cardmarket guide and of sold values,
+    unless it disagrees with Cardmarket. A held asking average is returned as
+    context in ``asking_price_estimate`` and the row keeps its own value.
 
     Never updates inventory, product/store retail prices or other persisted
-    values. A canonical reference row is the only eligible fallback; owned
+    values. A canonical reference row is the only eligible row; owned
     physical items, grade-specific slabs and missing proof remain unchanged.
     """
     now = now or datetime.now(timezone.utc)
@@ -242,11 +276,8 @@ async def add_asking_estimates(connection, rows, *, now=None):
                         "market_value_expires_at","market_value_evidence",
                         "pricing_updated_at","basis_condition"):
                 row.pop(key,None)
-        shared = row.get("shared_price") or {}
         if (row.get("source_kind") == "REFERENCE" and row.get("product_type") == "CARD"
-                and not row.get("grading_company") and not row.get("grade") and not row.get("seal_status")
-                and (row.get("market_value_minor") is None or expired_reference_guide(row, now))
-                and not (shared.get("market_value_minor") is not None and shared.get("status") != "STALE")):
+                and not row.get("grading_company") and not row.get("grade") and not row.get("seal_status")):
             pending.append(row)
     if not pending:
         return items
@@ -260,7 +291,13 @@ async def add_asking_estimates(connection, rows, *, now=None):
     for row in pending:
         if row["key"] in estimates:
             derived = asking_market_value_fields(estimates[row["key"]])
-            if derived:
+            check = cardmarket_check(derived["market_value_minor"], row, now) if derived else None
+            if derived and check["status"] == "DISAGREES":
+                # Held: the row keeps its Cardmarket value and the asking
+                # average travels as flagged context, never as the value.
+                row["asking_price_estimate"] = {**estimates[row["key"]], "cardmarket_check": check}
+            elif derived:
+                derived["market_value_evidence"]["cardmarket_check"] = check
                 row.update(derived)
             else:
                 # Keep explanatory context if the cache is valid but cannot
