@@ -2,8 +2,12 @@
 
 Only closed, shared identity/display projections enter storage. Prices, mappings,
 book validation, media approvals, inventory and ownership remain live SQL rules.
-Publication never deletes source rows. An invalidated/incomplete object set cannot
-be used, and cold downloads happen off the customer request transaction.
+Publication never deletes source rows. An incomplete object set cannot be used,
+and cold downloads happen off the customer request transaction.
+
+An invalidated set (the source changed and the new set is not yet published) is
+refused by default. The one exception is trading-card browse pages, which may
+keep showing the last published set for a bounded time; see ``read``.
 """
 from __future__ import annotations
 
@@ -316,19 +320,132 @@ async def _load(manifest,storage):
         log.warning('CATALOGUE_R2_LIVE_LOAD_FAILED type=%s',type(exc).__name__)
 
 
-async def read(connection):
-    """One small version read, no source scan; a cold worker falls back while loading."""
-    global _loading
+# Lists that can contain seller-entered identities under review (Sports,
+# Figures) or books validated by live rules are never shown from an older
+# publication: a withdrawn identity must disappear at once, not at republish.
+LAST_PUBLISHED_EXCLUDED_SYSTEMS = frozenset((
+    'SPORTS_CARDS','FIGURES','COMICS','MANGA','MARVEL_COMICS','DC_COMICS','OTHER_COMICS'))
+
+# The products this owner holds stock in, minus those R2 excludes by design
+# (the same guard as chunk_sql). Read under the caller's own RLS context.
+OWNER_LISTED_PRODUCTS_SQL = """select i.catalogue_id::text as catalogue_id
+  from tcg.inventory_items i
+  where i.owner_id=$1 and i.catalogue_id is not null
+    and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+    and not exists(select 1 from tcg.catalogue_product_profiles private_profile
+      where private_profile.catalogue_id=i.catalogue_id
+        and private_profile.system_code in ('SPORTS_CARDS','FIGURES')
+        and private_profile.identity_status is distinct from 'VERIFIED')
+  group by i.catalogue_id"""
+
+_behind = None            # (published generation, monotonic time first seen behind)
+_listed_products = None   # ((generation, manifest digest), product ids in that set)
+_last_published_logged = {}   # event -> monotonic time of its last log line
+
+
+def last_published_seconds():
+    """How long browse pages may keep the last published list. 0 turns it off."""
+    try:
+        value=int(os.getenv('TCG_R2_LIVE_CATALOGUE_LAST_PUBLISHED_SECONDS','7200'))
+    except ValueError:
+        return 0
+    return value if 0<=value<=86400 else 0
+
+
+def last_published_scope(owner_id, systems, *, category='', keys=None):
+    """The owner a browse page may show the last published list to, else None.
+
+    Only a page scoped to trading-card games qualifies. Unscoped pages, saved
+    key selections and every excluded system keep the strict behaviour.
+    """
+    if (owner_id is None or not systems or keys is not None
+            or category not in ('','TCG')
+            or LAST_PUBLISHED_EXCLUDED_SYSTEMS.intersection(systems)):
+        return None
+    return owner_id
+
+
+def _behind_seconds(published_generation):
+    """Seconds since this process first saw this publication fall behind."""
+    global _behind
+    now=time.monotonic()
+    if _behind is None or _behind[0]!=published_generation:
+        _behind=(published_generation,now)
+    return now-_behind[1]
+
+
+async def _owner_fully_listed(connection, owner_id, snapshot):
+    """True when every product the owner holds stock in is in this snapshot.
+
+    Ownership counts stay live SQL either way. This guards the one thing an
+    older list cannot show: a product created after it was published, so an
+    owner who has just added one keeps the current-SQL page until republish.
+    """
+    global _listed_products
+    identity=(snapshot.generation,snapshot.manifest_digest)
+    if _listed_products is None or _listed_products[0]!=identity:
+        _listed_products=(identity,frozenset(
+            row['id'] for row in snapshot.rows['catalogue_products']))
+    async with connection.transaction():
+        owned=await connection.fetch(OWNER_LISTED_PRODUCTS_SQL,owner_id)
+    return all(row['catalogue_id'] in _listed_products[1] for row in owned)
+
+
+def _log_last_published(event, state, waited):
+    """At most one line a minute per event; generations only, never an owner or query."""
+    now=time.monotonic()
+    if now-_last_published_logged.get(event,float('-inf'))>=60:
+        _last_published_logged[event]=now
+        log.warning('CATALOGUE_R2_LIVE_LAST_PUBLISHED_%s published_generation=%s '
+                    'generations_behind=%s behind_seconds=%s',event,
+                    state['published_generation'],
+                    state['generation']-state['published_generation'],int(waited))
+
+
+async def read(connection, *, last_published_owner=None):
+    """One small version read, no source scan; a cold worker falls back while loading.
+
+    By default a changed source returns None and the caller uses current SQL.
+    Recognition and the reference library rely on that.
+
+    A browse page passes ``last_published_owner`` (from
+    ``last_published_scope``). While the source has changed and the new set is not yet
+    published, that page gets the last published set when all of these hold:
+    the publication has been behind for less than ``last_published_seconds``,
+    the set is the verified one recorded in the publication row, and every
+    product the owner holds stock in is in it. Prices, ownership counts, media
+    and history are live SQL overlays in both cases. Any doubt returns None.
+    """
+    global _loading,_behind
     if not enabled('DELIVERY'):
         return None
     try:
         async with connection.transaction():
             state=await connection.fetchrow(STATE_SQL)
-        if not state or state['generation']!=state['published_generation']:
+        if not state:
             return None
-        manifest=validate_manifest(state['manifest'],state['generation'])
-        if (_current is not None and _current.generation==state['generation']
+        published=state['published_generation']
+        behind=state['generation']!=published
+        waited=0.0
+        if not behind:
+            _behind=None
+        else:
+            waited=_behind_seconds(published)
+            if last_published_owner is None or published is None:
+                return None
+            allowed=last_published_seconds()
+            if waited>=allowed:
+                if allowed:
+                    _log_last_published('EXPIRED',state,waited)
+                return None
+        manifest=validate_manifest(state['manifest'],published)
+        if (_current is not None and _current.generation==published
                 and _current.manifest_digest==manifest_digest(manifest)):
+            if not behind:
+                return _current
+            if not await _owner_fully_listed(connection,last_published_owner,_current):
+                return None
+            _log_last_published('SERVED',state,waited)
             return _current
         if _loading is None or _loading.done():
             storage=configured_object_storage()

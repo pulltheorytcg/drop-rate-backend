@@ -1,3 +1,17 @@
+## 28 November 2026 — Browse keeps the last published card list while a republish is pending (PR #1118)
+
+- **OWNER DECISION (28 Nov):** keep catalogue pages fast during refreshes by showing the last published card list until the new one is ready. Newly added cards can appear a little later.
+- **Problem:** after any change to the shared catalogue, every reader refused the R2 list until the maintenance worker republished at the end of its pass. Catalogue pages took 7–21 s for that whole period (27 Nov: until 00:04:57 UTC). One newly created product has the same effect for everyone.
+- **Change:** `catalogue_r2_live.read()` takes `last_published_owner`. The `games`, `sets` and `products` browse endpoints pass it; every other reader is unchanged and still refuses a list that is behind. Rules and reasons are in [the R2 delivery notes](docs/R2_LIVE_CATALOGUE_20261030.md):
+  - trading-card game pages only; never Sports, Figures, Comics, Manga, an unscoped page or a saved-key selection;
+  - only when every product the signed-in owner holds stock in is in the list, otherwise that owner gets the current-SQL page;
+  - for at most `TCG_R2_LIVE_CATALOGUE_LAST_PUBLISHED_SECONDS` (default 7200);
+  - only the verified snapshot recorded in the publication row.
+- **Unchanged:** prices, ownership counts, media and history are live SQL on every page. No pricing rule, RLS, schema or data change. Recognition and the reference library still require a current snapshot.
+- **Tests:** new `tests/test_catalogue_r2_last_published.py` (strict default, owner rule, fail-closed ownership read, window and reset, setting bounds, scope rules, cold load, which callers opt in). `tests/catalogue_r2_live_postgres.py` adds real-PostgreSQL cases under two owners' RLS.
+- **Turn off:** `TCG_R2_LIVE_CATALOGUE_LAST_PUBLISHED_SECONDS=0` on `drop-rate-api-live`, or revert the PR.
+- **Not verified until a catalogue change next happens in production:** the list is current now, so the new path is exercised only when a refresh or a new product moves it behind. Look for `CATALOGUE_R2_LIVE_LAST_PUBLISHED_SERVED` in the Railway logs.
+
 ## 28 November 2026 — Catalogue page speed: two price lookups bounded to the page (PR #1116, LIVE `baf8861`)
 
 - **Live:** merged as `baf8861`, Railway deployment `f2fd6aaa` succeeded at 00:32 UTC, `/health/ready` 200. All 20 CI checks passed, including the real-PostgreSQL asking-price contract.

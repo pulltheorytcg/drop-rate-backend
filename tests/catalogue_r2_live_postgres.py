@@ -247,6 +247,50 @@ async def check(db):
         await db.execute("update tcg.reference_cards set name=name||' new' where provider_id='fixture-001'")
         async with authorized(db):
             assert await live.read(db) is None
+        # Trading-card browse pages may keep the last published list until the
+        # republish: the same verified snapshot, under each owner's own RLS,
+        # and only while every product that owner holds stock in is in it.
+        live._behind=None
+        for actor,owner in ((ACTOR_A,OWNER_A),(ACTOR_B,OWNER_B)):
+            async with authorized(db,actor):
+                assert await live.read(db,last_published_owner=owner) is snapshot
+                assert await live.read(db) is None, 'strict readers must still refuse it'
+        async with authorized(db,UUID('20000000-0000-0000-0000-000000000099')):
+            assert await live.read(db,last_published_owner=OWNER_A) is None, 'nonmember sees no publication'
+        new_product=UUID('30000000-0000-0000-0000-0000000000aa')
+        new_item=UUID('50000000-0000-0000-0000-0000000000aa')
+        await db.execute("""insert into tcg.catalogue_products
+            (id,product_type,game,name,set_name,card_number,variant,rarity,language)
+            values($1,'CARD','Pokemon','Added After Publish','Fixture Set','999','Normal','Common','English')""",new_product)
+        await db.execute("insert into tcg.inventory_items(id,owner_id,catalogue_id,status) values($1,$2,$3,'DRAFT')",
+                         new_item,OWNER_B,new_product)
+        # Owner B now holds a product newer than the list: current SQL for B,
+        # while owner A (unaffected) keeps the fast list.
+        async with authorized(db,ACTOR_B):
+            assert await live.read(db,last_published_owner=OWNER_B) is None
+        async with authorized(db,ACTOR_A):
+            assert await live.read(db,last_published_owner=OWNER_A) is snapshot
+        # An unreviewed Sports identity is left out of R2 by design, so holding
+        # one does not count as "missing"; once VERIFIED it does.
+        await db.execute("""insert into tcg.catalogue_product_profiles
+            (catalogue_id,system_code,collectible_type,identity_status)
+            values($1,'SPORTS_CARDS','CARD','PENDING')""",new_product)
+        async with authorized(db,ACTOR_B):
+            assert await live.read(db,last_published_owner=OWNER_B) is snapshot
+        await db.execute("update tcg.catalogue_product_profiles set identity_status='VERIFIED' where catalogue_id=$1",new_product)
+        async with authorized(db,ACTOR_B):
+            assert await live.read(db,last_published_owner=OWNER_B) is None
+        # Sold or removed stock no longer counts.
+        await db.execute("update tcg.inventory_items set status='SOLD' where id=$1",new_item)
+        async with authorized(db,ACTOR_B):
+            assert await live.read(db,last_published_owner=OWNER_B) is snapshot
+        # The window setting turns the behaviour off without a deploy.
+        with patch.dict(os.environ,TCG_R2_LIVE_CATALOGUE_LAST_PUBLISHED_SECONDS='0'):
+            async with authorized(db,ACTOR_A):
+                assert await live.read(db,last_published_owner=OWNER_A) is None
+        await db.execute('delete from tcg.inventory_items where id=$1',new_item)
+        await db.execute('delete from tcg.catalogue_product_profiles where catalogue_id=$1',new_product)
+        await db.execute('delete from tcg.catalogue_products where id=$1',new_product)
         before=dict(await db.fetchrow(live.STATE_SQL))
         storage.fail=True
         try:

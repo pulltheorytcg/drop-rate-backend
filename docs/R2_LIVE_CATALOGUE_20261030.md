@@ -1,5 +1,42 @@
 # Live catalogue delivery from R2
 
+## 28 November 2026 — Browse keeps the last published list while a republish is pending
+
+**Owner decision (28 Nov):** keep catalogue pages fast during refreshes by
+showing the last published card list until the new one is ready. Newly added
+cards can appear a little later; prices and the owner's stock stay live.
+
+**Before:** any change to the shared catalogue moves the publication row's
+`generation` ahead of `published_generation`. The maintenance worker republishes
+only after its pass ends. For that whole period every reader refused the older
+list and catalogue pages fell back to 7–21 s SQL. On 27 Nov that lasted from the
+first catalogue change of the refresh until 00:04:57 UTC. Adding one new product
+to the catalogue has the same effect for everyone until the next publish.
+
+**Now:** `catalogue_r2_live.read(connection, last_published_owner=...)` returns
+the last published snapshot while the publication is behind, when all of these
+hold. Anything else returns `None` and the page uses current SQL, as before.
+
+| Rule | Why |
+|---|---|
+| Only the three browse endpoints opt in (`games`, `sets`, `products`). | Recognition and the reference library still need a current snapshot. |
+| Only a page scoped to trading-card games. Never Sports, Figures, Comics or Manga, an unscoped page, or a saved-key selection. | A seller-entered Sports or Figures identity whose review is withdrawn must disappear at once. Book facts are validated by live rules. |
+| Every product the signed-in owner holds stock in is in the snapshot. | A product created after publication is missing from the older list. Its owner gets the current-SQL page until the republish, so their quantities are never shown against an older list. |
+| The publication has been behind for less than `TCG_R2_LIVE_CATALOGUE_LAST_PUBLISHED_SECONDS` (default 7200, maximum 86400), measured from when the process first saw it fall behind. | A publisher that keeps failing must not hide new cards indefinitely. |
+| The snapshot is the verified one recorded in the publication row (same generation and manifest digest). | No other object set can stand in. |
+
+What an older list can show, for at most the window: a card added since the
+publish is missing; a card renamed or re-numbered since shows its previous
+shared fields. Prices, ownership counts, media and history are live SQL overlays
+on every page, and a price recorded against a changed identity does not match
+the older identity, so it shows as unavailable instead of a wrong value.
+
+**Logs:** `CATALOGUE_R2_LIVE_LAST_PUBLISHED_SERVED` and `..._EXPIRED`, at most
+one line a minute each, with generations and seconds only.
+
+**Turn off:** set `TCG_R2_LIVE_CATALOGUE_LAST_PUBLISHED_SECONDS=0`. No deploy,
+migration or data change is involved.
+
 ## 31 October 2026 — Filtered browse incident and bounded-path repair
 
 The live 23:43–23:47 UTC mobile session reproduced long-loading catalogue
