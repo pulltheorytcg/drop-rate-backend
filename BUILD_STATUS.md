@@ -1,3 +1,26 @@
+## 28 November 2026 — Catalogue page speed: two price lookups bounded to the page (PR #1116)
+
+- **Problem (measured in production, hold lifted, index current):** `/api/v1/catalogue-browser/products` took 5.9–6.8 s for a Pokémon page, 7.3 s for One Piece, 3.8 s for Fusion World. A `pg_stat_statements` diff of one 6.8 s Pokémon page:
+  - asking-price lookup (`ASKING_DISPLAY_SQL`): **5,529 ms**, returning no rows. `tcg.reference_asking_prices` holds 2 rows.
+  - price-history lookup (`HISTORY_SQL`): 462 ms.
+  - indexed browse query 37 ms; everything else under 100 ms together.
+- **Cause:** both were planned as one flat join. For the asking lookup PostgreSQL joined the 41 requested keys to every printing group on provider/game/language (8,487 rows) and then walked whole sets through `reference_cards_set_idx` (831,726 buffer hits). The history lookup went keys → sets → all cards of those sets instead of 41 primary-key reads.
+- **Fix (no rule change):** both queries now read the requested cards by primary key in `MATERIALIZED` steps.
+  - The asking lookup keeps only cards that have a cached asking row before anything else. The final `where a.provider_id is not null` already required that, so the result is the same.
+  - Printing groups are counted only inside the sets of those cards. The count is still over every card of each set. `asking_cache_join()` takes the set scope as a parameter; the coverage and backfill callers use the unchanged default.
+  - `MODEL_DISPLAY_SQL` (UK/EU estimate) is derived from the asking lookup and inherits the same shape.
+  - `CATALOGUE_PRODUCTS_TIMING` now logs at warning level. Production does not emit info lines, so slow pages left no stage timings.
+- **Verified read-only on production before merge:**
+  - Asking lookup: about 2 ms (was 5.5 s). History lookup: about 50 ms (was 462 ms). Both by `EXPLAIN ANALYZE` on a 41-card Pokémon page.
+  - Old and new SQL compared row for row on live data: asking lookup 2 = 2 rows, history lookup 41 = 41 rows, no differences either way.
+- **Tests:** new `tests/test_catalogue_page_query_shape.py`. `tests/reference_asking_postgres.py` now runs both page queries in real PostgreSQL: one matching row, none for cards without an ask, none after the three-day window, and none once a same-number printing outside the page makes the group count differ.
+- **27 Nov correction:** the signed-in catalogue request listed as not verified below was verified on 28 Nov 00:02–00:10 UTC with the hold lifted. Home, collection, catalogue and item detail all returned 200 for a signed-in consignor; only the catalogue pages were slow.
+- **Not changed, still slow (owner decision or separate work):**
+  - While the catalogue has changed and the R2 index has not been republished, `catalogue_r2_live.read()` refuses the old index and pages fall back to 7–21 s SQL. On 27 Nov that lasted from the first catalogue change of the refresh until 00:04:57 UTC.
+  - Each republish runs a parity check with 14–22 s database queries.
+  - Background load seen in `pg_stat_statements`: the image-mirror pending-queue query (mean 1.2–2.7 s, over 3,000 calls) and coverage queries (about 10 s mean).
+- **Rollback:** revert this PR. No migration, no data change, no setting change.
+
 ## 27 November 2026 — Pool fix, wrong-output fixes and pricing rules LIVE; bulk hold lifted and verified
 
 - **Merged and deployed to `drop-rate-api-live`** (each Railway predeploy passed, `/health/ready` 200 after each):
@@ -12,7 +35,7 @@
   - `/health/ready` (API pool): 43–137 ms throughout, against a 55 ms baseline.
   - `pg_stat_activity`: `drop-rate-api`, `drop-rate-jobs` and `drop-rate-jobs:…:locks` sessions stayed separate; the API pool never had more than one connection in use. No 5xx, timeouts or `UNHANDLED_REQUEST_ERROR` lines.
 - **Refresh results by 23:55 UTC:** ten price and guide jobs complete; five catalogue sources synced (about 66,000 records); sealed prices 3,965 checked and 2,774 priced; `REFERENCE_PRICES` still running with 27,799 prices re-checked and 15,360 current (0 before).
-- **NOT VERIFIED:** a signed-in catalogue request during the run. None reached the server, and the test was run without an owner login.
+- **Signed-in catalogue request:** not made during this run (none reached the server; the test had no owner login). Verified afterwards on 28 Nov, see the entry above.
 - **Observations to follow up:**
   - The test was bounded by time, not by `TCG_CATALOGUE_PRICE_REFRESH_LIMIT`; the limit was left unchanged.
   - Database size grew from 457 MB to 529 MB in 26 minutes from new price history. The Pro guard pauses refreshes at 7 GB.

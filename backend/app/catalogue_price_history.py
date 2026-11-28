@@ -12,13 +12,23 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from .reference_market import _time
 
 
-HISTORY_SQL = """select k.key,r.provider,r.system_code,r.language,r.provider_id,
+# The requested cards are read by primary key in a MATERIALIZED step. Planned as
+# one flat join, PostgreSQL went through each card's whole set instead (460 ms
+# for a 41-card Pokemon page in production, 28 Nov 2026).
+HISTORY_SQL = """with k as materialized (
+   select * from jsonb_to_recordset($1::jsonb) x(
+     key text,provider text,system_code text,language text,provider_id text)
+ ),
+ r as materialized (
+   select k.key,card.provider,card.system_code,card.language,card.provider_id,
+     card.name,card.set_id,card.card_number,card.rarity
+   from k join tcg.reference_cards card using(provider,system_code,language,provider_id)
+ )
+ select r.key,r.provider,r.system_code,r.language,r.provider_id,
  r.name,r.set_id,r.card_number,r.rarity,s.name as set_name,
  prices.kind,prices.market_value_minor,prices.market_value_high_minor,
  prices.pricing_updated_at,prices.quotes
- from jsonb_to_recordset($1::jsonb) k(
-   key text,provider text,system_code text,language text,provider_id text)
- join tcg.reference_cards r using(provider,system_code,language,provider_id)
+ from r
  join tcg.reference_sets s using(provider,system_code,language,set_id)
  cross join lateral (
    select 'detailed' as kind,m.market_value_minor,m.market_value_high_minor,m.pricing_updated_at,m.quotes

@@ -163,9 +163,37 @@ async def assert_acquisition_scope_query(db):
         assert await candidates(True, language="Japanese") == []
         after = await candidates(True, cursor=["TCGdex", "POKEMON_TCG", "English", "scope-missing"])
         assert [row["provider_id"] for row in after] == ["scope-priced"]
+        # The catalogue page queries run as written in real PostgreSQL: of a
+        # page of cards only the one with a still-exact cached ask is returned.
+        from app.reference_asking_display import ASKING_DISPLAY_SQL
+        from app.uk_eu_reference_display import MODEL_DISPLAY_SQL
+        page = [{"key": "k:" + suffix, "provider": "TCGdex", "system_code": "POKEMON_TCG",
+                 "language": "English", "provider_id": "scope-" + suffix}
+                for suffix in ("priced", "missing", "asking", "absent")]
+        shown_at = datetime.now(timezone.utc)
+        for sql in (ASKING_DISPLAY_SQL, MODEL_DISPLAY_SQL):
+            shown = await db.fetch(sql, page, shown_at)
+            assert [(row["key"], row["provider_id"], row["estimate_minor"],
+                     row["current_reference_group_count"]) for row in shown] == [
+                ("k:asking", "scope-asking", 1000, 1)], sql
+            assert shown[0]["current_identity"] == item["reference_identity"]
+            assert await db.fetch(sql, page[:2] + page[3:], shown_at) == []
+            assert await db.fetch(sql, [], shown_at) == []
+            # After the three-day window the same row is no longer current.
+            assert await db.fetch(sql, page, shown_at + timedelta(days=4)) == []
         await db.execute("reset role")
         current = await db.fetchrow(CURRENT_SQL, "TCGdex", "POKEMON_TCG", "English", "scope-asking")
         assert current["has_current_asking"] is True and current["needs_price"] is False
+        # A second printing with the same number that is NOT on the requested
+        # page still counts: the group is taken over the whole set, so the
+        # cached ask (recorded for a group of one) stops being shown.
+        await db.execute("""insert into tcg.reference_cards(provider,system_code,language,provider_id,
+            set_id,name,card_number,finish,rarity) values
+            ('TCGdex','POKEMON_TCG','English','scope-twin','fixture','Pineco','04','Holo','Common')""")
+        await actor(db)
+        for sql in (ASKING_DISPLAY_SQL, MODEL_DISPLAY_SQL):
+            assert await db.fetch(sql, page, shown_at) == [], sql
+        await db.execute("reset role")
     finally:
         await transaction.rollback()
 

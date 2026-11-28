@@ -31,20 +31,29 @@ def matching_reference_evidence(reference):
     return {key: evidence.get(key) for key in MATCHING_EVIDENCE_KEYS}
 
 
-def asking_cache_join(*, as_of_sql="now()"):
+ASKING_SETS_SQL = """select distinct cached_ref.provider,cached_ref.system_code,cached_ref.language,cached_ref.set_id
+   from tcg.reference_cards cached_ref join tcg.reference_asking_prices cached
+   using(provider,system_code,language,provider_id)"""
+
+
+def asking_cache_join(*, as_of_sql="now()", sets_sql=ASKING_SETS_SQL):
     """Shared eligibility for reference aliases r/s and asking-cache alias a.
 
-    Only internal, fixed SQL expressions may be passed as the clock expression.
-    Identity equality deliberately includes finish/rarity so a corrected printing
-    cannot inherit an estimate calculated for an earlier reference identity.
+    Only internal, fixed SQL expressions may be passed as the clock expression
+    and as the set scope. Identity equality deliberately includes finish/rarity
+    so a corrected printing cannot inherit an estimate calculated for an earlier
+    reference identity.
+
+    ``sets_sql`` names the sets whose printing groups are counted. A caller may
+    narrow it only to a list that still contains every set of its own ``r``
+    rows that has a cached asking price; the group count of a set is always
+    taken over the whole set, so narrowing never changes a count.
     """
     return f"""left join (
  select other.provider,other.system_code,other.language,other.set_id,
    {reference_number_alias('other')} as number_alias,count(*)::integer as reference_group_count
  from tcg.reference_cards other join (
-   select distinct cached_ref.provider,cached_ref.system_code,cached_ref.language,cached_ref.set_id
-   from tcg.reference_cards cached_ref join tcg.reference_asking_prices cached
-   using(provider,system_code,language,provider_id)
+   {sets_sql}
  ) asking_sets using(provider,system_code,language,set_id)
  group by other.provider,other.system_code,other.language,other.set_id,{reference_number_alias('other')}
 ) asking_groups on (asking_groups.provider,asking_groups.system_code,asking_groups.language,asking_groups.set_id)=
@@ -68,17 +77,30 @@ left join tcg.reference_asking_prices a
  and not ({DIGITAL_REFERENCE_SQL})"""
 
 
-ASKING_DISPLAY_SQL = f"""with wanted as (
+# A page asks about at most a few dozen cards, and only cards with a cached
+# asking row can produce a result (``a.provider_id is not null``). Both CTEs are
+# MATERIALIZED so PostgreSQL reads those cards by primary key first and counts
+# printing groups only inside their sets. Left to plan the flat join, it walked
+# every card of every asking set once per requested key: 5.5 s for a page that
+# returned no rows (measured in production, 28 Nov 2026).
+ASKING_DISPLAY_SQL = f"""with wanted as materialized (
  select * from jsonb_to_recordset($1::jsonb) as x(
    key text,provider text,system_code text,language text,provider_id text)
+),
+r as materialized (
+ select w.key,card.* from wanted w
+ join tcg.reference_cards card using(provider,system_code,language,provider_id)
+ where exists (select 1 from tcg.reference_asking_prices cached
+   where (cached.provider,cached.system_code,cached.language,cached.provider_id)=
+     (card.provider,card.system_code,card.language,card.provider_id))
 )
-select w.key,a.*,{MATCHING_EVIDENCE_SQL} as current_matching_reference_evidence,
+select r.key,a.*,{MATCHING_EVIDENCE_SQL} as current_matching_reference_evidence,
  asking_groups.reference_group_count as current_reference_group_count,
  jsonb_build_object('name',r.name,'set_id',r.set_id,
  'card_number',r.card_number,'set_name',s.name,'finish',r.finish,'rarity',r.rarity) as current_identity
-from wanted w join tcg.reference_cards r using(provider,system_code,language,provider_id)
-join tcg.reference_sets s using(provider,system_code,language,set_id)
-{asking_cache_join(as_of_sql='$2::timestamptz')}
+from r join tcg.reference_sets s using(provider,system_code,language,set_id)
+{asking_cache_join(as_of_sql='$2::timestamptz',
+                   sets_sql='select distinct provider,system_code,language,set_id from r')}
 where a.provider_id is not null"""
 
 
