@@ -8,7 +8,16 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
+from app import r2_media
 from app.object_storage import ObjectStorageConfig, ObjectStorageError, S3ObjectStorage
+
+
+@pytest.fixture(autouse=True)
+def empty_image_caches(monkeypatch):
+    """Each case starts cold: cached bytes must not hide a missing mirror."""
+    from app import api
+    monkeypatch.setattr(r2_media, '_MIRROR_BYTES', r2_media.OrderedDict())
+    monkeypatch.setattr(api, '_INVENTORY_IMAGE_CACHE', api.OrderedDict())
 
 
 # The storage reader validates the immutable WebP signature/hash; decoding and
@@ -155,6 +164,31 @@ def delivery(monkeypatch):
         SimpleNamespace(user_id=uuid4()))
     state.client = client
     return state
+
+
+@pytest.mark.asyncio
+async def test_verified_mirror_bytes_are_reused_by_object_and_digest(monkeypatch):
+    monkeypatch.setattr(r2_media, '_MIRROR_BYTES', r2_media.OrderedDict())
+    reads = []
+
+    class Store:
+        def read_verified_media(self, key, *, expected_sha256, expected_size):
+            reads.append((key, expected_sha256))
+            return b'bytes-' + expected_sha256.encode()
+
+    async def inline(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(r2_media, 'configured_object_storage', lambda: Store())
+    monkeypatch.setattr(r2_media.asyncio, 'to_thread', inline)
+    mirror = {'object_key': 'media/a.webp', 'content_sha256': 'aa', 'size_bytes': 8}
+    assert await r2_media.verified_mirror_bytes(mirror) == b'bytes-aa'
+    assert await r2_media.verified_mirror_bytes(mirror) == b'bytes-aa'
+    # Changed content under the same key is a different entry, never stale bytes.
+    changed = dict(mirror, content_sha256='bb')
+    assert await r2_media.verified_mirror_bytes(changed) == b'bytes-bb'
+    assert reads == [('media/a.webp', 'aa'), ('media/a.webp', 'bb')]
+    assert await r2_media.verified_mirror_bytes(None) is None
 
 
 @pytest.mark.asyncio

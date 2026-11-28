@@ -10,6 +10,8 @@ import asyncio
 import io
 import logging
 import os
+import time
+from collections import OrderedDict
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -122,15 +124,36 @@ async def inventory_media_mirrors(connection, assets: list) -> dict:
     return result
 
 
+# Verified mirror bytes, keyed by object key and content digest. The bytes are
+# only returned for a mirror row the caller already selected and authorised,
+# and the digest makes a stale entry impossible to reuse for changed content.
+_MIRROR_BYTES: "OrderedDict[tuple[str, str, int], tuple[float, bytes]]" = OrderedDict()
+MIRROR_BYTES_TTL = 3600.0
+MIRROR_BYTES_MAX = 48 * 1024 * 1024
+
+
 async def verified_mirror_bytes(mirror: dict | None) -> bytes | None:
     """An unavailable optional cache falls back to the same eligible source."""
     if mirror is None:
         return None
+    key = (str(mirror.get('object_key')), str(mirror.get('content_sha256')), mirror.get('size_bytes'))
+    cached = _MIRROR_BYTES.get(key)
+    if cached is not None and cached[0] > time.monotonic():
+        _MIRROR_BYTES.move_to_end(key)
+        return cached[1]
     try:
         store = configured_object_storage()
         if store is not None:
-            return await asyncio.to_thread(store.read_verified_media, mirror['object_key'],
+            data = await asyncio.to_thread(store.read_verified_media, mirror['object_key'],
                 expected_sha256=mirror['content_sha256'], expected_size=mirror['size_bytes'])
+            if data:
+                _MIRROR_BYTES[key] = (time.monotonic() + MIRROR_BYTES_TTL, data)
+                _MIRROR_BYTES.move_to_end(key)
+                total = sum(len(entry[1]) for entry in _MIRROR_BYTES.values())
+                while total > MIRROR_BYTES_MAX and _MIRROR_BYTES:
+                    _, removed = _MIRROR_BYTES.popitem(last=False)
+                    total -= len(removed[1])
+            return data
     except Exception as exc:
         logger.warning('Inventory media mirror unavailable; falling back to provider (%s)',
                        type(exc).__name__)

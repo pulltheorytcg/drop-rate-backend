@@ -613,7 +613,7 @@ async def inventory_card_image(
             payload = await reference_thumbnail(reference_item["reference_image_url"])
             if payload:
                 return Response(payload.data, media_type=payload.content_type, headers={
-                    "Cache-Control": "private, no-store", "Vary": "Authorization",
+                    "Cache-Control": INVENTORY_IMAGE_BROWSER_CACHE, "Vary": "Authorization",
                     "X-Content-Type-Options": "nosniff", "X-Drop-Rate-Media-Scope": "CATALOGUE_REFERENCE",
                 })
         return None
