@@ -34,7 +34,7 @@ from .reference_applicability import DIGITAL_REFERENCE_SQL
 from .reference_asking_backfill import (
     BackfillStop, MAX_DAILY, MAX_TARGET_REFERENCES, backfill_reference_asking,
 )
-from .reference_asking_estimator import _aspects, estimate_reference_asking_price
+from .reference_asking_estimator import _GRADE_ASPECTS, _aspects, estimate_reference_asking_price
 
 log = logging.getLogger(__name__)
 
@@ -210,7 +210,10 @@ def log_listing_outcomes(reference, details, estimate, observed):
         log.warning("EBAY_ASKING_LISTING %s", json.dumps({
             "card": card, "decision": next(iter(single["rejection_counts"]), "ACCEPTED"),
             "title": str(row.get("title", ""))[:110], "price": price.get("value"),
+            "condition": str(row.get("condition") or "")[:40], "condition_id": row.get("conditionId"),
             "specifics": {name: aspects[name][:60] for name in LOGGED_ASPECTS if name in aspects},
+            "grading": {name: aspects[name][:40] for name in _GRADE_ASPECTS if name in aspects},
+            "other_specifics": sorted(name for name in aspects if name not in LOGGED_ASPECTS)[:20],
         }, ensure_ascii=False, sort_keys=True))
     log.warning("EBAY_ASKING_CARD %s", json.dumps({
         "card": card, "name": reference.get("name"), "number": reference.get("card_number"),

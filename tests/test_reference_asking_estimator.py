@@ -293,6 +293,86 @@ def test_wording_that_separates_printings_of_one_number_still_rejects(extra):
     assert result["estimate_minor"] is None
 
 
+@pytest.mark.parametrize("value", ["Not Applicable", "Raw Card", "Unknown", "Ungraded / Raw", "N/A - raw"])
+def test_raw_card_wording_in_a_grading_specific_is_not_a_slab(value):
+    rows = [row(i, str(100 + i), localizedAspects=[{"name": "Professional Grader", "value": value}])
+            for i in range(1, 4)]
+    assert estimate(rows)["status"] == "READY"
+
+
+@pytest.mark.parametrize("value", ["PSA", "CGC Trading Cards", "Ace Grading", "9", "Yes", "12345678"])
+def test_a_grading_specific_that_names_a_grade_is_still_a_slab(value):
+    bad = row(1, localizedAspects=[{"name": "Grade", "value": value}])
+    assert estimate([bad, row(2), row(3)])["rejection_counts"]["GRADED_OR_SLAB"] == 1
+
+
+def phantasmal(name="Zacian", number="100/94", rarity="Illustration rare", **changes):
+    return reference(name=name, card_number=number, set_name="Phantasmal Flames", set_id="me02",
+                     provider_id="me02-" + number.split("/")[0], finish=None, rarity=rarity, **changes)
+
+
+def test_a_title_naming_the_release_proves_the_game():
+    # Seen live: "100/94 - Zacian - Phantasmal Flames (Normal Holo)".
+    rows = [row(i, str(100 + i), title="100/94 - Zacian - Phantasmal Flames Holo NM") for i in range(1, 4)]
+    assert estimate(rows, phantasmal())["status"] == "READY"
+
+
+def test_a_one_word_release_does_not_prove_the_game():
+    ref = reference(name="Pikachu", card_number="025/165", set_name="151", set_id="sv03.5",
+                    provider_id="sv03.5-025", finish="Holo", rarity="Common")
+    rows = [row(i, str(100 + i), title="Pikachu 025/165 151 Holo NM") for i in range(1, 4)]
+    assert estimate(rows, ref)["rejection_counts"]["GAME_MISMATCH"] == 3
+
+
+def test_another_game_in_the_game_specific_still_rejects_a_release_named_title():
+    rows = [row(i, str(100 + i), title="100/94 - Zacian - Phantasmal Flames Holo NM",
+                localizedAspects=[{"name": "Game", "value": "Yu-Gi-Oh! TCG"}]) for i in range(1, 4)]
+    assert estimate(rows, phantasmal())["status"] == "INSUFFICIENT_COMPARABLES"
+
+
+def test_a_holo_only_rarity_supplies_the_finish_a_listing_leaves_out():
+    # Seen live: "Pokemon TCG - Togedemaru 104/94 - IR Phantasmal Flames".
+    ref = phantasmal(name="Togedemaru", number="104/94")
+    rows = [row(i, str(100 + i), title="Pokemon TCG - Togedemaru 104/94 - IR Phantasmal Flames NM")
+            for i in range(1, 4)]
+    result = estimate(rows, ref)
+    assert result["status"] == "READY" and result["selected_finish"] == "Holo"
+
+
+def test_a_common_with_no_stated_finish_is_still_rejected():
+    ref = phantasmal(name="Togedemaru", number="040/94", rarity="Common")
+    rows = [row(i, str(100 + i), title="Pokemon TCG Togedemaru 040/94 Phantasmal Flames NM")
+            for i in range(1, 4)]
+    assert estimate(rows, ref)["rejection_counts"]["FINISH_MISMATCH_OR_UNKNOWN"] == 3
+
+
+def test_unrelated_specifics_do_not_invent_a_treatment():
+    aspects = [{"name": "Stage", "value": "Stage 1"}, {"name": "Card Name", "value": "V Ultra Promo pack"},
+               {"name": "Features", "value": "Full Art"}]
+    rows = [row(i, str(100 + i), localizedAspects=aspects) for i in range(1, 4)]
+    assert estimate(rows)["status"] == "READY"
+
+
+def test_a_treatment_specific_still_rejects():
+    bad = row(1, localizedAspects=[{"name": "Features", "value": "Promo, Stamped"}])
+    assert estimate([bad, row(2), row(3)])["rejection_counts"]["VARIANT_MISMATCH"] == 1
+
+
+@pytest.mark.parametrize("words", ["26-27 Regionals", "Championship", "Pre-Release", "Judge", "Winner"])
+def test_event_printings_are_not_the_base_card(words):
+    bad = row(1, title=row(1)["title"] + " " + words)
+    assert estimate([bad, row(2), row(3)])["rejection_counts"]["VARIANT_MISMATCH"] == 1
+
+
+def test_a_reprint_is_not_named_by_its_original_release_number():
+    # OP07-119 reprinted in PRB-02: "OP07-119" in a title is the OP07 card.
+    ref = {**one_piece(), "name": "Portgas.D.Ace", "card_number": "OP07-119", "provider_id": "OP07-119_r1",
+           "set_id": "PRB02", "set_name": "PREMIUM BOOSTER -ONE PIECE CARD THE BEST vol.2- [PRB-02]"}
+    rows = [row(i, str(100 + i), title="Portgas.D.Ace OP07-119 SEC One Piece TCG English NM Foil")
+            for i in range(1, 4)]
+    assert estimate(rows, ref)["rejection_counts"]["SET_MISMATCH"] == 3
+
+
 def test_a_different_collector_number_specific_still_rejects():
     bad = row(1, localizedAspects=[{"name": "Card Number", "value": "015"}])
     assert estimate([bad, row(2), row(3)])["rejection_counts"]["CARD_NUMBER_MISMATCH"] == 1
