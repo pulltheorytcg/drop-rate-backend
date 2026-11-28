@@ -243,6 +243,56 @@ def test_padded_collector_number_specific_is_the_same_number(aspect):
     assert estimate(rows, ref)["status"] == "READY"
 
 
+def moltres(**changes):
+    return reference(name="Moltres", card_number="014/94", set_name="Phantasmal Flames", set_id="me02",
+                     provider_id="me02-014", finish=None, rarity="Rare", **changes)
+
+
+def moltres_rows(number_specific, title="Moltres 014/94 Holo Rare Phantasmal Flames Pokemon NM"):
+    return [row(i, str(100 + i), title=title,
+                localizedAspects=[{"name": "Card Number", "value": number_specific}]) for i in range(1, 4)]
+
+
+@pytest.mark.parametrize("specific", ["014", "14"])
+def test_number_specific_giving_only_the_part_before_the_slash_agrees(specific):
+    # Seen in production: "Moltres 014/94 ..." with Card Number "014".
+    assert estimate(moltres_rows(specific), moltres())["status"] == "READY"
+
+
+@pytest.mark.parametrize("specific,title", [
+    ("015", "Moltres 014/94 Holo Rare Phantasmal Flames Pokemon NM"),
+    ("014", "Moltres Holo Rare Phantasmal Flames Pokemon NM"),  # the title must print the full number
+])
+def test_number_specific_shortcut_needs_the_same_number_and_the_full_title(specific, title):
+    result = estimate(moltres_rows(specific, title), moltres())
+    assert result["rejection_counts"]["CARD_NUMBER_MISMATCH"] == 3
+
+
+@pytest.mark.parametrize("extra", ["Full Art", "Special Art", "full-art"])
+def test_artwork_wording_on_a_numbered_card_does_not_reject(extra):
+    # Sellers add "Full Art" freely; the name and number bind the card.
+    rows = [row(i, str(100 + i), title=row(i)["title"] + " " + extra) for i in range(1, 4)]
+    assert estimate(rows)["status"] == "READY"
+
+
+def test_a_mega_ex_card_matches_a_title_that_also_says_full_art():
+    ref = reference(name="Mega Charizard X ex", card_number="125/094", set_name="Phantasmal Flames",
+                    set_id="me02", provider_id="me02-125", finish=None, rarity="Special illustration rare")
+    rows = [row(i, str(100 + i),
+                title="Pokemon Mega Charizard X ex 125/094 SIR Full Art Phantasmal Flames Holo NM")
+            for i in range(1, 4)]
+    assert estimate(rows, ref)["status"] == "READY"
+
+
+@pytest.mark.parametrize("extra", ["First Edition", "Shadowless", "Stamped", "Promo", "Reprint",
+                                   "Master Ball", "Alt Art", "Parallel", "VMAX", "Shiny", "Tera"])
+def test_wording_that_separates_printings_of_one_number_still_rejects(extra):
+    bad = row(1, title=row(1)["title"] + " " + extra)
+    result = estimate([bad, row(2), row(3)])
+    assert result["status"] == "INSUFFICIENT_COMPARABLES"
+    assert result["estimate_minor"] is None
+
+
 def test_a_different_collector_number_specific_still_rejects():
     bad = row(1, localizedAspects=[{"name": "Card Number", "value": "015"}])
     assert estimate([bad, row(2), row(3)])["rejection_counts"]["CARD_NUMBER_MISMATCH"] == 1

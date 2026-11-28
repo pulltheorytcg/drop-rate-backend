@@ -19,7 +19,7 @@ Store Price (Shopify) is unchanged: always set by the owner, never automatic.
 | Part | State |
 |---|---|
 | Asking average with outlier removal (`reference_asking_estimator.py`) | Live. Three or more independent UK sellers, raw Near Mint, delivered price, valid three days. |
-| Scheduled collection of asking prices (`reference_asking_schedule.py`) | Live from 28 Nov 2026. Hourly, approved stock first, then the highest-value catalogue cards. |
+| Scheduled collection of asking prices (`reference_asking_schedule.py`) | Live from 28 Nov 2026. Every 15 minutes while the day's allowance lasts, approved stock first, then the highest-value catalogue cards. Each listing read and each card's outcome is logged (`EBAY_ASKING_LISTING`, `EBAY_ASKING_CARD`). |
 | Asking average shown ahead of a fresh Cardmarket guide | **Not yet.** `add_asking_estimates` still fills only cards with no guide or an expired one. |
 | Cardmarket comparison for every game | **Not yet.** `estimate_uk_eu_market` compares only Pokémon priced through TCGdex. |
 | Asking average as stock Market Value | **Not yet.** Stock still follows Rule 1 below. |
@@ -68,7 +68,8 @@ The internal Drop Rate model never supplies a displayed value.
 
 - **Language.** An English card accepts a listing that names no language, unless the title carries a Japanese release code (sv2a, s12a). Any other language must be named. A listing naming a different language is rejected.
 - **Release.** The seller's set specific must contain the release ("SV: Scarlet & Violet 151" for 151). For One Piece and Fusion World, the complete number in the title (OP16-064) names the release when the listing gives no set. A specific naming another release rejects the listing. Dragon Ball Masters keeps whole-name matching.
-- **Collector number.** Padding and punctuation are ignored (010/025 is 10/25). A specific giving a different number rejects the listing.
+- **Collector number.** Padding and punctuation are ignored (010/025 is 10/25). A specific giving only the part before the slash ("014" for 014/94) agrees when the title prints the full number. A specific giving a different number rejects the listing.
+- **Artwork wording.** "Full Art" and "Special Art" in a listing are ignored. Every other treatment (ex, VMAX, first edition, shadowless, stamped, promo, reprint, alt art, parallel) must still match the card.
 - **Grading, bundles and condition** are read from the title, eBay's condition and the specifics that state them, not from every specific joined together. "Not specified" in a grading field is a raw card; a company, grade or certificate number is a slab.
 
 ## Where it is enforced
