@@ -63,6 +63,9 @@ _SPECIAL_MARKERS = {
     "ex": ("ex",), "gx": ("gx",), "v": ("v",), "vmax": ("vmax",),
     "vstar": ("vstar",), "radiant": ("radiant",), "shining": ("shining",),
     "mega": ("mega",), "shiny": ("shiny",), "tera": ("tera",),
+    # Event and tournament printings share the base card's number.
+    "event": ("regionals", "regional", "championship", "championships", "winner", "judge",
+              "pre release", "prerelease", "staff", "tournament"),
 }
 # Artwork descriptions sellers add to a numbered card. They do not name a
 # separate printing of the same collector number, so they need not agree.
@@ -76,10 +79,32 @@ _SET_CODES = re.compile(r"\b(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|SB)\d{1,3}\b", 
 _FRACTIONS = re.compile(r"(?<![A-Z0-9])(?:[A-Z]{0,3}\d{1,4})\s*/\s*(?:[A-Z]{0,3}\d{1,4})(?![A-Z0-9])", re.I)
 _GRADE_ASPECTS = ("professional grader", "grading company", "grader", "grade",
                   "certification number", "graded")
-# How sellers fill a grading specific on a raw card. Anything else in those
-# fields (a company, a grade, a certificate number) still means a slab.
+# How sellers fill a grading specific on a raw card.
 _NOT_GRADED_VALUES = (None, "", "no", "none", "n a", "na", "ungraded", "not graded", "non graded",
                       "not professionally graded", "not specified", "does not apply", "raw")
+_GRADER_NAMES = re.compile(
+    r"\b(?:psa|bgs|cgc|sgc|beckett|ace|tag|ars|ksa|mnt|ags|hga|gma|pgx|pca|"
+    r"professional sports authenticator|certified guaranty)\b")
+# Item specifics a seller uses to describe the printing. Other specifics
+# (year, material, character, stage) must not invent treatments or bundles.
+# Pokémon rarities printed only as holofoil.
+_HOLO_ONLY_RARITIES = ("illustration rare", "special illustration rare", "ultra rare", "double rare",
+                       "hyper rare", "secret rare", "shiny rare", "shiny ultra rare", "mega hyper rare")
+_TREATMENT_ASPECTS = ("features", "finish", "rarity", "card type", "speciality", "special attributes")
+
+
+def _states_graded(value: str | None) -> bool:
+    """A grading specific means a slab only when it names one.
+
+    Live UK listings fill these fields with "Not Applicable", "Raw Card" or
+    "Unknown" on raw cards. A grader's name, a grade number, a certificate
+    number or a plain "yes" still means a slab.
+    """
+    if value in _NOT_GRADED_VALUES:
+        return False
+    value = re.sub(r"\b(?:not(?:\s+professionally)?|non|un)\s*graded\b", "", value)
+    return bool(_GRADER_NAMES.search(value) or re.search(r"\d", value)
+                or value.strip() in {"yes", "y", "graded", "slab", "slabbed"})
 # The printed number of these games starts with its release code, so the
 # complete number in a title proves the release without the marketing name.
 _RELEASE_CODED_NUMBER = re.compile(r"(?:OP|ST|EB|PRB|FB|FS|BT|EX|TB|SD|DB|SB)\d{1,3}-\d{1,4}", re.I)
@@ -277,7 +302,11 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
     canonical_text = _text(" ".join(str(reference.get(k) or "") for k in ("name", "finish", "rarity")))
     markers = _variant_markers(canonical_text + " " + _text(set_name))
     markers |= _variant_markers(_text(" ".join(proof)))
-    return {"game": game, "language": language, "finish": finish, "set_terms": set_terms,
+    rarity = _text(reference.get("rarity"))
+    implied_finish = ("holo" if game == "POKEMON_TCG" and finish is None
+                      and any(_phrase(rarity, term) for term in _HOLO_ONLY_RARITIES) else None)
+    return {"game": game, "language": language, "finish": finish, "implied_finish": implied_finish,
+            "set_terms": set_terms,
             "set_alternatives": set_alternatives, "set_conflicts": set_conflicts,
             "set_alias_source": set_alias_source, "variant_terms": proof, "markers": markers}, None
 
@@ -419,6 +448,10 @@ def _listing_finish(row: Mapping[str, Any], spec: Mapping[str, Any]) -> str | No
         found = "foil"
     else:
         found = None
+    if found is None and expected is None:
+        # A listing that states no finish takes the only finish the card's
+        # rarity is printed in (an Illustration Rare is always holo).
+        found = spec.get("implied_finish")
     return found if expected is None or found == expected else None
 
 
@@ -438,12 +471,19 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     grade_text = re.sub(r"\b(?:not(?:\s+professionally)?|non)\s+graded\b", "", stated_text)
     if _GRADE_RE.search(grade_text) or str(row.get("conditionId")) == "2750":
         return "GRADED_OR_SLAB"
-    if any(aspects.get(k) not in _NOT_GRADED_VALUES for k in _GRADE_ASPECTS):
+    if any(_states_graded(aspects.get(k)) for k in _GRADE_ASPECTS):
         return "GRADED_OR_SLAB"
     if _MULTI_RE.search(title):
         return "MULTI_ITEM_OR_NON_PHYSICAL"
     game_text = " ".join((title, aspects.get("game", "")))
-    if not _matches_game(game_text, reference, spec):
+    # A title such as "100/94 - Zacian - Phantasmal Flames" names no game,
+    # but a release name of two or more words does. Another game named
+    # anywhere is still checked below.
+    # Pokémon only: Dragon Ball's two games share names and need their own word.
+    names_release = spec["game"] == "POKEMON_TCG" and any(
+        all(_phrase(title, term) for term in option) and len(_text(" ".join(option)).split()) >= 2
+        for option in spec["set_alternatives"])
+    if not (_matches_game(game_text, reference, spec) or (names_release and not aspects.get("game"))):
         return "GAME_MISMATCH"
     if any(any(_game_words(game_text, alias) for alias in aliases) for game, aliases in _GAMES.items() if game != spec["game"]):
         return "GAME_MISMATCH"
@@ -474,9 +514,16 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     # number, so the complete number in a title (OP16-064) names the release
     # when the listing gives no set at all. Masters is excluded: its prefix
     # does not identify the product a card was released in.
+    # The number's code must be the reference's own release: OP07-119 reprinted
+    # in PRB-02 is not named by "OP07-119".
+    release_codes = {re.sub(r"[^a-z0-9]", "", code.casefold()) for code in (
+        reference.get("set_id") or "",
+        *re.findall(r"\[([A-Za-z]{1,4}\s*-?\s*\d{1,3})\]", reference.get("set_name") or ""))}
+    number_code = re.sub(r"[^a-z0-9]", "", reference["card_number"].split("-", 1)[0].casefold())
     number_names_set = bool(
         spec["game"] in {"ONE_PIECE_CARD_GAME", "DRAGON_BALL_SUPER_FUSION_WORLD"}
         and not aspects.get("set")
+        and number_code in release_codes
         and _RELEASE_CODED_NUMBER.fullmatch(reference["card_number"])
         and _title_number(str(raw_title), reference["card_number"]))
     if (not (number_names_set or any(all(_phrase(set_text, term) for term in option) for option in set_options))
@@ -504,7 +551,11 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
         return "SET_MISMATCH"
     # "Full Art" and "Special Art" describe the numbered card's artwork and
     # sellers add them freely; the name and number checks above bind the card.
-    if (_variant_markers(all_text) - _DESCRIPTIVE_MARKERS) != (spec["markers"] - _DESCRIPTIVE_MARKERS):
+    # A treatment the listing advertises (title or a treatment specific) must
+    # be the card's own; one the card needs may be stated anywhere.
+    required = spec["markers"] - _DESCRIPTIVE_MARKERS
+    stated = " ".join((title, *(aspects.get(k, "") for k in _TREATMENT_ASPECTS)))
+    if (_variant_markers(stated) - _DESCRIPTIVE_MARKERS) - required or required - _variant_markers(all_text):
         return "VARIANT_MISMATCH"
     if any(_explicitly_denies(all_text, _SPECIAL_MARKERS[marker]) for marker in spec["markers"]):
         return "VARIANT_MISMATCH"
