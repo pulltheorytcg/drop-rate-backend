@@ -291,7 +291,9 @@ async def reference_image(inventory_id: UUID, request: Request,
     if payload is None:
         raise HTTPException(502, "Reference image is temporarily unavailable")
     return Response(payload.data, media_type=payload.content_type,
-                    headers={"Cache-Control": "private, no-store", "X-Drop-Rate-Image": "REFERENCE_ONLY"})
+                    # The owner's own browser may keep catalogue art briefly.
+                    headers={"Cache-Control": "private, max-age=300", "Vary": "Authorization",
+                             "X-Drop-Rate-Image": "REFERENCE_ONLY"})
 
 
 class VersionRequest(BaseModel):
