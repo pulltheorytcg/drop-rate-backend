@@ -211,6 +211,66 @@ async def main():
         assert dict(await db.fetchrow(read_failure)) == fresh, 'Delayed failure rewrote newer success'
         assert await db.fetchval('select count(*) from tcg.inventory_items') == 0
         await db.execute('rollback')
+        # The per-card price queue in real PostgreSQL. On 28 Nov 2026 cards with
+        # no quote at the source, and one digital set whose requests all fail,
+        # sat at the front of every run and 15,825 cards behind them were never
+        # reached. Order and exclusions are checked here against real rows.
+        import hashlib
+        from app.catalogue_maintenance import PRICE_WARM_QUEUE_SQL
+        await db.execute('begin')
+        await db.execute("""insert into tcg.reference_sets(provider,system_code,language,set_id,name,release_date) values
+          ('TCGdex','POKEMON_TCG','English','queue','Queue Test Set',null),
+          ('TCGdex','POKEMON_TCG','English','B1','Mega Rising',current_date-30),
+          ('TCGdex','POKEMON_TCG','Japanese','B1','Mega Rising',null),
+          ('TCGdex','POKEMON_TCG','English','future','Unreleased Set',current_date+1)""")
+        queue_cards = [
+            # provider_id, language, set, checked days ago (None = never), retry_after offset
+            ('q-never', 'English', 'queue', None, None),
+            ('q-old-a', 'English', 'queue', 10, None),
+            ('q-old-b', 'English', 'queue', 9, None),
+            ('q-fresh', 'English', 'queue', 0, None),                         # checked this week
+            ('q-empty-backoff', 'English', 'queue', 10, timedelta(hours=6)),  # no quote; retry later
+            ('q-failed-earlier', 'English', 'queue', 12, -timedelta(hours=2)),
+            ('q-failed-recent', 'English', 'queue', 11, -timedelta(minutes=10)),
+            ('B1-150', 'English', 'B1', 12, -timedelta(hours=1)),             # digital Pocket card
+            ('z-jp-b1', 'Japanese', 'B1', None, None),   # same ID and title, another locale: physical
+            ('q-future', 'English', 'future', None, None),
+        ]
+        for provider_id, language, set_id, checked_days, retry in queue_cards:
+            await db.execute("""insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number)
+              values('TCGdex','POKEMON_TCG',$1,$2,$3,'Queue card','001')""", language, provider_id, set_id)
+            if checked_days is not None:
+                checked = now-timedelta(days=checked_days)
+                await db.execute(CARD_PRICE_SQL, 'TCGdex', 'POKEMON_TCG', language, provider_id, [], None, None,
+                                 None, checked, checked+timedelta(hours=6))
+                await db.execute("""update tcg.reference_market_prices set retry_after=$2
+                  where provider='TCGdex' and system_code='POKEMON_TCG' and provider_id=$1""",
+                                 provider_id, None if retry is None else now+retry)
+        def queue_key(provider_id, language='English'):
+            return 'r:'+hashlib.md5('\x1f'.join(('TCGdex','POKEMON_TCG',language,provider_id)).encode()).hexdigest()
+        slot = now-timedelta(days=3)
+        queued = [row['key'] for row in await db.fetch(PRICE_WARM_QUEUE_SQL, 100, slot, 3)]
+        mine = {queue_key(c[0], c[1]):c[0] for c in queue_cards}
+        assert [mine[key] for key in queued if key in mine] == [
+            'q-never', 'z-jp-b1',                     # never checked
+            'q-old-a', 'q-old-b',                     # not tried since, oldest check first
+            'q-failed-earlier', 'q-failed-recent',    # tried without a result: after everything else
+        ], [mine.get(key) for key in queued]
+        # Excluded: this week's check, a retry still in backoff, the digital
+        # Pocket release, and an unreleased set.
+        assert not {'q-fresh', 'q-empty-backoff', 'B1-150', 'q-future'}.intersection(
+            mine[key] for key in queued if key in mine)
+        # The limit is applied after ordering, so a short run still starts
+        # with cards that have not been tried.
+        first_two = [row['key'] for row in await db.fetch(PRICE_WARM_QUEUE_SQL, 2, slot, 3)]
+        assert all(mine.get(key) in {'q-never', 'z-jp-b1', 'fixture', None} for key in first_two), first_two
+        assert not {mine.get(key) for key in first_two}.intersection({'q-failed-earlier', 'q-failed-recent'})
+        # Once the retry time passes, a card with no quote is queued again, last.
+        await db.execute("update tcg.reference_market_prices set retry_after=$1 where provider_id='q-empty-backoff'",
+                         now-timedelta(minutes=1))
+        requeued = [mine[key] for key in [row['key'] for row in await db.fetch(PRICE_WARM_QUEUE_SQL, 100, slot, 3)] if key in mine]
+        assert requeued[-1] == 'q-empty-backoff' and requeued[:4] == ['q-never', 'z-jp-b1', 'q-old-a', 'q-old-b']
+        await db.execute('rollback')
         # Execute the three free-source readers against dated positive caches.
         # A value that expired is eligible for an independently verified guide;
         # reading it must not advance the old evidence date or create history.

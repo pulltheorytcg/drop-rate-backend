@@ -1,4 +1,21 @@
-## 28 November 2026 — Stock guide values are restored after an interrupted price run (PR #1122)
+## 28 November 2026 — Pokémon price queue no longer blocked by cards that never resolve (PR #1123)
+
+- **Found:** the per-card Pokémon price refresh was stuck. Run 3 (01:54–02:00 UTC) checked 4,200 cards, priced 6 and stopped as `PROVIDER_UNAVAILABLE`. **15,825 English cards were never reached that night**; 7,009 of them still show an old price.
+- **Cause:** the queue was ordered by `checked_at` alone and ignored `retry_after`.
+  - A card with no quote at the source, or whose request failed, keeps its old `checked_at` (`FAILED_REFRESH_SQL` moves only `retry_after`). Those cards stayed at the front of every run: 2,670 English and 3,499 Japanese that night.
+  - The 69 failures were all in `B1` "Mega Rising", a digital TCG Pocket set. One batch of 40 failing requests ends the run, so everything ordered after it was never tried.
+- **Fix (`PRICE_WARM_QUEUE_SQL`):**
+  - The fifteen digital Pocket releases are not queued. Their 2,480 cards have never had a price.
+  - A card is not requested again before its own `retry_after`.
+  - Cards already tried without a result are ordered after every card not yet tried.
+  - Which cards are due, the scope, the batch size, the provider-outage stop and the backoff are unchanged.
+- **Checked read-only on production before merge:** the new queue holds 15,832 cards (15,810 English, 22 Japanese) across 172 sets, none digital and none already tried.
+- **Tests:** real-PostgreSQL ordering and exclusion cases in `tests/catalogue_maintenance_postgres.py`; SQL contract and call-site cases in `tests/test_catalogue_maintenance.py`.
+- **Not changed:** no pricing rule. A set that fails at the source can still end a run, but only after every untried card has been processed.
+
+## 28 November 2026 — Stock guide values are restored after an interrupted price run (PR #1122, LIVE `e7b2096`)
+
+- **Live:** merged as `e7b2096` at 02:05 UTC, while the price run was backing off, so nothing was interrupted. The 82 values had already returned at 02:00:40 when run 3 reached its closing step (`CARDMARKET_VALUES` updated 84 items).
 
 - **Found:** in the founder account, 66 One Piece and 16 Dragon Ball items had no Market Value although current, qualifying Cardmarket evidence existed for every one of them.
   - 00:00 UTC: `CARDMARKET_VALUES` applied guide values to 245 items (163 Pokémon, 66 One Piece, 16 Dragon Ball).

@@ -215,6 +215,53 @@ async def test_daily_price_warm_stops_on_provider_failure_and_reuses_fx(monkeypa
     assert receipts[-1][3]=='INCOMPLETE' and receipts[-1][4]['provider_failures']==40
 
 
+def test_price_queue_cannot_be_blocked_by_cards_that_never_resolve():
+    """28 Nov 2026: unpriceable and failing cards hid 15,825 cards behind them."""
+    from app.reference_applicability import DIGITAL_REFERENCE_SQL, POCKET_RELEASES
+    sql=' '.join(jobs.PRICE_WARM_QUEUE_SQL.split())
+    # Digital TCG Pocket releases have no market; all fifteen are left out.
+    assert 'and not '+' '.join(DIGITAL_REFERENCE_SQL.split()) in sql
+    assert all(f"('{set_id}','" in sql for set_id in POCKET_RELEASES)
+    # A card is not requested again before its own retry time.
+    assert 'and (p.retry_after is null or p.retry_after<=now())' in sql
+    # Cards tried without a result follow every card not yet tried.
+    assert sql.endswith('order by (p.retry_after is not null),p.retry_after, p.checked_at nulls first,'
+                        's.release_date desc nulls last,r.provider_id limit $1')
+    # Which cards are due, and the scope, are unchanged.
+    assert ("(p.checked_at is null or p.checked_at<$2 or p.refresh_revision<$3 or "
+            "(p.expires_at<=now() and p.expires_at<=p.checked_at+interval '5 minutes'))") in sql
+    assert "r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('English','Japanese')" in sql
+    assert '(s.release_date is null or s.release_date<=current_date)' in sql
+    assert sql.count('$1')==1 and sql.count('$2')==1 and sql.count('$3')==1
+
+
+@pytest.mark.asyncio
+async def test_price_warm_uses_the_shared_queue_and_keeps_its_limit(monkeypatch):
+    seen=[]
+    class Queue(Connection):
+        async def fetch(self,sql,*args):
+            seen.append((sql,args));return self.candidates
+    conn=Queue([{'key':'r:'+str(i).zfill(32)} for i in range(81)]);pool=Pool(conn)
+    @asynccontextmanager
+    async def user_connection(*args):yield conn
+    async def receipt(*args):return uuid4()
+    async def refresh(*args,**kwargs):
+        return [{'market_value_minor':100,'provider_refresh_failed':False} for _ in args[3]]
+    async def stage(*args,**kwargs):return {'checked':1,'priced':1,'provider_failures':0}
+    async def no_sleep(*args):return None
+    monkeypatch.setattr(jobs,'user_connection',user_connection);monkeypatch.setattr(jobs,'receipt',receipt)
+    monkeypatch.setattr(jobs,'refresh_reference_prices',refresh)
+    monkeypatch.setattr(jobs.asyncio,'sleep',no_sleep)
+    for name in ('refresh_one_piece_prices','refresh_dragon_ball_prices','refresh_pokemon_catalogue_prices'):
+        monkeypatch.setattr(jobs,name,stage)
+    await jobs.warm_prices(pool,uuid4(),80)
+    queue=[args for sql,args in seen if sql==jobs.PRICE_WARM_QUEUE_SQL]
+    assert len(queue)==1
+    limit,slot,revision=queue[0]
+    assert limit==81 and revision==jobs.REVISION
+    assert slot==jobs.weekly_price_slot(slot) and slot.tzinfo is not None
+
+
 @pytest.mark.asyncio
 async def test_sealed_only_refresh_updates_the_coverage_receipt(monkeypatch):
     now=datetime.now(timezone.utc);events=[]
