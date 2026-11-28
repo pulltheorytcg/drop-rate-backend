@@ -1,4 +1,31 @@
-## 28 November 2026 — One invalid release no longer hides later releases in the Pokémon CardTrader bridge (PR #1124)
+## 28 November 2026 — Overnight result at 04:08 UTC (PRs #1116 to #1124 all LIVE)
+
+- **State:** `drop-rate-api-live` runs `d0d069b` (deployment `9b7004dd`, 03:26 UTC), `/health/ready` 200. No 5xx in the period. `DROP_RATE_CATALOGUE_BULK_HOLD` is still lifted.
+- **Catalogue coverage, 01:35 → 04:08 UTC** (live = priced within 7 days and not expired):
+
+  | Catalogue | Cards | With image | Live price before | Live price now |
+  |---|---|---|---|---|
+  | Pokémon English | 23,912 | 98% | 67% | **87%** (97% of the 21,432 physical cards) |
+  | Pokémon Japanese | 13,156 | 78% | 73% | 73% |
+  | Dragon Ball Masters | 9,255 | 100% | 56% | 56% |
+  | One Piece English | 4,686 | 100% | 47% | 50% (OP-18 added: 96 of 159 priced) |
+  | One Piece Japanese | 4,480 | 100% | 34% | 34% |
+  | Fusion World English | 4,366 | 100% | 30% | 30% |
+  | Fusion World Japanese | 3,231 | 100% | 13% | 13% |
+  | Naruto (both) | 7,166 | 100% | 0% | 0% |
+- **Images:** every card that has a source image is mirrored (66,773 verified, 4 Pokémon cards retrying). The remaining gaps are cards with no source image: 581 Pokémon English and 2,894 Pokémon Japanese.
+- **Stock (approved items with a Market Value):** 333 of 507. Pokémon 177/202, One Piece 140/270, Dragon Ball 16/29, Fusion World 0/6. One Piece stood at 74 and Dragon Ball at 0 before PR #1122.
+- **What is still limited, and why:**
+  - Naruto, Fusion World Japanese FB06–FB11 and much of One Piece Japanese have no price at any connected source.
+  - The 2,480 digital TCG Pocket cards cannot have a market price.
+  - 93 Japanese One Piece stock items are outside the stock-guide rule (English references only).
+  - 60 English One Piece, Dragon Ball and Fusion World stock items need a human choice (ambiguous printing, promo, name or set mismatch); see the PR #1122 entry.
+- **Still open:** `REFERENCE_PRICES` ends INCOMPLETE on every run because `g1:rc` fails its identity check, so it retries hourly. Stock guide values for One Piece and Dragon Ball disappear for a few minutes in each run between the quote rewrite and the closing step. Database size 502 MB (452 MB at 01:35), from new price history.
+- **Scheduled:** read-only check-ins at 05:17 and 07:23 UTC in the working session.
+
+## 28 November 2026 — One invalid release no longer hides later releases in the Pokémon CardTrader bridge (PR #1124, LIVE `d0d069b`)
+
+- **Live:** merged as `d0d069b` at 03:24 UTC while no job was running. Run 5 (03:59–04:03 UTC): bridge `sets_checked` 163 (was 62), 167 provider calls, `invalid_releases: ["g1:rc"]`, not stopped early. Bridge-priced cards 17,895 (was 4,623); catalogue guide priced 19,451 (was 13,195). `CARDMARKET_VALUES` re-applied 82 stock values at 04:03.
 
 - **Found:** every `REFERENCE_PRICES` run reports `pokemon_catalogue.cardtrader_bridge` as `PARTIAL` with `sets_checked: 62` and one failure, including the run of 8 Nov. The checked releases stop at `g1:base`, `gym1` and `gym2`; `g1:rc` (Generations Radiant Collection) is never among them.
 - **Cause:** `cardtrader_matches` stopped all later batches as soon as any release failed, whether the provider failed or one release's export failed its own identity checks. `g1:rc` fails its check on every run, so the releases ordered after it were never requested.
