@@ -21,6 +21,7 @@ from typing import Any
 SOURCE = "EBAY_OFFICIAL_BROWSE"
 METHOD_VERSION = "EBAY_UK_RAW_ASK_V1"
 TTL = timedelta(days=3)
+DISPERSION_FLOOR_MINOR = 300
 FINISH_LABELS = ("Normal", "Holo", "Reverse Holo", "Foil", "Parallel", "Alt Art", "Manga")
 _FINISH_LABEL = dict(zip(("normal", "holo", "reverse", "foil", "parallel", "alt art", "manga"), FINISH_LABELS))
 _GAMES = {
@@ -220,6 +221,25 @@ def _variant_markers(text: str) -> set[str]:
     return {marker for marker, aliases in _SPECIAL_MARKERS.items() if any(_phrase(text, alias) for alias in aliases)}
 
 
+def _bracket_release_codes(set_name: object) -> set[str]:
+    """Printed release codes in a set label's brackets: [OP-01], [OP15-EB04]."""
+    codes: set[str] = set()
+    for bracket in re.findall(r"\[([^\]]{1,40})\]", set_name if isinstance(set_name, str) else ""):
+        for prefix, number in re.findall(r"(OP|ST|EB|PRB|FB|FS|BT|SD|EX|TB)\s*-?\s*(\d{1,3})", bracket, re.I):
+            codes.add(prefix.upper() + number)
+    return codes
+
+
+# One Piece prints commons, uncommons and leaders without foil and rares and
+# above in foil. The same rule already decides guide finishes for stock.
+_ONE_PIECE_FINISH_BY_RARITY = {
+    "c": "normal", "common": "normal", "uc": "normal", "uncommon": "normal",
+    "l": "normal", "leader": "normal",
+    "r": "foil", "rare": "foil", "sr": "foil", "superrare": "foil", "super rare": "foil",
+    "sec": "foil", "secretrare": "foil", "secret rare": "foil",
+}
+
+
 def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
     required = ("provider", "system_code", "language", "provider_id", "set_id", "name", "card_number")
     if any(not isinstance(reference.get(k), str) or not reference[k].strip() for k in required):
@@ -273,15 +293,17 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
             and reference["provider"] in {"Punk Records", "Bandai Official"}
             and "set_title_terms" not in evidence
             and isinstance(set_name, str)):
+        # The bracket may list more than one printed code for a combined
+        # release, e.g. [OP15-EB04] for OP15 and EB04 cards in one product.
         label = re.fullmatch(
-            r"(?:BOOSTER PACK\s*-\s*)?(?P<title>.+?)\s*"
-            r"\[(?P<code>(?:OP|ST|EB|PRB|FB|FS)\s*-\s*\d{1,3})\]",
+            r"(?:(?:BOOSTER PACK|EXTRA BOOSTER|STARTER DECK)\s*-\s*)?(?P<title>.+?)\s*"
+            r"\[(?P<code>[A-Z0-9 -]{3,24})\]",
             set_name, re.I,
         )
         printed = re.match(r"^((?:OP|ST|EB|PRB|FB|FS)\d{1,3})-", reference["card_number"], re.I)
         if label and printed:
-            label_code = re.sub(r"[^A-Z0-9]", "", label.group("code").upper())
-            if label_code == printed.group(1).upper():
+            label_codes = _bracket_release_codes(label.group(0))
+            if printed.group(1).upper() in label_codes:
                 short = label.group("title").strip(" -")
                 if 3 <= len(short) <= 90 and _text(short) != _text(set_name):
                     set_alternatives += ((short,),)
@@ -303,8 +325,13 @@ def _reference_spec(reference: Mapping[str, Any]) -> tuple[dict[str, Any] | None
     markers = _variant_markers(canonical_text + " " + _text(set_name))
     markers |= _variant_markers(_text(" ".join(proof)))
     rarity = _text(reference.get("rarity"))
-    implied_finish = ("holo" if game == "POKEMON_TCG" and finish is None
-                      and any(_phrase(rarity, term) for term in _HOLO_ONLY_RARITIES) else None)
+    implied_finish = None
+    if finish is None and game == "POKEMON_TCG" and any(_phrase(rarity, term) for term in _HOLO_ONLY_RARITIES):
+        implied_finish = "holo"
+    elif (finish is None and game == "ONE_PIECE_CARD_GAME"
+          and re.fullmatch(r"(?:OP|ST|EB|PRB)\d{1,3}-\d{1,4}", reference["provider_id"], re.I)):
+        # Base printings only: parallels and reprints carry a suffix.
+        implied_finish = _ONE_PIECE_FINISH_BY_RARITY.get(rarity)
     return {"game": game, "language": language, "finish": finish, "implied_finish": implied_finish,
             "set_terms": set_terms,
             "set_alternatives": set_alternatives, "set_conflicts": set_conflicts,
@@ -355,6 +382,9 @@ def _shipping(row: Mapping[str, Any]) -> int | None:
     return min(amounts)
 
 
+_NUMBER_RARITY_SUFFIXES = frozenset({"c", "uc", "r", "sr", "sec", "l", "sp", "tr", "scr", "spr", "ur", "ar"})
+
+
 def _number_parts(value: str) -> tuple[str, ...]:
     """Collector-number groups without separators or zero padding.
 
@@ -380,6 +410,11 @@ def _number_matches(title: str, aspect: str, expected: str) -> bool:
     # ("010/025" for 10/25, "OP16 064" for OP16-064), is agreement. A specific
     # naming a different number still rejects the listing below.
     if aspect and _number_parts(aspect) == _number_parts(expected):
+        return True
+    # Sellers add the rarity to the number box: "OP07 091 R", "BT30 111 SR".
+    parts, wanted = _number_parts(aspect), _number_parts(expected)
+    if (aspect and len(parts) > len(wanted) and parts[:len(wanted)] == wanted
+            and all(part in _NUMBER_RARITY_SUFFIXES for part in parts[len(wanted):])):
         return True
     # Sellers often type only the part before the slash ("014" for 014/94).
     # That agrees with the card once the title prints the complete number.
@@ -448,10 +483,14 @@ def _listing_finish(row: Mapping[str, Any], spec: Mapping[str, Any]) -> str | No
         found = "foil"
     else:
         found = None
-    if found is None and expected is None:
-        # A listing that states no finish takes the only finish the card's
-        # rarity is printed in (an Illustration Rare is always holo).
-        found = spec.get("implied_finish")
+    implied = spec.get("implied_finish")
+    if expected is None and implied is not None:
+        # The card is printed in one finish only (an Illustration Rare is
+        # always holo, a One Piece common never foil). Sellers often leave the
+        # finish out or mislabel it, so the card's own finish is used. Other
+        # printings of the same number (parallels, alt arts, promos) are
+        # rejected by their own markers before this point.
+        return implied
     return found if expected is None or found == expected else None
 
 
@@ -516,9 +555,8 @@ def _matches(row: Mapping[str, Any], reference: Mapping[str, Any], spec: Mapping
     # does not identify the product a card was released in.
     # The number's code must be the reference's own release: OP07-119 reprinted
     # in PRB-02 is not named by "OP07-119".
-    release_codes = {re.sub(r"[^a-z0-9]", "", code.casefold()) for code in (
-        reference.get("set_id") or "",
-        *re.findall(r"\[([A-Za-z]{1,4}\s*-?\s*\d{1,3})\]", reference.get("set_name") or ""))}
+    release_codes = {re.sub(r"[^a-z0-9]", "", str(reference.get("set_id") or "").casefold())} | {
+        code.casefold() for code in _bracket_release_codes(reference.get("set_name"))}
     number_code = re.sub(r"[^a-z0-9]", "", reference["card_number"].split("-", 1)[0].casefold())
     number_names_set = bool(
         spec["game"] in {"ONE_PIECE_CARD_GAME", "DRAGON_BALL_SUPER_FUSION_WORLD"}
@@ -757,7 +795,12 @@ def estimate_reference_asking_price(
     low = _quantile(prices, Decimal("0.25"))
     high = _quantile(prices, Decimal("0.75"))
     dispersion = Decimal(max(prices) - min(prices)) / centre
-    if dispersion > Decimal("0.50") or Decimal(high - low) / centre > Decimal("0.35"):
+    # Spread is judged after outliers are gone. A GBP 3 spread on a cheap
+    # card (asks of GBP 1 to GBP 4 delivered) is ordinary postage noise.
+    wide_range = dispersion > Decimal("0.50") and max(prices) - min(prices) > DISPERSION_FLOOR_MINOR
+    wide_middle = (Decimal(high - low) / centre > Decimal("0.35")
+                   and high - low > DISPERSION_FLOOR_MINOR)
+    if wide_range or wide_middle:
         result["status"] = "EXCESSIVE_DISPERSION"
         return result
     result.update(status="READY", price_gbp_minor=_round(centre), estimate_minor=_round(centre),

@@ -555,6 +555,82 @@ def test_robust_median_removes_large_outlier_and_still_requires_three_sellers():
     assert estimate([row(1, "100"), row(2, "100"), row(3, "1000")])["status"] == "INSUFFICIENT_COMPARABLES"
 
 
+def test_a_small_absolute_spread_on_a_cheap_card_is_not_excessive():
+    # Seen live: six accepted sellers for a cheap One Piece rare, rejected for spread.
+    result = estimate([row(i, price) for i, price in enumerate(["1.00", "1.20", "1.50", "2.50", "3.20"])])
+    assert result["status"] == "READY"
+
+
+def kami(provider_id="EB04-008", name="Distorted Future", rarity="R"):
+    return reference(provider="Bandai Official", system_code="ONE_PIECE_CARD_GAME", provider_id=provider_id,
+                     set_id="569115", set_name="BOOSTER PACK -ADVENTURE ON KAMI’S ISLAND- [OP15-EB04]",
+                     name=name, card_number=provider_id, finish=None, rarity=rarity)
+
+
+@pytest.mark.parametrize("provider_id", ["EB04-008", "OP15-075"])
+def test_a_combined_release_bracket_names_both_printed_codes(provider_id):
+    rows = [row(i, str(100 + i), title=f"One Piece TCG Distorted Future {provider_id} R Adventure on KAMI's Island English Foil NM")
+            for i in range(1, 4)]
+    assert estimate(rows, kami(provider_id))["status"] == "READY"
+
+
+def test_a_combined_release_bracket_does_not_admit_another_code():
+    # ST01 is not in [OP15-EB04]; the full label then has to appear, and does not.
+    ref = kami("ST01-008")
+    rows = [row(i, str(100 + i), title="One Piece TCG Distorted Future ST01-008 R Adventure on KAMI's Island English Foil NM")
+            for i in range(1, 4)]
+    assert estimate(rows, ref)["rejection_counts"]["SET_MISMATCH"] == 3
+
+
+def nami(rarity="UC", provider_id="OP17-086"):
+    return reference(provider="Bandai Official", system_code="ONE_PIECE_CARD_GAME", provider_id=provider_id,
+                     set_id="569117", set_name="BOOSTER PACK -THE WORLD’S STRONGEST WARRIORS- [OP-17]",
+                     name="Nami", card_number="OP17-086", finish=None, rarity=rarity)
+
+
+@pytest.mark.parametrize("rarity,finish", [("UC", "Normal"), ("Uncommon", "Normal"), ("L", "Normal"),
+                                           ("R", "Foil"), ("SuperRare", "Foil"), ("SEC", "Foil")])
+def test_one_piece_rarity_supplies_an_unstated_finish(rarity, finish):
+    rows = [row(i, str(100 + i), title="Nami OP17-086 The World's Strongest Warriors One Piece English Near Mint")
+            for i in range(1, 4)]
+    result = estimate(rows, nami(rarity))
+    assert result["status"] == "READY" and result["selected_finish"] == finish
+
+
+def test_a_mislabelled_finish_on_a_single_finish_card_counts_as_the_card():
+    # Seen live: "Otama OP01-006 ... Romance Dawn" (an uncommon) listed as Foil.
+    rows = [row(i, str(100 + i), title="Nami OP17-086 The World's Strongest Warriors One Piece English Foil NM")
+            for i in range(1, 4)]
+    result = estimate(rows, nami("UC"))
+    assert result["status"] == "READY" and result["selected_finish"] == "Normal"
+
+
+def test_a_marked_parallel_listing_is_still_not_the_base_card():
+    rows = [row(i, str(100 + i), title="Nami OP17-086 Parallel Alt Art The World's Strongest Warriors One Piece NM")
+            for i in range(1, 4)]
+    assert estimate(rows, nami("UC"))["rejection_counts"]["VARIANT_MISMATCH"] == 3
+
+
+def test_a_one_piece_parallel_does_not_take_the_base_finish():
+    ref = {**nami("UC", "OP17-086_p1"), "evidence": {"variant_title_terms": ["Parallel"]}}
+    rows = [row(i, str(100 + i), title="Nami OP17-086 Parallel The World's Strongest Warriors One Piece English NM")
+            for i in range(1, 4)]
+    assert estimate(rows, ref)["status"] == "INSUFFICIENT_COMPARABLES"
+
+
+@pytest.mark.parametrize("specific", ["OP17 086 UC", "op17-086 uc", "OP17-086"])
+def test_a_number_specific_with_the_rarity_added_agrees(specific):
+    rows = [row(i, str(100 + i), title="Nami OP17-086 The World's Strongest Warriors One Piece English NM",
+                localizedAspects=[{"name": "Card Number", "value": specific}]) for i in range(1, 4)]
+    assert estimate(rows, nami())["status"] == "READY"
+
+
+def test_a_number_specific_with_other_text_added_still_rejects():
+    rows = [row(i, str(100 + i), title="Nami OP17-086 The World's Strongest Warriors One Piece English NM",
+                localizedAspects=[{"name": "Card Number", "value": "OP17 086 Parallel"}]) for i in range(1, 4)]
+    assert estimate(rows, nami())["rejection_counts"]["CARD_NUMBER_MISMATCH"] == 3
+
+
 def test_widely_dispersed_comparables_do_not_publish_an_estimate():
     result = estimate([row(i, str(price)) for i, price in enumerate([60, 80, 100, 120, 140])])
     assert result["status"] == "EXCESSIVE_DISPERSION"
