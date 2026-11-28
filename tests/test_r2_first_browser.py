@@ -65,7 +65,7 @@ def context(monkeypatch):
         else:
             calls.append(("commit", connection))
 
-    async def legacy_read(connection):
+    async def legacy_read(connection, **options):
         calls.append(("legacy_read", connection))
         return None
 

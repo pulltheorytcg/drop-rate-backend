@@ -559,7 +559,9 @@ async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(req
                 access: Annotated[dict, Depends(browser_access)]):
     options = {'readonly_snapshot': True} if catalogue_r2_live.enabled('DELIVERY') else {}
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id, **options) as connection:
-        live = await catalogue_r2_live.read(connection)
+        # The games directory is shared per-game counts only, so it may keep
+        # the last published list while a republish is pending.
+        live = await catalogue_r2_live.read(connection, last_published_owner=access["owner_id"])
         rows = await catalogue_r2_live.fetch(connection, GAMES_SQL, [access["owner_id"]], live)
         publications = await _r2_first_publications(connection)
     if publications:
@@ -616,7 +618,9 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
         # These facets depend on canonical profile/book facts absent from the
         # legacy R2 navigation index. Do not run an unfiltered index or hydrate
         # the full shared reference snapshot to answer a small grouped query.
-        live = None if browse_group else await catalogue_r2_live.read(connection)
+        live = None if browse_group else await catalogue_r2_live.read(
+            connection, last_published_owner=catalogue_r2_live.last_published_scope(
+                access["owner_id"], browse_systems(system_code)))
         query, params = sets_query(owner_id=access["owner_id"], system_code=system_code,
             language=language, q=q, limit=limit, offset=offset, browse_group=browse_group)
         rows = await catalogue_r2_live.fetch(connection, query, params, live)
@@ -961,7 +965,13 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         # resolve only the missing values on their bounded visible page.
         shared = await read_shared_prices(connection, system_code=system_code, product_type=product_type, language=language) if sql_sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
         t_shared = time.perf_counter()
-        live = None if browse_group else await catalogue_r2_live.read(connection)
+        # A trading-card game page keeps the last published shared list while a
+        # republish is pending (bounded, and only when all of this owner's
+        # stock is in it). Prices, ownership and media below stay live SQL.
+        live = None if browse_group else await catalogue_r2_live.read(
+            connection, last_published_owner=catalogue_r2_live.last_published_scope(
+                access["owner_id"], browse_systems(system_code) if system_code else [],
+                category=category, keys=key_list))
         snapshot = await read_reference_snapshot(connection, cache_scope) if cache_scope is not None and live is None else None
         t_index = time.perf_counter()
         query_options = dict(owner_id=access["owner_id"], q=q, system_code=system_code, language=language, category=category,
