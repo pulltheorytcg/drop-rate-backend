@@ -6,8 +6,13 @@
 // 4. Expired values are never current and never totalled, but show as
 //    "Last known £X · date".
 window.DropRateReferenceValue = Object.freeze({
-  // Cardmarket EU guide methods that may display as a labelled estimate.
-  euGuideMethods: Object.freeze(["CATALOGUE_CARDMARKET_V1", "CARDMARKET_CATALOGUE_GUIDE"]),
+  // Estimate methods that may display as a labelled, totalled value: the UK
+  // eBay asking average checked against Cardmarket (owner rule, 28 Nov 2026)
+  // and the Cardmarket EU guide.
+  euGuideMethods: Object.freeze(["UK_ASKING_AVERAGE_V1", "CATALOGUE_CARDMARKET_V1", "CARDMARKET_CATALOGUE_GUIDE"]),
+  isAskingAverage(ref) {
+    return Boolean(ref) && ref.method === "UK_ASKING_AVERAGE_V1";
+  },
   ukEuEstimate(ref) {
     if (!ref || !["UK_EU_MARKET_ESTIMATE", "CATALOGUE_GUIDE"].includes(ref.status)
       || ref.method !== "DROP_RATE_UK_EU_MARKET_V1" || ref.currency !== "GBP"
@@ -45,6 +50,10 @@ window.DropRateReferenceValue = Object.freeze({
       recommended_retail_minor: null, estimate_minor: null };
   },
   estimateText(ref, money) {
+    if (this.isAskingAverage(ref)) {
+      const sellers = Number.isSafeInteger(ref.seller_count) && ref.seller_count >= 3 ? " · " + ref.seller_count + " sellers" : "";
+      return "UK asking average: " + money(ref.market_value_minor) + sellers;
+    }
     const low = ref.market_value_minor, high = ref.market_value_high_minor;
     const range = Number.isSafeInteger(high) && high > low ? money(low) + "–" + money(high) : money(low);
     return "Estimate: " + range + " · Cardmarket EU guide";
@@ -103,7 +112,9 @@ window.DropRateReferenceValue = Object.freeze({
     const time = ref.checked_at ? new Date(ref.checked_at) : null;
     const checked = time && !Number.isNaN(time.getTime()) ? "Evidence checked " + time.toLocaleDateString("en-GB") : null;
     if (this.isEuGuide(ref) && Number.isSafeInteger(ref.market_value_minor))
-      return [ref.label || "Estimate · Cardmarket EU guide", ref.basis, ref.reason, checked].filter(Boolean).join(" · ");
+      return [ref.label || "Estimate · Cardmarket EU guide", ref.basis, ref.reason,
+        this.isAskingAverage(ref) && checked ? checked.replace("Evidence checked", "Listings checked") : checked
+      ].filter(Boolean).join(" · ");
     if (ref.status === "STALE" && Number.isSafeInteger(ref.last_known_minor))
       return [ref.label, ref.basis, "No current value: evidence has expired", checked].filter(Boolean).join(" · ");
     if (ref.status !== "AVAILABLE") return "";

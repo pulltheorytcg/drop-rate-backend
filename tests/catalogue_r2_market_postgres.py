@@ -31,7 +31,9 @@ async def check(db):
       alter table tcg.reference_sealed_market_prices add column if not exists checked_at timestamptz;
       alter table tcg.reference_sealed_market_prices add column if not exists expires_at timestamptz;''')
     fields=','.join(f'{n} {kind}' for n,kind in market.RELATIONS['reference_asking_prices'])
-    await db.execute(f'create table tcg.reference_asking_prices({fields},primary key(provider,system_code,language,provider_id)); grant select on tcg.reference_asking_prices to tcg_api')
+    # The shared fixture now creates an empty, keyless cache for stock values;
+    # this test needs the keyed shape the R2 market export reads.
+    await db.execute(f'drop table if exists tcg.reference_asking_prices; create table tcg.reference_asking_prices({fields},primary key(provider,system_code,language,provider_id)); grant select on tcg.reference_asking_prices to tcg_api')
     await db.execute("update tcg.owner_memberships set role='PLATFORM_ADMIN' where user_id=$1",ACTOR_A)
     await db.execute((ROOT/'database/migrations/20261030141054_r2_live_market_data.sql').read_text())
     inventory=await db.fetchval('select jsonb_agg(to_jsonb(i) order by id)::text from tcg.inventory_items i')
