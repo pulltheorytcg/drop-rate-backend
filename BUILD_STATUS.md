@@ -1,4 +1,21 @@
-## 28 November 2026 — Pokémon price queue no longer blocked by cards that never resolve (PR #1123)
+## 28 November 2026 — One invalid release no longer hides later releases in the Pokémon CardTrader bridge (PR #1124)
+
+- **Found:** every `REFERENCE_PRICES` run reports `pokemon_catalogue.cardtrader_bridge` as `PARTIAL` with `sets_checked: 62` and one failure, including the run of 8 Nov. The checked releases stop at `g1:base`, `gym1` and `gym2`; `g1:rc` (Generations Radiant Collection) is never among them.
+- **Cause:** `cardtrader_matches` stopped all later batches as soon as any release failed, whether the provider failed or one release's export failed its own identity checks. `g1:rc` fails its check on every run, so the releases ordered after it were never requested.
+- **Effect (read-only, 03:20 UTC):** English releases up to `gym2` are 94% live-priced (5,667 of 6,052 cards). The 130 releases after it are 83% (12,826 of 15,380); 2,554 of their cards have no live price.
+- **Fix:**
+  - A provider failure (`CardTraderApiError`) still stops later batches, and every release not reached keeps its prior evidence.
+  - A release whose export fails validation keeps its prior evidence and is reported in `invalid_releases`, but later releases are still requested.
+  - Three invalid releases in a row are treated as provider trouble and stop the run.
+  - The failure still counts in `provider_failures`, so the job's status and its hourly retry are unchanged.
+- **Not changed:** matching rules, the Generations partition checks, batch size (three concurrent reads), and the 400-release bound. `g1:rc` itself still fails; why its export no longer passes is not investigated (it needs the CardTrader API).
+- **Tests:** four new cases in `tests/test_pokemon_cardtrader_market.py` (one invalid release, provider failure, three invalid in a row, separated invalid releases).
+
+## 28 November 2026 — Pokémon price queue no longer blocked by cards that never resolve (PR #1123, LIVE `b3cddd9`)
+
+- **Live:** merged as `b3cddd9` at 02:15 UTC, deployment `3b636702` succeeded at 02:17. Run 4 (02:57–03:09 UTC) checked 15,832 cards and priced 13,049 with no provider failure; run 3 had priced 6. `CARDMARKET_VALUES` then re-applied 82 stock values.
+- **Coverage at 03:15 UTC:** Pokémon English 77% live (18,492 of 23,912; 67% at 01:35), Pokémon Japanese 73%, One Piece English 50% (OP-18 now 96 of 159), Dragon Ball Masters 56%. Stock: 333 of 507 approved items valued (Pokémon 177/202, One Piece 140/270, Dragon Ball 16/29, Fusion World 0/6).
+- **Observed:** `REFERENCE_PRICES` still ends INCOMPLETE on every run because of the one bridge failure described above, so it retries hourly. That hourly retry is also what keeps the bulk guide quotes inside their one-day expiry; it is left as it is.
 
 - **Found:** the per-card Pokémon price refresh was stuck. Run 3 (01:54–02:00 UTC) checked 4,200 cards, priced 6 and stopped as `PROVIDER_UNAVAILABLE`. **15,825 English cards were never reached that night**; 7,009 of them still show an old price.
 - **Cause:** the queue was ordered by `checked_at` alone and ignored `retry_after`.

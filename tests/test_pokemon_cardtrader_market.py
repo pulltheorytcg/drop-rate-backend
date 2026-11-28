@@ -220,6 +220,84 @@ async def test_existing_covered_bridge_outage_is_reported_for_cache_preservation
     assert not matches and report['provider_failures']==1 and failed=={'xyp'}
 
 
+def many_releases(count):
+    """Independent one-card releases, requested in this order, three at a time."""
+    refs, expansions, blueprints, singles = [], [], {}, {}
+    base_refs, base_expansion, base_blueprint, base_singles = fixture()
+    for n in range(count):
+        set_id, name, product_id = f's{n}', f'Fixture Release {n}', 300000+n
+        refs.append(dict(base_refs[0], provider_id=f'{set_id}-XY01', set_id=set_id, set_name=name))
+        expansions.append(dict(base_expansion, id=2000+n, name=name))
+        blueprints[2000+n] = [dict(base_blueprint, id=5000+n, expansion_id=2000+n, card_market_ids=[product_id])]
+        singles[str(product_id)] = dict(base_singles['281337'], idProduct=product_id, idExpansion=2000+n)
+    return refs, expansions, blueprints, singles
+
+
+class ManyClient(Client):
+    def __init__(self, expansions, blueprints, *, invalid=(), outage=()):
+        self.expansions, self.blueprints = expansions, blueprints
+        self.invalid, self.outage, self.requested = set(invalid), set(outage), []
+    async def list_expansions(self):return self.expansions
+    async def list_blueprints(self,*,expansion_id):
+        index = expansion_id-2000
+        self.requested.append(index)
+        if index in self.outage:
+            raise CardTraderApiError('secret detail',status_code=503)
+        # An empty export fails the release's own validation, not the provider.
+        return [] if index in self.invalid else self.blueprints[expansion_id]
+
+
+@pytest.mark.asyncio
+async def test_one_invalid_release_no_longer_hides_every_later_release():
+    # 28 Nov 2026: Generations' Radiant Collection failed its identity check on
+    # every run, and the 130 sets ordered after it were never requested.
+    refs, expansions, blueprints, singles = many_releases(8)
+    client = ManyClient(expansions, blueprints, invalid={1})
+    matches, report, failed = await cardtrader_matches(client, refs, singles, {})
+    assert sorted(client.requested) == list(range(8)), 'every release must still be requested'
+    assert sorted(matches) == [f's{n}-XY01' for n in range(8) if n != 1]
+    # The invalid release keeps its prior evidence and is still reported.
+    assert failed == {'s1'} and report['invalid_releases'] == ['s1']
+    assert report['provider_failures'] == 1 and report['status'] == 'PARTIAL'
+    assert report['sets_checked'] == 7 and 'stopped_early' not in report
+
+
+@pytest.mark.asyncio
+async def test_provider_failure_still_stops_later_batches_and_keeps_their_evidence():
+    refs, expansions, blueprints, singles = many_releases(8)
+    client = ManyClient(expansions, blueprints, outage={1})
+    matches, report, failed = await cardtrader_matches(client, refs, singles, {})
+    # Only the first batch of three was requested.
+    assert sorted(client.requested) == [0, 1, 2]
+    assert sorted(matches) == ['s0-XY01', 's2-XY01']
+    assert failed == {'s1', 's3', 's4', 's5', 's6', 's7'}
+    assert report['stopped_early'] is True and report['status'] == 'PARTIAL'
+    assert 'invalid_releases' not in report and 'secret detail' not in str(report)
+
+
+@pytest.mark.asyncio
+async def test_three_invalid_releases_in_a_row_are_treated_as_provider_trouble():
+    refs, expansions, blueprints, singles = many_releases(12)
+    client = ManyClient(expansions, blueprints, invalid={4, 5, 6})
+    matches, report, failed = await cardtrader_matches(client, refs, singles, {})
+    # The third consecutive invalid release is in the batch 6-8; nothing later is requested.
+    assert sorted(client.requested) == list(range(9))
+    assert failed == {'s4', 's5', 's6', 's9', 's10', 's11'}
+    assert sorted(matches) == [f's{n}-XY01' for n in (0, 1, 2, 3, 7, 8)]
+    assert report['stopped_early'] is True and report['invalid_releases'] == ['s4', 's5', 's6']
+
+
+@pytest.mark.asyncio
+async def test_separated_invalid_releases_do_not_stop_the_run():
+    refs, expansions, blueprints, singles = many_releases(12)
+    client = ManyClient(expansions, blueprints, invalid={1, 2, 4, 5, 9})
+    matches, report, failed = await cardtrader_matches(client, refs, singles, {})
+    assert sorted(client.requested) == list(range(12))
+    assert failed == {'s1', 's2', 's4', 's5', 's9'} and 'stopped_early' not in report
+    assert set(matches) == {f's{n}-XY01' for n in (0, 3, 6, 7, 8, 10, 11)}
+    assert report['provider_failures'] == 5
+
+
 def hidden_fates_fixture():
     refs = [dict(provider='TCGdex', system_code='POKEMON_TCG', language='English',
                  provider_id='sma-SV49', set_id='sma', set_name='Hidden Fates Shiny Vault',

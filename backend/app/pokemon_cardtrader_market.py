@@ -229,6 +229,10 @@ async def cardtrader_matches(client, references, singles, base_matches):
         if len(selected)>400:
             raise ValueError('Release request bound exceeded')
 
+        # How each requested release ended: 'provider' (the API call failed)
+        # or 'invalid' (the export arrived but did not pass identity checks).
+        outcomes = {}
+
         async def fetch_one(entry):
             nonlocal generations_claims_invalid
             set_id, refs, expansion, label = entry
@@ -269,18 +273,44 @@ async def cardtrader_matches(client, references, singles, base_matches):
                 report['sets_checked'] += 1
                 report['by_release'][label] = {'checked':len(refs),'matched':len(matches)}
                 return matches
-            except (CardTraderApiError,ValueError,TypeError,KeyError):
+            except CardTraderApiError:
                 failed_sets.add(set_id)
                 report['provider_failures'] += 1
+                outcomes[label] = 'provider'
+                return {}
+            except (ValueError,TypeError,KeyError):
+                failed_sets.add(set_id)
+                report['provider_failures'] += 1
+                outcomes[label] = 'invalid'
+                invalid = report.setdefault('invalid_releases', [])
+                if len(invalid) < 20:
+                    invalid.append(label)
                 return {}
 
         # Three concurrent reads stay well below the existing API rate limit.
-        # Stop subsequent batches on a provider failure; retain prior evidence.
+        # Stop subsequent batches when the provider itself fails; retain prior
+        # evidence for every release not reached.
+        #
+        # One release whose export fails its identity checks is different: the
+        # provider answered, and that release keeps its prior evidence. Until
+        # 28 Nov 2026 it also stopped every later release. Generations' Radiant
+        # Collection (g1:rc) failed on each run, so the 130 sets ordered after
+        # it were never bridged. Three invalid releases in a row are still
+        # treated as provider trouble.
+        consecutive_invalid = 0
         for start in range(0,len(selected),3):
-            for matches in await asyncio.gather(*(fetch_one(e) for e in selected[start:start+3])):
+            batch = selected[start:start+3]
+            for matches in await asyncio.gather(*(fetch_one(e) for e in batch)):
                 result.update(matches)
-            if failed_sets:
+            stop = False
+            for entry in batch:
+                outcome = outcomes.get(entry[3])
+                consecutive_invalid = consecutive_invalid+1 if outcome == 'invalid' else 0
+                if outcome == 'provider' or consecutive_invalid >= 3:
+                    stop = True
+            if stop:
                 failed_sets.update(e[0] for e in selected[start+3:])
+                report['stopped_early'] = True
                 break
         if generations_claims_invalid:
             failed_sets.add("g1")
