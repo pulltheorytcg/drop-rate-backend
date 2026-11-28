@@ -1,4 +1,8 @@
-## 28 November 2026 — Browse keeps the last published card list while a republish is pending (PR #1118)
+## 28 November 2026 — Browse keeps the last published card list while a republish is pending (PR #1118, LIVE `53da239`)
+
+- **Live:** merged as `53da239`, Railway deployment `f54b97b0` succeeded at 01:02 UTC, `/health/ready` 200 (83 ms). All 16 CI checks passed, including the real-PostgreSQL R2 catalogue parity job with the new cases.
+- **Checked after deploy (signed-in consignor, list current):** Pokémon page 200 in 0.86 s, games list 200 in 1.7 s on the fresh process. No `CATALOGUE_R2_LIVE_FALLBACK`, `UNHANDLED_REQUEST_ERROR` or `CATALOGUE_PRODUCTS_TIMING` lines.
+- **NOT YET VERIFIED IN PRODUCTION:** the new path itself. At 01:04 UTC `generation` and `published_generation` were both 123004, so no request has needed the last published list since the deploy.
 
 - **OWNER DECISION (28 Nov):** keep catalogue pages fast during refreshes by showing the last published card list until the new one is ready. Newly added cards can appear a little later.
 - **Problem:** after any change to the shared catalogue, every reader refused the R2 list until the maintenance worker republished at the end of its pass. Catalogue pages took 7–21 s for that whole period (27 Nov: until 00:04:57 UTC). One newly created product has the same effect for everyone.
